@@ -6,12 +6,14 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/3leaps/goneat/pkg/logger"
 	"github.com/spf13/cobra"
@@ -33,10 +35,18 @@ func init() {
 	versionCmd.Flags().Bool("no-op", false, "Run in assessment mode without making changes")
 
 	// Add subcommands
+	versionCmd.AddCommand(versionInitCmd)
 	versionCmd.AddCommand(versionBumpCmd)
 	versionCmd.AddCommand(versionSetCmd)
 	versionCmd.AddCommand(versionValidateCmd)
 	versionCmd.AddCommand(versionCheckConsistencyCmd)
+
+	// Init command flags
+	versionInitCmd.Flags().Bool("dry-run", false, "Preview setup without making changes")
+	versionInitCmd.Flags().Bool("force", false, "Overwrite existing version files")
+	versionInitCmd.Flags().String("initial-version", "1.0.0", "Initial version to set")
+
+	// Note: assess command flags are defined in assess.go
 }
 
 func runVersion(cmd *cobra.Command, args []string) error {
@@ -248,6 +258,26 @@ func runVersionValidate(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// versionInitCmd represents the version init command
+var versionInitCmd = &cobra.Command{
+	Use:   "init [template]",
+	Short: "Initialize version management for the project",
+	Long: `Initialize version management by creating the necessary files and configuration.
+Supports various templates for different versioning strategies.
+
+Available templates:
+  • basic     - VERSION file with semantic versioning
+  • git-tags  - Git tag-based versioning
+  • calver    - Calendar versioning (YYYY.MM.DD)
+  • custom    - Custom versioning scheme
+
+Examples:
+  goneat version init basic     # Create VERSION file with 1.0.0
+  goneat version init --dry-run # Preview setup without making changes`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: runVersionInit,
+}
+
 // versionCheckConsistencyCmd represents the version check-consistency command
 var versionCheckConsistencyCmd = &cobra.Command{
 	Use:   "check-consistency",
@@ -431,5 +461,187 @@ func getVersionFromSources() (string, string, error) {
 		return version, "git tag", nil
 	}
 
-	return "", "", fmt.Errorf("no version found in VERSION file or git tags")
+	// No version found - provide setup guidance
+	setupGuidance := provideSetupGuidance()
+	return "", "", fmt.Errorf("no version management detected\n\n%s", setupGuidance)
+}
+
+// provideSetupGuidance gives helpful setup instructions when no version is found
+func provideSetupGuidance() string {
+	var guidance strings.Builder
+
+	guidance.WriteString("🚀 Welcome to goneat version management!\n\n")
+	guidance.WriteString("To get started, choose one of these setup options:\n\n")
+
+	guidance.WriteString("📝 Quick Setup (Recommended):\n")
+	guidance.WriteString("  goneat version init --template basic\n\n")
+
+	guidance.WriteString("🔧 Manual Setup:\n")
+	guidance.WriteString("  1. Create a VERSION file: echo '1.0.0' > VERSION\n")
+	guidance.WriteString("  2. Or create a git tag: git tag v1.0.0\n\n")
+
+	guidance.WriteString("📋 Available Templates:\n")
+	guidance.WriteString("  • basic     - VERSION file with semantic versioning\n")
+	guidance.WriteString("  • git-tags  - Git tag-based versioning\n")
+	guidance.WriteString("  • calver    - Calendar versioning (YYYY.MM.DD)\n")
+	guidance.WriteString("  • custom    - Custom versioning scheme\n\n")
+
+	guidance.WriteString("💡 Pro Tips:\n")
+	guidance.WriteString("  • Use 'goneat version init --dry-run' to preview setup\n")
+	guidance.WriteString("  • Run 'goneat version --help' for all options\n")
+	guidance.WriteString("  • Version management is non-destructive by default\n\n")
+
+	guidance.WriteString("Need help? Visit: https://goneat.dev/docs/version-management")
+
+	return guidance.String()
+}
+
+// runVersionInit implements the version init command
+func runVersionInit(cmd *cobra.Command, args []string) error {
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
+	force, _ := cmd.Flags().GetBool("force")
+	initialVersion, _ := cmd.Flags().GetString("initial-version")
+
+	// Determine template
+	template := "basic" // default
+	if len(args) > 0 {
+		template = args[0]
+	}
+
+	out := cmd.OutOrStdout()
+
+	// Check if version management already exists
+	if _, _, err := getVersionFromSources(); err == nil {
+		if !force {
+			return fmt.Errorf("version management already exists. Use --force to overwrite or run 'goneat version' to see current setup")
+		}
+		logger.Warn("Overwriting existing version management (--force specified)")
+	}
+
+	// Setup based on template
+	switch template {
+	case "basic":
+		return setupBasicTemplate(out, initialVersion, dryRun)
+	case "git-tags":
+		return setupGitTagsTemplate(out, initialVersion, dryRun)
+	case "calver":
+		return setupCalverTemplate(out, initialVersion, dryRun)
+	case "custom":
+		return setupCustomTemplate(out, initialVersion, dryRun)
+	default:
+		return fmt.Errorf("unknown template: %s. Available: basic, git-tags, calver, custom", template)
+	}
+}
+
+// setupBasicTemplate creates a VERSION file with semantic versioning
+func setupBasicTemplate(out io.Writer, initialVersion string, dryRun bool) error {
+	fmt.Fprintf(out, "📝 Setting up basic version management with VERSION file\n\n")
+
+	if dryRun {
+		fmt.Fprintf(out, "DRY RUN - Would create:\n")
+		fmt.Fprintf(out, "  • VERSION file with content: %s\n", initialVersion)
+		fmt.Fprintf(out, "  • No actual files will be created\n")
+		return nil
+	}
+
+	// Create VERSION file
+	err := writeVersionToFile("VERSION", initialVersion)
+	if err != nil {
+		return fmt.Errorf("failed to create VERSION file: %v", err)
+	}
+
+	fmt.Fprintf(out, "✅ Created VERSION file with initial version: %s\n", initialVersion)
+	fmt.Fprintf(out, "💡 Usage:\n")
+	fmt.Fprintf(out, "  • goneat version              # Show current version\n")
+	fmt.Fprintf(out, "  • goneat version bump patch   # Increment patch version\n")
+	fmt.Fprintf(out, "  • goneat version set 2.0.0    # Set specific version\n")
+
+	return nil
+}
+
+// setupGitTagsTemplate sets up git tag-based versioning
+func setupGitTagsTemplate(out io.Writer, initialVersion string, dryRun bool) error {
+	fmt.Fprintf(out, "🏷️ Setting up git tag-based version management\n\n")
+
+	if dryRun {
+		fmt.Fprintf(out, "DRY RUN - Would create:\n")
+		fmt.Fprintf(out, "  • Git tag: %s\n", initialVersion)
+		fmt.Fprintf(out, "  • No actual tags will be created\n")
+		return nil
+	}
+
+	// Create initial git tag
+	err := createGitTag(initialVersion, false)
+	if err != nil {
+		return fmt.Errorf("failed to create initial git tag: %v", err)
+	}
+
+	fmt.Fprintf(out, "✅ Created initial git tag: %s\n", initialVersion)
+	fmt.Fprintf(out, "💡 Usage:\n")
+	fmt.Fprintf(out, "  • goneat version              # Show latest git tag\n")
+	fmt.Fprintf(out, "  • goneat version bump patch   # Create new tag with bumped version\n")
+	fmt.Fprintf(out, "  • goneat version set 2.0.0    # Create new tag with specific version\n")
+
+	return nil
+}
+
+// setupCalverTemplate sets up calendar versioning
+func setupCalverTemplate(out io.Writer, initialVersion string, dryRun bool) error {
+	fmt.Fprintf(out, "📅 Setting up calendar versioning (YYYY.MM.DD)\n\n")
+
+	// Generate current date version if not specified
+	if initialVersion == "1.0.0" {
+		initialVersion = time.Now().Format("2006.01.02")
+	}
+
+	if dryRun {
+		fmt.Fprintf(out, "DRY RUN - Would create:\n")
+		fmt.Fprintf(out, "  • VERSION file with content: %s\n", initialVersion)
+		fmt.Fprintf(out, "  • No actual files will be created\n")
+		return nil
+	}
+
+	// Create VERSION file
+	err := writeVersionToFile("VERSION", initialVersion)
+	if err != nil {
+		return fmt.Errorf("failed to create VERSION file: %v", err)
+	}
+
+	fmt.Fprintf(out, "✅ Created VERSION file with calendar version: %s\n", initialVersion)
+	fmt.Fprintf(out, "💡 Calendar versioning uses YYYY.MM.DD format\n")
+	fmt.Fprintf(out, "💡 Usage:\n")
+	fmt.Fprintf(out, "  • goneat version                    # Show current version\n")
+	fmt.Fprintf(out, "  • goneat version set 2024.12.25     # Set specific date version\n")
+
+	return nil
+}
+
+// setupCustomTemplate provides guidance for custom versioning
+func setupCustomTemplate(out io.Writer, initialVersion string, dryRun bool) error {
+	fmt.Fprintf(out, "🔧 Setting up custom versioning scheme\n\n")
+
+	if dryRun {
+		fmt.Fprintf(out, "DRY RUN - Would create:\n")
+		fmt.Fprintf(out, "  • VERSION file with content: %s\n", initialVersion)
+		fmt.Fprintf(out, "  • No actual files will be created\n")
+		fmt.Fprintf(out, "\n📋 Custom versioning guidance:\n")
+		fmt.Fprintf(out, "  • Edit VERSION file manually for custom schemes\n")
+		fmt.Fprintf(out, "  • Use 'goneat version set <version>' to update\n")
+		fmt.Fprintf(out, "  • Version validation is flexible for custom schemes\n")
+		return nil
+	}
+
+	// Create VERSION file
+	err := writeVersionToFile("VERSION", initialVersion)
+	if err != nil {
+		return fmt.Errorf("failed to create VERSION file: %v", err)
+	}
+
+	fmt.Fprintf(out, "✅ Created VERSION file with custom version: %s\n", initialVersion)
+	fmt.Fprintf(out, "📋 Custom versioning notes:\n")
+	fmt.Fprintf(out, "  • Edit VERSION file manually for your custom scheme\n")
+	fmt.Fprintf(out, "  • Use 'goneat version set <version>' to update\n")
+	fmt.Fprintf(out, "  • Version validation is flexible for custom schemes\n")
+
+	return nil
 }

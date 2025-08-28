@@ -1,0 +1,9 @@
+---
+title: "Document Title"
+description: "Brief description of the document's purpose and scope"
+author: "@author-handle"
+date: "2025-08-28"
+last_updated: "2025-08-28"
+status: "draft"
+tags: ["tag1", "tag2"]
+---

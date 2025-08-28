@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/3leaps/goneat/pkg/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -171,9 +172,13 @@ func runEnvinfo(cmd *cobra.Command, args []string) error {
 			for _, line := range lines {
 				if strings.TrimSpace(line) != "" {
 					if useColor && valueColor != "" {
-						fmt.Fprintf(out, "%s%s%s\n", valueColor, line, resetColor)
+						if _, err := fmt.Fprintf(out, "%s%s%s\n", valueColor, line, resetColor); err != nil {
+							logger.Warn(fmt.Sprintf("Failed to write to output: %v", err))
+						}
 					} else {
-						fmt.Fprintln(out, line)
+						if _, err := fmt.Fprintln(out, line); err != nil {
+							logger.Warn(fmt.Sprintf("Failed to write to output: %v", err))
+						}
 					}
 				}
 			}

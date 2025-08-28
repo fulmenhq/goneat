@@ -48,7 +48,9 @@ func init() {
 	rootCmd.AddCommand(assessCmd)
 
 	// Register command in ops registry
-	ops.RegisterCommand("assess", ops.GroupUtility, assessCmd, "Comprehensive codebase assessment and workflow planning")
+	if err := ops.RegisterCommand("assess", ops.GroupUtility, assessCmd, "Comprehensive codebase assessment and workflow planning"); err != nil {
+		panic(fmt.Sprintf("Failed to register assess command: %v", err))
+	}
 
 	// Assessment flags
 	assessCmd.Flags().StringVar(&assessFormat, "format", "markdown", "Output format (markdown, json, both)")
@@ -134,7 +136,11 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create output file: %w", err)
 		}
-		defer file.Close()
+		defer func() {
+			if err := file.Close(); err != nil {
+				logger.Warn(fmt.Sprintf("Failed to close output file: %v", err))
+			}
+		}()
 
 		if err := formatter.WriteReport(file, report); err != nil {
 			return fmt.Errorf("failed to write report: %w", err)

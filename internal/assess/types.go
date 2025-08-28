@@ -13,9 +13,9 @@ type AssessmentCategory string
 const (
 	CategoryFormat         AssessmentCategory = "format"
 	CategoryLint           AssessmentCategory = "lint"
+	CategoryStaticAnalysis AssessmentCategory = "static-analysis"
 	CategorySecurity       AssessmentCategory = "security"
 	CategoryPerformance    AssessmentCategory = "performance"
-	CategoryStaticAnalysis AssessmentCategory = "static-analysis"
 )
 
 // IssueSeverity represents the severity level of an assessment issue

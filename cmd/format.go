@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"go/format"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -32,7 +31,7 @@ var formatCmd = &cobra.Command{
 
 Supports formatting Go, YAML, JSON, and other formats using appropriate tools.
 By default, formats all supported files in the current directory.`,
-	RunE: runFormat,
+	RunE: RunFormat,
 }
 
 func init() {
@@ -52,7 +51,7 @@ func init() {
 	formatCmd.Flags().Bool("group-by-type", false, "Group work items by content type")
 }
 
-func runFormat(cmd *cobra.Command, args []string) error {
+func RunFormat(cmd *cobra.Command, args []string) error {
 	logger.Info("Starting format command")
 
 	// Load configuration
@@ -149,43 +148,6 @@ func runFormat(cmd *cobra.Command, args []string) error {
 	} else {
 		return executeSequential(filesToProcess, checkOnly || noOp, quiet, cfg)
 	}
-
-	var formattedCount, errorCount int
-
-	for _, file := range filesToProcess {
-		if err := processFile(file, checkOnly, quiet, cfg); err != nil {
-			logger.Error(fmt.Sprintf("Failed to process %s", file), logger.Err(err))
-			errorCount++
-		} else {
-			formattedCount++
-			if !quiet && !checkOnly {
-				logger.Info(fmt.Sprintf("Formatted %s", file))
-			}
-		}
-	}
-
-	if !quiet {
-		if checkOnly {
-			if errorCount > 0 {
-				logger.Warn(fmt.Sprintf("Found %d files that need formatting", errorCount))
-			} else {
-				logger.Info("All files are properly formatted")
-			}
-		} else {
-			logger.Info(fmt.Sprintf("Processed %d files (%d formatted, %d errors)", len(filesToProcess), formattedCount, errorCount))
-		}
-	}
-
-	if checkOnly && errorCount > 0 {
-		logger.Error(fmt.Sprintf("%d files need formatting", errorCount))
-		os.Exit(exitcode.GeneralError)
-	}
-
-	if errorCount > 0 {
-		os.Exit(exitcode.GeneralError)
-	}
-
-	return nil
 }
 
 func findSupportedFiles(dir string) ([]string, error) {
@@ -235,7 +197,7 @@ func processFile(file string, checkOnly, quiet bool, cfg *config.Config) error {
 }
 
 func formatGoFile(file string, checkOnly bool, cfg *config.Config) error {
-	content, err := ioutil.ReadFile(file)
+	content, err := os.ReadFile(file)
 	if err != nil {
 		return err
 	}
@@ -266,27 +228,7 @@ func formatGoFile(file string, checkOnly bool, cfg *config.Config) error {
 	// Log what we're doing - this demonstrates information passthrough
 	logger.Info(fmt.Sprintf("Applying Go formatting changes to %s", file))
 
-	return ioutil.WriteFile(file, formatted, 0644)
-}
-
-// formatGoFileExternal demonstrates how to use external tools and capture output
-// This is for illustration of passthrough/retrieval of information
-func formatGoFileExternal(file string, checkOnly bool) error {
-	// Example of using external gofmt and capturing its output
-	// In a real implementation, this would be configurable
-
-	logger.Debug(fmt.Sprintf("Calling external gofmt on %s", file))
-
-	// This is a placeholder - in reality we'd use exec.Command
-	// and capture stdout/stderr to passthrough information
-
-	if checkOnly {
-		logger.Info(fmt.Sprintf("External tool would check formatting for %s", file))
-		return fmt.Errorf("needs formatting (external check)")
-	}
-
-	logger.Info(fmt.Sprintf("External tool would format %s", file))
-	return nil
+	return os.WriteFile(file, formatted, 0644)
 }
 
 func formatYAMLFile(file string, checkOnly bool, cfg *config.Config) error {
@@ -329,7 +271,7 @@ func formatJSONFile(file string, checkOnly bool, cfg *config.Config) error {
 	jsonConfig := cfg.GetJSONConfig()
 
 	// Read the original content
-	originalContent, err := ioutil.ReadFile(file)
+	originalContent, err := os.ReadFile(file)
 	if err != nil {
 		return err
 	}
@@ -374,14 +316,14 @@ func formatJSONFile(file string, checkOnly bool, cfg *config.Config) error {
 	}
 
 	logger.Info(fmt.Sprintf("Applying JSON formatting changes to %s", file))
-	return ioutil.WriteFile(file, []byte(formatted), 0644)
+	return os.WriteFile(file, []byte(formatted), 0644)
 }
 
 func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config) error {
 	mdConfig := cfg.GetMarkdownConfig()
 
 	// Read the original content
-	originalContent, err := ioutil.ReadFile(file)
+	originalContent, err := os.ReadFile(file)
 	if err != nil {
 		return err
 	}
@@ -437,7 +379,7 @@ func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config) error {
 	}
 
 	logger.Info(fmt.Sprintf("Applying Markdown formatting changes to %s", file))
-	return ioutil.WriteFile(file, []byte(formatted), 0644)
+	return os.WriteFile(file, []byte(formatted), 0644)
 }
 
 // executeSequential executes work items sequentially
@@ -595,52 +537,106 @@ func handlePlanOnly(cmd *cobra.Command, manifest *work.WorkManifest, planFile st
 	out := cmd.OutOrStdout()
 
 	if dryRun {
-		fmt.Fprintln(out, "🔍 DRY RUN - Would process the following:")
-		fmt.Fprintln(out, "")
-	}
-
-	fmt.Fprintf(out, "📋 Work Plan for '%s' command\n", manifest.Plan.Command)
-	fmt.Fprintf(out, "Generated: %s\n", manifest.Plan.Timestamp.Format(time.RFC3339))
-	fmt.Fprintf(out, "Working Directory: %s\n", manifest.Plan.WorkingDirectory)
-	fmt.Fprintf(out, "Execution Strategy: %s\n", manifest.Plan.ExecutionStrategy)
-	fmt.Fprintln(out, "")
-
-	fmt.Fprintf(out, "📊 Summary:\n")
-	fmt.Fprintf(out, "  Total files discovered: %d\n", manifest.Plan.TotalFiles)
-	fmt.Fprintf(out, "  Files after filtering: %d\n", manifest.Plan.FilteredFiles)
-	if len(manifest.Plan.RedundantPaths) > 0 {
-		fmt.Fprintf(out, "  Redundant paths eliminated: %d\n", len(manifest.Plan.RedundantPaths))
-	}
-	fmt.Fprintln(out, "")
-
-	fmt.Fprintf(out, "📁 Files by Type:\n")
-	for contentType, count := range manifest.Statistics.FilesByType {
-		fmt.Fprintf(out, "  %s: %d files\n", contentType, count)
-	}
-	fmt.Fprintln(out, "")
-
-	fmt.Fprintf(out, "📂 Work Groups (%d groups):\n", len(manifest.Groups))
-	for _, group := range manifest.Groups {
-		fmt.Fprintf(out, "  • %s (%s): %d items, %.1fms estimated\n",
-			group.Name, group.Strategy, len(group.WorkItemIDs), group.EstimatedTotalTime)
-		if group.RecommendedParallelization > 1 {
-			fmt.Fprintf(out, "    Recommended parallelization: %d workers\n", group.RecommendedParallelization)
+		if _, err := fmt.Fprintln(out, "🔍 DRY RUN - Would process the following:"); err != nil {
+			return fmt.Errorf("failed to write dry run header: %v", err)
+		}
+		if _, err := fmt.Fprintln(out, ""); err != nil {
+			return fmt.Errorf("failed to write dry run newline: %v", err)
 		}
 	}
-	fmt.Fprintln(out, "")
 
-	fmt.Fprintf(out, "⏱️  Estimated Execution Times:\n")
-	fmt.Fprintf(out, "  Sequential: %.1fms\n", manifest.Statistics.EstimatedExecutionTime.Sequential)
-	if manifest.Statistics.EstimatedExecutionTime.Parallel2 > 0 {
-		fmt.Fprintf(out, "  Parallel (2 workers): %.1fms\n", manifest.Statistics.EstimatedExecutionTime.Parallel2)
-		fmt.Fprintf(out, "  Parallel (4 workers): %.1fms\n", manifest.Statistics.EstimatedExecutionTime.Parallel4)
-		fmt.Fprintf(out, "  Parallel (8 workers): %.1fms\n", manifest.Statistics.EstimatedExecutionTime.Parallel8)
+	if _, err := fmt.Fprintf(out, "📋 Work Plan for '%s' command\n", manifest.Plan.Command); err != nil {
+		return fmt.Errorf("failed to write plan header: %v", err)
 	}
-	fmt.Fprintln(out, "")
+	if _, err := fmt.Fprintf(out, "Generated: %s\n", manifest.Plan.Timestamp.Format(time.RFC3339)); err != nil {
+		return fmt.Errorf("failed to write timestamp: %v", err)
+	}
+	if _, err := fmt.Fprintf(out, "Working Directory: %s\n", manifest.Plan.WorkingDirectory); err != nil {
+		return fmt.Errorf("failed to write working directory: %v", err)
+	}
+	if _, err := fmt.Fprintf(out, "Execution Strategy: %s\n", manifest.Plan.ExecutionStrategy); err != nil {
+		return fmt.Errorf("failed to write execution strategy: %v", err)
+	}
+	if _, err := fmt.Fprintln(out, ""); err != nil {
+		return fmt.Errorf("failed to write section separator: %v", err)
+	}
+
+	if _, err := fmt.Fprintf(out, "📊 Summary:\n"); err != nil {
+		return fmt.Errorf("failed to write summary header: %v", err)
+	}
+	if _, err := fmt.Fprintf(out, "  Total files discovered: %d\n", manifest.Plan.TotalFiles); err != nil {
+		return fmt.Errorf("failed to write total files: %v", err)
+	}
+	if _, err := fmt.Fprintf(out, "  Files after filtering: %d\n", manifest.Plan.FilteredFiles); err != nil {
+		return fmt.Errorf("failed to write filtered files: %v", err)
+	}
+	if len(manifest.Plan.RedundantPaths) > 0 {
+		if _, err := fmt.Fprintf(out, "  Redundant paths eliminated: %d\n", len(manifest.Plan.RedundantPaths)); err != nil {
+			return fmt.Errorf("failed to write redundant paths: %v", err)
+		}
+	}
+	if _, err := fmt.Fprintln(out, ""); err != nil {
+		return fmt.Errorf("failed to write summary separator: %v", err)
+	}
+
+	if _, err := fmt.Fprintf(out, "📁 Files by Type:\n"); err != nil {
+		return fmt.Errorf("failed to write files by type header: %v", err)
+	}
+	for contentType, count := range manifest.Statistics.FilesByType {
+		if _, err := fmt.Fprintf(out, "  %s: %d files\n", contentType, count); err != nil {
+			return fmt.Errorf("failed to write file type count: %v", err)
+		}
+	}
+	if _, err := fmt.Fprintln(out, ""); err != nil {
+		return fmt.Errorf("failed to write file types separator: %v", err)
+	}
+
+	if _, err := fmt.Fprintf(out, "📂 Work Groups (%d groups):\n", len(manifest.Groups)); err != nil {
+		return fmt.Errorf("failed to write work groups header: %v", err)
+	}
+	for _, group := range manifest.Groups {
+		if _, err := fmt.Fprintf(out, "  • %s (%s): %d items, %.1fms estimated\n",
+			group.Name, group.Strategy, len(group.WorkItemIDs), group.EstimatedTotalTime); err != nil {
+			return fmt.Errorf("failed to write work group info: %v", err)
+		}
+		if group.RecommendedParallelization > 1 {
+			if _, err := fmt.Fprintf(out, "    Recommended parallelization: %d workers\n", group.RecommendedParallelization); err != nil {
+				return fmt.Errorf("failed to write parallelization info: %v", err)
+			}
+		}
+	}
+	if _, err := fmt.Fprintln(out, ""); err != nil {
+		return fmt.Errorf("failed to write work groups separator: %v", err)
+	}
+
+	if _, err := fmt.Fprintf(out, "⏱️  Estimated Execution Times:\n"); err != nil {
+		return fmt.Errorf("failed to write execution times header: %v", err)
+	}
+	if _, err := fmt.Fprintf(out, "  Sequential: %.1fms\n", manifest.Statistics.EstimatedExecutionTime.Sequential); err != nil {
+		return fmt.Errorf("failed to write sequential time: %v", err)
+	}
+	if manifest.Statistics.EstimatedExecutionTime.Parallel2 > 0 {
+		if _, err := fmt.Fprintf(out, "  Parallel (2 workers): %.1fms\n", manifest.Statistics.EstimatedExecutionTime.Parallel2); err != nil {
+			return fmt.Errorf("failed to write parallel 2 time: %v", err)
+		}
+		if _, err := fmt.Fprintf(out, "  Parallel (4 workers): %.1fms\n", manifest.Statistics.EstimatedExecutionTime.Parallel4); err != nil {
+			return fmt.Errorf("failed to write parallel 4 time: %v", err)
+		}
+		if _, err := fmt.Fprintf(out, "  Parallel (8 workers): %.1fms\n", manifest.Statistics.EstimatedExecutionTime.Parallel8); err != nil {
+			return fmt.Errorf("failed to write parallel 8 time: %v", err)
+		}
+	}
+	if _, err := fmt.Fprintln(out, ""); err != nil {
+		return fmt.Errorf("failed to write execution times separator: %v", err)
+	}
 
 	if dryRun {
-		fmt.Fprintln(out, "💡 This was a dry run - no files were modified")
-		fmt.Fprintln(out, "   Remove --dry-run flag to execute the plan")
+		if _, err := fmt.Fprintln(out, "💡 This was a dry run - no files were modified"); err != nil {
+			return fmt.Errorf("failed to write dry run notice: %v", err)
+		}
+		if _, err := fmt.Fprintln(out, "   Remove --dry-run flag to execute the plan"); err != nil {
+			return fmt.Errorf("failed to write dry run instruction: %v", err)
+		}
 	}
 
 	// Write plan to file if requested
@@ -658,7 +654,9 @@ func handlePlanOnly(cmd *cobra.Command, manifest *work.WorkManifest, planFile st
 		if err := writePlanToFile(manifest, planFile); err != nil {
 			logger.Warn(fmt.Sprintf("Failed to write plan to file: %v", err))
 		} else {
-			fmt.Fprintf(out, "📄 Plan written to: %s\n", planFile)
+			if _, err := fmt.Fprintf(out, "📄 Plan written to: %s\n", planFile); err != nil {
+				return fmt.Errorf("failed to write plan file location: %v", err)
+			}
 		}
 	}
 
@@ -672,5 +670,5 @@ func writePlanToFile(manifest *work.WorkManifest, filename string) error {
 		return err
 	}
 
-	return ioutil.WriteFile(filename, data, 0644)
+	return os.WriteFile(filename, data, 0644)
 }
