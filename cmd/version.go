@@ -89,7 +89,12 @@ func runVersion(cmd *cobra.Command, args []string) error {
 			"arch":      runtime.GOARCH,
 		}
 		if extended {
-			versionInfo["gitCommit"] = gitCommit
+			versionInfo["buildTime"] = "unknown" // Maintain backward compatibility
+			if gitCommit != "" {
+				versionInfo["gitCommit"] = gitCommit[:8]
+			} else {
+				versionInfo["gitCommit"] = "unknown"
+			}
 			versionInfo["gitBranch"] = gitBranch
 			versionInfo["gitDirty"] = gitDirty
 		}
@@ -103,10 +108,13 @@ func runVersion(cmd *cobra.Command, args []string) error {
 
 	if extended {
 		fmt.Fprintf(out, "goneat %s\n", version)
-		fmt.Fprintf(out, "Source: %s\n", source)
-		if gitCommit != "" {
+		fmt.Fprintf(out, "Build time: unknown\n") // Maintain backward compatibility
+		if len(gitCommit) >= 8 {
 			fmt.Fprintf(out, "Git commit: %s\n", gitCommit[:8]) // Short commit hash
+		} else {
+			fmt.Fprintf(out, "Git commit: %s\n", gitCommit)
 		}
+		fmt.Fprintf(out, "Source: %s\n", source)
 		if gitBranch != "" {
 			fmt.Fprintf(out, "Git branch: %s\n", gitBranch)
 		}
