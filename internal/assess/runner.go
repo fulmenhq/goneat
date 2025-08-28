@@ -1,0 +1,107 @@
+/*
+Copyright © 2025 3 Leaps <info@3leaps.net>
+*/
+package assess
+
+import (
+	"context"
+	"time"
+)
+
+// AssessmentRunner defines the interface that commands must implement to participate in assessments
+type AssessmentRunner interface {
+	// Assess runs the assessment and returns results
+	Assess(ctx context.Context, target string, config AssessmentConfig) (*AssessmentResult, error)
+
+	// CanRunInParallel returns whether this assessment can run in parallel with others
+	CanRunInParallel() bool
+
+	// GetCategory returns the assessment category this runner handles
+	GetCategory() AssessmentCategory
+
+	// GetEstimatedTime provides a rough time estimate for the assessment
+	GetEstimatedTime(target string) time.Duration
+
+	// IsAvailable returns whether this assessment runner is available (tools installed, etc.)
+	IsAvailable() bool
+}
+
+// AssessmentConfig contains configuration for running assessments
+type AssessmentConfig struct {
+	NoOp           bool          `json:"no_op"`            // Run in assessment mode only
+	Verbose        bool          `json:"verbose"`          // Verbose output
+	Timeout        time.Duration `json:"timeout"`          // Assessment timeout
+	IncludeFiles   []string      `json:"include_files"`    // Files to include
+	ExcludeFiles   []string      `json:"exclude_files"`    // Files to exclude
+	PriorityString string        `json:"priority_string"`  // Custom priority string
+	FailOnSeverity IssueSeverity `json:"fail_on_severity"` // Fail if issues at or above this severity
+}
+
+// DefaultAssessmentConfig returns default assessment configuration
+func DefaultAssessmentConfig() AssessmentConfig {
+	return AssessmentConfig{
+		NoOp:           false,
+		Verbose:        false,
+		Timeout:        5 * time.Minute,
+		IncludeFiles:   []string{},
+		ExcludeFiles:   []string{},
+		PriorityString: "",
+		FailOnSeverity: SeverityCritical,
+	}
+}
+
+// AssessmentRunnerRegistry manages available assessment runners
+type AssessmentRunnerRegistry struct {
+	runners map[AssessmentCategory]AssessmentRunner
+}
+
+// NewAssessmentRunnerRegistry creates a new registry for assessment runners
+func NewAssessmentRunnerRegistry() *AssessmentRunnerRegistry {
+	return &AssessmentRunnerRegistry{
+		runners: make(map[AssessmentCategory]AssessmentRunner),
+	}
+}
+
+// RegisterRunner registers an assessment runner for a category
+func (r *AssessmentRunnerRegistry) RegisterRunner(category AssessmentCategory, runner AssessmentRunner) {
+	r.runners[category] = runner
+}
+
+// GetRunner returns the runner for a category
+func (r *AssessmentRunnerRegistry) GetRunner(category AssessmentCategory) (AssessmentRunner, bool) {
+	runner, exists := r.runners[category]
+	return runner, exists
+}
+
+// GetAvailableCategories returns categories that have available runners
+func (r *AssessmentRunnerRegistry) GetAvailableCategories() []AssessmentCategory {
+	var categories []AssessmentCategory
+	for category, runner := range r.runners {
+		if runner.IsAvailable() {
+			categories = append(categories, category)
+		}
+	}
+	return categories
+}
+
+// GetAllCategories returns all registered categories (available or not)
+func (r *AssessmentRunnerRegistry) GetAllCategories() []AssessmentCategory {
+	var categories []AssessmentCategory
+	for category := range r.runners {
+		categories = append(categories, category)
+	}
+	return categories
+}
+
+// Global registry instance
+var globalRunnerRegistry = NewAssessmentRunnerRegistry()
+
+// RegisterAssessmentRunner registers a runner globally
+func RegisterAssessmentRunner(category AssessmentCategory, runner AssessmentRunner) {
+	globalRunnerRegistry.RegisterRunner(category, runner)
+}
+
+// GetAssessmentRunnerRegistry returns the global runner registry
+func GetAssessmentRunnerRegistry() *AssessmentRunnerRegistry {
+	return globalRunnerRegistry
+}
