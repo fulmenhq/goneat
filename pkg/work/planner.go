@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/3leaps/goneat/pkg/logger"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // WorkItem represents a single file to be processed
@@ -385,9 +387,10 @@ func (p *Planner) groupByContentType(workItems []WorkItem) []WorkGroup {
 			totalTime += item.EstimatedTime
 		}
 
+		c := cases.Title(language.Und)
 		result = append(result, WorkGroup{
 			ID:                         fmt.Sprintf("content_type_%s", contentType),
-			Name:                       fmt.Sprintf("%s Files", strings.Title(contentType)),
+			Name:                       fmt.Sprintf("%s Files", c.String(contentType)),
 			Strategy:                   "content_type_based",
 			WorkItemIDs:                ids,
 			EstimatedTotalTime:         totalTime,

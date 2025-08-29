@@ -1,0 +1,492 @@
+/*
+Copyright © 2025 3 Leaps (hello@3leaps.net and https://3leaps.net)
+*/
+package ops
+
+import (
+	"sync"
+	"testing"
+
+	"github.com/spf13/cobra"
+)
+
+// TestRegistry_BasicRegistration tests basic command registration functionality
+func TestRegistry_BasicRegistration(t *testing.T) {
+	registry := &Registry{
+		commands:   make(map[string]*CommandRegistration),
+		groupIndex: make(map[CommandGroup][]*CommandRegistration),
+	}
+
+	// Create a test command
+	testCmd := &cobra.Command{
+		Use:   "test",
+		Short: "Test command",
+	}
+
+	// Test successful registration
+	err := registry.Register("test", GroupUtility, testCmd, "A test command")
+	if err != nil {
+		t.Fatalf("Expected successful registration, got error: %v", err)
+	}
+
+	// Verify command was registered
+	cmd, exists := registry.GetCommand("test")
+	if !exists {
+		t.Fatal("Expected command to exist after registration")
+	}
+
+	if cmd.Name != "test" {
+		t.Errorf("Expected command name 'test', got '%s'", cmd.Name)
+	}
+
+	if cmd.Group != GroupUtility {
+		t.Errorf("Expected command group 'utility', got '%s'", cmd.Group)
+	}
+
+	if cmd.Description != "A test command" {
+		t.Errorf("Expected description 'A test command', got '%s'", cmd.Description)
+	}
+
+	if cmd.Command != testCmd {
+		t.Error("Expected command object to match registered command")
+	}
+}
+
+// TestRegistry_DuplicateRegistration tests handling of duplicate command registration
+func TestRegistry_DuplicateRegistration(t *testing.T) {
+	registry := &Registry{
+		commands:   make(map[string]*CommandRegistration),
+		groupIndex: make(map[CommandGroup][]*CommandRegistration),
+	}
+
+	testCmd1 := &cobra.Command{Use: "test", Short: "Test command 1"}
+	testCmd2 := &cobra.Command{Use: "test", Short: "Test command 2"}
+
+	// Register first command successfully
+	err := registry.Register("test", GroupUtility, testCmd1, "First test command")
+	if err != nil {
+		t.Fatalf("Expected first registration to succeed, got error: %v", err)
+	}
+
+	// Attempt to register duplicate command
+	err = registry.Register("test", GroupSupport, testCmd2, "Second test command")
+	if err == nil {
+		t.Fatal("Expected duplicate registration to fail")
+	}
+
+	expectedError := "command test already registered"
+	if err.Error() != expectedError {
+		t.Errorf("Expected error '%s', got '%s'", expectedError, err.Error())
+	}
+
+	// Verify original command is still registered
+	cmd, exists := registry.GetCommand("test")
+	if !exists {
+		t.Fatal("Expected original command to still exist")
+	}
+
+	if cmd.Group != GroupUtility {
+		t.Errorf("Expected original command group to remain 'utility', got '%s'", cmd.Group)
+	}
+}
+
+// TestRegistry_GetCommand tests command retrieval functionality
+func TestRegistry_GetCommand(t *testing.T) {
+	registry := &Registry{
+		commands:   make(map[string]*CommandRegistration),
+		groupIndex: make(map[CommandGroup][]*CommandRegistration),
+	}
+
+	// Test retrieving non-existent command
+	_, exists := registry.GetCommand("nonexistent")
+	if exists {
+		t.Error("Expected non-existent command to return false")
+	}
+
+	// Register a command
+	testCmd := &cobra.Command{Use: "test", Short: "Test command"}
+	registry.Register("test", GroupUtility, testCmd, "A test command")
+
+	// Test retrieving existing command
+	cmd, exists := registry.GetCommand("test")
+	if !exists {
+		t.Fatal("Expected existing command to be found")
+	}
+
+	if cmd.Name != "test" {
+		t.Errorf("Expected retrieved command name 'test', got '%s'", cmd.Name)
+	}
+}
+
+// TestRegistry_GetCommandsByGroup tests group-based command retrieval
+func TestRegistry_GetCommandsByGroup(t *testing.T) {
+	registry := &Registry{
+		commands:   make(map[string]*CommandRegistration),
+		groupIndex: make(map[CommandGroup][]*CommandRegistration),
+	}
+
+	// Test empty group
+	commands := registry.GetCommandsByGroup(GroupUtility)
+	if len(commands) != 0 {
+		t.Errorf("Expected empty group to return 0 commands, got %d", len(commands))
+	}
+
+	// Register commands in different groups
+	cmd1 := &cobra.Command{Use: "version", Short: "Version command"}
+	cmd2 := &cobra.Command{Use: "format", Short: "Format command"}
+	cmd3 := &cobra.Command{Use: "envinfo", Short: "Environment info"}
+
+	registry.Register("version", GroupUtility, cmd1, "Version management")
+	registry.Register("format", GroupNeat, cmd2, "Code formatting")
+	registry.Register("envinfo", GroupSupport, cmd3, "Environment information")
+
+	// Test utility group
+	utilityCommands := registry.GetCommandsByGroup(GroupUtility)
+	if len(utilityCommands) != 1 {
+		t.Errorf("Expected 1 utility command, got %d", len(utilityCommands))
+	}
+	if utilityCommands[0].Name != "version" {
+		t.Errorf("Expected utility command 'version', got '%s'", utilityCommands[0].Name)
+	}
+
+	// Test neat group
+	neatCommands := registry.GetCommandsByGroup(GroupNeat)
+	if len(neatCommands) != 1 {
+		t.Errorf("Expected 1 neat command, got %d", len(neatCommands))
+	}
+	if neatCommands[0].Name != "format" {
+		t.Errorf("Expected neat command 'format', got '%s'", neatCommands[0].Name)
+	}
+
+	// Test support group
+	supportCommands := registry.GetCommandsByGroup(GroupSupport)
+	if len(supportCommands) != 1 {
+		t.Errorf("Expected 1 support command, got %d", len(supportCommands))
+	}
+	if supportCommands[0].Name != "envinfo" {
+		t.Errorf("Expected support command 'envinfo', got '%s'", supportCommands[0].Name)
+	}
+}
+
+// TestRegistry_GetNeatCommands tests the convenience method for neat commands
+func TestRegistry_GetNeatCommands(t *testing.T) {
+	registry := &Registry{
+		commands:   make(map[string]*CommandRegistration),
+		groupIndex: make(map[CommandGroup][]*CommandRegistration),
+	}
+
+	// Register commands in different groups
+	cmd1 := &cobra.Command{Use: "version", Short: "Version command"}
+	cmd2 := &cobra.Command{Use: "format", Short: "Format command"}
+	cmd3 := &cobra.Command{Use: "lint", Short: "Lint command"}
+
+	registry.Register("version", GroupUtility, cmd1, "Version management")
+	registry.Register("format", GroupNeat, cmd2, "Code formatting")
+	registry.Register("lint", GroupNeat, cmd3, "Code linting")
+
+	// Test GetNeatCommands
+	neatCommands := registry.GetNeatCommands()
+	if len(neatCommands) != 2 {
+		t.Errorf("Expected 2 neat commands, got %d", len(neatCommands))
+	}
+
+	// Verify both commands are in the neat group
+	commandNames := make(map[string]bool)
+	for _, cmd := range neatCommands {
+		commandNames[cmd.Name] = true
+	}
+
+	if !commandNames["format"] {
+		t.Error("Expected 'format' command in neat commands")
+	}
+	if !commandNames["lint"] {
+		t.Error("Expected 'lint' command in neat commands")
+	}
+}
+
+// TestRegistry_GetAllCommands tests retrieval of all registered commands
+func TestRegistry_GetAllCommands(t *testing.T) {
+	registry := &Registry{
+		commands:   make(map[string]*CommandRegistration),
+		groupIndex: make(map[CommandGroup][]*CommandRegistration),
+	}
+
+	// Test empty registry
+	allCommands := registry.GetAllCommands()
+	if len(allCommands) != 0 {
+		t.Errorf("Expected empty registry to return 0 commands, got %d", len(allCommands))
+	}
+
+	// Register multiple commands
+	cmd1 := &cobra.Command{Use: "version", Short: "Version command"}
+	cmd2 := &cobra.Command{Use: "format", Short: "Format command"}
+
+	registry.Register("version", GroupUtility, cmd1, "Version management")
+	registry.Register("format", GroupNeat, cmd2, "Code formatting")
+
+	// Test retrieval of all commands
+	allCommands = registry.GetAllCommands()
+	if len(allCommands) != 2 {
+		t.Errorf("Expected 2 commands, got %d", len(allCommands))
+	}
+
+	// Verify both commands are present
+	if _, exists := allCommands["version"]; !exists {
+		t.Error("Expected 'version' command in all commands")
+	}
+	if _, exists := allCommands["format"]; !exists {
+		t.Error("Expected 'format' command in all commands")
+	}
+
+	// Verify command details
+	versionCmd := allCommands["version"]
+	if versionCmd.Group != GroupUtility {
+		t.Errorf("Expected version command group 'utility', got '%s'", versionCmd.Group)
+	}
+	if versionCmd.Description != "Version management" {
+		t.Errorf("Expected version command description 'Version management', got '%s'", versionCmd.Description)
+	}
+}
+
+// TestRegistry_ListGroups tests group listing functionality
+func TestRegistry_ListGroups(t *testing.T) {
+	registry := &Registry{
+		commands:   make(map[string]*CommandRegistration),
+		groupIndex: make(map[CommandGroup][]*CommandRegistration),
+	}
+
+	// Test empty registry
+	groups := registry.ListGroups()
+	if len(groups) != 0 {
+		t.Errorf("Expected empty registry to have 0 groups, got %d", len(groups))
+	}
+
+	// Register commands in different groups
+	cmd1 := &cobra.Command{Use: "version", Short: "Version command"}
+	cmd2 := &cobra.Command{Use: "format", Short: "Format command"}
+	cmd3 := &cobra.Command{Use: "lint", Short: "Lint command"}
+	cmd4 := &cobra.Command{Use: "envinfo", Short: "Environment info"}
+
+	registry.Register("version", GroupUtility, cmd1, "Version management")
+	registry.Register("format", GroupNeat, cmd2, "Code formatting")
+	registry.Register("lint", GroupNeat, cmd3, "Code linting")
+	registry.Register("envinfo", GroupSupport, cmd4, "Environment information")
+
+	// Test group listing
+	groups = registry.ListGroups()
+	if len(groups) != 3 {
+		t.Errorf("Expected 3 groups, got %d", len(groups))
+	}
+
+	// Verify group counts
+	if groups[GroupUtility] != 1 {
+		t.Errorf("Expected 1 utility command, got %d", groups[GroupUtility])
+	}
+	if groups[GroupNeat] != 2 {
+		t.Errorf("Expected 2 neat commands, got %d", groups[GroupNeat])
+	}
+	if groups[GroupSupport] != 1 {
+		t.Errorf("Expected 1 support command, got %d", groups[GroupSupport])
+	}
+}
+
+// TestRegistry_ThreadSafety tests concurrent access to the registry
+func TestRegistry_ThreadSafety(t *testing.T) {
+	registry := &Registry{
+		commands:   make(map[string]*CommandRegistration),
+		groupIndex: make(map[CommandGroup][]*CommandRegistration),
+	}
+
+	// Number of goroutines for concurrent testing
+	numGoroutines := 10
+	numOperations := 100
+
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+
+	// Launch multiple goroutines performing concurrent operations
+	for i := 0; i < numGoroutines; i++ {
+		go func(id int) {
+			defer wg.Done()
+
+			for j := 0; j < numOperations; j++ {
+				// Alternate between read and write operations
+				if j%2 == 0 {
+					// Write operation
+					cmdName := fmt.Sprintf("cmd-%d-%d", id, j)
+					cmd := &cobra.Command{Use: cmdName, Short: "Test command"}
+					group := GroupUtility
+					if j%3 == 0 {
+						group = GroupNeat
+					} else if j%3 == 1 {
+						group = GroupSupport
+					}
+
+					registry.Register(cmdName, group, cmd, fmt.Sprintf("Test command %d-%d", id, j))
+				} else {
+					// Read operations
+					registry.GetAllCommands()
+					registry.ListGroups()
+					registry.GetNeatCommands()
+				}
+			}
+		}(i)
+	}
+
+	// Wait for all goroutines to complete
+	wg.Wait()
+
+	// Verify final state
+	allCommands := registry.GetAllCommands()
+	groups := registry.ListGroups()
+
+	// We expect some commands to be registered (exact number depends on timing)
+	if len(allCommands) == 0 {
+		t.Error("Expected some commands to be registered after concurrent operations")
+	}
+
+	if len(groups) == 0 {
+		t.Error("Expected some groups to exist after concurrent operations")
+	}
+
+	// Verify no data corruption occurred
+	for name, cmd := range allCommands {
+		if cmd.Name != name {
+			t.Errorf("Data corruption detected: command name mismatch for %s", name)
+		}
+		if cmd.Group != GroupUtility && cmd.Group != GroupNeat && cmd.Group != GroupSupport {
+			t.Errorf("Invalid group detected: %s for command %s", cmd.Group, name)
+		}
+	}
+}
+
+// TestGlobalRegistry tests the global registry functionality
+func TestGlobalRegistry(t *testing.T) {
+	// Get the global registry
+	registry := GetRegistry()
+	if registry == nil {
+		t.Fatal("Expected global registry to be non-nil")
+	}
+
+	// Test global registration function
+	testCmd := &cobra.Command{Use: "global-test", Short: "Global test command"}
+	err := RegisterCommand("global-test", GroupUtility, testCmd, "Global test command")
+	if err != nil {
+		t.Fatalf("Expected global registration to succeed, got error: %v", err)
+	}
+
+	// Verify command was registered globally
+	cmd, exists := registry.GetCommand("global-test")
+	if !exists {
+		t.Fatal("Expected globally registered command to exist")
+	}
+
+	if cmd.Name != "global-test" {
+		t.Errorf("Expected global command name 'global-test', got '%s'", cmd.Name)
+	}
+
+	if cmd.Group != GroupUtility {
+		t.Errorf("Expected global command group 'utility', got '%s'", cmd.Group)
+	}
+}
+
+// TestRegistry_EdgeCases tests various edge cases and error conditions
+func TestRegistry_EdgeCases(t *testing.T) {
+	registry := &Registry{
+		commands:   make(map[string]*CommandRegistration),
+		groupIndex: make(map[CommandGroup][]*CommandRegistration),
+	}
+
+	// Test registration with nil command
+	err := registry.Register("nil-test", GroupUtility, nil, "Nil command test")
+	if err != nil {
+		t.Logf("Registration with nil command returned error (expected): %v", err)
+	}
+
+	// Test registration with empty name
+	err = registry.Register("", GroupUtility, &cobra.Command{Use: "empty"}, "Empty name test")
+	if err != nil {
+		t.Logf("Registration with empty name returned error (expected): %v", err)
+	}
+
+	// Test registration with empty description
+	testCmd := &cobra.Command{Use: "empty-desc", Short: "Empty description test"}
+	err = registry.Register("empty-desc", GroupUtility, testCmd, "")
+	if err != nil {
+		t.Fatalf("Expected registration with empty description to succeed, got error: %v", err)
+	}
+
+	// Verify the command was registered despite empty description
+	cmd, exists := registry.GetCommand("empty-desc")
+	if !exists {
+		t.Fatal("Expected command with empty description to be registered")
+	}
+	if cmd.Description != "" {
+		t.Errorf("Expected empty description, got '%s'", cmd.Description)
+	}
+}
+
+// TestCommandGroups tests the command group constants
+func TestCommandGroups(t *testing.T) {
+	// Test group constants
+	if GroupSupport != "support" {
+		t.Errorf("Expected GroupSupport to be 'support', got '%s'", GroupSupport)
+	}
+	if GroupUtility != "utility" {
+		t.Errorf("Expected GroupUtility to be 'utility', got '%s'", GroupUtility)
+	}
+	if GroupNeat != "neat" {
+		t.Errorf("Expected GroupNeat to be 'neat', got '%s'", GroupNeat)
+	}
+
+	// Test group type conversion
+	var group CommandGroup = "support"
+	if group != GroupSupport {
+		t.Errorf("Expected group conversion to work, got '%s'", group)
+	}
+}
+
+// TestRegistry_Isolation tests that registry instances are properly isolated
+func TestRegistry_Isolation(t *testing.T) {
+	registry1 := &Registry{
+		commands:   make(map[string]*CommandRegistration),
+		groupIndex: make(map[CommandGroup][]*CommandRegistration),
+	}
+
+	registry2 := &Registry{
+		commands:   make(map[string]*CommandRegistration),
+		groupIndex: make(map[CommandGroup][]*CommandRegistration),
+	}
+
+	// Register command in first registry
+	cmd1 := &cobra.Command{Use: "test1", Short: "Test command 1"}
+	registry1.Register("test1", GroupUtility, cmd1, "First registry command")
+
+	// Register different command in second registry
+	cmd2 := &cobra.Command{Use: "test2", Short: "Test command 2"}
+	registry2.Register("test2", GroupNeat, cmd2, "Second registry command")
+
+	// Verify isolation - each registry should only have its own commands
+	reg1Cmds := registry1.GetAllCommands()
+	reg2Cmds := registry2.GetAllCommands()
+
+	if len(reg1Cmds) != 1 || len(reg2Cmds) != 1 {
+		t.Errorf("Expected each registry to have 1 command, got reg1: %d, reg2: %d", len(reg1Cmds), len(reg2Cmds))
+	}
+
+	if _, exists := reg1Cmds["test1"]; !exists {
+		t.Error("Expected registry1 to have test1 command")
+	}
+	if _, exists := reg1Cmds["test2"]; exists {
+		t.Error("Expected registry1 to NOT have test2 command")
+	}
+
+	if _, exists := reg2Cmds["test2"]; !exists {
+		t.Error("Expected registry2 to have test2 command")
+	}
+	if _, exists := reg2Cmds["test1"]; exists {
+		t.Error("Expected registry2 to NOT have test1 command")
+	}
+}</content>
+</xai:function_call name="bash">
+<parameter name="command">cd goneat && go test ./internal/ops/... -v

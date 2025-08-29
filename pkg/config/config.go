@@ -113,11 +113,8 @@ func LoadConfig() (*Config, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 
-	// Try to read config file
-	if err := v.ReadInConfig(); err != nil {
-		// Silently continue with defaults - config files are optional
-		// In the future, we might want to log this at debug level
-	}
+	// Try to read config file (optional); ignore error to use defaults
+	_ = v.ReadInConfig()
 
 	var config Config
 	if err := v.Unmarshal(&config); err != nil {

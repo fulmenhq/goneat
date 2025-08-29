@@ -1,0 +1,150 @@
+$schema: "https://schemas.goneat.dev/hooks-manifest/v1.0.0"
+title: Goneat Hooks Manifest Schema
+description: Schema for hook manifests that define git hook configurations
+type: object
+properties:
+  version:
+    type: string
+    description: Schema version
+    default: "1.0.0"
+    enum: ["1.0.0"]
+
+  hooks:
+    type: object
+    description: Hook configurations by type
+    properties:
+      pre-commit:
+        type: array
+        description: Pre-commit hook commands
+        items:
+          $ref: "#/definitions/hookCommand"
+      pre-push:
+        type: array
+        description: Pre-push hook commands
+        items:
+          $ref: "#/definitions/hookCommand"
+      post-commit:
+        type: array
+        description: Post-commit hook commands
+        items:
+          $ref: "#/definitions/hookCommand"
+
+  optimization:
+    type: object
+    description: Global optimization settings
+    properties:
+      only_changed_files:
+        type: boolean
+        description: Only process files changed in the current commit
+        default: true
+      cache_results:
+        type: boolean
+        description: Cache assessment results between runs
+        default: true
+      parallel:
+        type: string
+        description: Parallel execution mode
+        enum: ["auto", "sequential", "max"]
+        default: "auto"
+
+definitions:
+  hookCommand:
+    type: object
+    description: Individual hook command configuration
+    properties:
+      command:
+        type: string
+        description: Command to execute (goneat subcommand or external tool)
+        examples: ["assess", "format", "lint", "gofmt"]
+      args:
+        type: array
+        description: Arguments to pass to the command
+        items:
+          type: string
+        examples: [["--categories", "format,lint"], ["--check"], ["./..."]]
+      fallback:
+        type: string
+        description: Fallback command if primary command fails
+        examples: ["go fmt ./...", "golangci-lint run"]
+      when:
+        type: array
+        description: Conditions for when to run this command
+        items:
+          type: object
+          properties:
+            files_match:
+              type: string
+              description: Only run if files match this pattern
+              examples: ["*.go", "*.{go,py,js}"]
+            branch_not:
+              type: string
+              description: Skip if on this branch
+              examples: ["main", "master"]
+            has_staged_files:
+              type: boolean
+              description: Only run if there are staged files
+              default: true
+      priority:
+        type: integer
+        description: Execution priority (higher numbers run first)
+        minimum: 1
+        maximum: 10
+        default: 5
+      timeout:
+        type: string
+        description: Command timeout
+        examples: ["30s", "2m", "5m"]
+        default: "2m"
+      fail_on_error:
+        type: boolean
+        description: Fail the hook if this command fails
+        default: true
+      stage_fixed:
+        type: boolean
+        description: Stage files that were fixed by this command
+        default: false
+      skip:
+        type: array
+        description: Skip this command in these scenarios
+        items:
+          type: string
+          enum: ["merge", "rebase", "amend", "tag", "initial"]
+        examples: [["merge"], ["rebase", "amend"]]
+
+required:
+  - version
+  - hooks
+
+examples:
+  - version: "1.0.0"
+    hooks:
+      pre-commit:
+        - command: "assess"
+          args: ["--categories", "format,lint", "--fail-on", "error"]
+          stage_fixed: true
+          priority: 10
+        - command: "format"
+          args: ["--check", "--quiet"]
+          fallback: "go fmt ./..."
+          when:
+            - files_match: "*.go"
+          timeout: "30s"
+        - command: "lint"
+          args: ["--check", "--quiet"]
+          fallback: "golangci-lint run --quiet"
+          when:
+            - files_match: "*.go"
+          skip: ["merge", "rebase"]
+          timeout: "2m"
+      pre-push:
+        - command: "assess"
+          args: ["--full", "--format", "json", "--output", ".goneat/reports/"]
+          priority: 10
+        - command: "security"
+          args: ["--scan"]
+          priority: 8
+          timeout: "3m"
+    optimization:
+      only_changed_files: true
+      cache_results: true
+      parallel: "auto"

@@ -146,9 +146,7 @@ func (env *TestEnv) RunVersionCommand(args ...string) VersionCommandResult {
 
 // parseVersionOutput extracts version information from command output
 func (env *TestEnv) parseVersionOutput(result *VersionCommandResult) {
-	lines := strings.Split(result.Output, "\n")
-
-	for _, line := range lines {
+	for line := range strings.SplitSeq(result.Output, "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "goneat ") {
 			// Extract version from "goneat 1.2.3" format

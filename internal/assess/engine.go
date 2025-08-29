@@ -6,6 +6,8 @@ package assess
 import (
 	"context"
 	"fmt"
+	"runtime"
+	"sync"
 	"time"
 
 	"github.com/3leaps/goneat/pkg/logger"
@@ -40,49 +42,137 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 	availableCategories := e.runnerRegistry.GetAvailableCategories()
 	orderedCategories := e.priorityManager.GetOrderedCategories(availableCategories)
 
-	logger.Info(fmt.Sprintf("Starting assessment of %s with %d categories", target, len(orderedCategories)))
+	// Determine worker count based on flags and CPU cores
+	var workerCount int
+	if config.Concurrency > 0 {
+		workerCount = config.Concurrency
+	} else {
+		percent := config.ConcurrencyPercent
+		if percent <= 0 {
+			percent = 50
+		}
+		cores := runtime.NumCPU()
+		workerCount = (cores * percent) / 100
+		if workerCount < 1 {
+			workerCount = 1
+		}
+	}
 
-	// Run assessments for each category
+	logger.Info(fmt.Sprintf("Starting assessment of %s with %d categories (workers=%d)", target, len(orderedCategories), workerCount))
+
+	// Run assessments for each category (with optional concurrency)
 	categoryResults := make(map[string]CategoryResult)
 	var allIssues []Issue
 	var commandsRun []string
+	// Track per-category runtimes
+	catRuntime := make(map[AssessmentCategory]time.Duration)
 
-	for _, category := range orderedCategories {
-		runner, exists := e.runnerRegistry.GetRunner(category)
-		if !exists {
-			logger.Warn(fmt.Sprintf("No runner found for category: %s", category))
-			continue
+	type job struct {
+		category AssessmentCategory
+		priority int
+	}
+
+	if workerCount == 1 {
+		// Sequential fallback
+		for _, category := range orderedCategories {
+			runner, exists := e.runnerRegistry.GetRunner(category)
+			if !exists {
+				logger.Warn(fmt.Sprintf("No runner found for category: %s", category))
+				continue
+			}
+
+			logger.Info(fmt.Sprintf("Running %s assessment...", category))
+			runStart := time.Now()
+			result, err := runner.Assess(ctx, target, config)
+			runDur := time.Since(runStart)
+			catRuntime[category] = runDur
+			if result != nil {
+				commandsRun = append(commandsRun, result.CommandName)
+			}
+
+			cr := CategoryResult{
+				Category:       category,
+				Priority:       e.priorityManager.GetPriority(category),
+				Parallelizable: runner.CanRunInParallel(),
+			}
+			if err != nil {
+				cr.Status = "error"
+				cr.Error = err.Error()
+				logger.Error(fmt.Sprintf("%s assessment failed after %v: %v", category, runDur, err))
+			} else if result.Success {
+				cr.Status = "success"
+				cr.Issues = result.Issues
+				cr.IssueCount = len(result.Issues)
+				cr.EstimatedTime = e.estimateCategoryTime(result.Issues)
+				allIssues = append(allIssues, result.Issues...)
+				logger.Info(fmt.Sprintf("%s assessment completed in %v: %d issues found", category, runDur, len(result.Issues)))
+			} else {
+				cr.Status = "failed"
+				logger.Warn(fmt.Sprintf("%s assessment failed without error after %v", category, runDur))
+			}
+			categoryResults[string(category)] = cr
+		}
+	} else {
+		// Concurrent execution with worker pool
+		jobs := make(chan job)
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+
+		for w := 0; w < workerCount; w++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for j := range jobs {
+					runner, exists := e.runnerRegistry.GetRunner(j.category)
+					if !exists {
+						logger.Warn(fmt.Sprintf("No runner found for category: %s", j.category))
+						continue
+					}
+
+					logger.Info(fmt.Sprintf("Running %s assessment...", j.category))
+					runStart := time.Now()
+					result, err := runner.Assess(ctx, target, config)
+					runDur := time.Since(runStart)
+
+					cr := CategoryResult{
+						Category:       j.category,
+						Priority:       j.priority,
+						Parallelizable: runner.CanRunInParallel(),
+					}
+					if err != nil {
+						cr.Status = "error"
+						cr.Error = err.Error()
+						logger.Error(fmt.Sprintf("%s assessment failed after %v: %v", j.category, runDur, err))
+					} else if result.Success {
+						cr.Status = "success"
+						cr.Issues = result.Issues
+						cr.IssueCount = len(result.Issues)
+						cr.EstimatedTime = e.estimateCategoryTime(result.Issues)
+						logger.Info(fmt.Sprintf("%s assessment completed in %v: %d issues found", j.category, runDur, len(result.Issues)))
+					} else {
+						cr.Status = "failed"
+						logger.Warn(fmt.Sprintf("%s assessment failed without error after %v", j.category, runDur))
+					}
+
+					mu.Lock()
+					catRuntime[j.category] = runDur
+					if result != nil {
+						commandsRun = append(commandsRun, result.CommandName)
+						if len(result.Issues) > 0 {
+							allIssues = append(allIssues, result.Issues...)
+						}
+					}
+					categoryResults[string(j.category)] = cr
+					mu.Unlock()
+				}
+			}()
 		}
 
-		logger.Info(fmt.Sprintf("Running %s assessment...", category))
-
-		// Run the assessment
-		result, err := runner.Assess(ctx, target, config)
-		commandsRun = append(commandsRun, result.CommandName)
-
-		categoryResult := CategoryResult{
-			Category:       category,
-			Priority:       e.priorityManager.GetPriority(category),
-			Issues:         result.Issues,
-			IssueCount:     len(result.Issues),
-			EstimatedTime:  e.estimateCategoryTime(result.Issues),
-			Parallelizable: runner.CanRunInParallel(),
+		for _, category := range orderedCategories {
+			jobs <- job{category: category, priority: e.priorityManager.GetPriority(category)}
 		}
-
-		if err != nil {
-			categoryResult.Status = "error"
-			categoryResult.Error = err.Error()
-			logger.Error(fmt.Sprintf("%s assessment failed: %v", category, err))
-		} else if result.Success {
-			categoryResult.Status = "success"
-			allIssues = append(allIssues, result.Issues...)
-			logger.Info(fmt.Sprintf("%s assessment completed: %d issues found", category, len(result.Issues)))
-		} else {
-			categoryResult.Status = "failed"
-			logger.Warn(fmt.Sprintf("%s assessment failed without error", category))
-		}
-
-		categoryResults[string(category)] = categoryResult
+		close(jobs)
+		wg.Wait()
 	}
 
 	// Generate workflow plan
@@ -106,6 +196,13 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 		Workflow:   workflow,
 	}
 
+	// Log summary with concurrency and per-category runtimes
+	logger.Info(fmt.Sprintf("Concurrency summary: workers=%d, categories=%d", workerCount, len(orderedCategories)))
+	for _, c := range orderedCategories {
+		if d, ok := catRuntime[c]; ok {
+			logger.Info(fmt.Sprintf("Runtime: %-16s %v", c, d))
+		}
+	}
 	logger.Info(fmt.Sprintf("Assessment completed in %v: %d total issues, estimated fix time: %v",
 		report.Metadata.ExecutionTime, summary.TotalIssues, summary.EstimatedTime))
 

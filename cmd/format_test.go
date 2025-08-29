@@ -197,7 +197,9 @@ func TestFormatCommand_SpecificFiles(t *testing.T) {
 	// Create a test command with specific files
 	cmd := &cobra.Command{}
 	setupFormatCommandFlags(cmd)
-	cmd.Flags().Set("files", testFile)
+	if err := cmd.Flags().Set("files", testFile); err != nil {
+		t.Fatalf("failed setting files flag: %v", err)
+	}
 
 	// Execute the command
 	err := RunFormat(cmd, []string{})
@@ -222,8 +224,12 @@ func TestFormatCommand_ContentTypes(t *testing.T) {
 	// Create a test command with content type filtering
 	cmd := &cobra.Command{}
 	setupFormatCommandFlags(cmd)
-	cmd.Flags().Set("folders", tempDir)
-	cmd.Flags().Set("types", "go")
+	if err := cmd.Flags().Set("folders", tempDir); err != nil {
+		t.Fatalf("failed setting folders flag: %v", err)
+	}
+	if err := cmd.Flags().Set("types", "go"); err != nil {
+		t.Fatalf("failed setting types flag: %v", err)
+	}
 
 	// Capture output
 	var output bytes.Buffer
@@ -266,9 +272,15 @@ func TestFormatCommand_PlanFile(t *testing.T) {
 	// Create a test command with plan file output
 	cmd := &cobra.Command{}
 	setupFormatCommandFlags(cmd)
-	cmd.Flags().Set("folders", tempDir)
-	cmd.Flags().Set("plan-only", "true")
-	cmd.Flags().Set("plan-file", planFile)
+	if err := cmd.Flags().Set("folders", tempDir); err != nil {
+		t.Fatalf("failed setting folders flag: %v", err)
+	}
+	if err := cmd.Flags().Set("plan-only", "true"); err != nil {
+		t.Fatalf("failed setting plan-only flag: %v", err)
+	}
+	if err := cmd.Flags().Set("plan-file", planFile); err != nil {
+		t.Fatalf("failed setting plan-file flag: %v", err)
+	}
 
 	// Capture output
 	var output bytes.Buffer

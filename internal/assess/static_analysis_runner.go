@@ -270,16 +270,12 @@ func (r *StaticAnalysisAssessmentRunner) parseVetOutput(output, targetDir string
 		lineNum := 0
 		colNum := 0
 
-		// Parse line and column numbers
+		// Parse line and column numbers (ignore parse errors)
 		if lineStr := matches[2]; lineStr != "" {
-			if _, err := fmt.Sscanf(lineStr, "%d", &lineNum); err != nil {
-				// Log warning but continue with lineNum = 0
-			}
+			_, _ = fmt.Sscanf(lineStr, "%d", &lineNum)
 		}
 		if colStr := matches[3]; colStr != "" {
-			if _, err := fmt.Sscanf(colStr, "%d", &colNum); err != nil {
-				// Log warning but continue with colNum = 0
-			}
+			_, _ = fmt.Sscanf(colStr, "%d", &colNum)
 		}
 
 		message := matches[4]

@@ -150,34 +150,7 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 	}
 }
 
-func findSupportedFiles(dir string) ([]string, error) {
-	var files []string
-	supportedExts := []string{".go", ".yaml", ".yml", ".json", ".md"}
-
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			// Skip common directories
-			if info.Name() == ".git" || info.Name() == "vendor" || info.Name() == "node_modules" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		ext := filepath.Ext(path)
-		for _, supportedExt := range supportedExts {
-			if ext == supportedExt {
-				files = append(files, path)
-				break
-			}
-		}
-		return nil
-	})
-
-	return files, err
-}
+// removed unused findSupportedFiles helper
 
 func processFile(file string, checkOnly, quiet bool, cfg *config.Config) error {
 	ext := filepath.Ext(file)
@@ -384,6 +357,7 @@ func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config) error {
 
 // executeSequential executes work items sequentially
 func executeSequential(files []string, checkOnly, quiet bool, cfg *config.Config) error {
+	start := time.Now()
 	var formattedCount, errorCount int
 
 	for _, file := range files {
@@ -398,6 +372,9 @@ func executeSequential(files []string, checkOnly, quiet bool, cfg *config.Config
 		}
 	}
 
+	duration := time.Since(start)
+	unchanged := len(files) - formattedCount - errorCount
+
 	if !quiet {
 		if checkOnly {
 			if errorCount > 0 {
@@ -405,8 +382,11 @@ func executeSequential(files []string, checkOnly, quiet bool, cfg *config.Config
 			} else {
 				logger.Info("All files are properly formatted")
 			}
+			logger.Info(fmt.Sprintf("Summary (sequential): files=%d, ok=%d, need-format=%d, runtime=%v",
+				len(files), unchanged+formattedCount, errorCount, duration))
 		} else {
-			logger.Info(fmt.Sprintf("Processed %d files (%d formatted, %d errors)", len(files), formattedCount, errorCount))
+			logger.Info(fmt.Sprintf("Processed %d files (%d formatted, %d unchanged, %d errors) in %v (workers=1)",
+				len(files), formattedCount, unchanged, errorCount, duration))
 		}
 	}
 
@@ -469,9 +449,10 @@ func executeParallel(files []string, cfg *config.Config, quiet bool, noOp bool) 
 	}
 
 	// Create processor and dispatcher
+	workers := runtime.NumCPU()
 	processor := work.NewFormatProcessor(cfg)
 	dispatcher := work.NewDispatcher(work.DispatcherConfig{
-		MaxWorkers: runtime.NumCPU(),
+		MaxWorkers: workers,
 		DryRun:     false,
 		NoOp:       noOp,
 		ProgressCallback: func(result work.ExecutionResult) {
@@ -494,8 +475,12 @@ func executeParallel(files []string, cfg *config.Config, quiet bool, noOp bool) 
 
 	// Report results
 	if !quiet {
-		logger.Info(fmt.Sprintf("Parallel execution completed: %d successful, %d failed in %v",
-			summary.Successful, summary.Failed, summary.TotalDuration))
+		avgPerFile := time.Duration(0)
+		if len(files) > 0 {
+			avgPerFile = summary.TotalDuration / time.Duration(len(files))
+		}
+		logger.Info(fmt.Sprintf("Parallel execution: files=%d, workers=%d, ok=%d, failed=%d, total=%v, avg/file=%v",
+			len(files), workers, summary.Successful, summary.Failed, summary.TotalDuration, avgPerFile))
 	}
 
 	if summary.Failed > 0 {

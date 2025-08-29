@@ -26,27 +26,43 @@ type AssessmentRunner interface {
 	IsAvailable() bool
 }
 
+// AssessmentMode represents the operation mode for assessments
+type AssessmentMode string
+
+const (
+	AssessmentModeNoOp  AssessmentMode = "no-op" // Assessment only, no changes
+	AssessmentModeCheck AssessmentMode = "check" // Report issues, no changes
+	AssessmentModeFix   AssessmentMode = "fix"   // Report and fix issues
+)
+
 // AssessmentConfig contains configuration for running assessments
 type AssessmentConfig struct {
-	NoOp           bool          `json:"no_op"`            // Run in assessment mode only
-	Verbose        bool          `json:"verbose"`          // Verbose output
-	Timeout        time.Duration `json:"timeout"`          // Assessment timeout
-	IncludeFiles   []string      `json:"include_files"`    // Files to include
-	ExcludeFiles   []string      `json:"exclude_files"`    // Files to exclude
-	PriorityString string        `json:"priority_string"`  // Custom priority string
-	FailOnSeverity IssueSeverity `json:"fail_on_severity"` // Fail if issues at or above this severity
+	Mode           AssessmentMode `json:"mode"`             // Operation mode
+	Verbose        bool           `json:"verbose"`          // Verbose output
+	Timeout        time.Duration  `json:"timeout"`          // Assessment timeout
+	IncludeFiles   []string       `json:"include_files"`    // Files to include
+	ExcludeFiles   []string       `json:"exclude_files"`    // Files to exclude
+	PriorityString string         `json:"priority_string"`  // Custom priority string
+	FailOnSeverity IssueSeverity  `json:"fail_on_severity"` // Fail if issues at or above this severity
+	// Concurrency controls
+	// If Concurrency > 0 it is used directly. Otherwise ConcurrencyPercent determines worker count
+	// as a percentage of available CPU cores (1-100). Values <=0 default to 50.
+	Concurrency        int `json:"concurrency"`
+	ConcurrencyPercent int `json:"concurrency_percent"`
 }
 
 // DefaultAssessmentConfig returns default assessment configuration
 func DefaultAssessmentConfig() AssessmentConfig {
 	return AssessmentConfig{
-		NoOp:           false,
-		Verbose:        false,
-		Timeout:        5 * time.Minute,
-		IncludeFiles:   []string{},
-		ExcludeFiles:   []string{},
-		PriorityString: "",
-		FailOnSeverity: SeverityCritical,
+		Mode:               AssessmentModeCheck, // Default to check mode for safety
+		Verbose:            false,
+		Timeout:            5 * time.Minute,
+		IncludeFiles:       []string{},
+		ExcludeFiles:       []string{},
+		PriorityString:     "",
+		FailOnSeverity:     SeverityCritical,
+		Concurrency:        0,
+		ConcurrencyPercent: 50,
 	}
 }
 

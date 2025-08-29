@@ -1,0 +1,17 @@
+version: "1.0.0"
+hooks:
+  pre-commit:
+    - command: "assess"
+      args: ["--categories", "format,lint", "--fail-on", "error"]
+      stage_fixed: true
+      priority: 10
+      timeout: "2m"
+  pre-push:
+    - command: "assess"
+      args: ["--categories", "format,lint,static-analysis", "--fail-on", "high"]
+      priority: 10
+      timeout: "3m"
+optimization:
+  only_changed_files: true
+  cache_results: true
+  parallel: "auto"

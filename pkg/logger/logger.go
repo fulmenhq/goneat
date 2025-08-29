@@ -226,7 +226,7 @@ func Info(message string, fields ...Field) {
 		defaultLogger.Log(InfoLevel, message, fields...)
 	} else {
 		// Fallback to stderr if logger not initialized
-		os.Stderr.WriteString(fmt.Sprintf("[INFO] goneat: %s\n", message))
+		fmt.Fprintf(os.Stderr, "[INFO] goneat: %s\n", message)
 	}
 }
 

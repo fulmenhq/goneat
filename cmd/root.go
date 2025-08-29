@@ -4,7 +4,6 @@ Copyright © 2025 3 Leaps <info@3leaps.com>
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"strings"
 
@@ -18,7 +17,7 @@ var rootCmd = &cobra.Command{
 	Use:   "goneat",
 	Short: "Unified Go-based formatting and validation tool",
 	Long: `Goneat is a unified tool for formatting and validating multiple languages/formats,
-inspired by Biome. It bundles existing OSS tools transparently for data engineering workflows.
+Inspired by Biome. It bundles existing OSS tools transparently for data engineering workflows.
 
 Examples:
   goneat version     # Show version
@@ -81,11 +80,12 @@ func initializeLogger(cmd *cobra.Command) {
 		NoOp:      noOp,
 	}
 
-	fmt.Printf("DEBUG: Initializing logger with level %s, no-op=%t\n", logLevelStr, noOp) // Debug output
-
 	if err := logger.Initialize(config); err != nil {
 		// Fallback to stderr
-		os.Stderr.WriteString("Failed to initialize logger: " + err.Error() + "\n")
+		if _, writeErr := os.Stderr.WriteString("Failed to initialize logger: " + err.Error() + "\n"); writeErr != nil {
+			// Best effort: nothing else we can do here
+			_ = writeErr
+		}
 		os.Exit(exitcode.ConfigError)
 	}
 }

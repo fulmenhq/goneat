@@ -46,6 +46,32 @@ build: ## Build the binary
 	$(GOBUILD) $(BUILD_FLAGS) ./$(SRC_DIR)
 	@echo "✅ Build completed: $(BUILD_DIR)/$(BINARY_NAME)"
 
+# Cross-platform build targets
+build-all: ## Build for all supported platforms
+	@echo "Building $(BINARY_NAME) v$(VERSION) for all platforms..."
+	@./scripts/build-all.sh
+	@echo "✅ Cross-platform builds completed"
+
+build-linux-amd64: ## Build for Linux AMD64
+	@echo "Building for Linux AMD64..."
+	GOOS=linux GOARCH=amd64 $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./$(SRC_DIR)
+
+build-linux-arm64: ## Build for Linux ARM64
+	@echo "Building for Linux ARM64..."
+	GOOS=linux GOARCH=arm64 $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 ./$(SRC_DIR)
+
+build-darwin-amd64: ## Build for macOS AMD64
+	@echo "Building for macOS AMD64..."
+	GOOS=darwin GOARCH=amd64 $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 ./$(SRC_DIR)
+
+build-darwin-arm64: ## Build for macOS ARM64
+	@echo "Building for macOS ARM64..."
+	GOOS=darwin GOARCH=arm64 $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 ./$(SRC_DIR)
+
+build-windows-amd64: ## Build for Windows AMD64
+	@echo "Building for Windows AMD64..."
+	GOOS=windows GOARCH=amd64 $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe ./$(SRC_DIR)
+
 # Clean targets
 clean: ## Clean build artifacts
 	@echo "Cleaning build artifacts..."
@@ -53,9 +79,24 @@ clean: ## Clean build artifacts
 	rm -rf $(BUILD_DIR)
 	@echo "✅ Clean completed"
 
-# Test targets (placeholder for now)
-test: ## Run tests (placeholder)
-	@echo "No tests yet - coming soon!"
+# Test targets
+test: ## Run all tests
+	@echo "Running test suite..."
+	go test ./... -v
+
+test-unit: ## Run unit tests only
+	@echo "Running unit tests..."
+	go test ./cmd/... ./internal/... -v
+
+test-integration: ## Run integration tests only
+	@echo "Running integration tests..."
+	go test ./tests/integration/... -v
+
+test-coverage: ## Run tests with coverage
+	@echo "Running tests with coverage..."
+	go test ./... -coverprofile=coverage.out
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report: coverage.html"
 
 # Format targets
 fmt: build ## Format code using goneat (dogfooding)
@@ -116,6 +157,33 @@ version-set: ## Set specific version (usage: make version-set VERSION=x.y.z)
 	fi
 	@echo "$(VERSION_SET)" > VERSION
 	@echo "✅ Version set to: $(VERSION_SET)"
+
+# Release management targets
+release-prep: ## Prepare for release (run tests, build, etc.)
+	@echo "🚀 Preparing for release v$(VERSION)..."
+	$(MAKE) test
+	$(MAKE) build-all
+	$(MAKE) fmt
+	@echo "✅ Release preparation complete"
+
+release-tag: ## Create git tag for release
+	@echo "🏷️  Creating release tag v$(VERSION)..."
+	git tag -a v$(VERSION) -m "Release v$(VERSION)"
+	@echo "✅ Tag created: v$(VERSION)"
+
+release-push: ## Push release to all remotes
+	@echo "📤 Pushing release to all remotes..."
+	./scripts/push-to-remotes.sh
+	@echo "✅ Release pushed to all remotes"
+
+release: release-prep release-tag release-push ## Complete release process
+	@echo "🎉 Release v$(VERSION) completed!"
+	@echo ""
+	@echo "📋 Next steps:"
+	@echo "   1. Create GitHub release: https://github.com/3leaps/goneat/releases"
+	@echo "   2. Upload binaries from bin/ directory"
+	@echo "   3. Update CHANGELOG.md if needed"
+	@echo "   4. Announce release in relevant channels"
 
 # Future: goneat-based version management
 version-manage: build ## Use goneat for version management (future feature)

@@ -102,7 +102,7 @@ func (p *FormatProcessor) formatGoFile(filePath string) error {
 
 	// In a real implementation, this would call the formatGoFile function
 	// from the format command with the appropriate config
-	return fmt.Errorf("Go formatting not implemented in processor")
+	return fmt.Errorf("go formatting not implemented in processor")
 }
 
 // checkGoFile checks if a Go file needs formatting without modifying it

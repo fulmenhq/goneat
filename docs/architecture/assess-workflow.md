@@ -11,8 +11,9 @@ The `assess` command serves as a "command of commands" - a unified entry point f
 - **Analyzes** codebases using all available formatting, linting, and analysis tools
 - **Prioritizes** issues based on expert developer knowledge or user preferences
 - **Plans** remediation workflows with time estimates and parallelization opportunities
-- **Outputs** structured reports in both human-readable (Markdown) and machine-readable (JSON) formats
+- **Outputs** structured reports in both human-readable (Markdown/HTML) and machine-readable (JSON) formats
 - **Integrates** with pre-commit hooks, CI/CD pipelines, and agentic workflows
+- **Uses a JSON-first pipeline** so all downstream formats (HTML, Markdown) are derived from a single source of truth
 
 ## Core Principles
 
@@ -25,12 +26,51 @@ Expert-driven defaults with user customization to prevent analysis paralysis.
 ### 3. Workflow Planning
 Not just issue detection, but actionable remediation plans with time estimates.
 
-### 4. Dual Output Formats
-- **Markdown**: Human-readable structured reports for developers
-- **JSON**: Machine-readable schema for agentic communication and automation
+### 4. Dual Output Formats (JSON-first)
+- **JSON**: Canonical; used for automation and to feed HTML/Markdown
+- **HTML/Markdown**: Human-friendly, rendered from the same JSON data
 
 ### 5. Parallelization Awareness
 Identify independent task groups for efficient remediation.
+
+## Concurrency Execution Model
+
+### Worker-Pool for Category Runners
+- Assessments across categories (format, static-analysis, lint, etc.) run via a bounded worker-pool.
+- Default worker count = 50% of CPU cores (min 1), configurable by flags:
+  - `--concurrency <int>`: explicit worker count
+  - `--concurrency-percent <int>`: percentage of CPU cores (1-100); used when `--concurrency` is not set
+- Failures in any category are recorded per-category; the run continues and final status respects `--fail-on`.
+
+### Rationale
+- Categories have different run-time profiles; overlapping them reduces wall-time.
+- Simpler, predictable scheduling with bounded concurrency.
+
+### Parallelization in Workflow Plan
+- Post-run, issues are grouped by file to suggest parallel groups developers can execute concurrently.
+- The plan includes phase-level parallel groups for human execution, distinct from runtime concurrency.
+
+## Logging & Metrics
+
+### Runtime Summary
+- Logs include:
+  - Workers used and total categories
+  - Per-category runtimes (format, static-analysis, lint, …)
+  - Total wall-time and total issues discovered
+
+Example:
+```
+workers=6, categories=3
+Runtime: format           115ms
+Runtime: static-analysis  812ms
+Runtime: lint             1.067s
+Total wall-time:          1.067s; total issues: 4
+```
+
+### HTML Report Improvements
+- Repo name shown prominently, with user-shortened path (~/…)
+- Version inferred from `VERSION` or version source file where available
+- File-grouped, collapsible issue lists for readability at scale
 
 ## Assessment Categories
 

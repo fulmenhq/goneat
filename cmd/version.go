@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -60,14 +61,14 @@ func runVersion(cmd *cobra.Command, args []string) error {
 	version, source, err := getVersionFromSources()
 	if err != nil {
 		if jsonOutput {
-			versionInfo := map[string]interface{}{
+			versionInfo := map[string]any{
 				"error":     "No version found",
 				"goVersion": runtime.Version(),
 				"platform":  runtime.GOOS,
 				"arch":      runtime.GOARCH,
 			}
 			jsonData, _ := json.MarshalIndent(versionInfo, "", "  ")
-			fmt.Fprintln(out, string(jsonData))
+			_, _ = fmt.Fprintln(out, string(jsonData))
 			return nil
 		}
 		return fmt.Errorf("no version found: %v", err)
@@ -91,7 +92,7 @@ func runVersion(cmd *cobra.Command, args []string) error {
 	}
 
 	if jsonOutput {
-		versionInfo := map[string]interface{}{
+		versionInfo := map[string]any{
 			"version":   version,
 			"source":    source,
 			"goVersion": runtime.Version(),
@@ -112,34 +113,34 @@ func runVersion(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to format JSON: %v", err)
 		}
-		fmt.Fprintln(out, string(jsonData))
+		_, _ = fmt.Fprintln(out, string(jsonData))
 		return nil
 	}
 
 	if extended {
-		fmt.Fprintf(out, "goneat %s\n", version)
-		fmt.Fprintf(out, "Build time: unknown\n") // Maintain backward compatibility
+		_, _ = fmt.Fprintf(out, "goneat %s\n", version)
+		_, _ = fmt.Fprintf(out, "Build time: unknown\n") // Maintain backward compatibility
 		if len(gitCommit) >= 8 {
-			fmt.Fprintf(out, "Git commit: %s\n", gitCommit[:8]) // Short commit hash
+			_, _ = fmt.Fprintf(out, "Git commit: %s\n", gitCommit[:8]) // Short commit hash
 		} else {
-			fmt.Fprintf(out, "Git commit: %s\n", gitCommit)
+			_, _ = fmt.Fprintf(out, "Git commit: %s\n", gitCommit)
 		}
-		fmt.Fprintf(out, "Source: %s\n", source)
+		_, _ = fmt.Fprintf(out, "Source: %s\n", source)
 		if gitBranch != "" {
-			fmt.Fprintf(out, "Git branch: %s\n", gitBranch)
+			_, _ = fmt.Fprintf(out, "Git branch: %s\n", gitBranch)
 		}
 		if gitDirty {
-			fmt.Fprintf(out, "Git status: dirty (uncommitted changes)\n")
+			_, _ = fmt.Fprintf(out, "Git status: dirty (uncommitted changes)\n")
 		} else {
-			fmt.Fprintf(out, "Git status: clean\n")
+			_, _ = fmt.Fprintf(out, "Git status: clean\n")
 		}
-		fmt.Fprintf(out, "Go version: %s\n", runtime.Version())
-		fmt.Fprintf(out, "Platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+		_, _ = fmt.Fprintf(out, "Go version: %s\n", runtime.Version())
+		_, _ = fmt.Fprintf(out, "Platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 	} else {
-		fmt.Fprintf(out, "goneat %s\n", version)
-		fmt.Fprintf(out, "Source: %s\n", source)
-		fmt.Fprintf(out, "Go Version: %s\n", runtime.Version())
-		fmt.Fprintf(out, "OS/Arch: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+		_, _ = fmt.Fprintf(out, "goneat %s\n", version)
+		_, _ = fmt.Fprintf(out, "Source: %s\n", source)
+		_, _ = fmt.Fprintf(out, "Go Version: %s\n", runtime.Version())
+		_, _ = fmt.Fprintf(out, "OS/Arch: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 	}
 
 	return nil
@@ -299,15 +300,15 @@ func runVersionCheckConsistency(cmd *cobra.Command, args []string) error {
 
 	if noOp {
 		logger.Info(fmt.Sprintf("[NO-OP] VERSION file contains: %s", version))
-		fmt.Fprintf(out, "Source: VERSION\n")
-		fmt.Fprintf(out, "Version: %s\n", version)
+		_, _ = fmt.Fprintf(out, "Source: VERSION\n")
+		_, _ = fmt.Fprintf(out, "Version: %s\n", version)
 		return nil
 	}
 
-	fmt.Fprintf(out, "Version Consistency Check\n")
-	fmt.Fprintf(out, "========================\n")
-	fmt.Fprintf(out, "Source: VERSION\n")
-	fmt.Fprintf(out, "Version: %s ✓\n", version)
+	_, _ = fmt.Fprintf(out, "Version Consistency Check\n")
+	_, _ = fmt.Fprintf(out, "========================\n")
+	_, _ = fmt.Fprintf(out, "Source: VERSION\n")
+	_, _ = fmt.Fprintf(out, "Version: %s ✓\n", version)
 
 	logger.Info("Version consistency check completed")
 	return nil
@@ -387,19 +388,84 @@ func bumpSemverVersion(version, bumpType string) (string, error) {
 
 // Git integration functions
 
-// getLatestGitTag returns the latest git tag matching semver pattern
+// getLatestGitTag returns the latest git tag by inspecting all tags and selecting
+// the highest semantic version (vMAJOR.MINOR.PATCH). If no semver tags exist,
+// it attempts calendar versioning (YYYY.MM.DD). As a final fallback, returns an error.
 func getLatestGitTag() (string, error) {
-	cmd := exec.Command("git", "describe", "--tags", "--abbrev=0", "--match", "v[0-9]*.[0-9]*.[0-9]*")
-	output, err := cmd.Output()
-	if err != nil {
-		// Try without 'v' prefix
-		cmd = exec.Command("git", "describe", "--tags", "--abbrev=0", "--match", "[0-9]*.[0-9]*.[0-9]*")
-		output, err = cmd.Output()
-		if err != nil {
-			return "", fmt.Errorf("no git tags found")
-		}
-	}
-	return strings.TrimSpace(string(output)), nil
+    // List all tags
+    cmd := exec.Command("git", "tag", "--list")
+    output, err := cmd.Output()
+    if err != nil {
+        return "", fmt.Errorf("failed to list git tags: %v", err)
+    }
+    lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+    var tags []string
+    for _, line := range lines {
+        tag := strings.TrimSpace(line)
+        if tag != "" {
+            tags = append(tags, tag)
+        }
+    }
+    if len(tags) == 0 {
+        return "", fmt.Errorf("no git tags found")
+    }
+
+    // Try semver first
+    if latest, ok := latestSemverTag(tags); ok {
+        return latest, nil
+    }
+    // Try calendar versioning (YYYY.MM.DD)
+    if latest, ok := latestCalverTag(tags); ok {
+        return latest, nil
+    }
+
+    return "", fmt.Errorf("no recognizable version tags found")
+}
+
+// latestSemverTag finds the highest semver tag, allowing optional 'v' prefix.
+func latestSemverTag(tags []string) (string, bool) {
+    type sv struct{ raw string; major, minor, patch int }
+    var semvers []sv
+    re := regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)(?:-[a-zA-Z0-9.-]+)?(?:\+[a-zA-Z0-9.-]+)?$`)
+    for _, t := range tags {
+        m := re.FindStringSubmatch(t)
+        if len(m) == 0 {
+            continue
+        }
+        maj, _ := strconv.Atoi(m[1])
+        min, _ := strconv.Atoi(m[2])
+        pat, _ := strconv.Atoi(m[3])
+        semvers = append(semvers, sv{raw: t, major: maj, minor: min, patch: pat})
+    }
+    if len(semvers) == 0 {
+        return "", false
+    }
+    sort.Slice(semvers, func(i, j int) bool {
+        if semvers[i].major != semvers[j].major {
+            return semvers[i].major > semvers[j].major
+        }
+        if semvers[i].minor != semvers[j].minor {
+            return semvers[i].minor > semvers[j].minor
+        }
+        return semvers[i].patch > semvers[j].patch
+    })
+    return semvers[0].raw, true
+}
+
+// latestCalverTag finds the highest calendar version tag (YYYY.MM.DD) by lexicographic order.
+func latestCalverTag(tags []string) (string, bool) {
+    re := regexp.MustCompile(`^(\d{4})\.(\d{2})\.(\d{2})$`)
+    var calvers []string
+    for _, t := range tags {
+        if re.MatchString(t) {
+            calvers = append(calvers, t)
+        }
+    }
+    if len(calvers) == 0 {
+        return "", false
+    }
+    sort.Slice(calvers, func(i, j int) bool { return calvers[i] > calvers[j] })
+    return calvers[0], true
 }
 
 // getGitCommitInfo returns current git commit information
@@ -535,12 +601,12 @@ func runVersionInit(cmd *cobra.Command, args []string) error {
 
 // setupBasicTemplate creates a VERSION file with semantic versioning
 func setupBasicTemplate(out io.Writer, initialVersion string, dryRun bool) error {
-	fmt.Fprintf(out, "📝 Setting up basic version management with VERSION file\n\n")
+	_, _ = fmt.Fprintf(out, "📝 Setting up basic version management with VERSION file\n\n")
 
 	if dryRun {
-		fmt.Fprintf(out, "DRY RUN - Would create:\n")
-		fmt.Fprintf(out, "  • VERSION file with content: %s\n", initialVersion)
-		fmt.Fprintf(out, "  • No actual files will be created\n")
+		_, _ = fmt.Fprintf(out, "DRY RUN - Would create:\n")
+		_, _ = fmt.Fprintf(out, "  • VERSION file with content: %s\n", initialVersion)
+		_, _ = fmt.Fprintf(out, "  • No actual files will be created\n")
 		return nil
 	}
 
@@ -550,23 +616,23 @@ func setupBasicTemplate(out io.Writer, initialVersion string, dryRun bool) error
 		return fmt.Errorf("failed to create VERSION file: %v", err)
 	}
 
-	fmt.Fprintf(out, "✅ Created VERSION file with initial version: %s\n", initialVersion)
-	fmt.Fprintf(out, "💡 Usage:\n")
-	fmt.Fprintf(out, "  • goneat version              # Show current version\n")
-	fmt.Fprintf(out, "  • goneat version bump patch   # Increment patch version\n")
-	fmt.Fprintf(out, "  • goneat version set 2.0.0    # Set specific version\n")
+	_, _ = fmt.Fprintf(out, "✅ Created VERSION file with initial version: %s\n", initialVersion)
+	_, _ = fmt.Fprintf(out, "💡 Usage:\n")
+	_, _ = fmt.Fprintf(out, "  • goneat version              # Show current version\n")
+	_, _ = fmt.Fprintf(out, "  • goneat version bump patch   # Increment patch version\n")
+	_, _ = fmt.Fprintf(out, "  • goneat version set 2.0.0    # Set specific version\n")
 
 	return nil
 }
 
 // setupGitTagsTemplate sets up git tag-based versioning
 func setupGitTagsTemplate(out io.Writer, initialVersion string, dryRun bool) error {
-	fmt.Fprintf(out, "🏷️ Setting up git tag-based version management\n\n")
+	_, _ = fmt.Fprintf(out, "🏷️ Setting up git tag-based version management\n\n")
 
 	if dryRun {
-		fmt.Fprintf(out, "DRY RUN - Would create:\n")
-		fmt.Fprintf(out, "  • Git tag: %s\n", initialVersion)
-		fmt.Fprintf(out, "  • No actual tags will be created\n")
+		_, _ = fmt.Fprintf(out, "DRY RUN - Would create:\n")
+		_, _ = fmt.Fprintf(out, "  • Git tag: %s\n", initialVersion)
+		_, _ = fmt.Fprintf(out, "  • No actual tags will be created\n")
 		return nil
 	}
 
@@ -576,18 +642,18 @@ func setupGitTagsTemplate(out io.Writer, initialVersion string, dryRun bool) err
 		return fmt.Errorf("failed to create initial git tag: %v", err)
 	}
 
-	fmt.Fprintf(out, "✅ Created initial git tag: %s\n", initialVersion)
-	fmt.Fprintf(out, "💡 Usage:\n")
-	fmt.Fprintf(out, "  • goneat version              # Show latest git tag\n")
-	fmt.Fprintf(out, "  • goneat version bump patch   # Create new tag with bumped version\n")
-	fmt.Fprintf(out, "  • goneat version set 2.0.0    # Create new tag with specific version\n")
+	_, _ = fmt.Fprintf(out, "✅ Created initial git tag: %s\n", initialVersion)
+	_, _ = fmt.Fprintf(out, "💡 Usage:\n")
+	_, _ = fmt.Fprintf(out, "  • goneat version              # Show latest git tag\n")
+	_, _ = fmt.Fprintf(out, "  • goneat version bump patch   # Create new tag with bumped version\n")
+	_, _ = fmt.Fprintf(out, "  • goneat version set 2.0.0    # Create new tag with specific version\n")
 
 	return nil
 }
 
 // setupCalverTemplate sets up calendar versioning
 func setupCalverTemplate(out io.Writer, initialVersion string, dryRun bool) error {
-	fmt.Fprintf(out, "📅 Setting up calendar versioning (YYYY.MM.DD)\n\n")
+	_, _ = fmt.Fprintf(out, "📅 Setting up calendar versioning (YYYY.MM.DD)\n\n")
 
 	// Generate current date version if not specified
 	if initialVersion == "1.0.0" {
@@ -595,9 +661,9 @@ func setupCalverTemplate(out io.Writer, initialVersion string, dryRun bool) erro
 	}
 
 	if dryRun {
-		fmt.Fprintf(out, "DRY RUN - Would create:\n")
-		fmt.Fprintf(out, "  • VERSION file with content: %s\n", initialVersion)
-		fmt.Fprintf(out, "  • No actual files will be created\n")
+		_, _ = fmt.Fprintf(out, "DRY RUN - Would create:\n")
+		_, _ = fmt.Fprintf(out, "  • VERSION file with content: %s\n", initialVersion)
+		_, _ = fmt.Fprintf(out, "  • No actual files will be created\n")
 		return nil
 	}
 
@@ -607,27 +673,27 @@ func setupCalverTemplate(out io.Writer, initialVersion string, dryRun bool) erro
 		return fmt.Errorf("failed to create VERSION file: %v", err)
 	}
 
-	fmt.Fprintf(out, "✅ Created VERSION file with calendar version: %s\n", initialVersion)
-	fmt.Fprintf(out, "💡 Calendar versioning uses YYYY.MM.DD format\n")
-	fmt.Fprintf(out, "💡 Usage:\n")
-	fmt.Fprintf(out, "  • goneat version                    # Show current version\n")
-	fmt.Fprintf(out, "  • goneat version set 2024.12.25     # Set specific date version\n")
+	_, _ = fmt.Fprintf(out, "✅ Created VERSION file with calendar version: %s\n", initialVersion)
+	_, _ = fmt.Fprintf(out, "💡 Calendar versioning uses YYYY.MM.DD format\n")
+	_, _ = fmt.Fprintf(out, "💡 Usage:\n")
+	_, _ = fmt.Fprintf(out, "  • goneat version                    # Show current version\n")
+	_, _ = fmt.Fprintf(out, "  • goneat version set 2024.12.25     # Set specific date version\n")
 
 	return nil
 }
 
 // setupCustomTemplate provides guidance for custom versioning
 func setupCustomTemplate(out io.Writer, initialVersion string, dryRun bool) error {
-	fmt.Fprintf(out, "🔧 Setting up custom versioning scheme\n\n")
+	_, _ = fmt.Fprintf(out, "🔧 Setting up custom versioning scheme\n\n")
 
 	if dryRun {
-		fmt.Fprintf(out, "DRY RUN - Would create:\n")
-		fmt.Fprintf(out, "  • VERSION file with content: %s\n", initialVersion)
-		fmt.Fprintf(out, "  • No actual files will be created\n")
-		fmt.Fprintf(out, "\n📋 Custom versioning guidance:\n")
-		fmt.Fprintf(out, "  • Edit VERSION file manually for custom schemes\n")
-		fmt.Fprintf(out, "  • Use 'goneat version set <version>' to update\n")
-		fmt.Fprintf(out, "  • Version validation is flexible for custom schemes\n")
+		_, _ = fmt.Fprintf(out, "DRY RUN - Would create:\n")
+		_, _ = fmt.Fprintf(out, "  • VERSION file with content: %s\n", initialVersion)
+		_, _ = fmt.Fprintf(out, "  • No actual files will be created\n")
+		_, _ = fmt.Fprintf(out, "\n📋 Custom versioning guidance:\n")
+		_, _ = fmt.Fprintf(out, "  • Edit VERSION file manually for custom schemes\n")
+		_, _ = fmt.Fprintf(out, "  • Use 'goneat version set <version>' to update\n")
+		_, _ = fmt.Fprintf(out, "  • Version validation is flexible for custom schemes\n")
 		return nil
 	}
 
@@ -637,11 +703,11 @@ func setupCustomTemplate(out io.Writer, initialVersion string, dryRun bool) erro
 		return fmt.Errorf("failed to create VERSION file: %v", err)
 	}
 
-	fmt.Fprintf(out, "✅ Created VERSION file with custom version: %s\n", initialVersion)
-	fmt.Fprintf(out, "📋 Custom versioning notes:\n")
-	fmt.Fprintf(out, "  • Edit VERSION file manually for your custom scheme\n")
-	fmt.Fprintf(out, "  • Use 'goneat version set <version>' to update\n")
-	fmt.Fprintf(out, "  • Version validation is flexible for custom schemes\n")
+	_, _ = fmt.Fprintf(out, "✅ Created VERSION file with custom version: %s\n", initialVersion)
+	_, _ = fmt.Fprintf(out, "📋 Custom versioning notes:\n")
+	_, _ = fmt.Fprintf(out, "  • Edit VERSION file manually for your custom scheme\n")
+	_, _ = fmt.Fprintf(out, "  • Use 'goneat version set <version>' to update\n")
+	_, _ = fmt.Fprintf(out, "  • Version validation is flexible for custom schemes\n")
 
 	return nil
 }
