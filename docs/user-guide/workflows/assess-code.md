@@ -5,7 +5,15 @@ author: "@forge-neat"
 date: "2025-08-28"
 last_updated: "2025-08-28"
 status: "approved"
-tags: ["workflow", "assessment", "development", "ci-cd", "collaboration", "best-practices"]
+tags:
+  [
+    "workflow",
+    "assessment",
+    "development",
+    "ci-cd",
+    "collaboration",
+    "best-practices",
+  ]
 category: "user-guide"
 ---
 
@@ -171,7 +179,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.21'
+          go-version: "1.21"
 
       - name: Install goneat
         run: go install ./...
@@ -478,6 +486,7 @@ goneat assess --check --format json --output team-metrics.json
 The three-mode assessment system enables flexible, safe, and efficient code quality workflows. By combining no-op validation, comprehensive checking, and intelligent fixing, goneat assess supports development teams throughout the entire software lifecycle.
 
 Key takeaways:
+
 - **Start safe** with no-op mode for validation
 - **Check comprehensively** using check mode for regular assessment
 - **Fix strategically** using fix mode for automated improvements

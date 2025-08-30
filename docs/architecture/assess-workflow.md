@@ -18,24 +18,30 @@ The `assess` command serves as a "command of commands" - a unified entry point f
 ## Core Principles
 
 ### 1. Unified Assessment
+
 Single command that orchestrates multiple analysis tools vs. running them separately.
 
 ### 2. Intelligent Prioritization
+
 Expert-driven defaults with user customization to prevent analysis paralysis.
 
 ### 3. Workflow Planning
+
 Not just issue detection, but actionable remediation plans with time estimates.
 
 ### 4. Dual Output Formats (JSON-first)
+
 - **JSON**: Canonical; used for automation and to feed HTML/Markdown
 - **HTML/Markdown**: Human-friendly, rendered from the same JSON data
 
 ### 5. Parallelization Awareness
+
 Identify independent task groups for efficient remediation.
 
 ## Concurrency Execution Model
 
 ### Worker-Pool for Category Runners
+
 - Assessments across categories (format, static-analysis, lint, etc.) run via a bounded worker-pool.
 - Default worker count = 50% of CPU cores (min 1), configurable by flags:
   - `--concurrency <int>`: explicit worker count
@@ -43,22 +49,26 @@ Identify independent task groups for efficient remediation.
 - Failures in any category are recorded per-category; the run continues and final status respects `--fail-on`.
 
 ### Rationale
+
 - Categories have different run-time profiles; overlapping them reduces wall-time.
 - Simpler, predictable scheduling with bounded concurrency.
 
 ### Parallelization in Workflow Plan
+
 - Post-run, issues are grouped by file to suggest parallel groups developers can execute concurrently.
 - The plan includes phase-level parallel groups for human execution, distinct from runtime concurrency.
 
 ## Logging & Metrics
 
 ### Runtime Summary
+
 - Logs include:
   - Workers used and total categories
   - Per-category runtimes (format, static-analysis, lint, …)
   - Total wall-time and total issues discovered
 
 Example:
+
 ```
 workers=6, categories=3
 Runtime: format           115ms
@@ -68,6 +78,7 @@ Total wall-time:          1.067s; total issues: 4
 ```
 
 ### HTML Report Improvements
+
 - Repo name shown prominently, with user-shortened path (~/…)
 - Version inferred from `VERSION` or version source file where available
 - File-grouped, collapsible issue lists for readability at scale
@@ -91,41 +102,49 @@ const (
 ### Secondary Categories (Sub-areas)
 
 #### Format
+
 - `whitespace`: Indentation, trailing spaces, line endings
 - `imports`: Import organization and grouping
 - `structure`: Code structure and organization
 
 #### Lint
+
 - `style`: Code style and conventions
 - `best-practices`: Language-specific best practices
 - `consistency`: Code consistency within project
 
 #### Security
+
 - `vulnerability`: Known security vulnerabilities
 - `leakage`: Information disclosure risks
 - `edge-cases`: Input validation and boundary conditions
 
 #### Performance
+
 - `runtime`: Runtime performance issues
 - `memory`: Memory usage optimization
 - `concurrency`: Concurrent execution issues
 
 #### Complexity
+
 - `cyclomatic`: Code complexity metrics
 - `maintainability`: Code maintainability scores
 - `readability`: Code readability assessment
 
 #### Dependencies
+
 - `security`: Vulnerable dependencies
 - `updates`: Outdated dependencies
 - `compatibility`: Dependency compatibility issues
 
 #### Documentation
+
 - `completeness`: Missing documentation
 - `accuracy`: Documentation accuracy
 - `consistency`: Documentation consistency
 
 #### Testing
+
 - `coverage`: Test coverage metrics
 - `quality`: Test quality assessment
 - `integration`: Integration test coverage
@@ -133,6 +152,7 @@ const (
 ## Command Classification
 
 ### In Scope (Neat Commands)
+
 Commands that perform code analysis, formatting, or quality assessment:
 
 ```go
@@ -148,6 +168,7 @@ var NeatCommands = []string{
 ```
 
 ### Out of Scope
+
 - **Support Commands**: `envinfo`, `help`, `version`
 - **Utility Commands**: `version` (management), `init`, `config`
 - **Informational**: Status displays, logging, debugging
@@ -155,6 +176,7 @@ var NeatCommands = []string{
 ## Priority Matrix
 
 ### Default Priority Order
+
 Based on typical developer workflow and issue characteristics:
 
 ```go
@@ -168,6 +190,7 @@ var DefaultPriorities = map[AssessmentCategory]int{
 ```
 
 ### Priority Characteristics
+
 - **Format**: Usually quick, low cognitive load, auto-fixable
 - **Security**: Critical blockers, immediate attention required
 - **Static Analysis**: Code correctness, potential bugs (go vet, etc.)
@@ -180,11 +203,13 @@ var DefaultPriorities = map[AssessmentCategory]int{
 
 ```markdown
 # Codebase Assessment Report
+
 **Generated:** 2025-08-28T10:30:00Z
 **Tool:** goneat assess
 **Target:** /path/to/project
 
 ## Executive Summary
+
 - **Overall Health:** 🟢 Good (85% compliant)
 - **Critical Issues:** 0
 - **Estimated Fix Time:** 2-3 hours
@@ -193,24 +218,28 @@ var DefaultPriorities = map[AssessmentCategory]int{
 ## Assessment Results
 
 ### 🔧 Format Issues (Priority: 1)
+
 **Status:** ⚠️ 3 issues found
 **Estimated Time:** 15 minutes
 **Parallelizable:** Yes (3 independent files)
 
-| File | Issues | Severity | Auto-fixable |
-|------|--------|----------|--------------|
-| src/main.go | 2 | Low | Yes |
-| pkg/utils.go | 1 | Low | Yes |
+| File         | Issues | Severity | Auto-fixable |
+| ------------ | ------ | -------- | ------------ |
+| src/main.go  | 2      | Low      | Yes          |
+| pkg/utils.go | 1      | Low      | Yes          |
 
 ### 🛡️ Security Issues (Priority: 2)
+
 **Status:** ✅ No issues found
 
 ## Recommended Workflow
+
 1. **Phase 1 (15 min)**: Auto-fix all format issues
 2. **Phase 2 (30 min)**: Address critical lint issues
 3. **Phase 3 (45 min)**: Review remaining items
 
 ## Parallelization Opportunities
+
 - **Group A**: Files with only format issues (3 files)
 - **Group B**: Files with format + simple lint (2 files)
 - **Group C**: Complex refactoring needed (1 file)
@@ -358,18 +387,21 @@ func (e *AssessmentEngine) RunAssessment(target string, config Config) (*Assessm
 ## Implementation Phases
 
 ### Phase 1: Foundation (Current → 2 weeks)
+
 1. **Schema Design**: Define JSON schema and markdown template
 2. **Core Assessment Engine**: Framework for running multiple tools
 3. **Format Integration**: Start with existing format capabilities
 4. **Basic Prioritization**: Simple expert-driven ordering
 
 ### Phase 2: Intelligence (2-4 weeks)
+
 1. **Work Estimation Engine**: Time prediction based on issue patterns
 2. **Parallelization Analysis**: Identify independent task groups
 3. **User Customization**: Priority override system
 4. **Pre-commit Integration**: Hook generation capabilities
 
 ### Phase 3: Ecosystem (4-6 weeks)
+
 1. **Security Integration**: Static analysis tools
 2. **Complexity Metrics**: Code maintainability scoring
 3. **Performance Analysis**: Runtime optimization suggestions
@@ -378,6 +410,7 @@ func (e *AssessmentEngine) RunAssessment(target string, config Config) (*Assessm
 ## Success Metrics
 
 ### Functional Completeness
+
 - ✅ **Unified Assessment**: Single command for comprehensive analysis
 - ✅ **Structured Outputs**: Both markdown and JSON formats
 - ✅ **Intelligent Prioritization**: Expert-driven with user customization
@@ -385,6 +418,7 @@ func (e *AssessmentEngine) RunAssessment(target string, config Config) (*Assessm
 - ✅ **Integration Ready**: Pre-commit, CI/CD, and agentic support
 
 ### Quality Metrics
+
 - ✅ **Performance**: Efficient analysis without significant overhead
 - ✅ **Accuracy**: Reliable issue detection and categorization
 - ✅ **Usability**: Clear, actionable reports for developers

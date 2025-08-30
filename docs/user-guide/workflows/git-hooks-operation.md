@@ -31,10 +31,29 @@ goneat hooks generate
 # 3. Install to git
 goneat hooks install
 
-# 4. Test setup
+# 4. Validate installation
+goneat hooks validate
+
+# 5. Test setup
 goneat assess --hook pre-commit
 
 # Done! Your hooks are now active
+```
+
+## Current Status Verification
+
+Before making changes, check if you already have goneat hooks:
+
+```bash
+# Check current status
+goneat hooks inspect
+
+# If already configured, you'll see:
+# 📊 Current Hook Status:
+# ├── Configuration: ✅ Found
+# ├── Generated Hooks: ✅ Found
+# ├── Installed Hooks: ✅ Found
+# └── System Health: ✅ Good (7/7)
 ```
 
 ## Detailed Setup Process
@@ -101,8 +120,31 @@ goneat hooks install
 **What happens:**
 - Copies generated hooks from `.goneat/hooks/` to `.git/hooks/`
 - Sets executable permissions (`chmod +x`)
-- Provides backup of existing hooks if they exist
+- Creates backup of existing hooks if they exist (`.backup` extension)
 - Ensures git can execute the hooks
+
+### Step 4: Validate Installation
+
+```bash
+goneat hooks validate
+```
+
+**What happens:**
+- Verifies all hook files are correctly generated and executable
+- Tests configuration syntax and completeness
+- Confirms goneat binary is accessible to hooks
+- Reports any issues with clear remediation steps
+
+**Example output:**
+```bash
+🔍 Validating hook configuration...
+✅ Pre-commit hook generated
+✅ Pre-push hook generated  
+✅ Pre-commit hook installed and executable
+✅ Pre-push hook installed and executable
+✅ Hook configuration validation complete
+🎉 Ready to commit with intelligent validation!
+```
 
 **Final directory structure:**
 ```
@@ -146,7 +188,7 @@ graph TD
     A[git commit] --> B[Git triggers hook]
     B --> C[.git/hooks/pre-commit]
     C --> D{Is goneat available?}
-    D -->|Yes| E[goneat assess --hook pre-commit]
+    D -->|Yes| E[goneat assess --hook pre-commit --hook-manifest .goneat/hooks.yaml]
     D -->|No| F[Fallback validation]
     E --> G[Read .goneat/hooks.yaml]
     G --> H[Filter to pre-commit config]
@@ -165,7 +207,7 @@ graph TD
 
 ```mermaid
 graph TD
-    A[goneat assess --hook pre-commit] --> B[Load manifest]
+    A[goneat assess --hook pre-commit --hook-manifest .goneat/hooks.yaml] --> B[Load manifest]
     B --> C[Filter categories: format,lint]
     C --> D[Set priorities: format=1,lint=2]
     D --> E[Initialize assessment runners]
@@ -181,6 +223,26 @@ graph TD
 ```
 
 ## Daily Usage Examples
+
+### Output Modes in Hooks
+
+Goneat hooks support concise, readable summaries optimized for terminal logs, while retaining structured JSON for automation:
+
+- Concise summary (default in hook mode): short, colorized status lines per category, totals, timing, and a clear pass/fail footer.
+- JSON piping: run hooks with JSON output to persist or post-process via pretty/HTML renderers for CI dashboards or rich local views.
+
+Examples:
+
+```bash
+# Force JSON output and pipe to pretty renderer
+goneat assess --hook pre-commit --hook-manifest .goneat/hooks.yaml --format json | goneat pretty --from json --to console
+
+# Persist JSON then open HTML report
+goneat assess --hook pre-push --hook-manifest .goneat/hooks.yaml --format json --output .goneat/reports/hook.json
+goneat pretty --from json --to html --input .goneat/reports/hook.json --open
+```
+
+Color in logs: concise summaries use color/highlight by default for clarity. Disable with `NO_COLOR=1` or `--no-color` for plain output. You can force the concise/markdown/json mode for hooks without changing flags via `GONEAT_HOOK_OUTPUT`.
 
 ### Standard Development Workflow
 
@@ -299,6 +361,49 @@ optimization:
   cache_results: true
   parallel: "auto"
 ```
+
+## File Filtering with .goneatignore
+
+Goneat supports a `.goneatignore` file for controlling which files are assessed:
+
+### Creating .goneatignore
+
+```bash
+# Create ignore file in repository root
+cat > .goneatignore << 'EOF'
+# Goneat ignore patterns (gitignore syntax)
+
+# Temporary files  
+*.tmp
+*.temp
+*~
+
+# Build artifacts
+/dist/
+/build/
+*.exe
+
+# Generated code
+*.pb.go
+*_mock.go
+
+# Override gitignore (assess normally ignored files)
+!important-ignored-file.go
+EOF
+```
+
+### Ignore File Behavior
+
+1. **Respects .gitignore first**: Files ignored by git are automatically ignored
+2. **Extends with .goneatignore**: Additional patterns specific to goneat
+3. **Override capability**: `!pattern` can override gitignore exclusions
+4. **Multiple locations**: Repository, user global, and system-wide ignore files
+
+### File Priority Order
+
+1. `.goneatignore` (repository root)
+2. `~/.goneatignore` (user global)
+3. `$XDG_CONFIG_HOME/goneat/ignore` (system-wide)
 
 ## Troubleshooting Common Issues
 

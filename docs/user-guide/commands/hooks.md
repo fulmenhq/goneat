@@ -49,11 +49,13 @@ goneat hooks init
 ```
 
 **What it does:**
+
 - Creates `.goneat/hooks.yaml` with default configuration
 - Sets up the `.goneat/` directory structure
 - Provides sensible defaults for common use cases
 
 **Example output:**
+
 ```bash
 🐾 Initializing goneat hooks system...
 
@@ -71,12 +73,14 @@ goneat hooks generate
 ```
 
 **What it does:**
+
 - Reads `.goneat/hooks.yaml` configuration
-- Generates simple bash scripts for each hook type
-- Creates fallback logic for when goneat isn't available
-- Places generated files in `.goneat/hooks/` directory
+- Generates bash scripts for each hook type
+- Includes fallback logic when goneat isn't available
+- Writes generated files to `.goneat/hooks/`
 
 **Example output:**
+
 ```bash
 🔨 Generating hook files from manifest...
 
@@ -94,12 +98,14 @@ goneat hooks install
 ```
 
 **What it does:**
+
 - Copies generated hooks from `.goneat/hooks/` to `.git/hooks/`
 - Sets executable permissions on hook files
 - Provides backup of existing hooks if they exist
 - Ensures git can execute the hooks
 
 **Example output:**
+
 ```bash
 📦 Installing hooks to .git/hooks...
 
@@ -118,20 +124,22 @@ goneat hooks validate
 ```
 
 **What it does:**
+
 - Checks `.goneat/hooks.yaml` for syntax errors
 - Validates generated hook files exist and are executable
 - Tests hook execution with dry-run mode
 - Provides remediation steps for any issues
 
 **Example output:**
+
 ```bash
 🔍 Validating hook configuration...
-
-✅ Hook manifest syntax is valid
-✅ Generated hook files are present
-✅ Hook permissions are correct
-✅ Test execution successful
-🎉 Hooks configuration is valid!
+✅ Pre-commit hook generated
+✅ Pre-push hook generated
+✅ Pre-commit hook installed and executable
+✅ Pre-push hook installed and executable
+✅ Hook configuration validation complete
+🎉 Ready to commit with intelligent validation!
 ```
 
 ### `goneat hooks remove`
@@ -143,12 +151,14 @@ goneat hooks remove
 ```
 
 **What it does:**
+
 - Removes goneat hooks from `.git/hooks/` directory
 - Restores any previously backed up original hooks
 - Optionally cleans up generated hook files
 - Provides confirmation of successful removal
 
 **Example output:**
+
 ```bash
 🗑️  Removing goneat hooks...
 
@@ -166,6 +176,7 @@ goneat hooks upgrade
 ```
 
 **What it does:**
+
 - Detects current schema version in `.goneat/hooks.yaml`
 - Downloads the latest schema version
 - Migrates configuration to new format automatically
@@ -173,6 +184,7 @@ goneat hooks upgrade
 - Provides migration summary and any manual steps needed
 
 **Example output:**
+
 ```bash
 ⬆️  Upgrading hook configuration...
 
@@ -192,6 +204,7 @@ goneat hooks inspect [--format json]
 ```
 
 **What it does:**
+
 - Displays detailed information about hook configuration
 - Shows installation status and system state
 - Lists all configured hooks and their settings
@@ -199,20 +212,22 @@ goneat hooks inspect [--format json]
 - Supports both human-readable and JSON output formats
 
 **Example output (default format):**
+
 ```bash
 🔍 Inspecting hook configuration and status...
-
 📊 Current Hook Status:
-├── Configuration: .goneat/hooks.yaml ✅ (v1.0.0)
-├── Generated Hooks: .goneat/hooks/ ✅
-├── Installed Hooks: .git/hooks/ ✅
-├── System Health: All systems operational 🎯
-└── Active Hooks:
-    ├── pre-commit: format,lint (priority: 1,2)
-    └── pre-push: security (priority: 1)
+├── Configuration: ✅ Found
+├── Generated Hooks: ✅ Found
+│   ├── Pre-commit: ✅ Present
+│   └── Pre-push: ✅ Present
+├── Installed Hooks: ✅ Found
+│   ├── Pre-commit: ✅ Installed & executable
+│   └── Pre-push: ✅ Installed & executable
+└── System Health: ✅ Good (7/7)
 ```
 
 **Example output (JSON format):**
+
 ```bash
 goneat hooks inspect --format json
 ```
@@ -253,6 +268,34 @@ goneat hooks inspect --format json
 
 ## Configuration
 
+### Hook Output Modes
+
+Hooks are optimized for readable, actionable summaries while preserving structured data for automation:
+
+- Concise (default in hook mode): Colorized, single-screen summary per category with totals and pass/fail footer
+- JSON: Machine-readable report suitable for piping to pretty/HTML renderers or storing as artifacts
+- Markdown/HTML: Use in CI or open locally for rich views
+
+You can force JSON and pipe to a renderer:
+
+```bash
+goneat assess --hook pre-commit --hook-manifest .goneat/hooks.yaml --format json | goneat pretty --from json --to console
+```
+
+Disable color in terminals that don’t support it:
+
+```bash
+NO_COLOR=1 goneat assess --hook pre-commit
+```
+
+Environment override:
+
+```bash
+# Force concise or markdown output in hook mode without changing flags
+GONEAT_HOOK_OUTPUT=concise goneat assess --hook pre-commit
+GONEAT_HOOK_OUTPUT=markdown goneat assess --hook pre-commit --verbose
+```
+
 ### Hook Manifest (`.goneat/hooks.yaml`)
 
 The hook manifest defines what validation runs for each hook type:
@@ -288,24 +331,24 @@ optimization:
 
 #### Hook Commands
 
-| Field | Type | Description | Example |
-|-------|------|-------------|---------|
-| `command` | string | Goneat subcommand to execute | `"assess"`, `"format"` |
-| `args` | array | Arguments to pass to command | `["--check", "--quiet"]` |
-| `fallback` | string | Shell command if goneat unavailable | `"go fmt ./..."` |
-| `when` | array | Conditions for execution | `[{"files_match": "*.go"}]` |
-| `priority` | integer | Execution priority (higher = first) | `10` |
-| `timeout` | string | Maximum execution time | `"2m"` |
-| `stage_fixed` | boolean | Stage files fixed by command | `true` |
-| `skip` | array | Skip in these git scenarios | `["merge", "rebase"]` |
+| Field         | Type    | Description                         | Example                     |
+| ------------- | ------- | ----------------------------------- | --------------------------- |
+| `command`     | string  | Goneat subcommand to execute        | `"assess"`, `"format"`      |
+| `args`        | array   | Arguments to pass to command        | `["--check", "--quiet"]`    |
+| `fallback`    | string  | Shell command if goneat unavailable | `"go fmt ./..."`            |
+| `when`        | array   | Conditions for execution            | `[{"files_match": "*.go"}]` |
+| `priority`    | integer | Execution priority (higher = first) | `10`                        |
+| `timeout`     | string  | Maximum execution time              | `"2m"`                      |
+| `stage_fixed` | boolean | Stage files fixed by command        | `true`                      |
+| `skip`        | array   | Skip in these git scenarios         | `["merge", "rebase"]`       |
 
 #### Optimization Settings
 
-| Field | Type | Description | Default |
-|-------|------|-------------|---------|
-| `only_changed_files` | boolean | Only validate changed files | `true` |
-| `cache_results` | boolean | Cache validation results | `true` |
-| `parallel` | string | Parallel execution mode | `"auto"` |
+| Field                | Type    | Description                 | Default  |
+| -------------------- | ------- | --------------------------- | -------- |
+| `only_changed_files` | boolean | Only validate changed files | `true`   |
+| `cache_results`      | boolean | Cache validation results    | `true`   |
+| `parallel`           | string  | Parallel execution mode     | `"auto"` |
 
 ## Usage Examples
 
@@ -341,11 +384,11 @@ goneat hooks install
 ### Testing Hooks
 
 ```bash
-# Test what pre-commit hook would do
-goneat assess --hook pre-commit
+# Test what pre-commit hook would do (explicit manifest)
+goneat assess --hook pre-commit --hook-manifest .goneat/hooks.yaml
 
-# Test with verbose output
-goneat assess --hook pre-commit --verbose
+# Test staged-only behavior from CLI
+goneat assess --hook pre-commit --staged-only
 
 # Test specific categories
 goneat assess --categories format,lint
@@ -356,6 +399,7 @@ goneat assess --categories format,lint
 The `generate` command creates simple bash scripts that delegate to goneat:
 
 ### `.git/hooks/pre-commit` (generated)
+
 ```bash
 #!/bin/bash
 # Generated by goneat hooks generate on 2025-08-28
@@ -364,8 +408,13 @@ set -e
 
 echo "🔍 Running goneat pre-commit validation..."
 
-# Check if goneat is available
-if ! command -v goneat &> /dev/null; then
+# Prefer local build if available
+GONEAT_BIN="goneat"
+if ! command -v "$GONEAT_BIN" &> /dev/null; then
+    if [ -x "./dist/goneat" ]; then GONEAT_BIN="./dist/goneat"; fi
+fi
+
+if ! command -v "$GONEAT_BIN" &> /dev/null && [ ! -x "$GONEAT_BIN" ]; then
     echo "⚠️  goneat not found, falling back to basic validation"
     go fmt ./... || { echo "❌ go fmt failed"; exit 1; }
     go vet ./... || { echo "❌ go vet failed"; exit 1; }
@@ -374,10 +423,43 @@ if ! command -v goneat &> /dev/null; then
 fi
 
 # Use goneat's orchestrated assessment
-goneat assess --hook pre-commit --manifest .goneat/hooks.yaml
+"$GONEAT_BIN" assess --hook pre-commit --hook-manifest .goneat/hooks.yaml
 
 echo "✅ Pre-commit validation passed!"
 ```
+
+## File Filtering with .goneatignore
+
+Goneat hooks respect file filtering patterns to control which files are assessed:
+
+### .goneatignore File
+
+Create a `.goneatignore` file in your repository root:
+
+```bash
+# Goneat ignore patterns (follows gitignore syntax)
+*.tmp
+*.temp
+/dist/
+*.pb.go
+*_mock.go
+
+# Override gitignore exclusions
+!important-ignored-file.go
+```
+
+### Ignore Behavior
+
+1. **Git Integration**: Respects `.gitignore` patterns automatically
+2. **Extension**: `.goneatignore` adds goneat-specific patterns
+3. **Override**: `!pattern` syntax overrides gitignore exclusions
+4. **Hierarchy**: Repository → User → System ignore files
+
+### File Locations (Priority Order)
+
+1. `.goneatignore` (repository root)
+2. `~/.goneatignore` (user global)
+3. `$XDG_CONFIG_HOME/goneat/ignore` (system-wide)
 
 ## Integration with Git
 
@@ -419,6 +501,7 @@ goneat assess --hook pre-commit --verbose
 ### Common Issues
 
 **Hooks not running:**
+
 ```bash
 # Check if hooks are executable
 ls -la .git/hooks/pre-commit
@@ -431,6 +514,7 @@ goneat assess --hook pre-commit
 ```
 
 **Configuration errors:**
+
 ```bash
 # Validate configuration
 goneat hooks validate
@@ -440,6 +524,7 @@ cat .goneat/hooks.yaml
 ```
 
 **Performance issues:**
+
 ```bash
 # Test with timing
 time goneat assess --hook pre-commit
@@ -489,7 +574,6 @@ hooks:
     - command: "assess"
       args: ["--categories", "format,lint"]
       timeout: "30s"
-
 # CI/CD - comprehensive validation
 # Use different manifest or command-line overrides
 ```
@@ -503,7 +587,6 @@ Hooks work alongside CI/CD pipelines:
 pre-commit:
   - command: "assess"
     args: ["--categories", "format,lint"]
-
 # CI pipeline - comprehensive validation
 # GitHub Actions, etc. can run:
 # goneat assess --full --format json
@@ -531,6 +614,6 @@ The hooks system is designed for extensibility:
 - [Git Hooks Operation Workflow](../workflows/git-hooks-operation.md) - Complete setup guide with diagrams
 - [Assessment Architecture](../../architecture/assess-workflow.md) - Technical details
 - [Hooks Architecture](../../architecture/hooks-command-architecture.md) - Design decisions</content>
-</xai:function_call/>
-</xai:function_call name="write">
-<parameter name="filePath">/Users/davethompson/dev/fulmenhq/goneat/goneat/docs/user-guide/commands/assess.md
+  </xai:function_call/>
+  </xai:function_call name="write">
+  <parameter name="filePath">/Users/davethompson/dev/fulmenhq/goneat/goneat/docs/user-guide/commands/assess.md

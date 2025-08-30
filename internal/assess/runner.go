@@ -37,13 +37,14 @@ const (
 
 // AssessmentConfig contains configuration for running assessments
 type AssessmentConfig struct {
-	Mode           AssessmentMode `json:"mode"`             // Operation mode
-	Verbose        bool           `json:"verbose"`          // Verbose output
-	Timeout        time.Duration  `json:"timeout"`          // Assessment timeout
-	IncludeFiles   []string       `json:"include_files"`    // Files to include
-	ExcludeFiles   []string       `json:"exclude_files"`    // Files to exclude
-	PriorityString string         `json:"priority_string"`  // Custom priority string
-	FailOnSeverity IssueSeverity  `json:"fail_on_severity"` // Fail if issues at or above this severity
+	Mode               AssessmentMode `json:"mode"`                // Operation mode
+	Verbose            bool           `json:"verbose"`             // Verbose output
+	Timeout            time.Duration  `json:"timeout"`             // Assessment timeout
+	IncludeFiles       []string       `json:"include_files"`       // Files to include
+	ExcludeFiles       []string       `json:"exclude_files"`       // Files to exclude
+	PriorityString     string         `json:"priority_string"`     // Custom priority string
+	FailOnSeverity     IssueSeverity  `json:"fail_on_severity"`    // Fail if issues at or above this severity
+	SelectedCategories []string       `json:"selected_categories"` // If set, restrict assessment to these categories
 	// Concurrency controls
 	// If Concurrency > 0 it is used directly. Otherwise ConcurrencyPercent determines worker count
 	// as a percentage of available CPU cores (1-100). Values <=0 default to 50.
@@ -61,6 +62,7 @@ func DefaultAssessmentConfig() AssessmentConfig {
 		ExcludeFiles:       []string{},
 		PriorityString:     "",
 		FailOnSeverity:     SeverityCritical,
+		SelectedCategories: []string{},
 		Concurrency:        0,
 		ConcurrencyPercent: 50,
 	}

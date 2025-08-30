@@ -1,0 +1,66 @@
+# Goneat Ignore File
+# This file specifies patterns for files and directories that goneat should ignore
+# Syntax follows gitignore patterns - comments start with #
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Build artifacts (in addition to .gitignore)
+/dist/
+/build/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test artifacts
+coverage.out
+*.test
+test-results/
+*.profile
+
+# IDE and editor files
+.vscode/settings.json
+.idea/workspace.xml
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Dependencies (typically in .gitignore too)
+vendor/
+node_modules/
+
+# Generated code (protobuf, etc.)
+*.pb.go
+*_mock.go
+
+# Documentation build artifacts
+docs/_build/
+docs/site/
+
+# Plans and development artifacts (optional - could be assessed)
+# Uncomment if you want to skip assessment of planning docs
+# .plans/
+# *.draft.md
+
+# Template files (placeholder content)
+*.template
+templates/example-*
+
+# Override examples:
+# To assess something normally ignored by git:
+# !important-ignored-file.go

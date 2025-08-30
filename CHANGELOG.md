@@ -16,6 +16,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Build and test infrastructure
 
+## [0.1.2] - 2025-08-30
+
+### Added
+- 🛠️ Hooks Dogfooding & Template Engine
+  - Schema-driven hook templates under `templates/hooks/bash/` rendered via `goneat hooks generate`
+  - Templates consume `.goneat/hooks.yaml` for args, fallback, and optimization (`only_changed_files`)
+  - Dev-mode fallback and robust binary discovery (PATH + repo `dist/` + common locations)
+  - Docs updated with setup, output modes, and JSON piping
+    - `docs/user-guide/workflows/git-hooks-operation.md`
+    - `docs/user-guide/commands/hooks.md`
+
+- 🔎 Concise Hook Output + Pretty Renderer (prototype)
+  - New `concise` output format for short, colorized summaries in hooks (top-N files listed)
+  - `goneat pretty` (stub) renders JSON to console (concise) or HTML using existing formatter
+  - Env override: `GONEAT_HOOK_OUTPUT=concise|markdown|json|html|both`
+
+- ✍️ Format Command Improvements
+  - `--staged-only` to operate on staged files (ACMR)
+  - `--ignore-missing-tools` to skip YAML/JSON/MD formatting if external tools absent
+  - Plan/dry-run works with staged-only (synthesized plan)
+
+- 📚 Environment Variables (SSOT)
+  - Added `docs/environment-variables.md` covering `GONEAT_HOOK_OUTPUT`, `NO_COLOR`, `GONEAT_TEMPLATE_PATH`, and future vars
+
+### Changed
+- Hook mode output selection:
+  - Honors explicit `--format`; otherwise `GONEAT_HOOK_OUTPUT`, else `--verbose` → markdown, else concise
+- Reduced runner “failed without error” log noise to debug in hook mode context
+- Concise output: fallback to first issue message when no file path is available
+
+### Fixed
+- Robust JSON parsing in `goneat pretty` (tolerates log preambles)
+- Hook templates prefer repo-local `dist/goneat`; improved fail-fast guidance when missing
+
+### Technical Details
+- Taxonomy docs: `docs/architecture/command-taxonomy-validation-adr.md`
+- Hook docs: `docs/user-guide/workflows/git-hooks-operation.md`, `docs/user-guide/commands/hooks.md`
+- Structured fixtures: `tests/fixtures/` for ongoing lint/format testing
+
+## [0.1.1] - 2025-08-28
+
+### Added
+- **Assessment System Enhancement**: Concurrency support for parallel processing
+  - Configurable worker count and CPU percentage utilization
+  - Improved performance for large codebase assessments
+  - JSON-first reporting with HTML fallback
+
+### Changed
+- **Report Format**: Enhanced HTML template with better styling and information architecture
+- **Assessment Engine**: Format run summaries and improved error handling
+- **Git Integration**: Better semver/calver tag detection and validation
+
+### Fixed
+- Lint issues across assessment engine and formatter modules
+- Static analysis warnings in runner and engine components
+
 ## [0.1.0] - 2025-08-28
 
 ### Added

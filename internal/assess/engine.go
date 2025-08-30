@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -41,6 +42,21 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 	// Get available categories and order them by priority
 	availableCategories := e.runnerRegistry.GetAvailableCategories()
 	orderedCategories := e.priorityManager.GetOrderedCategories(availableCategories)
+
+	// If specific categories were requested, filter accordingly
+	if len(config.SelectedCategories) > 0 {
+		allowed := make(map[string]bool)
+		for _, c := range config.SelectedCategories {
+			allowed[strings.TrimSpace(c)] = true
+		}
+		var filtered []AssessmentCategory
+		for _, c := range orderedCategories {
+			if allowed[string(c)] {
+				filtered = append(filtered, c)
+			}
+		}
+		orderedCategories = filtered
+	}
 
 	// Determine worker count based on flags and CPU cores
 	var workerCount int
@@ -106,10 +122,10 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 				cr.EstimatedTime = e.estimateCategoryTime(result.Issues)
 				allIssues = append(allIssues, result.Issues...)
 				logger.Info(fmt.Sprintf("%s assessment completed in %v: %d issues found", category, runDur, len(result.Issues)))
-			} else {
-				cr.Status = "failed"
-				logger.Warn(fmt.Sprintf("%s assessment failed without error after %v", category, runDur))
-			}
+            } else {
+                cr.Status = "failed"
+                logger.Debug(fmt.Sprintf("%s assessment failed without error after %v", category, runDur))
+            }
 			categoryResults[string(category)] = cr
 		}
 	} else {
@@ -149,10 +165,10 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 						cr.IssueCount = len(result.Issues)
 						cr.EstimatedTime = e.estimateCategoryTime(result.Issues)
 						logger.Info(fmt.Sprintf("%s assessment completed in %v: %d issues found", j.category, runDur, len(result.Issues)))
-					} else {
-						cr.Status = "failed"
-						logger.Warn(fmt.Sprintf("%s assessment failed without error after %v", j.category, runDur))
-					}
+                    } else {
+                        cr.Status = "failed"
+                        logger.Debug(fmt.Sprintf("%s assessment failed without error after %v", j.category, runDur))
+                    }
 
 					mu.Lock()
 					catRuntime[j.category] = runDur

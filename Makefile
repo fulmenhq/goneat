@@ -27,7 +27,7 @@ GOFMT := $(GOCMD) fmt
 LDFLAGS := -ldflags "-X 'main.Version=$(VERSION)'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
-.PHONY: help build clean test fmt version-get version-bump-patch version-bump-minor version-bump-major version-set
+.PHONY: help build clean test fmt format-docs version-get version-bump-patch version-bump-minor version-bump-major version-set
 
 # Default target
 all: clean build fmt
@@ -107,6 +107,16 @@ fmt: build ## Format code using goneat (dogfooding)
 	else \
 		echo "❌ goneat binary not found, falling back to go fmt"; \
 		go fmt ./cmd/... ./pkg/... ./main.go; \
+	fi
+
+format-docs: build ## Format documentation files using goneat (dogfooding)
+	@echo "Formatting documentation with goneat..."
+	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
+		$(BUILD_DIR)/$(BINARY_NAME) format --types yaml,json,markdown --folders docs/; \
+		echo "✅ Documentation formatting completed with goneat"; \
+	else \
+		echo "❌ goneat binary not found, falling back to manual formatting"; \
+		echo "Please install yamlfmt, jq, and prettier for documentation formatting"; \
 	fi
 
 # Development setup

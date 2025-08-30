@@ -15,6 +15,7 @@ Goneat is committed to license compliance and transparency. This inventory track
 ## License Classifications
 
 ### Compatible Licenses ✅
+
 These licenses are compatible with Goneat's Apache 2.0 license:
 
 - **Apache License 2.0** - Full compatibility
@@ -24,6 +25,7 @@ These licenses are compatible with Goneat's Apache 2.0 license:
 - **ISC License** - Full compatibility
 
 ### Restricted Licenses ⚠️
+
 These licenses require additional consideration:
 
 - **GPL 2.0/3.0** - Copyleft, may contaminate Apache 2.0
@@ -32,6 +34,7 @@ These licenses require additional consideration:
 - **MPL 2.0** - Copyleft, may contaminate
 
 ### Forbidden Licenses ❌
+
 These licenses are incompatible and cannot be used:
 
 - **GPL 1.0** - Outdated, incompatible

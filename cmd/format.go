@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/3leaps/goneat/internal/ops"
 	"github.com/3leaps/goneat/pkg/config"
 	"github.com/3leaps/goneat/pkg/exitcode"
 	"github.com/3leaps/goneat/pkg/logger"
@@ -37,6 +38,12 @@ By default, formats all supported files in the current directory.`,
 func init() {
 	rootCmd.AddCommand(formatCmd)
 
+	// Register command in ops registry with taxonomy
+	capabilities := ops.GetDefaultCapabilities(ops.GroupNeat, ops.CategoryFormatting)
+	if err := ops.RegisterCommandWithTaxonomy("format", ops.GroupNeat, ops.CategoryFormatting, capabilities, formatCmd, "Format code files"); err != nil {
+		panic(fmt.Sprintf("Failed to register format command: %v", err))
+	}
+
 	formatCmd.Flags().StringSliceP("files", "f", []string{}, "Specific files to format")
 	formatCmd.Flags().Bool("check", false, "Check if files are formatted without modifying")
 	formatCmd.Flags().Bool("quiet", false, "Suppress output except for errors")
@@ -49,6 +56,10 @@ func init() {
 	formatCmd.Flags().String("strategy", "sequential", "Execution strategy (sequential, parallel)")
 	formatCmd.Flags().Bool("group-by-size", false, "Group work items by file size")
 	formatCmd.Flags().Bool("group-by-type", false, "Group work items by content type")
+
+	// Dogfooding helpers
+	formatCmd.Flags().Bool("staged-only", false, "Only format staged files in git (changed and added)")
+	formatCmd.Flags().Bool("ignore-missing-tools", false, "Skip files requiring external formatters if tools are missing")
 }
 
 func RunFormat(cmd *cobra.Command, args []string) error {
@@ -75,6 +86,8 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 	groupBySize, _ := cmd.Flags().GetBool("group-by-size")
 	groupByType, _ := cmd.Flags().GetBool("group-by-type")
 	noOp, _ := cmd.Flags().GetBool("no-op")
+	stagedOnly, _ := cmd.Flags().GetBool("staged-only")
+	ignoreMissingTools, _ := cmd.Flags().GetBool("ignore-missing-tools")
 
 	// Check if no-op mode is enabled
 	if noOp {
@@ -87,15 +100,6 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 		paths = folders
 	} else if len(args) > 0 {
 		paths = args
-	} else if len(files) > 0 {
-		// Extract directories from files
-		pathMap := make(map[string]bool)
-		for _, file := range files {
-			pathMap[filepath.Dir(file)] = true
-		}
-		for path := range pathMap {
-			paths = append(paths, path)
-		}
 	} else {
 		paths = []string{"."}
 	}
@@ -112,23 +116,50 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 		GroupByContentType: groupByType,
 	}
 
-	// Create planner and generate manifest
-	planner := work.NewPlanner(plannerConfig)
-	manifest, err := planner.GenerateManifest()
-	if err != nil {
-		logger.Error("Failed to generate work manifest", logger.Err(err))
-		return err
-	}
+	var filesToProcess []string
 
-	// Handle plan-only mode
-	if planOnly || dryRun {
-		return handlePlanOnly(cmd, manifest, planFile, dryRun)
-	}
-
-	// Extract files from manifest
-	filesToProcess := make([]string, len(manifest.WorkItems))
-	for i, item := range manifest.WorkItems {
-		filesToProcess[i] = item.Path
+	if stagedOnly {
+		staged, err := getStagedFilesFormat()
+		if err != nil {
+			return fmt.Errorf("failed to get staged files: %v", err)
+		}
+		// Filter by content types if provided
+		allowed := make(map[string]bool)
+		for _, t := range contentTypes {
+			allowed[strings.ToLower(strings.TrimSpace(t))] = true
+		}
+		for _, f := range staged {
+			// If --files provided, restrict to those
+			if len(files) > 0 && !stringSliceContains(files, f) {
+				continue
+			}
+			ct := getContentTypeFromPath(f)
+			if len(allowed) == 0 || allowed[ct] {
+				filesToProcess = append(filesToProcess, f)
+			}
+		}
+		// In staged-only + (planOnly or dryRun), synthesize a small manifest for plan output
+		if planOnly || dryRun {
+			synth := &work.WorkManifest{Plan: work.Plan{Command: "format", Timestamp: time.Now(), WorkingDirectory: ".", TotalFiles: len(filesToProcess), FilteredFiles: len(filesToProcess), ExecutionStrategy: strategy}}
+			return handlePlanOnly(cmd, synth, planFile, dryRun)
+		}
+	} else {
+		// Planner path for non-staged runs
+		planner := work.NewPlanner(plannerConfig)
+		manifest, err := planner.GenerateManifest()
+		if err != nil {
+			logger.Error("Failed to generate work manifest", logger.Err(err))
+			return err
+		}
+		// Handle plan-only mode
+		if planOnly || dryRun {
+			return handlePlanOnly(cmd, manifest, planFile, dryRun)
+		}
+		// Extract files from manifest
+		filesToProcess = make([]string, len(manifest.WorkItems))
+		for i, item := range manifest.WorkItems {
+			filesToProcess[i] = item.Path
+		}
 	}
 
 	if len(filesToProcess) == 0 {
@@ -143,26 +174,45 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 	}
 
 	// Execute based on strategy
-	if strategy == "parallel" && !dryRun && !planOnly {
+	if strategy == "parallel" && !dryRun && !planOnly && !stagedOnly {
 		return executeParallel(filesToProcess, cfg, quiet, noOp)
 	} else {
-		return executeSequential(filesToProcess, checkOnly || noOp, quiet, cfg)
+		return executeSequentialWithOptions(filesToProcess, checkOnly || noOp, quiet, cfg, ignoreMissingTools)
 	}
 }
 
 // removed unused findSupportedFiles helper
 
-func processFile(file string, checkOnly, quiet bool, cfg *config.Config) error {
+func processFile(file string, checkOnly, quiet bool, cfg *config.Config, ignoreMissingTools bool) error {
 	ext := filepath.Ext(file)
 
 	switch ext {
 	case ".go":
 		return formatGoFile(file, checkOnly, cfg)
 	case ".yaml", ".yml":
+		// Skip if yamlfmt missing and ignoring missing tools
+		if ignoreMissingTools {
+			if _, err := exec.LookPath("yamlfmt"); err != nil {
+				logger.Warn("yamlfmt not found; skipping YAML formatting for this file")
+				return nil
+			}
+		}
 		return formatYAMLFile(file, checkOnly, cfg)
 	case ".json":
+		if ignoreMissingTools {
+			if _, err := exec.LookPath("jq"); err != nil {
+				logger.Warn("jq not found; skipping JSON formatting for this file")
+				return nil
+			}
+		}
 		return formatJSONFile(file, checkOnly, cfg)
 	case ".md":
+		if ignoreMissingTools {
+			if _, err := exec.LookPath("prettier"); err != nil {
+				logger.Warn("prettier not found; skipping Markdown formatting for this file")
+				return nil
+			}
+		}
 		return formatMarkdownFile(file, checkOnly, cfg)
 	default:
 		return fmt.Errorf("unsupported file type: %s", ext)
@@ -191,7 +241,10 @@ func formatGoFile(file string, checkOnly bool, cfg *config.Config) error {
 	}
 
 	if bytes.Equal(content, formatted) {
-		return nil // Already formatted
+		if checkOnly {
+			return fmt.Errorf("already formatted")
+		}
+		return fmt.Errorf("already formatted") // Signal that no changes were made
 	}
 
 	if checkOnly {
@@ -205,6 +258,12 @@ func formatGoFile(file string, checkOnly bool, cfg *config.Config) error {
 }
 
 func formatYAMLFile(file string, checkOnly bool, cfg *config.Config) error {
+	// Read original content first
+	originalContent, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+
 	yamlConfig := cfg.GetYAMLConfig()
 
 	// Build yamlfmt arguments
@@ -237,6 +296,25 @@ func formatYAMLFile(file string, checkOnly bool, cfg *config.Config) error {
 		logger.Debug(fmt.Sprintf("yamlfmt output: %s", string(output)))
 	}
 
+	// Read the file after formatting to check if it changed
+	formattedContent, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+
+	// Check if formatting actually changed the content
+	if bytes.Equal(originalContent, formattedContent) {
+		if checkOnly {
+			return fmt.Errorf("already formatted")
+		}
+		return fmt.Errorf("already formatted") // Signal that no changes were made
+	}
+
+	if checkOnly {
+		return fmt.Errorf("needs formatting")
+	}
+
+	logger.Info(fmt.Sprintf("Applying YAML formatting changes to %s", file))
 	return nil
 }
 
@@ -281,7 +359,10 @@ func formatJSONFile(file string, checkOnly bool, cfg *config.Config) error {
 
 	// Check if formatting changed the content
 	if bytes.Equal(originalContent, []byte(formatted)) {
-		return nil // Already formatted
+		if checkOnly {
+			return fmt.Errorf("already formatted")
+		}
+		return fmt.Errorf("already formatted") // Signal that no changes were made
 	}
 
 	if checkOnly {
@@ -344,7 +425,10 @@ func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config) error {
 
 	// Check if formatting changed the content
 	if bytes.Equal(originalContent, []byte(formatted)) {
-		return nil // Already formatted
+		if checkOnly {
+			return fmt.Errorf("already formatted")
+		}
+		return fmt.Errorf("already formatted") // Signal that no changes were made
 	}
 
 	if checkOnly {
@@ -356,15 +440,33 @@ func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config) error {
 }
 
 // executeSequential executes work items sequentially
-func executeSequential(files []string, checkOnly, quiet bool, cfg *config.Config) error {
+func executeSequentialWithOptions(files []string, checkOnly, quiet bool, cfg *config.Config, ignoreMissingTools bool) error {
 	start := time.Now()
-	var formattedCount, errorCount int
+	var formattedCount, unchangedCount, errorCount int
 
 	for _, file := range files {
-		if err := processFile(file, checkOnly, quiet, cfg); err != nil {
-			logger.Error(fmt.Sprintf("Failed to process %s", file), logger.Err(err))
-			errorCount++
+		if err := processFile(file, checkOnly, quiet, cfg, ignoreMissingTools); err != nil {
+			if err.Error() == "needs formatting" {
+				if checkOnly {
+					logger.Error(fmt.Sprintf("Failed to process %s", file), logger.Err(err))
+					errorCount++
+				} else {
+					formattedCount++
+					if !quiet {
+						logger.Info(fmt.Sprintf("Formatted %s", file))
+					}
+				}
+			} else if err.Error() == "already formatted" {
+				unchangedCount++
+				if !quiet && !checkOnly {
+					logger.Debug(fmt.Sprintf("%s already properly formatted", file))
+				}
+			} else {
+				logger.Error(fmt.Sprintf("Failed to process %s", file), logger.Err(err))
+				errorCount++
+			}
 		} else {
+			// For cases where no error is returned (shouldn't happen with new logic)
 			formattedCount++
 			if !quiet && !checkOnly {
 				logger.Info(fmt.Sprintf("Formatted %s", file))
@@ -373,7 +475,6 @@ func executeSequential(files []string, checkOnly, quiet bool, cfg *config.Config
 	}
 
 	duration := time.Since(start)
-	unchanged := len(files) - formattedCount - errorCount
 
 	if !quiet {
 		if checkOnly {
@@ -383,10 +484,10 @@ func executeSequential(files []string, checkOnly, quiet bool, cfg *config.Config
 				logger.Info("All files are properly formatted")
 			}
 			logger.Info(fmt.Sprintf("Summary (sequential): files=%d, ok=%d, need-format=%d, runtime=%v",
-				len(files), unchanged+formattedCount, errorCount, duration))
+				len(files), unchangedCount, errorCount, duration))
 		} else {
 			logger.Info(fmt.Sprintf("Processed %d files (%d formatted, %d unchanged, %d errors) in %v (workers=1)",
-				len(files), formattedCount, unchanged, errorCount, duration))
+				len(files), formattedCount, unchangedCount, errorCount, duration))
 		}
 	}
 
@@ -400,6 +501,32 @@ func executeSequential(files []string, checkOnly, quiet bool, cfg *config.Config
 	}
 
 	return nil
+}
+
+// getStagedFilesFormat returns staged files (ACMR) for format command
+func getStagedFilesFormat() ([]string, error) {
+	cmd := exec.Command("git", "diff", "--cached", "--name-only", "--diff-filter=ACMR")
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	var files []string
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			files = append(files, line)
+		}
+	}
+	return files, nil
+}
+
+func stringSliceContains(slice []string, s string) bool {
+	for _, v := range slice {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }
 
 // executeParallel executes work items in parallel using the dispatcher

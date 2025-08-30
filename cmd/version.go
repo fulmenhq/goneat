@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/3leaps/goneat/internal/ops"
 	"github.com/3leaps/goneat/pkg/logger"
 	"github.com/spf13/cobra"
 )
@@ -31,6 +32,13 @@ Works with VERSION files, git tags, and other version sources.`,
 
 func init() {
 	rootCmd.AddCommand(versionCmd)
+
+	// Register command in ops registry with taxonomy
+	capabilities := ops.GetDefaultCapabilities(ops.GroupSupport, ops.CategoryInformation)
+	if err := ops.RegisterCommandWithTaxonomy("version", ops.GroupSupport, ops.CategoryInformation, capabilities, versionCmd, "Show version information"); err != nil {
+		panic(fmt.Sprintf("Failed to register version command: %v", err))
+	}
+
 	versionCmd.Flags().Bool("extended", false, "Show detailed build and git information")
 	versionCmd.Flags().Bool("json", false, "Output version information in JSON format")
 	versionCmd.Flags().Bool("no-op", false, "Run in assessment mode without making changes")

@@ -4,17 +4,19 @@ Copyright © 2025 3 Leaps <info@3leaps.net>
 package cmd
 
 import (
-	"fmt"
-	"os"
-	"os/exec"
-	"runtime"
-	"strings"
-	"time"
+    "bufio"
+    "fmt"
+    "os"
+    "os/exec"
+    "runtime"
+    "strings"
+    "time"
 
-	"github.com/3leaps/goneat/internal/assess"
-	"github.com/3leaps/goneat/internal/ops"
-	"github.com/3leaps/goneat/pkg/logger"
-	"github.com/spf13/cobra"
+    "github.com/3leaps/goneat/internal/assess"
+    "github.com/3leaps/goneat/internal/ops"
+    "github.com/3leaps/goneat/pkg/logger"
+    "github.com/spf13/cobra"
+    "gopkg.in/yaml.v3"
 )
 
 // assessCmd represents the assess command
@@ -57,13 +59,16 @@ var (
 	// Concurrency flags
 	assessConcurrency        int
 	assessConcurrencyPercent int
+	assessCategories         string
+    assessStagedOnly         bool
 )
 
 func init() {
 	rootCmd.AddCommand(assessCmd)
 
-	// Register command in ops registry
-	if err := ops.RegisterCommand("assess", ops.GroupUtility, assessCmd, "Comprehensive codebase assessment and workflow planning"); err != nil {
+	// Register command in ops registry with taxonomy
+	capabilities := ops.GetDefaultCapabilities(ops.GroupNeat, ops.CategoryAssessment)
+	if err := ops.RegisterCommandWithTaxonomy("assess", ops.GroupNeat, ops.CategoryAssessment, capabilities, assessCmd, "Comprehensive codebase assessment and workflow planning"); err != nil {
 		panic(fmt.Sprintf("Failed to register assess command: %v", err))
 	}
 
@@ -72,6 +77,7 @@ func init() {
 	assessCmd.Flags().StringVar(&assessMode, "mode", "check", "Operation mode (no-op, check, fix)")
 	assessCmd.Flags().BoolVarP(&assessVerbose, "verbose", "v", false, "Verbose output")
 	assessCmd.Flags().StringVar(&assessPriority, "priority", "", "Custom priority string (e.g., 'security=1,format=2')")
+	assessCmd.Flags().StringVar(&assessCategories, "categories", "", "Restrict assessment to specific categories (comma-separated, e.g., 'format,lint')")
 	assessCmd.Flags().StringVar(&assessFailOn, "fail-on", "critical", "Fail if issues at or above severity (critical, high, medium, low)")
 	assessCmd.Flags().DurationVar(&assessTimeout, "timeout", 5*time.Minute, "Assessment timeout")
 	assessCmd.Flags().StringVarP(&assessOutput, "output", "o", "", "Output file (default: stdout)")
@@ -97,6 +103,9 @@ func init() {
 	assessCmd.Flags().Bool("no-op", false, "Run in no-op mode (assessment only)")
 	assessCmd.Flags().Bool("check", false, "Run in check mode (report only)")
 	assessCmd.Flags().Bool("fix", false, "Run in fix mode (apply fixes)")
+
+    // File scope flags
+    assessCmd.Flags().BoolVar(&assessStagedOnly, "staged-only", false, "Only assess staged files in git (changed and added)")
 }
 
 func runAssess(cmd *cobra.Command, args []string) error {
@@ -114,11 +123,13 @@ func runAssess(cmd *cobra.Command, args []string) error {
 	assessOutput, _ = flags.GetString("output")
 	assessIncludeFiles, _ = flags.GetStringSlice("include")
 	assessExcludeFiles, _ = flags.GetStringSlice("exclude")
+	assessCategories, _ = flags.GetString("categories")
 	assessHook, _ = flags.GetString("hook")
 	assessHookManifest, _ = flags.GetString("hook-manifest")
 	assessOpen, _ = flags.GetBool("open")
 	assessConcurrency, _ = flags.GetInt("concurrency")
 	assessConcurrencyPercent, _ = flags.GetInt("concurrency-percent")
+    assessStagedOnly, _ = flags.GetBool("staged-only")
 
 	// Determine target directory
 	target := "."
@@ -131,8 +142,8 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("target directory does not exist: %s", target)
 	}
 
-	// Parse format
-	var format assess.OutputFormat
+    // Parse format
+    var format assess.OutputFormat
 	switch assessFormat {
 	case "markdown":
 		format = assess.FormatMarkdown
@@ -142,8 +153,10 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		format = assess.FormatHTML
 	case "both":
 		format = assess.FormatBoth
+    case "concise":
+        format = assess.FormatConcise
 	default:
-		return fmt.Errorf("invalid format: %s (must be markdown, json, html, or both)", assessFormat)
+        return fmt.Errorf("invalid format: %s (must be concise, markdown, json, html, or both)", assessFormat)
 	}
 
 	// Parse fail-on severity
@@ -182,10 +195,55 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		ConcurrencyPercent: assessConcurrencyPercent,
 	}
 
-	// Handle hook mode if specified
-	if assessHook != "" {
-		return runHookMode(cmd, assessHook, assessHookManifest, config)
+    // If limited to staged files, populate IncludeFiles from git staged set
+    if assessStagedOnly {
+        if len(config.IncludeFiles) == 0 { // do not override explicit includes
+            if staged, err := getStagedFiles(); err == nil {
+                if len(staged) > 0 {
+                    config.IncludeFiles = staged
+                }
+            } else {
+                logger.Warn(fmt.Sprintf("Failed to resolve staged files: %v (continuing without staged-only)", err))
+            }
+        }
+    }
+
+	// Apply categories filter if provided
+	if strings.TrimSpace(assessCategories) != "" {
+		parts := strings.Split(assessCategories, ",")
+		for i := range parts {
+			parts[i] = strings.TrimSpace(parts[i])
+		}
+		config.SelectedCategories = parts
 	}
+
+    // Handle hook mode if specified
+    if assessHook != "" {
+        // Honor explicit --format. If not set, choose based on verbosity.
+        formatFlagSet := flags.Changed("format")
+        if !formatFlagSet {
+            // Allow environment override for hook output mode
+            if env := os.Getenv("GONEAT_HOOK_OUTPUT"); strings.TrimSpace(env) != "" {
+                switch strings.ToLower(strings.TrimSpace(env)) {
+                case "concise":
+                    format = assess.FormatConcise
+                case "markdown":
+                    format = assess.FormatMarkdown
+                case "json":
+                    format = assess.FormatJSON
+                case "html":
+                    format = assess.FormatHTML
+                case "both":
+                    format = assess.FormatBoth
+                }
+            } else if assessVerbose {
+                format = assess.FormatMarkdown
+            } else {
+                format = assess.FormatConcise
+            }
+        }
+        return runHookMode(cmd, assessHook, assessHookManifest, config, format)
+    }
 
 	// Create assessment engine
 	engine := assess.NewAssessmentEngine()
@@ -197,8 +255,13 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("assessment failed: %v", err)
 	}
 
-	// Format and output report
-	formatter := assess.NewFormatter(format)
+    // In hook mode, default to concise unless user explicitly chooses otherwise
+    if assessHook != "" && assessFormat == "markdown" {
+        format = assess.FormatConcise
+    }
+
+    // Format and output report
+    formatter := assess.NewFormatter(format)
 	formatter.SetTargetPath(target)
 
 	if assessOutput != "" {
@@ -267,7 +330,7 @@ func shouldFail(report *assess.AssessmentReport, failOnSeverity assess.IssueSeve
 }
 
 // runHookMode executes assessment in hook mode
-func runHookMode(cmd *cobra.Command, hookType, manifestPath string, config assess.AssessmentConfig) error {
+func runHookMode(cmd *cobra.Command, hookType, manifestPath string, config assess.AssessmentConfig, outFormat assess.OutputFormat) error {
 	logger.Info(fmt.Sprintf("Running assessment in hook mode: %s", hookType))
 
 	// Validate hook type
@@ -275,11 +338,11 @@ func runHookMode(cmd *cobra.Command, hookType, manifestPath string, config asses
 		return fmt.Errorf("invalid hook type: %s (must be pre-commit or pre-push)", hookType)
 	}
 
-	// Load hook manifest if specified
-	var hookConfig *HookConfig
+    // Load hook manifest if specified (full manifest to access optimization)
+    var hookConfig *HookConfig
 	if manifestPath != "" {
 		var err error
-		hookConfig, err = loadHookManifest(manifestPath)
+        hookConfig, err = loadHookManifest(manifestPath)
 		if err != nil {
 			logger.Warn(fmt.Sprintf("Failed to load hook manifest: %v, using defaults", err))
 			hookConfig = getDefaultHookConfig(hookType)
@@ -291,7 +354,18 @@ func runHookMode(cmd *cobra.Command, hookType, manifestPath string, config asses
 	// Filter categories based on hook type
 	config = filterCategoriesForHook(config, hookType, hookConfig)
 
-	// Create assessment engine
+    // Apply staged-only optimization if configured
+    if hookConfig.Optimization.OnlyChangedFiles {
+        if staged, err := getStagedFiles(); err == nil {
+            if len(staged) > 0 {
+                config.IncludeFiles = staged
+            }
+        } else {
+            logger.Warn(fmt.Sprintf("Failed to resolve staged files: %v (continuing without staged-only)", err))
+        }
+    }
+
+    // Create assessment engine
 	engine := assess.NewAssessmentEngine()
 
 	// Run assessment
@@ -301,8 +375,8 @@ func runHookMode(cmd *cobra.Command, hookType, manifestPath string, config asses
 		return fmt.Errorf("hook assessment failed: %v", err)
 	}
 
-	// Format and output report
-	formatter := assess.NewFormatter(assess.FormatMarkdown)
+    // Format and output report (concise default provided by caller)
+    formatter := assess.NewFormatter(outFormat)
 	formatter.SetTargetPath(target)
 	if err := formatter.WriteReport(cmd.OutOrStdout(), report); err != nil {
 		return fmt.Errorf("failed to write hook report: %v", err)
@@ -317,17 +391,53 @@ func runHookMode(cmd *cobra.Command, hookType, manifestPath string, config asses
 	return nil
 }
 
-// HookConfig represents hook configuration
+// HookConfig represents hook configuration (parsed from .goneat/hooks.yaml)
 type HookConfig struct {
-	Categories []string `yaml:"categories"`
-	FailOn     string   `yaml:"fail_on"`
+    // Legacy/simple fields for runHookMode filtering
+    Categories []string `yaml:"categories"`
+    FailOn     string   `yaml:"fail_on"`
+
+    // Schema-driven fields (subset as needed)
+    Hooks map[string][]struct {
+        Command  string   `yaml:"command"`
+        Args     []string `yaml:"args"`
+        Fallback string   `yaml:"fallback"`
+    } `yaml:"hooks"`
+
+    Optimization struct {
+        OnlyChangedFiles bool   `yaml:"only_changed_files"`
+        CacheResults     bool   `yaml:"cache_results"`
+        Parallel         string `yaml:"parallel"`
+    } `yaml:"optimization"`
 }
 
 // loadHookManifest loads hook configuration from YAML file
 func loadHookManifest(path string) (*HookConfig, error) {
-	// TODO: Implement YAML loading
-	// For now, return default config
-	return getDefaultHookConfig("pre-commit"), nil
+    data, err := os.ReadFile(path)
+    if err != nil {
+        return nil, fmt.Errorf("read manifest: %w", err)
+    }
+    var cfg HookConfig
+    if err := yaml.Unmarshal(data, &cfg); err != nil {
+        return nil, fmt.Errorf("parse manifest: %w", err)
+    }
+    // If no simple fields provided, set sensible defaults based on hook sections
+    if len(cfg.Categories) == 0 {
+        switch {
+        case cfg.Hooks != nil && len(cfg.Hooks["pre-push"]) > 0:
+            cfg.Categories = []string{"format", "lint", "security"}
+        default:
+            cfg.Categories = []string{"format", "lint"}
+        }
+    }
+    if cfg.FailOn == "" {
+        if cfg.Hooks != nil && len(cfg.Hooks["pre-push"]) > 0 {
+            cfg.FailOn = "critical"
+        } else {
+            cfg.FailOn = "high"
+        }
+    }
+    return &cfg, nil
 }
 
 // getDefaultHookConfig returns default hook configuration
@@ -353,16 +463,42 @@ func getDefaultHookConfig(hookType string) *HookConfig {
 
 // filterCategoriesForHook filters assessment config for specific hook
 func filterCategoriesForHook(config assess.AssessmentConfig, hookType string, hookConfig *HookConfig) assess.AssessmentConfig {
-	// Set priority string based on hook categories
-	if len(hookConfig.Categories) > 0 {
-		priorityParts := make([]string, len(hookConfig.Categories))
-		for i, category := range hookConfig.Categories {
-			priorityParts[i] = fmt.Sprintf("%s=1", category)
-		}
-		config.PriorityString = strings.Join(priorityParts, ",")
-	}
+    // Restrict to selected categories for this hook
+    if len(hookConfig.Categories) > 0 {
+        // Apply explicit category filter
+        config.SelectedCategories = append([]string(nil), hookConfig.Categories...)
 
-	return config
+        // Also set simple priorities to prefer these categories
+        priorityParts := make([]string, len(hookConfig.Categories))
+        for i, category := range hookConfig.Categories {
+            priorityParts[i] = fmt.Sprintf("%s=1", category)
+        }
+        config.PriorityString = strings.Join(priorityParts, ",")
+    }
+
+    return config
+}
+
+// getStagedFiles returns a list of staged files (Added, Copied, Modified, Renamed) for the next commit
+func getStagedFiles() ([]string, error) {
+    cmd := exec.Command("git", "diff", "--cached", "--name-only", "--diff-filter=ACMR")
+    output, err := cmd.Output()
+    if err != nil {
+        return nil, fmt.Errorf("git diff --cached failed: %w", err)
+    }
+    scanner := bufio.NewScanner(strings.NewReader(string(output)))
+    scanner.Split(bufio.ScanLines)
+    var files []string
+    for scanner.Scan() {
+        path := strings.TrimSpace(scanner.Text())
+        if path != "" {
+            files = append(files, path)
+        }
+    }
+    if scanErr := scanner.Err(); scanErr != nil {
+        return nil, scanErr
+    }
+    return files, nil
 }
 
 // shouldFailHook determines if hook should fail based on configuration

@@ -25,6 +25,8 @@ const (
 	FormatJSON     OutputFormat = "json"
 	FormatHTML     OutputFormat = "html"
 	FormatBoth     OutputFormat = "both"
+    // Concise is a short, colorized summary ideal for hook logs
+    FormatConcise  OutputFormat = "concise"
 )
 
 // Formatter handles formatting assessment reports
@@ -46,6 +48,8 @@ func (f *Formatter) SetTargetPath(targetPath string) {
 // FormatReport formats an assessment report according to the configured format
 func (f *Formatter) FormatReport(report *AssessmentReport) (string, error) {
 	switch f.format {
+    case FormatConcise:
+        return f.formatConcise(report), nil
 	case FormatMarkdown:
 		return f.formatMarkdown(report), nil
 	case FormatJSON:
@@ -62,6 +66,99 @@ func (f *Formatter) FormatReport(report *AssessmentReport) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported format: %s", f.format)
 	}
+}
+
+// formatConcise prints a short, colorized summary suitable for hook logs
+func (f *Formatter) formatConcise(report *AssessmentReport) string {
+    color := func(code string, s string) string {
+        if os.Getenv("NO_COLOR") != "" {
+            return s
+        }
+        return "\x1b[" + code + "m" + s + "\x1b[0m"
+    }
+    bold := func(s string) string { return color("1", s) }
+    green := func(s string) string { return color("32", s) }
+    yellow := func(s string) string { return color("33", s) }
+    red := func(s string) string { return color("31", s) }
+
+    var sb strings.Builder
+
+    // Header line with health and timing
+    health := int(report.Summary.OverallHealth * 100)
+    healthStr := fmt.Sprintf("%d%%", health)
+    if health >= 90 {
+        healthStr = green(healthStr)
+    } else if health >= 75 {
+        healthStr = yellow(healthStr)
+    } else {
+        healthStr = red(healthStr)
+    }
+    sb.WriteString(fmt.Sprintf("%s %s | total issues: %d | time: %s\n",
+        bold("Assessment"), fmt.Sprintf("health=%s", healthStr), report.Summary.TotalIssues, report.Metadata.ExecutionTime))
+
+    // One line per category included
+    ordered := f.getOrderedCategories(report.Categories)
+    for _, cat := range ordered {
+        res := report.Categories[cat]
+
+        // Derive status from issue counts to avoid confusing transient runner warnings
+        var statusStr string
+        if res.IssueCount > 0 {
+            statusStr = yellow(fmt.Sprintf("%d issue(s)", res.IssueCount))
+        } else if res.Status == "error" && strings.TrimSpace(res.Error) != "" {
+            statusStr = red("error")
+        } else {
+            statusStr = green("ok")
+        }
+
+        sb.WriteString(fmt.Sprintf(" - %s: %s (est %s)\n", titleCase(cat), statusStr, f.formatDuration(res.EstimatedTime)))
+
+        // Show top-N affected files when there are issues
+        if res.IssueCount > 0 {
+            unique := make(map[string]struct{})
+            files := make([]string, 0, len(res.Issues))
+            for _, iss := range res.Issues {
+                if iss.File == "" {
+                    continue
+                }
+                if _, seen := unique[iss.File]; !seen {
+                    unique[iss.File] = struct{}{}
+                    files = append(files, iss.File)
+                }
+            }
+            const maxShow = 5
+            shown := files
+            if len(files) > maxShow {
+                shown = files[:maxShow]
+            }
+            if len(shown) > 0 {
+                more := ""
+                if len(files) > len(shown) {
+                    more = fmt.Sprintf(" (+%d more)", len(files)-len(shown))
+                }
+                sb.WriteString(fmt.Sprintf("   files: %s%s\n", strings.Join(shown, ", "), more))
+            } else if len(res.Issues) > 0 {
+                // Fallback: show first issue message if no file paths were captured
+                msg := strings.TrimSpace(res.Issues[0].Message)
+                if msg != "" {
+                    sb.WriteString(fmt.Sprintf("   note: %s\n", msg))
+                }
+            }
+        }
+
+        if res.Status == "error" && strings.TrimSpace(res.Error) != "" {
+            sb.WriteString(fmt.Sprintf("   %s %s\n", red("!"), res.Error))
+        }
+    }
+
+    // Footer pass/fail
+    if report.Summary.TotalIssues == 0 {
+        sb.WriteString(green("✅ Hook validation passed"))
+    } else {
+        sb.WriteString(yellow("⚠️ Issues detected - see details above or run with --verbose"))
+    }
+
+    return sb.String()
 }
 
 // WriteReport writes a formatted report to the given writer
@@ -358,27 +455,53 @@ func (f *Formatter) generateHTMLFromJSON(report *AssessmentReport) string {
 		return fmt.Sprintf("Error getting executable path: %v", err)
 	}
 	execDir := filepath.Dir(execPath)
-	templatePath := filepath.Join(execDir, "templates", "report.html")
 
-	templateContent, err := os.ReadFile(templatePath)
-	if err != nil {
-		return fmt.Sprintf("Error loading template: %v (path: %s)", err, templatePath)
+	// Allow explicit override via environment variable
+	if envPath := os.Getenv("GONEAT_TEMPLATE_PATH"); strings.TrimSpace(envPath) != "" {
+		if content, err := os.ReadFile(envPath); err == nil {
+			return renderHandlebars(string(content), templateData)
+		}
 	}
 
+	// Try common locations relative to the executable
+	candidatePaths := []string{
+		filepath.Join(execDir, "templates", "report.html"),               // dist/templates/report.html
+		filepath.Join(filepath.Dir(execDir), "templates", "report.html"), // ../templates/report.html (repo root)
+		filepath.Join(execDir, "report.html"),                            // dist/report.html
+		filepath.Join("templates", "report.html"),                        // cwd/templates/report.html
+	}
+	var templateContent []byte
+	var readErr error
+	for _, p := range candidatePaths {
+		if content, err := os.ReadFile(p); err == nil {
+			templateContent = content
+			readErr = nil
+			break
+		} else {
+			readErr = err
+		}
+	}
+	if templateContent == nil {
+		return fmt.Sprintf("Error loading template: %v (tried: %s)", readErr, strings.Join(candidatePaths, ", "))
+	}
+
+	// Render template
+	return renderHandlebars(string(templateContent), templateData)
+}
+
+// renderHandlebars renders a Handlebars template string with helpers registered
+func renderHandlebars(tpl string, data interface{}) string {
 	// Register helper functions
 	raymond.RegisterHelper("gt", func(a, b interface{}) bool {
 		aVal, _ := strconv.Atoi(fmt.Sprintf("%v", a))
 		bVal, _ := strconv.Atoi(fmt.Sprintf("%v", b))
 		return aVal > bVal
 	})
-
-	// Render template
-	result, err := raymond.Render(string(templateContent), templateData)
+	out, err := raymond.Render(tpl, data)
 	if err != nil {
 		return fmt.Sprintf("Error rendering template: %v", err)
 	}
-
-	return result
+	return out
 }
 
 // extractProjectInfo extracts project name, version, and formatted path
@@ -410,7 +533,24 @@ func (f *Formatter) extractProjectInfo(targetPath string) (projectName, version,
 				parts := strings.Fields(line)
 				if len(parts) >= 2 {
 					moduleParts := strings.Split(parts[1], "/")
-					projectName = moduleParts[len(moduleParts)-1]
+					last := moduleParts[len(moduleParts)-1]
+					// If the last segment is a version suffix like v2, v3, use the previous segment
+					if len(moduleParts) >= 2 && len(last) >= 2 && last[0] == 'v' {
+						allDigits := true
+						for i := 1; i < len(last); i++ {
+							if last[i] < '0' || last[i] > '9' {
+								allDigits = false
+								break
+							}
+						}
+						if allDigits {
+							projectName = moduleParts[len(moduleParts)-2]
+						} else {
+							projectName = last
+						}
+					} else {
+						projectName = last
+					}
 				}
 				break
 			}

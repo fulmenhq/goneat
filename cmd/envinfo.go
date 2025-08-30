@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/3leaps/goneat/internal/ops"
 	"github.com/3leaps/goneat/pkg/logger"
 	"github.com/spf13/cobra"
 )
@@ -81,6 +82,12 @@ and environment variables that affect the behavior of goneat.`,
 
 func init() {
 	rootCmd.AddCommand(envinfoCmd)
+
+	// Register command in ops registry with taxonomy
+	capabilities := ops.GetDefaultCapabilities(ops.GroupSupport, ops.CategoryEnvironment)
+	if err := ops.RegisterCommandWithTaxonomy("envinfo", ops.GroupSupport, ops.CategoryEnvironment, capabilities, envinfoCmd, "Show system information"); err != nil {
+		panic(fmt.Sprintf("Failed to register envinfo command: %v", err))
+	}
 
 	envinfoCmd.Flags().Bool("json", false, "Output in JSON format")
 	envinfoCmd.Flags().Bool("extended", false, "Show extended system information including disk usage and tree stats")

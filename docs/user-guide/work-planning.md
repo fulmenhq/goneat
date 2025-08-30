@@ -48,12 +48,14 @@ goneat format --plan-only --folders . --group-by-type
 Goneat provides different execution modes for various use cases:
 
 ### Dry Run Mode (`--dry-run`)
+
 - **Purpose**: Preview what would happen without executing
 - **Behavior**: Shows the work plan and stops
 - **Use Case**: Understand impact before making changes
 - **Example**: `goneat format --dry-run --folders src/`
 
 ### No-Op Mode (`--no-op`)
+
 - **Purpose**: Full execution but no file modifications
 - **Behavior**: Runs all tasks, validates formatting, but doesn't change files
 - **Use Case**: Testing task runner, assessment, CI validation
@@ -61,12 +63,14 @@ Goneat provides different execution modes for various use cases:
 - **Visual Indicator**: Log messages show `[NO-OP]` indicator
 
 ### Check Mode (`--check`)
+
 - **Purpose**: Validate formatting without making changes
 - **Behavior**: Similar to no-op but specific to format checking
 - **Use Case**: CI/CD pipelines, pre-commit hooks
 - **Example**: `goneat format --check --folders src/`
 
 ### Normal Mode (default)
+
 - **Purpose**: Actually perform the formatting operations
 - **Behavior**: Executes tasks and modifies files as needed
 - **Use Case**: Standard formatting workflow
@@ -262,6 +266,7 @@ jobs:
 ### Common Issues
 
 **"No files found"**
+
 ```bash
 # Check what files exist
 find . -name "*.go" -o -name "*.yaml" | head -10
@@ -274,6 +279,7 @@ goneat format --types go,yaml,json,markdown
 ```
 
 **"Too many files"**
+
 ```bash
 # Limit scope
 goneat format --max-depth 3 --folders src/
@@ -286,6 +292,7 @@ goneat format --files src/main.go src/utils.go
 ```
 
 **"Slow performance"**
+
 ```bash
 # Use parallelization
 goneat format --group-by-size --folders .

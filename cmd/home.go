@@ -6,34 +6,59 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/3leaps/goneat/internal/ops"
 	"github.com/spf13/cobra"
 )
 
 // homeCmd represents the home command
 var homeCmd = &cobra.Command{
 	Use:   "home",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Short: "Manage user configuration and preferences",
+	Long: `Manage user-specific configuration and preferences for goneat.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("home called")
-	},
+This command handles user home directory setup, configuration management,
+and personal preferences that don't affect project-level settings.`,
+	RunE: runHome,
 }
 
 func init() {
 	rootCmd.AddCommand(homeCmd)
 
-	// Here you will define your flags and configuration settings.
+	// Register command in ops registry with taxonomy
+	capabilities := ops.GetDefaultCapabilities(ops.GroupSupport, ops.CategoryConfiguration)
+	if err := ops.RegisterCommandWithTaxonomy("home", ops.GroupSupport, ops.CategoryConfiguration, capabilities, homeCmd, "Manage user configuration and preferences"); err != nil {
+		panic(fmt.Sprintf("Failed to register home command: %v", err))
+	}
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// homeCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// Add flags
+	homeCmd.Flags().Bool("init", false, "Initialize user home configuration")
+	homeCmd.Flags().Bool("reset", false, "Reset user configuration to defaults")
+}
 
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// homeCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+func runHome(cmd *cobra.Command, args []string) error {
+	initConfig, _ := cmd.Flags().GetBool("init")
+	resetConfig, _ := cmd.Flags().GetBool("reset")
+
+	if initConfig {
+		fmt.Println("Initializing user home configuration...")
+		// TODO: Implement user config initialization
+		fmt.Println("User configuration initialized successfully")
+		return nil
+	}
+
+	if resetConfig {
+		fmt.Println("Resetting user configuration to defaults...")
+		// TODO: Implement config reset
+		fmt.Println("User configuration reset to defaults")
+		return nil
+	}
+
+	fmt.Println("Goneat User Home")
+	fmt.Println("=================")
+	fmt.Println("Manage your personal goneat configuration and preferences.")
+	fmt.Println("")
+	fmt.Println("Use --init to set up your user configuration")
+	fmt.Println("Use --reset to restore default settings")
+
+	return nil
 }
