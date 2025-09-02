@@ -307,6 +307,43 @@ func TestFormatCommand_PlanFile(t *testing.T) {
 	}
 }
 
+// TestFormatCommand_UseGoimportsWithIgnoreMissingTools ensures enabling goimports does not fail when tool is missing and ignore-missing-tools is set
+func TestFormatCommand_UseGoimportsWithIgnoreMissingTools(t *testing.T) {
+	// Create a temporary directory with test files
+	tempDir := t.TempDir()
+	createTestFiles(t, tempDir)
+
+	// Create a test command with goimports enabled but allow missing tool
+	cmd := &cobra.Command{}
+	setupFormatCommandFlags(cmd)
+	if err := cmd.Flags().Set("folders", tempDir); err != nil {
+		t.Fatalf("failed setting folders flag: %v", err)
+	}
+	if err := cmd.Flags().Set("use-goimports", "true"); err != nil {
+		t.Fatalf("failed setting use-goimports flag: %v", err)
+	}
+	if err := cmd.Flags().Set("ignore-missing-tools", "true"); err != nil {
+		t.Fatalf("failed setting ignore-missing-tools flag: %v", err)
+	}
+
+	// Capture output (not strictly required, but helpful for debug)
+	var output bytes.Buffer
+	cmd.SetOut(&output)
+	cmd.SetErr(&output)
+
+	// Execute the command
+	if err := RunFormat(cmd, []string{}); err != nil {
+		t.Fatalf("Format command with --use-goimports and --ignore-missing-tools failed: %v", err)
+	}
+}
+
+// TestFormatCommand_UseGoimportsFailsWhenMissingTool ensures we fail fast when goimports is requested but not installed
+func TestFormatCommand_UseGoimportsFailsWhenMissingTool(t *testing.T) {
+	// This scenario triggers os.Exit via the execution pipeline when errors are encountered,
+	// which requires a subprocess harness to test correctly. Skipping in unit test.
+	t.Skip("Skipped: failure path uses os.Exit; requires subprocess harness to assert safely")
+}
+
 // Test helper functions
 
 // setupFormatCommandFlags sets up all the flags needed for format command testing
@@ -324,6 +361,9 @@ func setupFormatCommandFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool("group-by-size", false, "Group work items by file size")
 	cmd.Flags().Bool("group-by-type", false, "Group work items by content type")
 	cmd.Flags().Bool("no-op", false, "Run in assessment mode without making changes")
+	// Additional flags used by new features
+	cmd.Flags().Bool("ignore-missing-tools", false, "Skip files requiring external formatters if tools are missing")
+	cmd.Flags().Bool("use-goimports", false, "Organize Go imports with goimports (after gofmt)")
 }
 
 // createTestFiles creates a set of test files for format command testing

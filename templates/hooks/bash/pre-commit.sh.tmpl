@@ -67,6 +67,6 @@ if [ -z "$GONEAT_BIN" ]; then
 fi
 
 # Use goneat's orchestrated assessment (manifest-driven)
-"$GONEAT_BIN" assess --hook pre-commit --hook-manifest "$REPO_ROOT/.goneat/hooks.yaml"{{ if .OptimizationSettings.OnlyChangedFiles }} --staged-only{{ end }}{{- range .Args }} {{ . }}{{- end }}
+"$GONEAT_BIN" assess --hook pre-commit --hook-manifest "$REPO_ROOT/.goneat/hooks.yaml"{{ if or .OptimizationSettings.OnlyChangedFiles (eq .OptimizationSettings.ContentSource "index") }} --staged-only{{ end }}{{- range .Args }} {{ . }}{{- end }}
 
 echo "✅ Pre-commit validation passed!"}

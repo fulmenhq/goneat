@@ -1,11 +1,9 @@
 $schema: https://json-schema.org/draft/2020-12/schema
 $id: https://schemas.goneat.dev/work-manifest/v1.0.0
 $version: 1.0.0
-
 title: Goneat Work Manifest Schema
 description: Schema for work manifests that describe file processing plans
 type: object
-
 properties:
   $schema:
     type: string
@@ -13,7 +11,6 @@ properties:
     format: uri
     examples:
       - https://schemas.goneat.dev/work-manifest/v1.0.0
-
   plan:
     type: object
     description: Execution plan information
@@ -58,7 +55,6 @@ properties:
       - working_directory
       - total_files
       - filtered_files
-
   work_items:
     type: array
     description: Individual work items to be processed
@@ -106,7 +102,6 @@ properties:
         - path
         - content_type
         - size
-
   groups:
     type: array
     description: Logical groupings of work items
@@ -145,7 +140,6 @@ properties:
         - name
         - strategy
         - work_item_ids
-
   statistics:
     type: object
     description: Statistical information about the work plan
@@ -194,7 +188,6 @@ properties:
           parallel_8:
             type: number
             minimum: 0
-
 additionalProperties: false
 required:
   - plan

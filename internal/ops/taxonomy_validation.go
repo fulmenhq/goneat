@@ -10,8 +10,8 @@ import (
 
 // TaxonomyValidator validates command taxonomy consistency and correctness
 type TaxonomyValidator struct {
-	coreCommands     map[string]CommandClassification
-	allowedGroups    []CommandGroup
+	coreCommands      map[string]CommandClassification
+	allowedGroups     []CommandGroup
 	allowedCategories map[CommandGroup][]CommandCategory
 }
 
@@ -68,8 +68,8 @@ func (e ValidationError) severityString() string {
 // NewTaxonomyValidator creates a new taxonomy validator with default core commands
 func NewTaxonomyValidator() *TaxonomyValidator {
 	return &TaxonomyValidator{
-		coreCommands:     getDefaultCoreCommands(),
-		allowedGroups:    getAllowedGroups(),
+		coreCommands:      getDefaultCoreCommands(),
+		allowedGroups:     getAllowedGroups(),
 		allowedCategories: getAllowedCategories(),
 	}
 }

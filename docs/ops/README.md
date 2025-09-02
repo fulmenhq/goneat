@@ -164,6 +164,6 @@ Use standardized templates from `templates/` directory:
 
 ---
 
-**Maintained by**: Forge Neat under supervision of @3leapsdave  
-**Last Updated**: 2025-08-29  
+**Maintained by**: Forge Neat under supervision of @3leapsdave
+**Last Updated**: 2025-08-29
 **Version**: 1.0.0

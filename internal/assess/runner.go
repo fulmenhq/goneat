@@ -50,6 +50,19 @@ type AssessmentConfig struct {
 	// as a percentage of available CPU cores (1-100). Values <=0 default to 50.
 	Concurrency        int `json:"concurrency"`
 	ConcurrencyPercent int `json:"concurrency_percent"`
+
+	// Security-specific controls (no schema change yet; ephemeral)
+	SecurityTools []string `json:"security_tools,omitempty"`
+	EnableVuln    bool     `json:"enable_vuln"`
+	EnableCode    bool     `json:"enable_code"`
+	EnableSecrets bool     `json:"enable_secrets"`
+
+	// Suppression tracking
+	TrackSuppressions bool `json:"track_suppressions,omitempty"`
+
+	// Security per-tool timeouts (optional)
+	SecurityGosecTimeout       time.Duration `json:"security_timeout_gosec,omitempty"`
+	SecurityGovulncheckTimeout time.Duration `json:"security_timeout_govulncheck,omitempty"`
 }
 
 // DefaultAssessmentConfig returns default assessment configuration
@@ -65,6 +78,14 @@ func DefaultAssessmentConfig() AssessmentConfig {
 		SelectedCategories: []string{},
 		Concurrency:        0,
 		ConcurrencyPercent: 50,
+		// Security defaults
+		SecurityTools: []string{},
+		EnableVuln:    true,
+		EnableCode:    true,
+		EnableSecrets: false,
+		// Per-tool timeouts default to 0 (inherit global)
+		SecurityGosecTimeout:       0,
+		SecurityGovulncheckTimeout: 0,
 	}
 }
 

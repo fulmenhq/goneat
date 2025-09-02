@@ -1,0 +1,11 @@
+# Test ignore patterns for integration testing
+*.tmp
+*.temp
+test-ignored.txt
+ignored-dir/
+*.log
+build/
+dist/
+
+# Override pattern
+!important-file.txt

@@ -20,10 +20,11 @@ var rootCmd = &cobra.Command{
 Inspired by Biome. It bundles existing OSS tools transparently for data engineering workflows.
 
 Examples:
-  goneat version     # Show version
-  goneat envinfo     # Show system information
-  goneat format      # Format files (coming soon)
-  goneat check       # Check formatting (coming soon)`,
+   goneat version     # Show version (use --extended for build info)
+   goneat --version   # Show version (same as 'goneat version')
+   goneat envinfo     # Show system information
+   goneat format      # Format files
+   goneat assess      # Comprehensive codebase assessment`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		initializeLogger(cmd)
 	},
@@ -45,7 +46,21 @@ func init() {
 	rootCmd.PersistentFlags().Bool("json", false, "Output logs in JSON format")
 	rootCmd.PersistentFlags().Bool("no-color", false, "Disable colored output")
 	rootCmd.PersistentFlags().Bool("no-op", false, "Run tasks without making changes (assessment mode)")
+
+	// Wire Cobra's built-in --version using dynamically computed version string
+	ver := "unknown"
+	if v, _, err := getVersionFromSources(); err == nil && strings.TrimSpace(v) != "" {
+		ver = v
+	}
+	rootCmd.Version = ver
+	rootCmd.SetVersionTemplate("goneat {{.Version}}\n")
 }
+
+// getVersionFromSources tries to get version from multiple sources in priority order
+// Version helper functions live in version.go; root.go references them.
+
+// printVersion prints version information and exits
+// Version printing handled by Cobra's built-in mechanism via rootCmd.Version
 
 // initializeLogger sets up the logger based on command flags
 func initializeLogger(cmd *cobra.Command) {

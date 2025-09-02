@@ -306,8 +306,17 @@ done
 ### Custom Assessment Pipelines
 
 ```bash
-# Security audit pipeline
+# Security audit pipeline (assess)
 goneat assess --categories security --format json --output security-audit.json
+
+# Security-focused command (GroupNeat)
+goneat security --format concise --fail-on high
+
+# Best-practice thresholds by context
+# - Pre-commit:   --fail-on medium
+# - Pre-push:     --fail-on high
+# - CI (PR/main): --fail-on high (project-dependent)
+# - Release:      --fail-on critical (vulns), high+ (code security)
 
 # Performance analysis
 goneat assess --categories performance --verbose --output performance-report.md

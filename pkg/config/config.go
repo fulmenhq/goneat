@@ -5,13 +5,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/viper"
 )
 
 // Config holds all configuration for goneat
 type Config struct {
-	Format FormatConfig `mapstructure:"format"`
+	Format   FormatConfig   `mapstructure:"format"`
+	Security SecurityConfig `mapstructure:"security"`
 }
 
 // FormatConfig holds formatting configuration
@@ -76,6 +78,16 @@ var defaultConfig = Config{
 			CodeBlockStyle: "fenced",
 		},
 	},
+	Security: SecurityConfig{
+		Timeout:            parseDurationDefault("5m"),
+		Concurrency:        0,
+		ConcurrencyPercent: 50,
+		Tools:              []string{},
+		Enable:             SecurityEnable{Code: true, Vuln: true, Secrets: false},
+		ToolTimeouts:       SecurityToolTimeouts{Gosec: 0, Govulncheck: 0},
+		TrackSuppressions:  false,
+		FailOn:             "high",
+	},
 }
 
 // LoadConfig loads configuration from various sources
@@ -96,6 +108,19 @@ func LoadConfig() (*Config, error) {
 	v.SetDefault("format.markdown.trailing_spaces", defaultConfig.Format.Markdown.TrailingSpaces)
 	v.SetDefault("format.markdown.reference_style", defaultConfig.Format.Markdown.ReferenceStyle)
 	v.SetDefault("format.markdown.code_block_style", defaultConfig.Format.Markdown.CodeBlockStyle)
+
+	// Security defaults
+	v.SetDefault("security.timeout", defaultConfig.Security.Timeout)
+	v.SetDefault("security.concurrency", defaultConfig.Security.Concurrency)
+	v.SetDefault("security.concurrency_percent", defaultConfig.Security.ConcurrencyPercent)
+	v.SetDefault("security.enable.code", defaultConfig.Security.Enable.Code)
+	v.SetDefault("security.enable.vuln", defaultConfig.Security.Enable.Vuln)
+	v.SetDefault("security.enable.secrets", defaultConfig.Security.Enable.Secrets)
+	v.SetDefault("security.tools", defaultConfig.Security.Tools)
+	v.SetDefault("security.tool_timeouts.gosec", defaultConfig.Security.ToolTimeouts.Gosec)
+	v.SetDefault("security.tool_timeouts.govulncheck", defaultConfig.Security.ToolTimeouts.Govulncheck)
+	v.SetDefault("security.track_suppressions", defaultConfig.Security.TrackSuppressions)
+	v.SetDefault("security.fail_on", defaultConfig.Security.FailOn)
 
 	// Configuration file search paths
 	v.SetConfigName("goneat")
@@ -181,6 +206,41 @@ func (c *Config) GetJSONConfig() JSONFormatConfig {
 // GetMarkdownConfig returns Markdown formatting configuration
 func (c *Config) GetMarkdownConfig() MarkdownFormatConfig {
 	return c.Format.Markdown
+}
+
+// SecurityConfig holds security scanning settings
+type SecurityConfig struct {
+	Timeout            time.Duration        `mapstructure:"timeout"`
+	Concurrency        int                  `mapstructure:"concurrency"`
+	ConcurrencyPercent int                  `mapstructure:"concurrency_percent"`
+	Tools              []string             `mapstructure:"tools"`
+	Enable             SecurityEnable       `mapstructure:"enable"`
+	ToolTimeouts       SecurityToolTimeouts `mapstructure:"tool_timeouts"`
+	TrackSuppressions  bool                 `mapstructure:"track_suppressions"`
+	FailOn             string               `mapstructure:"fail_on"`
+}
+
+type SecurityEnable struct {
+	Code    bool `mapstructure:"code"`
+	Vuln    bool `mapstructure:"vuln"`
+	Secrets bool `mapstructure:"secrets"`
+}
+
+type SecurityToolTimeouts struct {
+	Gosec       time.Duration `mapstructure:"gosec"`
+	Govulncheck time.Duration `mapstructure:"govulncheck"`
+}
+
+// GetSecurityConfig returns security configuration
+func (c *Config) GetSecurityConfig() SecurityConfig { return c.Security }
+
+// parseDurationDefault is a helper to create default duration values from string literal
+func parseDurationDefault(s string) time.Duration {
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return 0
+	}
+	return d
 }
 
 // GetGoneatHome returns the goneat home directory

@@ -190,27 +190,27 @@ func (r *LintAssessmentRunner) runGolangCILintWithMode(target string, config Ass
 		args = append(args, "--disable", linter)
 	}
 
-    // Create command with context
-    ctx, cancel := context.WithTimeout(context.Background(), r.config.Timeout)
-    defer cancel()
+	// Create command with context
+	ctx, cancel := context.WithTimeout(context.Background(), r.config.Timeout)
+	defer cancel()
 
-    // Add target path(s): Prefer restricting to included files if provided
-    var cmd *exec.Cmd
-    if len(config.IncludeFiles) > 0 {
-        // Append only included files (golangci-lint can take file paths)
-        args = append(args, config.IncludeFiles...)
-        cmd = exec.CommandContext(ctx, "golangci-lint", args...)
-        cmd.Dir = target
-    } else if info, err := os.Stat(target); err == nil && !info.IsDir() {
-        // Target is a single file
-        args = append(args, target)
-        cmd = exec.CommandContext(ctx, "golangci-lint", args...)
-    } else {
-        // Target is a directory; analyze all
-        args = append(args, "./...")
-        cmd = exec.CommandContext(ctx, "golangci-lint", args...)
-        cmd.Dir = target
-    }
+	// Add target path(s): Prefer restricting to included files if provided
+	var cmd *exec.Cmd
+	if len(config.IncludeFiles) > 0 {
+		// Append only included files (golangci-lint can take file paths)
+		args = append(args, config.IncludeFiles...)
+		cmd = exec.CommandContext(ctx, "golangci-lint", args...)
+		cmd.Dir = target
+	} else if info, err := os.Stat(target); err == nil && !info.IsDir() {
+		// Target is a single file
+		args = append(args, target)
+		cmd = exec.CommandContext(ctx, "golangci-lint", args...)
+	} else {
+		// Target is a directory; analyze all
+		args = append(args, "./...")
+		cmd = exec.CommandContext(ctx, "golangci-lint", args...)
+		cmd.Dir = target
+	}
 
 	// Execute command
 	output, err := cmd.CombinedOutput()

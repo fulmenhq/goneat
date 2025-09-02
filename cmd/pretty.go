@@ -1,13 +1,13 @@
 package cmd
 
 import (
-    "encoding/json"
-    "fmt"
-    "io"
-    "os"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
 
-    "github.com/3leaps/goneat/internal/assess"
-    "github.com/spf13/cobra"
+	"github.com/3leaps/goneat/internal/assess"
+	"github.com/spf13/cobra"
 )
 
 // prettyCmd is a stub renderer for piping JSON to console or HTML in future
@@ -24,17 +24,17 @@ var prettyCmd = &cobra.Command{
 		}
 		var data []byte
 		var err error
-        if input != "" {
-            data, err = os.ReadFile(input)
-            if err != nil {
-                return err
-            }
-        } else {
-            data, err = io.ReadAll(os.Stdin)
-            if err != nil {
-                return err
-            }
-        }
+		if input != "" {
+			data, err = os.ReadFile(input)
+			if err != nil {
+				return err
+			}
+		} else {
+			data, err = io.ReadAll(os.Stdin)
+			if err != nil {
+				return err
+			}
+		}
 
 		report, err := parseReportJSON(data)
 		if err != nil {
@@ -72,40 +72,41 @@ func init() {
 }
 
 func parseReportJSON(data []byte) (*assess.AssessmentReport, error) {
-    // Be tolerant of log preamble/postamble: extract first top-level JSON object
-    s := string(data)
-    start := -1
-    braceCount := 0
-    for i, r := range s {
-        if r == '{' {
-            start = i
-            break
-        }
-    }
-    if start == -1 {
-        return nil, fmt.Errorf("no JSON object found in input")
-    }
-    end := start
-    for i := start; i < len(s); i++ {
-        switch s[i] {
-        case '{':
-            braceCount++
-        case '}':
-            braceCount--
-            if braceCount == 0 {
-                end = i + 1
-                break
-            }
-        }
-    }
-    if end <= start {
-        return nil, fmt.Errorf("incomplete JSON object in input")
-    }
-    jsonSlice := s[start:end]
+	// Be tolerant of log preamble/postamble: extract first top-level JSON object
+	s := string(data)
+	start := -1
+	braceCount := 0
+	for i, r := range s {
+		if r == '{' {
+			start = i
+			break
+		}
+	}
+	if start == -1 {
+		return nil, fmt.Errorf("no JSON object found in input")
+	}
+	end := start
+	for i := start; i < len(s); i++ {
+		switch s[i] {
+		case '{':
+			braceCount++
+		case '}':
+			braceCount--
+			if braceCount == 0 {
+				end = i + 1
+				goto foundEnd
+			}
+		}
+	}
+foundEnd:
+	if end <= start {
+		return nil, fmt.Errorf("incomplete JSON object in input")
+	}
+	jsonSlice := s[start:end]
 
-    var r assess.AssessmentReport
-    if err := json.Unmarshal([]byte(jsonSlice), &r); err != nil {
-        return nil, fmt.Errorf("failed to parse assessment JSON: %w", err)
-    }
-    return &r, nil
+	var r assess.AssessmentReport
+	if err := json.Unmarshal([]byte(jsonSlice), &r); err != nil {
+		return nil, fmt.Errorf("failed to parse assessment JSON: %w", err)
+	}
+	return &r, nil
 }

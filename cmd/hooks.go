@@ -52,6 +52,15 @@ These files integrate with goneat's assessment system for intelligent validation
 	RunE: runHooksGenerate,
 }
 
+// hooksConfigureCmd represents the hooks configure command
+var hooksConfigureCmd = &cobra.Command{
+	Use:   "configure",
+	Short: "Configure pre-commit/pre-push behavior without editing YAML",
+	Long: `Configure common hook behaviors (scope, content source, apply mode) via CLI.
+This updates .goneat/hooks.yaml and regenerates hook scripts automatically.`,
+	RunE: runHooksConfigure,
+}
+
 // hooksInstallCmd represents the hooks install command
 var hooksInstallCmd = &cobra.Command{
 	Use:   "install",
@@ -118,12 +127,21 @@ func init() {
 	hooksCmd.AddCommand(hooksRemoveCmd)
 	hooksCmd.AddCommand(hooksUpgradeCmd)
 	hooksCmd.AddCommand(hooksInspectCmd)
+	hooksCmd.AddCommand(hooksConfigureCmd)
 
 	// hooks remove flags (define before registration to avoid duplicate init)
 	hooksRemoveCmd.Flags().BoolVar(&removeNoRestore, "no-restore", false, "Do not restore original hooks from backups; remove hooks completely")
 
+	// hooks configure flags
+	hooksConfigureCmd.Flags().Bool("show", false, "Show current effective hook settings")
+	hooksConfigureCmd.Flags().Bool("reset", false, "Reset to defaults")
+	hooksConfigureCmd.Flags().Bool("pre-commit-only-changed-files", false, "Limit pre-commit to changed files (recommended)")
+	hooksConfigureCmd.Flags().String("pre-commit-content-source", "", "Content source for pre-commit: index (staged only) or working")
+	hooksConfigureCmd.Flags().String("pre-commit-apply-mode", "", "Apply mode for pre-commit: check (no changes) or fix (apply fixes and re-stage)")
+	hooksConfigureCmd.Flags().Bool("install", false, "Install hooks after generation")
+
 	// Register subcommands
-	subcommands := []*cobra.Command{hooksInitCmd, hooksGenerateCmd, hooksInstallCmd, hooksValidateCmd, hooksRemoveCmd, hooksUpgradeCmd, hooksInspectCmd}
+	subcommands := []*cobra.Command{hooksInitCmd, hooksGenerateCmd, hooksInstallCmd, hooksValidateCmd, hooksRemoveCmd, hooksUpgradeCmd, hooksInspectCmd, hooksConfigureCmd}
 	for _, cmd := range subcommands {
 		if err := ops.RegisterCommand(fmt.Sprintf("hooks %s", cmd.Use), ops.GroupWorkflow, cmd, cmd.Short); err != nil {
 			panic(fmt.Sprintf("Failed to register hooks %s command: %v", cmd.Use, err))
@@ -209,12 +227,14 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 	}
 	var manifest struct {
 		Hooks map[string][]struct {
-			Command  string   `yaml:"command"`
-			Args     []string `yaml:"args"`
-			Fallback string   `yaml:"fallback"`
+			Command    string   `yaml:"command"`
+			Args       []string `yaml:"args"`
+			Fallback   string   `yaml:"fallback"`
+			StageFixed bool     `yaml:"stage_fixed,omitempty"`
 		} `yaml:"hooks"`
 		Optimization struct {
-			OnlyChangedFiles bool `yaml:"only_changed_files"`
+			OnlyChangedFiles bool   `yaml:"only_changed_files"`
+			ContentSource    string `yaml:"content_source,omitempty"` // "index" or "working"
 		} `yaml:"optimization"`
 	}
 	if err := yaml.Unmarshal(manifestData, &manifest); err != nil {
@@ -226,6 +246,7 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 		Fallback             string
 		OptimizationSettings struct {
 			OnlyChangedFiles bool
+			ContentSource    string
 		}
 	}
 
@@ -267,6 +288,10 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 	argsPC, fbPC := buildArgs("pre-commit")
 	dataPC := tplData{Args: argsPC, Fallback: fbPC}
 	dataPC.OptimizationSettings.OnlyChangedFiles = manifest.Optimization.OnlyChangedFiles
+	dataPC.OptimizationSettings.ContentSource = manifest.Optimization.ContentSource
+	if dataPC.OptimizationSettings.ContentSource == "" {
+		dataPC.OptimizationSettings.ContentSource = "index"
+	}
 	if err := render("templates/hooks/bash/pre-commit.sh.tmpl", filepath.Join(hooksDir, "pre-commit"), dataPC); err != nil {
 		return err
 	}
@@ -275,6 +300,10 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 	argsPP, fbPP := buildArgs("pre-push")
 	dataPP := tplData{Args: argsPP, Fallback: fbPP}
 	dataPP.OptimizationSettings.OnlyChangedFiles = manifest.Optimization.OnlyChangedFiles
+	dataPP.OptimizationSettings.ContentSource = manifest.Optimization.ContentSource
+	if dataPP.OptimizationSettings.ContentSource == "" {
+		dataPP.OptimizationSettings.ContentSource = "index"
+	}
 	if err := render("templates/hooks/bash/pre-push.sh.tmpl", filepath.Join(hooksDir, "pre-push"), dataPP); err != nil {
 		return err
 	}
@@ -626,6 +655,142 @@ func runHooksInspect(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("└── System Health: %s (%d/7)\n", healthStatus, healthScore)
+
+	return nil
+}
+
+// runHooksConfigure updates .goneat/hooks.yaml with CLI-provided options and regenerates hooks
+func runHooksConfigure(cmd *cobra.Command, args []string) error {
+	hooksConfigPath := ".goneat/hooks.yaml"
+	if _, err := os.Stat(hooksConfigPath); os.IsNotExist(err) {
+		return fmt.Errorf("hooks configuration not found. Run 'goneat hooks init' first")
+	}
+
+	show, _ := cmd.Flags().GetBool("show")
+	reset, _ := cmd.Flags().GetBool("reset")
+	install, _ := cmd.Flags().GetBool("install")
+
+	onlyChangedVal, _ := cmd.Flags().GetBool("pre-commit-only-changed-files")
+	onlyChangedSet := cmd.Flags().Changed("pre-commit-only-changed-files")
+
+	contentSource, _ := cmd.Flags().GetString("pre-commit-content-source")
+	contentSourceSet := cmd.Flags().Changed("pre-commit-content-source")
+
+	applyMode, _ := cmd.Flags().GetString("pre-commit-apply-mode")
+	applyModeSet := cmd.Flags().Changed("pre-commit-apply-mode")
+
+	// Load YAML
+	raw, err := os.ReadFile(hooksConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to read hooks configuration: %v", err)
+	}
+
+	type HookEntry struct {
+		Command    string   `yaml:"command"`
+		Args       []string `yaml:"args"`
+		Fallback   string   `yaml:"fallback,omitempty"`
+		StageFixed bool     `yaml:"stage_fixed,omitempty"`
+		When       any      `yaml:"when,omitempty"`
+		Priority   int      `yaml:"priority,omitempty"`
+		Timeout    string   `yaml:"timeout,omitempty"`
+		Skip       []string `yaml:"skip,omitempty"`
+	}
+	var manifest struct {
+		Version string                 `yaml:"version"`
+		Hooks   map[string][]HookEntry `yaml:"hooks"`
+		Opt     map[string]any         `yaml:"optimization,omitempty"`
+	}
+	if err := yaml.Unmarshal(raw, &manifest); err != nil {
+		return fmt.Errorf("failed to parse hooks configuration: %v", err)
+	}
+	if manifest.Opt == nil {
+		manifest.Opt = make(map[string]any)
+	}
+
+	// Inspect mode
+	if show {
+		onlyChanged := false
+		if v, ok := manifest.Opt["only_changed_files"].(bool); ok {
+			onlyChanged = v
+		}
+		cs := "index"
+		if v, ok := manifest.Opt["content_source"].(string); ok && v != "" {
+			cs = v
+		}
+		pm := "check"
+		if entries, ok := manifest.Hooks["pre-commit"]; ok {
+			for _, e := range entries {
+				// prefer an assess or format entry for apply mode determination
+				if e.Command == "assess" || e.Command == "format" {
+					if e.StageFixed {
+						pm = "fix"
+					} else {
+						pm = "check"
+					}
+					break
+				}
+			}
+		}
+		fmt.Printf("Pre-commit settings:\n  only_changed_files: %v\n  content_source: %s\n  apply_mode: %s\n", onlyChanged, cs, pm)
+		return nil
+	}
+
+	// Reset to defaults
+	if reset {
+		manifest.Opt["only_changed_files"] = true
+		manifest.Opt["content_source"] = "index"
+		// keep existing apply mode as-is; teams may prefer current default
+	}
+
+	// Apply flags
+	if onlyChangedSet {
+		manifest.Opt["only_changed_files"] = onlyChangedVal
+	}
+	if contentSourceSet {
+		cs := strings.ToLower(strings.TrimSpace(contentSource))
+		if cs != "index" && cs != "working" {
+			return fmt.Errorf("invalid --pre-commit-content-source: %s (allowed: index|working)", contentSource)
+		}
+		manifest.Opt["content_source"] = cs
+	}
+	if applyModeSet {
+		pm := strings.ToLower(strings.TrimSpace(applyMode))
+		if pm != "check" && pm != "fix" {
+			return fmt.Errorf("invalid --pre-commit-apply-mode: %s (allowed: check|fix)", applyMode)
+		}
+		if entries, ok := manifest.Hooks["pre-commit"]; ok {
+			for i := range entries {
+				if entries[i].Command == "assess" || entries[i].Command == "format" {
+					entries[i].StageFixed = (pm == "fix")
+				}
+			}
+			manifest.Hooks["pre-commit"] = entries
+		}
+	}
+
+	// Write back YAML
+	out, err := yaml.Marshal(&manifest)
+	if err != nil {
+		return fmt.Errorf("failed to marshal updated configuration: %v", err)
+	}
+	if err := os.WriteFile(hooksConfigPath, out, 0644); err != nil {
+		return fmt.Errorf("failed to write updated configuration: %v", err)
+	}
+	fmt.Println("✅ Updated .goneat/hooks.yaml")
+
+	// Regenerate hooks to apply settings
+	if err := runHooksGenerate(cmd, nil); err != nil {
+		return fmt.Errorf("failed to regenerate hooks: %v", err)
+	}
+	fmt.Println("🔨 Regenerated hook scripts from manifest")
+
+	// Optional install
+	if install {
+		if err := runHooksInstall(cmd, nil); err != nil {
+			return fmt.Errorf("failed to install hooks: %v", err)
+		}
+		fmt.Println("📦 Installed hooks to .git/hooks")
+	}
 
 	return nil
 }

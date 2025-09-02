@@ -42,13 +42,13 @@ const (
 
 // CommandCapabilities defines what a command can do
 type CommandCapabilities struct {
-	SupportsJSON       bool     // Structured output for AI + human consumption
-	SupportsWorkplan   bool     // Workplan-first execution for predictability
-	SupportsParallel   bool     // Parallel execution for large codebases
-	SupportsNoOp       bool     // Assessment mode without side effects
-	OutputFormats      []string // ["json", "markdown", "html"]
-	ExecutionModes     []string // ["check", "fix", "assess"]
-	IntegrationPoints  []string // ["git-hooks", "ci-cd", "webhooks"]
+	SupportsJSON      bool     // Structured output for AI + human consumption
+	SupportsWorkplan  bool     // Workplan-first execution for predictability
+	SupportsParallel  bool     // Parallel execution for large codebases
+	SupportsNoOp      bool     // Assessment mode without side effects
+	OutputFormats     []string // ["json", "markdown", "html"]
+	ExecutionModes    []string // ["check", "fix", "assess"]
+	IntegrationPoints []string // ["git-hooks", "ci-cd", "webhooks"]
 }
 
 // CommandRegistration represents a registered command with its classification

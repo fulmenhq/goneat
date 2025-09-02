@@ -4,6 +4,7 @@ Copyright © 2025 3 Leaps <info@3leaps.net>
 package assess
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 )
@@ -64,6 +65,8 @@ func (pm *PriorityManager) ParsePriorityString(priorityStr string) error {
 	}
 
 	parts := strings.Split(priorityStr, ",")
+	validEntries := 0
+
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
 		if part == "" {
@@ -72,17 +75,18 @@ func (pm *PriorityManager) ParsePriorityString(priorityStr string) error {
 
 		kv := strings.SplitN(part, "=", 2)
 		if len(kv) != 2 {
-			continue // Skip invalid entries
+			return fmt.Errorf("invalid priority format: %s (expected category=priority)", part)
 		}
 
 		category := AssessmentCategory(strings.TrimSpace(kv[0]))
 		var priority int
 		if kv[1] == "default" {
 			delete(pm.customPriorities, category)
+			validEntries++
 			continue
 		}
 
-		// Parse priority number (could add error handling here)
+		// Parse priority number
 		switch strings.TrimSpace(kv[1]) {
 		case "1", "highest":
 			priority = 1
@@ -95,10 +99,15 @@ func (pm *PriorityManager) ParsePriorityString(priorityStr string) error {
 		case "5", "lowest":
 			priority = 5
 		default:
-			continue // Skip invalid priorities
+			return fmt.Errorf("invalid priority value: %s (expected 1-5 or highest/lowest)", kv[1])
 		}
 
 		pm.SetCustomPriority(category, priority)
+		validEntries++
+	}
+
+	if validEntries == 0 {
+		return fmt.Errorf("no valid priority entries found in: %s", priorityStr)
 	}
 
 	return nil

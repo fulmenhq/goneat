@@ -44,24 +44,27 @@ type Issue struct {
 
 // CategoryResult represents the assessment results for a specific category
 type CategoryResult struct {
-	Category       AssessmentCategory `json:"category"`
-	Priority       int                `json:"priority"`
-	Issues         []Issue            `json:"issues"`
-	IssueCount     int                `json:"issue_count"`
-	EstimatedTime  time.Duration      `json:"estimated_time"`
-	Parallelizable bool               `json:"parallelizable"`
-	Status         string             `json:"status"` // "success", "error", "skipped"
-	Error          string             `json:"error,omitempty"`
+	Category          AssessmentCategory     `json:"category"`
+	Priority          int                    `json:"priority"`
+	Issues            []Issue                `json:"issues"`
+	IssueCount        int                    `json:"issue_count"`
+	EstimatedTime     time.Duration          `json:"estimated_time"`
+	Parallelizable    bool                   `json:"parallelizable"`
+	Status            string                 `json:"status"` // "success", "error", "skipped"
+	Error             string                 `json:"error,omitempty"`
+	Metrics           map[string]interface{} `json:"metrics,omitempty"`
+	SuppressionReport *SuppressionReport     `json:"suppression_report,omitempty"`
 }
 
 // AssessmentResult represents the complete result from running an assessment
 type AssessmentResult struct {
-	CommandName   string             `json:"command_name"`
-	Category      AssessmentCategory `json:"category"`
-	Success       bool               `json:"success"`
-	ExecutionTime time.Duration      `json:"execution_time"`
-	Issues        []Issue            `json:"issues"`
-	Error         string             `json:"error,omitempty"`
+	CommandName   string                 `json:"command_name"`
+	Category      AssessmentCategory     `json:"category"`
+	Success       bool                   `json:"success"`
+	ExecutionTime time.Duration          `json:"execution_time"`
+	Issues        []Issue                `json:"issues"`
+	Error         string                 `json:"error,omitempty"`
+	Metrics       map[string]interface{} `json:"metrics,omitempty"`
 }
 
 // WorkflowPhase represents a phase in the remediation workflow
@@ -100,6 +103,7 @@ type ReportMetadata struct {
 	Target        string        `json:"target"`
 	ExecutionTime time.Duration `json:"execution_time"`
 	CommandsRun   []string      `json:"commands_run"`
+	FailOn        string        `json:"fail_on,omitempty"`
 }
 
 // ReportSummary provides high-level assessment statistics

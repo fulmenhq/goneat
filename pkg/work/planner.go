@@ -1,6 +1,7 @@
 package work
 
 import (
+	"bufio"
 	"crypto/md5"
 	"fmt"
 	"io/fs"
@@ -92,16 +93,136 @@ type PlannerConfig struct {
 	ExecutionStrategy  string
 	GroupBySize        bool
 	GroupByContentType bool
+	IgnoreFile         string // Path to ignore file (e.g., .goneatignore)
+	EnableFinalizer    bool   // Whether finalizer operations are enabled
 }
 
 // Planner handles work planning and manifest generation
 type Planner struct {
-	config PlannerConfig
+	config         PlannerConfig
+	ignorePatterns []string
 }
 
 // NewPlanner creates a new work planner
 func NewPlanner(config PlannerConfig) *Planner {
-	return &Planner{config: config}
+	planner := &Planner{config: config}
+	planner.loadIgnorePatterns()
+	return planner
+}
+
+// loadIgnorePatterns reads ignore patterns from .goneatignore files
+func (p *Planner) loadIgnorePatterns() {
+	var patterns []string
+
+	// Load repo-level .goneatignore
+	if repoIgnore, err := p.readIgnoreFile(".goneatignore"); err == nil {
+		patterns = append(patterns, repoIgnore...)
+	}
+
+	// Load user-level .goneatignore
+	if homeDir, err := os.UserHomeDir(); err == nil {
+		userIgnorePath := filepath.Join(homeDir, ".goneatignore")
+		if userIgnore, err := p.readIgnoreFile(userIgnorePath); err == nil {
+			patterns = append(patterns, userIgnore...)
+		}
+	}
+
+	p.ignorePatterns = patterns
+}
+
+// readIgnoreFile reads patterns from an ignore file
+func (p *Planner) readIgnoreFile(path string) ([]string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			logger.Warn(fmt.Sprintf("Failed to close ignore file %s: %v", path, closeErr))
+		}
+	}()
+
+	var patterns []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		// Skip empty lines and comments
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		patterns = append(patterns, line)
+	}
+
+	return patterns, scanner.Err()
+}
+
+// matchesIgnorePattern checks if a path matches any ignore pattern
+func (p *Planner) matchesIgnorePattern(path string) bool {
+	// Get relative path from working directory for pattern matching
+	wd, err := os.Getwd()
+	if err != nil {
+		return false
+	}
+
+	relPath, err := filepath.Rel(wd, path)
+	if err != nil {
+		relPath = path
+	}
+
+	for _, pattern := range p.ignorePatterns {
+		if p.matchesPattern(pattern, relPath) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// matchesPattern checks if a path matches a gitignore-style pattern
+func (p *Planner) matchesPattern(pattern, path string) bool {
+	// Handle directory patterns (ending with /)
+	if strings.HasSuffix(pattern, "/") {
+		// If path is a directory and matches the pattern, ignore it
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
+			return strings.Contains(path, strings.TrimSuffix(pattern, "/"))
+		}
+		return false
+	}
+
+	// Handle negation patterns (starting with !)
+	if strings.HasPrefix(pattern, "!") {
+		negatedPattern := strings.TrimPrefix(pattern, "!")
+		return !p.matchesSimplePattern(negatedPattern, path)
+	}
+
+	return p.matchesSimplePattern(pattern, path)
+}
+
+// matchesSimplePattern performs basic gitignore-style pattern matching
+func (p *Planner) matchesSimplePattern(pattern, path string) bool {
+	// Handle glob patterns with *
+	if strings.Contains(pattern, "*") {
+		// Simple glob matching for patterns like *.log, test.*
+		if matched, _ := filepath.Match(pattern, filepath.Base(path)); matched {
+			return true
+		}
+		// Also check full path
+		if matched, _ := filepath.Match(pattern, path); matched {
+			return true
+		}
+	}
+
+	// Handle directory patterns
+	if strings.Contains(path, pattern) {
+		return true
+	}
+
+	// Handle exact matches
+	if filepath.Base(path) == pattern {
+		return true
+	}
+
+	return false
 }
 
 // GenerateManifest generates a complete work manifest
@@ -193,6 +314,11 @@ func (p *Planner) discoverFiles() ([]string, error) {
 func (p *Planner) shouldIncludeFile(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 
+	// Check .goneatignore patterns first
+	if p.matchesIgnorePattern(path) {
+		return false
+	}
+
 	// Check content type filters
 	if len(p.config.ContentTypes) > 0 {
 		contentType := p.getContentType(ext)
@@ -240,8 +366,28 @@ func (p *Planner) getContentType(ext string) string {
 		return "yaml"
 	case ".json":
 		return "json"
-	case ".md":
+	case ".md", ".markdown":
 		return "markdown"
+	case ".txt":
+		return "text"
+	case ".sh":
+		return "shell"
+	case ".py":
+		return "python"
+	case ".js", ".jsx":
+		return "javascript"
+	case ".ts", ".tsx":
+		return "typescript"
+	case ".html", ".htm":
+		return "html"
+	case ".css":
+		return "css"
+	case ".xml":
+		return "xml"
+	case ".toml":
+		return "toml"
+	case ".ini", ".cfg", ".conf":
+		return "config"
 	default:
 		return "unknown"
 	}

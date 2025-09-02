@@ -25,8 +25,8 @@ const (
 	FormatJSON     OutputFormat = "json"
 	FormatHTML     OutputFormat = "html"
 	FormatBoth     OutputFormat = "both"
-    // Concise is a short, colorized summary ideal for hook logs
-    FormatConcise  OutputFormat = "concise"
+	// Concise is a short, colorized summary ideal for hook logs
+	FormatConcise OutputFormat = "concise"
 )
 
 // Formatter handles formatting assessment reports
@@ -48,8 +48,8 @@ func (f *Formatter) SetTargetPath(targetPath string) {
 // FormatReport formats an assessment report according to the configured format
 func (f *Formatter) FormatReport(report *AssessmentReport) (string, error) {
 	switch f.format {
-    case FormatConcise:
-        return f.formatConcise(report), nil
+	case FormatConcise:
+		return f.formatConcise(report), nil
 	case FormatMarkdown:
 		return f.formatMarkdown(report), nil
 	case FormatJSON:
@@ -70,95 +70,115 @@ func (f *Formatter) FormatReport(report *AssessmentReport) (string, error) {
 
 // formatConcise prints a short, colorized summary suitable for hook logs
 func (f *Formatter) formatConcise(report *AssessmentReport) string {
-    color := func(code string, s string) string {
-        if os.Getenv("NO_COLOR") != "" {
-            return s
-        }
-        return "\x1b[" + code + "m" + s + "\x1b[0m"
-    }
-    bold := func(s string) string { return color("1", s) }
-    green := func(s string) string { return color("32", s) }
-    yellow := func(s string) string { return color("33", s) }
-    red := func(s string) string { return color("31", s) }
+	color := func(code string, s string) string {
+		if os.Getenv("NO_COLOR") != "" {
+			return s
+		}
+		return "\x1b[" + code + "m" + s + "\x1b[0m"
+	}
+	bold := func(s string) string { return color("1", s) }
+	green := func(s string) string { return color("32", s) }
+	yellow := func(s string) string { return color("33", s) }
+	red := func(s string) string { return color("31", s) }
 
-    var sb strings.Builder
+	var sb strings.Builder
 
-    // Header line with health and timing
-    health := int(report.Summary.OverallHealth * 100)
-    healthStr := fmt.Sprintf("%d%%", health)
-    if health >= 90 {
-        healthStr = green(healthStr)
-    } else if health >= 75 {
-        healthStr = yellow(healthStr)
-    } else {
-        healthStr = red(healthStr)
-    }
-    sb.WriteString(fmt.Sprintf("%s %s | total issues: %d | time: %s\n",
-        bold("Assessment"), fmt.Sprintf("health=%s", healthStr), report.Summary.TotalIssues, report.Metadata.ExecutionTime))
+	// Header line with health and timing
+	health := int(report.Summary.OverallHealth * 100)
+	healthStr := fmt.Sprintf("%d%%", health)
+	if health >= 90 {
+		healthStr = green(healthStr)
+	} else if health >= 75 {
+		healthStr = yellow(healthStr)
+	} else {
+		healthStr = red(healthStr)
+	}
+	sb.WriteString(fmt.Sprintf("%s %s | total issues: %d | time: %s\n",
+		bold("Assessment"), fmt.Sprintf("health=%s", healthStr), report.Summary.TotalIssues, report.Metadata.ExecutionTime))
 
-    // One line per category included
-    ordered := f.getOrderedCategories(report.Categories)
-    for _, cat := range ordered {
-        res := report.Categories[cat]
+	// Fail-on context if present in commands_run hint
+	// We don't have explicit fail-on in metadata yet; detect from commands or print default marker
+	failOn := os.Getenv("GONEAT_SECURITY_FAIL_ON")
+	if strings.TrimSpace(failOn) == "" {
+		// best-effort default display; actual enforcement happens in caller
+		failOn = "configured"
+	}
+	sb.WriteString(fmt.Sprintf(" - Fail-on: %s\n", failOn))
 
-        // Derive status from issue counts to avoid confusing transient runner warnings
-        var statusStr string
-        if res.IssueCount > 0 {
-            statusStr = yellow(fmt.Sprintf("%d issue(s)", res.IssueCount))
-        } else if res.Status == "error" && strings.TrimSpace(res.Error) != "" {
-            statusStr = red("error")
-        } else {
-            statusStr = green("ok")
-        }
+	// One line per category included
+	ordered := f.getOrderedCategories(report.Categories)
+	for _, cat := range ordered {
+		res := report.Categories[cat]
 
-        sb.WriteString(fmt.Sprintf(" - %s: %s (est %s)\n", titleCase(cat), statusStr, f.formatDuration(res.EstimatedTime)))
+		// Derive status from issue counts to avoid confusing transient runner warnings
+		var statusStr string
+		if res.IssueCount > 0 {
+			statusStr = yellow(fmt.Sprintf("%d issue(s)", res.IssueCount))
+		} else if res.Status == "error" && strings.TrimSpace(res.Error) != "" {
+			statusStr = red("error")
+		} else {
+			statusStr = green("ok")
+		}
 
-        // Show top-N affected files when there are issues
-        if res.IssueCount > 0 {
-            unique := make(map[string]struct{})
-            files := make([]string, 0, len(res.Issues))
-            for _, iss := range res.Issues {
-                if iss.File == "" {
-                    continue
-                }
-                if _, seen := unique[iss.File]; !seen {
-                    unique[iss.File] = struct{}{}
-                    files = append(files, iss.File)
-                }
-            }
-            const maxShow = 5
-            shown := files
-            if len(files) > maxShow {
-                shown = files[:maxShow]
-            }
-            if len(shown) > 0 {
-                more := ""
-                if len(files) > len(shown) {
-                    more = fmt.Sprintf(" (+%d more)", len(files)-len(shown))
-                }
-                sb.WriteString(fmt.Sprintf("   files: %s%s\n", strings.Join(shown, ", "), more))
-            } else if len(res.Issues) > 0 {
-                // Fallback: show first issue message if no file paths were captured
-                msg := strings.TrimSpace(res.Issues[0].Message)
-                if msg != "" {
-                    sb.WriteString(fmt.Sprintf("   note: %s\n", msg))
-                }
-            }
-        }
+		sb.WriteString(fmt.Sprintf(" - %s: %s (est %s)\n", titleCase(cat), statusStr, f.formatDuration(res.EstimatedTime)))
 
-        if res.Status == "error" && strings.TrimSpace(res.Error) != "" {
-            sb.WriteString(fmt.Sprintf("   %s %s\n", red("!"), res.Error))
-        }
-    }
+		// Show top-N affected files when there are issues
+		if res.IssueCount > 0 {
+			unique := make(map[string]struct{})
+			files := make([]string, 0, len(res.Issues))
+			for _, iss := range res.Issues {
+				if iss.File == "" {
+					continue
+				}
+				if _, seen := unique[iss.File]; !seen {
+					unique[iss.File] = struct{}{}
+					files = append(files, iss.File)
+				}
+			}
+			const maxShow = 5
+			shown := files
+			if len(files) > maxShow {
+				shown = files[:maxShow]
+			}
+			if len(shown) > 0 {
+				more := ""
+				if len(files) > len(shown) {
+					more = fmt.Sprintf(" (+%d more)", len(files)-len(shown))
+				}
+				sb.WriteString(fmt.Sprintf("   files: %s%s\n", strings.Join(shown, ", "), more))
+			} else if len(res.Issues) > 0 {
+				// Fallback: show first issue message if no file paths were captured
+				msg := strings.TrimSpace(res.Issues[0].Message)
+				if msg != "" {
+					sb.WriteString(fmt.Sprintf("   note: %s\n", msg))
+				}
+			}
+		}
 
-    // Footer pass/fail
-    if report.Summary.TotalIssues == 0 {
-        sb.WriteString(green("✅ Hook validation passed"))
-    } else {
-        sb.WriteString(yellow("⚠️ Issues detected - see details above or run with --verbose"))
-    }
+		// Headline metrics for category (e.g., security sharding)
+		if res.Metrics != nil {
+			if shards, ok := res.Metrics["gosec_shards"]; ok {
+				line := fmt.Sprintf("   shards: %v", shards)
+				if pool, ok2 := res.Metrics["gosec_pool_size"]; ok2 {
+					line = fmt.Sprintf("%s (pool=%v)", line, pool)
+				}
+				sb.WriteString(line + "\n")
+			}
+		}
 
-    return sb.String()
+		if res.Status == "error" && strings.TrimSpace(res.Error) != "" {
+			sb.WriteString(fmt.Sprintf("   %s %s\n", red("!"), res.Error))
+		}
+	}
+
+	// Footer pass/fail
+	if report.Summary.TotalIssues == 0 {
+		sb.WriteString(green("✅ Hook validation passed"))
+	} else {
+		sb.WriteString(yellow("⚠️ Issues detected - see details above or run with --verbose"))
+	}
+
+	return sb.String()
 }
 
 // WriteReport writes a formatted report to the given writer
@@ -219,17 +239,31 @@ func (f *Formatter) formatMarkdown(report *AssessmentReport) string {
 		sb.WriteString(fmt.Sprintf("**Parallelizable:** %s\n\n", f.formatBool(result.Parallelizable)))
 
 		if result.IssueCount > 0 {
-			// Issues table
+			// Issues table (with optional cap for readability; JSON remains full SSOT)
 			sb.WriteString("| File | Line | Severity | Message | Auto-fixable |\n")
 			sb.WriteString("|------|------|----------|---------|--------------|\n")
 
-			for _, issue := range result.Issues {
+			maxToShow := len(result.Issues)
+			// optional: respect ENV cap for non-JSON output
+			if capStr := strings.TrimSpace(os.Getenv("GONEAT_MAX_ISSUES_DISPLAY")); capStr != "" {
+				if n, err := strconv.Atoi(capStr); err == nil && n > 0 && n < maxToShow {
+					maxToShow = n
+				}
+			}
+
+			for i, issue := range result.Issues {
+				if i >= maxToShow {
+					break
+				}
 				line := ""
 				if issue.Line > 0 {
 					line = fmt.Sprintf("%d", issue.Line)
 				}
 				sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s |\n",
 					issue.File, line, issue.Severity, issue.Message, f.formatBool(issue.AutoFixable)))
+			}
+			if maxToShow < len(result.Issues) {
+				sb.WriteString(fmt.Sprintf("\n_Showing %d of %d issues. Use --format json for full details._\n", maxToShow, len(result.Issues)))
 			}
 			sb.WriteString("\n")
 		}

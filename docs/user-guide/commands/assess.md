@@ -569,7 +569,7 @@ The assessment report identifies parallelizable work:
 ```bash
 # .git/hooks/pre-commit
 #!/bin/bash
-goneat assess --hook pre-commit --manifest .goneat/hooks.yaml
+goneat assess --hook pre-commit --hook-manifest .goneat/hooks.yaml
 ```
 
 ### GitHub Actions

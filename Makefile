@@ -119,6 +119,27 @@ format-docs: build ## Format documentation files using goneat (dogfooding)
 		echo "Please install yamlfmt, jq, and prettier for documentation formatting"; \
 	fi
 
+# Hook targets (dogfooding)
+pre-commit: build ## Run pre-commit checks using goneat (format + lint)
+	@echo "Running pre-commit checks with goneat..."
+	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
+		$(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-commit; \
+		echo "✅ Pre-commit checks passed"; \
+	else \
+		echo "❌ goneat binary not found, cannot run pre-commit checks"; \
+		exit 1; \
+	fi
+
+pre-push: build ## Run pre-push checks using goneat (format + lint + security)
+	@echo "Running pre-push checks with goneat..."
+	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
+		$(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-push; \
+		echo "✅ Pre-push checks passed"; \
+	else \
+		echo "❌ goneat binary not found, cannot run pre-push checks"; \
+		exit 1; \
+	fi
+
 # Development setup
 dev: ## Set up development environment
 	@echo "Setting up development environment..."

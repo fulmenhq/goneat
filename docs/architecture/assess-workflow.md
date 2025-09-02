@@ -77,6 +77,16 @@ Runtime: lint             1.067s
 Total wall-time:          1.067s; total issues: 4
 ```
 
+## Fail-on Thresholds and Visibility
+
+- Default thresholds (recommended):
+  - Pre-commit: fail-on medium
+  - Pre-push: fail-on high
+  - CI (PR/main): fail-on high (projects may choose medium)
+  - Release gates: fail-on critical (vulnerabilities); high+ for code security in sensitive repos
+- The `goneat security` command surfaces the active threshold in concise output as `Fail-on: <level>` and honors `--fail-on`.
+- Environment variable: `GONEAT_SECURITY_FAIL_ON` is read for display context in concise output. JSON remains the SSOT for automation.
+
 ### HTML Report Improvements
 
 - Repo name shown prominently, with user-shortened path (~/…)

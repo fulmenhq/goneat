@@ -400,80 +400,83 @@ func bumpSemverVersion(version, bumpType string) (string, error) {
 // the highest semantic version (vMAJOR.MINOR.PATCH). If no semver tags exist,
 // it attempts calendar versioning (YYYY.MM.DD). As a final fallback, returns an error.
 func getLatestGitTag() (string, error) {
-    // List all tags
-    cmd := exec.Command("git", "tag", "--list")
-    output, err := cmd.Output()
-    if err != nil {
-        return "", fmt.Errorf("failed to list git tags: %v", err)
-    }
-    lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-    var tags []string
-    for _, line := range lines {
-        tag := strings.TrimSpace(line)
-        if tag != "" {
-            tags = append(tags, tag)
-        }
-    }
-    if len(tags) == 0 {
-        return "", fmt.Errorf("no git tags found")
-    }
+	// List all tags
+	cmd := exec.Command("git", "tag", "--list")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to list git tags: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	var tags []string
+	for _, line := range lines {
+		tag := strings.TrimSpace(line)
+		if tag != "" {
+			tags = append(tags, tag)
+		}
+	}
+	if len(tags) == 0 {
+		return "", fmt.Errorf("no git tags found")
+	}
 
-    // Try semver first
-    if latest, ok := latestSemverTag(tags); ok {
-        return latest, nil
-    }
-    // Try calendar versioning (YYYY.MM.DD)
-    if latest, ok := latestCalverTag(tags); ok {
-        return latest, nil
-    }
+	// Try semver first
+	if latest, ok := latestSemverTag(tags); ok {
+		return latest, nil
+	}
+	// Try calendar versioning (YYYY.MM.DD)
+	if latest, ok := latestCalverTag(tags); ok {
+		return latest, nil
+	}
 
-    return "", fmt.Errorf("no recognizable version tags found")
+	return "", fmt.Errorf("no recognizable version tags found")
 }
 
 // latestSemverTag finds the highest semver tag, allowing optional 'v' prefix.
 func latestSemverTag(tags []string) (string, bool) {
-    type sv struct{ raw string; major, minor, patch int }
-    var semvers []sv
-    re := regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)(?:-[a-zA-Z0-9.-]+)?(?:\+[a-zA-Z0-9.-]+)?$`)
-    for _, t := range tags {
-        m := re.FindStringSubmatch(t)
-        if len(m) == 0 {
-            continue
-        }
-        maj, _ := strconv.Atoi(m[1])
-        min, _ := strconv.Atoi(m[2])
-        pat, _ := strconv.Atoi(m[3])
-        semvers = append(semvers, sv{raw: t, major: maj, minor: min, patch: pat})
-    }
-    if len(semvers) == 0 {
-        return "", false
-    }
-    sort.Slice(semvers, func(i, j int) bool {
-        if semvers[i].major != semvers[j].major {
-            return semvers[i].major > semvers[j].major
-        }
-        if semvers[i].minor != semvers[j].minor {
-            return semvers[i].minor > semvers[j].minor
-        }
-        return semvers[i].patch > semvers[j].patch
-    })
-    return semvers[0].raw, true
+	type sv struct {
+		raw                 string
+		major, minor, patch int
+	}
+	var semvers []sv
+	re := regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)(?:-[a-zA-Z0-9.-]+)?(?:\+[a-zA-Z0-9.-]+)?$`)
+	for _, t := range tags {
+		m := re.FindStringSubmatch(t)
+		if len(m) == 0 {
+			continue
+		}
+		maj, _ := strconv.Atoi(m[1])
+		min, _ := strconv.Atoi(m[2])
+		pat, _ := strconv.Atoi(m[3])
+		semvers = append(semvers, sv{raw: t, major: maj, minor: min, patch: pat})
+	}
+	if len(semvers) == 0 {
+		return "", false
+	}
+	sort.Slice(semvers, func(i, j int) bool {
+		if semvers[i].major != semvers[j].major {
+			return semvers[i].major > semvers[j].major
+		}
+		if semvers[i].minor != semvers[j].minor {
+			return semvers[i].minor > semvers[j].minor
+		}
+		return semvers[i].patch > semvers[j].patch
+	})
+	return semvers[0].raw, true
 }
 
 // latestCalverTag finds the highest calendar version tag (YYYY.MM.DD) by lexicographic order.
 func latestCalverTag(tags []string) (string, bool) {
-    re := regexp.MustCompile(`^(\d{4})\.(\d{2})\.(\d{2})$`)
-    var calvers []string
-    for _, t := range tags {
-        if re.MatchString(t) {
-            calvers = append(calvers, t)
-        }
-    }
-    if len(calvers) == 0 {
-        return "", false
-    }
-    sort.Slice(calvers, func(i, j int) bool { return calvers[i] > calvers[j] })
-    return calvers[0], true
+	re := regexp.MustCompile(`^(\d{4})\.(\d{2})\.(\d{2})$`)
+	var calvers []string
+	for _, t := range tags {
+		if re.MatchString(t) {
+			calvers = append(calvers, t)
+		}
+	}
+	if len(calvers) == 0 {
+		return "", false
+	}
+	sort.Slice(calvers, func(i, j int) bool { return calvers[i] > calvers[j] })
+	return calvers[0], true
 }
 
 // getGitCommitInfo returns current git commit information

@@ -3,7 +3,7 @@ title: "Git Hooks Operation Workflow"
 description: "Complete guide to setting up and operating goneat git hooks with visual diagrams and step-by-step instructions"
 author: "@forge-neat"
 date: "2025-08-28"
-last_updated: "2025-08-28"
+last_updated: "2025-09-01"
 status: "approved"
 tags: ["git", "hooks", "workflow", "setup", "tutorial", "diagrams"]
 category: "user-guide"
@@ -31,14 +31,25 @@ goneat hooks generate
 # 3. Install to git
 goneat hooks install
 
-# 4. Validate installation
+# 4. (Recommended) Configure staged-only, check-only pre-commit via CLI
+goneat hooks configure \
+  --pre-commit-only-changed-files=true \
+  --pre-commit-content-source=index \
+  --pre-commit-apply-mode=check \
+  --install
+
+# 5. Validate installation
 goneat hooks validate
 
-# 5. Test setup
+# 6. Test setup
 goneat assess --hook pre-commit
 
-# Done! Your hooks are now active
+# Done! Your hooks are now active and scoped to staged files
 ```
+
+Tip:
+- content_source=index scopes validation to the staged version of changed files (preferred for selective commits)
+- apply_mode=check avoids modifying files during pre-commit; use fix to auto-apply and re-stage when your team opts in
 
 ## Current Status Verification
 
@@ -90,7 +101,7 @@ goneat hooks generate
 - Creates fallback logic for when goneat isn't available
 - Places generated files in `.goneat/hooks/` directory
 
-**Generated hook example:**
+**Generated hook example (simplified):**
 ```bash
 # .goneat/hooks/pre-commit (generated)
 #!/bin/bash
@@ -99,17 +110,19 @@ goneat hooks generate
 set -e
 echo "🔍 Running goneat pre-commit validation..."
 
-if ! command -v goneat &> /dev/null; then
-    echo "⚠️  goneat not found, falling back to basic validation"
-    go fmt ./... || exit 1
-    go vet ./... || exit 1
-    echo "✅ Basic validation passed"
-    exit 0
-fi
+# ...binary discovery & fallback omitted...
 
-goneat assess --hook pre-commit --manifest .goneat/hooks.yaml
+# When configured with only_changed_files=true or content_source=index,
+# the template adds --staged-only so hooks operate on staged content.
+goneat assess --hook pre-commit --hook-manifest .goneat/hooks.yaml --staged-only
+
 echo "✅ Pre-commit validation passed!"
 ```
+Note:
+- The exact flags are templated from your manifest. Staged-only is applied automatically when either:
+  - optimization.only_changed_files=true, or
+  - optimization.content_source=index
+- Control these via CLI: see “Configure staged-only behavior (CLI)” below.
 
 ### Step 3: Install Hooks to Git
 
@@ -221,6 +234,33 @@ graph TD
     style A fill:#e1f5fe
     style K fill:#c8e6c9
 ```
+
+## Configure staged-only behavior (CLI)
+
+Avoid impacting work-in-progress (unstaged) changes by scoping hooks to staged files only. Configure without editing YAML:
+
+```bash
+# Show current settings
+goneat hooks configure --show
+
+# Recommended pre-commit configuration (staged-only, check-only)
+goneat hooks configure \
+  --pre-commit-only-changed-files=true \
+  --pre-commit-content-source=index \
+  --pre-commit-apply-mode=check \
+  --install
+
+# Opt-in auto-fix (re-stages changes)
+goneat hooks configure --pre-commit-apply-mode=fix --install
+```
+
+What this does:
+- Updates `.goneat/hooks.yaml` optimization to include `only_changed_files: true` and `content_source: index`
+- Regenerates hook scripts so pre-commit/pre-push pass `--staged-only` automatically
+- Optionally installs updated hooks into `.git/hooks`
+
+Cross-reference:
+- See the full command reference and flags in [../commands/hooks.md](docs/user-guide/commands/hooks.md)
 
 ## Daily Usage Examples
 
@@ -394,16 +434,15 @@ EOF
 
 ### Ignore File Behavior
 
-1. **Respects .gitignore first**: Files ignored by git are automatically ignored
-2. **Extends with .goneatignore**: Additional patterns specific to goneat
-3. **Override capability**: `!pattern` can override gitignore exclusions
-4. **Multiple locations**: Repository, user global, and system-wide ignore files
+1. **Independent ignore system**: Uses its own patterns (separate from git's .gitignore)
+2. **Pattern support**: Glob patterns (`*.tmp`), directory patterns (`dist/`), exact matches
+3. **Override capability**: `!pattern` allows including files that would otherwise be ignored
+4. **Multiple locations**: Repository and user global ignore files
 
 ### File Priority Order
 
-1. `.goneatignore` (repository root)
-2. `~/.goneatignore` (user global)
-3. `$XDG_CONFIG_HOME/goneat/ignore` (system-wide)
+1. `.goneatignore` (repository root - highest priority)
+2. `~/.goneatignore` (user global - lower priority)
 
 ## Troubleshooting Common Issues
 

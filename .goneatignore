@@ -54,8 +54,14 @@ docs/site/
 
 # Plans and development artifacts (optional - could be assessed)
 # Uncomment if you want to skip assessment of planning docs
-# .plans/
-# *.draft.md
+.plans/
+*.draft.md
+
+# Development scratchpad and planning artifacts
+.scratchpad/
+
+# AI assistant specific files
+.claude/
 
 # Template files (placeholder content)
 *.template

@@ -99,7 +99,16 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 
 			logger.Info(fmt.Sprintf("Running %s assessment...", category))
 			runStart := time.Now()
-			result, err := runner.Assess(ctx, target, config)
+			// Apply per-category timeout based on global config
+			rctx := ctx
+			var cancel context.CancelFunc
+			if config.Timeout > 0 {
+				rctx, cancel = context.WithTimeout(ctx, config.Timeout)
+			}
+			result, err := runner.Assess(rctx, target, config)
+			if cancel != nil {
+				cancel()
+			}
 			runDur := time.Since(runStart)
 			catRuntime[category] = runDur
 			if result != nil {
@@ -120,12 +129,24 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 				cr.Issues = result.Issues
 				cr.IssueCount = len(result.Issues)
 				cr.EstimatedTime = e.estimateCategoryTime(result.Issues)
+				if result.Metrics != nil {
+					cr.Metrics = result.Metrics
+					// Extract suppression report if present
+					if suppressions, ok := result.Metrics["_suppressions"].([]Suppression); ok && len(suppressions) > 0 {
+						cr.SuppressionReport = &SuppressionReport{
+							Suppressions: suppressions,
+							Summary:      GenerateSummary(suppressions),
+						}
+						// Remove internal key from metrics
+						delete(result.Metrics, "_suppressions")
+					}
+				}
 				allIssues = append(allIssues, result.Issues...)
 				logger.Info(fmt.Sprintf("%s assessment completed in %v: %d issues found", category, runDur, len(result.Issues)))
-            } else {
-                cr.Status = "failed"
-                logger.Debug(fmt.Sprintf("%s assessment failed without error after %v", category, runDur))
-            }
+			} else {
+				cr.Status = "failed"
+				logger.Debug(fmt.Sprintf("%s assessment failed without error after %v", category, runDur))
+			}
 			categoryResults[string(category)] = cr
 		}
 	} else {
@@ -147,7 +168,16 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 
 					logger.Info(fmt.Sprintf("Running %s assessment...", j.category))
 					runStart := time.Now()
-					result, err := runner.Assess(ctx, target, config)
+					// Apply per-category timeout based on global config
+					rctx := ctx
+					var cancel context.CancelFunc
+					if config.Timeout > 0 {
+						rctx, cancel = context.WithTimeout(ctx, config.Timeout)
+					}
+					result, err := runner.Assess(rctx, target, config)
+					if cancel != nil {
+						cancel()
+					}
 					runDur := time.Since(runStart)
 
 					cr := CategoryResult{
@@ -164,11 +194,23 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 						cr.Issues = result.Issues
 						cr.IssueCount = len(result.Issues)
 						cr.EstimatedTime = e.estimateCategoryTime(result.Issues)
+						if result.Metrics != nil {
+							cr.Metrics = result.Metrics
+							// Extract suppression report if present
+							if suppressions, ok := result.Metrics["_suppressions"].([]Suppression); ok && len(suppressions) > 0 {
+								cr.SuppressionReport = &SuppressionReport{
+									Suppressions: suppressions,
+									Summary:      GenerateSummary(suppressions),
+								}
+								// Remove internal key from metrics
+								delete(result.Metrics, "_suppressions")
+							}
+						}
 						logger.Info(fmt.Sprintf("%s assessment completed in %v: %d issues found", j.category, runDur, len(result.Issues)))
-                    } else {
-                        cr.Status = "failed"
-                        logger.Debug(fmt.Sprintf("%s assessment failed without error after %v", j.category, runDur))
-                    }
+					} else {
+						cr.Status = "failed"
+						logger.Debug(fmt.Sprintf("%s assessment failed without error after %v", j.category, runDur))
+					}
 
 					mu.Lock()
 					catRuntime[j.category] = runDur
@@ -206,6 +248,7 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 			Target:        target,
 			ExecutionTime: time.Since(startTime),
 			CommandsRun:   commandsRun,
+			FailOn:        string(config.FailOnSeverity),
 		},
 		Summary:    summary,
 		Categories: categoryResults,

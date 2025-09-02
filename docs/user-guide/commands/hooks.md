@@ -3,7 +3,7 @@ title: "Hooks Command Reference"
 description: "Complete reference for the goneat hooks command - manage git hooks with intelligent validation"
 author: "@forge-neat"
 date: "2025-08-28"
-last_updated: "2025-08-28"
+last_updated: "2025-09-01"
 status: "approved"
 tags: ["cli", "hooks", "git", "validation", "commands"]
 category: "user-guide"
@@ -29,13 +29,14 @@ Goneat hooks transform git's basic hook system into an intelligent validation pl
 goneat hooks [command] [flags]
 
 Available commands:
-  init      Initialize hooks system
-  generate  Generate hook files from manifest
-  install   Install hooks to .git/hooks
-  validate  Validate hook configuration
-  remove    Remove installed hooks
-  upgrade   Upgrade hook configuration to latest version
-  inspect   Inspect current hook configuration and status
+  init       Initialize hooks system
+  generate   Generate hook files from manifest
+  install    Install hooks to .git/hooks
+  validate   Validate hook configuration
+  remove     Remove installed hooks
+  upgrade    Upgrade hook configuration to latest version
+  inspect    Inspect current hook configuration and status
+  configure  Configure pre-commit/pre-push behavior without editing YAML
 ```
 
 ## Available Commands
@@ -171,29 +172,70 @@ goneat hooks remove
 
 Upgrade hook configuration to the latest schema version.
 
+Note: In v0.1.3 this is a placeholder. It validates your current configuration and prints a "coming soon" message. No migration is performed yet.
+
 ```bash
 goneat hooks upgrade
 ```
 
-**What it does:**
+What it does today:
 
-- Detects current schema version in `.goneat/hooks.yaml`
-- Downloads the latest schema version
-- Migrates configuration to new format automatically
-- Updates manifest with new schema version
-- Provides migration summary and any manual steps needed
+- Reads `.goneat/hooks.yaml`
+- Validates the configuration is present/readable
+- Prints "Schema upgrade functionality coming soon!"
+- Exits successfully without modifying your files
 
 **Example output:**
 
 ```bash
 ⬆️  Upgrading hook configuration...
-
-📋 Current version: 1.0.0
-⬆️  Latest version: 1.1.0
-🔄 Migrating configuration...
-✅ Schema upgrade completed
-📝 Review the migration summary above for any manual steps
+🔄 Schema upgrade functionality coming soon!
+📋 This command will automatically migrate your hooks configuration
+   to the latest schema version when implemented
+✅ Current configuration validated
 ```
+
+### `goneat hooks configure`
+
+Configure common hook behaviors (scope, content source, apply mode) via CLI—no manual YAML edits required. This command updates `.goneat/hooks.yaml`, regenerates hook scripts, and can optionally install them.
+
+```bash
+# Show current pre-commit effective settings
+goneat hooks configure --show
+
+# Reset to defaults (recommended for most teams)
+goneat hooks configure --reset
+
+# Recommended staged-only, check-only pre-commit
+goneat hooks configure \
+  --pre-commit-only-changed-files=true \
+  --pre-commit-content-source=index \
+  --pre-commit-apply-mode=check \
+  --install
+
+# Opt-in: allow auto-fixes during pre-commit (re-stages fixed files)
+goneat hooks configure --pre-commit-apply-mode=fix --install
+```
+
+Flags:
+
+- `--show` Print the current effective settings (only_changed_files, content_source, apply_mode)
+- `--reset` Restore recommended defaults (only_changed_files=true, content_source=index)
+- `--pre-commit-only-changed-files` true|false to scope to changed files
+- `--pre-commit-content-source` index|working
+  - index = staged content only (preferred)
+  - working = current working tree (includes unstaged edits)
+- `--pre-commit-apply-mode` check|fix
+  - check = read-only validation (recommended)
+  - fix = apply changes and re-stage (StageFixed on relevant entries)
+- `--install` Install after regeneration
+
+Notes:
+
+- The generated pre-commit/pre-push scripts will pass `--staged-only` automatically when:
+  - optimization.only_changed_files=true OR
+  - optimization.content_source=index
+- See “File Filtering with .goneatignore” for project-level filtering
 
 ### `goneat hooks inspect`
 
@@ -305,7 +347,7 @@ version: "1.0.0"
 hooks:
   pre-commit:
     - command: "assess"
-      args: ["--categories", "format,lint", "--fail-on", "error"]
+      args: ["--categories", "format,lint", "--fail-on", "medium"]
       stage_fixed: true
       priority: 10
       timeout: "2m"
@@ -317,7 +359,7 @@ hooks:
       timeout: "30s"
   pre-push:
     - command: "assess"
-      args: ["--full", "--format", "json", "--output", ".goneat/reports/"]
+      args: ["--categories", "format,lint,security", "--fail-on", "high"]
       priority: 10
       timeout: "3m"
 
@@ -450,16 +492,15 @@ Create a `.goneatignore` file in your repository root:
 
 ### Ignore Behavior
 
-1. **Git Integration**: Respects `.gitignore` patterns automatically
-2. **Extension**: `.goneatignore` adds goneat-specific patterns
-3. **Override**: `!pattern` syntax overrides gitignore exclusions
-4. **Hierarchy**: Repository → User → System ignore files
+1. **Independent System**: Uses its own ignore patterns (separate from git)
+2. **Pattern Support**: Glob patterns (`*.tmp`), directory patterns (`dist/`), exact matches
+3. **Override**: `!pattern` syntax allows including files that would otherwise be ignored
+4. **Hierarchy**: Repository → User ignore files (processed in order)
 
 ### File Locations (Priority Order)
 
-1. `.goneatignore` (repository root)
-2. `~/.goneatignore` (user global)
-3. `$XDG_CONFIG_HOME/goneat/ignore` (system-wide)
+1. `.goneatignore` (repository root - highest priority)
+2. `~/.goneatignore` (user global - lower priority)
 
 ## Integration with Git
 

@@ -8,12 +8,12 @@
 ## Three Architectural Approaches
 
 ### Model 1: Orchestrated Assessment (Current Implementation)
-**Hook files call `goneat assess --hook`**
+**Hook files call `goneat assess --hook`** (with manifest-driven args and staged-only optimization)
 
 ```
 .git/hooks/pre-commit:
 #!/bin/bash
-goneat assess --hook pre-commit --manifest .goneat/hooks.yaml
+goneat assess --hook pre-commit --hook-manifest .goneat/hooks.yaml --staged-only
 ```
 
 **Pros:**
@@ -130,7 +130,7 @@ goneat assess --categories security --fail-on high
 5. **Extensibility**: Easy to add new validation categories
 6. **User Experience**: Simple, predictable hook behavior
 
-**The hook files become simple entry points:**
+**The hook files become simple entry points (templates add `--staged-only` when optimization is enabled):**
 ```bash
 #!/bin/bash
 # .git/hooks/pre-commit

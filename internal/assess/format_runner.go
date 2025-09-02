@@ -4,6 +4,7 @@ Copyright © 2025 3 Leaps <info@3leaps.net>
 package assess
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/3leaps/goneat/pkg/format/finalizer"
 	"github.com/3leaps/goneat/pkg/logger"
 )
 
@@ -33,60 +35,117 @@ func (r *FormatAssessmentRunner) Assess(ctx context.Context, target string, conf
 
 	logger.Info(fmt.Sprintf("Running format assessment on %s", target))
 
-	// Check if gofmt is available
-	if !r.IsAvailable() {
-		return &AssessmentResult{
-			CommandName:   r.commandName,
-			Category:      CategoryFormat,
-			Success:       false,
-			ExecutionTime: time.Since(startTime),
-			Error:         "gofmt command not found in PATH",
-		}, nil
-	}
+	var allIssues []Issue
 
-	// Find Go files to assess
-	goFiles, err := r.findGoFiles(target, config)
+	// Discover candidate files once (all finalizer-supported types)
+	supportedFiles, err := r.findSupportedFiles(target, config)
 	if err != nil {
 		return &AssessmentResult{
 			CommandName:   r.commandName,
 			Category:      CategoryFormat,
 			Success:       false,
 			ExecutionTime: time.Since(startTime),
-			Error:         fmt.Sprintf("failed to find Go files: %v", err),
+			Error:         fmt.Sprintf("failed to discover files: %v", err),
 		}, nil
 	}
 
-	if len(goFiles) == 0 {
-		logger.Info("No Go files found for format assessment")
-		return &AssessmentResult{
-			CommandName:   r.commandName,
-			Category:      CategoryFormat,
-			Success:       true,
-			ExecutionTime: time.Since(startTime),
-			Issues:        []Issue{},
-		}, nil
+	// Subset: Go files for gofmt-based structural formatting checks
+	var goFiles []string
+	for _, f := range supportedFiles {
+		if strings.HasSuffix(f, ".go") {
+			goFiles = append(goFiles, f)
+		}
 	}
 
-	// Run gofmt to check formatting
-	issues, err := r.checkFormatting(goFiles, config)
-	if err != nil {
-		return &AssessmentResult{
-			CommandName:   r.commandName,
-			Category:      CategoryFormat,
-			Success:       false,
-			ExecutionTime: time.Since(startTime),
-			Error:         fmt.Sprintf("format check failed: %v", err),
-		}, nil
+	// Run gofmt -l when available (do not fail overall if missing)
+	if _, lookErr := exec.LookPath("gofmt"); lookErr != nil {
+		logger.Warn("gofmt not found; skipping Go structural format checks, proceeding with normalization checks")
+	} else if len(goFiles) > 0 {
+		gofmtIssues, fmtErr := r.checkFormatting(goFiles, config)
+		if fmtErr != nil {
+			// Treat tool failure as non-fatal; record as error in result while proceeding
+			logger.Warn(fmt.Sprintf("gofmt check failed: %v", fmtErr))
+		} else {
+			allIssues = append(allIssues, gofmtIssues...)
+		}
 	}
 
-	logger.Info(fmt.Sprintf("Format assessment completed: %d issues found in %d files", len(issues), len(goFiles)))
+	// Normalization policy for assess: enforce LF, single EOF, trim trailing whitespace, remove BOM
+	for _, file := range supportedFiles {
+		content, readErr := os.ReadFile(file)
+		if readErr != nil {
+			logger.Warn(fmt.Sprintf("Failed to read %s: %v", file, readErr))
+			continue
+		}
+
+		// Skip non-text/binary content conservatively
+		if !finalizer.IsProcessableText(content) {
+			continue
+		}
+
+		// BOM check
+		if _, _, found := finalizer.GetBOMInfo(content); found {
+			if _, changed, _ := finalizer.RemoveBOM(content); changed {
+				allIssues = append(allIssues, Issue{
+					File:          file,
+					Severity:      SeverityMedium,
+					Message:       "File begins with a Byte Order Mark (BOM)",
+					Category:      CategoryFormat,
+					SubCategory:   "bom",
+					AutoFixable:   true,
+					EstimatedTime: 30 * time.Second,
+				})
+			}
+		}
+
+		// Line endings check (normalize to LF policy)
+		if _, changed, _ := finalizer.NormalizeLineEndings(content, ""); changed {
+			allIssues = append(allIssues, Issue{
+				File:          file,
+				Severity:      SeverityLow,
+				Message:       "Inconsistent or CR/CRLF line endings (normalize to LF)",
+				Category:      CategoryFormat,
+				SubCategory:   "line-endings",
+				AutoFixable:   true,
+				EstimatedTime: 20 * time.Second,
+			})
+		}
+
+		// Trailing whitespace check only (no EOF enforcement here)
+		if _, changed, _ := finalizer.NormalizeEOF(content, false, false, true, ""); changed {
+			allIssues = append(allIssues, Issue{
+				File:          file,
+				Severity:      SeverityLow,
+				Message:       "Trailing whitespace present on one or more lines",
+				Category:      CategoryFormat,
+				SubCategory:   "trailing-whitespace",
+				AutoFixable:   true,
+				EstimatedTime: 15 * time.Second,
+			})
+		}
+
+		// EOF newline enforcement and multiple-EOF collapse (no trailing whitespace trimming here)
+		if _, changed, _ := finalizer.NormalizeEOF(content, true, true, false, ""); changed {
+			allIssues = append(allIssues, Issue{
+				File:          file,
+				Severity:      SeverityLow,
+				Message:       "Missing or multiple trailing newlines at EOF (enforce single newline)",
+				Category:      CategoryFormat,
+				SubCategory:   "eof",
+				AutoFixable:   true,
+				EstimatedTime: 10 * time.Second,
+			})
+		}
+	}
+
+	logger.Info(fmt.Sprintf("Format assessment completed: %d issues found across %d files", len(allIssues), len(supportedFiles)))
 
 	return &AssessmentResult{
 		CommandName:   r.commandName,
 		Category:      CategoryFormat,
 		Success:       true,
 		ExecutionTime: time.Since(startTime),
-		Issues:        issues,
+		Issues:        allIssues,
 	}, nil
 }
 
@@ -102,10 +161,10 @@ func (r *FormatAssessmentRunner) GetCategory() AssessmentCategory {
 
 // GetEstimatedTime implements AssessmentRunner.GetEstimatedTime
 func (r *FormatAssessmentRunner) GetEstimatedTime(target string) time.Duration {
-	// Estimate based on typical file counts and processing speed
-	// Rough estimate: 100ms per file for format checking
-	goFiles, _ := r.findGoFiles(target, DefaultAssessmentConfig())
-	estimatedMs := len(goFiles) * 100
+	// Estimate based on typical file counts and processing speed (normalization + gofmt)
+	// Rough estimate: 100ms per file
+	files, _ := r.findSupportedFiles(target, DefaultAssessmentConfig())
+	estimatedMs := len(files) * 100
 	if estimatedMs < 500 {
 		estimatedMs = 500 // Minimum 500ms
 	}
@@ -114,8 +173,8 @@ func (r *FormatAssessmentRunner) GetEstimatedTime(target string) time.Duration {
 
 // IsAvailable implements AssessmentRunner.IsAvailable
 func (r *FormatAssessmentRunner) IsAvailable() bool {
-	_, err := exec.LookPath("gofmt")
-	return err == nil
+	// Normalization checks do not require external tools; category is available even if gofmt is missing.
+	return true
 }
 
 // findGoFiles finds all Go files in the target directory
@@ -151,8 +210,48 @@ func (r *FormatAssessmentRunner) findGoFiles(target string, config AssessmentCon
 	return goFiles, err
 }
 
+// findSupportedFiles finds files supported by the finalizer (normalization) operations
+func (r *FormatAssessmentRunner) findSupportedFiles(target string, config AssessmentConfig) ([]string, error) {
+	var files []string
+
+	err := filepath.Walk(target, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip directories
+		if info.IsDir() {
+			dirName := filepath.Base(path)
+			if dirName == ".git" || dirName == "vendor" || dirName == "node_modules" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Extension-based filter
+		ext := strings.ToLower(filepath.Ext(path))
+		if finalizer.IsSupportedExtension(ext) {
+			// Apply include/exclude filters and ignore files
+			if r.shouldIncludeFile(path, config) {
+				if !r.matchesGoneatIgnore(path) {
+					files = append(files, path)
+				}
+			}
+		}
+
+		return nil
+	})
+
+	return files, err
+}
+
 // shouldIncludeFile checks if a file should be included based on configuration
 func (r *FormatAssessmentRunner) shouldIncludeFile(filePath string, config AssessmentConfig) bool {
+	// Check .goneatignore patterns
+	if r.matchesGoneatIgnore(filePath) {
+		return false
+	}
+
 	// Check exclude patterns
 	for _, exclude := range config.ExcludeFiles {
 		if strings.Contains(filePath, exclude) {
@@ -175,6 +274,105 @@ func (r *FormatAssessmentRunner) shouldIncludeFile(filePath string, config Asses
 	}
 
 	return true
+}
+
+// matchesGoneatIgnore checks if a file path matches .goneatignore patterns
+func (r *FormatAssessmentRunner) matchesGoneatIgnore(filePath string) bool {
+	// Check repo-level .goneatignore
+	if r.matchesIgnoreFile(filePath, ".goneatignore") {
+		return true
+	}
+
+	// Check user-level .goneatignore
+	if homeDir, err := os.UserHomeDir(); err == nil {
+		userIgnorePath := filepath.Join(homeDir, ".goneatignore")
+		if r.matchesIgnoreFile(filePath, userIgnorePath) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// matchesIgnoreFile checks if a path matches patterns in an ignore file
+func (r *FormatAssessmentRunner) matchesIgnoreFile(filePath, ignoreFilePath string) bool {
+	file, err := os.Open(ignoreFilePath)
+	if err != nil {
+		return false // File doesn't exist, no patterns to match
+	}
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			logger.Warn(fmt.Sprintf("Failed to close ignore file %s: %v", ignoreFilePath, closeErr))
+		}
+	}()
+
+	var patterns []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		// Skip empty lines and comments
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		patterns = append(patterns, line)
+	}
+
+	// Get relative path for pattern matching
+	wd, err := os.Getwd()
+	if err != nil {
+		return false
+	}
+
+	relPath, err := filepath.Rel(wd, filePath)
+	if err != nil {
+		relPath = filePath
+	}
+
+	for _, pattern := range patterns {
+		if r.matchesIgnorePattern(pattern, relPath) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// matchesIgnorePattern performs gitignore-style pattern matching
+func (r *FormatAssessmentRunner) matchesIgnorePattern(pattern, path string) bool {
+	// Handle negation patterns (starting with !)
+	if strings.HasPrefix(pattern, "!") {
+		negatedPattern := strings.TrimPrefix(pattern, "!")
+		return !r.matchesSimplePattern(negatedPattern, path)
+	}
+
+	return r.matchesSimplePattern(pattern, path)
+}
+
+// matchesSimplePattern performs basic pattern matching
+func (r *FormatAssessmentRunner) matchesSimplePattern(pattern, path string) bool {
+	// Handle glob patterns with *
+	if strings.Contains(pattern, "*") {
+		// Simple glob matching for patterns like *.log, test.*
+		if matched, _ := filepath.Match(pattern, filepath.Base(path)); matched {
+			return true
+		}
+		// Also check full path
+		if matched, _ := filepath.Match(pattern, path); matched {
+			return true
+		}
+	}
+
+	// Handle directory patterns
+	if strings.Contains(path, pattern) {
+		return true
+	}
+
+	// Handle exact matches
+	if filepath.Base(path) == pattern {
+		return true
+	}
+
+	return false
 }
 
 // checkFormatting runs gofmt to check for formatting issues

@@ -24,6 +24,16 @@ This document defines all supported environment variables for goneat. Use this a
   - Values: concise | markdown | json | html | both
   - Default: concise (unless --verbose sets markdown)
 
+## Security Command
+
+- GONEAT_SECURITY_FAIL_ON: Display/enforce fail threshold context in concise output
+  - Values: critical | high | medium | low | info
+  - Default: high (security command); recommended defaults by context:
+    - Pre-commit: medium
+    - Pre-push: high
+    - CI (PR/main): high (projects may choose medium)
+    - Release gates: critical (vulns), high+ (code security in sensitive repos)
+
 ## Format Command
 
 - (Planned) GONEAT_FORMAT_FINALIZER: Toggle EOF/trailing-space finalizer (v0.1.3)
@@ -33,6 +43,11 @@ This document defines all supported environment variables for goneat. Use this a
 
 - GONEAT_PRETTY_THEME: Theme for pretty renderer (console/html)
 - GONEAT_CACHE_DIR: Override cache directory location
+- GONEAT_FORMAT_USE_GOIMPORTS: Toggle Go import alignment in format pipeline (planned)
+
+### See also
+
+- Feature Gates (configuration model and precedence): [docs/configuration/feature-gates.md](docs/configuration/feature-gates.md)
 
 ---
 
