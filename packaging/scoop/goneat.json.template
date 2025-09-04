@@ -1,0 +1,23 @@
+{
+  "version": "0.0.0",
+  "description": "Single CLI for format/lint/security with JSON-first output",
+  "homepage": "https://github.com/3leaps/goneat",
+  "license": "MIT",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/3leaps/goneat/releases/download/v$version/goneat_$version_windows_amd64.zip",
+      "hash": "CHANGE_ME",
+      "bin": ["goneat.exe"]
+    }
+  },
+  "checkver": {
+    "github": "https://github.com/3leaps/goneat"
+  },
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/3leaps/goneat/releases/download/v$version/goneat_$version_windows_amd64.zip"
+      }
+    }
+  }
+}

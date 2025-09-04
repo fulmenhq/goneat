@@ -209,7 +209,7 @@ func (s *HTTPConfigSource) Load(ctx context.Context) (*viper.Viper, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // Response body close errors are typically ignored in defer
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)

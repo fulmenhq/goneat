@@ -221,7 +221,7 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 					installed++
 					logger.Warn(fmt.Sprintf("Installed %s but not in PATH", tool.Name))
 					if res.Instructions != "" {
-						fmt.Fprintf(cmd.OutOrStdout(), "Add to PATH:\n  %s\n", res.Instructions)
+						fmt.Fprintf(cmd.OutOrStdout(), "Add to PATH:\n  %s\n", res.Instructions) //nolint:errcheck // CLI output errors are typically ignored
 					}
 				} else if res.Present {
 					// Edge: command now present but not marked installed
@@ -284,12 +284,12 @@ func runDoctorEnv(cmd *cobra.Command, _ []string) error {
 	out := cmd.OutOrStdout()
 
 	fmt.Fprintln(out, "Go Environment Information:") //nolint:errcheck // CLI output errors are typically ignored
-	fmt.Fprintln(out, "===========================")
+	fmt.Fprintln(out, "===========================") //nolint:errcheck // CLI output errors are typically ignored
 
 	// Check if Go is available
 	if _, err := exec.LookPath("go"); err != nil {
-		fmt.Fprintf(out, "❌ Go toolchain not found in PATH\n")
-		fmt.Fprintf(out, "   Install Go: https://go.dev/dl/\n\n")
+		fmt.Fprintf(out, "❌ Go toolchain not found in PATH\n")    //nolint:errcheck // CLI output errors are typically ignored
+		fmt.Fprintf(out, "   Install Go: https://go.dev/dl/\n\n") //nolint:errcheck // CLI output errors are typically ignored
 		return nil
 	}
 
@@ -297,83 +297,109 @@ func runDoctorEnv(cmd *cobra.Command, _ []string) error {
 	envVars := []string{"GOPATH", "GOBIN", "GOROOT", "GOOS", "GOARCH"}
 	for _, env := range envVars {
 		if value := os.Getenv(env); value != "" {
-			fmt.Fprintf(out, "%s=%s\n", env, value)
+			fmt.Fprintf(out, "%s=%s\n", env, value) //nolint:errcheck // CLI output errors are typically ignored
 		} else {
-			fmt.Fprintf(out, "%s=(not set)\n", env)
+			fmt.Fprintf(out, "%s=(not set)\n", env) //nolint:errcheck // CLI output errors are typically ignored
 		}
 	}
 
 	// Show Go version
 	if version, err := exec.Command("go", "version").Output(); err == nil {
-		fmt.Fprintf(out, "\nGo Version: %s", strings.TrimSpace(string(version)))
+		fmt.Fprintf(out, "\nGo Version: %s", strings.TrimSpace(string(version))) //nolint:errcheck // CLI output errors are typically ignored
 	}
 
 	// Show current PATH
-	fmt.Fprintf(out, "\nPATH contains:\n")
+	fmt.Fprintf(out, "\nPATH contains:\n") //nolint:errcheck // CLI output errors are typically ignored
 	pathDirs := strings.Split(os.Getenv("PATH"), string(os.PathListSeparator))
 	for _, dir := range pathDirs {
 		if dir == "" {
 			continue
 		}
-		fmt.Fprintf(out, "  %s", dir)
+		fmt.Fprintf(out, "  %s", dir) //nolint:errcheck // CLI output errors are typically ignored
 		// Check if this directory exists
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			fmt.Fprintf(out, " ❌ (does not exist)")
+			fmt.Fprintf(out, " ❌ (does not exist)") //nolint:errcheck // CLI output errors are typically ignored
 		} else {
-			fmt.Fprintf(out, " ✅")
+			fmt.Fprintf(out, " ✅") //nolint:errcheck // CLI output errors are typically ignored
 		}
-		fmt.Fprintln(out)
+		fmt.Fprintln(out) //nolint:errcheck // CLI output errors are typically ignored
 	}
 
 	// Show Go bin directory
-	fmt.Fprintln(out, "\nGo Tool Installation:")
+	fmt.Fprintln(out, "\nGo Tool Installation:") //nolint:errcheck // CLI output errors are typically ignored
 	goBinPath := getGoBinPath()
 	if goBinPath != "" {
-		fmt.Fprintf(out, "Expected Go bin directory: %s\n", goBinPath)
+		if _, err := fmt.Fprintf(out, "Expected Go bin directory: %s\n", goBinPath); err != nil {
+			return fmt.Errorf("failed to write output: %w", err)
+		}
 		if _, err := os.Stat(goBinPath); os.IsNotExist(err) {
-			fmt.Fprintf(out, "❌ Directory does not exist\n")
+			if _, err := fmt.Fprintf(out, "❌ Directory does not exist\n"); err != nil {
+				return fmt.Errorf("failed to write output: %w", err)
+			}
 		} else {
-			fmt.Fprintf(out, "✅ Directory exists\n")
+			if _, err := fmt.Fprintf(out, "✅ Directory exists\n"); err != nil {
+				return fmt.Errorf("failed to write output: %w", err)
+			}
 
 			// List tools in the directory
 			if entries, err := os.ReadDir(goBinPath); err == nil {
-				fmt.Fprintf(out, "Installed tools: ")
+				if _, err := fmt.Fprintf(out, "Installed tools: "); err != nil {
+					return fmt.Errorf("failed to write output: %w", err)
+				}
 				toolCount := 0
 				for _, entry := range entries {
 					if !entry.IsDir() {
 						if toolCount > 0 {
-							fmt.Fprintf(out, ", ")
+							if _, err := fmt.Fprintf(out, ", "); err != nil {
+								return fmt.Errorf("failed to write output: %w", err)
+							}
 						}
-						fmt.Fprintf(out, "%s", entry.Name())
+						if _, err := fmt.Fprintf(out, "%s", entry.Name()); err != nil {
+							return fmt.Errorf("failed to write output: %w", err)
+						}
 						toolCount++
 					}
 				}
 				if toolCount == 0 {
-					fmt.Fprintf(out, "(none)")
+					if _, err := fmt.Fprintf(out, "(none)"); err != nil {
+						return fmt.Errorf("failed to write output: %w", err)
+					}
 				}
-				fmt.Fprintln(out)
+				if _, err := fmt.Fprintln(out); err != nil {
+					return fmt.Errorf("failed to write output: %w", err)
+				}
 			}
 		}
 	} else {
-		fmt.Fprintf(out, "❌ Could not determine Go bin directory\n")
+		if _, err := fmt.Fprintf(out, "❌ Could not determine Go bin directory\n"); err != nil {
+			return fmt.Errorf("failed to write output: %w", err)
+		}
 	}
 
 	// Check if Go bin is in PATH
 	if goBinPath != "" {
 		inPath := slices.Contains(pathDirs, goBinPath)
 		if inPath {
-			fmt.Fprintf(out, "✅ Go bin directory is in PATH\n")
+			if _, err := fmt.Fprintf(out, "✅ Go bin directory is in PATH\n"); err != nil {
+				return fmt.Errorf("failed to write output: %w", err)
+			}
 		} else {
-			fmt.Fprintf(out, "❌ Go bin directory is NOT in PATH\n")
-			fmt.Fprintf(out, "   Add to PATH: export PATH=\"$PATH:%s\"\n", goBinPath)
+			if _, err := fmt.Fprintf(out, "❌ Go bin directory is NOT in PATH\n"); err != nil {
+				return fmt.Errorf("failed to write output: %w", err)
+			}
+			if _, err := fmt.Fprintf(out, "   Add to PATH: export PATH=\"$PATH:%s\"\n", goBinPath); err != nil {
+				return fmt.Errorf("failed to write output: %w", err)
+			}
 		}
 	}
 
-	fmt.Fprintln(out, "\nTroubleshooting Tips:")
-	fmt.Fprintln(out, "- If tools are installed but not found, restart your shell or source your profile")
-	fmt.Fprintln(out, "- Check that ~/.bashrc, ~/.zshrc, or ~/.profile includes the Go bin directory in PATH")
-	fmt.Fprintln(out, "- On macOS/Linux, you may need to add: export PATH=\"$PATH:$(go env GOPATH)/bin\"")
-	fmt.Fprintln(out, "- On Windows, use: set PATH=%PATH%;%GOPATH%\\bin") // %G is literal, not a format directive
+	fmt.Fprintln(out, "\nTroubleshooting Tips:")                                                               //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintln(out, "- If tools are installed but not found, restart your shell or source your profile")     //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintln(out, "- Check that ~/.bashrc, ~/.zshrc, or ~/.profile includes the Go bin directory in PATH") //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintln(out, "- On macOS/Linux, you may need to add: export PATH=\"$PATH:$(go env GOPATH)/bin\"")     //nolint:errcheck // CLI output errors are typically ignored
+	if _, err := fmt.Fprintf(out, "- On Windows, use: set PATH=%%PATH%%;%%GOPATH%%\\bin\n"); err != nil {
+		return fmt.Errorf("failed to write output: %w", err)
+	}
 
 	return nil
 }

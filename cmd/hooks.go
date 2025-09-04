@@ -167,7 +167,7 @@ func runHooksInit(cmd *cobra.Command, args []string) error {
 
 	// Create .goneat directory
 	goneatDir := ".goneat"
-	if err := os.MkdirAll(goneatDir, 0755); err != nil {
+	if err := os.MkdirAll(goneatDir, 0750); err != nil {
 		return fmt.Errorf("failed to create .goneat directory: %v", err)
 	}
 
@@ -192,7 +192,7 @@ optimization:
 `
 
 	hooksPath := filepath.Join(goneatDir, "hooks.yaml")
-	if err := os.WriteFile(hooksPath, []byte(hooksConfig), 0644); err != nil {
+	if err := os.WriteFile(hooksPath, []byte(hooksConfig), 0600); err != nil { // #nosec G306 - Configuration files use restrictive permissions
 		return fmt.Errorf("failed to create hooks.yaml: %v", err)
 	}
 
@@ -216,7 +216,7 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 
 	// Create .goneat/hooks directory
 	hooksDir := ".goneat/hooks"
-	if err := os.MkdirAll(hooksDir, 0755); err != nil {
+	if err := os.MkdirAll(hooksDir, 0750); err != nil {
 		return fmt.Errorf("failed to create hooks directory: %v", err)
 	}
 
@@ -251,6 +251,11 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 	}
 
 	render := func(templatePath, destPath string, data tplData) error {
+		// Validate template path to prevent path traversal
+		templatePath = filepath.Clean(templatePath)
+		if strings.Contains(templatePath, "..") {
+			return fmt.Errorf("invalid template path: contains path traversal")
+		}
 		raw, err := os.ReadFile(templatePath)
 		if err != nil {
 			return fmt.Errorf("failed to read template %s: %v", templatePath, err)
@@ -263,7 +268,7 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 		if err := tmpl.Execute(&buf, data); err != nil {
 			return fmt.Errorf("failed to render template %s: %v", templatePath, err)
 		}
-		if err := os.WriteFile(destPath, buf.Bytes(), 0755); err != nil {
+		if err := os.WriteFile(destPath, buf.Bytes(), 0700); err != nil { // #nosec G306 - Git hooks require execute permissions
 			return fmt.Errorf("failed to write %s: %v", destPath, err)
 		}
 		return nil
@@ -352,8 +357,8 @@ func runHooksInstall(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to install pre-commit hook: %v", err)
 		}
 
-		// Make executable
-		if err := os.Chmod(preCommitDst, 0755); err != nil {
+		// Make executable - git hooks require execute permissions
+		if err := os.Chmod(preCommitDst, 0700); err != nil { // #nosec G302 - Git hooks require execute permissions
 			return fmt.Errorf("failed to make pre-commit hook executable: %v", err)
 		}
 
@@ -380,8 +385,8 @@ func runHooksInstall(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to install pre-push hook: %v", err)
 		}
 
-		// Make executable
-		if err := os.Chmod(prePushDst, 0755); err != nil {
+		// Make executable - git hooks require execute permissions
+		if err := os.Chmod(prePushDst, 0700); err != nil { // #nosec G302 - Git hooks require execute permissions
 			return fmt.Errorf("failed to make pre-push hook executable: %v", err)
 		}
 
@@ -402,11 +407,17 @@ func runHooksInstall(cmd *cobra.Command, args []string) error {
 
 // copyFile copies a file from src to dst
 func copyFile(src, dst string) error {
+	// Validate paths to prevent path traversal
+	src = filepath.Clean(src)
+	dst = filepath.Clean(dst)
+	if strings.Contains(src, "..") || strings.Contains(dst, "..") {
+		return fmt.Errorf("invalid path: contains path traversal")
+	}
 	data, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(dst, data, 0755) // Make executable
+	return os.WriteFile(dst, data, 0700) // #nosec G306 - Git hooks require execute permissions
 }
 
 func runHooksValidate(cmd *cobra.Command, args []string) error {
@@ -773,7 +784,7 @@ func runHooksConfigure(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal updated configuration: %v", err)
 	}
-	if err := os.WriteFile(hooksConfigPath, out, 0644); err != nil {
+	if err := os.WriteFile(hooksConfigPath, out, 0600); err != nil { // #nosec G306 - Configuration files use restrictive permissions
 		return fmt.Errorf("failed to write updated configuration: %v", err)
 	}
 	fmt.Println("✅ Updated .goneat/hooks.yaml")

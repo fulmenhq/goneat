@@ -266,7 +266,7 @@ func EnsureGoneatHome() (string, error) {
 		return "", err
 	}
 
-	if err := os.MkdirAll(homeDir, 0755); err != nil {
+	if err := os.MkdirAll(homeDir, 0750); err != nil {
 		return "", fmt.Errorf("failed to create goneat home directory: %v", err)
 	}
 
@@ -281,7 +281,7 @@ func GetScratchpadDir() (string, error) {
 	}
 
 	scratchpadDir := filepath.Join(homeDir, "scratchpad")
-	if err := os.MkdirAll(scratchpadDir, 0755); err != nil {
+	if err := os.MkdirAll(scratchpadDir, 0750); err != nil {
 		return "", fmt.Errorf("failed to create scratchpad directory: %v", err)
 	}
 
@@ -295,7 +295,7 @@ func GetCacheDir() (string, error) {
 		return "", err
 	}
 	cacheDir := filepath.Join(homeDir, "cache")
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+	if err := os.MkdirAll(cacheDir, 0750); err != nil {
 		return "", fmt.Errorf("failed to create cache directory: %v", err)
 	}
 	return cacheDir, nil
@@ -308,7 +308,7 @@ func GetLogDir() (string, error) {
 		return "", err
 	}
 	logDir := filepath.Join(homeDir, "logs")
-	if err := os.MkdirAll(logDir, 0755); err != nil {
+	if err := os.MkdirAll(logDir, 0750); err != nil {
 		return "", fmt.Errorf("failed to create log directory: %v", err)
 	}
 	return logDir, nil
@@ -321,7 +321,7 @@ func GetConfigDir() (string, error) {
 		return "", err
 	}
 	configDir := filepath.Join(homeDir, "config")
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0750); err != nil {
 		return "", fmt.Errorf("failed to create config directory: %v", err)
 	}
 	return configDir, nil
@@ -334,7 +334,7 @@ func GetWorkDir() (string, error) {
 		return "", err
 	}
 	workDir := filepath.Join(homeDir, "work")
-	if err := os.MkdirAll(workDir, 0755); err != nil {
+	if err := os.MkdirAll(workDir, 0750); err != nil {
 		return "", fmt.Errorf("failed to create work directory: %v", err)
 	}
 	return workDir, nil

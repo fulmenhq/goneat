@@ -1,72 +1,37 @@
 # Goneat Ignore File
-# This file specifies patterns for files and directories that goneat should ignore
+# This file provides overrides to .gitignore for goneat-specific behavior
+# Primary purpose: Include files .gitignore excludes, or exclude files .gitignore includes
 # Syntax follows gitignore patterns - comments start with #
 
-# Temporary files
-*.tmp
-*.temp
-*~
+# Goneat-specific exclusions (files not in .gitignore but should be skipped by goneat)
 
-# Build artifacts (in addition to .gitignore)
-/dist/
-/build/
-*.exe
-*.dll
-*.so
-*.dylib
-
-# Test artifacts
-coverage.out
-*.test
-test-results/
-*.profile
-
-# IDE and editor files
-.vscode/settings.json
-.idea/workspace.xml
-*.swp
-*.swo
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Logs
-*.log
-logs/
-
-# Dependencies (typically in .gitignore too)
-vendor/
-node_modules/
-
-# Generated code (protobuf, etc.)
-*.pb.go
-*_mock.go
-
-# Documentation build artifacts
-docs/_build/
-docs/site/
-
-# Plans and development artifacts (optional - could be assessed)
-# Uncomment if you want to skip assessment of planning docs
-.plans/
-*.draft.md
-
-# Development scratchpad and planning artifacts
-.scratchpad/
-
-# AI assistant specific files
-.claude/
-
-# Template files (placeholder content)
+# Files that goneat format cannot process (unsupported by format processors)
+*.mod
+*.sum
+*.tmpl  
 *.template
-templates/example-*
+*.lock
+*.pid
+# Shell scripts without extensions (hooks)
+.goneat/hooks/*
+.git/hooks/*
+# Lock and generated files
+*.generated
+*.gen
+# Binary and executable files
+*.bin
+*.exe
+# Configuration files that shouldn't be formatted
+.goneat/dev-mode
+# License files without extensions
+LICENSE
+COPYING
+# Test fixture files with unsupported extensions
+tests/fixtures/**/*.goneatignore
 
 # Override examples:
 # To assess something normally ignored by git:
 # !important-ignored-file.go
+# 
+# To skip something normally tracked by git:
+# sensitive-config.yaml

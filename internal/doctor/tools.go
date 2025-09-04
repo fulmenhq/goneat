@@ -167,7 +167,8 @@ func InstallTool(t Tool) Status {
 	}
 
 	// Execute: go install <pkg>@latest
-	cmd := exec.Command("go", "install", t.InstallPackage)
+	installPkg := t.InstallPackage
+	cmd := exec.Command("go", "install", installPkg) // #nosec G204
 	var out bytes.Buffer
 	var errb bytes.Buffer
 	cmd.Stdout = &out
@@ -268,9 +269,7 @@ func sanitizeVersion(s string) string {
 	line := firstLine(s)
 	line = strings.TrimSpace(line)
 	// Handle tool-specific prefix first (e.g., "govulncheck: version v1.1.0")
-	if strings.HasPrefix(line, "govulncheck: ") {
-		line = strings.TrimPrefix(line, "govulncheck: ")
-	}
+	line = strings.TrimPrefix(line, "govulncheck: ")
 	// Then strip generic "version" prefixes
 	line = strings.TrimPrefix(line, "version ")
 	line = strings.TrimPrefix(line, "Version ")
@@ -290,9 +289,7 @@ func extractFirstVersionToken(s string) string {
 
 func looksLikeVersion(s string) bool {
 	// v1.2.3 or 1.2.3 or similar
-	if strings.HasPrefix(s, "v") {
-		s = s[1:]
-	}
+	s = strings.TrimPrefix(s, "v")
 	dots := strings.Count(s, ".")
 	return dots >= 1 && dots <= 3
 }

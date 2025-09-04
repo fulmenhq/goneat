@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/3leaps/goneat/internal/assess"
 	"github.com/spf13/cobra"
@@ -25,6 +27,11 @@ var prettyCmd = &cobra.Command{
 		var data []byte
 		var err error
 		if input != "" {
+			// Validate input path to prevent path traversal
+			input = filepath.Clean(input)
+			if strings.Contains(input, "..") {
+				return fmt.Errorf("invalid input path: contains path traversal")
+			}
 			data, err = os.ReadFile(input)
 			if err != nil {
 				return err

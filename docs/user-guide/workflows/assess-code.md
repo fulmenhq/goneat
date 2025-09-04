@@ -29,6 +29,16 @@ Goneat assess provides three operational modes designed for different use cases:
 - **📋 Check Mode** (`--check`): Issue detection and reporting
 - **🔧 Fix Mode** (`--fix`): Automatic issue resolution where possible
 
+### File Filtering and Ignore Patterns
+
+Goneat respects standard gitignore patterns and provides additional ignore capabilities through layered configuration:
+
+1. **`.gitignore`** - Standard git ignore patterns (foundation layer)
+2. **`.goneatignore`** - Repository-specific goneat ignore patterns (override layer)
+3. **`~/.goneat/.goneatignore`** - User-level global ignore patterns (user override layer)
+
+Default ignored directories include `.git/`, `node_modules/`, and `.scratchpad/`. All ignore patterns support standard gitignore syntax including negation patterns (e.g., `!important-file.txt`).
+
 ## Quick Start Workflows
 
 ### New Project Setup
@@ -160,6 +170,42 @@ goneat assess --check --fail-on high --include "internal/**/*.go"
 # Track progress
 goneat assess --check --format json --output current-state.json
 ./scripts/track-improvement.sh legacy-baseline.json current-state.json
+```
+
+### Scenario 5: Managing Ignore Patterns
+
+**Goal:** Configure project-specific file filtering for goneat assessments.
+
+```bash
+# Example .goneatignore file
+cat > .goneatignore << EOF
+# Generated files
+*.gen.go
+*_generated.go
+mock_*.go
+
+# Vendor directories
+vendor/
+third_party/
+
+# Documentation drafts
+docs/drafts/
+
+# Include important generated files despite pattern
+!important_generated.go
+EOF
+
+# Test ignore patterns
+goneat assess --check --verbose  # Shows skipped files in verbose mode
+
+# Override ignore patterns for specific assessment
+goneat assess --check --include "vendor/**/*.go"  # Force include vendor files
+
+# Assess only non-ignored files (default behavior)
+goneat assess --check --format json --output clean-assessment.json
+
+# Check which ignore files are present and active
+goneat envinfo --extended  # Shows ignore file status in "Ignore Configuration" section
 ```
 
 ## CI/CD Integration Workflows

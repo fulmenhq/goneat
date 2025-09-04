@@ -3,8 +3,11 @@ package work
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/3leaps/goneat/pkg/config"
+	"github.com/3leaps/goneat/pkg/format/finalizer"
 	"github.com/3leaps/goneat/pkg/logger"
 )
 
@@ -54,7 +57,8 @@ func (p *FormatProcessor) ProcessWorkItem(ctx context.Context, item *WorkItem, d
 		case "markdown":
 			err = p.checkMarkdownFile(item.Path)
 		default:
-			err = fmt.Errorf("unsupported content type: %s", item.ContentType)
+			supportedTypes := p.GetSupportedContentTypes()
+			err = fmt.Errorf("unsupported content type '%s' for file %s. Supported types: %v. Use --types flag to filter specific types or check file extension", item.ContentType, item.Path, supportedTypes)
 		}
 
 		if err != nil {
@@ -78,7 +82,8 @@ func (p *FormatProcessor) ProcessWorkItem(ctx context.Context, item *WorkItem, d
 		case "markdown":
 			err = p.formatMarkdownFile(item.Path)
 		default:
-			err = fmt.Errorf("unsupported content type: %s", item.ContentType)
+			supportedTypes := p.GetSupportedContentTypes()
+			err = fmt.Errorf("unsupported content type '%s' for file %s. Supported types: %v. Use --types flag to filter specific types or check file extension", item.ContentType, item.Path, supportedTypes)
 		}
 
 		if err != nil {
@@ -189,8 +194,50 @@ func (p *FormatProcessor) formatMarkdownFile(filePath string) error {
 
 	logger.Debug(fmt.Sprintf("Markdown config: line_length=%d, trailing_spaces=%t", mdConfig.LineLength, mdConfig.TrailingSpaces))
 
-	// In a real implementation, this would execute prettier with appropriate arguments
-	// For now, return success
+	// Apply finalizer normalization for markdown files
+	// This handles EOF, trailing whitespace, line endings, etc.
+	options := finalizer.NormalizationOptions{
+		EnsureEOF:              true,  // Always ensure EOF for markdown
+		TrimTrailingWhitespace: true,  // Always trim trailing whitespace for markdown
+		NormalizeLineEndings:   "",    // Use system default
+		RemoveUTF8BOM:          true,  // Remove BOM if present
+	}
+
+	// Validate file path to prevent path traversal
+	filePath = filepath.Clean(filePath)
+	if !filepath.IsAbs(filePath) {
+		abs, err := filepath.Abs(filePath)
+		if err != nil {
+			return fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err)
+		}
+		filePath = abs
+	}
+
+	// Read the file content
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+	}
+
+	// Apply comprehensive normalization
+	normalizedContent, changed, err := finalizer.ComprehensiveFileNormalization(content, options)
+	if err != nil {
+		return fmt.Errorf("failed to normalize file %s: %w", filePath, err)
+	}
+
+	// Write back if changed
+	if changed {
+		if err := os.WriteFile(filePath, normalizedContent, 0644); err != nil {
+			return fmt.Errorf("failed to write normalized content to %s: %w", filePath, err)
+		}
+		logger.Debug(fmt.Sprintf("Applied normalization to %s", filePath))
+	} else {
+		logger.Debug(fmt.Sprintf("No normalization needed for %s", filePath))
+	}
+
+	// TODO: In future, also execute prettier or other markdown formatter here
+	// For now, finalizer normalization handles the basic formatting needs
+
 	return nil
 }
 
@@ -198,10 +245,43 @@ func (p *FormatProcessor) formatMarkdownFile(filePath string) error {
 func (p *FormatProcessor) checkMarkdownFile(filePath string) error {
 	logger.Debug(fmt.Sprintf("Checking Markdown file formatting: %s", filePath))
 
-	// In a real implementation, this would run prettier with --check flag
-	// and return an error if formatting is needed
-	// For now, we'll simulate a check
-	return nil // Simulate that the file is properly formatted
+	// Apply finalizer check for markdown files
+	options := finalizer.NormalizationOptions{
+		EnsureEOF:              true,  // Always ensure EOF for markdown
+		TrimTrailingWhitespace: true,  // Always trim trailing whitespace for markdown
+		NormalizeLineEndings:   "",    // Use system default
+		RemoveUTF8BOM:          true,  // Remove BOM if present
+	}
+
+	// Validate file path to prevent path traversal
+	filePath = filepath.Clean(filePath)
+	if !filepath.IsAbs(filePath) {
+		abs, err := filepath.Abs(filePath)
+		if err != nil {
+			return fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err)
+		}
+		filePath = abs
+	}
+
+	// Read the file content
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+	}
+
+	// Check if normalization would make changes (without applying them)
+	_, changed, err := finalizer.ComprehensiveFileNormalization(content, options)
+	if err != nil {
+		return fmt.Errorf("failed to check normalization for %s: %w", filePath, err)
+	}
+
+	// Return error if formatting is needed
+	if changed {
+		return fmt.Errorf("file %s needs formatting (EOF, trailing whitespace, or line ending issues)", filePath)
+	}
+
+	logger.Debug(fmt.Sprintf("File %s is properly formatted", filePath))
+	return nil
 }
 
 // GetSupportedContentTypes returns the content types supported by this processor
@@ -222,7 +302,7 @@ func (p *FormatProcessor) ValidateWorkItem(item *WorkItem) error {
 		}
 	}
 
-	return fmt.Errorf("unsupported content type: %s", item.ContentType)
+	return fmt.Errorf("unsupported content type '%s' for file %s. Supported types: %v. Use --types flag to filter specific types or check file extension", item.ContentType, item.Path, p.GetSupportedContentTypes())
 }
 
 // EstimateProcessingTime estimates processing time for a work item

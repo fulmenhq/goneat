@@ -1,0 +1,39 @@
+name: Release binaries
+on:
+  push:
+    tags:
+      - 'v*'
+permissions:
+  contents: write
+jobs:
+  build-and-release:
+    if: ${{ !github.event.repository.private || vars.ALLOW_PRIVATE_RELEASES == 'true' }}
+    environment: public-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+      - name: Show version
+        run: |
+          echo "Tag: $GITHUB_REF_NAME"
+          cat VERSION || true
+      - name: Build all platforms
+        run: |
+          chmod +x scripts/build-all.sh
+          ./scripts/build-all.sh
+      - name: Package artifacts
+        run: |
+          chmod +x scripts/package-artifacts.sh
+          ./scripts/package-artifacts.sh
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/release/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

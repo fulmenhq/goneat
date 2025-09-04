@@ -1,8 +1,7 @@
 package work
 
 import (
-	"bufio"
-	"crypto/md5"
+	"crypto/sha256"
 	"fmt"
 	"io/fs"
 	"os"
@@ -12,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/3leaps/goneat/pkg/ignore"
 	"github.com/3leaps/goneat/pkg/logger"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -95,134 +95,36 @@ type PlannerConfig struct {
 	GroupByContentType bool
 	IgnoreFile         string // Path to ignore file (e.g., .goneatignore)
 	EnableFinalizer    bool   // Whether finalizer operations are enabled
+	Verbose            bool   // Enable verbose logging for skipped files
 }
 
 // Planner handles work planning and manifest generation
 type Planner struct {
-	config         PlannerConfig
-	ignorePatterns []string
+	config        PlannerConfig
+	ignoreMatcher *ignore.Matcher
 }
 
 // NewPlanner creates a new work planner
 func NewPlanner(config PlannerConfig) *Planner {
 	planner := &Planner{config: config}
-	planner.loadIgnorePatterns()
+
+	// Initialize ignore matcher
+	if matcher, err := ignore.NewMatcher("."); err != nil {
+		logger.Warn(fmt.Sprintf("Failed to initialize ignore matcher: %v", err))
+		planner.ignoreMatcher = nil
+	} else {
+		planner.ignoreMatcher = matcher
+	}
+
 	return planner
 }
 
-// loadIgnorePatterns reads ignore patterns from .goneatignore files
-func (p *Planner) loadIgnorePatterns() {
-	var patterns []string
-
-	// Load repo-level .goneatignore
-	if repoIgnore, err := p.readIgnoreFile(".goneatignore"); err == nil {
-		patterns = append(patterns, repoIgnore...)
-	}
-
-	// Load user-level .goneatignore
-	if homeDir, err := os.UserHomeDir(); err == nil {
-		userIgnorePath := filepath.Join(homeDir, ".goneatignore")
-		if userIgnore, err := p.readIgnoreFile(userIgnorePath); err == nil {
-			patterns = append(patterns, userIgnore...)
-		}
-	}
-
-	p.ignorePatterns = patterns
-}
-
-// readIgnoreFile reads patterns from an ignore file
-func (p *Planner) readIgnoreFile(path string) ([]string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			logger.Warn(fmt.Sprintf("Failed to close ignore file %s: %v", path, closeErr))
-		}
-	}()
-
-	var patterns []string
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		// Skip empty lines and comments
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		patterns = append(patterns, line)
-	}
-
-	return patterns, scanner.Err()
-}
-
-// matchesIgnorePattern checks if a path matches any ignore pattern
+// matchesIgnorePattern checks if a path matches any ignore pattern using go-git
 func (p *Planner) matchesIgnorePattern(path string) bool {
-	// Get relative path from working directory for pattern matching
-	wd, err := os.Getwd()
-	if err != nil {
+	if p.ignoreMatcher == nil {
 		return false
 	}
-
-	relPath, err := filepath.Rel(wd, path)
-	if err != nil {
-		relPath = path
-	}
-
-	for _, pattern := range p.ignorePatterns {
-		if p.matchesPattern(pattern, relPath) {
-			return true
-		}
-	}
-
-	return false
-}
-
-// matchesPattern checks if a path matches a gitignore-style pattern
-func (p *Planner) matchesPattern(pattern, path string) bool {
-	// Handle directory patterns (ending with /)
-	if strings.HasSuffix(pattern, "/") {
-		// If path is a directory and matches the pattern, ignore it
-		if info, err := os.Stat(path); err == nil && info.IsDir() {
-			return strings.Contains(path, strings.TrimSuffix(pattern, "/"))
-		}
-		return false
-	}
-
-	// Handle negation patterns (starting with !)
-	if strings.HasPrefix(pattern, "!") {
-		negatedPattern := strings.TrimPrefix(pattern, "!")
-		return !p.matchesSimplePattern(negatedPattern, path)
-	}
-
-	return p.matchesSimplePattern(pattern, path)
-}
-
-// matchesSimplePattern performs basic gitignore-style pattern matching
-func (p *Planner) matchesSimplePattern(pattern, path string) bool {
-	// Handle glob patterns with *
-	if strings.Contains(pattern, "*") {
-		// Simple glob matching for patterns like *.log, test.*
-		if matched, _ := filepath.Match(pattern, filepath.Base(path)); matched {
-			return true
-		}
-		// Also check full path
-		if matched, _ := filepath.Match(pattern, path); matched {
-			return true
-		}
-	}
-
-	// Handle directory patterns
-	if strings.Contains(path, pattern) {
-		return true
-	}
-
-	// Handle exact matches
-	if filepath.Base(path) == pattern {
-		return true
-	}
-
-	return false
+	return p.ignoreMatcher.IsIgnored(path)
 }
 
 // GenerateManifest generates a complete work manifest
@@ -279,8 +181,16 @@ func (p *Planner) discoverFiles() ([]string, error) {
 				return err
 			}
 
-			// Skip directories if we have depth limits
+			// Skip directories if they match ignore patterns
 			if d.IsDir() {
+				if p.ignoreMatcher != nil && p.ignoreMatcher.IsIgnoredDir(path) {
+					if p.config.Verbose {
+						logger.Debug(fmt.Sprintf("Skipping directory %s: matches ignore pattern", path))
+					}
+					return filepath.SkipDir
+				}
+
+				// Skip directories if we have depth limits
 				if p.config.MaxDepth > 0 {
 					relPath, err := filepath.Rel(basePath, path)
 					if err != nil {
@@ -316,6 +226,9 @@ func (p *Planner) shouldIncludeFile(path string) bool {
 
 	// Check .goneatignore patterns first
 	if p.matchesIgnorePattern(path) {
+		if p.config.Verbose {
+			logger.Debug(fmt.Sprintf("Skipping %s: matches ignore pattern", path))
+		}
 		return false
 	}
 
@@ -330,6 +243,9 @@ func (p *Planner) shouldIncludeFile(path string) bool {
 			}
 		}
 		if !found {
+			if p.config.Verbose {
+				logger.Debug(fmt.Sprintf("Skipping %s: content type '%s' not in allowed types %v", path, contentType, p.config.ContentTypes))
+			}
 			return false
 		}
 	}
@@ -338,11 +254,14 @@ func (p *Planner) shouldIncludeFile(path string) bool {
 	if len(p.config.IncludePatterns) > 0 {
 		matched := false
 		for _, pattern := range p.config.IncludePatterns {
-			if matched, _ := filepath.Match(pattern, filepath.Base(path)); matched {
+			if matched, _ = filepath.Match(pattern, filepath.Base(path)); matched {
 				break
 			}
 		}
 		if !matched {
+			if p.config.Verbose {
+				logger.Debug(fmt.Sprintf("Skipping %s: does not match include patterns %v", path, p.config.IncludePatterns))
+			}
 			return false
 		}
 	}
@@ -350,8 +269,17 @@ func (p *Planner) shouldIncludeFile(path string) bool {
 	// Check exclude patterns
 	for _, pattern := range p.config.ExcludePatterns {
 		if matched, _ := filepath.Match(pattern, filepath.Base(path)); matched {
+			if p.config.Verbose {
+				logger.Debug(fmt.Sprintf("Skipping %s: matches exclude pattern '%s'", path, pattern))
+			}
 			return false
 		}
+	}
+
+	// File passed all filters - include it
+	if p.config.Verbose {
+		contentType := p.getContentType(ext)
+		logger.Debug(fmt.Sprintf("Including %s (type: %s)", path, contentType))
 	}
 
 	return true
@@ -395,24 +323,19 @@ func (p *Planner) getContentType(ext string) string {
 
 // eliminateRedundancies removes redundant paths
 func (p *Planner) eliminateRedundancies(files []string) ([]string, []string) {
+	// Only remove exact duplicate file paths while preserving order.
 	if len(files) <= 1 {
 		return files, nil
 	}
 
-	// Sort by path length to process shorter paths first
-	sort.Slice(files, func(i, j int) bool {
-		return len(files[i]) < len(files[j])
-	})
-
 	var filtered []string
 	var redundant []string
-	seen := make(map[string]bool)
+	seen := make(map[string]bool, len(files))
 
 	for _, file := range files {
-		dir := filepath.Dir(file)
-		if !seen[dir] {
+		if !seen[file] {
 			filtered = append(filtered, file)
-			seen[dir] = true
+			seen[file] = true
 		} else {
 			redundant = append(redundant, file)
 		}
@@ -426,16 +349,24 @@ func (p *Planner) createWorkItems(files []string) []WorkItem {
 	var workItems []WorkItem
 
 	for _, file := range files {
+		// Validate that file path contains a path separator or extension
+		// to catch corrupted paths like just "json"
+		if !strings.Contains(file, string(filepath.Separator)) && !strings.Contains(file, ".") {
+			logger.Debug(fmt.Sprintf("Skipping invalid file path: '%s'", file))
+			continue
+		}
+
 		stat, err := os.Stat(file)
 		if err != nil {
+			logger.Debug(fmt.Sprintf("Skipping file that can't be stat'd: '%s': %v", file, err))
 			continue
 		}
 
 		contentType := p.getContentType(strings.ToLower(filepath.Ext(file)))
 		size := stat.Size()
 
-		// Generate unique ID
-		id := fmt.Sprintf("%x", md5.Sum([]byte(file)))
+		// Generate unique ID using SHA-256 for better security
+		id := fmt.Sprintf("%x", sha256.Sum256([]byte(file)))
 
 		// Estimate processing time based on size and content type
 		estimatedTime := p.estimateProcessingTime(contentType, size)

@@ -254,7 +254,11 @@ func TestAssessCLI_CustomPriorities(t *testing.T) {
 
 	out := buf.String()
 	if !strings.Contains(out, `"tool":`) {
-		t.Fatalf("expected JSON output, got: %s", out[:200])
+		preview := out
+		if len(out) > 200 {
+			preview = out[:200]
+		}
+		t.Fatalf("expected JSON output, got: %s", preview)
 	}
 }
 

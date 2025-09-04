@@ -216,7 +216,9 @@ func TestConvenienceFunctions(t *testing.T) {
 		Component: "test",
 		NoOp:      false,
 	}
-	Initialize(config)
+	if err := Initialize(config); err != nil {
+		t.Fatalf("Failed to initialize logger: %v", err)
+	}
 
 	var buf bytes.Buffer
 	SetOutput(&buf)
@@ -264,7 +266,9 @@ func TestSetOutput(t *testing.T) {
 		Component: "test",
 		NoOp:      false,
 	}
-	Initialize(config)
+	if err := Initialize(config); err != nil {
+		t.Fatalf("Failed to initialize logger: %v", err)
+	}
 
 	// Set output to our buffer
 	SetOutput(&buf)

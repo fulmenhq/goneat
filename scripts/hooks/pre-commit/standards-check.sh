@@ -6,28 +6,7 @@ set -e
 
 echo "📋 Checking standards compliance..."
 
-# Check if goneat is available and has forge command
-if command -v goneat &> /dev/null && [ -f "./goneat" ]; then
-    # Check if forge command exists (when implemented)
-    if ./goneat forge --help >/dev/null 2>&1; then
-        # Use goneat forge (dogfooding - preferred)
-        if ! ./goneat forge --check --quiet; then
-            echo "❌ Standards compliance issues found"
-            echo "💡 Fix: ./goneat forge --fix"
-            exit 1
-        fi
-        echo "✅ Standards compliance OK (goneat)"
-    else
-        echo "⚠️  goneat forge not yet available, using basic checks"
-        # Fallback to basic standards checks
-        basic_standards_check
-    fi
-else
-    echo "⚠️  goneat not available, using basic standards checks"
-    # Fallback to basic standards checks
-    basic_standards_check
-fi
-
+# Define basic function first
 basic_standards_check() {
     local has_issues=false
 
@@ -65,3 +44,25 @@ basic_standards_check() {
         echo "✅ Basic standards compliance OK"
     fi
 }
+
+# Check if goneat is available and has forge command
+if command -v goneat &> /dev/null && [ -f "./goneat" ]; then
+    # Check if forge command exists (when implemented)
+    if ./goneat forge --help >/dev/null 2>&1; then
+        # Use goneat forge (dogfooding - preferred)
+        if ! ./goneat forge --check --quiet; then
+            echo "❌ Standards compliance issues found"
+            echo "💡 Fix: ./goneat forge --fix"
+            exit 1
+        fi
+        echo "✅ Standards compliance OK (goneat)"
+    else
+        echo "⚠️  goneat forge not yet available, using basic checks"
+        # Fallback to basic standards checks
+        basic_standards_check
+    fi
+else
+    echo "⚠️  goneat not available, using basic standards checks"
+    # Fallback to basic standards checks
+    basic_standards_check
+fi

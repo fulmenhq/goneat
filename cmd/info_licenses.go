@@ -129,31 +129,43 @@ func outputLicenseDetails(licenses []LicenseInfo, jsonFormat bool, cmd *cobra.Co
 	out := cmd.OutOrStdout()
 
 	// Header
-	fmt.Fprintln(out, "📋 Goneat License Information")
-	fmt.Fprintln(out, "=============================")
-	fmt.Fprintln(out)
+	fmt.Fprintln(out, "📋 Goneat License Information")  //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintln(out, "=============================") //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintln(out)                                  //nolint:errcheck // CLI output errors are typically ignored
 
 	// Main project
-	fmt.Fprintln(out, "🎯 Main Project:")
+	if _, err := fmt.Fprintln(out, "🎯 Main Project:"); err != nil {
+		return fmt.Errorf("failed to write output: %w", err)
+	}
 	for _, lic := range licenses {
 		if lic.Main {
-			fmt.Fprintf(out, "  %s - %s\n", lic.Module, lic.License)
+			if _, err := fmt.Fprintf(out, "  %s - %s\n", lic.Module, lic.License); err != nil {
+				return fmt.Errorf("failed to write output: %w", err)
+			}
 			break
 		}
 	}
-	fmt.Fprintln(out)
+	if _, err := fmt.Fprintln(out); err != nil {
+		return fmt.Errorf("failed to write output: %w", err)
+	}
 
 	// Dependencies by license type
 	byLicense := groupByLicense(licenses)
 
-	fmt.Fprintln(out, "📦 Dependencies by License:")
+	if _, err := fmt.Fprintln(out, "📦 Dependencies by License:"); err != nil {
+		return fmt.Errorf("failed to write output: %w", err)
+	}
 
 	licenseOrder := []string{"Apache License 2.0", "MIT License", "BSD-3-Clause License"}
 	for _, licenseType := range licenseOrder {
 		if modules, exists := byLicense[licenseType]; exists {
-			fmt.Fprintf(out, "\n%s (%d modules):\n", licenseType, len(modules))
+			if _, err := fmt.Fprintf(out, "\n%s (%d modules):\n", licenseType, len(modules)); err != nil {
+				return fmt.Errorf("failed to write output: %w", err)
+			}
 			for _, module := range modules {
-				fmt.Fprintf(out, "  • %s\n", module)
+				if _, err := fmt.Fprintf(out, "  • %s\n", module); err != nil {
+					return fmt.Errorf("failed to write output: %w", err)
+				}
 			}
 		}
 	}
@@ -168,16 +180,26 @@ func outputLicenseDetails(licenses []LicenseInfo, jsonFormat bool, cmd *cobra.Co
 			}
 		}
 		if !found {
-			fmt.Fprintf(out, "\n%s (%d modules):\n", licenseType, len(modules))
+			if _, err := fmt.Fprintf(out, "\n%s (%d modules):\n", licenseType, len(modules)); err != nil {
+				return fmt.Errorf("failed to write output: %w", err)
+			}
 			for _, module := range modules {
-				fmt.Fprintf(out, "  • %s\n", module)
+				if _, err := fmt.Fprintf(out, "  • %s\n", module); err != nil {
+					return fmt.Errorf("failed to write output: %w", err)
+				}
 			}
 		}
 	}
 
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, "💡 All licenses are permissive and compatible with Apache 2.0")
-	fmt.Fprintln(out, "📖 For full license texts, see individual package repositories")
+	if _, err := fmt.Fprintln(out); err != nil {
+		return fmt.Errorf("failed to write output: %w", err)
+	}
+	if _, err := fmt.Fprintln(out, "💡 All licenses are permissive and compatible with Apache 2.0"); err != nil {
+		return fmt.Errorf("failed to write output: %w", err)
+	}
+	if _, err := fmt.Fprintln(out, "📖 For full license texts, see individual package repositories"); err != nil {
+		return fmt.Errorf("failed to write output: %w", err)
+	}
 
 	return nil
 }
@@ -205,19 +227,33 @@ func outputLicenseSummary(licenses []LicenseInfo, jsonFormat bool, cmd *cobra.Co
 
 	out := cmd.OutOrStdout()
 
-	fmt.Fprintln(out, "📊 License Summary")
-	fmt.Fprintln(out, "==================")
-	fmt.Fprintln(out)
+	if _, err := fmt.Fprintln(out, "📊 License Summary"); err != nil {
+		return fmt.Errorf("failed to write output: %w", err)
+	}
+	if _, err := fmt.Fprintln(out, "=================="); err != nil {
+		return fmt.Errorf("failed to write output: %w", err)
+	}
+	if _, err := fmt.Fprintln(out); err != nil {
+		return fmt.Errorf("failed to write output: %w", err)
+	}
 
 	totalModules := 0
 	for _, summary := range summaries {
 		totalModules += summary.Count
-		fmt.Fprintf(out, "%s: %d modules\n", summary.LicenseType, summary.Count)
+		if _, err := fmt.Fprintf(out, "%s: %d modules\n", summary.LicenseType, summary.Count); err != nil {
+			return fmt.Errorf("failed to write output: %w", err)
+		}
 	}
 
-	fmt.Fprintln(out)
-	fmt.Fprintf(out, "Total modules: %d\n", totalModules)
-	fmt.Fprintf(out, "License types: %d\n", len(summaries))
+	if _, err := fmt.Fprintln(out); err != nil {
+		return fmt.Errorf("failed to write output: %w", err)
+	}
+	if _, err := fmt.Fprintf(out, "Total modules: %d\n", totalModules); err != nil {
+		return fmt.Errorf("failed to write output: %w", err)
+	}
+	if _, err := fmt.Fprintf(out, "License types: %d\n", len(summaries)); err != nil {
+		return fmt.Errorf("failed to write output: %w", err)
+	}
 
 	return nil
 }

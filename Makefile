@@ -19,7 +19,7 @@ SRC_DIR := .
 GOCMD := go
 GOBUILD := $(GOCMD) build
 GOCLEAN := $(GOCMD) clean
-GOTEST := $(GOTEST) test
+GOTEST := $(GOCMD) test
 GOMOD := $(GOCMD) mod
 GOFMT := $(GOCMD) fmt
 
@@ -52,6 +52,12 @@ build-all: ## Build for all supported platforms
 	@./scripts/build-all.sh
 	@echo "✅ Cross-platform builds completed"
 
+package: ## Package built binaries into archives + checksums
+	@echo "Packaging artifacts for v$(VERSION)..."
+	@chmod +x scripts/package-artifacts.sh
+	@./scripts/package-artifacts.sh
+	@echo "✅ Packaging completed (dist/release)"
+
 build-linux-amd64: ## Build for Linux AMD64
 	@echo "Building for Linux AMD64..."
 	GOOS=linux GOARCH=amd64 $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./$(SRC_DIR)
@@ -82,21 +88,41 @@ clean: ## Clean build artifacts
 # Test targets
 test: ## Run all tests
 	@echo "Running test suite..."
-	go test ./... -v
+	$(GOTEST) ./... -v
 
 test-unit: ## Run unit tests only
 	@echo "Running unit tests..."
-	go test ./cmd/... ./internal/... -v
+	$(GOTEST) ./cmd/... ./internal/... -v
 
 test-integration: ## Run integration tests only
 	@echo "Running integration tests..."
-	go test ./tests/integration/... -v
+	$(GOTEST) ./tests/integration/... -v
 
 test-coverage: ## Run tests with coverage
 	@echo "Running tests with coverage..."
-	go test ./... -coverprofile=coverage.out
+	$(GOTEST) ./... -coverprofile=coverage.out
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
+
+# Coverage gating based on lifecycle phase
+coverage-check: test-coverage ## Enforce coverage threshold based on lifecycle phase
+	@phase=$$(tr '[:upper:]' '[:lower:]' < LIFECYCLE_PHASE 2>/dev/null || echo alpha); \
+	case $$phase in \
+	  experimental) threshold=0;; \
+	  alpha) threshold=30;; \
+	  beta) threshold=60;; \
+	  rc) threshold=70;; \
+	  ga) threshold=75;; \
+	  lts) threshold=80;; \
+	  *) threshold=30;; \
+	esac; \
+	if [ ! -f coverage.out ]; then echo "❌ coverage.out not found. Run make test-coverage first"; exit 1; fi; \
+	total=$$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/,"",$$3); print $$3}'); \
+	awk -v cov="$$total" -v thr="$$threshold" -v ph="$$phase" 'BEGIN { \
+	  cov+=0; thr+=0; \
+	  if (cov >= thr) { printf "✅ Coverage %.1f%% meets threshold %.1f%% (phase=%s)\n", cov, thr, ph; exit 0 } \
+	  else { printf "❌ Coverage %.1f%% below threshold %.1f%% (phase=%s)\n", cov, thr, ph; exit 1 } \
+	}'
 
 # Format targets
 fmt: build ## Format code using goneat (dogfooding)
@@ -190,9 +216,10 @@ version-set: ## Set specific version (usage: make version-set VERSION=x.y.z)
 	@echo "✅ Version set to: $(VERSION_SET)"
 
 # Release management targets
-release-prep: ## Prepare for release (run tests, build, etc.)
+release-prep: ## Prepare for release (run tests, coverage gate, build, etc.)
 	@echo "🚀 Preparing for release v$(VERSION)..."
-	$(MAKE) test
+	$(MAKE) test-coverage
+	$(MAKE) coverage-check
 	$(MAKE) build-all
 	$(MAKE) fmt
 	@echo "✅ Release preparation complete"

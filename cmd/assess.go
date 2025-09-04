@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -265,6 +266,11 @@ func runAssess(cmd *cobra.Command, args []string) error {
 	formatter.SetTargetPath(target)
 
 	if assessOutput != "" {
+		// Validate output path to prevent path traversal
+		assessOutput = filepath.Clean(assessOutput)
+		if strings.Contains(assessOutput, "..") {
+			return fmt.Errorf("invalid output path: contains path traversal")
+		}
 		// Write to file
 		file, err := os.Create(assessOutput)
 		if err != nil {
@@ -433,6 +439,11 @@ func parseFailOnFromHooks(hooks map[string][]struct {
 
 // loadHookManifest loads hook configuration from YAML file
 func loadHookManifest(path string) (*HookConfig, error) {
+	// Validate path to prevent path traversal
+	path = filepath.Clean(path)
+	if strings.Contains(path, "..") {
+		return nil, fmt.Errorf("invalid manifest path: contains path traversal")
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read manifest: %w", err)
@@ -571,6 +582,8 @@ func shouldFailHook(report *assess.AssessmentReport, config *HookConfig) bool {
 
 // openInBrowser opens the HTML report in the default browser
 func openInBrowser(filePath string) error {
+	// Clean file path to prevent path traversal
+	filePath = filepath.Clean(filePath)
 	var cmd string
 	switch runtime.GOOS {
 	case "darwin":
@@ -582,7 +595,7 @@ func openInBrowser(filePath string) error {
 	default:
 		return fmt.Errorf("unsupported operating system: %s", runtime.GOOS)
 	}
-	return exec.Command(cmd, filePath).Start()
+	return exec.Command(cmd, filePath).Start() // #nosec G204
 }
 
 // parseAssessmentMode parses and validates the assessment mode from flags

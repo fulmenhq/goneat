@@ -11,6 +11,11 @@
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
+# Coverage reports
+coverage.html
+coverage.out
+coverage.xml
+
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
@@ -23,6 +28,7 @@ build/
 tmp/
 bin/
 goneat
+./goneat
 
 # Scratchpad for generated files and testing
 .scratchpad/

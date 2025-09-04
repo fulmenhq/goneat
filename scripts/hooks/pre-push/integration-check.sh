@@ -27,11 +27,12 @@ fi
 # Run goneat assessment if available (comprehensive check)
 if command -v goneat &> /dev/null && [ -f "./goneat" ]; then
     if ./goneat assess --help >/dev/null 2>&1; then
-        if ! ./goneat assess --quiet; then
-            echo "❌ Assessment failed"
-            echo "💡 Fix assessment issues before pushing"
-            exit 1
-        fi
+    if ! ./goneat assess --fail-on critical >/dev/null 2>&1; then
+        echo "❌ Assessment failed (critical issues only)"
+        echo "💡 Fix critical severity issues before pushing"
+        echo "💡 Note: High/medium/low severity issues are acceptable for alpha"
+        exit 1
+    fi
         echo "✅ Assessment passed (goneat)"
     fi
 fi

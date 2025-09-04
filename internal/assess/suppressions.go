@@ -97,6 +97,11 @@ func NewSuppressionParser() *SuppressionParser {
 
 // ParseFile extracts suppressions from a source file
 func (p *SuppressionParser) ParseFile(filePath string) ([]Suppression, error) {
+	// Validate file path to prevent path traversal
+	filePath = filepath.Clean(filePath)
+	if strings.Contains(filePath, "..") {
+		return nil, fmt.Errorf("invalid file path: contains path traversal")
+	}
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err

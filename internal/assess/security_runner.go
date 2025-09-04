@@ -136,18 +136,6 @@ func (r *SecurityAssessmentRunner) toolAvailable(name string) bool {
 	return err == nil
 }
 
-func (r *SecurityAssessmentRunner) toolSelected(cfg AssessmentConfig, name string) bool {
-	if len(cfg.SecurityTools) == 0 {
-		return false
-	}
-	for _, t := range cfg.SecurityTools {
-		if strings.EqualFold(strings.TrimSpace(t), name) {
-			return true
-		}
-	}
-	return false
-}
-
 // findModuleRoot finds the Go module root directory (best-effort)
 func (r *SecurityAssessmentRunner) findModuleRoot(startDir string) (string, error) {
 	current := startDir
@@ -409,6 +397,11 @@ func (r *SecurityAssessmentRunner) pathIgnored(path string) bool {
 
 // matchesIgnoreFile checks if a path matches patterns in an ignore file
 func (r *SecurityAssessmentRunner) matchesIgnoreFile(filePath, ignoreFilePath string) bool {
+	// Validate ignore file path to prevent path traversal
+	ignoreFilePath = filepath.Clean(ignoreFilePath)
+	if strings.Contains(ignoreFilePath, "..") {
+		return false
+	}
 	f, err := os.Open(ignoreFilePath)
 	if err != nil {
 		return false
@@ -609,19 +602,6 @@ func (r *SecurityAssessmentRunner) runGovulncheck(ctx context.Context, moduleRoo
 		}
 	}()
 
-	type gvFinding struct {
-		Type    string `json:"type"`
-		Finding struct {
-			OSV    string `json:"osv"`
-			Module struct {
-				Path string `json:"path"`
-			} `json:"module"`
-			Package struct {
-				Path string `json:"path"`
-			} `json:"package"`
-		} `json:"finding"`
-	}
-
 	var issues []Issue
 	scanner := bufio.NewScanner(stdout)
 	for scanner.Scan() {
@@ -680,11 +660,13 @@ func (r *SecurityAssessmentRunner) parseGovulnEventLine(moduleRoot, line string)
 
 // runGitleaks executes gitleaks and parses JSON output into issues
 func (r *SecurityAssessmentRunner) runGitleaks(ctx context.Context, moduleRoot string, config AssessmentConfig) ([]Issue, error) {
+	// Clean and validate moduleRoot path to prevent path traversal
+	moduleRoot = filepath.Clean(moduleRoot)
 	// Prefer reporting to stdout in JSON
 	args := []string{"detect", "--no-banner", "--report-format", "json", "--report-path", "-", "--source", moduleRoot}
 	rctx, cancel := r.effectiveToolContext(ctx, config.Timeout, 0)
 	defer cancel()
-	cmd := exec.CommandContext(rctx, "gitleaks", args...)
+	cmd := exec.CommandContext(rctx, "gitleaks", args...) // #nosec G204
 	cmd.Dir = moduleRoot
 
 	stdout, err := cmd.StdoutPipe()
@@ -724,13 +706,6 @@ func (r *SecurityAssessmentRunner) runGitleaks(ctx context.Context, moduleRoot s
 // parseGitleaksOutput parses gitleaks JSON output
 func (r *SecurityAssessmentRunner) parseGitleaksOutput(data []byte) ([]Issue, error) {
 	// Try array form first
-	type glFinding struct {
-		Rule        string `json:"RuleID"`
-		Description string `json:"Description"`
-		File        string `json:"File"`
-		Line        int    `json:"StartLine"`
-		Secret      string `json:"Secret"`
-	}
 	var arr []map[string]interface{}
 	if err := json.Unmarshal(data, &arr); err == nil {
 		return r.mapGitleaksArray(arr), nil

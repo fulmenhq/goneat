@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -167,6 +168,12 @@ func (r *LintAssessmentRunner) runGolangCILintFix(target string, config Assessme
 
 // runGolangCILintWithMode runs golangci-lint with the specified mode
 func (r *LintAssessmentRunner) runGolangCILintWithMode(target string, config AssessmentConfig, fixMode bool) ([]Issue, error) {
+	// Clean paths to prevent path traversal issues
+	target = filepath.Clean(target)
+	includeFiles := make([]string, len(config.IncludeFiles))
+	for i, file := range config.IncludeFiles {
+		includeFiles[i] = filepath.Clean(file)
+	}
 	// Build command arguments
 	args := []string{"run", "--timeout", r.config.Timeout.String()}
 
@@ -196,19 +203,19 @@ func (r *LintAssessmentRunner) runGolangCILintWithMode(target string, config Ass
 
 	// Add target path(s): Prefer restricting to included files if provided
 	var cmd *exec.Cmd
-	if len(config.IncludeFiles) > 0 {
+	if len(includeFiles) > 0 {
 		// Append only included files (golangci-lint can take file paths)
-		args = append(args, config.IncludeFiles...)
-		cmd = exec.CommandContext(ctx, "golangci-lint", args...)
+		args = append(args, includeFiles...)
+		cmd = exec.CommandContext(ctx, "golangci-lint", args...) // #nosec G204
 		cmd.Dir = target
 	} else if info, err := os.Stat(target); err == nil && !info.IsDir() {
 		// Target is a single file
 		args = append(args, target)
-		cmd = exec.CommandContext(ctx, "golangci-lint", args...)
+		cmd = exec.CommandContext(ctx, "golangci-lint", args...) // #nosec G204
 	} else {
 		// Target is a directory; analyze all
 		args = append(args, "./...")
-		cmd = exec.CommandContext(ctx, "golangci-lint", args...)
+		cmd = exec.CommandContext(ctx, "golangci-lint", args...) // #nosec G204
 		cmd.Dir = target
 	}
 

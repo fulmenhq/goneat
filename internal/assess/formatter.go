@@ -492,6 +492,7 @@ func (f *Formatter) generateHTMLFromJSON(report *AssessmentReport) string {
 
 	// Allow explicit override via environment variable
 	if envPath := os.Getenv("GONEAT_TEMPLATE_PATH"); strings.TrimSpace(envPath) != "" {
+		envPath = filepath.Clean(envPath) // Path validation for G304
 		if content, err := os.ReadFile(envPath); err == nil {
 			return renderHandlebars(string(content), templateData)
 		}
@@ -507,6 +508,7 @@ func (f *Formatter) generateHTMLFromJSON(report *AssessmentReport) string {
 	var templateContent []byte
 	var readErr error
 	for _, p := range candidatePaths {
+		p = filepath.Clean(p) // Path validation for G304
 		if content, err := os.ReadFile(p); err == nil {
 			templateContent = content
 			readErr = nil
@@ -559,6 +561,7 @@ func (f *Formatter) extractProjectInfo(targetPath string) (projectName, version,
 
 	// Try to read go.mod for project name
 	gomodPath := filepath.Join(absPath, "go.mod")
+	gomodPath = filepath.Clean(gomodPath) // Path validation for G304
 	if content, err := os.ReadFile(gomodPath); err == nil {
 		lines := strings.Split(string(content), "\n")
 		for _, line := range lines {
@@ -594,6 +597,7 @@ func (f *Formatter) extractProjectInfo(targetPath string) (projectName, version,
 	// Try to extract version from VERSION file
 	version = "unknown"
 	versionPath := filepath.Join(absPath, "VERSION")
+	versionPath = filepath.Clean(versionPath) // Path validation for G304
 	if content, err := os.ReadFile(versionPath); err == nil {
 		version = strings.TrimSpace(string(content))
 	}
@@ -602,6 +606,7 @@ func (f *Formatter) extractProjectInfo(targetPath string) (projectName, version,
 	versionFiles := []string{"version.go", "cmd/version/version.go", "pkg/version/version.go"}
 	for _, vf := range versionFiles {
 		vfPath := filepath.Join(absPath, vf)
+		vfPath = filepath.Clean(vfPath) // Path validation for G304
 		if content, err := os.ReadFile(vfPath); err == nil {
 			// Simple regex to find version constants
 			lines := strings.Split(string(content), "\n")

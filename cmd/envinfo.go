@@ -7,11 +7,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
 	"github.com/3leaps/goneat/internal/ops"
+	"github.com/3leaps/goneat/pkg/config"
 	"github.com/3leaps/goneat/pkg/logger"
 	"github.com/spf13/cobra"
 )
@@ -49,12 +51,13 @@ type EnvData struct {
 
 // ExtendedInfo holds extended system information.
 type ExtendedInfo struct {
-	Processor   string `json:"processor"`
-	OSVersion   string `json:"osVersion"`
-	Memory      string `json:"memory"`
-	DiskUsage   string `json:"diskUsage"`
-	DirStats    string `json:"dirStats"`
-	GoEcosystem string `json:"goEcosystem"`
+	Processor    string                 `json:"processor"`
+	OSVersion    string                 `json:"osVersion"`
+	Memory       string                 `json:"memory"`
+	DiskUsage    string                 `json:"diskUsage"`
+	DirStats     string                 `json:"dirStats"`
+	GoEcosystem  string                 `json:"goEcosystem"`
+	IgnoreFiles  map[string]interface{} `json:"ignoreFiles"`
 }
 
 // SystemInfo holds system-related information.
@@ -186,6 +189,55 @@ func runEnvinfo(cmd *cobra.Command, args []string) error {
 					}
 				}
 			}
+
+			// Ignore Files Section
+			if _, err := fmt.Fprintln(out, ""); err != nil {
+				return fmt.Errorf("failed to write newline: %v", err)
+			}
+			ignoreHeader := colorize("🚫 Ignore Configuration", colorBold+colorYellow, useColor)
+			if _, err := fmt.Fprintln(out, ignoreHeader); err != nil {
+				return fmt.Errorf("failed to write ignore header: %v", err)
+			}
+			if _, err := fmt.Fprintln(out, separator); err != nil {
+				return fmt.Errorf("failed to write ignore separator: %v", err)
+			}
+
+			// Display ignore file information
+			if gitignoreStatus, ok := envData.Extended.IgnoreFiles[".gitignore"].(map[string]interface{}); ok {
+				exists := gitignoreStatus["exists"].(bool)
+				path := gitignoreStatus["path"].(string)
+				status := "❌ Not found"
+				if exists {
+					patterns := gitignoreStatus["patterns"].(int)
+					status = fmt.Sprintf("✅ Found (%d patterns)", patterns)
+				}
+				_, _ = fmt.Fprintf(out, "%s%-20s%s | %s%s%s\n", keyColor, ".gitignore", resetColor, valueColor, status, resetColor)
+				_, _ = fmt.Fprintf(out, "%s%-20s%s | %s%s%s\n", keyColor, "  Path", resetColor, valueColor, path, resetColor)
+			}
+
+			if goneatIgnoreStatus, ok := envData.Extended.IgnoreFiles[".goneatignore"].(map[string]interface{}); ok {
+				exists := goneatIgnoreStatus["exists"].(bool)
+				path := goneatIgnoreStatus["path"].(string)
+				status := "❌ Not found"
+				if exists {
+					patterns := goneatIgnoreStatus["patterns"].(int)
+					status = fmt.Sprintf("✅ Found (%d patterns)", patterns)
+				}
+				_, _ = fmt.Fprintf(out, "%s%-20s%s | %s%s%s\n", keyColor, ".goneatignore", resetColor, valueColor, status, resetColor)
+				_, _ = fmt.Fprintf(out, "%s%-20s%s | %s%s%s\n", keyColor, "  Path", resetColor, valueColor, path, resetColor)
+			}
+
+			if userIgnoreStatus, ok := envData.Extended.IgnoreFiles["user-.goneatignore"].(map[string]interface{}); ok {
+				exists := userIgnoreStatus["exists"].(bool)
+				path := userIgnoreStatus["path"].(string)
+				status := "❌ Not found"
+				if exists {
+					patterns := userIgnoreStatus["patterns"].(int)
+					status = fmt.Sprintf("✅ Found (%d patterns)", patterns)
+				}
+				_, _ = fmt.Fprintf(out, "%s%-20s%s | %s%s%s\n", keyColor, "~/.goneat/.goneatignore", resetColor, valueColor, status, resetColor)
+				_, _ = fmt.Fprintf(out, "%s%-20s%s | %s%s%s\n", keyColor, "  Path", resetColor, valueColor, path, resetColor)
+			}
 		}
 	}
 
@@ -221,6 +273,7 @@ func collectEnvironmentData(extended bool) EnvData {
 			DiskUsage:   getDiskUsage(),
 			DirStats:    getDirStats(),
 			GoEcosystem: getGoEcosystem(),
+			IgnoreFiles: getIgnoreFileInfo(),
 		}
 	}
 
@@ -286,4 +339,72 @@ func getGoEcosystem() string {
 		result += "  - " + tool + "\n"
 	}
 	return result
+}
+
+// getIgnoreFileInfo returns information about ignore files
+func getIgnoreFileInfo() map[string]interface{} {
+	info := make(map[string]interface{})
+
+	// Check .gitignore in current directory
+	wd, _ := os.Getwd()
+	gitignorePath := filepath.Join(wd, ".gitignore")
+	gitignoreInfo := map[string]interface{}{
+		"path":     gitignorePath,
+		"exists":   false,
+		"patterns": 0,
+	}
+	if content, err := os.ReadFile(gitignorePath); err == nil {
+		gitignoreInfo["exists"] = true
+		gitignoreInfo["patterns"] = countPatterns(string(content))
+	}
+	info[".gitignore"] = gitignoreInfo
+
+	// Check .goneatignore in current directory
+	goneatignorePath := filepath.Join(wd, ".goneatignore")
+	goneatignoreInfo := map[string]interface{}{
+		"path":     goneatignorePath,
+		"exists":   false,
+		"patterns": 0,
+	}
+	if content, err := os.ReadFile(goneatignorePath); err == nil {
+		goneatignoreInfo["exists"] = true
+		goneatignoreInfo["patterns"] = countPatterns(string(content))
+	}
+	info[".goneatignore"] = goneatignoreInfo
+
+	// Check user global .goneatignore
+	var userIgnorePath string
+	if goneatHome, err := config.GetGoneatHome(); err == nil {
+		userIgnorePath = filepath.Join(goneatHome, ".goneatignore")
+	} else if homeDir, err := os.UserHomeDir(); err == nil {
+		userIgnorePath = filepath.Join(homeDir, ".goneat", ".goneatignore")
+	}
+
+	userIgnoreInfo := map[string]interface{}{
+		"path":     userIgnorePath,
+		"exists":   false,
+		"patterns": 0,
+	}
+	if userIgnorePath != "" {
+		if content, err := os.ReadFile(userIgnorePath); err == nil {
+			userIgnoreInfo["exists"] = true
+			userIgnoreInfo["patterns"] = countPatterns(string(content))
+		}
+	}
+	info["user-.goneatignore"] = userIgnoreInfo
+
+	return info
+}
+
+// countPatterns counts non-empty, non-comment lines in ignore file content
+func countPatterns(content string) int {
+	count := 0
+	lines := strings.Split(content, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" && !strings.HasPrefix(line, "#") {
+			count++
+		}
+	}
+	return count
 }

@@ -57,11 +57,11 @@ func (env *TestEnv) WriteFile(filename, content string) {
 	dir := filepath.Dir(path)
 
 	// Create directory if it doesn't exist
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		env.t.Fatalf("Failed to create directory %s: %v", dir, err)
 	}
 
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
 		env.t.Fatalf("Failed to write file %s: %v", path, err)
 	}
 }
@@ -69,6 +69,11 @@ func (env *TestEnv) WriteFile(filename, content string) {
 // ReadFile reads content from a file in the test environment
 func (env *TestEnv) ReadFile(filename string) string {
 	path := filepath.Join(env.Dir, filename)
+	// Validate path to prevent path traversal in tests
+	path = filepath.Clean(path)
+	if strings.Contains(path, "..") {
+		env.t.Fatalf("Invalid path with traversal: %s", path)
+	}
 	content, err := os.ReadFile(path)
 	if err != nil {
 		env.t.Fatalf("Failed to read file %s: %v", path, err)
@@ -112,7 +117,9 @@ func (env *TestEnv) RunVersionCommand(args ...string) VersionCommandResult {
 		env.t.Fatalf("Could not find goneat binary")
 	}
 
-	cmd := exec.Command(goneatPath, cmdArgs...)
+	// Clean path to prevent path traversal issues
+	goneatPath = filepath.Clean(goneatPath)
+	cmd := exec.Command(goneatPath, cmdArgs...) // #nosec G204
 	cmd.Dir = env.Dir
 
 	// Capture output
@@ -188,10 +195,12 @@ func (env *TestEnv) findGoneatBinary() string {
 
 	// Look for goneat binary in various locations
 	possiblePaths := []string{
-		filepath.Join(cwd, "..", "goneat"),       // Parent directory (where we built it)
-		filepath.Join(cwd, "..", "..", "goneat"), // Grandparent directory
-		filepath.Join(cwd, "bin", "goneat"),      // bin/ directory
-		"goneat",                                 // In PATH
+		filepath.Join(cwd, "..", "..", "dist", "goneat"), // dist/ directory from tests/integration
+		filepath.Join(cwd, "..", "dist", "goneat"),       // dist/ directory from tests
+		filepath.Join(cwd, "dist", "goneat"),             // dist/ directory from root
+		filepath.Join(cwd, "..", "goneat"),               // Parent directory (legacy)
+		filepath.Join(cwd, "bin", "goneat"),              // bin/ directory (legacy)
+		"goneat",                                         // In PATH
 	}
 
 	for _, path := range possiblePaths {

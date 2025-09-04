@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/3leaps/goneat/internal/ops"
@@ -49,6 +50,7 @@ func init() {
 	formatCmd.Flags().StringSliceP("files", "f", []string{}, "Specific files to format")
 	formatCmd.Flags().Bool("check", false, "Check if files are formatted without modifying")
 	formatCmd.Flags().Bool("quiet", false, "Suppress output except for errors")
+	formatCmd.Flags().BoolP("verbose", "v", false, "Show detailed information including skipped files and processing details")
 	formatCmd.Flags().Bool("dry-run", false, "Show what would be done without executing")
 	formatCmd.Flags().Bool("plan-only", false, "Generate and display work plan without executing")
 	formatCmd.Flags().String("plan-file", "", "Write work plan to specified file")
@@ -88,6 +90,7 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 	folders, _ := cmd.Flags().GetStringSlice("folders")
 	checkOnly, _ := cmd.Flags().GetBool("check")
 	quiet, _ := cmd.Flags().GetBool("quiet")
+	verbose, _ := cmd.Flags().GetBool("verbose")
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	planOnly, _ := cmd.Flags().GetBool("plan-only")
 	planFile, _ := cmd.Flags().GetString("plan-file")
@@ -132,6 +135,7 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 		GroupByContentType: groupByType,
 		IgnoreFile:         ".goneatignore",                           // Enable .goneatignore support
 		EnableFinalizer:    finalizeEOF || finalizeTrimTrailingSpaces, // Enable finalizer support
+		Verbose:            verbose,                                   // Enable verbose logging
 	}
 
 	var filesToProcess []string
@@ -257,7 +261,8 @@ func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignore
 				return applyFinalizer(file, checkOnly, options)
 			}
 		}
-		return fmt.Errorf("unsupported file type: %s", ext)
+		supportedExts := []string{".go", ".yaml", ".yml", ".json", ".md", ".markdown"}
+		return fmt.Errorf("unsupported file type '%s' for file %s. Supported extensions: %v. Use --types flag to filter specific content types", ext, file, supportedExts)
 	}
 
 	// Apply finalizer after primary formatter (when enabled and extension supported)
@@ -274,6 +279,12 @@ func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignore
 
 // applyFinalizer applies comprehensive file normalization
 func applyFinalizer(file string, checkOnly bool, options finalizer.NormalizationOptions) error {
+	// Validate file path to prevent path traversal
+	file = filepath.Clean(file)
+	if strings.Contains(file, "..") {
+		return fmt.Errorf("invalid file path: contains path traversal")
+	}
+
 	// Read the file content
 	content, err := os.ReadFile(file)
 	if err != nil {
@@ -292,7 +303,7 @@ func applyFinalizer(file string, checkOnly bool, options finalizer.Normalization
 		}
 
 		// Write back the finalized content
-		if err := os.WriteFile(file, finalized, 0644); err != nil {
+		if err := os.WriteFile(file, finalized, 0600); err != nil {
 			return fmt.Errorf("failed to write finalized file: %v", err)
 		}
 	} else {
@@ -309,6 +320,12 @@ func applyFinalizer(file string, checkOnly bool, options finalizer.Normalization
 }
 
 func formatGoFile(file string, checkOnly bool, cfg *config.Config, useGoimports bool, ignoreMissingTools bool) error {
+	// Validate file path to prevent path traversal
+	file = filepath.Clean(file)
+	if strings.Contains(file, "..") {
+		return fmt.Errorf("invalid file path: contains path traversal")
+	}
+
 	original, err := os.ReadFile(file)
 	if err != nil {
 		return err
@@ -358,13 +375,16 @@ func formatGoFile(file string, checkOnly bool, cfg *config.Config, useGoimports 
 
 	if changed {
 		logger.Info(fmt.Sprintf("Applying Go formatting changes to %s", file))
-		return os.WriteFile(file, final, 0644)
+		return os.WriteFile(file, final, 0600)
 	}
 
 	return fmt.Errorf("already formatted")
 }
 
 func formatYAMLFile(file string, checkOnly bool, cfg *config.Config) error {
+	// Clean file path to prevent path traversal
+	file = filepath.Clean(file)
+
 	yamlConfig := cfg.GetYAMLConfig()
 
 	// For proper change detection, read original content first
@@ -397,7 +417,7 @@ func formatYAMLFile(file string, checkOnly bool, cfg *config.Config) error {
 
 		logger.Debug(fmt.Sprintf("Running yamlfmt with args: %v", args))
 
-		cmd := exec.Command("yamlfmt", args...)
+		cmd := exec.Command("yamlfmt", args...) // #nosec G204
 		output, err := cmd.CombinedOutput()
 
 		// In lint mode, yamlfmt returns exit code 1 if formatting is needed
@@ -417,7 +437,7 @@ func formatYAMLFile(file string, checkOnly bool, cfg *config.Config) error {
 	dryArgs := append([]string{"-dry"}, args...)
 	dryArgs = append(dryArgs, file)
 
-	dryCmd := exec.Command("yamlfmt", dryArgs...)
+	dryCmd := exec.Command("yamlfmt", dryArgs...) // #nosec G204
 	dryOutput, dryErr := dryCmd.CombinedOutput()
 
 	if dryErr != nil && !strings.Contains(string(dryOutput), "---") {
@@ -436,7 +456,7 @@ func formatYAMLFile(file string, checkOnly bool, cfg *config.Config) error {
 	formatArgs := append(args, file)
 	logger.Debug(fmt.Sprintf("Running yamlfmt with args: %v", formatArgs))
 
-	cmd := exec.Command("yamlfmt", formatArgs...)
+	cmd := exec.Command("yamlfmt", formatArgs...) // #nosec G204
 	output, err := cmd.CombinedOutput()
 
 	if err != nil {
@@ -448,6 +468,12 @@ func formatYAMLFile(file string, checkOnly bool, cfg *config.Config) error {
 }
 
 func formatJSONFile(file string, checkOnly bool, cfg *config.Config) error {
+	// Validate file path to prevent path traversal
+	file = filepath.Clean(file)
+	if strings.Contains(file, "..") {
+		return fmt.Errorf("invalid file path: contains path traversal")
+	}
+
 	jsonConfig := cfg.GetJSONConfig()
 
 	// Read the original content
@@ -499,10 +525,16 @@ func formatJSONFile(file string, checkOnly bool, cfg *config.Config) error {
 	}
 
 	logger.Info(fmt.Sprintf("Applying JSON formatting changes to %s", file))
-	return os.WriteFile(file, []byte(formatted), 0644)
+	return os.WriteFile(file, []byte(formatted), 0600)
 }
 
 func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config) error {
+	// Validate file path to prevent path traversal
+	file = filepath.Clean(file)
+	if strings.Contains(file, "..") {
+		return fmt.Errorf("invalid file path: contains path traversal")
+	}
+
 	mdConfig := cfg.GetMarkdownConfig()
 
 	// Read the original content
@@ -565,15 +597,21 @@ func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config) error {
 	}
 
 	logger.Info(fmt.Sprintf("Applying Markdown formatting changes to %s", file))
-	return os.WriteFile(file, []byte(formatted), 0644)
+	return os.WriteFile(file, []byte(formatted), 0600)
 }
 
 // executeSequential executes work items sequentially
 func executeSequentialWithOptions(files []string, checkOnly, quiet bool, cfg *config.Config, ignoreMissingTools bool, options finalizer.NormalizationOptions, useGoimports bool) error {
 	start := time.Now()
 	var formattedCount, unchangedCount, errorCount int
+	totalFiles := len(files)
+	showProgress := totalFiles > 10 && !quiet // Show progress for larger file sets
 
-	for _, file := range files {
+	if showProgress {
+		logger.Info(fmt.Sprintf("Processing %d files...", totalFiles))
+	}
+
+	for i, file := range files {
 		if err := processFile(file, checkOnly, quiet, cfg, ignoreMissingTools, options, useGoimports); err != nil {
 			if err.Error() == "needs formatting" {
 				if checkOnly {
@@ -600,6 +638,13 @@ func executeSequentialWithOptions(files []string, checkOnly, quiet bool, cfg *co
 			if !quiet && !checkOnly {
 				logger.Info(fmt.Sprintf("Formatted %s", file))
 			}
+		}
+
+		// Show progress for larger file sets
+		if showProgress && (i+1)%10 == 0 {
+			progress := float64(i+1) / float64(totalFiles) * 100
+			logger.Info(fmt.Sprintf("Progress: %d/%d files (%.1f%%) - %d formatted, %d unchanged, %d errors", 
+				i+1, totalFiles, progress, formattedCount, unchangedCount, errorCount))
 		}
 	}
 
@@ -698,14 +743,27 @@ func executeParallel(files []string, cfg *config.Config, quiet bool, noOp bool) 
 	// Create processor and dispatcher
 	workers := runtime.NumCPU()
 	processor := work.NewFormatProcessor(cfg)
+	
+	// Progress tracking for parallel execution
+	var processedCount int32
+	totalFiles := len(files)
+	showProgress := totalFiles > 10 && !quiet
+	
 	dispatcher := work.NewDispatcher(work.DispatcherConfig{
 		MaxWorkers: workers,
 		DryRun:     false,
 		NoOp:       noOp,
 		ProgressCallback: func(result work.ExecutionResult) {
+			processed := int(atomic.AddInt32(&processedCount, 1))
+			
 			if !quiet {
 				if result.Success {
-					logger.Info(fmt.Sprintf("Processed %s", result.WorkItemID))
+					if showProgress && processed%10 == 0 {
+						progress := float64(processed) / float64(totalFiles) * 100
+						logger.Info(fmt.Sprintf("Progress: %d/%d files (%.1f%%) - parallel processing", processed, totalFiles, progress))
+					} else if !showProgress {
+						logger.Info(fmt.Sprintf("Processed %s", result.WorkItemID))
+					}
 				} else {
 					logger.Error(fmt.Sprintf("Failed %s: %s", result.WorkItemID, result.Error))
 				}
@@ -902,5 +960,5 @@ func writePlanToFile(manifest *work.WorkManifest, filename string) error {
 		return err
 	}
 
-	return os.WriteFile(filename, data, 0644)
+	return os.WriteFile(filename, data, 0600)
 }

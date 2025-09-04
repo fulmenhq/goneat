@@ -1,0 +1,33 @@
+class Goneat < Formula
+  desc "Single CLI for format/lint/security with JSON-first output"
+  homepage "https://github.com/3leaps/goneat"
+  version "0.0.0" # template placeholder
+
+  on_macos do
+    if Hardware::CPU.arm?
+      url "https://github.com/3leaps/goneat/releases/download/v#{version}/goneat_#{version}_darwin_arm64.tar.gz"
+      sha256 "CHANGE_ME"
+    else
+      url "https://github.com/3leaps/goneat/releases/download/v#{version}/goneat_#{version}_darwin_amd64.tar.gz"
+      sha256 "CHANGE_ME"
+    end
+  end
+
+  on_linux do
+    if Hardware::CPU.arm? && Hardware::CPU.is_64_bit?
+      url "https://github.com/3leaps/goneat/releases/download/v#{version}/goneat_#{version}_linux_arm64.tar.gz"
+      sha256 "CHANGE_ME"
+    else
+      url "https://github.com/3leaps/goneat/releases/download/v#{version}/goneat_#{version}_linux_amd64.tar.gz"
+      sha256 "CHANGE_ME"
+    end
+  end
+
+  def install
+    bin.install "goneat"
+  end
+
+  test do
+    system "#{bin}/goneat", "--version"
+  end
+end

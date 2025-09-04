@@ -16,6 +16,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Build and test infrastructure
 
+## [0.1.4] - 2025-09-04
+
+### Added
+- 🛠️ Enhanced Configuration Schema Support
+  - Comprehensive YAML schema validation with proper formatter options structure
+  - JSON and Markdown formatting configuration support
+  - Improved schema organization with consistent indentation and structure
+
+### Changed
+- 🔧 Work Planner File Discovery Improvements
+  - Fixed eliminateRedundancies logic to preserve sibling files instead of incorrectly filtering by directory
+  - Enhanced file validation to prevent corrupted path processing
+  - Improved hook configuration consistency with proper YAML formatting
+
+### Fixed
+- 🐛 Critical Auto-fix Reliability Issues
+  - Resolved work planner bug that was dropping valid files from processing queue
+  - Fixed YAML schema structural corruption that prevented format operations
+  - Corrected test environment binary discovery to use dist/ directory structure
+  - Fixed Makefile GOTEST variable reference for proper test execution
+
 ## [0.1.2] - 2025-08-30
 
 ### Added

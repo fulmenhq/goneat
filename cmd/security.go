@@ -6,8 +6,10 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -101,6 +103,11 @@ func runSecurity(cmd *cobra.Command, args []string) error {
 		outFmt = assess.FormatBoth
 	default:
 		return fmt.Errorf("invalid format: %s", securityFormat)
+	}
+
+	// Suppress logs for JSON output to keep clean
+	if outFmt == assess.FormatJSON {
+		logger.SetOutput(io.Discard)
 	}
 
 	// Parse fail-on severity
@@ -243,7 +250,10 @@ func runSecurity(cmd *cobra.Command, args []string) error {
 
 	// Create assessment engine and run
 	engine := assess.NewAssessmentEngine()
-	logger.Info(fmt.Sprintf("Starting security assessment of %s (workers=%d)", target, max(1, runtime.NumCPU()/2)))
+	// Suppress log for JSON output to keep clean
+	if outFmt != assess.FormatJSON {
+		logger.Info(fmt.Sprintf("Starting security assessment of %s (workers=%d)", target, max(1, runtime.NumCPU()/2)))
+	}
 	report, err := engine.RunAssessment(cmd.Context(), target, cfg)
 	if err != nil {
 		return fmt.Errorf("security assessment failed: %v", err)
@@ -259,6 +269,11 @@ func runSecurity(cmd *cobra.Command, args []string) error {
 	formatter.SetTargetPath(target)
 	out := cmd.OutOrStdout()
 	if securityOutput != "" {
+		// Validate output path to prevent path traversal
+		securityOutput = filepath.Clean(securityOutput)
+		if strings.Contains(securityOutput, "..") {
+			return fmt.Errorf("invalid output path: contains path traversal")
+		}
 		f, ferr := os.Create(securityOutput)
 		if ferr != nil {
 			return fmt.Errorf("failed to create output file: %v", ferr)
@@ -284,7 +299,12 @@ func runSecurity(cmd *cobra.Command, args []string) error {
 
 // getChangedFiles returns files changed since a given base ref
 func getChangedFiles(baseRef string) ([]string, error) {
-	cmd := exec.Command("git", "diff", "--name-only", fmt.Sprintf("%s...HEAD", baseRef))
+	// Validate baseRef to prevent command injection
+	if strings.ContainsAny(baseRef, ";|&`") {
+		return nil, fmt.Errorf("invalid baseRef: contains dangerous characters")
+	}
+	refArg := fmt.Sprintf("%s...HEAD", baseRef)
+	cmd := exec.Command("git", "diff", "--name-only", refArg) // #nosec G204
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("git diff failed: %w", err)

@@ -434,15 +434,48 @@ EOF
 
 ### Ignore File Behavior
 
-1. **Independent ignore system**: Uses its own patterns (separate from git's .gitignore)
-2. **Pattern support**: Glob patterns (`*.tmp`), directory patterns (`dist/`), exact matches
-3. **Override capability**: `!pattern` allows including files that would otherwise be ignored
-4. **Multiple locations**: Repository and user global ignore files
+Goneat uses a layered ignore system that respects git patterns while providing additional control:
 
-### File Priority Order
+1. **Gitignore Integration**: Automatically respects `.gitignore` patterns as foundation
+2. **Goneat Extensions**: `.goneatignore` files provide additional project-specific patterns
+3. **User Overrides**: `~/.goneatignore` enables global user-specific ignore patterns
+4. **Standard Syntax**: All files use standard gitignore pattern syntax
+5. **Default Patterns**: Built-in ignores for `.git/`, `node_modules/`, `.scratchpad/`
 
-1. `.goneatignore` (repository root - highest priority)
-2. `~/.goneatignore` (user global - lower priority)
+### File Priority Order (Layered System)
+
+1. **Default patterns** - Built-in patterns (`.git/`, `node_modules/`, `.scratchpad/`)
+2. **`.gitignore`** - Standard git ignore patterns (foundation layer)
+3. **`.goneatignore`** - Repository-specific goneat patterns (override layer)
+4. **`~/.goneat/.goneatignore`** - User global patterns (highest priority)
+
+### Pattern Examples
+
+```bash
+# Example .goneatignore showing various patterns
+cat > .goneatignore << 'EOF'
+# Generated files (glob patterns)
+*.gen.go
+*_generated.go
+
+# Build artifacts (directory patterns)
+dist/
+build/tmp/
+
+# Specific files (exact matches)
+config-local.yaml
+
+# Override gitignore (include despite gitignore exclusion)
+!important-ignored-file.go
+
+# Complex patterns (subdirectory specific)
+docs/drafts/
+vendor/**/*.json
+EOF
+
+# Check which ignore files are present and active
+goneat envinfo --extended  # Shows ignore file status in "Ignore Configuration" section
+```
 
 ## Troubleshooting Common Issues
 

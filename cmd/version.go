@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"sort"
@@ -325,6 +326,11 @@ func runVersionCheckConsistency(cmd *cobra.Command, args []string) error {
 // Helper functions
 
 func readVersionFromFile(filename string) (string, error) {
+	// Validate filename to prevent path traversal
+	filename = filepath.Clean(filename)
+	if strings.Contains(filename, "..") {
+		return "", fmt.Errorf("invalid filename: contains path traversal")
+	}
 	content, err := os.ReadFile(filename)
 	if err != nil {
 		return "", err
@@ -333,7 +339,12 @@ func readVersionFromFile(filename string) (string, error) {
 }
 
 func writeVersionToFile(filename, version string) error {
-	return os.WriteFile(filename, []byte(version+"\n"), 0644)
+	// Validate filename to prevent path traversal
+	filename = filepath.Clean(filename)
+	if strings.Contains(filename, "..") {
+		return fmt.Errorf("invalid filename: contains path traversal")
+	}
+	return os.WriteFile(filename, []byte(version+"\n"), 0600)
 }
 
 func validateSemverVersion(version string) error {
