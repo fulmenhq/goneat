@@ -3,7 +3,6 @@ package assess
 import (
     "context"
     "fmt"
-    "io/fs"
     "os"
     "path/filepath"
     "strings"
@@ -12,6 +11,7 @@ import (
     "bytes"
     "encoding/json"
     "github.com/3leaps/goneat/internal/assets"
+    "github.com/3leaps/goneat/pkg/work"
     "github.com/xeipuuv/gojsonschema"
     "gopkg.in/yaml.v3"
 )
@@ -109,48 +109,91 @@ func (r *SchemaAssessmentRunner) GetEstimatedTime(target string) time.Duration {
 func (r *SchemaAssessmentRunner) IsAvailable() bool { return true }
 
 func (r *SchemaAssessmentRunner) findCandidates(target string, config AssessmentConfig) ([]string, error) {
-	var files []string
-	include := map[string]struct{}{}
-	for _, inc := range config.IncludeFiles {
-		include[filepath.Clean(inc)] = struct{}{}
-	}
-	// If include list provided, prefer those paths directly
-	if len(include) > 0 {
-		for inc := range include {
-			// Accept only yaml/json files for this preview
-			low := strings.ToLower(inc)
-			if strings.HasSuffix(low, ".yaml") || strings.HasSuffix(low, ".yml") || strings.HasSuffix(low, ".json") {
-				files = append(files, inc)
-			}
-		}
-		return files, nil
-	}
+    var files []string
 
-	// Otherwise walk target and collect yaml/json
-	err := filepath.WalkDir(target, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			name := d.Name()
-			if name == ".git" || name == "node_modules" || name == "vendor" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		low := strings.ToLower(path)
-		if strings.HasSuffix(low, ".yaml") || strings.HasSuffix(low, ".yml") || strings.HasSuffix(low, ".json") {
-			// Respect exclude filters
-			for _, ex := range config.ExcludeFiles {
-				if strings.Contains(path, ex) {
-					return nil
-				}
-			}
-			files = append(files, path)
-		}
-		return nil
-	})
-	return files, err
+    // If include files provided, use them directly (subject to exclude and extension)
+    if len(config.IncludeFiles) > 0 {
+        for _, inc := range config.IncludeFiles {
+            p := filepath.Clean(inc)
+            info, err := os.Stat(p)
+            if err == nil && info.IsDir() {
+                // Use planner for this directory to respect .goneatignore
+                planner := work.NewPlanner(work.PlannerConfig{
+                    Command:           "schema",
+                    Paths:             []string{p},
+                    ExecutionStrategy: "sequential",
+                    IgnoreFile:        ".goneatignore",
+                    Verbose:           false,
+                })
+                manifest, perr := planner.GenerateManifest()
+                if perr == nil {
+                    for _, item := range manifest.WorkItems {
+                        if !isUnderSchemas(item.Path) { continue }
+                        low := strings.ToLower(item.Path)
+                        if strings.HasSuffix(low, ".yaml") || strings.HasSuffix(low, ".yml") || strings.HasSuffix(low, ".json") {
+                            if !r.isExcluded(item.Path, config) {
+                                files = append(files, item.Path)
+                            }
+                        }
+                    }
+                }
+                continue
+            }
+            // File path include
+            low := strings.ToLower(p)
+            if strings.HasSuffix(low, ".yaml") || strings.HasSuffix(low, ".yml") || strings.HasSuffix(low, ".json") {
+                if !r.isExcluded(p, config) {
+                    files = append(files, p)
+                }
+            }
+        }
+        return files, nil
+    }
+
+    // Use unified planner to respect .goneatignore
+    planner := work.NewPlanner(work.PlannerConfig{
+        Command:           "schema",
+        Paths:             []string{target},
+        ExecutionStrategy: "sequential",
+        IgnoreFile:        ".goneatignore",
+        Verbose:           false,
+    })
+    manifest, err := planner.GenerateManifest()
+    if err != nil {
+        return nil, fmt.Errorf("failed to discover files: %w", err)
+    }
+    for _, item := range manifest.WorkItems {
+        p := item.Path
+        if !isUnderSchemas(p) {
+            continue
+        }
+        low := strings.ToLower(p)
+        if strings.HasSuffix(low, ".yaml") || strings.HasSuffix(low, ".yml") || strings.HasSuffix(low, ".json") {
+            if !r.isExcluded(p, config) {
+                files = append(files, p)
+            }
+        }
+    }
+    return files, nil
+}
+
+func (r *SchemaAssessmentRunner) isExcluded(path string, config AssessmentConfig) bool {
+    for _, ex := range config.ExcludeFiles {
+        if strings.Contains(path, ex) {
+            return true
+        }
+    }
+    return false
+}
+
+func isUnderSchemas(path string) bool {
+    parts := strings.Split(filepath.ToSlash(path), "/")
+    for _, seg := range parts {
+        if seg == "schemas" {
+            return true
+        }
+    }
+    return false
 }
 
 func (r *SchemaAssessmentRunner) checkJSONSyntax(path string) error {
