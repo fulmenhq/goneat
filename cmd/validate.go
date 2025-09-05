@@ -118,7 +118,11 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create output: %v", err)
 		}
-		defer f.Close()
+		defer func() {
+			if err := f.Close(); err != nil {
+				logger.Warn("Failed to close output file", logger.Err(err))
+			}
+		}()
 		if err := formatter.WriteReport(f, report); err != nil {
 			return fmt.Errorf("write report: %v", err)
 		}

@@ -19,6 +19,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Build and test infrastructure
 
+## [0.1.6] - In Development
+
+### Added
+
+- Comprehensive test coverage improvements for `pkg/work/format_processor`, `pkg/work/planner`, and `pkg/format/finalizer` packages
+- New intuitive CLI flags for format command: `--files` and `--patterns` for clearer file selection
+
+### Changed
+
+- **BREAKING**: Replaced confusing `-f/--files` flag behavior in format command
+  - **Old**: `-f "*.go"` treated as glob pattern for file discovery
+  - **New**: `--files file1 file2` for explicit file lists, `--patterns "*.go"` for glob filtering
+  - **Migration**: Use `--patterns` for old `-f` pattern behavior, `--files` for specific files
+  - **Validation**: Clear error messages prevent conflicting flag combinations
+
+### Fixed
+
+- Fixed os.RemoveAll error handling in test cleanup code (addressed high-severity lint issues)
+
 ## [0.1.5] - 2025-09-05
 
 ### Added

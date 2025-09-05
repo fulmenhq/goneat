@@ -101,7 +101,11 @@ func TestShouldIncludeFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Errorf("Failed to clean up temp dir: %v", err)
+		}
+	}()
 
 	tests := []struct {
 		name        string
@@ -232,7 +236,11 @@ func TestCreateWorkItems_SingleFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Errorf("Failed to clean up temp dir: %v", err)
+		}
+	}()
 
 	testFile := filepath.Join(tempDir, "test.go")
 	content := []byte("package main\n\nfunc main() {\n\tfmt.Println(\"Hello, World!\")\n}")
@@ -281,7 +289,11 @@ func TestCreateWorkItems(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Errorf("Failed to clean up temp dir: %v", err)
+		}
+	}()
 
 	files := []string{
 		filepath.Join(tempDir, "main.go"),
@@ -395,7 +407,11 @@ func TestGenerateManifest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Errorf("Failed to clean up temp dir: %v", err)
+		}
+	}()
 
 	// Create test files
 	testFiles := []string{"main.go", "utils.go", "config.json"}
@@ -464,7 +480,11 @@ func TestMatchesIgnorePattern(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Errorf("Failed to clean up temp dir: %v", err)
+		}
+	}()
 
 	// Change to temp directory for the test
 	originalDir, _ := os.Getwd()

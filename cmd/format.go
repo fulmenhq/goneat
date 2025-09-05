@@ -13,7 +13,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"slices"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -47,16 +46,24 @@ func init() {
 		panic(fmt.Sprintf("Failed to register format command: %v", err))
 	}
 
-	formatCmd.Flags().StringSliceP("files", "f", []string{}, "Specific files to format")
+	// File selection flags
+	formatCmd.Flags().StringSlice("files", []string{}, "Specific files to format (explicit list, no patterns)")
+	formatCmd.Flags().StringSlice("patterns", []string{}, "Glob patterns to filter files during discovery (e.g., '*.go', 'test_*.py')")
+	formatCmd.Flags().StringSlice("folders", []string{}, "Folders to process (alternative to positional args)")
+
+	// Operation mode flags
 	formatCmd.Flags().Bool("check", false, "Check if files are formatted without modifying")
 	formatCmd.Flags().Bool("quiet", false, "Suppress output except for errors")
 	formatCmd.Flags().BoolP("verbose", "v", false, "Show detailed information including skipped files and processing details")
 	formatCmd.Flags().Bool("dry-run", false, "Show what would be done without executing")
 	formatCmd.Flags().Bool("plan-only", false, "Generate and display work plan without executing")
 	formatCmd.Flags().String("plan-file", "", "Write work plan to specified file")
-	formatCmd.Flags().StringSlice("folders", []string{}, "Folders to process (alternative to positional args)")
+
+	// Discovery and filtering flags
 	formatCmd.Flags().StringSlice("types", []string{}, "Content types to include (go, yaml, json, markdown)")
 	formatCmd.Flags().Int("max-depth", -1, "Maximum directory depth to traverse")
+
+	// Execution strategy flags
 	formatCmd.Flags().String("strategy", "sequential", "Execution strategy (sequential, parallel)")
 	formatCmd.Flags().Bool("group-by-size", false, "Group work items by file size")
 	formatCmd.Flags().Bool("group-by-type", false, "Group work items by content type")
@@ -86,7 +93,8 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get all flags
-	files, _ := cmd.Flags().GetStringSlice("files")
+	explicitFiles, _ := cmd.Flags().GetStringSlice("files")
+	patterns, _ := cmd.Flags().GetStringSlice("patterns")
 	folders, _ := cmd.Flags().GetStringSlice("folders")
 	checkOnly, _ := cmd.Flags().GetBool("check")
 	quiet, _ := cmd.Flags().GetBool("quiet")
@@ -108,65 +116,111 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 	finalizeRemoveBOM, _ := cmd.Flags().GetBool("finalize-remove-bom")
 	useGoimports, _ := cmd.Flags().GetBool("use-goimports")
 
+	// Validate flag combinations per Arch Eagle's precedence rules
+	if len(explicitFiles) > 0 {
+		if len(patterns) > 0 {
+			return fmt.Errorf("cannot use --files with --patterns: --files processes exact files, --patterns filters discovered files")
+		}
+		if len(folders) > 0 {
+			return fmt.Errorf("cannot use --files with --folders: --files processes exact files, --folders specifies discovery scope")
+		}
+		if len(args) > 0 {
+			// Check if any positional args are files (not directories)
+			for _, arg := range args {
+				if info, err := os.Stat(arg); err == nil && !info.IsDir() {
+					return fmt.Errorf("cannot use --files with positional file arguments: use --files for explicit files OR positional args for files/folders")
+				}
+			}
+		}
+	}
+
 	// Check if no-op mode is enabled
 	if noOp {
 		logger.Info("Running in no-op mode - tasks will be executed but no files will be modified")
 	}
 
-	// Determine paths to process
-	var paths []string
-	if len(folders) > 0 {
-		paths = folders
-	} else if len(args) > 0 {
-		paths = args
-	} else {
-		paths = []string{"."}
-	}
-
-	// Create planner configuration
-	plannerConfig := work.PlannerConfig{
-		Command:            "format",
-		Paths:              paths,
-		IncludePatterns:    files, // Use files as include patterns if specified
-		ContentTypes:       contentTypes,
-		MaxDepth:           maxDepth,
-		ExecutionStrategy:  strategy,
-		GroupBySize:        groupBySize,
-		GroupByContentType: groupByType,
-		IgnoreFile:         ".goneatignore",                           // Enable .goneatignore support
-		EnableFinalizer:    finalizeEOF || finalizeTrimTrailingSpaces, // Enable finalizer support
-		Verbose:            verbose,                                   // Enable verbose logging
-	}
-
 	var filesToProcess []string
+	var usePlanner = true
+	var plannerConfig work.PlannerConfig
+
+	// Handle explicit files mode (highest priority)
+	if len(explicitFiles) > 0 {
+		filesToProcess = explicitFiles
+		usePlanner = false
+
+		// Validate that all explicit files exist
+		for _, file := range explicitFiles {
+			if _, err := os.Stat(file); os.IsNotExist(err) {
+				return fmt.Errorf("file not found: %s", file)
+			}
+		}
+	} else {
+		// Determine paths for discovery-based processing
+		var paths []string
+		if len(folders) > 0 {
+			paths = folders
+		} else if len(args) > 0 {
+			paths = args
+		} else {
+			paths = []string{"."}
+		}
+
+		// Create planner configuration
+		plannerConfig = work.PlannerConfig{
+			Command:            "format",
+			Paths:              paths,
+			IncludePatterns:    patterns, // Use new patterns flag
+			ContentTypes:       contentTypes,
+			MaxDepth:           maxDepth,
+			ExecutionStrategy:  strategy,
+			GroupBySize:        groupBySize,
+			GroupByContentType: groupByType,
+			IgnoreFile:         ".goneatignore",                           // Enable .goneatignore support
+			EnableFinalizer:    finalizeEOF || finalizeTrimTrailingSpaces, // Enable finalizer support
+			Verbose:            verbose,                                   // Enable verbose logging
+		}
+	}
 
 	if stagedOnly {
+		if len(explicitFiles) > 0 {
+			return fmt.Errorf("cannot use --staged-only with --files: staged mode discovers files from git, --files specifies exact files")
+		}
 		staged, err := getStagedFilesFormat()
 		if err != nil {
 			return fmt.Errorf("failed to get staged files: %v", err)
 		}
-		// Filter by content types if provided
+		// Filter by content types and patterns if provided
 		allowed := make(map[string]bool)
 		for _, t := range contentTypes {
 			allowed[strings.ToLower(strings.TrimSpace(t))] = true
 		}
 		for _, f := range staged {
-			// If --files provided, restrict to those
-			if len(files) > 0 && !slices.Contains(files, f) {
-				continue
+			// Apply pattern filters if provided
+			if len(patterns) > 0 {
+				matched := false
+				for _, pattern := range patterns {
+					if matched, _ = filepath.Match(pattern, filepath.Base(f)); matched {
+						break
+					}
+				}
+				if !matched {
+					continue
+				}
 			}
 			ct := getContentTypeFromPath(f)
 			if len(allowed) == 0 || allowed[ct] {
 				filesToProcess = append(filesToProcess, f)
 			}
 		}
+		usePlanner = false
+
 		// In staged-only + (planOnly or dryRun), synthesize a small manifest for plan output
 		if planOnly || dryRun {
 			synth := &work.WorkManifest{Plan: work.Plan{Command: "format", Timestamp: time.Now(), WorkingDirectory: ".", TotalFiles: len(filesToProcess), FilteredFiles: len(filesToProcess), ExecutionStrategy: strategy}}
 			return handlePlanOnly(cmd, synth, planFile, dryRun)
 		}
-	} else {
-		// Planner path for non-staged runs
+	} else if usePlanner {
+		// Planner path for discovery-based runs
 		planner := work.NewPlanner(plannerConfig)
 		manifest, err := planner.GenerateManifest()
 		if err != nil {
@@ -182,6 +236,12 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 		for i, item := range manifest.WorkItems {
 			filesToProcess[i] = item.Path
 		}
+	}
+
+	// Handle plan-only mode for explicit files
+	if (planOnly || dryRun) && !usePlanner {
+		synth := &work.WorkManifest{Plan: work.Plan{Command: "format", Timestamp: time.Now(), WorkingDirectory: ".", TotalFiles: len(filesToProcess), FilteredFiles: len(filesToProcess), ExecutionStrategy: strategy}}
+		return handlePlanOnly(cmd, synth, planFile, dryRun)
 	}
 
 	if len(filesToProcess) == 0 {
