@@ -26,16 +26,19 @@ A **work manifest** is a structured JSON document that describes a complete exec
 ### Execution Strategies
 
 #### Sequential Execution
+
 - Process work items one by one
 - Simple, predictable, good for debugging
 - Baseline for performance comparisons
 
 #### Parallel Execution
+
 - Multiple workers process items simultaneously
 - Optimized grouping for efficiency
 - Configurable worker limits
 
 #### No-Op Execution
+
 - Full execution pipeline but no file modifications
 - Validates all operations without side effects
 - Perfect for testing, assessment, and CI validation
@@ -46,6 +49,7 @@ A **work manifest** is a structured JSON document that describes a complete exec
 ### Work Planner (`pkg/work/planner.go`)
 
 Responsible for:
+
 - File system traversal and discovery
 - Work item creation and metadata collection
 - Redundancy elimination
@@ -55,6 +59,7 @@ Responsible for:
 ### Work Manifest (`schemas/work/work-manifest-v1.0.0.yaml`)
 
 JSON Schema defining the structure of work plans:
+
 - Versioned for compatibility
 - Comprehensive validation rules
 - Extensible for future features
@@ -76,6 +81,7 @@ type WorkItemProcessor interface {
 ### Command Integration
 
 Format command supports:
+
 - `--dry-run`: Preview execution plan
 - `--plan-only`: Generate manifest without execution
 - `--plan-file`: Save manifest to file
@@ -193,6 +199,7 @@ description: Schema for work manifests that describe file processing plans
 ## Benefits
 
 ### For Users
+
 - **Predictability**: Know exactly what will be processed
 - **Performance**: Optimized execution for large codebases
 - **Control**: Fine-grained control over processing
@@ -200,12 +207,14 @@ description: Schema for work manifests that describe file processing plans
 - **Safety**: No-op mode for risk-free testing and assessment
 
 ### For Organizations
+
 - **Scalability**: Handle large monorepos efficiently
 - **Consistency**: Standardized execution across teams
 - **Audibility**: Complete records of all operations
 - **Integration**: Works with existing CI/CD pipelines
 
 ### For Development
+
 - **Testability**: Dry-run mode for safe testing
 - **Debugging**: Detailed manifests help diagnose issues
 - **Extensibility**: Clean architecture for adding new features

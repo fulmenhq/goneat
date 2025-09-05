@@ -16,6 +16,7 @@ var DefaultPriorities = map[AssessmentCategory]int{
 	CategoryStaticAnalysis: 3, // Code correctness, potential bugs
 	CategoryLint:           4, // Code quality, variable effort
 	CategoryPerformance:    5, // Optimization, may be deferred
+	CategorySchema:         2, // Semantics correctness; near-security priority
 }
 
 // PriorityManager handles category prioritization and ordering

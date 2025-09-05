@@ -62,6 +62,7 @@ var (
 	assessConcurrencyPercent int
 	assessCategories         string
 	assessStagedOnly         bool
+	assessTrackSuppressions  bool
 )
 
 func init() {
@@ -73,40 +74,47 @@ func init() {
 		panic(fmt.Sprintf("Failed to register assess command: %v", err))
 	}
 
+	setupAssessCommandFlags(assessCmd)
+}
+
+// setupAssessCommandFlags configures flags for the assess command (shared with tests)
+func setupAssessCommandFlags(cmd *cobra.Command) {
 	// Assessment flags
-	assessCmd.Flags().StringVar(&assessFormat, "format", "markdown", "Output format (markdown, json, html, both)")
-	assessCmd.Flags().StringVar(&assessMode, "mode", "check", "Operation mode (no-op, check, fix)")
-	assessCmd.Flags().BoolVarP(&assessVerbose, "verbose", "v", false, "Verbose output")
-	assessCmd.Flags().StringVar(&assessPriority, "priority", "", "Custom priority string (e.g., 'security=1,format=2')")
-	assessCmd.Flags().StringVar(&assessCategories, "categories", "", "Restrict assessment to specific categories (comma-separated, e.g., 'format,lint')")
-	assessCmd.Flags().StringVar(&assessFailOn, "fail-on", "critical", "Fail if issues at or above severity (critical, high, medium, low)")
-	assessCmd.Flags().DurationVar(&assessTimeout, "timeout", 5*time.Minute, "Assessment timeout")
-	assessCmd.Flags().StringVarP(&assessOutput, "output", "o", "", "Output file (default: stdout)")
-	assessCmd.Flags().StringSliceVar(&assessIncludeFiles, "include", []string{}, "Include only these files/patterns")
-	assessCmd.Flags().StringSliceVar(&assessExcludeFiles, "exclude", []string{}, "Exclude these files/patterns")
+	cmd.Flags().StringVar(&assessFormat, "format", "markdown", "Output format (markdown, json, html, both)")
+	cmd.Flags().StringVar(&assessMode, "mode", "check", "Operation mode (no-op, check, fix)")
+	cmd.Flags().BoolVarP(&assessVerbose, "verbose", "v", false, "Verbose output")
+	cmd.Flags().StringVar(&assessPriority, "priority", "", "Custom priority string (e.g., 'security=1,format=2')")
+	cmd.Flags().StringVar(&assessCategories, "categories", "", "Restrict assessment to specific categories (comma-separated, e.g., 'format,lint')")
+	cmd.Flags().StringVar(&assessFailOn, "fail-on", "critical", "Fail if issues at or above severity (critical, high, medium, low)")
+	cmd.Flags().DurationVar(&assessTimeout, "timeout", 5*time.Minute, "Assessment timeout")
+	cmd.Flags().StringVarP(&assessOutput, "output", "o", "", "Output file (default: stdout)")
+	cmd.Flags().StringSliceVar(&assessIncludeFiles, "include", []string{}, "Include only these files/patterns")
+	cmd.Flags().StringSliceVar(&assessExcludeFiles, "exclude", []string{}, "Exclude these files/patterns")
 	// Concurrency
-	assessCmd.Flags().IntVar(&assessConcurrency, "concurrency", 0, "Number of concurrent runners (0 uses --concurrency-percent)")
-	assessCmd.Flags().IntVar(&assessConcurrencyPercent, "concurrency-percent", 50, "Percent of CPU cores to use for concurrency (1-100)")
+	cmd.Flags().IntVar(&assessConcurrency, "concurrency", 0, "Number of concurrent runners (0 uses --concurrency-percent)")
+	cmd.Flags().IntVar(&assessConcurrencyPercent, "concurrency-percent", 50, "Percent of CPU cores to use for concurrency (1-100)")
 
 	// Hook mode flags
-	assessCmd.Flags().StringVar(&assessHook, "hook", "", "Run in hook mode (pre-commit, pre-push)")
-	assessCmd.Flags().StringVar(&assessHookManifest, "hook-manifest", ".goneat/hooks.yaml", "Hook manifest file path")
+	cmd.Flags().StringVar(&assessHook, "hook", "", "Run in hook mode (pre-commit, pre-push)")
+	cmd.Flags().StringVar(&assessHookManifest, "hook-manifest", ".goneat/hooks.yaml", "Hook manifest file path")
 
 	// Browser flags
-	assessCmd.Flags().BoolVar(&assessOpen, "open", false, "Open HTML report in default browser")
+	cmd.Flags().BoolVar(&assessOpen, "open", false, "Open HTML report in default browser")
 
 	// Benchmark flags
-	assessCmd.Flags().BoolVar(&assessBenchmark, "benchmark", false, "Run benchmark comparison")
-	assessCmd.Flags().IntVar(&assessBenchmarkIterations, "iterations", 5, "Number of benchmark iterations")
-	assessCmd.Flags().StringVar(&assessBenchmarkOutput, "benchmark-output", "benchmark.json", "Benchmark output file")
+	cmd.Flags().BoolVar(&assessBenchmark, "benchmark", false, "Run benchmark comparison")
+	cmd.Flags().IntVar(&assessBenchmarkIterations, "iterations", 5, "Number of benchmark iterations")
+	cmd.Flags().StringVar(&assessBenchmarkOutput, "benchmark-output", "benchmark.json", "Benchmark output file")
 
 	// Add shorthand flags for modes
-	assessCmd.Flags().Bool("no-op", false, "Run in no-op mode (assessment only)")
-	assessCmd.Flags().Bool("check", false, "Run in check mode (report only)")
-	assessCmd.Flags().Bool("fix", false, "Run in fix mode (apply fixes)")
+	cmd.Flags().Bool("no-op", false, "Run in no-op mode (assessment only)")
+	cmd.Flags().Bool("check", false, "Run in check mode (report only)")
+	cmd.Flags().Bool("fix", false, "Run in fix mode (apply fixes)")
 
 	// File scope flags
-	assessCmd.Flags().BoolVar(&assessStagedOnly, "staged-only", false, "Only assess staged files in git (changed and added)")
+	cmd.Flags().BoolVar(&assessStagedOnly, "staged-only", false, "Only assess staged files in git (changed and added)")
+	// Suppression tracking (security)
+	cmd.Flags().BoolVar(&assessTrackSuppressions, "track-suppressions", false, "Track and report security suppressions (e.g., #nosec) in assessment output")
 }
 
 func runAssess(cmd *cobra.Command, args []string) error {
@@ -131,6 +139,15 @@ func runAssess(cmd *cobra.Command, args []string) error {
 	assessConcurrency, _ = flags.GetInt("concurrency")
 	assessConcurrencyPercent, _ = flags.GetInt("concurrency-percent")
 	assessStagedOnly, _ = flags.GetBool("staged-only")
+
+	// Validate mode value
+	switch assessMode {
+	case "check", "fix", "no-op":
+		// ok
+	default:
+		return fmt.Errorf("invalid mode: %s (must be no-op, check, or fix)", assessMode)
+	}
+	assessTrackSuppressions, _ = flags.GetBool("track-suppressions")
 
 	// Determine target directory
 	target := "."
@@ -194,6 +211,7 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		FailOnSeverity:     failOnSeverity,
 		Concurrency:        assessConcurrency,
 		ConcurrencyPercent: assessConcurrencyPercent,
+		TrackSuppressions:  assessTrackSuppressions,
 	}
 
 	// If limited to staged files, populate IncludeFiles from git staged set

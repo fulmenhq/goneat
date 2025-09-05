@@ -5,6 +5,7 @@ This checklist ensures all requirements are met before releasing goneat to the G
 ## Pre-Release Preparation
 
 ### Code Quality ✅
+
 - [ ] **Tests Passing**: All tests pass (`make test`)
 - [ ] **Code Formatting**: Code properly formatted (`make fmt`)
 - [ ] **Linting**: No linting issues (`golangci-lint run`)
@@ -12,12 +13,14 @@ This checklist ensures all requirements are met before releasing goneat to the G
 - [ ] **Build Success**: Project builds without errors (`make build`)
 
 ### Version Management ✅
+
 - [ ] **Version Updated**: VERSION file contains correct version
 - [ ] **Changelog Updated**: CHANGELOG.md reflects all changes
 - [ ] **Go Module**: go.mod version is correct
 - [ ] **Embedded Version**: Binary embeds correct version info
 
 ### Cross-Platform Builds ✅
+
 - [ ] **All Platforms**: Build successful for all 6 targets
   - [ ] Linux AMD64
   - [ ] Linux ARM64
@@ -29,6 +32,7 @@ This checklist ensures all requirements are met before releasing goneat to the G
 - [ ] **Binary Size**: Reasonable size (< 20MB each)
 
 ### Documentation ✅
+
 - [ ] **README Updated**: Installation and usage instructions
 - [ ] **User Guide**: Complete for all features
 - [ ] **API Documentation**: All commands documented
@@ -37,12 +41,14 @@ This checklist ensures all requirements are met before releasing goneat to the G
 ## Release Execution
 
 ### Git Operations ✅
+
 - [ ] **Version Commit**: Version update committed
 - [ ] **Git Tag**: Annotated tag created (`git tag -a v1.2.3`)
 - [ ] **Primary Push**: Pushed to GitHub (`make release-push`)
 - [ ] **Backup Push**: Pushed to GitLab (if configured)
 
 ### GitHub Release ✅
+
 - [ ] **Release Created**: New release on GitHub
 - [ ] **Tag Selected**: Correct version tag
 - [ ] **Title Formatted**: "goneat v1.2.3"
@@ -50,6 +56,7 @@ This checklist ensures all requirements are met before releasing goneat to the G
 - [ ] **Binaries Attached**: All platform binaries uploaded
 
 ### Go Module Verification ✅
+
 - [ ] **Module Accessible**: `go get github.com/3leaps/goneat@v1.2.3`
 - [ ] **Installation Works**: `go install github.com/3leaps/goneat@v1.2.3`
 - [ ] **Binary Functional**: Installed binary works correctly
@@ -57,11 +64,13 @@ This checklist ensures all requirements are met before releasing goneat to the G
 ## Post-Release Validation
 
 ### Distribution Channels ✅
+
 - [ ] **GitHub Downloads**: All binaries downloadable
 - [ ] **Go Module**: Module resolves correctly
 - [ ] **Cross-Platform**: Binaries work on target platforms
 
 ### Community & Communication ✅
+
 - [ ] **Release Announced**: Relevant channels notified
 - [ ] **Documentation**: Installation docs updated if needed
 - [ ] **Issues Checked**: No critical issues from release
@@ -69,12 +78,14 @@ This checklist ensures all requirements are met before releasing goneat to the G
 ## Emergency Procedures
 
 ### Rollback Plan
+
 - [ ] **Tag Deletion**: `git tag -d v1.2.3 && git push origin :v1.2.3`
 - [ ] **Release Deletion**: Delete GitHub release
 - [ ] **Version Revert**: Update VERSION to previous version
 - [ ] **Communication**: Notify users of rollback
 
 ### Recovery Checklist
+
 - [ ] **Repository State**: Local and remote repos in sync
 - [ ] **Backup Available**: GitLab has correct state
 - [ ] **Team Notified**: All stakeholders informed
@@ -82,12 +93,14 @@ This checklist ensures all requirements are met before releasing goneat to the G
 ## Automation Status
 
 ### Current Automation ✅
+
 - [ ] **Build Script**: `scripts/build-all.sh` functional
 - [ ] **Push Script**: `scripts/push-to-remotes.sh` functional
 - [ ] **Makefile Targets**: All release targets working
 - [ ] **Test Suite**: Automated test execution
 
 ### Future Automation 🎯
+
 - [ ] **GitHub Actions**: Automated builds and releases
 - [ ] **Release Automation**: Automated GitHub release creation
 - [ ] **Binary Upload**: Automated asset uploads
@@ -96,12 +109,14 @@ This checklist ensures all requirements are met before releasing goneat to the G
 ## Quality Gates
 
 ### Minimum Requirements
+
 - [ ] **Test Coverage**: > 70% for new code
 - [ ] **Zero Critical Issues**: No blocking bugs
 - [ ] **Documentation Complete**: All features documented
 - [ ] **Cross-Platform Verified**: All target platforms tested
 
 ### Success Metrics
+
 - [ ] **Installation Success**: > 95% successful installations
 - [ ] **User Feedback**: No critical issues reported
 - [ ] **Performance**: No significant performance regressions
@@ -110,6 +125,7 @@ This checklist ensures all requirements are met before releasing goneat to the G
 ## Version-Specific Checklist
 
 ### For v0.1.2 (First Public Release)
+
 - [ ] **Core Features**: Version and format commands fully functional
 - [ ] **Documentation**: Complete user guide and API docs
 - [ ] **Testing**: Comprehensive test suite (28+ tests)
@@ -117,6 +133,7 @@ This checklist ensures all requirements are met before releasing goneat to the G
 - [ ] **Go Module**: Properly configured for `go install`
 
 ### For Future Releases
+
 - [ ] **Breaking Changes**: Update major version
 - [ ] **Deprecations**: Document removal timeline
 - [ ] **Migration Guide**: For breaking changes
@@ -146,11 +163,13 @@ goneat version              # Verify installation
 ## Contact Information
 
 ### For Release Issues
+
 - **Primary**: GitHub Issues
 - **Urgent**: Direct team communication
 - **Security**: security@3leaps.net
 
 ### Release Coordination
+
 - **Release Manager**: Current sprint lead
 - **Documentation**: Technical writer
 - **Testing**: QA team

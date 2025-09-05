@@ -39,10 +39,10 @@ Supported tools (MVP):
 - `--tools string[,string]`
   Comma-separated list of tool names to target (e.g., `gosec,govulncheck,goimports,gofmt`).
 
-- `--install`  
+- `--install`
   Attempt to install missing tools that are safe to install automatically (Go tools only in MVP). Uses `go install <pkg>@latest`.
 
-- `--print-instructions`  
+- `--print-instructions`
   Print explicit install guidance for missing tools.
 
 - `--yes`

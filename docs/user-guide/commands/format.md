@@ -105,39 +105,40 @@ goneat format --plan-only --group-by-size
 
 ### Core Formatting Flags
 
-| Flag | Type | Description | Example |
-|------|------|-------------|---------|
-| `--files` | strings | Specific files to format | `--files main.go,utils.go` |
-| `--folders` | strings | Directories to process | `--folders src/,pkg/` |
-| `--types` | strings | File types to include | `--types go,yaml,json` |
-| `--max-depth` | int | Maximum directory depth | `--max-depth 3` |
+| Flag          | Type    | Description              | Example                    |
+| ------------- | ------- | ------------------------ | -------------------------- |
+| `--files`     | strings | Specific files to format | `--files main.go,utils.go` |
+| `--folders`   | strings | Directories to process   | `--folders src/,pkg/`      |
+| `--types`     | strings | File types to include    | `--types go,yaml,json`     |
+| `--max-depth` | int     | Maximum directory depth  | `--max-depth 3`            |
 
 ### Operation Mode Flags
 
-| Flag | Type | Description | Example |
-|------|------|-------------|---------|
-| `--check` | boolean | Check mode (no changes) | `--check` |
-| `--dry-run` | boolean | Preview mode (no changes) | `--dry-run` |
-| `--plan-only` | boolean | Generate plan only | `--plan-only` |
-| `--plan-file` | string | Save plan to file | `--plan-file plan.json` |
-| `--no-op` | boolean | No-operation mode | `--no-op` |
+| Flag          | Type    | Description               | Example                 |
+| ------------- | ------- | ------------------------- | ----------------------- |
+| `--check`     | boolean | Check mode (no changes)   | `--check`               |
+| `--dry-run`   | boolean | Preview mode (no changes) | `--dry-run`             |
+| `--plan-only` | boolean | Generate plan only        | `--plan-only`           |
+| `--plan-file` | string  | Save plan to file         | `--plan-file plan.json` |
+| `--no-op`     | boolean | No-operation mode         | `--no-op`               |
 
 ### File Operation Flags
 
-| Flag | Type | Description | Example |
-|------|------|-------------|---------|
-| `--finalize-eof` | boolean | Ensure single trailing newline | `--finalize-eof` |
-| `--finalize-trim-trailing-spaces` | boolean | Remove trailing whitespace | `--finalize-trim-trailing-spaces` |
-| `--finalize-line-endings` | string | Normalize line endings | `--finalize-line-endings=lf` |
-| `--finalize-remove-bom` | boolean | Remove UTF-8/16/32 BOM | `--finalize-remove-bom` |
+| Flag                              | Type    | Description                    | Example                           |
+| --------------------------------- | ------- | ------------------------------ | --------------------------------- |
+| `--finalize-eof`                  | boolean | Ensure single trailing newline | `--finalize-eof`                  |
+| `--finalize-trim-trailing-spaces` | boolean | Remove trailing whitespace     | `--finalize-trim-trailing-spaces` |
+| `--finalize-line-endings`         | string  | Normalize line endings         | `--finalize-line-endings=lf`      |
+| `--finalize-remove-bom`           | boolean | Remove UTF-8/16/32 BOM         | `--finalize-remove-bom`           |
 
 ### Language-specific Organizer Flags (Go)
 
-| Flag | Type | Description | Example |
-|------|------|-------------|---------|
+| Flag              | Type    | Description                                    | Example           |
+| ----------------- | ------- | ---------------------------------------------- | ----------------- |
 | `--use-goimports` | boolean | Organize Go imports with goimports after gofmt | `--use-goimports` |
 
 Notes:
+
 - When `--strategy parallel` is used, goimports is currently skipped with a warning. Use sequential strategy for import alignment until the parallel processor is extended.
 - If `goimports` is not installed:
   - With `--ignore-missing-tools`: import alignment is skipped (warn once).
@@ -145,32 +146,32 @@ Notes:
 
 ### Execution Control Flags
 
-| Flag | Type | Description | Example |
-|------|------|-------------|---------|
-| `--strategy` | string | Execution strategy | `--strategy parallel` |
-| `--group-by-size` | boolean | Group by file size | `--group-by-size` |
-| `--group-by-type` | boolean | Group by content type | `--group-by-type` |
-| `--concurrency` | int | Worker count override | `--concurrency 4` |
+| Flag              | Type    | Description           | Example               |
+| ----------------- | ------- | --------------------- | --------------------- |
+| `--strategy`      | string  | Execution strategy    | `--strategy parallel` |
+| `--group-by-size` | boolean | Group by file size    | `--group-by-size`     |
+| `--group-by-type` | boolean | Group by content type | `--group-by-type`     |
+| `--concurrency`   | int     | Worker count override | `--concurrency 4`     |
 
 ### Filtering and Scope Flags
 
-| Flag | Type | Description | Example |
-|------|------|-------------|---------|
-| `--staged-only` | boolean | Only staged files (git) | `--staged-only` |
+| Flag                     | Type    | Description                 | Example                  |
+| ------------------------ | ------- | --------------------------- | ------------------------ |
+| `--staged-only`          | boolean | Only staged files (git)     | `--staged-only`          |
 | `--ignore-missing-tools` | boolean | Skip missing external tools | `--ignore-missing-tools` |
-| `--include` | strings | Include patterns | `--include "*.go"` |
-| `--exclude` | strings | Exclude patterns | `--exclude "vendor/**"` |
+| `--include`              | strings | Include patterns            | `--include "*.go"`       |
+| `--exclude`              | strings | Exclude patterns            | `--exclude "vendor/**"`  |
 
 ## Supported File Types
 
 ### Primary Formatters
 
-| Language | Extension | Tool | Description |
-|----------|-----------|------|-------------|
-| **Go** | `.go` | gofmt/goimports | Standard Go formatting |
-| **YAML** | `.yaml`, `.yml` | yamlfmt | YAML structure formatting |
-| **JSON** | `.json` | jq | JSON formatting and validation |
-| **Markdown** | `.md`, `.markdown` | prettier | Markdown formatting |
+| Language     | Extension          | Tool            | Description                    |
+| ------------ | ------------------ | --------------- | ------------------------------ |
+| **Go**       | `.go`              | gofmt/goimports | Standard Go formatting         |
+| **YAML**     | `.yaml`, `.yml`    | yamlfmt         | YAML structure formatting      |
+| **JSON**     | `.json`            | jq              | JSON formatting and validation |
+| **Markdown** | `.md`, `.markdown` | prettier        | Markdown formatting            |
 
 ### Extended File Operations
 
@@ -271,6 +272,7 @@ goneat format --check || echo "Formatting issues found"
 ```
 
 **Exit Codes:**
+
 - `0`: All files properly formatted
 - `1`: Formatting issues found
 - `2`: Error occurred
@@ -521,6 +523,7 @@ goneat format --check --finalize-eof || exit 1
 ### Common Issues
 
 **"No files found to format"**
+
 ```bash
 # Check current directory contents
 ls -la
@@ -533,6 +536,7 @@ goneat format --plan-only --types go,yaml,json,markdown
 ```
 
 **"Tool not found" errors**
+
 ```bash
 # Check tool availability
 which gofmt yamlfmt jq prettier
@@ -546,6 +550,7 @@ npm install -g prettier yamlfmt
 ```
 
 **"Permission denied" errors**
+
 ```bash
 # Check file permissions
 ls -la problematic-file
@@ -575,6 +580,7 @@ goneat format --verbose --types yaml
 ### Recovery Options
 
 **Undo formatting changes:**
+
 ```bash
 # If using git
 git checkout -- file-to-revert
@@ -585,6 +591,7 @@ cp backup-file original-file
 ```
 
 **Partial recovery:**
+
 ```bash
 # Format only specific files
 goneat format --files specific-file.go
@@ -645,14 +652,14 @@ goneat format --finalize-eof --finalize-remove-bom
 
 ## File Type Support Matrix
 
-| Operation | Go | YAML | JSON | Markdown | Text | Scripts | Config |
-|-----------|----|------|------|----------|------|---------|--------|
-| **Syntax Formatting** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **EOF Newline** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Trailing Whitespace** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Line Endings** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **BOM Removal** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Binary Detection** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Operation               | Go  | YAML | JSON | Markdown | Text | Scripts | Config |
+| ----------------------- | --- | ---- | ---- | -------- | ---- | ------- | ------ |
+| **Syntax Formatting**   | ✅  | ✅   | ✅   | ✅       | ❌   | ❌      | ❌     |
+| **EOF Newline**         | ✅  | ✅   | ✅   | ✅       | ✅   | ✅      | ✅     |
+| **Trailing Whitespace** | ✅  | ✅   | ✅   | ✅       | ✅   | ✅      | ✅     |
+| **Line Endings**        | ✅  | ✅   | ✅   | ✅       | ✅   | ✅      | ✅     |
+| **BOM Removal**         | ✅  | ✅   | ✅   | ✅       | ✅   | ✅      | ✅     |
+| **Binary Detection**    | ✅  | ✅   | ✅   | ✅       | ✅   | ✅      | ✅     |
 
 ## Future Enhancements
 

@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/3leaps/goneat/internal/ops"
 	"github.com/3leaps/goneat/pkg/exitcode"
 	"github.com/3leaps/goneat/pkg/logger"
 	"github.com/spf13/cobra"
@@ -54,6 +55,31 @@ func init() {
 	}
 	rootCmd.Version = ver
 	rootCmd.SetVersionTemplate("goneat {{.Version}}\n")
+
+	// Grouped help by command group (Neat → Workflow → Support)
+	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		reg := ops.GetRegistry()
+		// Header
+		cmd.Println(cmd.Long)
+		cmd.Println()
+		cmd.Println("Functional Commands (Neat):")
+		for _, c := range reg.GetCommandsByGroup(ops.GroupNeat) {
+			cmd.Printf("  %-12s %s\n", c.Name, c.Description)
+		}
+		cmd.Println()
+		cmd.Println("Workflow Commands:")
+		for _, c := range reg.GetCommandsByGroup(ops.GroupWorkflow) {
+			cmd.Printf("  %-12s %s\n", c.Name, c.Description)
+		}
+		cmd.Println()
+		cmd.Println("Support Commands (use --all to list details):")
+		for _, c := range reg.GetCommandsByGroup(ops.GroupSupport) {
+			cmd.Printf("  %-12s %s\n", c.Name, c.Description)
+		}
+		cmd.Println()
+		cmd.Println("Flags:")
+		cmd.Print(cmd.UsageString())
+	})
 }
 
 // getVersionFromSources tries to get version from multiple sources in priority order

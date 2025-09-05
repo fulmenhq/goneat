@@ -48,6 +48,7 @@ goneat assess --hook pre-commit
 ```
 
 Tip:
+
 - content_source=index scopes validation to the staged version of changed files (preferred for selective commits)
 - apply_mode=check avoids modifying files during pre-commit; use fix to auto-apply and re-stage when your team opts in
 
@@ -76,11 +77,13 @@ goneat hooks init
 ```
 
 **What happens:**
+
 - Creates `.goneat/hooks.yaml` with default configuration
 - Sets up `.goneat/` directory structure
 - Provides sensible defaults for common use cases
 
 **Files created:**
+
 ```
 .goneat/
 ├── hooks.yaml          # Configuration manifest
@@ -96,12 +99,14 @@ goneat hooks generate
 ```
 
 **What happens:**
+
 - Reads `.goneat/hooks.yaml` configuration
 - Generates simple bash scripts for each hook type
 - Creates fallback logic for when goneat isn't available
 - Places generated files in `.goneat/hooks/` directory
 
 **Generated hook example (simplified):**
+
 ```bash
 # .goneat/hooks/pre-commit (generated)
 #!/bin/bash
@@ -118,7 +123,9 @@ goneat assess --hook pre-commit --hook-manifest .goneat/hooks.yaml --staged-only
 
 echo "✅ Pre-commit validation passed!"
 ```
+
 Note:
+
 - The exact flags are templated from your manifest. Staged-only is applied automatically when either:
   - optimization.only_changed_files=true, or
   - optimization.content_source=index
@@ -131,6 +138,7 @@ goneat hooks install
 ```
 
 **What happens:**
+
 - Copies generated hooks from `.goneat/hooks/` to `.git/hooks/`
 - Sets executable permissions (`chmod +x`)
 - Creates backup of existing hooks if they exist (`.backup` extension)
@@ -143,16 +151,18 @@ goneat hooks validate
 ```
 
 **What happens:**
+
 - Verifies all hook files are correctly generated and executable
 - Tests configuration syntax and completeness
 - Confirms goneat binary is accessible to hooks
 - Reports any issues with clear remediation steps
 
 **Example output:**
+
 ```bash
 🔍 Validating hook configuration...
 ✅ Pre-commit hook generated
-✅ Pre-push hook generated  
+✅ Pre-push hook generated
 ✅ Pre-commit hook installed and executable
 ✅ Pre-push hook installed and executable
 ✅ Hook configuration validation complete
@@ -160,6 +170,7 @@ goneat hooks validate
 ```
 
 **Final directory structure:**
+
 ```
 project/
 ├── .git/
@@ -255,11 +266,13 @@ goneat hooks configure --pre-commit-apply-mode=fix --install
 ```
 
 What this does:
+
 - Updates `.goneat/hooks.yaml` optimization to include `only_changed_files: true` and `content_source: index`
 - Regenerates hook scripts so pre-commit/pre-push pass `--staged-only` automatically
 - Optionally installs updated hooks into `.git/hooks`
 
 Cross-reference:
+
 - See the full command reference and flags in [../commands/hooks.md](docs/user-guide/commands/hooks.md)
 
 ## Daily Usage Examples
@@ -413,7 +426,7 @@ Goneat supports a `.goneatignore` file for controlling which files are assessed:
 cat > .goneatignore << 'EOF'
 # Goneat ignore patterns (gitignore syntax)
 
-# Temporary files  
+# Temporary files
 *.tmp
 *.temp
 *~
@@ -484,6 +497,7 @@ goneat envinfo --extended  # Shows ignore file status in "Ignore Configuration" 
 **Problem:** Hook doesn't execute when expected
 
 **Solutions:**
+
 ```bash
 # Check if hook is executable
 ls -la .git/hooks/pre-commit
@@ -503,6 +517,7 @@ git config --list | grep hooks
 **Problem:** Hook fails with configuration errors
 
 **Solutions:**
+
 ```bash
 # Validate manifest syntax
 cat .goneat/hooks.yaml
@@ -520,6 +535,7 @@ goneat hooks install
 **Problem:** Hooks take too long to execute
 
 **Solutions:**
+
 ```bash
 # Use optimization settings
 vim .goneat/hooks.yaml
@@ -537,6 +553,7 @@ goneat assess --hook pre-commit --timeout 30s
 **Problem:** Fallback validation isn't working
 
 **Solutions:**
+
 ```bash
 # Check if basic tools are available
 which gofmt
@@ -579,7 +596,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v4
         with:
-          go-version: '1.21'
+          go-version: "1.21"
       - name: Install goneat
         run: go install github.com/3leaps/goneat@latest
       - name: Run assessment
@@ -698,16 +715,19 @@ goneat hooks install
 Track these indicators to measure hook effectiveness:
 
 ### Performance Metrics
+
 - **Commit time:** < 30 seconds for typical commits
 - **Hook success rate:** > 95% of commits pass validation
 - **False positive rate:** < 5% of rejections are incorrect
 
 ### Developer Experience Metrics
+
 - **Time to feedback:** < 10 seconds for format/lint issues
 - **Error clarity:** 100% of errors include actionable fixes
 - **Adoption rate:** Team uses hooks for 90%+ of commits
 
 ### Quality Metrics
+
 - **Issue detection:** Catches 80%+ of potential issues pre-commit
 - **Auto-fix rate:** 70%+ of format issues fixed automatically
 - **Security coverage:** 100% of commits scanned for security issues

@@ -167,6 +167,7 @@ git commit --no-verify -F /tmp/consolidation-message.txt
 ```
 
 Common issues:
+
 - **Format validation errors**: Use `./goneat format` to fix automatically
 - **Assessment failures**: Address lint/security issues before consolidation
 - **Auto-formatters**: May modify files during commit - stage changes and re-commit

@@ -58,6 +58,13 @@ package: ## Package built binaries into archives + checksums
 	@./scripts/package-artifacts.sh
 	@echo "✅ Packaging completed (dist/release)"
 
+# Release notes artifact from RELEASE_NOTES.md
+release-notes: ## Generate release notes artifact (dist/release/release-notes-v<version>.md)
+	@echo "📝 Generating release notes for v$(VERSION)..."
+	@chmod +x scripts/generate-release-notes.sh
+	@./scripts/generate-release-notes.sh
+	@echo "✅ Release notes generated (dist/release)"
+
 build-linux-amd64: ## Build for Linux AMD64
 	@echo "Building for Linux AMD64..."
 	GOOS=linux GOARCH=amd64 $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./$(SRC_DIR)
@@ -222,6 +229,7 @@ release-prep: ## Prepare for release (run tests, coverage gate, build, etc.)
 	$(MAKE) coverage-check
 	$(MAKE) build-all
 	$(MAKE) fmt
+	$(MAKE) release-notes
 	@echo "✅ Release preparation complete"
 
 release-tag: ## Create git tag for release
@@ -239,8 +247,8 @@ release: release-prep release-tag release-push ## Complete release process
 	@echo ""
 	@echo "📋 Next steps:"
 	@echo "   1. Create GitHub release: https://github.com/3leaps/goneat/releases"
-	@echo "   2. Upload binaries from bin/ directory"
-	@echo "   3. Update CHANGELOG.md if needed"
+	@echo "   2. Upload artifacts from dist/release/ (binaries + release-notes-v$(VERSION).md)"
+	@echo "   3. Paste release notes from dist/release/release-notes-v$(VERSION).md"
 	@echo "   4. Announce release in relevant channels"
 
 # Future: goneat-based version management

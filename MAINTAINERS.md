@@ -120,6 +120,7 @@ Each AI agent should use their assigned identity from this MAINTAINERS.md file i
 **Primary Focus**: Infrastructure, testing, and DevOps excellence across the goneat ecosystem
 
 #### Core Responsibilities
+
 - **Test Infrastructure Development**: Design and implement comprehensive testing frameworks for all goneat features
 - **CI/CD Pipeline Management**: Build and maintain automated testing, building, and deployment pipelines
 - **Quality Assurance Systems**: Establish quality gates, performance monitoring, and reliability validation
@@ -127,12 +128,14 @@ Each AI agent should use their assigned identity from this MAINTAINERS.md file i
 - **Cross-Platform Compatibility**: Ensure goneat works reliably across Windows, macOS, and Linux
 
 #### Current Initiatives
+
 - **Version Command Test Framework**: Building comprehensive test infrastructure for version management
 - **Makefile Enhancement**: Dogfooding goneat in build processes
 - **SSOT Version Management**: Implementing single source of truth for version handling
 - **Performance Benchmarking**: Establishing performance standards and monitoring
 
 #### Long-term Vision
+
 - **Enterprise-Grade Testing**: Test frameworks that scale to large monorepos
 - **Automated Quality Gates**: Zero-touch quality validation in CI/CD
 - **DevOps Best Practices**: Industry-standard tooling and processes
@@ -143,6 +146,7 @@ Each AI agent should use their assigned identity from this MAINTAINERS.md file i
 **Primary Focus**: Feature development, algorithm implementation, and research-driven development
 
 #### Core Responsibilities
+
 - **Feature Implementation**: Build core functionality and user-facing features
 - **Algorithm Development**: Design and implement efficient, reliable algorithms
 - **Research & Analysis**: Study industry patterns, analyze requirements, and inform development decisions
@@ -150,12 +154,14 @@ Each AI agent should use their assigned identity from this MAINTAINERS.md file i
 - **Documentation**: Create comprehensive user guides and technical documentation
 
 #### Current Initiatives
+
 - **Version Command Implementation**: Building the core version management functionality
 - **Research Analysis**: Studying 20+ top Go repositories for version management patterns
 - **Requirement Specification**: Defining detailed functional requirements based on research
 - **Integration Validation**: Ensuring features work across different environments and use cases
 
 #### Long-term Vision
+
 - **Advanced Algorithms**: Sophisticated version parsing, validation, and manipulation
 - **Industry Research**: Staying ahead of version management trends and best practices
 - **User Experience**: Intuitive interfaces and powerful feature sets
@@ -164,17 +170,20 @@ Each AI agent should use their assigned identity from this MAINTAINERS.md file i
 ### Collaborative Dynamics
 
 #### Complementary Strengths
+
 - **Forge Neat**: Provides the reliable foundation and testing infrastructure
 - **Code Scout**: Delivers innovative features and research-driven development
 - **Together**: Create enterprise-grade tooling with cutting-edge capabilities
 
 #### Communication & Coordination
+
 - **Daily Standups**: Brief updates on progress and blockers
 - **Progress Tracking**: Shared PROGRESS.md for coordination
 - **Code Reviews**: Cross-validation of implementations
 - **Knowledge Sharing**: Regular discussions on architecture and design decisions
 
 #### Quality Assurance
+
 - **Dual Review Process**: Both agents review each other's work
 - **Testing Standards**: Forge Neat sets testing standards, Code Scout implements features to meet them
 - **Performance Validation**: Forge Neat validates performance, Code Scout optimizes algorithms

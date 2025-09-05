@@ -643,7 +643,7 @@ func executeSequentialWithOptions(files []string, checkOnly, quiet bool, cfg *co
 		// Show progress for larger file sets
 		if showProgress && (i+1)%10 == 0 {
 			progress := float64(i+1) / float64(totalFiles) * 100
-			logger.Info(fmt.Sprintf("Progress: %d/%d files (%.1f%%) - %d formatted, %d unchanged, %d errors", 
+			logger.Info(fmt.Sprintf("Progress: %d/%d files (%.1f%%) - %d formatted, %d unchanged, %d errors",
 				i+1, totalFiles, progress, formattedCount, unchangedCount, errorCount))
 		}
 	}
@@ -743,19 +743,19 @@ func executeParallel(files []string, cfg *config.Config, quiet bool, noOp bool) 
 	// Create processor and dispatcher
 	workers := runtime.NumCPU()
 	processor := work.NewFormatProcessor(cfg)
-	
+
 	// Progress tracking for parallel execution
 	var processedCount int32
 	totalFiles := len(files)
 	showProgress := totalFiles > 10 && !quiet
-	
+
 	dispatcher := work.NewDispatcher(work.DispatcherConfig{
 		MaxWorkers: workers,
 		DryRun:     false,
 		NoOp:       noOp,
 		ProgressCallback: func(result work.ExecutionResult) {
 			processed := int(atomic.AddInt32(&processedCount, 1))
-			
+
 			if !quiet {
 				if result.Success {
 					if showProgress && processed%10 == 0 {

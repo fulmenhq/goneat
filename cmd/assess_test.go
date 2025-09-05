@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"github.com/spf13/cobra"
 	"strings"
 	"testing"
 	"time"
@@ -153,12 +154,15 @@ func TestAssessCLI_Modes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			// Build a fresh command instance to avoid flag reuse across subtests
+			cmd := &cobra.Command{Use: "assess", RunE: runAssess}
+			setupAssessCommandFlags(cmd)
 			buf := new(bytes.Buffer)
-			assessCmd.SetOut(buf)
-			assessCmd.SetErr(buf)
-			assessCmd.SetArgs(tc.args)
+			cmd.SetOut(buf)
+			cmd.SetErr(buf)
+			cmd.SetArgs(tc.args)
 
-			err := assessCmd.ExecuteContext(context.Background())
+			err := cmd.ExecuteContext(context.Background())
 			if tc.shouldSucceed && err != nil {
 				t.Fatalf("expected success for %s, got error: %v", tc.name, err)
 			}

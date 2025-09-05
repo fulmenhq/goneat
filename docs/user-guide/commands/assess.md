@@ -34,6 +34,7 @@ Goneat assess is the core intelligence engine that:
 - Logs include: workers used, per-category runtimes, totals.
 
 Example log summary:
+
 ```
 workers=6, categories=3
 Runtime: format           115ms
@@ -101,76 +102,87 @@ goneat assess --include "*.go" --exclude "vendor/**"
 
 ### Core Assessment Flags
 
-| Flag | Type | Description | Example |
-|------|------|-------------|---------|
-| `--format` | string | Output format (markdown, json, html, both) | `--format json` |
-| `--mode` | string | Operation mode (check, fix, no-op) | `--mode fix` |
-| `--no-op` | boolean | Assessment mode only (no changes) | `--no-op` |
-| `--check` | boolean | Check mode (report issues, no changes) | `--check` |
-| `--fix` | boolean | Fix mode (apply fixes automatically) | `--fix` |
-| `--priority` | string | Custom priority string | `--priority "security=1,format=2"` |
-| `--fail-on` | string | Fail on severity level | `--fail-on high` |
-| `--timeout` | duration | Assessment timeout | `--timeout 5m` |
-| `--output` | string | Output file path | `--output report.md` |
+| Flag         | Type     | Description                                | Example                            |
+| ------------ | -------- | ------------------------------------------ | ---------------------------------- |
+| `--format`   | string   | Output format (markdown, json, html, both) | `--format json`                    |
+| `--mode`     | string   | Operation mode (check, fix, no-op)         | `--mode fix`                       |
+| `--no-op`    | boolean  | Assessment mode only (no changes)          | `--no-op`                          |
+| `--check`    | boolean  | Check mode (report issues, no changes)     | `--check`                          |
+| `--fix`      | boolean  | Fix mode (apply fixes automatically)       | `--fix`                            |
+| `--priority` | string   | Custom priority string                     | `--priority "security=1,format=2"` |
+| `--fail-on`  | string   | Fail on severity level                     | `--fail-on high`                   |
+| `--timeout`  | duration | Assessment timeout                         | `--timeout 5m`                     |
+| `--output`   | string   | Output file path                           | `--output report.md`               |
 
 ### Concurrency Flags
 
-| Flag | Type | Description | Example |
-|------|------|-------------|---------|
-| `--concurrency` | int | Explicit worker count | `--concurrency 4` |
-| `--concurrency-percent` | int | Percent of CPU cores (1-100) | `--concurrency-percent 75` |
+| Flag                    | Type | Description                  | Example                    |
+| ----------------------- | ---- | ---------------------------- | -------------------------- |
+| `--concurrency`         | int  | Explicit worker count        | `--concurrency 4`          |
+| `--concurrency-percent` | int  | Percent of CPU cores (1-100) | `--concurrency-percent 75` |
 
 ### Filtering Flags
 
-| Flag | Type | Description | Example |
-|------|------|-------------|---------|
-| `--include` | strings | Include file patterns | `--include "*.go"` |
-| `--exclude` | strings | Exclude file patterns | `--exclude "vendor/**"` |
-| `--categories` | string | Specific categories to assess | `--categories "format,lint"` |
+| Flag           | Type    | Description                   | Example                      |
+| -------------- | ------- | ----------------------------- | ---------------------------- |
+| `--include`    | strings | Include file patterns         | `--include "*.go"`           |
+| `--exclude`    | strings | Exclude file patterns         | `--exclude "vendor/**"`      |
+| `--categories` | string  | Specific categories to assess | `--categories "format,lint"` |
 
 ### Hook Integration Flags
 
-| Flag | Type | Description | Example |
-|------|------|-------------|---------|
-| `--hook` | string | Run in hook mode | `--hook pre-commit` |
+| Flag              | Type   | Description        | Example                              |
+| ----------------- | ------ | ------------------ | ------------------------------------ |
+| `--hook`          | string | Run in hook mode   | `--hook pre-commit`                  |
 | `--hook-manifest` | string | Hook manifest path | `--hook-manifest .goneat/hooks.yaml` |
 
 ### Display Flags
 
-| Flag | Type | Description | Example |
-|------|------|-------------|---------|
+| Flag        | Type    | Description    | Example     |
+| ----------- | ------- | -------------- | ----------- |
 | `--verbose` | boolean | Verbose output | `--verbose` |
-| `--quiet` | boolean | Minimal output | `--quiet` |
+| `--quiet`   | boolean | Minimal output | `--quiet`   |
+
+### Security Flags
+
+| Flag                   | Type    | Description                                          | Example                |
+| ---------------------- | ------- | ---------------------------------------------------- | ---------------------- |
+| `--track-suppressions` | boolean | Track and report suppressions (e.g., gosec `#nosec`) | `--track-suppressions` |
 
 ## Assessment Categories
 
 Goneat assess supports multiple validation categories:
 
 ### Format (`format`)
+
 - **Purpose:** Code formatting and style consistency
 - **Tools:** gofmt, goimports
 - **Typical Issues:** Indentation, import organization, whitespace
 - **Auto-fixable:** Yes (most issues)
 
 ### Lint (`lint`)
+
 - **Purpose:** Code quality and best practices
 - **Tools:** golangci-lint, govet
 - **Typical Issues:** Unused variables, potential bugs, style violations
 - **Auto-fixable:** Partial (some linters support auto-fix)
 
 ### Security (`security`)
+
 - **Purpose:** Security vulnerability detection
 - **Tools:** gosec, custom security scanners
 - **Typical Issues:** SQL injection, hardcoded secrets, unsafe operations
 - **Auto-fixable:** No (requires manual review)
 
 ### Static Analysis (`static-analysis`)
+
 - **Purpose:** Advanced code analysis
 - **Tools:** staticcheck, ineffassign
 - **Typical Issues:** Dead code, inefficient assignments, type issues
 - **Auto-fixable:** Limited
 
 ### Performance (`performance`)
+
 - **Purpose:** Performance optimization opportunities
 - **Tools:** Custom performance analyzers
 - **Typical Issues:** Memory leaks, inefficient algorithms
@@ -190,6 +202,7 @@ Human-readable reports with structured sections:
 **Target:** /path/to/project
 
 ## Executive Summary
+
 - **Overall Health:** 🟢 Good (85% compliant)
 - **Critical Issues:** 0
 - **Estimated Fix Time:** 2-3 hours
@@ -198,19 +211,22 @@ Human-readable reports with structured sections:
 ## Assessment Results
 
 ### 🔧 Format Issues (Priority: 1)
+
 **Status:** ⚠️ 3 issues found
 **Estimated Time:** 15 minutes
 **Parallelizable:** Yes
 
-| File | Issues | Severity | Auto-fixable |
-|------|--------|----------|--------------|
-| src/main.go | 2 | Low | Yes |
-| pkg/utils.go | 1 | Low | Yes |
+| File         | Issues | Severity | Auto-fixable |
+| ------------ | ------ | -------- | ------------ |
+| src/main.go  | 2      | Low      | Yes          |
+| pkg/utils.go | 1      | Low      | Yes          |
 
 ### 🛡️ Security Issues (Priority: 2)
+
 **Status:** ✅ No issues found
 
 ## Recommended Workflow
+
 1. **Phase 1 (15 min)**: Auto-fix all format issues
 2. **Phase 2 (30 min)**: Address critical lint issues
 3. **Phase 3 (45 min)**: Review remaining items
@@ -228,7 +244,17 @@ Machine-readable format for automation and integration:
     "version": "1.0.0",
     "target": "/path/to/project",
     "execution_time": "45s",
-    "commands_run": ["gofmt", "golangci-lint", "gosec"]
+    "commands_run": ["gofmt", "golangci-lint", "gosec"],
+    "change_context": {
+      "modified_files": [
+        "pkg/work/planner.go",
+        "schemas/config/goneat-config-v1.0.0.yaml"
+      ],
+      "total_changes": 42,
+      "change_scope": "small",
+      "git_sha": "abc123def",
+      "branch": "feature/diff-aware"
+    }
   },
   "summary": {
     "overall_health": 0.85,
@@ -254,7 +280,9 @@ Machine-readable format for automation and integration:
           "message": "Incorrect indentation",
           "category": "format",
           "auto_fixable": true,
-          "estimated_time": "5m"
+          "estimated_time": "5m",
+          "change_related": true,
+          "lines_modified": [40, 41, 42, 43]
         }
       ]
     }
@@ -329,6 +357,9 @@ goneat assess --include "*.go" --exclude "vendor/**"
 
 # Quick check for pre-commit hooks
 goneat assess --categories format,lint --timeout 30s
+
+# Track security suppressions in output
+goneat assess --categories security --track-suppressions --format json
 ```
 
 ### Custom Priorities
@@ -359,6 +390,7 @@ goneat assess --hook pre-commit --verbose
 Goneat assess supports three distinct operational modes with different behaviors:
 
 ### Check Mode (Default)
+
 - **Purpose:** Report issues without making any changes to files
 - **Use Case:** Regular assessment, CI/CD validation, compliance checking
 - **Flags:** `--mode check`, `--check`, or default behavior
@@ -370,6 +402,7 @@ Goneat assess supports three distinct operational modes with different behaviors
   - Safe for production environments
 
 ### Fix Mode
+
 - **Purpose:** Report issues and automatically apply fixes where possible
 - **Use Case:** Development workflow, pre-commit auto-fixing, code cleanup
 - **Flags:** `--mode fix` or `--fix`
@@ -382,6 +415,7 @@ Goneat assess supports three distinct operational modes with different behaviors
   - **⚠️ Warning:** Modifies files - use with caution in production
 
 ### No-Op Mode
+
 - **Purpose:** Validate configuration and tool availability without executing assessments
 - **Use Case:** Setup testing, configuration validation, dry-run planning
 - **Flags:** `--mode no-op` or `--no-op`
@@ -395,11 +429,13 @@ Goneat assess supports three distinct operational modes with different behaviors
 ### Mode Selection Priority
 
 When multiple mode flags are provided, goneat follows this priority order:
+
 1. Explicit mode flag: `--mode check/fix/no-op`
 2. Shorthand flags: `--no-op`, `--check`, `--fix`
 3. Default: Check mode (safest option)
 
 **Examples:**
+
 ```bash
 # These are equivalent (check mode)
 goneat assess
@@ -420,19 +456,20 @@ goneat assess --check --fix  # ❌ Invalid combination
 
 ### Mode-Specific Behavior by Category
 
-| Category | Check Mode | Fix Mode | No-Op Mode |
-|----------|------------|----------|------------|
-| **Format** | Report formatting issues | Apply gofmt/goimports fixes | Validate gofmt availability |
-| **Lint** | Report lint violations | Apply golangci-lint --fix | Validate golangci-lint installation |
-| **Static Analysis** | Report analysis issues | Report only (no auto-fix) | Validate go vet availability |
-| **Security** | Report security issues | Report only (manual fixes) | Validate security tools |
-| **Performance** | Report optimization opportunities | Report only (architectural) | Validate performance tools |
+| Category            | Check Mode                        | Fix Mode                    | No-Op Mode                          |
+| ------------------- | --------------------------------- | --------------------------- | ----------------------------------- |
+| **Format**          | Report formatting issues          | Apply gofmt/goimports fixes | Validate gofmt availability         |
+| **Lint**            | Report lint violations            | Apply golangci-lint --fix   | Validate golangci-lint installation |
+| **Static Analysis** | Report analysis issues            | Report only (no auto-fix)   | Validate go vet availability        |
+| **Security**        | Report security issues            | Report only (manual fixes)  | Validate security tools             |
+| **Performance**     | Report optimization opportunities | Report only (architectural) | Validate performance tools          |
 
 ## Priority System
 
 Goneat uses an intelligent priority system to optimize assessment order:
 
 ### Default Priorities
+
 1. **Format** (Priority 1) - Quick wins, often auto-fixable
 2. **Security** (Priority 2) - Critical issues requiring immediate attention
 3. **Static Analysis** (Priority 3) - Code correctness and potential bugs
@@ -534,11 +571,13 @@ goneat assess --no-op --hook pre-commit
 Goneat automatically identifies and executes independent tasks in parallel:
 
 ### Automatic Parallelization
+
 - **Format checks** run in parallel across files
 - **Independent lint rules** execute simultaneously
 - **Security scans** of different file types run concurrently
 
 ### Parallel Groups
+
 The assessment report identifies parallelizable work:
 
 ```json
@@ -608,16 +647,19 @@ repos:
 ## Performance Optimization
 
 ### Caching
+
 - **Result caching:** Skip unchanged files between runs
 - **Tool availability:** Cache which tools are installed
 - **Configuration:** Cache parsed manifest files
 
 ### Smart Filtering
+
 - **File type detection:** Only run relevant tools on appropriate files
 - **Change detection:** Use git status to identify modified files
 - **Dependency analysis:** Skip files that haven't changed
 
 ### Resource Management
+
 - **Timeout handling:** Prevent runaway tool execution
 - **Memory limits:** Control resource usage for large codebases
 - **Parallel limits:** Respect system capabilities
@@ -627,6 +669,7 @@ repos:
 ### Common Issues
 
 **Assessment fails with timeout:**
+
 ```bash
 # Increase timeout for large codebases
 goneat assess --timeout 10m
@@ -636,6 +679,7 @@ goneat assess --categories format
 ```
 
 **Tools not found:**
+
 ```bash
 # Check tool availability
 goneat assess --verbose
@@ -645,6 +689,7 @@ go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 ```
 
 **Configuration errors:**
+
 ```bash
 # Validate configuration
 cat .goneat/hooks.yaml
@@ -656,6 +701,7 @@ goneat assess --categories format
 ### Performance Issues
 
 **Slow execution:**
+
 ```bash
 # Use parallel execution
 goneat assess --parallel
@@ -668,6 +714,7 @@ goneat assess --exclude "vendor/**"
 ```
 
 **Memory issues:**
+
 ```bash
 # Limit concurrent operations
 goneat assess --max-workers 2
@@ -746,3 +793,67 @@ The assess command is designed for extensibility:
 - [Git Hooks Operation Workflow](../workflows/git-hooks-operation.md) - Complete setup guide
 - [Assessment Architecture](../../architecture/assess-workflow.md) - Technical implementation
 - [Hooks Architecture](../../architecture/hooks-command-architecture.md) - Hook integration design
+
+## Change-Aware Assessment
+
+Goneat includes diff-aware intelligence to prioritize and contextualize results in large repositories:
+
+- Diff-aware metadata: `metadata.change_context` summarizes modified files, total changes, scope (small/medium/large), branch and SHA.
+- Issue focus: Each issue includes `change_related` when it targets a modified file and may include `lines_modified` for precise correlation.
+- Benefits: Reduces noise by highlighting what changed, speeds review, and enables smarter CI gates (e.g., block only when the change set triggers violations).
+
+This works offline and gracefully degrades outside a git repository.
+
+## Suppression Tracking (Security)
+
+Expose intentional suppressions for security tools that support them (e.g., gosec):
+
+- Enable with `--track-suppressions` on `assess` or via config.
+- Output includes `categories.security.suppression_report` with:
+  - `suppressions`: detailed list with file, line, rule, reason
+  - `summary.by_rule`: counts per rule
+  - `summary.by_rule_files`: files per rule (deduplicated)
+  - `summary.by_file`: counts per file
+  - `summary.top_rules`: top rules by count
+  - `summary.top_files`: top files by count
+  - `summary.by_tool`, `summary.by_severity`, `with_reason/without_reason`
+
+Example JSON excerpt:
+
+```json
+{
+  "categories": {
+    "security": {
+      "suppression_report": {
+        "suppressions": [
+          {
+            "tool": "gosec",
+            "rule_id": "G404",
+            "file": "internal/db/store.go",
+            "line": 120,
+            "reason": "input validated",
+            "syntax": "#nosec G404"
+          }
+        ],
+        "summary": {
+          "total": 3,
+          "by_tool": { "gosec": 3 },
+          "by_rule": { "G404": 2, "G304": 1 },
+          "by_rule_files": {
+            "G404": ["internal/db/store.go"],
+            "G304": ["cmd/main.go"]
+          },
+          "by_file": { "internal/db/store.go": 2, "cmd/main.go": 1 },
+          "top_rules": [
+            { "name": "G404", "count": 2 },
+            { "name": "G304", "count": 1 }
+          ],
+          "top_files": [{ "name": "internal/db/store.go", "count": 2 }],
+          "with_reason": 2,
+          "without_reason": 1
+        }
+      }
+    }
+  }
+}
+```
