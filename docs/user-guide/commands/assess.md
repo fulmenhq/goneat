@@ -188,6 +188,24 @@ Goneat assess supports multiple validation categories:
 - **Typical Issues:** Memory leaks, inefficient algorithms
 - **Auto-fixable:** No (requires architectural changes)
 
+### Schema (`schema`) [Preview]
+- **Purpose:** Schema-aware validation (syntax + meta-schema checks)
+- **Tools:** Embedded JSON Schema meta-schemas (Draft-07, 2020-12)
+- **Typical Issues:** YAML/JSON syntax errors, schema structure violations
+- **Auto-fixable:** No (preview)
+
+Run only schema validation:
+
+```bash
+goneat assess --categories schema --format json --output schemas-report.json
+```
+
+Alternatively use the convenience command:
+
+```bash
+goneat validate --include schemas/ --format json --output validate.json
+```
+
 ## Output Formats
 
 ### Markdown Format (Default)

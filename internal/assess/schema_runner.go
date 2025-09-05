@@ -183,10 +183,10 @@ func (r *SchemaAssessmentRunner) checkYAMLSyntax(path string) error {
 // isLikelyJSONSchema detects if a file appears to be a JSON Schema document we maintain
 func (r *SchemaAssessmentRunner) isLikelyJSONSchema(path string) bool {
     low := strings.ToLower(path)
-    if strings.Contains(low, "/schemas/config/") || strings.Contains(low, "/schemas/work/") || strings.Contains(low, "/schemas/output/") {
+    if strings.Contains(low, "/schemas/") {
         return true
     }
-    // Quick content sniff: presence of "$schema" or top-level "type" is handled in structural check
+    // Quick content sniff: presence of "$schema" or top-level "type" is handled in structural check (performed later)
     return false
 }
 

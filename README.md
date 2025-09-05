@@ -77,7 +77,8 @@ Benefits:
 
 ## Commands
 
-- `goneat assess`: Orchestrated assessment engine (format, lint, security, static analysis)
+- `goneat validate`: Schema-aware validation (preview; offline meta-validation)
+- `goneat assess`: Orchestrated assessment engine (format, lint, security, static analysis, schema)
 - `goneat format`: Multi-format formatting with finalizer stage (EOF/trailing spaces, line-endings, BOM)
 - `goneat security`: Security scanning (gosec, govulncheck), sharded + parallel
 - `goneat hooks`: Hook management (init, generate, install, validate, inspect)
@@ -124,6 +125,19 @@ All commands produce structured JSON with rich metadata for programmatic process
 - Parallel processing optimization
 - CI/CD pipeline integration
 - Agentic backend compatibility
+
+## Offline Assets
+
+Goneat embeds critical validation assets to ensure deterministic, offline runs:
+
+- JSON Schema meta-schemas: Draft-07, 2020-12
+- See `docs/architecture/assets-management.md` and `docs/standards/assets-standard.md`
+
+To refresh curated assets (optional):
+
+```bash
+make sync-schemas
+```
 
 ## Roadmap (v0.1.x)
 
