@@ -12,8 +12,9 @@ import (
 
 // Config holds all configuration for goneat
 type Config struct {
-	Format   FormatConfig   `mapstructure:"format"`
-	Security SecurityConfig `mapstructure:"security"`
+    Format   FormatConfig   `mapstructure:"format"`
+    Security SecurityConfig `mapstructure:"security"`
+    Schema   SchemaConfig   `mapstructure:"schema"`
 }
 
 // FormatConfig holds formatting configuration
@@ -78,7 +79,7 @@ var defaultConfig = Config{
 			CodeBlockStyle: "fenced",
 		},
 	},
-	Security: SecurityConfig{
+    Security: SecurityConfig{
 		Timeout:            parseDurationDefault("5m"),
 		Concurrency:        0,
 		ConcurrencyPercent: 50,
@@ -87,7 +88,15 @@ var defaultConfig = Config{
 		ToolTimeouts:       SecurityToolTimeouts{Gosec: 0, Govulncheck: 0},
 		TrackSuppressions:  false,
 		FailOn:             "high",
-	},
+    },
+    Schema: SchemaConfig{
+        Enable:     true,
+        AutoDetect: false,
+        Patterns:   []string{"schemas/**"},
+        Types: SchemaTypes{
+            JSONSchema: JSONSchemaOptions{Offline: true},
+        },
+    },
 }
 
 // LoadConfig loads configuration from various sources
@@ -109,7 +118,7 @@ func LoadConfig() (*Config, error) {
 	v.SetDefault("format.markdown.reference_style", defaultConfig.Format.Markdown.ReferenceStyle)
 	v.SetDefault("format.markdown.code_block_style", defaultConfig.Format.Markdown.CodeBlockStyle)
 
-	// Security defaults
+    // Security defaults
 	v.SetDefault("security.timeout", defaultConfig.Security.Timeout)
 	v.SetDefault("security.concurrency", defaultConfig.Security.Concurrency)
 	v.SetDefault("security.concurrency_percent", defaultConfig.Security.ConcurrencyPercent)
@@ -120,7 +129,13 @@ func LoadConfig() (*Config, error) {
 	v.SetDefault("security.tool_timeouts.gosec", defaultConfig.Security.ToolTimeouts.Gosec)
 	v.SetDefault("security.tool_timeouts.govulncheck", defaultConfig.Security.ToolTimeouts.Govulncheck)
 	v.SetDefault("security.track_suppressions", defaultConfig.Security.TrackSuppressions)
-	v.SetDefault("security.fail_on", defaultConfig.Security.FailOn)
+    v.SetDefault("security.fail_on", defaultConfig.Security.FailOn)
+
+    // Schema defaults (preview)
+    v.SetDefault("schema.enable", defaultConfig.Schema.Enable)
+    v.SetDefault("schema.auto_detect", defaultConfig.Schema.AutoDetect)
+    v.SetDefault("schema.patterns", defaultConfig.Schema.Patterns)
+    v.SetDefault("schema.types.jsonschema.offline", defaultConfig.Schema.Types.JSONSchema.Offline)
 
 	// Configuration file search paths
 	v.SetConfigName("goneat")
@@ -139,14 +154,14 @@ func LoadConfig() (*Config, error) {
 	v.AutomaticEnv()
 
 	// Try to read config file (optional); ignore error to use defaults
-	_ = v.ReadInConfig()
+    _ = v.ReadInConfig()
 
 	var config Config
 	if err := v.Unmarshal(&config); err != nil {
 		return nil, fmt.Errorf("error unmarshaling config: %v", err)
 	}
 
-	return &config, nil
+    return &config, nil
 }
 
 // LoadProjectConfig loads project-specific configuration
@@ -200,7 +215,7 @@ func (c *Config) GetYAMLConfig() YAMLFormatConfig {
 
 // GetJSONConfig returns JSON formatting configuration
 func (c *Config) GetJSONConfig() JSONFormatConfig {
-	return c.Format.JSON
+    return c.Format.JSON
 }
 
 // GetMarkdownConfig returns Markdown formatting configuration
@@ -233,6 +248,25 @@ type SecurityToolTimeouts struct {
 
 // GetSecurityConfig returns security configuration
 func (c *Config) GetSecurityConfig() SecurityConfig { return c.Security }
+
+// SchemaConfig holds schema validation configuration (preview)
+type SchemaConfig struct {
+    Enable     bool          `mapstructure:"enable"`
+    AutoDetect bool          `mapstructure:"auto_detect"`
+    Patterns   []string      `mapstructure:"patterns"`
+    Types      SchemaTypes   `mapstructure:"types"`
+}
+
+type SchemaTypes struct {
+    JSONSchema JSONSchemaOptions `mapstructure:"jsonschema"`
+}
+
+type JSONSchemaOptions struct {
+    Offline bool `mapstructure:"offline"`
+}
+
+// GetSchemaConfig returns schema configuration (preview)
+func (c *Config) GetSchemaConfig() SchemaConfig { return c.Schema }
 
 // parseDurationDefault is a helper to create default duration values from string literal
 func parseDurationDefault(s string) time.Duration {

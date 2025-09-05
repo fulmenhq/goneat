@@ -48,6 +48,11 @@ goneat validate --format json --output validate.json
 - `--timeout`: Validation timeout (default 3m)
 - `--auto-detect`: Preview option to scan `.yaml/.yml/.json` by extension
 
+## Project Config (Preview)
+
+You can configure discovery via the project config using a `schema:` block.
+See `docs/configuration/schema-config.md` for proposed keys (enable, auto_detect, patterns, types).
+
 ## Output
 
 Results are identical to `goneat assess` with issues under `categories.schema`.

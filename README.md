@@ -139,6 +139,8 @@ To refresh curated assets (optional):
 make sync-schemas
 ```
 
+Project configuration (preview): see `docs/configuration/schema-config.md` for configuring discovery patterns and auto-detect.
+
 ## Roadmap (v0.1.x)
 
 - Deeper finalizer capabilities and shared sharding utilities

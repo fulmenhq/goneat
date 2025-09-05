@@ -321,6 +321,9 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Concise schema summary for DX (preview)
+	printSchemaSummary(report)
+
 	// Check if we should fail based on severity
 	if shouldFail(report, failOnSeverity) {
 		logger.Error(fmt.Sprintf("Assessment failed: found issues at or above %s severity", failOnSeverity))
@@ -351,6 +354,34 @@ func shouldFail(report *assess.AssessmentReport, failOnSeverity assess.IssueSeve
 	}
 
 	return false
+}
+
+// printSchemaSummary prints a short schema issues summary (top files + first messages)
+func printSchemaSummary(report *assess.AssessmentReport) {
+    // Count total schema issues
+    total := 0
+    counts := map[string]int{}
+    var first []assess.Issue
+    for _, cr := range report.Categories {
+        if cr.Category != assess.CategorySchema { continue }
+        for _, is := range cr.Issues {
+            total++
+            counts[is.File]++
+            if len(first) < 3 { first = append(first, is) }
+        }
+    }
+    if total == 0 { return }
+    logger.Info(fmt.Sprintf("Schema validation found %d issue(s)", total))
+    // Print up to 3 top files
+    printed := 0
+    for file, cnt := range counts {
+        logger.Info(fmt.Sprintf("  - %s: %d", file, cnt))
+        printed++
+        if printed >= 3 { break }
+    }
+    for _, is := range first {
+        logger.Info(fmt.Sprintf("    %s: %s", is.SubCategory, is.Message))
+    }
 }
 
 // runHookMode executes assessment in hook mode

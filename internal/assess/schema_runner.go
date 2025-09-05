@@ -302,6 +302,23 @@ func sanityCheckJSONSchema(doc interface{}) error {
     if !ok {
         return fmt.Errorf("root must be an object")
     }
+    if v, ok := m["type"]; ok {
+        allowed := map[string]struct{}{"string":{},"number":{},"integer":{},"object":{},"array":{},"boolean":{},"null":{}}
+        switch tv := v.(type) {
+        case string:
+            if _, ok := allowed[tv]; !ok {
+                return fmt.Errorf("type must be one of string, number, integer, object, array, boolean, null")
+            }
+        case []interface{}:
+            for _, it := range tv {
+                s, ok := it.(string)
+                if !ok { return fmt.Errorf("type array must contain strings") }
+                if _, ok := allowed[s]; !ok { return fmt.Errorf("type contains invalid entry: %s", s) }
+            }
+        default:
+            return fmt.Errorf("type must be string or array of strings")
+        }
+    }
     if v, ok := m["required"]; ok {
         arr, ok := v.([]interface{})
         if !ok { return fmt.Errorf("required must be an array of strings") }
