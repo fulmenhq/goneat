@@ -30,6 +30,26 @@ Goneat format is a multi-purpose formatting tool that:
 goneat format [target] [flags]
 ```
 
+### Breaking Change in v0.1.6
+
+The `-f` flag has been replaced with clearer file selection flags:
+
+**Old (v0.1.5 and earlier):**
+```bash
+goneat format -f "*.go"     # ❌ Deprecated - treated files as patterns
+```
+
+**New (v0.1.6+):**
+```bash
+goneat format --files main.go,utils.go      # ✅ Explicit file list
+goneat format --patterns "*.go","test_*"    # ✅ Glob patterns for discovery
+```
+
+**Migration Guide:**
+- Replace `-f pattern` with `--patterns pattern`  
+- Replace `-f file.go` with `--files file.go`
+- Cannot combine `--files` and `--patterns` (validation enforced)
+
 ## Core Use Cases
 
 ### Basic Code Formatting
@@ -43,10 +63,13 @@ goneat format
 # Format specific directory
 goneat format ./src
 
-# Format specific files
-goneat format --files main.go utils.go
+# Format specific files (explicit list)
+goneat format --files main.go,utils.go
 
-# Format with language-specific options
+# Format using glob patterns
+goneat format --patterns "*.go","pkg/**/*.yaml"
+
+# Format with language-specific options  
 goneat format --types go,yaml
 ```
 
@@ -103,14 +126,20 @@ goneat format --plan-only --group-by-size
 
 ## Command Flags
 
-### Core Formatting Flags
+### File Selection Flags
 
-| Flag          | Type    | Description              | Example                    |
-| ------------- | ------- | ------------------------ | -------------------------- |
-| `--files`     | strings | Specific files to format | `--files main.go,utils.go` |
-| `--folders`   | strings | Directories to process   | `--folders src/,pkg/`      |
-| `--types`     | strings | File types to include    | `--types go,yaml,json`     |
-| `--max-depth` | int     | Maximum directory depth  | `--max-depth 3`            |
+| Flag          | Type    | Description                                    | Example                       |
+| ------------- | ------- | ---------------------------------------------- | ----------------------------- |
+| `--files`     | strings | Specific files to format (explicit list)      | `--files main.go,utils.go`    |
+| `--patterns`  | strings | Glob patterns to filter discovered files      | `--patterns "*.go","test_*"` |
+| `--folders`   | strings | Directories to process                         | `--folders src/,pkg/`         |
+| `--types`     | strings | File types to include                          | `--types go,yaml,json`        |
+| `--max-depth` | int     | Maximum directory depth                        | `--max-depth 3`               |
+
+**File Selection Precedence:**
+- `--files`: Processes exact files (no patterns, no discovery)
+- `--patterns`: Filters files during discovery (cannot combine with --files)
+- `--folders`, `--types`, `--include`, `--exclude`: Additional filtering options
 
 ### Operation Mode Flags
 
@@ -475,7 +504,7 @@ format-plan:
 
 ```bash
 # Format only changed files
-goneat format --files $(git diff --name-only)
+goneat format --files $(git diff --name-only | tr '\n' ',')
 
 # Format staged files
 goneat format --staged-only

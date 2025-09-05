@@ -1,17 +1,19 @@
 package assess
 
 import (
-	"context"
-	"fmt"
-	"io/fs"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
+    "context"
+    "fmt"
+    "io/fs"
+    "os"
+    "path/filepath"
+    "strings"
+    "time"
 
-	"bytes"
-	"encoding/json"
-	"gopkg.in/yaml.v3"
+    "bytes"
+    "encoding/json"
+    "github.com/3leaps/goneat/internal/assets"
+    "github.com/xeipuuv/gojsonschema"
+    "gopkg.in/yaml.v3"
 )
 
 // SchemaAssessmentRunner implements AssessmentRunner for schema-aware validation (preview)
@@ -39,7 +41,7 @@ func (r *SchemaAssessmentRunner) Assess(ctx context.Context, target string, conf
 		}, nil
 	}
 
-	for _, f := range candidates {
+    for _, f := range candidates {
 		select {
 		case <-ctx.Done():
 			return &AssessmentResult{CommandName: r.commandName, Category: CategorySchema, Success: false, ExecutionTime: time.Since(start), Error: ctx.Err().Error()}, nil
@@ -73,9 +75,22 @@ func (r *SchemaAssessmentRunner) Assess(ctx context.Context, target string, conf
 				})
 				continue
 			}
-		}
-		// Placeholder for semantic validators (jsonschema/openapi/asyncapi/protobuf) in future passes
-	}
+        }
+        // Minimal JSON Schema structural validation for repo schema files (preview)
+        if r.isLikelyJSONSchema(f) {
+            if err := r.checkJSONSchemaStructure(f); err != nil {
+                issues = append(issues, Issue{
+                    File:          f,
+                    Severity:      SeverityHigh,
+                    Message:       fmt.Sprintf("JSON Schema structural validation failed: %v", err),
+                    Category:      CategorySchema,
+                    SubCategory:   "jsonschema",
+                    AutoFixable:   false,
+                    EstimatedTime: 3 * time.Minute,
+                })
+            }
+        }
+    }
 
 	return &AssessmentResult{
 		CommandName:   r.commandName,
@@ -163,6 +178,75 @@ func (r *SchemaAssessmentRunner) checkYAMLSyntax(path string) error {
 		return err
 	}
 	return nil
+}
+
+// isLikelyJSONSchema detects if a file appears to be a JSON Schema document we maintain
+func (r *SchemaAssessmentRunner) isLikelyJSONSchema(path string) bool {
+    low := strings.ToLower(path)
+    if strings.Contains(low, "/schemas/config/") || strings.Contains(low, "/schemas/work/") || strings.Contains(low, "/schemas/output/") {
+        return true
+    }
+    // Quick content sniff: presence of "$schema" or top-level "type" is handled in structural check
+    return false
+}
+
+// checkJSONSchemaStructure performs minimal structural checks for JSON Schema documents in YAML/JSON
+func (r *SchemaAssessmentRunner) checkJSONSchemaStructure(path string) error {
+    data, err := os.ReadFile(path)
+    if err != nil { return err }
+    // Try YAML first
+    var doc interface{}
+    if yaml.Unmarshal(data, &doc) != nil {
+        // Fallback to JSON
+        var j interface{}
+        dec := jsonNewDecoder(bytesNewReader(data))
+        dec.UseNumber()
+        if err := dec.Decode(&j); err != nil {
+            return fmt.Errorf("unable to parse as YAML or JSON: %v", err)
+        }
+        doc = j
+    }
+    // Determine draft from $schema (default to 2020-12)
+    draft := "2020-12"
+    if m, ok := doc.(map[string]interface{}); ok {
+        if v, ok := m["$schema"].(string); ok {
+            switch {
+            case strings.Contains(v, "draft-07"):
+                draft = "draft-07"
+            case strings.Contains(v, "2020-12"):
+                draft = "2020-12"
+            }
+        }
+    }
+    // Load embedded meta-schema
+    meta, ok := assets.GetJSONSchemaMeta(draft)
+    if !ok || len(meta) == 0 {
+        return fmt.Errorf("embedded meta-schema not available for %s", draft)
+    }
+    // Convert doc to canonical JSON bytes for validation
+    jsonDoc, err := toCanonicalJSON(doc)
+    if err != nil { return fmt.Errorf("json conversion failed: %v", err) }
+
+    schemaLoader := gojsonschema.NewBytesLoader(meta)
+    docLoader := gojsonschema.NewBytesLoader(jsonDoc)
+    res, err := gojsonschema.Validate(schemaLoader, docLoader)
+    if err != nil { return fmt.Errorf("meta-validation error: %v", err) }
+    if !res.Valid() {
+        var b strings.Builder
+        for _, e := range res.Errors() {
+            b.WriteString(e.String())
+            b.WriteString("\n")
+        }
+        return fmt.Errorf("meta-schema validation failed:\n%s", b.String())
+    }
+    return nil
+}
+
+func toCanonicalJSON(v interface{}) ([]byte, error) {
+    // Marshal through encoding/json for validation loader
+    // Ensure numbers are retained reasonably; here we allow defaults
+    // to keep implementation simple.
+    return json.Marshal(v)
 }
 
 // small indirections to avoid extra imports in tests without clashes

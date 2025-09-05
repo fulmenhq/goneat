@@ -52,6 +52,10 @@ build-all: ## Build for all supported platforms
 	@./scripts/build-all.sh
 	@echo "✅ Cross-platform builds completed"
 
+sync-schemas: ## Fetch curated JSON Schema meta-schemas (network required)
+	@chmod +x scripts/sync-schemas.sh
+	@./scripts/sync-schemas.sh
+
 package: ## Package built binaries into archives + checksums
 	@echo "Packaging artifacts for v$(VERSION)..."
 	@chmod +x scripts/package-artifacts.sh
