@@ -239,6 +239,10 @@ func (r *SchemaAssessmentRunner) checkJSONSchemaStructure(path string) error {
         }
         return fmt.Errorf("meta-schema validation failed:\n%s", b.String())
     }
+    // Run additional structural sanity checks to catch issues not covered by the library/draft support.
+    if err := sanityCheckJSONSchema(doc); err != nil {
+        return err
+    }
     return nil
 }
 
@@ -247,6 +251,30 @@ func toCanonicalJSON(v interface{}) ([]byte, error) {
     // Ensure numbers are retained reasonably; here we allow defaults
     // to keep implementation simple.
     return json.Marshal(v)
+}
+
+// sanityCheckJSONSchema applies basic structural rules independent of draft support
+func sanityCheckJSONSchema(doc interface{}) error {
+    m, ok := doc.(map[string]interface{})
+    if !ok {
+        return fmt.Errorf("root must be an object")
+    }
+    if v, ok := m["required"]; ok {
+        arr, ok := v.([]interface{})
+        if !ok { return fmt.Errorf("required must be an array of strings") }
+        for _, it := range arr {
+            if _, ok := it.(string); !ok { return fmt.Errorf("required must contain only strings") }
+        }
+    }
+    if v, ok := m["additionalProperties"]; ok {
+        switch v.(type) {
+        case bool, map[string]interface{}:
+            // ok
+        default:
+            return fmt.Errorf("additionalProperties must be boolean or object")
+        }
+    }
+    return nil
 }
 
 // small indirections to avoid extra imports in tests without clashes
