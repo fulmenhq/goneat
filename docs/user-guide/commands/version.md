@@ -18,6 +18,7 @@ The version management system is designed to be:
 Standard semantic versioning following [semver.org](https://semver.org) specifications.
 
 **Supported Formats:**
+
 - `1.2.3` - Standard release
 - `v1.2.3` - With 'v' prefix
 - `1.2.3-alpha` - Pre-release
@@ -25,6 +26,7 @@ Standard semantic versioning following [semver.org](https://semver.org) specific
 - `v1.2.3-rc.1+build.1` - Full semver
 
 **Bump Rules:**
+
 - **Patch**: `1.2.3` → `1.2.4`
 - **Minor**: `1.2.3` → `1.3.0`
 - **Major**: `1.2.3` → `2.0.0`
@@ -34,11 +36,13 @@ Standard semantic versioning following [semver.org](https://semver.org) specific
 Date-based versioning following calendar patterns.
 
 **Supported Formats:**
+
 - `2024.01.15` - YYYY.MM.DD
 - `24.01` - YY.MM
 - `2024.01` - YYYY.MM
 
 **Planned Bump Rules:**
+
 - **Patch**: Day increment
 - **Minor**: Month increment
 - **Major**: Year increment
@@ -48,6 +52,7 @@ Date-based versioning following calendar patterns.
 Regex-based custom versioning for proprietary schemes.
 
 **Configuration:**
+
 ```yaml
 version:
   method: custom
@@ -66,6 +71,7 @@ Goneat can read from and write to multiple version sources simultaneously.
 ### Supported Sources
 
 #### 1. Version Files
+
 Simple text files containing version numbers.
 
 ```yaml
@@ -76,11 +82,13 @@ sources:
 ```
 
 **File Content:**
+
 ```
 1.2.3
 ```
 
 #### 2. Go Module Files
+
 Reads version from go.mod module declarations.
 
 ```yaml
@@ -93,6 +101,7 @@ sources:
 **Note:** go.mod files typically don't contain explicit versions for unreleased modules.
 
 #### 3. Git Tags
+
 Reads latest version from git tags.
 
 ```yaml
@@ -103,11 +112,13 @@ sources:
 ```
 
 **Supported Patterns:**
+
 - `v*` - All tags starting with 'v'
 - `release/*` - Tags in release branch
 - `*` - All tags
 
 #### 4. Go Constants
+
 Reads version from Go source code constants.
 
 ```yaml
@@ -119,6 +130,7 @@ sources:
 ```
 
 **Go Code Example:**
+
 ```go
 package main
 
@@ -126,6 +138,7 @@ const Version = "1.2.3"
 ```
 
 #### 5. Package.json
+
 Reads version from Node.js package files.
 
 ```yaml
@@ -178,13 +191,16 @@ version:
 When you run `goneat version` for the first time in a repository, goneat will intelligently detect your current version management setup:
 
 ### Automatic Detection
+
 Goneat automatically detects version sources in this priority order:
+
 1. **VERSION file** - Plain text file containing version
 2. **Git tags** - Latest semver-formatted git tag
 3. **Go module** - Version from go.mod (limited support)
 4. **Go constants** - Version constants in Go source files
 
 ### Setup Guidance
+
 If no version management is detected, goneat provides comprehensive setup guidance:
 
 ```bash
@@ -213,6 +229,7 @@ $ goneat version
 ### Quick Setup Templates
 
 #### Basic Template (Recommended)
+
 ```bash
 # Preview setup
 goneat version init basic --dry-run
@@ -224,6 +241,7 @@ goneat version init basic
 Creates a `VERSION` file with semantic versioning support.
 
 #### Git Tags Template
+
 ```bash
 # For git tag-based versioning
 goneat version init git-tags
@@ -232,6 +250,7 @@ goneat version init git-tags
 Sets up git tag-based versioning with automatic tag creation.
 
 #### Calendar Versioning
+
 ```bash
 # For date-based versioning
 goneat version init calver
@@ -240,6 +259,7 @@ goneat version init calver
 Creates calendar versioning with format `YYYY.MM.DD` (e.g., `2025.08.28`).
 
 #### Custom Template
+
 ```bash
 # For custom versioning schemes
 goneat version init custom
@@ -263,6 +283,7 @@ goneat version --json
 ```
 
 **Extended Output Example:**
+
 ```bash
 $ goneat version --extended
 goneat 1.0.1
@@ -350,6 +371,7 @@ goneat version init basic --initial-version 2.0.0
 ```
 
 **Available Templates:**
+
 - **`basic`**: VERSION file with semantic versioning (recommended)
 - **`git-tags`**: Git tag-based versioning
 - **`calver`**: Calendar versioning (YYYY.MM.DD format)
@@ -420,7 +442,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   release:
@@ -446,12 +468,14 @@ jobs:
 Goneat automatically discovers version information from multiple sources with intelligent fallback logic:
 
 ### Discovery Priority Order
+
 1. **VERSION file** (highest priority - explicit user configuration)
 2. **Git tags** (automatic detection from repository history)
 3. **Go module** (limited support for released modules)
 4. **Go constants** (version constants in source code)
 
 ### Learning from Existing Patterns
+
 When goneat encounters version information in non-primary sources, it can "learn" and suggest optimal configurations:
 
 ```bash
@@ -467,6 +491,7 @@ Source: git tag
 ```
 
 ### Configuration Learning
+
 Goneat can analyze your repository patterns and suggest optimal version management strategies:
 
 - **Monorepo**: Suggests VERSION file as primary source
@@ -479,6 +504,7 @@ Goneat can analyze your repository patterns and suggest optimal version manageme
 When version information exists in secondary sources (like git tags) but not in a VERSION file, goneat provides intelligent guidance:
 
 #### Scenario: Git Tags Exist, No VERSION File
+
 ```bash
 $ goneat version
 goneat v1.2.3
@@ -491,6 +517,7 @@ Source: git tag
 ```
 
 #### Learning from Existing Patterns
+
 Goneat can "learn" from your repository's version patterns:
 
 1. **Pattern Recognition**: Analyzes existing git tags, commit messages, and release patterns
@@ -499,6 +526,7 @@ Goneat can "learn" from your repository's version patterns:
 4. **Consistency Validation**: Ensures all version sources remain synchronized
 
 #### Automatic Learning Examples
+
 ```bash
 # Repository with git tags v1.0.0, v1.1.0, v2.0.0
 $ goneat version
@@ -515,6 +543,7 @@ Suggestion: Use 'goneat version init calver' for optimization
 ```
 
 #### Specifying Custom Version Sources
+
 For advanced scenarios, you can specify custom version sources:
 
 ```bash
@@ -552,10 +581,10 @@ Configure your primary source with the highest priority:
 sources:
   - type: version_file
     path: VERSION
-    priority: 1  # Primary source
+    priority: 1 # Primary source
   - type: git_tags
     pattern: "v*"
-    priority: 2  # Secondary source
+    priority: 2 # Secondary source
 ```
 
 ### 2. Use Assessment Mode
@@ -642,30 +671,39 @@ goneat version check-consistency --no-op
 ### Common Issues
 
 #### Version Not Found
+
 ```
 Error: no version found in any configured source
 ```
+
 **Solutions:**
+
 - Check that your version sources exist and are readable
 - Verify source paths in configuration
 - Ensure at least one source contains a valid version
 
 #### Inconsistent Versions
+
 ```
 Warning: Version inconsistency detected
 Source VERSION: 1.2.3
 Source git_tags: v1.2.4
 ```
+
 **Solutions:**
+
 - Use `goneat version check-consistency` to identify issues
 - Use `goneat version set <version>` to synchronize all sources
 - Review your source priority configuration
 
 #### Invalid Version Format
+
 ```
 Error: invalid semver format: 1.2.3.4
 ```
+
 **Solutions:**
+
 - Check your version format against the expected pattern
 - Use `goneat version validate <version>` to test formats
 - Review your version scheme configuration

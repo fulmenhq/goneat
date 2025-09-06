@@ -18,7 +18,6 @@ last_updated: "YYYY-MM-DD"
 status: "draft|review|approved|deprecated"
 tags: ["tag1", "tag2", "tag3"]
 ---
-
 # Document Content
 ```
 
@@ -44,6 +43,7 @@ tags: ["tag1", "tag2", "tag3"]
 ## Examples
 
 ### Standard Document
+
 ```yaml
 ---
 title: "Version Management Architecture"
@@ -57,6 +57,7 @@ tags: ["architecture", "versioning", "design"]
 ```
 
 ### Collaborative Document
+
 ```yaml
 ---
 title: "Code Review Guidelines"
@@ -71,6 +72,7 @@ tags: ["development", "quality", "collaboration"]
 ```
 
 ### Versioned Document
+
 ```yaml
 ---
 title: "API Reference v2.0"
@@ -87,16 +89,19 @@ tags: ["api", "reference", "cli"]
 ## Implementation Guidelines
 
 ### File Naming
+
 - Use kebab-case for filenames: `document-title.md`
 - Include version in filename if needed: `api-reference-v2.0.md`
 
 ### Validation
+
 - Frontmatter must be valid YAML
 - All required fields must be present
 - Dates must follow ISO 8601 format
 - Status must be one of the allowed values
 
 ### Tooling Integration
+
 - Frontmatter enables automated documentation processing
 - Search and indexing systems can use metadata
 - Status tracking for document lifecycle management

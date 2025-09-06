@@ -1,2 +1,2 @@
-Line with CRLF
+Line with CRLF
 Another line

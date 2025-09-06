@@ -51,13 +51,13 @@ type EnvData struct {
 
 // ExtendedInfo holds extended system information.
 type ExtendedInfo struct {
-	Processor    string                 `json:"processor"`
-	OSVersion    string                 `json:"osVersion"`
-	Memory       string                 `json:"memory"`
-	DiskUsage    string                 `json:"diskUsage"`
-	DirStats     string                 `json:"dirStats"`
-	GoEcosystem  string                 `json:"goEcosystem"`
-	IgnoreFiles  map[string]interface{} `json:"ignoreFiles"`
+	Processor   string                 `json:"processor"`
+	OSVersion   string                 `json:"osVersion"`
+	Memory      string                 `json:"memory"`
+	DiskUsage   string                 `json:"diskUsage"`
+	DirStats    string                 `json:"dirStats"`
+	GoEcosystem string                 `json:"goEcosystem"`
+	IgnoreFiles map[string]interface{} `json:"ignoreFiles"`
 }
 
 // SystemInfo holds system-related information.

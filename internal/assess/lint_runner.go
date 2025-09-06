@@ -204,14 +204,34 @@ func (r *LintAssessmentRunner) runGolangCILintWithMode(target string, config Ass
 	// Add target path(s): Prefer restricting to included files if provided
 	var cmd *exec.Cmd
 	if len(includeFiles) > 0 {
-		// Append only included files (golangci-lint can take file paths)
-		args = append(args, includeFiles...)
-		cmd = exec.CommandContext(ctx, "golangci-lint", args...) // #nosec G204
-		cmd.Dir = target
+		// Filter to only .go files before passing to golangci-lint
+		goFiles := make([]string, 0, len(includeFiles))
+		for _, file := range includeFiles {
+			if strings.HasSuffix(strings.ToLower(file), ".go") {
+				goFiles = append(goFiles, file)
+			}
+		}
+		
+		if len(goFiles) > 0 {
+			// Append only Go files (golangci-lint requires .go files for named file mode)
+			args = append(args, goFiles...)
+			cmd = exec.CommandContext(ctx, "golangci-lint", args...) // #nosec G204
+			cmd.Dir = target
+		} else {
+			// No Go files in include list, fall back to directory mode
+			args = append(args, "./...")
+			cmd = exec.CommandContext(ctx, "golangci-lint", args...) // #nosec G204
+			cmd.Dir = target
+		}
 	} else if info, err := os.Stat(target); err == nil && !info.IsDir() {
-		// Target is a single file
-		args = append(args, target)
-		cmd = exec.CommandContext(ctx, "golangci-lint", args...) // #nosec G204
+		// Target is a single file - only proceed if it's a .go file
+		if strings.HasSuffix(strings.ToLower(target), ".go") {
+			args = append(args, target)
+			cmd = exec.CommandContext(ctx, "golangci-lint", args...) // #nosec G204
+		} else {
+			// Non-Go file, return empty result (no issues to lint)
+			return []Issue{}, nil
+		}
 	} else {
 		// Target is a directory; analyze all
 		args = append(args, "./...")

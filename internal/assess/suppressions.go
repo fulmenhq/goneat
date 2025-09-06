@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -30,15 +31,25 @@ type Suppression struct {
 
 // SuppressionSummary provides statistics about suppressions
 type SuppressionSummary struct {
-	Total          int            `json:"total"`
-	ByTool         map[string]int `json:"by_tool"`
-	BySeverity     map[string]int `json:"by_severity"`
-	ByRule         map[string]int `json:"by_rule"`
-	WithReason     int            `json:"with_reason"`
-	WithoutReason  int            `json:"without_reason"`
-	AverageAgeDays float64        `json:"average_age_days,omitempty"`
-	OldestDays     int            `json:"oldest_days,omitempty"`
-	NewestDays     int            `json:"newest_days,omitempty"`
+	Total          int                 `json:"total"`
+	ByTool         map[string]int      `json:"by_tool"`
+	BySeverity     map[string]int      `json:"by_severity"`
+	ByRule         map[string]int      `json:"by_rule"`
+	ByRuleFiles    map[string][]string `json:"by_rule_files,omitempty"`
+	ByFile         map[string]int      `json:"by_file,omitempty"`
+	TopRules       []TopItem           `json:"top_rules,omitempty"`
+	TopFiles       []TopItem           `json:"top_files,omitempty"`
+	WithReason     int                 `json:"with_reason"`
+	WithoutReason  int                 `json:"without_reason"`
+	AverageAgeDays float64             `json:"average_age_days,omitempty"`
+	OldestDays     int                 `json:"oldest_days,omitempty"`
+	NewestDays     int                 `json:"newest_days,omitempty"`
+}
+
+// TopItem represents an aggregated item and its count
+type TopItem struct {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
 }
 
 // SuppressionReport contains all suppression information
@@ -234,10 +245,12 @@ func (p *SuppressionParser) ParseDirectory(dir string, includePatterns []string)
 // GenerateSummary creates a summary from a list of suppressions
 func GenerateSummary(suppressions []Suppression) SuppressionSummary {
 	summary := SuppressionSummary{
-		Total:      len(suppressions),
-		ByTool:     make(map[string]int),
-		BySeverity: make(map[string]int),
-		ByRule:     make(map[string]int),
+		Total:       len(suppressions),
+		ByTool:      make(map[string]int),
+		BySeverity:  make(map[string]int),
+		ByRule:      make(map[string]int),
+		ByRuleFiles: make(map[string][]string),
+		ByFile:      make(map[string]int),
 	}
 
 	// Initialize severity map
@@ -257,6 +270,16 @@ func GenerateSummary(suppressions []Suppression) SuppressionSummary {
 		// Count by rule
 		if supp.RuleID != "" {
 			summary.ByRule[supp.RuleID]++
+			// Append file to rule file list (deduplicated later)
+			f := supp.File
+			if f != "" {
+				summary.ByRuleFiles[supp.RuleID] = append(summary.ByRuleFiles[supp.RuleID], f)
+			}
+		}
+
+		// Count by file
+		if supp.File != "" {
+			summary.ByFile[supp.File]++
 		}
 
 		// Count by severity
@@ -291,7 +314,73 @@ func GenerateSummary(suppressions []Suppression) SuppressionSummary {
 		summary.NewestDays = newestAge
 	}
 
+	// Deduplicate file lists per rule
+	for rule, files := range summary.ByRuleFiles {
+		seen := make(map[string]struct{}, len(files))
+		out := make([]string, 0, len(files))
+		for _, f := range files {
+			if _, ok := seen[f]; ok {
+				continue
+			}
+			seen[f] = struct{}{}
+			out = append(out, f)
+		}
+		summary.ByRuleFiles[rule] = out
+	}
+
+	// Deduplicate file lists per rule
+	for rule, files := range summary.ByRuleFiles {
+		seen := make(map[string]struct{}, len(files))
+		out := make([]string, 0, len(files))
+		for _, f := range files {
+			if _, ok := seen[f]; ok {
+				continue
+			}
+			seen[f] = struct{}{}
+			out = append(out, f)
+		}
+		summary.ByRuleFiles[rule] = out
+	}
+
+	// Compute top summaries (top 5)
+	summary.TopRules = topK(summary.ByRule, 5)
+	summary.TopFiles = topK(summary.ByFile, 5)
+
 	return summary
+}
+
+// topK returns the top k items by count from a map
+func topK(m map[string]int, k int) []TopItem {
+	if len(m) == 0 || k <= 0 {
+		return nil
+	}
+	items := make([]TopItem, 0, len(m))
+	for name, cnt := range m {
+		items = append(items, TopItem{Name: name, Count: cnt})
+	}
+	// simple selection by sort (avoid importing sort if already in file?)
+	// We already import sort in other files; add here
+	// We'll implement a simple bubble for minimal deps, but in practice sort is fine.
+	// Using sort.Slice for clarity.
+	// Add import in header.
+	return sortTop(items, k)
+}
+
+// sortTop sorts by Count desc and returns first k entries
+func sortTop(items []TopItem, k int) []TopItem {
+	// We'll rely on a tiny local sort to avoid an extra import line churn; use standard sort.
+	// Note: We need to import "sort" at top of file.
+	// The apply_patch will add the import automatically below.
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Count == items[j].Count {
+			return items[i].Name < items[j].Name
+		}
+		return items[i].Count > items[j].Count
+	})
+	if k > len(items) {
+		k = len(items)
+	}
+	return items[:k]
 }
 
 // EnrichWithGitInfo adds git blame information to suppressions

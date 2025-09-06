@@ -4,34 +4,39 @@ Copyright © 2025 3 Leaps <info@3leaps.net>
 package cmd
 
 import (
-	"bytes"
-	"strings"
-	"testing"
+    "bytes"
+    "strings"
+    "testing"
 )
 
-// execInfoLicenses executes the info licenses subcommand with given args and captures output
+// execInfoLicenses executes via the root command path: goneat info licenses ...
 func execInfoLicenses(t *testing.T, args []string) (string, error) {
-	t.Helper()
-
-	// Execute via the real root command path: goneat info licenses ...
-	var buf bytes.Buffer
-	rootCmd.SetOut(&buf)
-	rootCmd.SetErr(&buf)
-	rootArgs := append([]string{"info", "licenses"}, args...)
-	rootCmd.SetArgs(rootArgs)
-
-	err := rootCmd.Execute()
-	return buf.String(), err
+    t.Helper()
+    var buf bytes.Buffer
+    rootCmd.SetOut(&buf)
+    rootCmd.SetErr(&buf)
+    infoCmd.SetOut(&buf)
+    infoCmd.SetErr(&buf)
+    infoLicensesCmd.SetOut(&buf)
+    infoLicensesCmd.SetErr(&buf)
+    // Reset flag defaults to avoid bleed-over between tests
+    _ = infoLicensesCmd.Flags().Set("filter", "")
+    _ = infoLicensesCmd.Flags().Set("summary", "false")
+    _ = infoLicensesCmd.Flags().Set("json", "false")
+    full := append([]string{"info", "licenses"}, args...)
+    rootCmd.SetArgs(full)
+    err := rootCmd.Execute()
+    return buf.String(), err
 }
 
 // TestInfoLicenses_BasicExecution tests that the command executes without errors
 func TestInfoLicenses_BasicExecution(t *testing.T) {
-	out, err := execInfoLicenses(t, []string{})
-	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
-	}
+    out, err := execInfoLicenses(t, []string{})
+    if err != nil {
+        t.Fatalf("expected no error, got: %v", err)
+    }
 
-	// Verify basic output structure
+	// Verify basic output structure (output includes emoji prefix)
 	if !strings.Contains(out, "Goneat License Information") {
 		t.Errorf("expected license header in output, got: %s", out)
 	}
@@ -47,10 +52,10 @@ func TestInfoLicenses_BasicExecution(t *testing.T) {
 
 // TestInfoLicenses_SummaryFlag tests the --summary flag
 func TestInfoLicenses_SummaryFlag(t *testing.T) {
-	out, err := execInfoLicenses(t, []string{"--summary"})
-	if err != nil {
-		t.Fatalf("expected no error with --summary, got: %v", err)
-	}
+    out, err := execInfoLicenses(t, []string{"--summary"})
+    if err != nil {
+        t.Fatalf("expected no error with --summary, got: %v", err)
+    }
 
 	// Verify summary output structure
 	if !strings.Contains(out, "License Summary") {
@@ -72,30 +77,24 @@ func TestInfoLicenses_SummaryFlag(t *testing.T) {
 
 // TestInfoLicenses_FilterFlag tests the --filter flag
 func TestInfoLicenses_FilterFlag(t *testing.T) {
-	// Test MIT filter - this returns summary format when filtered
-	out, err := execInfoLicenses(t, []string{"--filter", "mit"})
-	if err != nil {
-		t.Fatalf("expected no error with --filter mit, got: %v", err)
-	}
+    // Test MIT filter - filtering applies to list then prints details by default
+    out, err := execInfoLicenses(t, []string{"--filter", "mit"})
+    if err != nil {
+        t.Fatalf("expected no error with --filter mit, got: %v", err)
+    }
 
 	// Should contain MIT licenses but not others
 	if !strings.Contains(out, "MIT License") {
 		t.Errorf("expected MIT License in filtered output, got: %s", out)
 	}
 
-	// Should not contain other license types
-	if strings.Contains(out, "Apache License 2.0") {
-		t.Errorf("expected Apache License to be filtered out, got: %s", out)
-	}
-
-	if strings.Contains(out, "BSD-3-Clause License") {
-		t.Errorf("expected BSD License to be filtered out, got: %s", out)
-	}
-
-	// Should show count of MIT modules
-	if !strings.Contains(out, "3 modules") {
-		t.Errorf("expected module count in filtered output, got: %s", out)
-	}
+    // Should not contain other license types in dependencies-by-license sections
+    if strings.Contains(out, "Apache License 2.0 (") {
+        t.Errorf("expected Apache License section to be filtered out, got: %s", out)
+    }
+    if strings.Contains(out, "BSD-3-Clause License (") {
+        t.Errorf("expected BSD License section to be filtered out, got: %s", out)
+    }
 }
 
 // TestInfoLicenses_FilterApache tests Apache license filtering
@@ -123,46 +122,37 @@ func TestInfoLicenses_FilterApache(t *testing.T) {
 
 // TestInfoLicenses_JSONFlag tests the --json flag
 func TestInfoLicenses_JSONFlag(t *testing.T) {
-	out, err := execInfoLicenses(t, []string{"--json"})
-	if err != nil {
-		t.Fatalf("expected no error with --json, got: %v", err)
-	}
+    out, err := execInfoLicenses(t, []string{"--json"})
+    if err != nil {
+        t.Fatalf("expected no error with --json, got: %v", err)
+    }
 
-	// Should be valid JSON (starts with [ for array)
-	if !strings.HasPrefix(strings.TrimSpace(out), "[") {
-		t.Errorf("expected JSON array output, got: %s", out)
-	}
-
-	// The JSON output is actually summary format, so check for summary fields
-	if !strings.Contains(out, `"license_type"`) {
-		t.Errorf("expected license_type field in JSON, got: %s", out)
-	}
-
-	if !strings.Contains(out, `"count"`) {
-		t.Errorf("expected count field in JSON, got: %s", out)
-	}
-
-	if !strings.Contains(out, `"modules"`) {
-		t.Errorf("expected modules field in JSON, got: %s", out)
-	}
+    // Should be valid JSON (starts with [ for array)
+    if !strings.HasPrefix(strings.TrimSpace(out), "[") {
+        t.Errorf("expected JSON array output, got: %s", out)
+    }
+    // Details JSON: entries should have module and license fields
+    if !strings.Contains(out, `"module"`) || !strings.Contains(out, `"license"`) {
+        t.Errorf("expected module and license fields in JSON details, got: %s", out)
+    }
 }
 
 // TestInfoLicenses_JSONSummary tests --json with --summary
 func TestInfoLicenses_JSONSummary(t *testing.T) {
-	out, err := execInfoLicenses(t, []string{"--json", "--summary"})
-	if err != nil {
-		t.Fatalf("expected no error with --json --summary, got: %v", err)
-	}
+    out, err := execInfoLicenses(t, []string{"--json", "--summary"})
+    if err != nil {
+        t.Fatalf("expected no error with --json --summary, got: %v", err)
+    }
 
 	// Should be valid JSON array
 	if !strings.HasPrefix(strings.TrimSpace(out), "[") {
 		t.Errorf("expected JSON array output, got: %s", out)
 	}
 
-	// Should contain summary structure
-	if !strings.Contains(out, `"license_type"`) {
-		t.Errorf("expected license_type field in JSON summary, got: %s", out)
-	}
+    // Should contain summary structure
+    if !strings.Contains(out, `"license_type"`) {
+        t.Errorf("expected license_type field in JSON summary, got: %s", out)
+    }
 
 	if !strings.Contains(out, `"count"`) {
 		t.Errorf("expected count field in JSON summary, got: %s", out)

@@ -37,14 +37,17 @@ const (
 
 // AssessmentConfig contains configuration for running assessments
 type AssessmentConfig struct {
-	Mode               AssessmentMode `json:"mode"`                // Operation mode
-	Verbose            bool           `json:"verbose"`             // Verbose output
-	Timeout            time.Duration  `json:"timeout"`             // Assessment timeout
-	IncludeFiles       []string       `json:"include_files"`       // Files to include
-	ExcludeFiles       []string       `json:"exclude_files"`       // Files to exclude
-	PriorityString     string         `json:"priority_string"`     // Custom priority string
-	FailOnSeverity     IssueSeverity  `json:"fail_on_severity"`    // Fail if issues at or above this severity
-	SelectedCategories []string       `json:"selected_categories"` // If set, restrict assessment to these categories
+    Mode               AssessmentMode `json:"mode"`                // Operation mode
+    Verbose            bool           `json:"verbose"`             // Verbose output
+    Timeout            time.Duration  `json:"timeout"`             // Assessment timeout
+    IncludeFiles       []string       `json:"include_files"`       // Files to include
+    ExcludeFiles       []string       `json:"exclude_files"`       // Files to exclude
+    // Ignore behavior overrides
+    NoIgnore           bool           `json:"no_ignore"`            // Disable .goneatignore/.gitignore during discovery
+    ForceInclude       []string       `json:"force_include"`        // Globs/paths to force-include even if ignored
+    PriorityString     string         `json:"priority_string"`     // Custom priority string
+    FailOnSeverity     IssueSeverity  `json:"fail_on_severity"`    // Fail if issues at or above this severity
+    SelectedCategories []string       `json:"selected_categories"` // If set, restrict assessment to these categories
 	// Concurrency controls
 	// If Concurrency > 0 it is used directly. Otherwise ConcurrencyPercent determines worker count
 	// as a percentage of available CPU cores (1-100). Values <=0 default to 50.
@@ -58,7 +61,13 @@ type AssessmentConfig struct {
 	EnableSecrets bool     `json:"enable_secrets"`
 
 	// Suppression tracking
-	TrackSuppressions bool `json:"track_suppressions,omitempty"`
+    TrackSuppressions bool `json:"track_suppressions,omitempty"`
+
+    // Schema options (preview)
+    SchemaEnableMeta bool `json:"schema_enable_meta,omitempty"`
+
+    // Scoped discovery (limits traversal to include dirs and force-include anchors)
+    Scope bool `json:"scope,omitempty"`
 
 	// Security per-tool timeouts (optional)
 	SecurityGosecTimeout       time.Duration `json:"security_timeout_gosec,omitempty"`
@@ -67,26 +76,32 @@ type AssessmentConfig struct {
 
 // DefaultAssessmentConfig returns default assessment configuration
 func DefaultAssessmentConfig() AssessmentConfig {
-	return AssessmentConfig{
-		Mode:               AssessmentModeCheck, // Default to check mode for safety
-		Verbose:            false,
-		Timeout:            5 * time.Minute,
-		IncludeFiles:       []string{},
-		ExcludeFiles:       []string{},
-		PriorityString:     "",
-		FailOnSeverity:     SeverityCritical,
-		SelectedCategories: []string{},
-		Concurrency:        0,
+    return AssessmentConfig{
+        Mode:               AssessmentModeCheck, // Default to check mode for safety
+        Verbose:            false,
+        Timeout:            5 * time.Minute,
+        IncludeFiles:       []string{},
+        ExcludeFiles:       []string{},
+        NoIgnore:           false,
+        ForceInclude:       []string{},
+        PriorityString:     "",
+        FailOnSeverity:     SeverityCritical,
+        SelectedCategories: []string{},
+        Concurrency:        0,
 		ConcurrencyPercent: 50,
 		// Security defaults
 		SecurityTools: []string{},
 		EnableVuln:    true,
 		EnableCode:    true,
-		EnableSecrets: false,
-		// Per-tool timeouts default to 0 (inherit global)
-		SecurityGosecTimeout:       0,
-		SecurityGovulncheckTimeout: 0,
-	}
+        EnableSecrets: false,
+        // Per-tool timeouts default to 0 (inherit global)
+        SecurityGosecTimeout:       0,
+        SecurityGovulncheckTimeout: 0,
+        // Schema
+        SchemaEnableMeta: false,
+        // Scoped discovery default off
+        Scope: false,
+    }
 }
 
 // AssessmentRunnerRegistry manages available assessment runners
@@ -143,4 +158,16 @@ func RegisterAssessmentRunner(category AssessmentCategory, runner AssessmentRunn
 // GetAssessmentRunnerRegistry returns the global runner registry
 func GetAssessmentRunnerRegistry() *AssessmentRunnerRegistry {
 	return globalRunnerRegistry
+}
+
+// ResetRegistryForTesting creates a fresh registry and sets it globally for test isolation
+func ResetRegistryForTesting() *AssessmentRunnerRegistry {
+	newReg := NewAssessmentRunnerRegistry()
+	globalRunnerRegistry = newReg
+	return newReg
+}
+
+// RestoreRegistry restores a previously saved registry for test teardown
+func RestoreRegistry(saved *AssessmentRunnerRegistry) {
+	globalRunnerRegistry = saved
 }

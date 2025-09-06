@@ -50,8 +50,12 @@ var (
 	assessTimeout             time.Duration
 	assessOutput              string
 	assessIncludeFiles        []string
-	assessExcludeFiles        []string
-	assessHook                string
+    assessExcludeFiles        []string
+    assessNoIgnore            bool
+    assessForceInclude        []string
+    assessSchemaEnableMeta    bool
+    assessScope               bool
+    assessHook                string
 	assessHookManifest        string
 	assessOpen                bool
 	assessBenchmark           bool
@@ -62,6 +66,7 @@ var (
 	assessConcurrencyPercent int
 	assessCategories         string
 	assessStagedOnly         bool
+	assessTrackSuppressions  bool
 )
 
 func init() {
@@ -73,40 +78,54 @@ func init() {
 		panic(fmt.Sprintf("Failed to register assess command: %v", err))
 	}
 
+	setupAssessCommandFlags(assessCmd)
+}
+
+// setupAssessCommandFlags configures flags for the assess command (shared with tests)
+func setupAssessCommandFlags(cmd *cobra.Command) {
 	// Assessment flags
-	assessCmd.Flags().StringVar(&assessFormat, "format", "markdown", "Output format (markdown, json, html, both)")
-	assessCmd.Flags().StringVar(&assessMode, "mode", "check", "Operation mode (no-op, check, fix)")
-	assessCmd.Flags().BoolVarP(&assessVerbose, "verbose", "v", false, "Verbose output")
-	assessCmd.Flags().StringVar(&assessPriority, "priority", "", "Custom priority string (e.g., 'security=1,format=2')")
-	assessCmd.Flags().StringVar(&assessCategories, "categories", "", "Restrict assessment to specific categories (comma-separated, e.g., 'format,lint')")
-	assessCmd.Flags().StringVar(&assessFailOn, "fail-on", "critical", "Fail if issues at or above severity (critical, high, medium, low)")
-	assessCmd.Flags().DurationVar(&assessTimeout, "timeout", 5*time.Minute, "Assessment timeout")
-	assessCmd.Flags().StringVarP(&assessOutput, "output", "o", "", "Output file (default: stdout)")
-	assessCmd.Flags().StringSliceVar(&assessIncludeFiles, "include", []string{}, "Include only these files/patterns")
-	assessCmd.Flags().StringSliceVar(&assessExcludeFiles, "exclude", []string{}, "Exclude these files/patterns")
+	cmd.Flags().StringVar(&assessFormat, "format", "markdown", "Output format (markdown, json, html, both)")
+	cmd.Flags().StringVar(&assessMode, "mode", "check", "Operation mode (no-op, check, fix)")
+	cmd.Flags().BoolVarP(&assessVerbose, "verbose", "v", false, "Verbose output")
+	cmd.Flags().StringVar(&assessPriority, "priority", "", "Custom priority string (e.g., 'security=1,format=2')")
+	cmd.Flags().StringVar(&assessCategories, "categories", "", "Restrict assessment to specific categories (comma-separated, e.g., 'format,lint')")
+	cmd.Flags().StringVar(&assessFailOn, "fail-on", "critical", "Fail if issues at or above severity (critical, high, medium, low)")
+	cmd.Flags().DurationVar(&assessTimeout, "timeout", 5*time.Minute, "Assessment timeout")
+	cmd.Flags().StringVarP(&assessOutput, "output", "o", "", "Output file (default: stdout)")
+    cmd.Flags().StringSliceVar(&assessIncludeFiles, "include", []string{}, "Include only these files/patterns")
+    cmd.Flags().StringSliceVar(&assessExcludeFiles, "exclude", []string{}, "Exclude these files/patterns")
+    // Ignore override flags
+    cmd.Flags().BoolVar(&assessNoIgnore, "no-ignore", false, "Disable .goneatignore/.gitignore for discovery (scan everything in scope)")
+    cmd.Flags().StringSliceVar(&assessForceInclude, "force-include", []string{}, "Force-include paths or globs even if ignored (repeatable). Examples: --force-include tests/fixtures/** --force-include \"schemas/**\"")
+    // Schema validation options
+    cmd.Flags().BoolVar(&assessSchemaEnableMeta, "schema-enable-meta", false, "Attempt meta-schema validation using embedded drafts (may require network for remote $refs)")
+    // Scoped discovery
+    cmd.Flags().BoolVar(&assessScope, "scope", false, "Limit traversal scope to include paths and force-include anchors")
 	// Concurrency
-	assessCmd.Flags().IntVar(&assessConcurrency, "concurrency", 0, "Number of concurrent runners (0 uses --concurrency-percent)")
-	assessCmd.Flags().IntVar(&assessConcurrencyPercent, "concurrency-percent", 50, "Percent of CPU cores to use for concurrency (1-100)")
+	cmd.Flags().IntVar(&assessConcurrency, "concurrency", 0, "Number of concurrent runners (0 uses --concurrency-percent)")
+	cmd.Flags().IntVar(&assessConcurrencyPercent, "concurrency-percent", 50, "Percent of CPU cores to use for concurrency (1-100)")
 
 	// Hook mode flags
-	assessCmd.Flags().StringVar(&assessHook, "hook", "", "Run in hook mode (pre-commit, pre-push)")
-	assessCmd.Flags().StringVar(&assessHookManifest, "hook-manifest", ".goneat/hooks.yaml", "Hook manifest file path")
+	cmd.Flags().StringVar(&assessHook, "hook", "", "Run in hook mode (pre-commit, pre-push)")
+	cmd.Flags().StringVar(&assessHookManifest, "hook-manifest", ".goneat/hooks.yaml", "Hook manifest file path")
 
 	// Browser flags
-	assessCmd.Flags().BoolVar(&assessOpen, "open", false, "Open HTML report in default browser")
+	cmd.Flags().BoolVar(&assessOpen, "open", false, "Open HTML report in default browser")
 
 	// Benchmark flags
-	assessCmd.Flags().BoolVar(&assessBenchmark, "benchmark", false, "Run benchmark comparison")
-	assessCmd.Flags().IntVar(&assessBenchmarkIterations, "iterations", 5, "Number of benchmark iterations")
-	assessCmd.Flags().StringVar(&assessBenchmarkOutput, "benchmark-output", "benchmark.json", "Benchmark output file")
+	cmd.Flags().BoolVar(&assessBenchmark, "benchmark", false, "Run benchmark comparison")
+	cmd.Flags().IntVar(&assessBenchmarkIterations, "iterations", 5, "Number of benchmark iterations")
+	cmd.Flags().StringVar(&assessBenchmarkOutput, "benchmark-output", "benchmark.json", "Benchmark output file")
 
 	// Add shorthand flags for modes
-	assessCmd.Flags().Bool("no-op", false, "Run in no-op mode (assessment only)")
-	assessCmd.Flags().Bool("check", false, "Run in check mode (report only)")
-	assessCmd.Flags().Bool("fix", false, "Run in fix mode (apply fixes)")
+	cmd.Flags().Bool("no-op", false, "Run in no-op mode (assessment only)")
+	cmd.Flags().Bool("check", false, "Run in check mode (report only)")
+	cmd.Flags().Bool("fix", false, "Run in fix mode (apply fixes)")
 
 	// File scope flags
-	assessCmd.Flags().BoolVar(&assessStagedOnly, "staged-only", false, "Only assess staged files in git (changed and added)")
+	cmd.Flags().BoolVar(&assessStagedOnly, "staged-only", false, "Only assess staged files in git (changed and added)")
+	// Suppression tracking (security)
+	cmd.Flags().BoolVar(&assessTrackSuppressions, "track-suppressions", false, "Track and report security suppressions (e.g., #nosec) in assessment output")
 }
 
 func runAssess(cmd *cobra.Command, args []string) error {
@@ -130,7 +149,20 @@ func runAssess(cmd *cobra.Command, args []string) error {
 	assessOpen, _ = flags.GetBool("open")
 	assessConcurrency, _ = flags.GetInt("concurrency")
 	assessConcurrencyPercent, _ = flags.GetInt("concurrency-percent")
-	assessStagedOnly, _ = flags.GetBool("staged-only")
+    assessStagedOnly, _ = flags.GetBool("staged-only")
+    assessNoIgnore, _ = flags.GetBool("no-ignore")
+    assessForceInclude, _ = flags.GetStringSlice("force-include")
+    assessSchemaEnableMeta, _ = flags.GetBool("schema-enable-meta")
+    assessScope, _ = flags.GetBool("scope")
+
+	// Validate mode value
+	switch assessMode {
+	case "check", "fix", "no-op":
+		// ok
+	default:
+		return fmt.Errorf("invalid mode: %s (must be no-op, check, or fix)", assessMode)
+	}
+	assessTrackSuppressions, _ = flags.GetBool("track-suppressions")
 
 	// Determine target directory
 	target := "."
@@ -184,17 +216,22 @@ func runAssess(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create assessment configuration
-	config := assess.AssessmentConfig{
-		Mode:               mode,
-		Verbose:            assessVerbose,
-		Timeout:            assessTimeout,
-		IncludeFiles:       assessIncludeFiles,
-		ExcludeFiles:       assessExcludeFiles,
-		PriorityString:     assessPriority,
-		FailOnSeverity:     failOnSeverity,
-		Concurrency:        assessConcurrency,
-		ConcurrencyPercent: assessConcurrencyPercent,
-	}
+    config := assess.AssessmentConfig{
+        Mode:               mode,
+        Verbose:            assessVerbose,
+        Timeout:            assessTimeout,
+        IncludeFiles:       assessIncludeFiles,
+        ExcludeFiles:       assessExcludeFiles,
+        NoIgnore:           assessNoIgnore,
+        ForceInclude:       assessForceInclude,
+        SchemaEnableMeta:   assessSchemaEnableMeta,
+        Scope:              assessScope,
+        PriorityString:     assessPriority,
+        FailOnSeverity:     failOnSeverity,
+        Concurrency:        assessConcurrency,
+        ConcurrencyPercent: assessConcurrencyPercent,
+        TrackSuppressions:  assessTrackSuppressions,
+    }
 
 	// If limited to staged files, populate IncludeFiles from git staged set
 	if assessStagedOnly {
@@ -303,6 +340,9 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Concise schema summary for DX (preview)
+	printSchemaSummary(report)
+
 	// Check if we should fail based on severity
 	if shouldFail(report, failOnSeverity) {
 		logger.Error(fmt.Sprintf("Assessment failed: found issues at or above %s severity", failOnSeverity))
@@ -333,6 +373,34 @@ func shouldFail(report *assess.AssessmentReport, failOnSeverity assess.IssueSeve
 	}
 
 	return false
+}
+
+// printSchemaSummary prints a short schema issues summary (top files + first messages)
+func printSchemaSummary(report *assess.AssessmentReport) {
+    // Count total schema issues
+    total := 0
+    counts := map[string]int{}
+    var first []assess.Issue
+    for _, cr := range report.Categories {
+        if cr.Category != assess.CategorySchema { continue }
+        for _, is := range cr.Issues {
+            total++
+            counts[is.File]++
+            if len(first) < 3 { first = append(first, is) }
+        }
+    }
+    if total == 0 { return }
+    logger.Info(fmt.Sprintf("Schema validation found %d issue(s)", total))
+    // Print up to 3 top files
+    printed := 0
+    for file, cnt := range counts {
+        logger.Info(fmt.Sprintf("  - %s: %d", file, cnt))
+        printed++
+        if printed >= 3 { break }
+    }
+    for _, is := range first {
+        logger.Info(fmt.Sprintf("    %s: %s", is.SubCategory, is.Message))
+    }
 }
 
 // runHookMode executes assessment in hook mode

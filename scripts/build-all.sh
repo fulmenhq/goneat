@@ -71,6 +71,4 @@ echo "   Total binaries: $(ls bin/ | wc -l)"
 echo ""
 echo "🚀 Ready for distribution!"
 echo "   Upload to: https://github.com/3leaps/goneat/releases"
-echo ""</content>
-</xai:function_call name="bash">
-<parameter name="command">chmod +x goneat/scripts/build-all.sh
+echo ""

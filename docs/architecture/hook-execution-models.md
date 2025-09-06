@@ -8,6 +8,7 @@
 ## Three Architectural Approaches
 
 ### Model 1: Orchestrated Assessment (Current Implementation)
+
 **Hook files call `goneat assess --hook`** (with manifest-driven args and staged-only optimization)
 
 ```
@@ -17,6 +18,7 @@ goneat assess --hook pre-commit --hook-manifest .goneat/hooks.yaml --staged-only
 ```
 
 **Pros:**
+
 - ✅ Single entry point for all validation logic
 - ✅ Centralized configuration management
 - ✅ Easy to test hooks manually: `goneat assess --hook pre-commit`
@@ -24,6 +26,7 @@ goneat assess --hook pre-commit --hook-manifest .goneat/hooks.yaml --staged-only
 - ✅ Simple hook files, complex logic in goneat
 
 **Cons:**
+
 - ❌ Requires goneat to be installed and in PATH
 - ❌ Hook execution depends on goneat binary availability
 - ❌ Less transparent what happens in each hook
@@ -33,6 +36,7 @@ goneat assess --hook pre-commit --hook-manifest .goneat/hooks.yaml --staged-only
 ---
 
 ### Model 2: Embedded Logic (Alternative)
+
 **Hook files are generated Go programs with embedded logic**
 
 ```
@@ -55,6 +59,7 @@ func main() {
 ```
 
 **Pros:**
+
 - ✅ Self-contained hook files
 - ✅ No external dependencies
 - ✅ Direct access to goneat's logic
@@ -62,6 +67,7 @@ func main() {
 - ✅ Can run without goneat binary installed
 
 **Cons:**
+
 - ❌ More complex hook file generation
 - ❌ Duplication of logic across hook files
 - ❌ Harder to test hooks manually
@@ -72,6 +78,7 @@ func main() {
 ---
 
 ### Model 3: Command Composition (Alternative)
+
 **Hook files call specific goneat commands**
 
 ```
@@ -83,12 +90,14 @@ goneat assess --categories security --fail-on high
 ```
 
 **Pros:**
+
 - ✅ Transparent what each hook does
 - ✅ Easy to customize individual hooks
 - ✅ Can mix goneat commands with external tools
 - ✅ Simple to understand and debug
 
 **Cons:**
+
 - ❌ Logic scattered across multiple hook files
 - ❌ Harder to maintain consistency
 - ❌ No unified reporting or audit trails
@@ -103,16 +112,19 @@ goneat assess --categories security --fail-on high
 **What is `goneat assess --hook` for?**
 
 ### If Model 1 (Orchestrated):
+
 - **Purpose:** Manual testing/simulation of hook execution
 - **Usage:** `goneat assess --hook pre-commit` (runs same logic as hook)
 - **Hook Content:** Simple script calling `goneat assess --hook`
 
 ### If Model 2 (Embedded):
+
 - **Purpose:** Testing hook logic without git context
 - **Usage:** `goneat assess --hook pre-commit` (tests the logic)
 - **Hook Content:** Generated Go program with embedded logic
 
 ### If Model 3 (Composition):
+
 - **Purpose:** Running specific assessment categories
 - **Usage:** `goneat assess --categories format,lint`
 - **Hook Content:** Script calling multiple goneat commands
@@ -131,6 +143,7 @@ goneat assess --categories security --fail-on high
 6. **User Experience**: Simple, predictable hook behavior
 
 **The hook files become simple entry points (templates add `--staged-only` when optimization is enabled):**
+
 ```bash
 #!/bin/bash
 # .git/hooks/pre-commit
@@ -138,6 +151,7 @@ goneat assess --hook pre-commit
 ```
 
 **While the intelligence lives in goneat:**
+
 ```bash
 # Manual testing
 goneat assess --hook pre-commit
@@ -154,17 +168,20 @@ goneat assess --format json --output reports/
 ## Decision Framework
 
 **Choose Model 1 if you want:**
+
 - Unified, intelligent validation orchestration
 - Simple hook files with complex logic in goneat
 - Easy manual testing and debugging
 - Perfect alignment with goneat's assess-first architecture
 
 **Choose Model 2 if you want:**
+
 - Self-contained hooks with no external dependencies
 - Direct embedding of goneat logic
 - Maximum transparency in hook execution
 
 **Choose Model 3 if you want:**
+
 - Fine-grained control over each hook
 - Mix of goneat and external commands
 - Maximum customization flexibility
@@ -197,6 +214,7 @@ goneat assess --format json --output reports/
 **What should `goneat assess --hook pre-commit` do?**
 
 **Option A:** Manual testing of hook logic (current implementation)
+
 ```bash
 # User runs this to test what the hook would do
 goneat assess --hook pre-commit
@@ -207,6 +225,7 @@ goneat assess --hook pre-commit
 ```
 
 **Option B:** Direct assessment without hook context
+
 ```bash
 # User runs this for general assessment
 goneat assess --categories format,lint
@@ -220,14 +239,15 @@ goneat lint --check
 **Which approach aligns better with your vision of how developers should interact with goneat hooks?**
 
 The answer will determine whether we:
+
 - Keep the current orchestrated approach
-- Switch to embedded logic in hook files  
+- Switch to embedded logic in hook files
 - Go with command composition
 
 **This is the architectural pivot point for goneat hooks.** 🎯
 
 ---
 
-**P.S.** Regardless of the model, the core value proposition remains: **unified, intelligent validation that delivers immediate business value**. The execution model just determines *how* that intelligence is delivered to users. 
+**P.S.** Regardless of the model, the core value proposition remains: **unified, intelligent validation that delivers immediate business value**. The execution model just determines _how_ that intelligence is delivered to users.
 
 **Ready for your guidance on the preferred model!** 🚀

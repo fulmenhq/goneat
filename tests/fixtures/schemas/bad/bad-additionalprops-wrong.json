@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Bad additionalProperties",
+  "type": "object",
+  "properties": {
+    "id": { "type": "integer" }
+  },
+  "required": ["id"],
+  "additionalProperties": "nope"  
+}

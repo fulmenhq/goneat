@@ -17,21 +17,25 @@ Replace complex shell scripts with a native Go `goneat hooks` command that:
 ## Core Principles
 
 ### 1. Embedded Logic, Generated Hooks
+
 - Hook validation logic lives in `internal/hooks/` packages
 - `goneat hooks generate` creates executable Go hook files
 - Generated hooks are standalone Go programs that import goneat's logic
 
 ### 2. User Customization Layer
+
 - Generated hooks include user-editable sections
 - Template system allows customization without breaking updates
 - Clear separation between generated and custom code
 
 ### 3. Native Performance
+
 - No shell script overhead or environment issues
 - Direct Go execution with proper error handling
 - Better integration with goneat's existing commands
 
 ### 4. Developer Experience
+
 - Clear error messages with actionable suggestions
 - Debug mode for troubleshooting hook issues
 - Consistent behavior across platforms
@@ -53,12 +57,14 @@ goneat hooks remove        # Remove hooks
 ### Hook Categories
 
 #### Pre-commit Hooks
+
 - `format` - Code formatting validation
 - `lint` - Code quality analysis
 - `test` - Unit test execution
 - `standards` - Repository standards compliance
 
 #### Pre-push Hooks
+
 - `security` - Security vulnerability scanning
 - `integration` - Integration test execution
 
@@ -137,6 +143,7 @@ func (g *Generator) GenerateHook(hookType string, targetDir string) error {
 ### 3. Hook Templates
 
 #### Generated Hook Structure
+
 ```go
 // .goneat/hooks/pre-commit-format.go (generated)
 package main
@@ -191,6 +198,7 @@ func handleFormatFailure(result *format.ValidationResult) {
 ### 4. Configuration System
 
 #### Hook Manifest Schema
+
 ```yaml
 # .goneat/hooks.yaml
 version: "1.0.0"
@@ -225,6 +233,7 @@ optimization:
 ```
 
 #### Legacy Configuration Support
+
 ```yaml
 # .goneat/hooks.yml (backward compatibility)
 hooks:
@@ -234,7 +243,7 @@ hooks:
     - test
     - standards
   disabled:
-    - security    # Enable later
+    - security # Enable later
     - integration # Enable later
   timeouts:
     format: 30s
@@ -253,6 +262,7 @@ hooks:
 ## Implementation Strategy
 
 ### Phase 1: Foundation & Assess Integration (Week 1-2)
+
 1. **Assess Hook Mode**
    - Add `--hook` flag to assess command
    - Create hook manifest schema integration
@@ -269,6 +279,7 @@ hooks:
    - Generate audit trails for all executions
 
 ### Phase 2: Native Implementation (Week 3-4)
+
 1. **Hook Engine Foundation**
    - Define `Hook` interface and core engine
    - Implement basic hook types (format, lint, test)
@@ -285,6 +296,7 @@ hooks:
    - Timeout handling and performance optimization
 
 ### Phase 3: Advanced Features (Week 5-6)
+
 1. **User Experience**
    - Clear error messages with fix suggestions
    - Debug mode for troubleshooting
@@ -303,22 +315,26 @@ hooks:
 ## Benefits Over Shell Scripts
 
 ### Maintainability
+
 - **Single Source of Truth**: Hook logic in Go vs scattered shell scripts
 - **Type Safety**: Go's type system catches errors at compile time
 - **Testing**: Unit tests for hook logic vs testing shell scripts
 - **Debugging**: Better error handling and logging
 
 ### Performance
+
 - **No Shell Overhead**: Direct Go execution vs shell process spawning
 - **Better Memory Management**: Go's garbage collection vs shell limitations
 - **Concurrent Execution**: Go goroutines for parallel validation
 
 ### Developer Experience
+
 - **Clear Error Messages**: Structured errors with context vs shell exit codes
 - **Auto-completion**: IDE support for hook development
 - **Documentation**: Go doc comments vs shell script comments
 
 ### Reliability
+
 - **Cross-Platform**: Go's cross-compilation vs shell portability issues
 - **Environment Consistency**: Same behavior across different systems
 - **Dependency Management**: Go modules vs shell tool dependencies
@@ -326,27 +342,32 @@ hooks:
 ## Migration Strategy
 
 ### Progressive Enhancement Approach
+
 Following Orange's recommendation for a hybrid transition:
 
 #### Phase 1: Parallel Implementation (Current → 2 weeks)
+
 - **Maintain Lefthook**: Keep existing Lefthook system as primary
 - **Implement `goneat hooks`**: Build new command alongside existing system
 - **Add Assess Integration**: Implement `--hook` mode in assess command
 - **Fallback Generation**: Generate hooks that check for goneat, fallback to Lefthook
 
 #### Phase 2: Migration Path (2-4 weeks)
+
 - **Migration Tooling**: `goneat hooks migrate` to convert lefthook.yml to .goneat/hooks.yaml
 - **Native Installation**: Implement hook installation without Lefthook dependency
 - **Feature Parity**: Ensure all Lefthook features work in native system
 - **Documentation**: Provide migration guides and rollback procedures
 
 #### Phase 3: Full Native Support (4-6 weeks)
+
 - **Deprecation**: Mark Lefthook as deprecated with migration warnings
 - **Performance Optimization**: Optimize native implementation for speed
 - **Advanced Features**: Enable hook composition and conditional execution
 - **Team Migration**: Roll out to development teams incrementally
 
 ### From Shell Scripts
+
 1. **Audit Existing Hooks**: Document current shell script behavior
 2. **Identify Customization Points**: Find user-modified sections
 3. **Generate New Hooks**: Use `goneat hooks generate` to create Go equivalents
@@ -355,6 +376,7 @@ Following Orange's recommendation for a hybrid transition:
 6. **Gradual Rollout**: Deploy to teams incrementally
 
 ### Backward Compatibility
+
 - **Shell Script Fallback**: Keep shell scripts as backup during transition
 - **Configuration Migration**: Convert existing lefthook.yml to .goneat/hooks.yaml
 - **User Training**: Provide migration guides and examples
@@ -363,6 +385,7 @@ Following Orange's recommendation for a hybrid transition:
 ## Risk Mitigation
 
 ### Technical Risks
+
 1. **Performance Regression**: New system slower than Lefthook
    - **Mitigation**: Comprehensive benchmarking suite, gradual rollout with rollback capability
 2. **Breaking Existing Workflows**: Migration disrupts development
@@ -371,6 +394,7 @@ Following Orange's recommendation for a hybrid transition:
    - **Mitigation**: Simple defaults, progressive disclosure of advanced features
 
 ### Operational Risks
+
 1. **Migration Failures**: Teams unable to migrate successfully
    - **Mitigation**: Migration tooling, detailed documentation, support channels
 2. **Dependency Issues**: Goneat not available during development
@@ -381,16 +405,19 @@ Following Orange's recommendation for a hybrid transition:
 ## Security Considerations
 
 ### Hook Injection Protection
+
 - **Code Review Requirements**: All hook customizations require review
 - **Signed Commits**: Require commit signing for hook modifications
 - **Audit Logging**: Log all hook executions and modifications via work manifests
 
 ### Information Disclosure
+
 - **Sanitized Output**: Remove sensitive information from hook output
 - **Secure Logging**: Avoid logging secrets or sensitive data
 - **Access Controls**: Limit who can modify hook configurations
 
 ### External Tool Sandboxing
+
 - **Command Validation**: Validate external tool commands before execution
 - **Resource Limits**: Apply timeouts and resource constraints
 - **Output Sanitization**: Clean external tool output for security
@@ -398,6 +425,7 @@ Following Orange's recommendation for a hybrid transition:
 ## Success Metrics
 
 ### Technical Metrics
+
 - **Hook Execution Time**: ≤ current Lefthook implementation (target: < 15s vs current 30s)
 - **Memory Usage**: < 50MB peak memory usage
 - **Success Rate**: > 98% hook execution success rate
@@ -405,6 +433,7 @@ Following Orange's recommendation for a hybrid transition:
 - **Assess Integration**: 30% reduction in total validation time via assess orchestration
 
 ### Performance Benchmarking
+
 Following Orange's recommendation for comparative analysis:
 
 ```bash
@@ -420,6 +449,7 @@ goneat hooks benchmark --baseline lefthook --iterations 10 --output benchmark.js
 ```
 
 ### Developer Experience Metrics
+
 - **Error Clarity**: 100% of errors include actionable fix suggestions
 - **Debugging Time**: < 5 minutes to troubleshoot hook issues
 - **Adoption Rate**: 100% team adoption within 2 weeks
@@ -427,6 +457,7 @@ goneat hooks benchmark --baseline lefthook --iterations 10 --output benchmark.js
 - **Customization Rate**: > 70% users customize at least one hook
 
 ### Migration Metrics
+
 - **Migration Success Rate**: > 95% successful migrations
 - **Rollback Rate**: < 5% requiring reversion to previous system
 - **Downtime**: Zero disruption during transition phases
@@ -434,12 +465,14 @@ goneat hooks benchmark --baseline lefthook --iterations 10 --output benchmark.js
 ## Future Enhancements
 
 ### Advanced Features
+
 - **Hook Plugins**: Third-party hook extensions
 - **Conditional Logic**: Branch-specific or author-specific hooks
 - **Remote Validation**: Validate against remote repository state
 - **Performance Profiling**: Built-in hook performance monitoring
 
 ### Integration Opportunities
+
 - **Git Platform Integration**: GitHub/GitLab webhook validation
 - **Container Integration**: Validate in development containers
 - **Remote Development**: Work with remote development environments
@@ -460,6 +493,7 @@ The enhanced native Go hooks architecture, informed by multiple stakeholder asse
 - ✅ **Future-Proof**: Extensible architecture for advanced features
 
 This approach incorporates key insights from all assessments:
+
 - **Orange's Migration Strategy**: Progressive enhancement with compatibility
 - **Sky's Technical Vision**: Native Go intelligence and semantic analysis
 - **Adoption Analysis**: Market-driven development prioritizing compatibility over purity

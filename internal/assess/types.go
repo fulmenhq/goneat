@@ -16,6 +16,7 @@ const (
 	CategoryStaticAnalysis AssessmentCategory = "static-analysis"
 	CategorySecurity       AssessmentCategory = "security"
 	CategoryPerformance    AssessmentCategory = "performance"
+	CategorySchema         AssessmentCategory = "schema"
 )
 
 // IssueSeverity represents the severity level of an assessment issue
@@ -40,6 +41,8 @@ type Issue struct {
 	SubCategory   string             `json:"sub_category,omitempty"`
 	AutoFixable   bool               `json:"auto_fixable"`
 	EstimatedTime time.Duration      `json:"estimated_time,omitempty"`
+	ChangeRelated bool               `json:"change_related,omitempty"`
+	LinesModified []int              `json:"lines_modified,omitempty"`
 }
 
 // CategoryResult represents the assessment results for a specific category
@@ -97,13 +100,14 @@ type AssessmentReport struct {
 
 // ReportMetadata contains metadata about the assessment run
 type ReportMetadata struct {
-	GeneratedAt   time.Time     `json:"generated_at"`
-	Tool          string        `json:"tool"`
-	Version       string        `json:"version"`
-	Target        string        `json:"target"`
-	ExecutionTime time.Duration `json:"execution_time"`
-	CommandsRun   []string      `json:"commands_run"`
-	FailOn        string        `json:"fail_on,omitempty"`
+	GeneratedAt   time.Time      `json:"generated_at"`
+	Tool          string         `json:"tool"`
+	Version       string         `json:"version"`
+	Target        string         `json:"target"`
+	ExecutionTime time.Duration  `json:"execution_time"`
+	CommandsRun   []string       `json:"commands_run"`
+	FailOn        string         `json:"fail_on,omitempty"`
+	ChangeContext *ChangeContext `json:"change_context,omitempty"`
 }
 
 // ReportSummary provides high-level assessment statistics
@@ -114,6 +118,15 @@ type ReportSummary struct {
 	EstimatedTime        time.Duration `json:"estimated_time"`
 	ParallelGroups       int           `json:"parallel_groups"`
 	CategoriesWithIssues int           `json:"categories_with_issues"`
+}
+
+// ChangeContext mirrors internal/gitctx.ChangeContext for report embedding
+type ChangeContext struct {
+	ModifiedFiles []string `json:"modified_files"`
+	TotalChanges  int      `json:"total_changes"`
+	ChangeScope   string   `json:"change_scope"`
+	GitSHA        string   `json:"git_sha,omitempty"`
+	Branch        string   `json:"branch,omitempty"`
 }
 
 // WorkflowPlan contains the recommended remediation workflow

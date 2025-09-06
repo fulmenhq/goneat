@@ -6,11 +6,13 @@ package assess
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/3leaps/goneat/internal/gitctx"
 	"github.com/3leaps/goneat/pkg/logger"
 )
 
@@ -31,6 +33,38 @@ func NewAssessmentEngine() *AssessmentEngine {
 // RunAssessment executes a comprehensive assessment of the target
 func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, config AssessmentConfig) (*AssessmentReport, error) {
 	startTime := time.Now()
+
+	// Collect git change context (best-effort)
+	var changeCtx *gitctx.ChangeContext
+	var modifiedAbs map[string]struct{}
+	var modifiedLinesAbs map[string][]int
+	if ctx2, _, lines, _ := gitctx.CollectWithLines(target); ctx2 != nil {
+		changeCtx = ctx2
+		// Build absolute path set for quick lookups
+		modifiedAbs = make(map[string]struct{}, len(ctx2.ModifiedFiles))
+		for _, p := range ctx2.ModifiedFiles {
+			abs := p
+			if !filepath.IsAbs(abs) {
+				abs = filepath.Join(target, p)
+			}
+			if a2, err := filepath.Abs(abs); err == nil {
+				modifiedAbs[a2] = struct{}{}
+			}
+		}
+		// Build absolute lines map
+		if len(lines) > 0 {
+			modifiedLinesAbs = make(map[string][]int, len(lines))
+			for rel, lns := range lines {
+				abs := rel
+				if !filepath.IsAbs(abs) {
+					abs = filepath.Join(target, rel)
+				}
+				if a2, err := filepath.Abs(abs); err == nil {
+					modifiedLinesAbs[a2] = append(modifiedLinesAbs[a2], lns...)
+				}
+			}
+		}
+	}
 
 	// Parse custom priorities if provided
 	if config.PriorityString != "" {
@@ -126,7 +160,7 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 				logger.Error(fmt.Sprintf("%s assessment failed after %v: %v", category, runDur, err))
 			} else if result.Success {
 				cr.Status = "success"
-				cr.Issues = result.Issues
+				cr.Issues = e.annotateIssuesWithChange(result.Issues, target, modifiedAbs, modifiedLinesAbs)
 				cr.IssueCount = len(result.Issues)
 				cr.EstimatedTime = e.estimateCategoryTime(result.Issues)
 				if result.Metrics != nil {
@@ -141,11 +175,17 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 						delete(result.Metrics, "_suppressions")
 					}
 				}
-				allIssues = append(allIssues, result.Issues...)
-				logger.Info(fmt.Sprintf("%s assessment completed in %v: %d issues found", category, runDur, len(result.Issues)))
+				allIssues = append(allIssues, cr.Issues...)
+				logger.Info(fmt.Sprintf("%s assessment completed in %v: %d issues found", category, runDur, len(cr.Issues)))
 			} else {
-				cr.Status = "failed"
-				logger.Debug(fmt.Sprintf("%s assessment failed without error after %v", category, runDur))
+				// Map non-success without error to a consistent status.
+				if result.Error != "" {
+					cr.Status = "error"
+					cr.Error = result.Error
+				} else {
+					cr.Status = "skipped"
+				}
+				logger.Debug(fmt.Sprintf("%s assessment non-success without error after %v (status=%s)", category, runDur, cr.Status))
 			}
 			categoryResults[string(category)] = cr
 		}
@@ -191,7 +231,7 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 						logger.Error(fmt.Sprintf("%s assessment failed after %v: %v", j.category, runDur, err))
 					} else if result.Success {
 						cr.Status = "success"
-						cr.Issues = result.Issues
+						cr.Issues = e.annotateIssuesWithChange(result.Issues, target, modifiedAbs, modifiedLinesAbs)
 						cr.IssueCount = len(result.Issues)
 						cr.EstimatedTime = e.estimateCategoryTime(result.Issues)
 						if result.Metrics != nil {
@@ -206,18 +246,23 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 								delete(result.Metrics, "_suppressions")
 							}
 						}
-						logger.Info(fmt.Sprintf("%s assessment completed in %v: %d issues found", j.category, runDur, len(result.Issues)))
+						logger.Info(fmt.Sprintf("%s assessment completed in %v: %d issues found", j.category, runDur, len(cr.Issues)))
 					} else {
-						cr.Status = "failed"
-						logger.Debug(fmt.Sprintf("%s assessment failed without error after %v", j.category, runDur))
+						if result.Error != "" {
+							cr.Status = "error"
+							cr.Error = result.Error
+						} else {
+							cr.Status = "skipped"
+						}
+						logger.Debug(fmt.Sprintf("%s assessment non-success without error after %v (status=%s)", j.category, runDur, cr.Status))
 					}
 
 					mu.Lock()
 					catRuntime[j.category] = runDur
 					if result != nil {
 						commandsRun = append(commandsRun, result.CommandName)
-						if len(result.Issues) > 0 {
-							allIssues = append(allIssues, result.Issues...)
+						if len(cr.Issues) > 0 {
+							allIssues = append(allIssues, cr.Issues...)
 						}
 					}
 					categoryResults[string(j.category)] = cr
@@ -255,6 +300,17 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 		Workflow:   workflow,
 	}
 
+	// Attach change context if present
+	if changeCtx != nil {
+		report.Metadata.ChangeContext = &ChangeContext{
+			ModifiedFiles: changeCtx.ModifiedFiles,
+			TotalChanges:  changeCtx.TotalChanges,
+			ChangeScope:   changeCtx.ChangeScope,
+			GitSHA:        changeCtx.GitSHA,
+			Branch:        changeCtx.Branch,
+		}
+	}
+
 	// Log summary with concurrency and per-category runtimes
 	logger.Info(fmt.Sprintf("Concurrency summary: workers=%d, categories=%d", workerCount, len(orderedCategories)))
 	for _, c := range orderedCategories {
@@ -266,6 +322,31 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 		report.Metadata.ExecutionTime, summary.TotalIssues, summary.EstimatedTime))
 
 	return report, nil
+}
+
+// annotateIssuesWithChange marks issues that relate to modified files; best-effort path normalization.
+func (e *AssessmentEngine) annotateIssuesWithChange(issues []Issue, target string, modifiedAbs map[string]struct{}, modifiedLinesAbs map[string][]int) []Issue {
+	if len(issues) == 0 || len(modifiedAbs) == 0 {
+		return issues
+	}
+	out := make([]Issue, len(issues))
+	for i, is := range issues {
+		file := is.File
+		abs := file
+		if !filepath.IsAbs(abs) {
+			abs = filepath.Join(target, file)
+		}
+		if a2, err := filepath.Abs(abs); err == nil {
+			if _, ok := modifiedAbs[a2]; ok {
+				is.ChangeRelated = true
+				if lns, ok2 := modifiedLinesAbs[a2]; ok2 && len(lns) > 0 {
+					is.LinesModified = lns
+				}
+			}
+		}
+		out[i] = is
+	}
+	return out
 }
 
 // estimateCategoryTime estimates the time to fix issues in a category

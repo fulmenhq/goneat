@@ -27,7 +27,7 @@ GOFMT := $(GOCMD) fmt
 LDFLAGS := -ldflags "-X 'main.Version=$(VERSION)'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
-.PHONY: help build clean test fmt format-docs version-get version-bump-patch version-bump-minor version-bump-major version-set
+.PHONY: help build clean test fmt format-docs version-get version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease
 
 # Default target
 all: clean build fmt
@@ -52,11 +52,22 @@ build-all: ## Build for all supported platforms
 	@./scripts/build-all.sh
 	@echo "✅ Cross-platform builds completed"
 
+sync-schemas: ## Fetch curated JSON Schema meta-schemas (network required)
+	@chmod +x scripts/sync-schemas.sh
+	@./scripts/sync-schemas.sh
+
 package: ## Package built binaries into archives + checksums
 	@echo "Packaging artifacts for v$(VERSION)..."
 	@chmod +x scripts/package-artifacts.sh
 	@./scripts/package-artifacts.sh
 	@echo "✅ Packaging completed (dist/release)"
+
+# Release notes artifact from RELEASE_NOTES.md
+release-notes: ## Generate release notes artifact (dist/release/release-notes-v<version>.md)
+	@echo "📝 Generating release notes for v$(VERSION)..."
+	@chmod +x scripts/generate-release-notes.sh
+	@./scripts/generate-release-notes.sh
+	@echo "✅ Release notes generated (dist/release)"
 
 build-linux-amd64: ## Build for Linux AMD64
 	@echo "Building for Linux AMD64..."
@@ -105,24 +116,39 @@ test-coverage: ## Run tests with coverage
 	@echo "Coverage report: coverage.html"
 
 # Coverage gating based on lifecycle phase
-coverage-check: test-coverage ## Enforce coverage threshold based on lifecycle phase
-	@phase=$$(tr '[:upper:]' '[:lower:]' < LIFECYCLE_PHASE 2>/dev/null || echo alpha); \
-	case $$phase in \
-	  experimental) threshold=0;; \
-	  alpha) threshold=30;; \
-	  beta) threshold=60;; \
-	  rc) threshold=70;; \
-	  ga) threshold=75;; \
-	  lts) threshold=80;; \
-	  *) threshold=30;; \
-	esac; \
-	if [ ! -f coverage.out ]; then echo "❌ coverage.out not found. Run make test-coverage first"; exit 1; fi; \
-	total=$$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/,"",$$3); print $$3}'); \
-	awk -v cov="$$total" -v thr="$$threshold" -v ph="$$phase" 'BEGIN { \
-	  cov+=0; thr+=0; \
-	  if (cov >= thr) { printf "✅ Coverage %.1f%% meets threshold %.1f%% (phase=%s)\n", cov, thr, ph; exit 0 } \
-	  else { printf "❌ Coverage %.1f%% below threshold %.1f%% (phase=%s)\n", cov, thr, ph; exit 1 } \
-	}'
+coverage-check: test-coverage ## Enforce coverage threshold based on lifecycle/release phase
+    @lifecycle=$$(tr '[:upper:]' '[:lower:]' < LIFECYCLE_PHASE 2>/dev/null || echo alpha); \
+    @release=$$(tr '[:upper:]' '[:lower:]' < RELEASE_PHASE 2>/dev/null || echo ""); \
+    @# Determine thresholds
+    @case $$lifecycle in \
+      experimental) life_thr=0;; \
+      alpha) life_thr=30;; \
+      beta) life_thr=60;; \
+      rc) life_thr=70;; \
+      ga) life_thr=75;; \
+      lts) life_thr=80;; \
+      *) life_thr=30;; \
+    esac; \
+    @case $$release in \
+      dev) rel_thr=50;; \
+      rc)  rel_thr=70;; \
+      ga)  rel_thr=75;; \
+      *)   rel_thr=0;; \
+    esac; \
+    @# Use the higher of lifecycle/release thresholds when RELEASE_PHASE is present
+    @if [ -n "$$release" ]; then \
+      if [ $$life_thr -ge $$rel_thr ]; then threshold=$$life_thr; else threshold=$$rel_thr; fi; \
+      phase_label="$$lifecycle,$$release"; \
+    else \
+      threshold=$$life_thr; phase_label="$$lifecycle"; \
+    fi; \
+    if [ ! -f coverage.out ]; then echo "❌ coverage.out not found. Run make test-coverage first"; exit 1; fi; \
+    total=$$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/,"",$$3); print $$3}'); \
+    awk -v cov="$$total" -v thr="$$threshold" -v ph="$$phase_label" 'BEGIN { \
+      cov+=0; thr+=0; \
+      if (cov >= thr) { printf "✅ Coverage %.1f%% meets threshold %.1f%% (phase=%s)\n", cov, thr, ph; exit 0 } \
+      else { printf "❌ Coverage %.1f%% below threshold %.1f%% (phase=%s)\n", cov, thr, ph; exit 1 } \
+    }'
 
 # Format targets
 fmt: build ## Format code using goneat (dogfooding)
@@ -215,6 +241,15 @@ version-set: ## Set specific version (usage: make version-set VERSION=x.y.z)
 	@echo "$(VERSION_SET)" > VERSION
 	@echo "✅ Version set to: $(VERSION_SET)"
 
+version-set-prerelease: ## Set prerelease version (usage: make version-set-prerelease VERSION_SET=x.y.z-rc.N)
+	@if [ -z "$(VERSION_SET)" ]; then \
+		echo "❌ Usage: make version-set-prerelease VERSION_SET=x.y.z-rc.N"; \
+		exit 1; \
+	fi
+	@echo "$(VERSION_SET)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-(rc\.[0-9]+|beta\.[0-9]+|alpha\.[0-9]+)$$' || (echo "❌ Invalid prerelease format. Expected x.y.z-(rc|beta|alpha).N" && exit 1)
+	@echo "$(VERSION_SET)" > VERSION
+	@echo "✅ Prerelease version set: $(VERSION_SET)"
+
 # Release management targets
 release-prep: ## Prepare for release (run tests, coverage gate, build, etc.)
 	@echo "🚀 Preparing for release v$(VERSION)..."
@@ -222,6 +257,7 @@ release-prep: ## Prepare for release (run tests, coverage gate, build, etc.)
 	$(MAKE) coverage-check
 	$(MAKE) build-all
 	$(MAKE) fmt
+	$(MAKE) release-notes
 	@echo "✅ Release preparation complete"
 
 release-tag: ## Create git tag for release
@@ -239,8 +275,8 @@ release: release-prep release-tag release-push ## Complete release process
 	@echo ""
 	@echo "📋 Next steps:"
 	@echo "   1. Create GitHub release: https://github.com/3leaps/goneat/releases"
-	@echo "   2. Upload binaries from bin/ directory"
-	@echo "   3. Update CHANGELOG.md if needed"
+	@echo "   2. Upload artifacts from dist/release/ (binaries + release-notes-v$(VERSION).md)"
+	@echo "   3. Paste release notes from dist/release/release-notes-v$(VERSION).md"
 	@echo "   4. Announce release in relevant channels"
 
 # Future: goneat-based version management

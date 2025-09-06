@@ -49,22 +49,22 @@ var prettyCmd = &cobra.Command{
 		}
 
 		switch to {
-		case "console":
-			f := assess.NewFormatter(assess.FormatConcise)
-			out, err := f.FormatReport(report)
-			if err != nil {
-				return err
-			}
-			fmt.Println(out)
-			return nil
-		case "html":
-			f := assess.NewFormatter(assess.FormatHTML)
-			out, err := f.FormatReport(report)
-			if err != nil {
-				return err
-			}
-			fmt.Println(out)
-			return nil
+        case "console":
+            f := assess.NewFormatter(assess.FormatConcise)
+            out, err := f.FormatReport(report)
+            if err != nil {
+                return err
+            }
+            _, _ = fmt.Fprintln(cmd.OutOrStdout(), out)
+            return nil
+        case "html":
+            f := assess.NewFormatter(assess.FormatHTML)
+            out, err := f.FormatReport(report)
+            if err != nil {
+                return err
+            }
+            _, _ = fmt.Fprintln(cmd.OutOrStdout(), out)
+            return nil
 		default:
 			return fmt.Errorf("unsupported --to: %s (use console or html)", to)
 		}

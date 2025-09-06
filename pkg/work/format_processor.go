@@ -197,10 +197,10 @@ func (p *FormatProcessor) formatMarkdownFile(filePath string) error {
 	// Apply finalizer normalization for markdown files
 	// This handles EOF, trailing whitespace, line endings, etc.
 	options := finalizer.NormalizationOptions{
-		EnsureEOF:              true,  // Always ensure EOF for markdown
-		TrimTrailingWhitespace: true,  // Always trim trailing whitespace for markdown
-		NormalizeLineEndings:   "",    // Use system default
-		RemoveUTF8BOM:          true,  // Remove BOM if present
+		EnsureEOF:              true, // Always ensure EOF for markdown
+		TrimTrailingWhitespace: true, // Always trim trailing whitespace for markdown
+		NormalizeLineEndings:   "",   // Use system default
+		RemoveUTF8BOM:          true, // Remove BOM if present
 	}
 
 	// Validate file path to prevent path traversal
@@ -247,10 +247,10 @@ func (p *FormatProcessor) checkMarkdownFile(filePath string) error {
 
 	// Apply finalizer check for markdown files
 	options := finalizer.NormalizationOptions{
-		EnsureEOF:              true,  // Always ensure EOF for markdown
-		TrimTrailingWhitespace: true,  // Always trim trailing whitespace for markdown
-		NormalizeLineEndings:   "",    // Use system default
-		RemoveUTF8BOM:          true,  // Remove BOM if present
+		EnsureEOF:              true, // Always ensure EOF for markdown
+		TrimTrailingWhitespace: true, // Always trim trailing whitespace for markdown
+		NormalizeLineEndings:   "",   // Use system default
+		RemoveUTF8BOM:          true, // Remove BOM if present
 	}
 
 	// Validate file path to prevent path traversal

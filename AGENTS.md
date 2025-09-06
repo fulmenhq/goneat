@@ -52,6 +52,20 @@
 - **Quality Gates**: Implement automated validation with human oversight
 - **Documentation**: Maintain clear, formatted documentation in `docs/` tree
 
+#### Build and Binary Management
+
+**DO**: Use proper build targets that keep binaries organized
+```bash
+make build          # Builds to dist/goneat (proper)
+dist/goneat assess  # Use dist/ binaries for testing
+```
+
+**DO NOT**: Use direct go build commands that pollute the repository
+```bash
+go build -o goneat .  # ❌ Creates binary in repo root
+./goneat assess       # ❌ Uses polluted binary
+```
+
 ### Attribution Standards
 
 **All agent contributions MUST follow the detailed attribution format specified in [docs/standards/agentic-attribution.md](docs/standards/agentic-attribution.md)**

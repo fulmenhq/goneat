@@ -8,7 +8,6 @@ properties:
     description: Schema version
     default: "1.0.0"
     enum: ["1.0.0"]
-
   hooks:
     type: object
     description: Hook configurations by type
@@ -28,7 +27,6 @@ properties:
         description: Post-commit hook commands
         items:
           $ref: "#/definitions/hookCommand"
-
   optimization:
     type: object
     description: Global optimization settings
@@ -46,7 +44,6 @@ properties:
         description: Parallel execution mode
         enum: ["auto", "sequential", "max"]
         default: "auto"
-
 definitions:
   hookCommand:
     type: object
@@ -110,11 +107,9 @@ definitions:
           type: string
           enum: ["merge", "rebase", "amend", "tag", "initial"]
         examples: [["merge"], ["rebase", "amend"]]
-
 required:
   - version
   - hooks
-
 examples:
   - version: "1.0.0"
     hooks:
