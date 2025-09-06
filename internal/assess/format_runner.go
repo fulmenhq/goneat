@@ -66,6 +66,17 @@ func (r *FormatAssessmentRunner) Assess(ctx context.Context, target string, conf
 		supportedFiles = append(supportedFiles, item.Path)
 	}
 
+	// Apply IncludeFiles scoping if provided: restrict to matching files
+	if len(config.IncludeFiles) > 0 {
+		var scoped []string
+		for _, f := range supportedFiles {
+			if r.shouldIncludeFile(f, config) {
+				scoped = append(scoped, f)
+			}
+		}
+		supportedFiles = scoped
+	}
+
 	// Subset: Go files for gofmt-based structural formatting checks
 	var goFiles []string
 	for _, f := range supportedFiles {

@@ -84,146 +84,154 @@ type WorkManifest struct {
 
 // PlannerConfig configures the work planner
 type PlannerConfig struct {
-    Command            string
-    Paths              []string
-    IncludePatterns    []string
-    ExcludePatterns    []string
-    MaxDepth           int
-    ContentTypes       []string
-    ExecutionStrategy  string
-    GroupBySize        bool
-    GroupByContentType bool
-    IgnoreFile         string // Path to ignore file (e.g., .goneatignore)
-    EnableFinalizer    bool   // Whether finalizer operations are enabled
-    Verbose            bool   // Enable verbose logging for skipped files
-    // Ignore overrides
-    NoIgnore            bool     // Disable .goneatignore/.gitignore matching entirely
-    ForceIncludePatterns []string // Paths/globs to force-include even if ignored
+	Command            string
+	Paths              []string
+	IncludePatterns    []string
+	ExcludePatterns    []string
+	MaxDepth           int
+	ContentTypes       []string
+	ExecutionStrategy  string
+	GroupBySize        bool
+	GroupByContentType bool
+	IgnoreFile         string // Path to ignore file (e.g., .goneatignore)
+	EnableFinalizer    bool   // Whether finalizer operations are enabled
+	Verbose            bool   // Enable verbose logging for skipped files
+	// Ignore overrides
+	NoIgnore             bool     // Disable .goneatignore/.gitignore matching entirely
+	ForceIncludePatterns []string // Paths/globs to force-include even if ignored
 }
 
 // Planner handles work planning and manifest generation
 type Planner struct {
-    config        PlannerConfig
-    ignoreMatcher *ignore.Matcher
+	config        PlannerConfig
+	ignoreMatcher *ignore.Matcher
 }
 
 // NewPlanner creates a new work planner
 func NewPlanner(config PlannerConfig) *Planner {
-    planner := &Planner{config: config}
+	planner := &Planner{config: config}
 
-    // Initialize ignore matcher
-    if config.NoIgnore {
-        planner.ignoreMatcher = nil
-    } else if matcher, err := ignore.NewMatcher("."); err != nil {
-        logger.Warn(fmt.Sprintf("Failed to initialize ignore matcher: %v", err))
-        planner.ignoreMatcher = nil
-    } else {
-        planner.ignoreMatcher = matcher
-    }
+	// Initialize ignore matcher
+	if config.NoIgnore {
+		planner.ignoreMatcher = nil
+	} else if matcher, err := ignore.NewMatcher("."); err != nil {
+		logger.Warn(fmt.Sprintf("Failed to initialize ignore matcher: %v", err))
+		planner.ignoreMatcher = nil
+	} else {
+		planner.ignoreMatcher = matcher
+	}
 
 	return planner
 }
 
 // matchesIgnorePattern checks if a path matches any ignore pattern using go-git
 func (p *Planner) matchesIgnorePattern(path string) bool {
-    if p.ignoreMatcher == nil {
-        return false
-    }
-    return p.ignoreMatcher.IsIgnored(path)
+	if p.ignoreMatcher == nil {
+		return false
+	}
+	return p.ignoreMatcher.IsIgnored(path)
 }
 
 // matchesForceInclude checks if a path matches any force-include pattern
 func (p *Planner) matchesForceInclude(path string) bool {
-    if len(p.config.ForceIncludePatterns) == 0 {
-        return false
-    }
-    // Normalize to forward slashes for matching
-    rel := filepath.ToSlash(path)
-    // Ensure relative from WD for consistency
-    if wd, err := os.Getwd(); err == nil {
-        if r, err := filepath.Rel(wd, path); err == nil {
-            rel = filepath.ToSlash(r)
-        }
-    }
-    for _, pat := range p.config.ForceIncludePatterns {
-        pat = filepath.ToSlash(strings.TrimSpace(pat))
-        if pat == "" { continue }
-        // Directory recursive include: suffix '/**' or explicit directory path
-        if strings.HasSuffix(pat, "/**") {
-            prefix := strings.TrimSuffix(pat, "/**")
-            if rel == prefix || strings.HasPrefix(rel, prefix+"/") {
-                return true
-            }
-        } else {
-            // Try full-path match first
-            if ok, _ := pathMatch(pat, rel); ok {
-                return true
-            }
-            // Also try basename match for simple globs like '*.yaml'
-            base := filepath.Base(rel)
-            if ok, _ := pathMatch(pat, base); ok {
-                return true
-            }
-            // If pattern is a directory path, treat as recursive include
-            if fi, err := os.Stat(pat); err == nil && fi.IsDir() {
-                dir := filepath.ToSlash(pat)
-                if rel == dir || strings.HasPrefix(rel, dir+"/") {
-                    return true
-                }
-            }
-        }
-    }
-    return false
+	if len(p.config.ForceIncludePatterns) == 0 {
+		return false
+	}
+	// Normalize to forward slashes for matching
+	rel := filepath.ToSlash(path)
+	// Ensure relative from WD for consistency
+	if wd, err := os.Getwd(); err == nil {
+		if r, err := filepath.Rel(wd, path); err == nil {
+			rel = filepath.ToSlash(r)
+		}
+	}
+	for _, pat := range p.config.ForceIncludePatterns {
+		pat = filepath.ToSlash(strings.TrimSpace(pat))
+		if pat == "" {
+			continue
+		}
+		// Directory recursive include: suffix '/**' or explicit directory path
+		if strings.HasSuffix(pat, "/**") {
+			prefix := strings.TrimSuffix(pat, "/**")
+			if rel == prefix || strings.HasPrefix(rel, prefix+"/") {
+				return true
+			}
+		} else {
+			// Try full-path match first
+			if ok, _ := pathMatch(pat, rel); ok {
+				return true
+			}
+			// Also try basename match for simple globs like '*.yaml'
+			base := filepath.Base(rel)
+			if ok, _ := pathMatch(pat, base); ok {
+				return true
+			}
+			// If pattern is a directory path, treat as recursive include
+			if fi, err := os.Stat(pat); err == nil && fi.IsDir() {
+				dir := filepath.ToSlash(pat)
+				if rel == dir || strings.HasPrefix(rel, dir+"/") {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // dirHasForcedDescendant returns true if any force-include pattern lies under the given directory path.
 func (p *Planner) dirHasForcedDescendant(dir string) bool {
-    if len(p.config.ForceIncludePatterns) == 0 {
-        return false
-    }
-    // Normalize directory path relative to WD with forward slashes
-    rel := filepath.ToSlash(dir)
-    if wd, err := os.Getwd(); err == nil {
-        if r, err := filepath.Rel(wd, dir); err == nil {
-            rel = filepath.ToSlash(r)
-        }
-    }
-    if rel != "" && !strings.HasSuffix(rel, "/") {
-        rel += "/"
-    }
-    for _, raw := range p.config.ForceIncludePatterns {
-        pat := filepath.ToSlash(strings.TrimSpace(raw))
-        if pat == "" { continue }
-        // Derive anchor before any wildcard
-        anchor := pat
-        if i := strings.IndexAny(anchor, "*[?"); i >= 0 {
-            anchor = anchor[:i]
-        }
-        anchor = strings.TrimSuffix(anchor, "**")
-        anchor = strings.TrimSuffix(anchor, "*")
-        anchor = strings.TrimSuffix(anchor, "?")
-        anchor = strings.Trim(anchor, "/")
-        if anchor == "" { continue }
-        // Ensure anchor normalized as directory-like string
-        a := anchor
-        if !strings.HasSuffix(a, "/") { a += "/" }
-        // If anchor is deeper than dir (i.e., inside this dir), keep descending
-        if strings.HasPrefix(a, rel) {
-            return true
-        }
-    }
-    return false
+	if len(p.config.ForceIncludePatterns) == 0 {
+		return false
+	}
+	// Normalize directory path relative to WD with forward slashes
+	rel := filepath.ToSlash(dir)
+	if wd, err := os.Getwd(); err == nil {
+		if r, err := filepath.Rel(wd, dir); err == nil {
+			rel = filepath.ToSlash(r)
+		}
+	}
+	if rel != "" && !strings.HasSuffix(rel, "/") {
+		rel += "/"
+	}
+	for _, raw := range p.config.ForceIncludePatterns {
+		pat := filepath.ToSlash(strings.TrimSpace(raw))
+		if pat == "" {
+			continue
+		}
+		// Derive anchor before any wildcard
+		anchor := pat
+		if i := strings.IndexAny(anchor, "*[?"); i >= 0 {
+			anchor = anchor[:i]
+		}
+		anchor = strings.TrimSuffix(anchor, "**")
+		anchor = strings.TrimSuffix(anchor, "*")
+		anchor = strings.TrimSuffix(anchor, "?")
+		anchor = strings.Trim(anchor, "/")
+		if anchor == "" {
+			continue
+		}
+		// Ensure anchor normalized as directory-like string
+		a := anchor
+		if !strings.HasSuffix(a, "/") {
+			a += "/"
+		}
+		// If anchor is deeper than dir (i.e., inside this dir), keep descending
+		if strings.HasPrefix(a, rel) {
+			return true
+		}
+	}
+	return false
 }
 
 // pathMatch performs glob-style matching on slash-separated paths
 func pathMatch(pattern, name string) (bool, error) {
-    // Use filepath.Match but with forward slashes; it treats path separator specially on current OS.
-    // Patterns are already normalized to '/'. For safety, fall back to simple compare if pattern has no glob.
-    if !strings.ContainsAny(pattern, "*?[") {
-        return pattern == name, nil
-    }
-    // Try matching against forward-slash normalized name
-    return filepath.Match(pattern, name)
+	// Use filepath.Match but with forward slashes; it treats path separator specially on current OS.
+	// Patterns are already normalized to '/'. For safety, fall back to simple compare if pattern has no glob.
+	if !strings.ContainsAny(pattern, "*?[") {
+		return pattern == name, nil
+	}
+	// Try matching against forward-slash normalized name
+	return filepath.Match(pattern, name)
 }
 
 // GenerateManifest generates a complete work manifest
@@ -280,18 +288,18 @@ func (p *Planner) discoverFiles() ([]string, error) {
 				return err
 			}
 
-            // Skip directories if they match ignore patterns (unless overridden)
-            if d.IsDir() {
-                if p.ignoreMatcher != nil && p.ignoreMatcher.IsIgnoredDir(path) && !p.config.NoIgnore {
-                    if p.config.Verbose {
-                        logger.Debug(fmt.Sprintf("Skipping directory %s: matches ignore pattern", path))
-                    }
-                    // If any force-include pattern targets this directory or a descendant, do not skip
-                    if p.matchesForceInclude(path) || p.dirHasForcedDescendant(path) {
-                        return nil
-                    }
-                    return filepath.SkipDir
-                }
+			// Skip directories if they match ignore patterns (unless overridden)
+			if d.IsDir() {
+				if p.ignoreMatcher != nil && p.ignoreMatcher.IsIgnoredDir(path) && !p.config.NoIgnore {
+					if p.config.Verbose {
+						logger.Debug(fmt.Sprintf("Skipping directory %s: matches ignore pattern", path))
+					}
+					// If any force-include pattern targets this directory or a descendant, do not skip
+					if p.matchesForceInclude(path) || p.dirHasForcedDescendant(path) {
+						return nil
+					}
+					return filepath.SkipDir
+				}
 
 				// Skip directories if we have depth limits
 				if p.config.MaxDepth > 0 {
@@ -327,13 +335,13 @@ func (p *Planner) discoverFiles() ([]string, error) {
 func (p *Planner) shouldIncludeFile(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 
-    // Check .goneatignore patterns first (unless overridden or forced)
-    if !p.config.NoIgnore && p.matchesIgnorePattern(path) && !p.matchesForceInclude(path) {
-        if p.config.Verbose {
-            logger.Debug(fmt.Sprintf("Skipping %s: matches ignore pattern", path))
-        }
-        return false
-    }
+	// Check .goneatignore patterns first (unless overridden or forced)
+	if !p.config.NoIgnore && p.matchesIgnorePattern(path) && !p.matchesForceInclude(path) {
+		if p.config.Verbose {
+			logger.Debug(fmt.Sprintf("Skipping %s: matches ignore pattern", path))
+		}
+		return false
+	}
 
 	// Check content type filters
 	if len(p.config.ContentTypes) > 0 {

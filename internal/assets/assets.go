@@ -11,17 +11,16 @@ var JSONSchemaDraft07 []byte
 var JSONSchemaDraft2020_12 []byte
 
 func GetJSONSchemaMeta(draft string) ([]byte, bool) {
-    switch draft {
-    case "draft-07", "07", "7":
-        return JSONSchemaDraft07, len(JSONSchemaDraft07) > 0
-    case "2020-12", "2020", "202012":
-        return JSONSchemaDraft2020_12, len(JSONSchemaDraft2020_12) > 0
-    default:
-        // default to 2020-12 if available
-        if len(JSONSchemaDraft2020_12) > 0 {
-            return JSONSchemaDraft2020_12, true
-        }
-        return nil, false
-    }
+	switch draft {
+	case "draft-07", "07", "7":
+		return JSONSchemaDraft07, len(JSONSchemaDraft07) > 0
+	case "2020-12", "2020", "202012":
+		return JSONSchemaDraft2020_12, len(JSONSchemaDraft2020_12) > 0
+	default:
+		// default to 2020-12 if available
+		if len(JSONSchemaDraft2020_12) > 0 {
+			return JSONSchemaDraft2020_12, true
+		}
+		return nil, false
+	}
 }
-

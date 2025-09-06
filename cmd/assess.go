@@ -50,12 +50,12 @@ var (
 	assessTimeout             time.Duration
 	assessOutput              string
 	assessIncludeFiles        []string
-    assessExcludeFiles        []string
-    assessNoIgnore            bool
-    assessForceInclude        []string
-    assessSchemaEnableMeta    bool
-    assessScope               bool
-    assessHook                string
+	assessExcludeFiles        []string
+	assessNoIgnore            bool
+	assessForceInclude        []string
+	assessSchemaEnableMeta    bool
+	assessScope               bool
+	assessHook                string
 	assessHookManifest        string
 	assessOpen                bool
 	assessBenchmark           bool
@@ -92,15 +92,15 @@ func setupAssessCommandFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&assessFailOn, "fail-on", "critical", "Fail if issues at or above severity (critical, high, medium, low)")
 	cmd.Flags().DurationVar(&assessTimeout, "timeout", 5*time.Minute, "Assessment timeout")
 	cmd.Flags().StringVarP(&assessOutput, "output", "o", "", "Output file (default: stdout)")
-    cmd.Flags().StringSliceVar(&assessIncludeFiles, "include", []string{}, "Include only these files/patterns")
-    cmd.Flags().StringSliceVar(&assessExcludeFiles, "exclude", []string{}, "Exclude these files/patterns")
-    // Ignore override flags
-    cmd.Flags().BoolVar(&assessNoIgnore, "no-ignore", false, "Disable .goneatignore/.gitignore for discovery (scan everything in scope)")
-    cmd.Flags().StringSliceVar(&assessForceInclude, "force-include", []string{}, "Force-include paths or globs even if ignored (repeatable). Examples: --force-include tests/fixtures/** --force-include \"schemas/**\"")
-    // Schema validation options
-    cmd.Flags().BoolVar(&assessSchemaEnableMeta, "schema-enable-meta", false, "Attempt meta-schema validation using embedded drafts (may require network for remote $refs)")
-    // Scoped discovery
-    cmd.Flags().BoolVar(&assessScope, "scope", false, "Limit traversal scope to include paths and force-include anchors")
+	cmd.Flags().StringSliceVar(&assessIncludeFiles, "include", []string{}, "Include only these files/patterns")
+	cmd.Flags().StringSliceVar(&assessExcludeFiles, "exclude", []string{}, "Exclude these files/patterns")
+	// Ignore override flags
+	cmd.Flags().BoolVar(&assessNoIgnore, "no-ignore", false, "Disable .goneatignore/.gitignore for discovery (scan everything in scope)")
+	cmd.Flags().StringSliceVar(&assessForceInclude, "force-include", []string{}, "Force-include paths or globs even if ignored (repeatable). Examples: --force-include tests/fixtures/** --force-include \"schemas/**\"")
+	// Schema validation options
+	cmd.Flags().BoolVar(&assessSchemaEnableMeta, "schema-enable-meta", false, "Attempt meta-schema validation using embedded drafts (may require network for remote $refs)")
+	// Scoped discovery
+	cmd.Flags().BoolVar(&assessScope, "scope", false, "Limit traversal scope to include paths and force-include anchors")
 	// Concurrency
 	cmd.Flags().IntVar(&assessConcurrency, "concurrency", 0, "Number of concurrent runners (0 uses --concurrency-percent)")
 	cmd.Flags().IntVar(&assessConcurrencyPercent, "concurrency-percent", 50, "Percent of CPU cores to use for concurrency (1-100)")
@@ -149,11 +149,11 @@ func runAssess(cmd *cobra.Command, args []string) error {
 	assessOpen, _ = flags.GetBool("open")
 	assessConcurrency, _ = flags.GetInt("concurrency")
 	assessConcurrencyPercent, _ = flags.GetInt("concurrency-percent")
-    assessStagedOnly, _ = flags.GetBool("staged-only")
-    assessNoIgnore, _ = flags.GetBool("no-ignore")
-    assessForceInclude, _ = flags.GetStringSlice("force-include")
-    assessSchemaEnableMeta, _ = flags.GetBool("schema-enable-meta")
-    assessScope, _ = flags.GetBool("scope")
+	assessStagedOnly, _ = flags.GetBool("staged-only")
+	assessNoIgnore, _ = flags.GetBool("no-ignore")
+	assessForceInclude, _ = flags.GetStringSlice("force-include")
+	assessSchemaEnableMeta, _ = flags.GetBool("schema-enable-meta")
+	assessScope, _ = flags.GetBool("scope")
 
 	// Validate mode value
 	switch assessMode {
@@ -216,22 +216,22 @@ func runAssess(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create assessment configuration
-    config := assess.AssessmentConfig{
-        Mode:               mode,
-        Verbose:            assessVerbose,
-        Timeout:            assessTimeout,
-        IncludeFiles:       assessIncludeFiles,
-        ExcludeFiles:       assessExcludeFiles,
-        NoIgnore:           assessNoIgnore,
-        ForceInclude:       assessForceInclude,
-        SchemaEnableMeta:   assessSchemaEnableMeta,
-        Scope:              assessScope,
-        PriorityString:     assessPriority,
-        FailOnSeverity:     failOnSeverity,
-        Concurrency:        assessConcurrency,
-        ConcurrencyPercent: assessConcurrencyPercent,
-        TrackSuppressions:  assessTrackSuppressions,
-    }
+	config := assess.AssessmentConfig{
+		Mode:               mode,
+		Verbose:            assessVerbose,
+		Timeout:            assessTimeout,
+		IncludeFiles:       assessIncludeFiles,
+		ExcludeFiles:       assessExcludeFiles,
+		NoIgnore:           assessNoIgnore,
+		ForceInclude:       assessForceInclude,
+		SchemaEnableMeta:   assessSchemaEnableMeta,
+		Scope:              assessScope,
+		PriorityString:     assessPriority,
+		FailOnSeverity:     failOnSeverity,
+		Concurrency:        assessConcurrency,
+		ConcurrencyPercent: assessConcurrencyPercent,
+		TrackSuppressions:  assessTrackSuppressions,
+	}
 
 	// If limited to staged files, populate IncludeFiles from git staged set
 	if assessStagedOnly {
@@ -377,30 +377,38 @@ func shouldFail(report *assess.AssessmentReport, failOnSeverity assess.IssueSeve
 
 // printSchemaSummary prints a short schema issues summary (top files + first messages)
 func printSchemaSummary(report *assess.AssessmentReport) {
-    // Count total schema issues
-    total := 0
-    counts := map[string]int{}
-    var first []assess.Issue
-    for _, cr := range report.Categories {
-        if cr.Category != assess.CategorySchema { continue }
-        for _, is := range cr.Issues {
-            total++
-            counts[is.File]++
-            if len(first) < 3 { first = append(first, is) }
-        }
-    }
-    if total == 0 { return }
-    logger.Info(fmt.Sprintf("Schema validation found %d issue(s)", total))
-    // Print up to 3 top files
-    printed := 0
-    for file, cnt := range counts {
-        logger.Info(fmt.Sprintf("  - %s: %d", file, cnt))
-        printed++
-        if printed >= 3 { break }
-    }
-    for _, is := range first {
-        logger.Info(fmt.Sprintf("    %s: %s", is.SubCategory, is.Message))
-    }
+	// Count total schema issues
+	total := 0
+	counts := map[string]int{}
+	var first []assess.Issue
+	for _, cr := range report.Categories {
+		if cr.Category != assess.CategorySchema {
+			continue
+		}
+		for _, is := range cr.Issues {
+			total++
+			counts[is.File]++
+			if len(first) < 3 {
+				first = append(first, is)
+			}
+		}
+	}
+	if total == 0 {
+		return
+	}
+	logger.Info(fmt.Sprintf("Schema validation found %d issue(s)", total))
+	// Print up to 3 top files
+	printed := 0
+	for file, cnt := range counts {
+		logger.Info(fmt.Sprintf("  - %s: %d", file, cnt))
+		printed++
+		if printed >= 3 {
+			break
+		}
+	}
+	for _, is := range first {
+		logger.Info(fmt.Sprintf("    %s: %s", is.SubCategory, is.Message))
+	}
 }
 
 // runHookMode executes assessment in hook mode
@@ -425,7 +433,47 @@ func runHookMode(cmd *cobra.Command, hookType, manifestPath string, config asses
 		hookConfig = getDefaultHookConfig(hookType)
 	}
 
-	// Filter categories based on hook type
+	// Determine effective categories for THIS hook (do not rely on global defaults)
+	// Prefer categories parsed from the hook's args, then sensible per-hook defaults
+	if hookConfig != nil {
+		// Try to parse categories from the specific hook's args
+		if cats := parseCategoriesFromHooks(hookConfig.Hooks, hookType); len(cats) > 0 {
+			hookConfig.Categories = cats
+		} else {
+			// Fallback per hook defaults
+			switch hookType {
+			case "pre-push":
+				hookConfig.Categories = []string{"format", "lint", "security"}
+			default: // pre-commit
+				hookConfig.Categories = []string{"format", "lint"}
+			}
+		}
+		// Determine effective fail-on for this hook from args, fallback per-hook
+		if val := parseFailOnFromHooks(hookConfig.Hooks, hookType); val != "" {
+			hookConfig.FailOn = val
+		} else {
+			switch hookType {
+			case "pre-push":
+				hookConfig.FailOn = "high"
+			default: // pre-commit
+				hookConfig.FailOn = "medium"
+			}
+		}
+
+		// Keep assessment config aligned for accurate metadata and behavior
+		switch hookConfig.FailOn {
+		case "critical":
+			config.FailOnSeverity = assess.SeverityCritical
+		case "high":
+			config.FailOnSeverity = assess.SeverityHigh
+		case "medium":
+			config.FailOnSeverity = assess.SeverityMedium
+		case "low":
+			config.FailOnSeverity = assess.SeverityLow
+		}
+	}
+
+	// Filter categories based on computed hook configuration
 	config = filterCategoriesForHook(config, hookType, hookConfig)
 
 	// Apply staged-only optimization if configured
@@ -483,6 +531,37 @@ type HookConfig struct {
 		CacheResults     bool   `yaml:"cache_results"`
 		Parallel         string `yaml:"parallel"`
 	} `yaml:"optimization"`
+}
+
+// parseCategoriesFromHooks extracts --categories value from hook args
+func parseCategoriesFromHooks(hooks map[string][]struct {
+	Command  string   `yaml:"command"`
+	Args     []string `yaml:"args"`
+	Fallback string   `yaml:"fallback"`
+}, hookType string) []string {
+	var out []string
+	if hookConfigs, exists := hooks[hookType]; exists {
+		for _, hookConfig := range hookConfigs {
+			if hookConfig.Command == "assess" {
+				for i, arg := range hookConfig.Args {
+					if arg == "--categories" && i+1 < len(hookConfig.Args) {
+						raw := strings.TrimSpace(hookConfig.Args[i+1])
+						if raw != "" {
+							parts := strings.Split(raw, ",")
+							for _, p := range parts {
+								pp := strings.TrimSpace(p)
+								if pp != "" {
+									out = append(out, pp)
+								}
+							}
+						}
+						return out
+					}
+				}
+			}
+		}
+	}
+	return out
 }
 
 // parseFailOnFromHooks extracts --fail-on value from hook args

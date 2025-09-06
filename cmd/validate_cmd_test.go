@@ -41,13 +41,22 @@ func TestValidate_Bad_Single_JSON(t *testing.T) {
     // Ensure schema runner is real (other tests may replace it)
     assess.RegisterAssessmentRunner(assess.CategorySchema, assess.NewSchemaAssessmentRunner())
     // Ensure we run from repo root so relative paths resolve
-    wd, _ := os.Getwd()
-    defer os.Chdir(wd)
+    wd, err := os.Getwd()
+    if err != nil {
+        t.Fatalf("getwd: %v", err)
+    }
+    defer func() {
+        if err := os.Chdir(wd); err != nil {
+            t.Fatalf("chdir back failed: %v", err)
+        }
+    }()
     // Walk up to find go.mod
     cur := wd
     for i := 0; i < 5; i++ {
         if _, err := os.Stat(filepath.Join(cur, "go.mod")); err == nil {
-            _ = os.Chdir(cur)
+            if err := os.Chdir(cur); err != nil {
+                t.Fatalf("chdir to module root failed: %v", err)
+            }
             break
         }
         cur = filepath.Dir(cur)

@@ -211,7 +211,7 @@ func (r *LintAssessmentRunner) runGolangCILintWithMode(target string, config Ass
 				goFiles = append(goFiles, file)
 			}
 		}
-		
+
 		if len(goFiles) > 0 {
 			// Append only Go files (golangci-lint requires .go files for named file mode)
 			args = append(args, goFiles...)

@@ -16,8 +16,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/3leaps/goneat/pkg/logger"
 	"runtime"
+
+	"github.com/3leaps/goneat/pkg/logger"
 )
 
 // SecurityAssessmentRunner implements AssessmentRunner for vulnerability/code security scanners
@@ -249,6 +250,16 @@ func (r *SecurityAssessmentRunner) runGosec(ctx context.Context, moduleRoot stri
 			}
 			// Parse with retry on malformed non-empty output
 			iss, supps, perr := r.parseGosecOutputWithSuppressions(output)
+			// Post-filter to included files when scoped (reduces noise from dir-level scans)
+			if len(config.IncludeFiles) > 0 && len(iss) > 0 {
+				var fIss []Issue
+				for _, is := range iss {
+					if pathMatchesAny(is.File, config.IncludeFiles) {
+						fIss = append(fIss, is)
+					}
+				}
+				iss = fIss
+			}
 			if perr != nil {
 				// Exponential backoff retry (max 2 tries)
 				backoff := 200 * time.Millisecond
@@ -577,7 +588,32 @@ func (r *SecurityAssessmentRunner) mapGosecSeverity(ruleID string) IssueSeverity
 // runGovulncheck executes govulncheck and parses JSON-lines output into issues
 func (r *SecurityAssessmentRunner) runGovulncheck(ctx context.Context, moduleRoot string, config AssessmentConfig) ([]Issue, error) {
 	// govulncheck emits a JSON event stream; capture and parse line-wise
-	args := []string{"-json", "./..."}
+	// When scoped, prefer limiting to impacted package directories.
+	args := []string{"-json"}
+	if len(config.IncludeFiles) > 0 {
+		// Build unique package dirs relative to module root
+		dirs := r.uniqueDirs(config.IncludeFiles)
+		for _, d := range dirs {
+			// Normalize path relative to moduleRoot if possible
+			rel := d
+			if abs, err := filepath.Abs(d); err == nil {
+				if strings.HasPrefix(abs, moduleRoot) {
+					if r2, err2 := filepath.Rel(moduleRoot, abs); err2 == nil {
+						rel = r2
+					}
+				}
+			}
+			if rel == "." {
+				rel = "./..."
+			}
+			args = append(args, rel)
+		}
+		if len(dirs) == 0 {
+			args = append(args, "./...")
+		}
+	} else {
+		args = append(args, "./...")
+	}
 	rctx, cancel := r.effectiveToolContext(ctx, config.Timeout, config.SecurityGovulncheckTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(rctx, "govulncheck", args...)
@@ -662,8 +698,14 @@ func (r *SecurityAssessmentRunner) parseGovulnEventLine(moduleRoot, line string)
 func (r *SecurityAssessmentRunner) runGitleaks(ctx context.Context, moduleRoot string, config AssessmentConfig) ([]Issue, error) {
 	// Clean and validate moduleRoot path to prevent path traversal
 	moduleRoot = filepath.Clean(moduleRoot)
-	// Prefer reporting to stdout in JSON
-	args := []string{"detect", "--no-banner", "--report-format", "json", "--report-path", "-", "--source", moduleRoot}
+	// Prefer reporting to stdout in JSON; when scoped, limit source to nearest common ancestor
+	source := moduleRoot
+	if len(config.IncludeFiles) > 0 {
+		if ca := nearestCommonAncestor(config.IncludeFiles); ca != "" {
+			source = ca
+		}
+	}
+	args := []string{"detect", "--no-banner", "--report-format", "json", "--report-path", "-", "--source", source}
 	rctx, cancel := r.effectiveToolContext(ctx, config.Timeout, 0)
 	defer cancel()
 	cmd := exec.CommandContext(rctx, "gitleaks", args...) // #nosec G204
@@ -694,6 +736,17 @@ func (r *SecurityAssessmentRunner) runGitleaks(ctx context.Context, moduleRoot s
 	issues, perr := r.parseGitleaksOutput(data)
 	if perr != nil {
 		logger.Warn(fmt.Sprintf("gitleaks parse failed: %v", perr))
+	}
+
+	// If scoped, post-filter to included files only
+	if len(config.IncludeFiles) > 0 && len(issues) > 0 {
+		var filtered []Issue
+		for _, is := range issues {
+			if pathMatchesAny(is.File, config.IncludeFiles) {
+				filtered = append(filtered, is)
+			}
+		}
+		issues = filtered
 	}
 
 	if err := cmd.Wait(); err != nil {
@@ -759,6 +812,53 @@ func (r *SecurityAssessmentRunner) mapGitleaksFinding(m map[string]interface{}) 
 		SubCategory: "secrets",
 		AutoFixable: false,
 	}
+}
+
+// pathMatchesAny checks if path contains any of the include anchors (substring match, absolute-safe)
+func pathMatchesAny(path string, includes []string) bool {
+	p := filepath.Clean(path)
+	ap := p
+	if !filepath.IsAbs(ap) {
+		if a2, err := filepath.Abs(ap); err == nil {
+			ap = a2
+		}
+	}
+	for _, inc := range includes {
+		inc = filepath.Clean(inc)
+		if strings.Contains(p, inc) {
+			return true
+		}
+		if a2, err := filepath.Abs(inc); err == nil && strings.Contains(ap, a2) {
+			return true
+		}
+	}
+	return false
+}
+
+// nearestCommonAncestor returns the closest common directory for the given file list
+func nearestCommonAncestor(files []string) string {
+	if len(files) == 0 {
+		return ""
+	}
+	// Convert to absolute directories
+	dirs := make([]string, 0, len(files))
+	for _, f := range files {
+		d := filepath.Dir(f)
+		if !filepath.IsAbs(d) {
+			if a2, err := filepath.Abs(d); err == nil {
+				d = a2
+			}
+		}
+		dirs = append(dirs, filepath.Clean(d))
+	}
+	// Initialize with first
+	common := dirs[0]
+	for _, d := range dirs[1:] {
+		for !strings.HasPrefix(d+string(os.PathSeparator), common+string(os.PathSeparator)) && common != string(os.PathSeparator) {
+			common = filepath.Dir(common)
+		}
+	}
+	return common
 }
 
 func getString(m map[string]interface{}, keys []string) string {
