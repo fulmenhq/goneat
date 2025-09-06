@@ -128,6 +128,10 @@ goneat assess --include "*.go" --exclude "vendor/**"
 | `--include`    | strings | Include file patterns         | `--include "*.go"`           |
 | `--exclude`    | strings | Exclude file patterns         | `--exclude "vendor/**"`      |
 | `--categories` | string  | Specific categories to assess | `--categories "format,lint"` |
+| `--no-ignore`  | boolean | Disable ignore files          | `--no-ignore`                 |
+| `--force-include` | strings | Force-include ignored paths (repeatable) | `--force-include 'tests/fixtures/**'` |
+| `--scope`      | boolean | Limit traversal to include/force anchors | `--scope` |
+| `--schema-enable-meta` | boolean | Attempt schema meta validation | `--schema-enable-meta` |
 
 ### Hook Integration Flags
 
@@ -204,6 +208,33 @@ Alternatively use the convenience command:
 
 ```bash
 goneat validate --include schemas/ --format json --output validate.json
+```
+
+### Ignore Overrides (DX)
+
+Run assess on paths normally ignored by `.goneatignore`:
+
+```bash
+# Bring back ignored fixtures only (recommended; targeted directory)
+goneat assess --scope --categories schema \
+  --include tests/fixtures/schemas/bad/ \
+  --force-include 'tests/fixtures/schemas/bad/**' \
+  --format json -o schemas-report.json
+
+# Validate a single ignored file
+goneat assess --categories schema --include . \
+  --force-include 'tests/fixtures/schemas/bad/bad-additionalprops-wrong.json'
+
+# Scan everything in scope (may be noisy/slow)
+goneat assess --no-ignore --include . --format concise
+```
+
+### Quoting Globs
+
+Quote glob patterns to prevent your shell from expanding them before goneat receives them:
+
+```bash
+goneat assess --force-include '**/*.yaml' --categories schema
 ```
 
 ## Output Formats

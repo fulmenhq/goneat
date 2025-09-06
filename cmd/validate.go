@@ -16,14 +16,18 @@ import (
 )
 
 var (
-	validateFormat       string
-	validateVerbose      bool
-	validateFailOn       string
-	validateTimeout      time.Duration
-	validateOutput       string
-	validateIncludeFiles []string
-	validateExcludeFiles []string
-	validateAutoDetect   bool
+    validateFormat       string
+    validateVerbose      bool
+    validateFailOn       string
+    validateTimeout      time.Duration
+    validateOutput       string
+    validateIncludeFiles []string
+    validateExcludeFiles []string
+    validateAutoDetect   bool
+    validateNoIgnore     bool
+    validateForceInclude []string
+    validateEnableMeta   bool
+    validateScope        bool
 )
 
 var validateCmd = &cobra.Command{
@@ -44,12 +48,19 @@ func init() {
 
 	validateCmd.Flags().StringVar(&validateFormat, "format", "markdown", "Output format (markdown, json, html, both)")
 	validateCmd.Flags().BoolVarP(&validateVerbose, "verbose", "v", false, "Verbose output")
-	validateCmd.Flags().StringVar(&validateFailOn, "fail-on", "high", "Fail if issues at or above severity (critical, high, medium, low)")
+    validateCmd.Flags().StringVar(&validateFailOn, "fail-on", "high", "Fail if issues at or above severity (critical, high, medium, low)")
 	validateCmd.Flags().DurationVar(&validateTimeout, "timeout", 3*time.Minute, "Validation timeout")
 	validateCmd.Flags().StringVarP(&validateOutput, "output", "o", "", "Output file (default: stdout)")
-	validateCmd.Flags().StringSliceVar(&validateIncludeFiles, "include", []string{}, "Include only these files/patterns")
-	validateCmd.Flags().StringSliceVar(&validateExcludeFiles, "exclude", []string{}, "Exclude these files/patterns")
-	validateCmd.Flags().BoolVar(&validateAutoDetect, "auto-detect", false, "Auto-detect schema files (preview; uses extensions)")
+    validateCmd.Flags().StringSliceVar(&validateIncludeFiles, "include", []string{}, "Include only these files/patterns")
+    validateCmd.Flags().StringSliceVar(&validateExcludeFiles, "exclude", []string{}, "Exclude these files/patterns")
+    validateCmd.Flags().BoolVar(&validateAutoDetect, "auto-detect", false, "Auto-detect schema files (preview; uses extensions)")
+    // Ignore override flags
+    validateCmd.Flags().BoolVar(&validateNoIgnore, "no-ignore", false, "Disable .goneatignore/.gitignore for discovery (scan everything in scope)")
+    validateCmd.Flags().StringSliceVar(&validateForceInclude, "force-include", []string{}, "Force-include paths or globs even if ignored (repeatable). Examples: --force-include tests/fixtures/schemas/bad/** --force-include \"**/*.schema.yaml\"")
+    // Schema validation options
+    validateCmd.Flags().BoolVar(&validateEnableMeta, "enable-meta", false, "Attempt meta-schema validation using embedded drafts (may require network for remote $refs)")
+    // Scoped discovery
+    validateCmd.Flags().BoolVar(&validateScope, "scope", false, "Limit traversal scope to include paths and force-include anchors")
 }
 
 func runValidate(cmd *cobra.Command, args []string) error {
@@ -101,6 +112,10 @@ func runValidate(cmd *cobra.Command, args []string) error {
         Timeout:            validateTimeout,
         IncludeFiles:       []string{},
         ExcludeFiles:       validateExcludeFiles,
+        NoIgnore:           validateNoIgnore,
+        ForceInclude:       validateForceInclude,
+        SchemaEnableMeta:   validateEnableMeta,
+        Scope:              validateScope,
         FailOnSeverity:     failOn,
         SelectedCategories: []string{string(assess.CategorySchema)},
     }

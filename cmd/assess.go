@@ -50,8 +50,12 @@ var (
 	assessTimeout             time.Duration
 	assessOutput              string
 	assessIncludeFiles        []string
-	assessExcludeFiles        []string
-	assessHook                string
+    assessExcludeFiles        []string
+    assessNoIgnore            bool
+    assessForceInclude        []string
+    assessSchemaEnableMeta    bool
+    assessScope               bool
+    assessHook                string
 	assessHookManifest        string
 	assessOpen                bool
 	assessBenchmark           bool
@@ -88,8 +92,15 @@ func setupAssessCommandFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&assessFailOn, "fail-on", "critical", "Fail if issues at or above severity (critical, high, medium, low)")
 	cmd.Flags().DurationVar(&assessTimeout, "timeout", 5*time.Minute, "Assessment timeout")
 	cmd.Flags().StringVarP(&assessOutput, "output", "o", "", "Output file (default: stdout)")
-	cmd.Flags().StringSliceVar(&assessIncludeFiles, "include", []string{}, "Include only these files/patterns")
-	cmd.Flags().StringSliceVar(&assessExcludeFiles, "exclude", []string{}, "Exclude these files/patterns")
+    cmd.Flags().StringSliceVar(&assessIncludeFiles, "include", []string{}, "Include only these files/patterns")
+    cmd.Flags().StringSliceVar(&assessExcludeFiles, "exclude", []string{}, "Exclude these files/patterns")
+    // Ignore override flags
+    cmd.Flags().BoolVar(&assessNoIgnore, "no-ignore", false, "Disable .goneatignore/.gitignore for discovery (scan everything in scope)")
+    cmd.Flags().StringSliceVar(&assessForceInclude, "force-include", []string{}, "Force-include paths or globs even if ignored (repeatable). Examples: --force-include tests/fixtures/** --force-include \"schemas/**\"")
+    // Schema validation options
+    cmd.Flags().BoolVar(&assessSchemaEnableMeta, "schema-enable-meta", false, "Attempt meta-schema validation using embedded drafts (may require network for remote $refs)")
+    // Scoped discovery
+    cmd.Flags().BoolVar(&assessScope, "scope", false, "Limit traversal scope to include paths and force-include anchors")
 	// Concurrency
 	cmd.Flags().IntVar(&assessConcurrency, "concurrency", 0, "Number of concurrent runners (0 uses --concurrency-percent)")
 	cmd.Flags().IntVar(&assessConcurrencyPercent, "concurrency-percent", 50, "Percent of CPU cores to use for concurrency (1-100)")
@@ -138,7 +149,11 @@ func runAssess(cmd *cobra.Command, args []string) error {
 	assessOpen, _ = flags.GetBool("open")
 	assessConcurrency, _ = flags.GetInt("concurrency")
 	assessConcurrencyPercent, _ = flags.GetInt("concurrency-percent")
-	assessStagedOnly, _ = flags.GetBool("staged-only")
+    assessStagedOnly, _ = flags.GetBool("staged-only")
+    assessNoIgnore, _ = flags.GetBool("no-ignore")
+    assessForceInclude, _ = flags.GetStringSlice("force-include")
+    assessSchemaEnableMeta, _ = flags.GetBool("schema-enable-meta")
+    assessScope, _ = flags.GetBool("scope")
 
 	// Validate mode value
 	switch assessMode {
@@ -201,18 +216,22 @@ func runAssess(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create assessment configuration
-	config := assess.AssessmentConfig{
-		Mode:               mode,
-		Verbose:            assessVerbose,
-		Timeout:            assessTimeout,
-		IncludeFiles:       assessIncludeFiles,
-		ExcludeFiles:       assessExcludeFiles,
-		PriorityString:     assessPriority,
-		FailOnSeverity:     failOnSeverity,
-		Concurrency:        assessConcurrency,
-		ConcurrencyPercent: assessConcurrencyPercent,
-		TrackSuppressions:  assessTrackSuppressions,
-	}
+    config := assess.AssessmentConfig{
+        Mode:               mode,
+        Verbose:            assessVerbose,
+        Timeout:            assessTimeout,
+        IncludeFiles:       assessIncludeFiles,
+        ExcludeFiles:       assessExcludeFiles,
+        NoIgnore:           assessNoIgnore,
+        ForceInclude:       assessForceInclude,
+        SchemaEnableMeta:   assessSchemaEnableMeta,
+        Scope:              assessScope,
+        PriorityString:     assessPriority,
+        FailOnSeverity:     failOnSeverity,
+        Concurrency:        assessConcurrency,
+        ConcurrencyPercent: assessConcurrencyPercent,
+        TrackSuppressions:  assessTrackSuppressions,
+    }
 
 	// If limited to staged files, populate IncludeFiles from git staged set
 	if assessStagedOnly {

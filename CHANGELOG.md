@@ -19,6 +19,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Build and test infrastructure
 
+## [0.2.0-rc.1] - 2025-09-05
+
+### Added
+
+- Schema validation (JSON/YAML) with offline-first structural checks (Draft-07, 2020-12)
+- New flags for discovery control:
+  - `--scope` to limit traversal to include paths and force-include anchors
+  - `--force-include` to bring back ignored files/dirs (repeatable; glob-friendly)
+  - `--no-ignore` to bypass ignore files for a run
+  - `--enable-meta` / `--schema-enable-meta` to perform meta-schema validation (opt-in)
+- Non-schema JSON/YAML fixtures in both good and bad sets to ensure no false positives
+
+### Changed
+
+- Improved file discovery to avoid skipping ancestors of forced paths
+- Scoped-dir discovery uses targeted traversal for predictable DX
+- Documentation updated with quoting globs guidance and scoped examples
+
+### Fixed
+
+- Path detection for schema files (relative `schemas` segment)
+- Eliminated previous slowdowns from remote meta-schema fetch during default validation
+
+[0.2.0-rc.1]: https://github.com/3leaps/goneat/compare/v0.1.5...v0.2.0-rc.1
+
 ## [0.1.6] - In Development
 
 ### Added

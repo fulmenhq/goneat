@@ -47,6 +47,44 @@ goneat validate --format json --output validate.json
 - `--fail-on`: Fail gate (`critical`, `high`, `medium`, `low`, `info`)
 - `--timeout`: Validation timeout (default 3m)
 - `--auto-detect`: Preview option to scan `.yaml/.yml/.json` by extension
+- `--no-ignore`: Disable `.goneatignore`/`.gitignore` during discovery (scan everything in scope)
+ - `--force-include`: Force-include path(s) or glob(s) even if ignored (repeatable)
+ - `--enable-meta`: Attempt meta-schema validation (may require network for remote $refs)
+ - `--scope`: Limit traversal to `--include` paths and anchors from `--force-include` (clean DX)
+
+### Ignore Overrides (DX)
+
+Use these when you want to validate files under paths that are normally ignored (e.g., `tests/fixtures/**`).
+
+Examples:
+
+```bash
+# Validate a whole ignored folder recursively (targeted directory)
+goneat validate --scope \
+  --include tests/fixtures/schemas/bad/ \
+  --force-include 'tests/fixtures/schemas/bad/**' \
+  --format json -o bad.json
+
+# Validate a single ignored file
+goneat validate --include . \
+  --force-include tests/fixtures/schemas/bad/bad-required-wrong.yaml \
+  --format json -o one-file.json
+
+# Bypass ignores completely for current dir (be careful on large trees)
+goneat validate --no-ignore --include . --format json -o all.json
+```
+
+### Quoting Globs
+
+Most shells expand globs before passing them to the CLI. To avoid accidental expansion into positional arguments (which can cause errors like "accepts at most 1 arg(s)"), quote your patterns:
+
+```bash
+# Good (quoted glob stays a single flag value)
+goneat validate --force-include '**/*.schema.yaml'
+
+# Bad (unquoted glob may be expanded by the shell first)
+goneat validate --force-include **/*.schema.yaml
+```
 
 ## Project Config (Preview)
 

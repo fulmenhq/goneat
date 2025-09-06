@@ -1,0 +1,5 @@
+note: This is valid YAML data, not a JSON Schema document.
+items:
+  - one
+  - two
+  - three
