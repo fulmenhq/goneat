@@ -204,7 +204,8 @@ license-audit: ## Audit dependencies for forbidden licenses; fail on detection
 		echo "Installing go-licenses..."; \
 		GOBIN=$$(go env GOPATH)/bin go install github.com/google/go-licenses@latest; \
 	fi
-	@forbidden='GPL|LGPL|AGPL|MPL|CDDL'; \
+	@mkdir -p dist/reports; \
+	forbidden='GPL|LGPL|AGPL|MPL|CDDL'; \
 		out=$$(go-licenses csv .); \
 		echo "$$out" > dist/reports/license-inventory.csv; \
 		if echo "$$out" | rg -E "$$forbidden" >/dev/null; then \
