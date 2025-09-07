@@ -2,6 +2,13 @@ module github.com/fulmenhq/goneat
 
 go 1.25.0
 
+// Retract pre-migration tags that have mismatched module path (3leaps → fulmenhq)
+retract (
+    v0.1.2 // module path migrated; do not use
+    v0.1.3 // module path migrated; do not use
+    v0.1.4 // module path migrated; do not use
+)
+
 require (
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
