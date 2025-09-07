@@ -1,0 +1,215 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://schemas.goneat.dev/suppression-report/v1.0.0
+$version: 1.0.0
+title: Goneat Suppression Report Schema
+description: Schema for security suppression tracking in assessment reports
+type: object
+definitions:
+  suppression:
+    type: object
+    description: A single suppression instance
+    properties:
+      tool:
+        type: string
+        description: Security tool that found the issue
+        examples: [gosec, govulncheck, bandit, semgrep, biome]
+      rule_id:
+        type: string
+        description: Tool-specific rule identifier
+        examples: ["G304", "G204", "B104", "CWE-89"]
+      file:
+        type: string
+        description: File path where suppression appears
+        format: uri-reference
+      line:
+        type: integer
+        description: Line number of the suppression
+        minimum: 1
+      column:
+        type: integer
+        description: Column position (if available)
+        minimum: 0
+      syntax:
+        type: string
+        description: The actual suppression comment syntax used
+        examples:
+          - "#nosec G304"
+          - "// #nosec"
+          - "# nosec B104"
+          - "// biome-ignore lint/security/noGlobalEval"
+          - "// eslint-disable-next-line security/detect-eval-with-expression"
+      reason:
+        type: string
+        description: Extracted reason from comment (if provided)
+        examples:
+          - "Path validated in middleware"
+          - "Test fixture only"
+          - "Required for plugin system"
+      severity:
+        type: string
+        description: Original severity of the suppressed issue
+        enum: [critical, high, medium, low, info]
+      age_days:
+        type: integer
+        description: Days since suppression was added (if tracked in git)
+        minimum: 0
+      author:
+        type: string
+        description: Git author who added the suppression (if available)
+        examples: ["@3leapsdave", "@arch-eagle"]
+      commit:
+        type: string
+        description: Git commit SHA where suppression was added
+        pattern: "^[a-f0-9]{7,40}$"
+      metadata:
+        type: object
+        description: Additional tool-specific or goneat metadata
+        additionalProperties: true
+    required: [tool, file, line, syntax]
+    additionalProperties: false
+properties:
+  suppressions:
+    type: array
+    description: List of all suppressions found
+    items:
+      $ref: "#/definitions/suppression"
+  summary:
+    type: object
+    description: Summary statistics of suppressions
+    properties:
+      total:
+        type: integer
+        description: Total number of suppressions
+        minimum: 0
+      by_tool:
+        type: object
+        description: Count of suppressions by tool
+        additionalProperties:
+          type: integer
+          minimum: 0
+        examples:
+          - gosec: 10
+            bandit: 5
+            biome: 3
+      by_severity:
+        type: object
+        description: Count of suppressions by severity
+        properties:
+          critical:
+            type: integer
+            minimum: 0
+          high:
+            type: integer
+            minimum: 0
+          medium:
+            type: integer
+            minimum: 0
+          low:
+            type: integer
+            minimum: 0
+          info:
+            type: integer
+            minimum: 0
+        additionalProperties: false
+      by_rule:
+        type: object
+        description: Count of suppressions by rule ID
+        additionalProperties:
+          type: integer
+          minimum: 0
+        examples:
+          - G304: 5
+            G204: 3
+            B104: 2
+      with_reason:
+        type: integer
+        description: Count of suppressions that include a reason
+        minimum: 0
+      without_reason:
+        type: integer
+        description: Count of suppressions without a reason
+        minimum: 0
+      average_age_days:
+        type: number
+        description: Average age of suppressions in days
+        minimum: 0
+      oldest_days:
+        type: integer
+        description: Age of oldest suppression in days
+        minimum: 0
+      newest_days:
+        type: integer
+        description: Age of newest suppression in days
+        minimum: 0
+    required: [total, by_tool, by_severity]
+    additionalProperties: false
+  policy_violations:
+    type: array
+    description: Suppressions that violate policy rules
+    items:
+      type: object
+      properties:
+        suppression:
+          $ref: "#/definitions/suppression"
+        violations:
+          type: array
+          items:
+            type: string
+          examples:
+            - "Missing required reason for high severity"
+            - "Suppression older than 90 days"
+            - "Requires approval from @security-team"
+            - "Rule G401 cannot be suppressed in crypto packages"
+      required: [suppression, violations]
+      additionalProperties: false
+required: [suppressions, summary]
+additionalProperties: false
+examples:
+  - suppressions:
+      - tool: gosec
+        rule_id: G304
+        file: cmd/format.go
+        line: 272
+        syntax: "#nosec G304 - Path validated upstream"
+        reason: "Path validated upstream"
+        severity: medium
+        age_days: 45
+        author: "@3leapsdave"
+      - tool: bandit
+        rule_id: B104
+        file: tests/fixtures/test_creds.py
+        line: 10
+        syntax: "# nosec B104"
+        reason: null
+        severity: high
+        age_days: 120
+    summary:
+      total: 2
+      by_tool:
+        gosec: 1
+        bandit: 1
+      by_severity:
+        critical: 0
+        high: 1
+        medium: 1
+        low: 0
+        info: 0
+      by_rule:
+        G304: 1
+        B104: 1
+      with_reason: 1
+      without_reason: 1
+      average_age_days: 82.5
+      oldest_days: 120
+      newest_days: 45
+    policy_violations:
+      - suppression:
+          tool: bandit
+          rule_id: B104
+          file: tests/fixtures/test_creds.py
+          line: 10
+          syntax: "# nosec B104"
+          severity: high
+        violations:
+          - "Missing required reason for high severity"
+          - "Suppression older than 90 days"
