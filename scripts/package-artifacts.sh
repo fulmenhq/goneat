@@ -5,6 +5,8 @@ PROJECT="goneat"
 VERSION=$(cat VERSION)
 BIN_DIR="bin"
 OUT_DIR="dist/release"
+# Compute absolute output directory to allow packaging from temp dirs
+OUT_DIR_ABS="$(mkdir -p "$OUT_DIR" && cd "$OUT_DIR" && pwd)"
 
 mkdir -p "$OUT_DIR"
 rm -f "$OUT_DIR"/SHA256SUMS
@@ -37,18 +39,18 @@ package() {
 
   case "$archive_ext" in
     tar.gz)
-      (cd "$tmpdir" && tar -czf "$OUT_DIR/$archive_name" "$bin_name")
+      (cd "$tmpdir" && tar -czf "$OUT_DIR_ABS/$archive_name" "$bin_name")
       ;;
     zip)
-      (cd "$tmpdir" && zip -q "$OUT_DIR/$archive_name" "$bin_name")
+      (cd "$tmpdir" && zip -q "$OUT_DIR_ABS/$archive_name" "$bin_name")
       ;;
   esac
 
   # sha256sum portable
   if command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 "$OUT_DIR/$archive_name" | awk '{print $1"  "$2}' >> "$OUT_DIR/SHA256SUMS"
+    shasum -a 256 "$OUT_DIR_ABS/$archive_name" | awk '{print $1"  "$2}' >> "$OUT_DIR_ABS/SHA256SUMS"
   elif command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "$OUT_DIR/$archive_name" >> "$OUT_DIR/SHA256SUMS"
+    sha256sum "$OUT_DIR_ABS/$archive_name" >> "$OUT_DIR_ABS/SHA256SUMS"
   else
     echo "No sha256 tool available" >&2; exit 1
   fi
@@ -73,4 +75,4 @@ if [[ "${SIGN:-}" == "1" ]]; then
   fi
 fi
 
-echo "Artifacts in $OUT_DIR:" && ls -lh "$OUT_DIR"
+echo "Artifacts in $OUT_DIR_ABS:" && ls -lh "$OUT_DIR_ABS"

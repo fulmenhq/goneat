@@ -228,7 +228,7 @@ pre-commit: build ## Run pre-commit checks using goneat (format + lint)
 		exit 1; \
 	fi
 
-pre-push: build ## Run pre-push checks using goneat (format + lint + security)
+pre-push: build-all ## Run pre-push checks using goneat (format + lint + security)
 	@echo "Running pre-push checks with goneat..."
 	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
 		$(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-push; \
