@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-    "github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/logger"
 )
 
 // ExecutionResult represents the result of processing a work item

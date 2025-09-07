@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-    "github.com/fulmenhq/goneat/internal/gitctx"
-    "github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/internal/gitctx"
+	"github.com/fulmenhq/goneat/pkg/logger"
 )
 
 // AssessmentEngine orchestrates the assessment process

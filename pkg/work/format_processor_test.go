@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-    "github.com/fulmenhq/goneat/pkg/config"
+	"github.com/fulmenhq/goneat/pkg/config"
 )
 
 func TestNewFormatProcessor(t *testing.T) {

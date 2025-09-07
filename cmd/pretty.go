@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-    "github.com/fulmenhq/goneat/internal/assess"
+	"github.com/fulmenhq/goneat/internal/assess"
 	"github.com/spf13/cobra"
 )
 

@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-    "github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/logger"
 )
 
 // LintAssessmentRunner implements AssessmentRunner for linting tools like golangci-lint

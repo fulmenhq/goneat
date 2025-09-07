@@ -693,7 +693,7 @@ func TestMatchesForceInclude(t *testing.T) {
 				ForceIncludePatterns: tc.forceIncludePatterns,
 			}
 			planner := NewPlanner(config)
-			
+
 			result := planner.matchesForceInclude(tc.path)
 			if result != tc.expected {
 				t.Errorf("expected %v, got %v", tc.expected, result)
@@ -741,7 +741,7 @@ func TestDirHasForcedDescendant(t *testing.T) {
 				ForceIncludePatterns: tc.forceIncludePatterns,
 			}
 			planner := NewPlanner(config)
-			
+
 			result := planner.dirHasForcedDescendant(tc.dir)
 			if result != tc.expected {
 				t.Errorf("expected %v, got %v", tc.expected, result)
@@ -810,26 +810,26 @@ func TestPathMatch(t *testing.T) {
 
 func TestGroupBySize(t *testing.T) {
 	planner := NewPlanner(PlannerConfig{})
-	
+
 	testItems := []WorkItem{
-		{ID: "small1", Path: "test1.go", EstimatedTime: 0.010},  // 10ms as float64
-		{ID: "small2", Path: "test2.go", EstimatedTime: 0.020},  // 20ms as float64
-		{ID: "large1", Path: "test3.go", EstimatedTime: 0.100},  // 100ms as float64  
-		{ID: "large2", Path: "test4.go", EstimatedTime: 0.150},  // 150ms as float64
+		{ID: "small1", Path: "test1.go", EstimatedTime: 0.010}, // 10ms as float64
+		{ID: "small2", Path: "test2.go", EstimatedTime: 0.020}, // 20ms as float64
+		{ID: "large1", Path: "test3.go", EstimatedTime: 0.100}, // 100ms as float64
+		{ID: "large2", Path: "test4.go", EstimatedTime: 0.150}, // 150ms as float64
 	}
 
 	groups := planner.groupBySize(testItems)
-	
+
 	if len(groups) == 0 {
 		t.Error("expected at least one group, got none")
 	}
-	
+
 	// Verify all items are included
 	totalItems := 0
 	for _, group := range groups {
 		totalItems += len(group.WorkItemIDs)
 	}
-	
+
 	if totalItems != len(testItems) {
 		t.Errorf("expected %d items total, got %d", len(testItems), totalItems)
 	}
@@ -837,30 +837,30 @@ func TestGroupBySize(t *testing.T) {
 
 func TestCreateSizeGroup(t *testing.T) {
 	planner := NewPlanner(PlannerConfig{})
-	
+
 	items := []WorkItem{
-		{ID: "item1", Path: "test1.go", EstimatedTime: 0.010},  // 10ms as float64
-		{ID: "item2", Path: "test2.go", EstimatedTime: 0.020},  // 20ms as float64
+		{ID: "item1", Path: "test1.go", EstimatedTime: 0.010}, // 10ms as float64
+		{ID: "item2", Path: "test2.go", EstimatedTime: 0.020}, // 20ms as float64
 	}
-	
+
 	group := planner.createSizeGroup("test-id", "test-size", items)
-	
+
 	if group.ID != "test-id" {
 		t.Errorf("expected group ID 'test-id', got '%s'", group.ID)
 	}
-	
+
 	if group.Name != "test-size" {
 		t.Errorf("expected group name 'test-size', got '%s'", group.Name)
 	}
-	
+
 	if len(group.WorkItemIDs) != 2 {
 		t.Errorf("expected 2 items, got %d", len(group.WorkItemIDs))
 	}
-	
+
 	if group.Strategy != "size_based" {
 		t.Errorf("expected size_based strategy, got %s", group.Strategy)
 	}
-	
+
 	if group.EstimatedTotalTime <= 0 {
 		t.Error("expected positive estimated time")
 	}

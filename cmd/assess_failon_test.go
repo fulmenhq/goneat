@@ -3,7 +3,7 @@ package cmd
 import (
 	"testing"
 
-    "github.com/fulmenhq/goneat/internal/assess"
+	"github.com/fulmenhq/goneat/internal/assess"
 )
 
 func makeReportWithSeverities(sevs []assess.IssueSeverity) *assess.AssessmentReport {

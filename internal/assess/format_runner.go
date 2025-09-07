@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-    "github.com/fulmenhq/goneat/pkg/format/finalizer"
-    "github.com/fulmenhq/goneat/pkg/logger"
-    "github.com/fulmenhq/goneat/pkg/work"
+	"github.com/fulmenhq/goneat/pkg/format/finalizer"
+	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/work"
 )
 
 // FormatAssessmentRunner implements AssessmentRunner for the format command

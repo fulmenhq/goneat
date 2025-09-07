@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-    "github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/logger"
 )
 
 // StaticAnalysisAssessmentRunner implements AssessmentRunner for static analysis tools like go vet

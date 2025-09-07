@@ -18,7 +18,7 @@ func (m *mockProcessor) ProcessWorkItem(ctx context.Context, item *WorkItem, dry
 	if m.processingTime > 0 {
 		time.Sleep(m.processingTime)
 	}
-	
+
 	if m.shouldError {
 		return ExecutionResult{
 			WorkItemID: item.ID,
@@ -27,7 +27,7 @@ func (m *mockProcessor) ProcessWorkItem(ctx context.Context, item *WorkItem, dry
 			Duration:   m.processingTime,
 		}
 	}
-	
+
 	return ExecutionResult{
 		WorkItemID: item.ID,
 		Success:    true,
@@ -38,16 +38,16 @@ func (m *mockProcessor) ProcessWorkItem(ctx context.Context, item *WorkItem, dry
 
 func TestNewDispatcher(t *testing.T) {
 	processor := &mockProcessor{}
-	
+
 	testCases := []struct {
-		name           string
-		config         DispatcherConfig
+		name            string
+		config          DispatcherConfig
 		expectedWorkers int
 		expectedTimeout time.Duration
 	}{
 		{
-			name: "default config",
-			config: DispatcherConfig{},
+			name:            "default config",
+			config:          DispatcherConfig{},
 			expectedWorkers: runtime.NumCPU(),
 			expectedTimeout: 5 * time.Minute,
 		},
@@ -73,19 +73,19 @@ func TestNewDispatcher(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			dispatcher := NewDispatcher(tc.config, processor)
-			
+
 			if dispatcher == nil {
 				t.Fatal("expected dispatcher to be created, got nil")
 			}
-			
+
 			if dispatcher.config.MaxWorkers != tc.expectedWorkers {
 				t.Errorf("expected MaxWorkers %d, got %d", tc.expectedWorkers, dispatcher.config.MaxWorkers)
 			}
-			
+
 			if dispatcher.config.Timeout != tc.expectedTimeout {
 				t.Errorf("expected Timeout %v, got %v", tc.expectedTimeout, dispatcher.config.Timeout)
 			}
-			
+
 			if dispatcher.processor != processor {
 				t.Error("expected processor to be set correctly")
 			}
@@ -141,7 +141,7 @@ func TestGetRecommendedWorkerCount(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result := GetRecommendedWorkerCount(tc.manifest)
-			
+
 			if result != tc.expected {
 				t.Errorf("expected %d, got %d", tc.expected, result)
 			}
@@ -216,11 +216,11 @@ func TestValidateManifest(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			err := ValidateManifest(tc.manifest)
-			
+
 			if tc.shouldError && err == nil {
 				t.Error("expected error, got nil")
 			}
-			
+
 			if !tc.shouldError && err != nil {
 				t.Errorf("expected no error, got %v", err)
 			}
@@ -253,19 +253,19 @@ func TestExecuteManifest(t *testing.T) {
 		}
 
 		summary, err := dispatcher.ExecuteManifest(context.Background(), manifest)
-		
+
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
-		
+
 		if summary.TotalItems != 2 {
 			t.Errorf("expected 2 total items, got %d", summary.TotalItems)
 		}
-		
+
 		if summary.Successful != 2 {
 			t.Errorf("expected 2 successful items, got %d", summary.Successful)
 		}
-		
+
 		if summary.Failed != 0 {
 			t.Errorf("expected 0 failed items, got %d", summary.Failed)
 		}
@@ -285,7 +285,7 @@ func TestExecuteManifest(t *testing.T) {
 			Groups: []WorkGroup{
 				{
 					ID:          "group1",
-					Name:        "Go Files", 
+					Name:        "Go Files",
 					Strategy:    "parallel",
 					WorkItemIDs: []string{"item1"},
 				},
@@ -293,15 +293,15 @@ func TestExecuteManifest(t *testing.T) {
 		}
 
 		summary, err := errorDispatcher.ExecuteManifest(context.Background(), manifest)
-		
+
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
-		
+
 		if summary.Failed != 1 {
 			t.Errorf("expected 1 failed item, got %d", summary.Failed)
 		}
-		
+
 		if summary.Successful != 0 {
 			t.Errorf("expected 0 successful items, got %d", summary.Successful)
 		}
@@ -314,12 +314,12 @@ func TestExecuteManifest(t *testing.T) {
 		}
 
 		summary, err := dispatcher.ExecuteManifest(context.Background(), emptyManifest)
-		
+
 		// ExecuteManifest doesn't validate, it just executes what's given
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
-		
+
 		if summary.TotalItems != 0 {
 			t.Errorf("expected 0 total items, got %d", summary.TotalItems)
 		}
@@ -348,19 +348,19 @@ func TestExecuteGroup(t *testing.T) {
 		}
 
 		summary, err := dispatcher.ExecuteGroup(context.Background(), manifest, "test-group")
-		
+
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
-		
+
 		if summary.TotalItems != 2 {
 			t.Errorf("expected 2 total items, got %d", summary.TotalItems)
 		}
-		
+
 		if summary.Successful != 2 {
 			t.Errorf("expected 2 successful items, got %d", summary.Successful)
 		}
-		
+
 		if summary.Failed != 0 {
 			t.Errorf("expected 0 failed items, got %d", summary.Failed)
 		}
@@ -373,7 +373,7 @@ func TestExecuteGroup(t *testing.T) {
 		}
 
 		_, err := dispatcher.ExecuteGroup(context.Background(), manifest, "nonexistent")
-		
+
 		if err == nil {
 			t.Error("expected error for nonexistent group, got nil")
 		}

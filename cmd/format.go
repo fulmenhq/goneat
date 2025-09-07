@@ -17,12 +17,12 @@ import (
 	"sync/atomic"
 	"time"
 
-    "github.com/fulmenhq/goneat/internal/ops"
-    "github.com/fulmenhq/goneat/pkg/config"
-    "github.com/fulmenhq/goneat/pkg/exitcode"
-    "github.com/fulmenhq/goneat/pkg/format/finalizer"
-    "github.com/fulmenhq/goneat/pkg/logger"
-    "github.com/fulmenhq/goneat/pkg/work"
+	"github.com/fulmenhq/goneat/internal/ops"
+	"github.com/fulmenhq/goneat/pkg/config"
+	"github.com/fulmenhq/goneat/pkg/exitcode"
+	"github.com/fulmenhq/goneat/pkg/format/finalizer"
+	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/work"
 	"github.com/spf13/cobra"
 )
 

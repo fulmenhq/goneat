@@ -6,7 +6,7 @@ package cmd
 import (
 	"fmt"
 
-    "github.com/fulmenhq/goneat/internal/ops"
+	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/spf13/cobra"
 )
 

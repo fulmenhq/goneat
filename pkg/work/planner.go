@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-    "github.com/fulmenhq/goneat/pkg/ignore"
-    "github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/ignore"
+	"github.com/fulmenhq/goneat/pkg/logger"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )

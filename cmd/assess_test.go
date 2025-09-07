@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-    "github.com/fulmenhq/goneat/internal/assess"
+	"github.com/fulmenhq/goneat/internal/assess"
 )
 
 // minimal fake runner for CLI tests (no external tools)
@@ -134,19 +134,19 @@ func TestShouldFailHook(t *testing.T) {
 }
 
 func TestAssessCLI_Modes(t *testing.T) {
-    // Save and reset registry via test helpers for isolation
-    originalRegistry := assess.GetAssessmentRunnerRegistry()
-    testRegistry := assess.ResetRegistryForTesting()
-    // Register fake runners
-    testRegistry.RegisterRunner(assess.CategoryFormat, &cliFakeRunner{})
-    testRegistry.RegisterRunner(assess.CategorySecurity, &cliFakeRunner{})
-    testRegistry.RegisterRunner(assess.CategoryLint, &cliFakeRunner{})
-    testRegistry.RegisterRunner(assess.CategoryStaticAnalysis, &cliFakeRunner{})
-    testRegistry.RegisterRunner(assess.CategorySchema, &cliFakeRunner{})
-    t.Cleanup(func() {
-        assess.RestoreRegistry(originalRegistry)
-        assessMode, assessNoOp, assessCheck, assessFix = "", false, false, false
-    })
+	// Save and reset registry via test helpers for isolation
+	originalRegistry := assess.GetAssessmentRunnerRegistry()
+	testRegistry := assess.ResetRegistryForTesting()
+	// Register fake runners
+	testRegistry.RegisterRunner(assess.CategoryFormat, &cliFakeRunner{})
+	testRegistry.RegisterRunner(assess.CategorySecurity, &cliFakeRunner{})
+	testRegistry.RegisterRunner(assess.CategoryLint, &cliFakeRunner{})
+	testRegistry.RegisterRunner(assess.CategoryStaticAnalysis, &cliFakeRunner{})
+	testRegistry.RegisterRunner(assess.CategorySchema, &cliFakeRunner{})
+	t.Cleanup(func() {
+		assess.RestoreRegistry(originalRegistry)
+		assessMode, assessNoOp, assessCheck, assessFix = "", false, false, false
+	})
 
 	testCases := []struct {
 		name          string
@@ -166,7 +166,7 @@ func TestAssessCLI_Modes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Reset global mode flags for each subtest
 			assessMode, assessNoOp, assessCheck, assessFix = "", false, false, false
-			
+
 			// Build a fresh command instance to avoid flag reuse across subtests
 			cmd := &cobra.Command{Use: "assess", RunE: runAssess}
 			setupAssessCommandFlags(cmd)
@@ -190,7 +190,7 @@ func TestAssessCLI_Modes(t *testing.T) {
 // TODO: Re-enable when context handling is properly implemented in tests
 
 func TestAssessCLI_FailOnThresholds(t *testing.T) {
-    assessMode, assessNoOp, assessCheck, assessFix = "check", false, false, false
+	assessMode, assessNoOp, assessCheck, assessFix = "check", false, false, false
 
 	// Create a runner that returns high severity issues
 	highSeverityRunner := &configurableFakeRunner{
@@ -203,11 +203,11 @@ func TestAssessCLI_FailOnThresholds(t *testing.T) {
 	}
 
 	// Save original registry and runner for category
-    originalRegistry := assess.GetAssessmentRunnerRegistry()
-    _ = assess.ResetRegistryForTesting()
-    // Register fake for test
-    assess.RegisterAssessmentRunner(assess.CategorySecurity, highSeverityRunner)
-    t.Cleanup(func() { assess.RestoreRegistry(originalRegistry) })
+	originalRegistry := assess.GetAssessmentRunnerRegistry()
+	_ = assess.ResetRegistryForTesting()
+	// Register fake for test
+	assess.RegisterAssessmentRunner(assess.CategorySecurity, highSeverityRunner)
+	t.Cleanup(func() { assess.RestoreRegistry(originalRegistry) })
 
 	testCases := []struct {
 		name       string
@@ -224,7 +224,7 @@ func TestAssessCLI_FailOnThresholds(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Reset global mode flags for each subtest
 			assessMode, assessNoOp, assessCheck, assessFix = "check", false, false, false
-			
+
 			buf := new(bytes.Buffer)
 			assessCmd.SetOut(buf)
 			assessCmd.SetErr(buf)
@@ -247,37 +247,37 @@ func TestAssessCLI_FailOnThresholds(t *testing.T) {
 }
 
 func TestAssessCLI_InvalidTarget(t *testing.T) {
-    // Reset mode flags to avoid bleed-over from other tests
-    assessMode, assessNoOp, assessCheck, assessFix = "check", false, false, false
-    out, err := execRoot(t, []string{"assess", "/nonexistent/path"})
-    if err == nil {
-        t.Fatalf("expected error for nonexistent target directory\n%s", out)
-    }
-    if !strings.Contains(err.Error(), "target directory does not exist") {
-        t.Fatalf("expected 'target directory does not exist' error, got: %v", err)
-    }
+	// Reset mode flags to avoid bleed-over from other tests
+	assessMode, assessNoOp, assessCheck, assessFix = "check", false, false, false
+	out, err := execRoot(t, []string{"assess", "/nonexistent/path"})
+	if err == nil {
+		t.Fatalf("expected error for nonexistent target directory\n%s", out)
+	}
+	if !strings.Contains(err.Error(), "target directory does not exist") {
+		t.Fatalf("expected 'target directory does not exist' error, got: %v", err)
+	}
 }
 
 func TestAssessCLI_CustomPriorities(t *testing.T) {
-    // Reset global mode flags
-    assessMode, assessNoOp, assessCheck, assessFix = "check", false, false, false
-    
-    // Save and restore registry to isolate test
-    originalRegistry := assess.GetAssessmentRunnerRegistry()
-    t.Cleanup(func() { assess.RestoreRegistry(originalRegistry) })
-    
-    // Exercise JSON output path with stable category to avoid external tool deps
-    out, err := execRoot(t, []string{"assess", "--mode", "check", "--categories", "schema", "--priority", "schema=1", "--format", "json", "--concurrency", "1", "."})
-    if err != nil {
-        t.Fatalf("unexpected error: %v\n%s", err, out)
-    }
-    if !strings.Contains(out, `"tool":`) {
-        preview := out
-        if len(out) > 200 {
-            preview = out[:200]
-        }
-        t.Fatalf("expected JSON output, got: %s", preview)
-    }
+	// Reset global mode flags
+	assessMode, assessNoOp, assessCheck, assessFix = "check", false, false, false
+
+	// Save and restore registry to isolate test
+	originalRegistry := assess.GetAssessmentRunnerRegistry()
+	t.Cleanup(func() { assess.RestoreRegistry(originalRegistry) })
+
+	// Exercise JSON output path with stable category to avoid external tool deps
+	out, err := execRoot(t, []string{"assess", "--mode", "check", "--categories", "schema", "--priority", "schema=1", "--format", "json", "--concurrency", "1", "."})
+	if err != nil {
+		t.Fatalf("unexpected error: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, `"tool":`) {
+		preview := out
+		if len(out) > 200 {
+			preview = out[:200]
+		}
+		t.Fatalf("expected JSON output, got: %s", preview)
+	}
 }
 
 func TestAssessCLI_Timeout(t *testing.T) {
@@ -342,41 +342,41 @@ func TestExecute(t *testing.T) {
 			t.Fatalf("Execute() panicked: %v", r)
 		}
 	}()
-	
+
 	// This would normally call os.Exit, but in test we just ensure no panic
 	// Execute() // Cannot call directly due to os.Exit calls
 }
 
 // TestRunInfo tests the info command
 func TestRunInfo(t *testing.T) {
-    out, err := execRoot(t, []string{"info", "--help"})
-    if err != nil {
-        t.Fatalf("unexpected error: %v\n%s", err, out)
-    }
-    if !strings.Contains(out, "licenses") {
-        t.Fatalf("expected info help to mention 'licenses', got: %s", out)
-    }
+	out, err := execRoot(t, []string{"info", "--help"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "licenses") {
+		t.Fatalf("expected info help to mention 'licenses', got: %s", out)
+	}
 }
 
 // TestRunVersion tests the version command
 func TestRunVersion(t *testing.T) {
-    out, err := execRoot(t, []string{"version"})
-    if err != nil {
-        t.Fatalf("unexpected error: %v\n%s", err, out)
-    }
-    if strings.TrimSpace(out) == "" {
-        t.Fatalf("expected version output, got empty string")
-    }
+	out, err := execRoot(t, []string{"version"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v\n%s", err, out)
+	}
+	if strings.TrimSpace(out) == "" {
+		t.Fatalf("expected version output, got empty string")
+	}
 }
 
 // TestRunValidate tests the validate command with existing good schema
 func TestRunValidate(t *testing.T) {
-    // Exercise validate via root path to ensure consistent flag/parent behavior
-    out, err := execRoot(t, []string{"validate", "--include", "schemas/", "--format", "markdown"})
-    if err != nil {
-        t.Fatalf("unexpected error: %v\n%s", err, out)
-    }
-    if strings.TrimSpace(out) == "" {
-        t.Fatalf("expected validation output, got empty")
-    }
+	// Exercise validate via root path to ensure consistent flag/parent behavior
+	out, err := execRoot(t, []string{"validate", "--include", "schemas/", "--format", "markdown"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v\n%s", err, out)
+	}
+	if strings.TrimSpace(out) == "" {
+		t.Fatalf("expected validation output, got empty")
+	}
 }
