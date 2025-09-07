@@ -38,6 +38,13 @@ This checklist ensures all requirements are met before releasing goneat to the G
 - [ ] **API Documentation**: All commands documented
 - [ ] **Standards**: All standards documents current
 
+### Licensing Compliance ✅
+
+- [ ] **License Audit**: `make license-audit` passes (no GPL/LGPL/AGPL/MPL/CDDL)
+- [ ] **Inventory Updated**: `make license-inventory` refreshes `docs/licenses/inventory.csv`
+- [ ] **License Texts Saved**: `make license-save` updates `docs/licenses/third-party/`
+- [ ] **Inventory MD Reviewed**: Update `docs/licenses/inventory.md` if dependencies changed materially
+
 ## Release Execution
 
 ### Git Operations ✅

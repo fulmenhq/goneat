@@ -27,7 +27,8 @@ GOFMT := $(GOCMD) fmt
 LDFLAGS := -ldflags "-X 'main.Version=$(VERSION)'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
-.PHONY: help build clean test fmt format-docs version-get version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease
+.PHONY: help build clean test fmt format-docs version-get version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease \
+	license-inventory license-save license-audit update-licenses
 
 # Default target
 all: clean build fmt
@@ -36,6 +37,11 @@ all: clean build fmt
 help: ## Show this help message
 	@echo "Goneat - Available Make Targets"
 	@echo ""
+	@echo "License targets:"
+	@echo "  license-inventory   - Generate CSV inventory of dependency licenses"
+	@echo "  license-save        - Save third-party license texts to docs/licenses/third-party"
+	@echo "  license-audit       - Fail if forbidden licenses (GPL/LGPL/AGPL/MPL/CDDL) detected"
+	@echo "  update-licenses     - Alias: inventory + save"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-15s %s\n", $$1, $$2}'
 	@echo ""
 
@@ -170,6 +176,46 @@ format-docs: build ## Format documentation files using goneat (dogfooding)
 		echo "❌ goneat binary not found, falling back to manual formatting"; \
 		echo "Please install yamlfmt, jq, and prettier for documentation formatting"; \
 	fi
+
+# License compliance
+license-inventory: ## Generate CSV inventory of dependency licenses
+	@echo "🔎 Generating license inventory (CSV)..."
+	@mkdir -p docs/licenses dist/reports
+	@if ! command -v go-licenses >/dev/null 2>&1; then \
+		echo "Installing go-licenses..."; \
+		GOBIN=$$(go env GOPATH)/bin go install github.com/google/go-licenses@latest; \
+	fi
+	@go-licenses csv . | tee docs/licenses/inventory.csv >/dev/null
+	@echo "✅ Wrote docs/licenses/inventory.csv"
+
+license-save: ## Save third-party license texts (for distribution)
+	@echo "📄 Saving third-party license texts..."
+	@mkdir -p docs/licenses/third-party
+	@if ! command -v go-licenses >/dev/null 2>&1; then \
+		echo "Installing go-licenses..."; \
+		GOBIN=$$(go env GOPATH)/bin go install github.com/google/go-licenses@latest; \
+	fi
+	@go-licenses save . --save_path=docs/licenses/third-party
+	@echo "✅ Saved third-party licenses to docs/licenses/third-party"
+
+license-audit: ## Audit dependencies for forbidden licenses; fail on detection
+	@echo "🧪 Auditing dependency licenses..."
+	@if ! command -v go-licenses >/dev/null 2>&1; then \
+		echo "Installing go-licenses..."; \
+		GOBIN=$$(go env GOPATH)/bin go install github.com/google/go-licenses@latest; \
+	fi
+	@forbidden='GPL|LGPL|AGPL|MPL|CDDL'; \
+		out=$$(go-licenses csv .); \
+		echo "$$out" > dist/reports/license-inventory.csv; \
+		if echo "$$out" | rg -E "$$forbidden" >/dev/null; then \
+			echo "❌ Forbidden license detected. See dist/reports/license-inventory.csv"; \
+			echo "   Forbidden patterns: $$forbidden"; \
+			exit 1; \
+		else \
+			echo "✅ No forbidden licenses detected"; \
+		fi
+
+update-licenses: license-inventory license-save ## Update license inventory and third-party texts
 
 # Hook targets (dogfooding)
 pre-commit: build ## Run pre-commit checks using goneat (format + lint)
