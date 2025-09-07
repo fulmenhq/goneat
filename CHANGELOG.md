@@ -326,3 +326,16 @@ When creating a new release, copy this template and fill in the details:
 - 🏗️ Infrastructure changes</content>
   </xai:function_call name="write">
   <parameter name="filePath">goneat/RELEASE_CHECKLIST.md
+## [0.2.0-rc.7] - 2025-09-07
+
+### Added
+- GitHub Actions: License audit workflow (make license-audit) that uploads inventory artifact.
+
+### Changed
+- Pre-push now depends on build-all to ensure binaries are built before gate.
+- Packaging script writes artifacts to dist/release and includes SHA256SUMS.
+- Repo-wide low-severity formatting sweep (Go files).
+- Docs: install instructions and naming clarification in README.
+
+### Notes
+- rc.2–rc.6 were in-progress RCs used to refine the process; rc.7 consolidates the changes into a stable candidate.

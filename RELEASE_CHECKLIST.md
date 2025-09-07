@@ -54,6 +54,15 @@ This checklist ensures all requirements are met before releasing goneat to the G
 - [ ] **Primary Push**: Pushed to GitHub (`make release-push`)
 - [ ] **Backup Push**: Pushed to GitLab (if configured)
 
+### RC Validation Gates ✅
+
+- [ ] Builds produced: `make build-all` (bin/* across platforms)
+- [ ] Packaging successful: `scripts/package-artifacts.sh` (dist/release/* + SHA256SUMS)
+- [ ] License audit workflow green (GitHub Actions)
+- [ ] Pre-push gate passing (fail-on thresholds) after build-all
+- [ ] pkg.go.dev indexing verified for the tag
+- [ ] README/CHANGELOG/RELEASE_NOTES updated for the RC
+
 ### GitHub Release ✅
 
 - [ ] **Release Created**: New release on GitHub
@@ -155,12 +164,14 @@ make build-all              # Build all platforms
 make fmt                    # Format code
 make version-set VERSION=0.1.2  # Update version
 
-# Release execution
-make release                # Complete release process
-# OR manual steps:
-# make release-prep
-# make release-tag
-# make release-push
+# RC validation (do not tag until all pass)
+make build-all              # Build platform binaries
+scripts/package-artifacts.sh  # Create archives + checksums
+make license-audit          # Should pass locally and in CI
+make pre-push               # Runs assess with build gate
+
+# Tag/push only after above succeed
+git tag -a v$VERSION -m "release: v$VERSION" && git push origin v$VERSION
 
 # Post-release validation
 go install github.com/fulmenhq/goneat@v0.1.2

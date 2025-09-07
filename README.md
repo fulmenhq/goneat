@@ -6,6 +6,39 @@
 
 A single CLI to make codebases neat: formatters, linters, security checks, and smart workflows — built for speed and large repositories.
 
+## Quick Start (TL;DR)
+
+1) Install (Go):
+
+```bash
+go install github.com/fulmenhq/goneat@latest
+goneat version
+```
+
+2) Set up hooks (optional, recommended):
+
+```bash
+goneat hooks init
+goneat hooks generate
+goneat hooks install
+```
+
+3) Assess your repo:
+
+```bash
+goneat assess
+```
+
+4) Fix formatting (auto-fixable):
+
+```bash
+goneat format
+```
+
+Notes:
+- Pre-release channel: v0.2.0-rc.X. `@latest` will prefer GA once v0.2.0 is out.
+- Name clarification: This project is not affiliated with any other “goneat”. Use the full module path `github.com/fulmenhq/goneat`.
+
 ## Install
 
 - Go (recommended):
@@ -14,8 +47,25 @@ A single CLI to make codebases neat: formatters, linters, security checks, and s
 go install github.com/fulmenhq/goneat@latest
 ```
 
-- Releases (prebuilt binaries):
-  - https://github.com/fulmenhq/goneat/releases
+- Releases (prebuilt binaries): https://github.com/fulmenhq/goneat/releases
+
+- Homebrew (rc.8+):
+  - After the tap is published:
+  ```bash
+  brew install fulmenhq/goneat/goneat
+  ```
+  - During RC bring-up (temporary), you can install directly from the raw formula for a specific tag:
+  ```bash
+  brew install --formula \
+    https://raw.githubusercontent.com/fulmenhq/goneat/v0.2.0-rc.8/packaging/homebrew/goneat.rb
+  ```
+
+- Scoop (rc.8+):
+  - After the bucket is published:
+  ```powershell
+  scoop bucket add fulmenhq https://github.com/fulmenhq/scoop-bucket
+  scoop install goneat
+  ```
 
 Verify install:
 
