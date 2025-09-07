@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/3leaps/goneat/pkg/config"
-	"github.com/3leaps/goneat/pkg/format/finalizer"
-	"github.com/3leaps/goneat/pkg/logger"
+    "github.com/fulmenhq/goneat/pkg/config"
+    "github.com/fulmenhq/goneat/pkg/format/finalizer"
+    "github.com/fulmenhq/goneat/pkg/logger"
 )
 
 // FormatProcessor implements WorkItemProcessor for formatting operations

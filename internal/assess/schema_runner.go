@@ -10,8 +10,8 @@ import (
 
     "bytes"
     "encoding/json"
-    "github.com/3leaps/goneat/internal/assets"
-    "github.com/3leaps/goneat/pkg/work"
+    "github.com/fulmenhq/goneat/internal/assets"
+    "github.com/fulmenhq/goneat/pkg/work"
     "github.com/xeipuuv/gojsonschema"
     "gopkg.in/yaml.v3"
 )

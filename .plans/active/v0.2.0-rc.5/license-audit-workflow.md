@@ -14,7 +14,7 @@ Add a minimal GitHub Actions workflow to audit dependency licenses on PRs and ma
    - Trigger: pull_request, push to main
    - Setup Go + cache
    - Install `go-licenses`
-   - Run `make license-audit`
+   - Run `make license-audit` (forbidden patterns: `GPL|LGPL|AGPL|MPL|CDDL`)
    - Upload `dist/reports/license-inventory.csv` as artifact
 2. Document in RELEASE_CHECKLIST.md that CI gate must be green for release.
 
@@ -22,6 +22,11 @@ Add a minimal GitHub Actions workflow to audit dependency licenses on PRs and ma
 
 - Keeps RC cadence small and focused; no feature flags required.
 - Complements 0.2.1 work that adds first-class `goneat license` CLI + assess category.
+
+### License inventory write-up alignment
+
+- Ensure our docs clearly treat AGPL as restricted/incompatible for this project.
+- Audit patterns already include AGPL in the forbidden set.
 
 Co-Authored-By: Code Scout <noreply@3leaps.net>
 Co-Authored-By: Forge Neat <noreply@3leaps.net>

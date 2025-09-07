@@ -57,9 +57,9 @@ if [ -z "$GONEAT_BIN" ]; then
   else
     echo "❌ goneat CLI not found. Pre-commit validation requires goneat."
     echo "👉 Install options:"
-    echo "   - Go:   go install github.com/3leaps/goneat@latest   (ensure \$GOPATH/bin in \$PATH)"
+    echo "   - Go:   go install github.com/fulmenhq/goneat@latest   (ensure \$GOPATH/bin in \$PATH)"
     echo "   - Brew: brew install 3leaps/tap/goneat                (macOS, if tap available)"
-    echo "   - Releases: https://github.com/3leaps/goneat/releases"
+    echo "   - Releases: https://github.com/fulmenhq/goneat/releases"
     echo "🔎 Searched: $REPO_ROOT/dist, $HOME/go/bin, /opt/homebrew/bin, /usr/local/bin, $HOME/.local/bin, $HOME/.goneat/bin"
     echo "💡 Tip: export PATH=\"$HOME/go/bin:$HOME/.local/bin:$PATH\""
     exit 1

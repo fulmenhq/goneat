@@ -42,7 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Path detection for schema files (relative `schemas` segment)
 - Eliminated previous slowdowns from remote meta-schema fetch during default validation
 
-[0.2.0-rc.1]: https://github.com/3leaps/goneat/compare/v0.1.5...v0.2.0-rc.1
+[0.2.0-rc.1]: https://github.com/fulmenhq/goneat/compare/v0.1.5...v0.2.0-rc.1
 
 ## [0.1.6] - In Development
 
@@ -94,12 +94,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/3leaps/goneat/compare/v0.1.5...HEAD
-[0.1.5]: https://github.com/3leaps/goneat/compare/v0.1.4...v0.1.5
-[0.1.4]: https://github.com/3leaps/goneat/compare/v0.1.2...v0.1.4
-[0.1.2]: https://github.com/3leaps/goneat/compare/v0.1.1...v0.1.2
-[0.1.1]: https://github.com/3leaps/goneat/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/3leaps/goneat/releases/tag/v0.1.0
+[Unreleased]: https://github.com/fulmenhq/goneat/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/fulmenhq/goneat/compare/v0.1.4...v0.1.5
+[0.1.4]: https://github.com/fulmenhq/goneat/compare/v0.1.2...v0.1.4
+[0.1.2]: https://github.com/fulmenhq/goneat/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/fulmenhq/goneat/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/fulmenhq/goneat/releases/tag/v0.1.0
 
 ## [0.1.4] - 2025-09-04
 

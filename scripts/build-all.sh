@@ -70,5 +70,5 @@ echo "   Total binaries: $(ls bin/ | wc -l)"
 
 echo ""
 echo "🚀 Ready for distribution!"
-echo "   Upload to: https://github.com/3leaps/goneat/releases"
+echo "   Upload to: https://github.com/fulmenhq/goneat/releases"
 echo ""

@@ -1,4 +1,4 @@
-module github.com/3leaps/goneat
+module github.com/fulmenhq/goneat
 
 go 1.25.0
 

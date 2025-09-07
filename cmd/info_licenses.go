@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/3leaps/goneat/internal/ops"
+    "github.com/fulmenhq/goneat/internal/ops"
 	"github.com/spf13/cobra"
 )
 
@@ -84,7 +84,7 @@ func getLicenseInfo() []LicenseInfo {
 	// generated at build time from go.mod analysis
 	return []LicenseInfo{
 		{
-			Module:  "github.com/3leaps/goneat",
+            Module:  "github.com/fulmenhq/goneat",
 			License: "Apache License 2.0",
 			Main:    true,
 		},

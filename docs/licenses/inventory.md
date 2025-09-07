@@ -18,7 +18,7 @@ All dependencies use licenses compatible with Goneat's Apache 2.0 license.
 
 | Package                            | License URL                                                                                                   |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| github.com/3leaps/goneat           | [LICENSE](https://github.com/3leaps/goneat/blob/HEAD/LICENSE)                                                 |
+| github.com/fulmenhq/goneat           | [LICENSE](https://github.com/fulmenhq/goneat/blob/HEAD/LICENSE)                                               |
 | github.com/spf13/afero             | [LICENSE.txt](https://github.com/spf13/afero/blob/v1.12.0/LICENSE.txt)                                        |
 | github.com/spf13/cobra             | [LICENSE.txt](https://github.com/spf13/cobra/blob/v1.9.1/LICENSE.txt)                                         |
 | github.com/xeipuuv/gojsonpointer   | [LICENSE-APACHE-2.0.txt](https://github.com/xeipuuv/gojsonpointer/blob/4e3ac2762d5f/LICENSE-APACHE-2.0.txt)   |
@@ -70,7 +70,7 @@ go-licenses csv . > docs/licenses/inventory.csv
 ## Compliance Notes
 
 - All dependencies are compatible with Apache 2.0
-- No GPL/LGPL dependencies that would contaminate the license
+- No GPL/LGPL/AGPL dependencies (copyleft families) that would contaminate the license
 - All license URLs are verified and accessible
 - Goneat itself is licensed under Apache 2.0
 

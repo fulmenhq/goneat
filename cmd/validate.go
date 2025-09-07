@@ -8,10 +8,10 @@ import (
     "strings"
     "time"
 
-	"github.com/3leaps/goneat/internal/assess"
-	"github.com/3leaps/goneat/internal/ops"
-    "github.com/3leaps/goneat/pkg/logger"
-    cfgpkg "github.com/3leaps/goneat/pkg/config"
+    "github.com/fulmenhq/goneat/internal/assess"
+    "github.com/fulmenhq/goneat/internal/ops"
+    "github.com/fulmenhq/goneat/pkg/logger"
+    cfgpkg "github.com/fulmenhq/goneat/pkg/config"
     "github.com/spf13/cobra"
 )
 

@@ -3,13 +3,13 @@ pkgver=0.0.0
 pkgrel=1
 pkgdesc="Single CLI for format/lint/security with JSON-first output"
 arch=('x86_64' 'aarch64')
-url="https://github.com/3leaps/goneat"
+url="https://github.com/fulmenhq/goneat"
 license=('MIT')
 depends=()
 provides=('goneat')
 conflicts=('goneat')
-source_x86_64=("https://github.com/3leaps/goneat/releases/download/v${pkgver}/goneat_${pkgver}_linux_amd64.tar.gz")
-source_aarch64=("https://github.com/3leaps/goneat/releases/download/v${pkgver}/goneat_${pkgver}_linux_arm64.tar.gz")
+source_x86_64=("https://github.com/fulmenhq/goneat/releases/download/v${pkgver}/goneat_${pkgver}_linux_amd64.tar.gz")
+source_aarch64=("https://github.com/fulmenhq/goneat/releases/download/v${pkgver}/goneat_${pkgver}_linux_arm64.tar.gz")
 sha256sums_x86_64=('CHANGE_ME')
 sha256sums_aarch64=('CHANGE_ME')
 

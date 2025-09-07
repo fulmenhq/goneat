@@ -18,7 +18,7 @@ import (
 
 	"runtime"
 
-	"github.com/3leaps/goneat/pkg/logger"
+    "github.com/fulmenhq/goneat/pkg/logger"
 )
 
 // SecurityAssessmentRunner implements AssessmentRunner for vulnerability/code security scanners

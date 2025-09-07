@@ -45,7 +45,7 @@ func TestInfoLicenses_BasicExecution(t *testing.T) {
 		t.Errorf("expected main project section, got: %s", out)
 	}
 
-	if !strings.Contains(out, "github.com/3leaps/goneat") {
+    if !strings.Contains(out, "github.com/fulmenhq/goneat") {
 		t.Errorf("expected main project module, got: %s", out)
 	}
 }

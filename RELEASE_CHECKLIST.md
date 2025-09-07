@@ -64,8 +64,8 @@ This checklist ensures all requirements are met before releasing goneat to the G
 
 ### Go Module Verification ✅
 
-- [ ] **Module Accessible**: `go get github.com/3leaps/goneat@v1.2.3`
-- [ ] **Installation Works**: `go install github.com/3leaps/goneat@v1.2.3`
+- [ ] **Module Accessible**: `go get github.com/fulmenhq/goneat@v1.2.3`
+- [ ] **Installation Works**: `go install github.com/fulmenhq/goneat@v1.2.3`
 - [ ] **Binary Functional**: Installed binary works correctly
 
 ## Post-Release Validation
@@ -163,7 +163,7 @@ make release                # Complete release process
 # make release-push
 
 # Post-release validation
-go install github.com/3leaps/goneat@v0.1.2
+go install github.com/fulmenhq/goneat@v0.1.2
 goneat version              # Verify installation
 ```
 

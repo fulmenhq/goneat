@@ -320,7 +320,7 @@ release: release-prep release-tag release-push ## Complete release process
 	@echo "🎉 Release v$(VERSION) completed!"
 	@echo ""
 	@echo "📋 Next steps:"
-	@echo "   1. Create GitHub release: https://github.com/3leaps/goneat/releases"
+	@echo "   1. Create GitHub release: https://github.com/fulmenhq/goneat/releases"
 	@echo "   2. Upload artifacts from dist/release/ (binaries + release-notes-v$(VERSION).md)"
 	@echo "   3. Paste release notes from dist/release/release-notes-v$(VERSION).md"
 	@echo "   4. Announce release in relevant channels"

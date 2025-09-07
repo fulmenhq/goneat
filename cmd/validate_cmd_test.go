@@ -6,7 +6,7 @@ import (
     "path/filepath"
     "testing"
 
-    assess "github.com/3leaps/goneat/internal/assess"
+    assess "github.com/fulmenhq/goneat/internal/assess"
 )
 
 type validateJSON struct {

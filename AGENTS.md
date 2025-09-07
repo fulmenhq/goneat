@@ -147,7 +147,7 @@ Authored-By: Dave Thompson <dave.thompson@3leaps.net> [@3leapsdave](https://gith
 - **DevOps Agent**: Forge Neat (supervised by @3leapsdave)
 - **Task Execution Agent**: Code Scout (supervised by @3leapsdave)
 - **Architecture Agent**: Arch Eagle (supervised by @3leapsdave)
-- **Project Repository**: https://github.com/3leaps/goneat
+- **Project Repository**: https://github.com/fulmenhq/goneat
 
 ---
 

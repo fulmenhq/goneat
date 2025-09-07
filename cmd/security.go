@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/3leaps/goneat/internal/assess"
-	"github.com/3leaps/goneat/internal/ops"
-	cfgpkg "github.com/3leaps/goneat/pkg/config"
-	"github.com/3leaps/goneat/pkg/logger"
+    "github.com/fulmenhq/goneat/internal/assess"
+    "github.com/fulmenhq/goneat/internal/ops"
+    cfgpkg "github.com/fulmenhq/goneat/pkg/config"
+    "github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/spf13/cobra"
 )
 

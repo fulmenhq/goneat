@@ -11,7 +11,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/3leaps/goneat/internal/ops"
+    "github.com/fulmenhq/goneat/internal/ops"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )

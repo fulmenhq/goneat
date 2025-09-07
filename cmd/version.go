@@ -17,8 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/3leaps/goneat/internal/ops"
-	"github.com/3leaps/goneat/pkg/logger"
+    "github.com/fulmenhq/goneat/internal/ops"
+    "github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/spf13/cobra"
 )
 

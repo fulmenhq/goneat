@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/3leaps/goneat/internal/assess"
+    "github.com/fulmenhq/goneat/internal/assess"
 )
 
 // minimal fake runner for CLI tests (no external tools)

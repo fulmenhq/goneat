@@ -194,7 +194,7 @@ Each AI agent should use their assigned identity from this MAINTAINERS.md file i
 ### Primary Contact
 
 - **Project Lead**: @3leapsdave
-- **Project Repository**: https://github.com/3leaps/goneat
+- **Project Repository**: https://github.com/fulmenhq/goneat
 
 ### AI Agent Contact
 

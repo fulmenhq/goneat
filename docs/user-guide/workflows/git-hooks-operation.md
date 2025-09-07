@@ -598,7 +598,7 @@ jobs:
         with:
           go-version: "1.21"
       - name: Install goneat
-        run: go install github.com/3leaps/goneat@latest
+        run: go install github.com/fulmenhq/goneat@latest
       - name: Run assessment
         run: goneat assess --format json --output assessment.json
       - name: Upload results
