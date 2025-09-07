@@ -190,7 +190,7 @@ license-inventory: ## Generate CSV inventory of dependency licenses
 
 license-save: ## Save third-party license texts (for distribution)
 	@echo "📄 Saving third-party license texts..."
-	@mkdir -p docs/licenses/third-party
+	@rm -rf docs/licenses/third-party
 	@if ! command -v go-licenses >/dev/null 2>&1; then \
 		echo "Installing go-licenses..."; \
 		GOBIN=$$(go env GOPATH)/bin go install github.com/google/go-licenses@latest; \

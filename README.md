@@ -6,6 +6,16 @@
 
 A single CLI to make codebases neat: formatters, linters, security checks, and smart workflows — built for speed and large repositories.
 
+## Status
+
+- Release: v0.2.0-rc.3 (tagged)
+- Lifecycle Phase: RC (release candidate)
+- Repo Visibility: Private (pending binary distribution verification)
+- Gates: pre-commit (format+lint, fail-on=medium) passing; pre-push (format+lint+security, fail-on=high) passing
+- Licensing: Audit clean (no GPL/LGPL/AGPL/MPL/CDDL); inventory maintained under `docs/licenses/`
+
+Note: This is an active pre-release. Interfaces and outputs may evolve prior to GA.
+
 ## Highlights
 
 - No‑hassle hooks: one manifest, one command, instant DX
