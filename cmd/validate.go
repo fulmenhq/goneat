@@ -164,11 +164,12 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	// Output
 	formatter := assess.NewFormatter(outFmt)
 	formatter.SetTargetPath(target)
-	if validateOutput != "" {
-		f, err := os.Create(validateOutput)
-		if err != nil {
-			return fmt.Errorf("failed to create output: %v", err)
-		}
+        if validateOutput != "" {
+            // Create report file with restrictive permissions
+            f, err := os.OpenFile(filepath.Clean(validateOutput), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+            if err != nil {
+                return fmt.Errorf("failed to create output: %v", err)
+            }
 		defer func() {
 			if err := f.Close(); err != nil {
 				logger.Warn("Failed to close output file", logger.Err(err))

@@ -8,6 +8,10 @@ set -e
 VERSION=$(cat VERSION)
 echo "🔨 Building goneat v$VERSION for all platforms..."
 
+# Ensure embedded assets are synced from SSOT
+echo "📦 Syncing embedded assets (templates/, schemas/)..."
+make -s embed-assets
+
 # Define build targets
 TARGETS=(
     "linux/amd64"

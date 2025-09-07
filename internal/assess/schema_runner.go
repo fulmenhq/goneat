@@ -304,8 +304,8 @@ func isUnderSchemas(path string) bool {
 }
 
 func (r *SchemaAssessmentRunner) checkJSONSyntax(path string) error {
-	// Read file and attempt decode
-	data, err := os.ReadFile(path)
+    // Read file and attempt decode (sanitized and restricted to repo root)
+    data, err := safeReadFile(path) // #nosec G304 -- path cleaned and restricted to working directory
 	if err != nil {
 		return err
 	}
@@ -319,7 +319,8 @@ func (r *SchemaAssessmentRunner) checkJSONSyntax(path string) error {
 }
 
 func (r *SchemaAssessmentRunner) checkYAMLSyntax(path string) error {
-	data, err := os.ReadFile(path)
+    // Read file with sanitized path rules
+    data, err := safeReadFile(path) // #nosec G304 -- path cleaned and restricted to working directory
 	if err != nil {
 		return err
 	}
@@ -339,7 +340,7 @@ func (r *SchemaAssessmentRunner) isLikelyJSONSchema(path string) bool {
 
 // checkJSONSchemaStructure performs minimal structural checks for JSON Schema documents in YAML/JSON
 func (r *SchemaAssessmentRunner) checkJSONSchemaStructure(path string) error {
-	data, err := os.ReadFile(path)
+    data, err := safeReadFile(path) // #nosec G304 -- path cleaned and restricted to working directory
 	if err != nil {
 		return err
 	}
@@ -382,7 +383,7 @@ func (r *SchemaAssessmentRunner) checkJSONSchemaStructure(path string) error {
 // Note: Some draft meta-schemas reference remote fragments; in such cases the library may attempt network access.
 // In that case, the error is returned for the caller to report under the 'jsonschema_meta' subcategory.
 func (r *SchemaAssessmentRunner) checkJSONSchemaWithMeta(path string) error {
-	data, err := os.ReadFile(path)
+    data, err := safeReadFile(path) // #nosec G304 -- path cleaned and restricted to working directory
 	if err != nil {
 		return err
 	}
@@ -438,6 +439,30 @@ func toCanonicalJSON(v interface{}) ([]byte, error) {
 	// Ensure numbers are retained reasonably; here we allow defaults
 	// to keep implementation simple.
 	return json.Marshal(v)
+}
+
+// safeReadFile sanitizes the path, resolves to absolute, and restricts reads to the current working directory subtree.
+func safeReadFile(p string) ([]byte, error) {
+    cleaned := filepath.Clean(p)
+    abs, err := filepath.Abs(cleaned)
+    if err != nil {
+        return nil, err
+    }
+    wd, err := os.Getwd()
+    if err != nil {
+        return nil, err
+    }
+    wdAbs, err := filepath.Abs(wd)
+    if err != nil {
+        return nil, err
+    }
+    // Ensure abs is under wdAbs
+    sep := string(os.PathSeparator)
+    if abs != wdAbs && !strings.HasPrefix(abs+sep, wdAbs+sep) {
+        return nil, fmt.Errorf("refusing to read outside working directory: %s", abs)
+    }
+    // Read file after validation: path is cleaned and constrained to repo subtree
+    return os.ReadFile(abs) // #nosec G304 -- sanitized absolute path within working directory
 }
 
 // sanityCheckJSONSchema applies basic structural rules independent of draft support

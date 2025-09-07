@@ -6,11 +6,13 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
 
+	"github.com/fulmenhq/goneat/internal/assets"
 	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -160,11 +162,6 @@ func runHooksInit(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Check if we're in a git repository
-	if _, err := os.Stat(".git"); os.IsNotExist(err) {
-		return fmt.Errorf("not in a git repository. Initialize git first with 'git init'")
-	}
-
 	// Create .goneat directory
 	goneatDir := ".goneat"
 	if err := os.MkdirAll(goneatDir, 0750); err != nil {
@@ -250,29 +247,38 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	render := func(templatePath, destPath string, data tplData) error {
-		// Validate template path to prevent path traversal
-		templatePath = filepath.Clean(templatePath)
-		if strings.Contains(templatePath, "..") {
-			return fmt.Errorf("invalid template path: contains path traversal")
-		}
-		raw, err := os.ReadFile(templatePath)
-		if err != nil {
-			return fmt.Errorf("failed to read template %s: %v", templatePath, err)
-		}
-		tmpl, err := template.New(filepath.Base(templatePath)).Parse(string(raw))
-		if err != nil {
-			return fmt.Errorf("failed to parse template %s: %v", templatePath, err)
-		}
-		var buf bytes.Buffer
-		if err := tmpl.Execute(&buf, data); err != nil {
-			return fmt.Errorf("failed to render template %s: %v", templatePath, err)
-		}
-		if err := os.WriteFile(destPath, buf.Bytes(), 0700); err != nil { // #nosec G306 - Git hooks require execute permissions
-			return fmt.Errorf("failed to write %s: %v", destPath, err)
-		}
-		return nil
-	}
+    render := func(templatePath, destPath string, data tplData) error {
+        // Validate template path to prevent path traversal
+        templatePath = filepath.Clean(templatePath)
+        if strings.Contains(templatePath, "..") {
+            return fmt.Errorf("invalid template path: contains path traversal")
+        }
+        templatesFS := assets.GetTemplatesFS()
+        content, err := fs.ReadFile(templatesFS, templatePath)
+        if err != nil {
+            // Fallback: attempt to read from filesystem SSOT (templates/ root)
+            if data, ferr := os.ReadFile(filepath.Clean(filepath.Join("templates", strings.TrimPrefix(templatePath, "templates/")))); ferr == nil {
+                content = data
+            } else {
+                return fmt.Errorf("failed to read embedded template %s: %v", templatePath, err)
+            }
+        }
+        tmpl, err := template.New(filepath.Base(templatePath)).Parse(string(content))
+        if err != nil {
+            return fmt.Errorf("failed to parse template %s: %v", templatePath, err)
+        }
+        var buf bytes.Buffer
+        if err := tmpl.Execute(&buf, data); err != nil {
+            return fmt.Errorf("failed to render template %s: %v", templatePath, err)
+        }
+        // Write with execute permissions: Git hooks must be executable
+        // Security justification: path is sanitized (Clean + no traversal), generated into .goneat/hooks,
+        // and content is produced by trusted templates. Git requires +x bits to invoke hooks.
+        if err := os.WriteFile(destPath, buf.Bytes(), 0700); err != nil { // #nosec G306 -- required exec perms for git hooks
+            return fmt.Errorf("failed to write %s: %v", destPath, err)
+        }
+        return nil
+    }
 
 	buildArgs := func(hook string) ([]string, string) {
 		var args []string
@@ -358,9 +364,10 @@ func runHooksInstall(cmd *cobra.Command, args []string) error {
 		}
 
 		// Make executable - git hooks require execute permissions
-		if err := os.Chmod(preCommitDst, 0700); err != nil { // #nosec G302 - Git hooks require execute permissions
-			return fmt.Errorf("failed to make pre-commit hook executable: %v", err)
-		}
+        // Git hooks need exec perms; destination path is validated and within .git/hooks
+        if err := os.Chmod(preCommitDst, 0700); err != nil { // #nosec G302 -- required exec perms for git hooks
+            return fmt.Errorf("failed to make pre-commit hook executable: %v", err)
+        }
 
 		fmt.Println("✅ Installed pre-commit hook")
 		hooksInstalled++
@@ -386,9 +393,9 @@ func runHooksInstall(cmd *cobra.Command, args []string) error {
 		}
 
 		// Make executable - git hooks require execute permissions
-		if err := os.Chmod(prePushDst, 0700); err != nil { // #nosec G302 - Git hooks require execute permissions
-			return fmt.Errorf("failed to make pre-push hook executable: %v", err)
-		}
+        if err := os.Chmod(prePushDst, 0700); err != nil { // #nosec G302 -- required exec perms for git hooks
+            return fmt.Errorf("failed to make pre-push hook executable: %v", err)
+        }
 
 		fmt.Println("✅ Installed pre-push hook")
 		hooksInstalled++

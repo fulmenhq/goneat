@@ -138,22 +138,21 @@ This checklist ensures all requirements are met before releasing goneat to the G
 - [ ] **Performance**: No significant performance regressions
 - [ ] **Compatibility**: Backward compatibility maintained
 
-## Version-Specific Checklist
+## Release Scope Profiles
 
-### For v0.1.2 (First Public Release)
+### Initial Public Release Baseline
 
-- [ ] **Core Features**: Version and format commands fully functional
-- [ ] **Documentation**: Complete user guide and API docs
-- [ ] **Testing**: Comprehensive test suite (28+ tests)
-- [ ] **Build System**: Cross-platform builds working
-- [ ] **Go Module**: Properly configured for `go install`
+- [ ] **Core Commands Ready**: User‑facing commands for core value are fully functional
+- [ ] **Documentation Complete**: README, user guide, and command reference cover all supported features
+- [ ] **Test Suite Adequate**: Representative tests across packages with stable coverage gate enabled
+- [ ] **Cross‑Platform Builds**: Confirm successful builds for all target OS/arch and basic runtime sanity checks
+- [ ] **Go Module Installable**: `go install github.com/fulmenhq/goneat@vX.Y.Z` works end‑to‑end
 
-### For Future Releases
+### Ongoing Releases
 
-- [ ] **Breaking Changes**: Update major version
-- [ ] **Deprecations**: Document removal timeline
-- [ ] **Migration Guide**: For breaking changes
-- [ ] **Performance Benchmarks**: Include performance data
+- [ ] **Breaking Changes Managed**: Major version bump when required; migration guidance provided
+- [ ] **Deprecations Tracked**: Deprecation notices with timelines and alternatives
+- [ ] **Performance Benchmarks**: Include or update relevant performance data where changes impact speed/size
 
 ## Release Command Sequence
 
@@ -162,7 +161,7 @@ This checklist ensures all requirements are met before releasing goneat to the G
 make test                    # Run all tests
 make build-all              # Build all platforms
 make fmt                    # Format code
-make version-set VERSION=0.1.2  # Update version
+make version-set VERSION=$VERSION  # Update version (export VERSION)
 
 # RC validation (do not tag until all pass)
 make build-all              # Build platform binaries
@@ -174,7 +173,7 @@ make pre-push               # Runs assess with build gate
 git tag -a v$VERSION -m "release: v$VERSION" && git push origin v$VERSION
 
 # Post-release validation
-go install github.com/fulmenhq/goneat@v0.1.2
+go install github.com/fulmenhq/goneat@v$VERSION
 goneat version              # Verify installation
 ```
 
@@ -197,6 +196,4 @@ goneat version              # Verify installation
 
 **Release Checklist Version**: 1.0
 **Last Updated**: 2025-08-28
-**Next Review**: With each major release</content>
-</xai:function_call name="bash">
-<parameter name="command">cd goneat && go fmt RELEASE_CHECKLIST.md CHANGELOG.md
+**Next Review**: With each major release

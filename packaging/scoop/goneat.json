@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0-rc.8",
+  "homepage": "https://github.com/fulmenhq/goneat",
+  "description": "Single CLI to make codebases neat (format, lint, security)",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/fulmenhq/goneat/releases/download/v$version/goneat_$version_windows_amd64.zip",
+      "hash": "7cf016730bcfb5d1b1e5ff5265cacddfe0a33a66004fe6dd0c9e953be43a8fc9",
+      "extract_dir": "",
+      "bin": [
+        [
+          "goneat.exe",
+          "goneat"
+        ]
+      ]
+    }
+  },
+  "checkver": "github",
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/fulmenhq/goneat/releases/download/v$version/goneat_$version_windows_amd64.zip"
+      }
+    }
+  }
+}

@@ -1,6 +1,9 @@
 package assets
 
-import _ "embed"
+import (
+    "embed"
+    "io/fs"
+)
 
 // Curated JSON Schema meta-schemas (embedded)
 
@@ -9,6 +12,12 @@ var JSONSchemaDraft07 []byte
 
 //go:embed jsonschema/draft-2020-12/schema.json
 var JSONSchemaDraft2020_12 []byte
+
+//go:embed embedded_templates
+var Templates embed.FS
+
+//go:embed embedded_schemas
+var Schemas embed.FS
 
 func GetJSONSchemaMeta(draft string) ([]byte, bool) {
 	switch draft {
@@ -23,4 +32,18 @@ func GetJSONSchemaMeta(draft string) ([]byte, bool) {
 		}
 		return nil, false
 	}
+}
+
+func GetTemplatesFS() fs.FS {
+    if sub, err := fs.Sub(Templates, "embedded_templates"); err == nil {
+        return sub
+    }
+    return Templates
+}
+
+func GetSchemasFS() fs.FS {
+    if sub, err := fs.Sub(Schemas, "embedded_schemas"); err == nil {
+        return sub
+    }
+    return Schemas
 }

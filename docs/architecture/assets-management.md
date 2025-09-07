@@ -19,8 +19,11 @@ status: "approved"
 
 1. Curated core assets in-repo (embedded)
    - JSON Schema meta-schemas (Draft-07, Draft 2020-12)
-   - Stored under `internal/assets/` and embedded via `go:embed`
-   - Used by default for offline meta-validation
+   - Templates directory (hooks/bash/*.tmpl)
+   - Schemas directory (config/*.yaml, output/*.yaml, work/*.yaml)
+   - Stored under `internal/assets/embedded_*` subdirectories and embedded via `go:embed`
+   - Accessed via `GetTemplatesFS()`, `GetSchemasFS()`, and `GetJSONSchemaMeta()`
+   - Used by default for offline meta-validation and template rendering
 
 2. Optional local cache (opt-in)
    - Path: `~/.goneat/cache/schemas`

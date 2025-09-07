@@ -75,15 +75,18 @@ func (r *SecurityAssessmentRunner) Assess(ctx context.Context, target string, co
 			}
 		}()
 	}
-	for i := 0; i < len(adapters); i++ {
-		rres := <-resultsCh
-		if rres.err != nil {
-			logger.Warn(fmt.Sprintf("%s scan failed: %v", rres.name, rres.err))
-			continue
-		}
-		issues = append(issues, rres.issues...)
-		allSuppressions = append(allSuppressions, rres.suppressions...)
-	}
+    for i := 0; i < len(adapters); i++ {
+        rres := <-resultsCh
+        if rres.err != nil {
+            logger.Warn(fmt.Sprintf("%s scan failed: %v", rres.name, rres.err))
+            continue
+        }
+        issues = append(issues, rres.issues...)
+        allSuppressions = append(allSuppressions, rres.suppressions...)
+    }
+
+    // Filter out known noise paths (e.g., test fixtures) from security scans
+    issues = r.filterSecurityNoise(issues)
 
 	// Basic metrics
 	if ranGosec {
@@ -98,7 +101,7 @@ func (r *SecurityAssessmentRunner) Assess(ctx context.Context, target string, co
 		metrics["suppression_summary"] = GenerateSummary(allSuppressions)
 	}
 
-	result := &AssessmentResult{
+    result := &AssessmentResult{
 		CommandName:   r.commandName,
 		Category:      CategorySecurity,
 		Success:       true,
@@ -812,6 +815,22 @@ func (r *SecurityAssessmentRunner) mapGitleaksFinding(m map[string]interface{}) 
 		SubCategory: "secrets",
 		AutoFixable: false,
 	}
+}
+
+// filterSecurityNoise removes issues from paths that are expected to contain intentionally vulnerable fixtures
+func (r *SecurityAssessmentRunner) filterSecurityNoise(in []Issue) []Issue {
+    if len(in) == 0 {
+        return in
+    }
+    var out []Issue
+    for _, is := range in {
+        p := strings.ToLower(filepath.ToSlash(is.File))
+        if strings.Contains(p, "tests/fixtures/") || strings.Contains(p, "test-fixtures/") {
+            continue
+        }
+        out = append(out, is)
+    }
+    return out
 }
 
 // pathMatchesAny checks if path contains any of the include anchors (substring match, absolute-safe)

@@ -1,0 +1,57 @@
+run:
+  timeout: 3m
+  tests: true
+  allow-parallel-runners: true
+  modules-download-mode: readonly
+  allow-serial-runners: false
+
+output:
+  sort-results: true
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-dirs:
+    - dist
+    - vendor
+    - packaging
+  exclude-files:
+    - '^.*_generated\.go$'
+
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - ineffassign
+    - errcheck
+    - revive
+    - gofmt
+    - goimports
+    - misspell
+    - gosimple
+  disable:
+    - lll
+    - gocyclo
+    - dupl
+    - funlen
+    - gocognit
+
+linters-settings:
+  revive:
+    rules:
+      - name: indent-error-flow
+      - name: exported
+        arguments: ["checkPrivateReceivers"]
+      - name: var-declaration
+      - name: unused-parameter
+        disabled: true
+  gofmt:
+    simplify: true
+  goimports:
+    local-prefixes: github.com/fulmenhq/goneat
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+  staticcheck:
+    checks: ["all"]

@@ -353,7 +353,8 @@ func getIgnoreFileInfo() map[string]interface{} {
 		"exists":   false,
 		"patterns": 0,
 	}
-	if content, err := os.ReadFile(gitignorePath); err == nil {
+    // Read with sanitized path; file is at repository root
+    if content, err := os.ReadFile(filepath.Clean(gitignorePath)); err == nil { // #nosec G304 -- fixed path under working directory
 		gitignoreInfo["exists"] = true
 		gitignoreInfo["patterns"] = countPatterns(string(content))
 	}
@@ -366,7 +367,7 @@ func getIgnoreFileInfo() map[string]interface{} {
 		"exists":   false,
 		"patterns": 0,
 	}
-	if content, err := os.ReadFile(goneatignorePath); err == nil {
+    if content, err := os.ReadFile(filepath.Clean(goneatignorePath)); err == nil { // #nosec G304 -- fixed path under working directory
 		goneatignoreInfo["exists"] = true
 		goneatignoreInfo["patterns"] = countPatterns(string(content))
 	}
@@ -385,8 +386,9 @@ func getIgnoreFileInfo() map[string]interface{} {
 		"exists":   false,
 		"patterns": 0,
 	}
-	if userIgnorePath != "" {
-		if content, err := os.ReadFile(userIgnorePath); err == nil {
+    if userIgnorePath != "" {
+        // User override is constrained to goneat home or $HOME/.goneat
+        if content, err := os.ReadFile(filepath.Clean(userIgnorePath)); err == nil { // #nosec G304 -- cleaned path within user profile
 			userIgnoreInfo["exists"] = true
 			userIgnoreInfo["patterns"] = countPatterns(string(content))
 		}

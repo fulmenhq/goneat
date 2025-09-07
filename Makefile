@@ -28,7 +28,7 @@ LDFLAGS := -ldflags "-X 'main.Version=$(VERSION)'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
 .PHONY: help build clean test fmt format-docs version-get version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease \
-	license-inventory license-save license-audit update-licenses
+	license-inventory license-save license-audit update-licenses embed-assets
 
 # Default target
 all: clean build fmt
@@ -46,11 +46,17 @@ help: ## Show this help message
 	@echo ""
 
 # Build targets
-build: ## Build the binary
+build: embed-assets ## Build the binary
 	@echo "Building $(BINARY_NAME) v$(VERSION)..."
 	@mkdir -p $(BUILD_DIR)
 	$(GOBUILD) $(BUILD_FLAGS) ./$(SRC_DIR)
 	@echo "✅ Build completed: $(BUILD_DIR)/$(BINARY_NAME)"
+
+embed-assets: ## Sync templates/ and schemas/ into embedded assets (SSOT -> internal/assets)
+	@echo "Embedding assets (templates/, schemas/)..."
+	@chmod +x scripts/embed-assets.sh
+	@./scripts/embed-assets.sh
+	@echo "✅ Assets embedded"
 
 # Cross-platform build targets
 build-all: ## Build for all supported platforms

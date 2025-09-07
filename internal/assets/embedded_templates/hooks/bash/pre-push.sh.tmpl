@@ -46,7 +46,11 @@ fi
 if [ -z "$GONEAT_BIN" ]; then
   if [ "$DEV_MODE" = "1" ]; then
     echo "⚠️  goneat not found (dev mode). Using fallback validation"
+    {{- if .Fallback }}
+    {{ .Fallback }}
+    {{- else }}
     echo "Skipping validation - goneat not available"
+    {{- end }}
     exit 0
   else
     echo "❌ goneat CLI not found. Pre-push validation requires goneat."
@@ -61,6 +65,6 @@ if [ -z "$GONEAT_BIN" ]; then
 fi
 
 # Use goneat's orchestrated assessment (manifest-driven)
-"$GONEAT_BIN" assess --hook pre-push --hook-manifest "$REPO_ROOT/.goneat/hooks.yaml" --check --categories format,lint,security --fail-on high
+"$GONEAT_BIN" assess --hook pre-push --hook-manifest "$REPO_ROOT/.goneat/hooks.yaml"{{ if or .OptimizationSettings.OnlyChangedFiles (eq .OptimizationSettings.ContentSource "index") }} --staged-only{{ end }}{{- range .Args }} {{ . }}{{- end }}
 
 echo "✅ Pre-push validation passed!"}
