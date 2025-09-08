@@ -103,11 +103,15 @@ func (r *SecurityAssessmentRunner) Assess(ctx context.Context, target string, co
 	}
 	metrics["tools_started"] = len(adapters)
 
-	// Add suppression metrics if tracking is enabled
-	if config.TrackSuppressions && len(allSuppressions) > 0 {
-		metrics["suppressions_found"] = len(allSuppressions)
-		metrics["suppression_summary"] = GenerateSummary(allSuppressions)
-	}
+    // Add suppression metrics if tracking is enabled
+    var suppSummary SuppressionSummary
+    if config.TrackSuppressions && len(allSuppressions) > 0 {
+        // Optional Git enrichment (age/author) when inexpensive/available
+        allSuppressions = EnrichWithGitInfo(allSuppressions)
+        metrics["suppressions_found"] = len(allSuppressions)
+        suppSummary = GenerateSummary(allSuppressions)
+        metrics["suppression_summary"] = suppSummary
+    }
 
     result := &AssessmentResult{
 		CommandName:   r.commandName,
@@ -118,10 +122,14 @@ func (r *SecurityAssessmentRunner) Assess(ctx context.Context, target string, co
 		Metrics:       metrics,
 	}
 
-	// Store suppressions for later use in CategoryResult
-	if config.TrackSuppressions {
-		result.Metrics["_suppressions"] = allSuppressions
-	}
+    // Store suppressions for later use in CategoryResult
+    if config.TrackSuppressions {
+        result.Metrics["_suppressions"] = allSuppressions
+        // Also attach a structured suppression report to downstream category result
+        // (engine will copy Metrics and can surface SuppressionReport in CategoryResult)
+        // Here we only compute the summary; CategoryResult population happens in engine.
+        _ = suppSummary
+    }
 
 	return result, nil
 }

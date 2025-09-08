@@ -39,6 +39,9 @@ goneat security [target]
 - `--gosec-timeout`: per-tool timeout for gosec (0 = inherit global)
 - `--govulncheck-timeout`: per-tool timeout for govulncheck (0 = inherit global)
 - `--track-suppressions`: include inline suppression tracking and summary (e.g., `#nosec`)
+- `--profile`: ci | dev (apply sensible defaults for fail-on)
+- `--exclude-fixtures`: exclude common test fixture paths (default: true)
+- `--fixture-patterns`: additional substrings to exclude from results (e.g., `tests/fixtures/`)
 - `--max-issues`: limit displayed issues per category for non‑JSON output (0 = unlimited)
 - `--output`: write report to file
 - `--ignore-missing-tools`: skip missing security tools (otherwise fail fast if tool is explicitly requested via `--tools`)
@@ -117,6 +120,37 @@ Notes:
   - If you explicitly request a tool via `--tools` and it is not installed, the command fails fast with a helpful message suggesting installation (e.g., `go install golang.org/x/vuln/cmd/govulncheck@latest`) and a future `goneat doctor` flow. Use `--ignore-missing-tools` to skip missing tools.
   - If you do not specify `--tools`, absent tools are skipped when not selected by defaults.
 - govulncheck scans at module scope; gosec operates on source files and can be scoped via staged/diff.
+
+### Security Configuration Keys
+
+```yaml
+security:
+  # Global timeouts and concurrency
+  timeout: 5m
+  concurrency: 0
+  concurrency_percent: 50
+
+  # Enable dimensions
+  enable:
+    code: true
+    vuln: true
+    secrets: false
+
+  # Suppress fixture noise
+  exclude_fixtures: true
+  fixture_patterns:
+    - "tests/fixtures/"
+    - "test-fixtures/"
+
+  # Per-tool timeouts
+  tool_timeouts:
+    gosec: 0s
+    govulncheck: 0s
+
+  # Fail threshold and suppressions
+  track_suppressions: false
+  fail_on: high
+```
 
 ---
 
