@@ -144,14 +144,30 @@ goneat assess --include "*.go" --exclude "vendor/**"
 
 | Flag        | Type    | Description    | Example     |
 | ----------- | ------- | -------------- | ----------- |
-| `--verbose` | boolean | Verbose output | `--verbose` |
-| `--quiet`   | boolean | Minimal output | `--quiet`   |
+| `--verbose`   | boolean | Verbose output                         | `--verbose`   |
+| `--quiet`     | boolean | Minimal output                         | `--quiet`     |
+| `--ci-summary`| boolean | One-line CI status (PASS/FAIL + counts)| `--ci-summary`|
 
 ### Security Flags
 
 | Flag                   | Type    | Description                                          | Example                |
 | ---------------------- | ------- | ---------------------------------------------------- | ---------------------- |
 | `--track-suppressions` | boolean | Track and report suppressions (e.g., gosec `#nosec`) | `--track-suppressions` |
+
+### Profiles
+
+Use preset profiles to apply sensible defaults without overriding explicitly set flags:
+
+| Profile | Defaults                                                                                 |
+| ------- | ---------------------------------------------------------------------------------------- |
+| `ci`    | `--categories format,lint,security` and `--fail-on critical`                             |
+| `dev`   | `--categories format,lint,security,schema` and `--fail-on low`                           |
+
+Example:
+
+```bash
+goneat assess --profile ci --format concise --ci-summary
+```
 
 ## Assessment Categories
 

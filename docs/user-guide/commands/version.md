@@ -744,3 +744,23 @@ version:
 This version management system provides the foundation for zero version drift across your entire DevOps toolchain, ensuring consistency and reliability in your release process.</content>
 </xai:function_call name="todowrite">
 <parameter name="todos">[{"content":"Add version validation functionality","status":"completed","priority":"medium","id":"implement_validation"},{"content":"Add version consistency checking across sources","status":"completed","priority":"medium","id":"implement_consistency_check"},{"content":"Extend version command with bump, set, validate subcommands","status":"in_progress","priority":"high","id":"extend_version_command"}]
+### CLI Output Fields
+
+The `goneat version` command shows distinct version perspectives:
+
+- **Binary**: The version embedded at build time (e.g., from `-ldflags`); reflects the installed CLI
+- **Module**: The Go module version recorded by the toolchain (visible for `go install` builds)
+- **Project**: The repository’s current version (from `VERSION` file or latest git tag)
+
+Example (`--extended`):
+
+```
+Binary: 0.2.1-dev
+Module: v0.2.0
+goneat (Project) 0.2.1-dev
+Build time: unknown
+Git commit: 1a2b3c4d
+Project Source: VERSION file
+Go version: go1.25.0
+Platform: darwin/arm64
+```
