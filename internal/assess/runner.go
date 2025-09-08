@@ -76,6 +76,9 @@ type AssessmentConfig struct {
     // Security results hygiene
     SecurityExcludeFixtures  bool     `json:"security_exclude_fixtures,omitempty"`
     SecurityFixturePatterns  []string `json:"security_fixture_patterns,omitempty"`
+
+    // Lint new-only control (golangci-lint --new-from-rev)
+    LintNewFromRev string `json:"lint_new_from_rev,omitempty"`
 }
 
 // DefaultAssessmentConfig returns default assessment configuration

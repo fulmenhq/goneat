@@ -19,6 +19,9 @@ var Templates embed.FS
 //go:embed embedded_schemas
 var Schemas embed.FS
 
+//go:embed embedded_docs
+var Docs embed.FS
+
 func GetJSONSchemaMeta(draft string) ([]byte, bool) {
 	switch draft {
 	case "draft-07", "07", "7":
@@ -46,4 +49,11 @@ func GetSchemasFS() fs.FS {
         return sub
     }
     return Schemas
+}
+
+func GetDocsFS() fs.FS {
+    if sub, err := fs.Sub(Docs, "embedded_docs"); err == nil {
+        return sub
+    }
+    return Docs
 }

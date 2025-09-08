@@ -19,6 +19,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Build and test infrastructure
 
+## [0.2.1] - 2025-09-08
+
+### Added
+
+- New `docs` command for read-only offline docs (list/show; JSON/markdown/html, `--open` to browser)
+- New `content` command for curated docs management (`find`, `embed`, `verify`), with JSON report schema
+- JSON Schema for docs embed manifest (`schemas/content/docs-embed-manifest-v1.0.0.json`)
+- Tests for content/docs commands (JSON outputs and verify path)
+- Security quick alias: `goneat security secrets` (gitleaks-only convenience)
+
+### Changed
+
+- Embedding SOP extended to include curated docs via content command
+- `embed-assets` prefers CLI for docs mirroring; `verify-embeds` uses `goneat content verify`
+- README and root help emphasize `docs` (viewing) vs `content` (curation)
+
+### Fixed
+
+- Removed footer attributions from embedded docs to keep output clean
+
+[0.2.1]: https://github.com/fulmenhq/goneat/compare/v0.2.0...v0.2.1
+
+## [0.2.1-rc.1] - 2025-09-08
+
+### Added
+
+- Introduced curated docs pipeline and commands ahead of GA
+- Initial manifest and CI verification wiring for embedded docs
+
+### Notes
+
+- Superseded by 0.2.1 GA with minor polish
+
+[0.2.1-rc.1]: https://github.com/fulmenhq/goneat/compare/v0.2.0...v0.2.1-rc.1
+
+## [0.2.0] - 2025-09-07
+
+### Added
+
+- Schema validation (JSON/YAML) with offline-first checks (Draft-07, 2020-12)
+- Discovery controls: `--scope`, `--force-include`, `--no-ignore`
+- Opt-in meta-schema validation: `--enable-meta` / `--schema-enable-meta`
+
+### Changed
+
+- Scoped traversal and DX improvements with quoted glob guidance
+
+### Performance
+
+- Bad fixtures: ~260–280ms scoped; single file ~200ms; repo schemas ~2–3s
+
+[0.2.0]: https://github.com/fulmenhq/goneat/releases/tag/v0.2.0
+
 ## [0.2.0-rc.1] - 2025-09-05
 
 ### Added
@@ -339,3 +392,20 @@ When creating a new release, copy this template and fill in the details:
 
 ### Notes
 - rc.2–rc.6 were in-progress RCs used to refine the process; rc.7 consolidates the changes into a stable candidate.
+## v0.2.1 (Release Candidate)
+
+### Added
+- Content curation command: `goneat content` with `find`, `embed`, and `verify` subcommands for manifest‑driven docs selection and mirror management (JSON‑first).
+- Read‑only docs command: `goneat docs list|show` to access embedded curated documentation offline.
+- JSON Schema (2020‑12) for docs embed manifest: `schemas/content/docs-embed-manifest-v1.0.0.json`.
+
+### Changed
+- Embed/verify SOP extended to include curated docs. `scripts/embed-assets.sh` prefers CLI for docs; `scripts/verify-embeds.sh` now uses `goneat content verify`.
+- Security defaults: add `security.exclude_fixtures` and `security.fixture_patterns` to avoid scanning fixtures by default.
+
+### Notes
+- Curated docs are selected via `docs/embed-manifest.yaml` and mirrored to `internal/assets/embedded_docs/docs/` to ensure `go install` includes assets.
+- Frontmatter‑based selection planned for v0.2.2.
+
+### Security
+- All content operations are rooted under `docs/`; writes use 0644; no network access.

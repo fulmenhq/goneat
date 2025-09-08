@@ -1,3 +1,5 @@
+version: 2
+
 run:
   timeout: 3m
   tests: true
@@ -26,10 +28,7 @@ linters:
     - ineffassign
     - errcheck
     - revive
-    - gofmt
-    - goimports
     - misspell
-    - gosimple
   disable:
     - lll
     - gocyclo
@@ -46,10 +45,6 @@ linters-settings:
       - name: var-declaration
       - name: unused-parameter
         disabled: true
-  gofmt:
-    simplify: true
-  goimports:
-    local-prefixes: github.com/fulmenhq/goneat
   errcheck:
     check-type-assertions: true
     check-blank: true

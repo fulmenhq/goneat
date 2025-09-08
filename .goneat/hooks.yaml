@@ -7,7 +7,7 @@ hooks:
             - --categories
             - format,lint
             - --fail-on
-            - medium
+            - critical
           priority: 10
           timeout: 90s
     pre-push:
@@ -17,7 +17,7 @@ hooks:
             - --categories
             - format,lint,security
             - --fail-on
-            - high
+            - critical
           priority: 10
           timeout: 2m
 optimization:

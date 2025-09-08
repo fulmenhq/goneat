@@ -33,5 +33,17 @@ sync_dir() {
 sync_dir "$SRC_TEMPLATES" "$DST_TEMPLATES"
 sync_dir "$SRC_SCHEMAS" "$DST_SCHEMAS"
 
-echo "✅ Embed assets sync complete"
+echo "📦 Embedding curated docs (docs/ -> internal/assets/embedded_docs/docs via CLI if available)..."
+# Prefer CLI-driven embedding when built binary is present
+CLI_BIN="$ROOT_DIR/dist/goneat"
+DOCS_TARGET="$ROOT_DIR/internal/assets/embedded_docs/docs"
+if [ -x "$CLI_BIN" ]; then
+  mkdir -p "$DOCS_TARGET"
+  "$CLI_BIN" content embed --manifest "$ROOT_DIR/docs/embed-manifest.yaml" --root "$ROOT_DIR/docs" --target "$DOCS_TARGET" --json >/dev/null || {
+    echo "⚠️  CLI-driven docs embedding failed; leaving docs mirror unchanged" >&2
+  }
+else
+  echo "ℹ️  dist/goneat not found; skipping CLI-driven docs embedding (mirrors must be tracked)"
+fi
 
+echo "✅ Embed assets sync complete"

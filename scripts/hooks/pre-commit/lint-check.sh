@@ -14,7 +14,8 @@ fallback_lint_check() {
     if command -v golangci-lint &> /dev/null; then
         # For alpha release, make lint check informational only
         echo "ℹ️  Running golangci-lint (informational for alpha)"
-        if golangci-lint run --timeout 5m >/dev/null 2>&1; then
+        # Limit to new issues only against previous commit to avoid blocking legacy cleanups
+        if golangci-lint run --new-from-rev=HEAD~ --timeout 5m >/dev/null 2>&1; then
             echo "✅ golangci-lint passed"
         else
             echo "⚠️  golangci-lint found issues (acceptable for alpha)"

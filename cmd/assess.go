@@ -71,6 +71,7 @@ var (
     // CI/Profiles
     assessCISummary bool
     assessProfile   string
+    assessLintNewFromRev string
 )
 
 func init() {
@@ -104,7 +105,9 @@ func setupAssessCommandFlags(cmd *cobra.Command) {
 	// Schema validation options
 	cmd.Flags().BoolVar(&assessSchemaEnableMeta, "schema-enable-meta", false, "Attempt meta-schema validation using embedded drafts (may require network for remote $refs)")
 	// Scoped discovery
-	cmd.Flags().BoolVar(&assessScope, "scope", false, "Limit traversal scope to include paths and force-include anchors")
+    cmd.Flags().BoolVar(&assessScope, "scope", false, "Limit traversal scope to include paths and force-include anchors")
+    // Lint controls
+    cmd.Flags().StringVar(&assessLintNewFromRev, "lint-new-from-rev", "", "Report only new lint issues since a given git rev (passes to golangci-lint --new-from-rev)")
 	// Concurrency
 	cmd.Flags().IntVar(&assessConcurrency, "concurrency", 0, "Number of concurrent runners (0 uses --concurrency-percent)")
 	cmd.Flags().IntVar(&assessConcurrencyPercent, "concurrency-percent", 50, "Percent of CPU cores to use for concurrency (1-100)")
@@ -240,7 +243,8 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		FailOnSeverity:     failOnSeverity,
 		Concurrency:        assessConcurrency,
 		ConcurrencyPercent: assessConcurrencyPercent,
-		TrackSuppressions:  assessTrackSuppressions,
+        TrackSuppressions:  assessTrackSuppressions,
+        LintNewFromRev:     strings.TrimSpace(assessLintNewFromRev),
     }
 
     // Apply profile defaults (non-intrusive; does not override explicitly set flags)
@@ -298,8 +302,16 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		return runHookMode(cmd, assessHook, assessHookManifest, config, format)
 	}
 
-	// Create assessment engine
-	engine := assess.NewAssessmentEngine()
+    // Hook defaults: lint new-only for pre-commit and pre-push unless overridden
+    if assessHook != "" {
+        if strings.TrimSpace(config.LintNewFromRev) == "" {
+            // Default to HEAD~ for new-only gating
+            config.LintNewFromRev = "HEAD~"
+        }
+    }
+
+    // Create assessment engine
+    engine := assess.NewAssessmentEngine()
 
 	// Run assessment
 	logger.Info(fmt.Sprintf("Starting comprehensive assessment of %s", target))
@@ -514,17 +526,17 @@ func runHookMode(cmd *cobra.Command, hookType, manifestPath string, config asses
 				hookConfig.Categories = []string{"format", "lint"}
 			}
 		}
-		// Determine effective fail-on for this hook from args, fallback per-hook
-		if val := parseFailOnFromHooks(hookConfig.Hooks, hookType); val != "" {
-			hookConfig.FailOn = val
-		} else {
-			switch hookType {
-			case "pre-push":
-				hookConfig.FailOn = "high"
-			default: // pre-commit
-				hookConfig.FailOn = "medium"
-			}
-		}
+        // Determine effective fail-on for this hook from args, fallback per-hook
+        if val := parseFailOnFromHooks(hookConfig.Hooks, hookType); val != "" {
+            hookConfig.FailOn = val
+        } else {
+            switch hookType {
+            case "pre-push":
+                hookConfig.FailOn = "high"
+            default: // pre-commit
+                hookConfig.FailOn = "medium"
+            }
+        }
 
 		// Keep assessment config aligned for accurate metadata and behavior
 		switch hookConfig.FailOn {
@@ -553,8 +565,13 @@ func runHookMode(cmd *cobra.Command, hookType, manifestPath string, config asses
 		}
 	}
 
-	// Create assessment engine
-	engine := assess.NewAssessmentEngine()
+    // Default lint to new-only in hook mode unless explicitly set
+    if strings.TrimSpace(config.LintNewFromRev) == "" {
+        config.LintNewFromRev = "HEAD~"
+    }
+
+    // Create assessment engine
+    engine := assess.NewAssessmentEngine()
 
 	// Run assessment
 	target := "."
@@ -570,11 +587,11 @@ func runHookMode(cmd *cobra.Command, hookType, manifestPath string, config asses
 		return fmt.Errorf("failed to write hook report: %v", err)
 	}
 
-	// Check if we should fail based on hook configuration
-	if shouldFailHook(report, hookConfig) {
-		logger.Error(fmt.Sprintf("Hook %s failed: found issues requiring attention", hookType))
-		os.Exit(1)
-	}
+    // Fail hook when issues meet configured threshold (use .goneat/hooks.yaml to tune per-repo)
+    if shouldFailHook(report, hookConfig) {
+        logger.Error(fmt.Sprintf("Hook %s failed: found issues requiring attention", hookType))
+        os.Exit(1)
+    }
 
 	return nil
 }
@@ -700,11 +717,11 @@ func loadHookManifest(path string) (*HookConfig, error) {
 // getDefaultHookConfig returns default hook configuration
 func getDefaultHookConfig(hookType string) *HookConfig {
 	switch hookType {
-	case "pre-commit":
-		return &HookConfig{
-			Categories: []string{"format", "lint"},
-			FailOn:     "high",
-		}
+case "pre-commit":
+    return &HookConfig{
+        Categories: []string{"format", "lint"},
+        FailOn:     "high",
+    }
 	case "pre-push":
 		return &HookConfig{
 			Categories: []string{"format", "lint", "security"},

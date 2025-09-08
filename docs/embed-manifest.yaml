@@ -1,0 +1,12 @@
+version: "1.0.0"
+topics:
+  quickstart:
+    tags: [install, setup, cli]
+    include:
+      - user-guide/install.md
+      - user-guide/commands/**/*.md
+      - user-guide/tutorials/**/*.md
+      - user-guide/workflows/assess-code.md
+      - configuration/feature-gates.md
+    exclude:
+      - user-guide/commands/experimental/**

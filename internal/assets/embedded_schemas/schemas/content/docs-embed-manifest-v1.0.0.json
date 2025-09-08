@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.goneat.io/content/docs-embed-manifest-v1.0.0.json",
+  "title": "Goneat Docs Embed Manifest",
+  "type": "object",
+  "required": ["version", "topics"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "topics": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tags": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^\\S+$" },
+            "uniqueItems": true
+          },
+          "include": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "minItems": 1
+          },
+          "exclude": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          }
+        },
+        "required": ["include"]
+      }
+    }
+  }
+}
+

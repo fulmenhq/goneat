@@ -40,11 +40,11 @@ jobs:
         run: |
           make test || true
 
-      - name: Install golangci-lint
+      - name: Install golangci-lint (v2)
         uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.55.2
+          version: v2.4.0
 
-      - name: Lint
+      - name: Lint (informational for 0.2.1)
         run: |
           golangci-lint run || true

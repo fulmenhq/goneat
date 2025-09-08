@@ -11,6 +11,19 @@ Establish clear attribution patterns for Goneat to enable:
 - **Technical Traceability** - Interface-specific issue diagnosis and debugging
 - **Quality Assurance** - Consistent standards following 3leaps ecosystem patterns
 
+## 🪪 Agentic Identity Requirement
+
+- Agents must have a confirmed agentic identity (e.g., Code Scout, Forge Neat, Arch Eagle) before making commits or opening pull requests.
+- If identity is not already defined in the current session/prompt, pause and request assignment per `MAINTAINERS.md`. Do not commit without confirmed identity and human supervision.
+- Agentic interface (e.g., Codex CLI, Claude Code) is defined via interface adapters such as `CODEX.md` or `CLAUDE.md` and does not imply identity.
+
+## 🤝 Co‑Author Inclusion Policy
+
+- Include only those co-authors (human or AI) who materially contributed to the committed content.
+- Do not list default agents or interfaces as co-authors if they did not contribute to the specific change.
+- When multiple agents contribute, attribute each agent’s concrete area of change in the commit’s “🎯 Changes” section where practical.
+- Always preserve human supervisor oversight in commit messages and PR descriptions.
+
 ## 📋 Attribution Format
 
 ### Standard Pattern

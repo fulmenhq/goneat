@@ -54,7 +54,7 @@ var (
 )
 
 func init() {
-	rootCmd.AddCommand(securityCmd)
+    rootCmd.AddCommand(securityCmd)
 
 	// Register command in ops registry with taxonomy
 	capabilities := ops.GetDefaultCapabilities(ops.GroupNeat, ops.CategoryAssessment)
@@ -80,9 +80,27 @@ func init() {
 	securityCmd.Flags().Bool("ignore-missing-tools", false, "Skip missing security tools (otherwise fail if explicitly requested via --tools and missing)")
 	securityCmd.Flags().BoolVar(&securityTrackSuppressions, "track-suppressions", false, "Track and report security suppressions (e.g., #nosec comments)")
 	// Profiles and noise controls
-	securityCmd.Flags().StringVar(&securityProfile, "profile", "", "Preset profile: ci (fast, critical-only) or dev (comprehensive)")
-	securityCmd.Flags().BoolVar(&securityExcludeFixtures, "exclude-fixtures", true, "Exclude common test fixture paths from results")
-	securityCmd.Flags().StringSliceVar(&securityFixturePatterns, "fixture-patterns", []string{}, "Additional fixture path substrings to exclude (e.g., tests/fixtures/)")
+    securityCmd.Flags().StringVar(&securityProfile, "profile", "", "Preset profile: ci (fast, critical-only) or dev (comprehensive)")
+    securityCmd.Flags().BoolVar(&securityExcludeFixtures, "exclude-fixtures", true, "Exclude common test fixture paths from results")
+    securityCmd.Flags().StringSliceVar(&securityFixturePatterns, "fixture-patterns", []string{}, "Additional fixture path substrings to exclude (e.g., tests/fixtures/)")
+
+    // Quick alias: secrets-only runner powered by gitleaks
+    secretsCmd := &cobra.Command{
+        Use:   "secrets [target]",
+        Short: "Quick secrets scan (gitleaks)",
+        Args:  cobra.MaximumNArgs(1),
+        RunE: func(cmd *cobra.Command, args []string) error {
+            target := "."; if len(args) > 0 { target = args[0] }
+            // Re-exec current binary to invoke the canonical security flow with presets
+            argv := []string{"security", "--enable", "secrets", "--tools", "gitleaks", target}
+            c := exec.Command(os.Args[0], argv...) // #nosec G204 - self re-exec for flag consistency
+            c.Stdout = cmd.OutOrStdout()
+            c.Stderr = cmd.ErrOrStderr()
+            c.Env = os.Environ()
+            return c.Run()
+        },
+    }
+    securityCmd.AddCommand(secretsCmd)
 }
 
 func runSecurity(cmd *cobra.Command, args []string) error {
@@ -152,9 +170,9 @@ func runSecurity(cmd *cobra.Command, args []string) error {
 	// Load project config (optional)
 	projCfg, _ := cfgpkg.LoadProjectConfig()
 
-	// If --fail-on not provided, honor config.security.fail_on
-	if !cmd.Flags().Changed("fail-on") && projCfg != nil {
-		switch strings.ToLower(strings.TrimSpace(projCfg.Security.FailOn)) {
+    // If --fail-on not provided, honor config.security.fail_on and noise controls
+    if !cmd.Flags().Changed("fail-on") && projCfg != nil {
+        switch strings.ToLower(strings.TrimSpace(projCfg.Security.FailOn)) {
 		case "critical":
 			failOn = assess.SeverityCritical
 		case "high":
@@ -251,6 +269,14 @@ func runSecurity(cmd *cobra.Command, args []string) error {
     case "dev":
         if !cmd.Flags().Changed("fail-on") {
             cfg.FailOnSeverity = assess.SeverityLow
+        }
+    }
+    if projCfg != nil {
+        if !cmd.Flags().Changed("exclude-fixtures") {
+            securityExcludeFixtures = projCfg.Security.ExcludeFixtures
+        }
+        if !cmd.Flags().Changed("fixture-patterns") && len(projCfg.Security.FixturePatterns) > 0 {
+            securityFixturePatterns = append([]string(nil), projCfg.Security.FixturePatterns...)
         }
     }
 

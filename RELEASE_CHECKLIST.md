@@ -172,6 +172,31 @@ make pre-push               # Runs assess with build gate
 # Tag/push only after above succeed
 git tag -a v$VERSION -m "release: v$VERSION" && git push origin v$VERSION
 
+## Commit Consolidation (Required before push)
+
+Follow the Git Commit Consolidation SOP to squash work-in-progress commits into a single, clean commit using `git reset --soft` to the last pushed commit.
+
+Reference: docs/sop/git-commit-consolidation-sop.md
+
+Quick flow:
+
+```bash
+# 0) Create a safety backup branch
+git branch backup/pre-consolidation-$(date +%Y%m%d-%H%M%S)
+
+# 1) Identify last pushed commit (prefer upstream or origin/main)
+LAST_PUSHED=$(git rev-parse --verify --quiet @{u} || git rev-parse --verify origin/main)
+
+# 2) Soft reset to last pushed commit (keeps changes staged)
+git reset --soft "$LAST_PUSHED"
+
+# 3) Create consolidated commit (run gates first; see SOP)
+git add -A
+git commit -m "<consolidated message with attribution>"
+```
+
+Emergency recovery steps are documented in the SOP (reflog and backup branch restore).
+
 # Post-release validation
 go install github.com/fulmenhq/goneat@v$VERSION
 goneat version              # Verify installation

@@ -62,3 +62,34 @@ This RC consolidates process improvements:
 - Docs: install instructions and naming clarification.
 
 Note: rc.2–rc.6 were in-progress artifacts to refine the release process; rc.7 is the consolidated candidate.
+## v0.2.1
+
+This release introduces a curated documentation workflow baked into the binary and expands our embedding SOP to cover docs, ensuring reliable offline access and CI drift protection.
+
+### Highlights
+- New `docs` command (read‑only): list/show embedded docs (JSON‑first output).
+- New `content` command: manifest‑driven curation with `find`, `embed`, and `verify` for docs mirrors.
+- JSON Schema for embed manifest (2020‑12) and initial curated manifest.
+
+### Operational Improvements
+- `embed-assets` prefers CLI for docs mirroring.
+- `verify-embeds` now uses `goneat content verify` for precise drift checks.
+
+### Security & Quality
+- Safer defaults for security scanning (exclude fixtures by default).
+- All content operations are rooted and read‑only in runtime commands.
+
+### Roadmap
+- v0.2.2: Frontmatter‑aware selection and metadata enrichment.
+
+## v0.2.1-rc.1
+
+Pre-GA candidate introducing curated docs embedding and the new docs/content commands. Served as the integration checkpoint before GA 0.2.1.
+
+### Highlights
+- `docs list|show`: read‑only access to embedded docs (JSON‑first)
+- `content find|embed|verify`: manifest‑driven curation and mirror management
+- CI integration: verify-embeds uses content verify for precise drift checks
+
+### Notes
+- This RC preceded 0.2.1 GA with the same feature set; minor polish landed in GA.

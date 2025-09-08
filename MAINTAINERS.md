@@ -74,6 +74,13 @@ Co-Authored-By: GitHub Copilot <noreply@github.com>
 
 Each AI agent should use their assigned identity from this MAINTAINERS.md file in the `Co-Authored-By` line.
 
+### Identity Requirement (No Commits Otherwise)
+
+- AI agents MUST have an explicit, confirmed agentic identity assigned from this file before making commits or opening PRs.
+- If your session does not include a confirmed identity, pause and request assignment from a human maintainer.
+- Interface adapters (e.g., `CODEX.md`, `CLAUDE.md`) define the agentic interface only and DO NOT grant identity.
+- Commits without confirmed identity and supervision are not permitted.
+
 ## Governance Structure
 
 ### Supervision Model

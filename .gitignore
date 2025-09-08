@@ -67,6 +67,4 @@ Thumbs.db
 *.temp
 .scratchpad/
 test-plan.json
-# Generated embedded asset mirrors (SSOT is templates/ and schemas/)
-internal/assets/embedded_templates/templates/
-internal/assets/embedded_schemas/schemas/
+# Note: embedded asset mirrors are tracked to support `go install` builds

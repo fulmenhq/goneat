@@ -163,6 +163,16 @@ Benefits:
 - `goneat format`: Multi-format formatting with finalizer stage (EOF/trailing spaces, line-endings, BOM)
 - `goneat security`: Security scanning (gosec, govulncheck), sharded + parallel
 - `goneat hooks`: Hook management (init, generate, install, validate, inspect)
+- `goneat docs`: Read-only access to embedded user guides (most user-facing help)
+- `goneat content`: Maintainer/curation tools for selecting and embedding docs (not for viewing)
+
+Development note: The embed step runs during `make build` and `build-all` via `embed-assets`. Docs mirroring uses the CLI when a local binary exists; otherwise the tracked mirror is used. If you edit `docs/` or the manifest, run:
+
+```bash
+dist/goneat content embed --manifest docs/embed-manifest.yaml --root docs --target internal/assets/embedded_docs/docs
+make build
+```
+
 
 ### Doctor Command
 
@@ -268,6 +278,26 @@ Built and maintained by the 3 Leaps team • Part of the <a href="https://fulmen
 </sub>
 
 </div>
+## Built-in Docs (Offline)
+
+No repo? No problem. Goneat embeds a curated set of documentation for offline use:
+
+```bash
+# Discover available topics
+goneat docs list --format json | jq '.[].slug'
+
+# Read a command guide (stream to pager)
+goneat docs show user-guide/commands/format --format markdown | less
+
+# Quick alias for command help
+goneat docs help format | less
+
+# Render to HTML (raw markdown wrapped in HTML)
+goneat docs show user-guide/commands/hooks --format html > hooks.html
+```
+
+Tip: Use `goneat docs` to learn about hooks, commands, tutorials, and workflows without leaving your terminal.
+
 
 ## Diff‑Aware Assessment (Change‑Set Intelligence)
 

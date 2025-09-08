@@ -157,6 +157,13 @@ git commit --no-verify -m "checkpoint: work in progress"  # Use sparingly
 - Catches formatting issues before they cause commit failures
 - Ensures consistent code quality across all contributors
 
+### Push Operations Require Explicit Approval
+
+- AI agents MUST obtain explicit human maintainer approval before pushing to any remote branch.
+- Force pushes are prohibited unless explicitly authorized; when authorized, use `--force-with-lease`.
+- Automated pipelines may push only within designated release workflows with prior, documented approval.
+- Document the approval context in the PR or commit description when applicable.
+
 ### Safe History Management
 
 - **Clean History**: Follow the [Git Commit Consolidation SOP](docs/sop/git-commit-consolidation-sop.md) for maintaining clean commit history
@@ -380,6 +387,7 @@ When hooks fail but code is correct:
 - [ ] No force-push without `--force-with-lease`
 - [ ] Team notified of significant changes
 - [ ] **Format tool dogfooding validated**
+ - [ ] Explicit human approval to push was obtained
 
 ---
 

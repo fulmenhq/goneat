@@ -1,5 +1,13 @@
 # Goneat - AI Agents Startup Guide
 
+## Agentic Interface Hook (Read First)
+
+- If you have not discovered your agentic interface, pause and obtain clarification from a human maintainer before proceeding. After confirmation, read the corresponding interface adapter file.
+- Known interface adapters (tool-specific, not identity):
+  - `CLAUDE.md` — Interface: Claude Code
+  - `CODEX.md` — Interface: Codex CLI (https://github.com/openai/codex)
+- Do not assume an agentic identity (e.g., Code Scout, Forge Neat, Arch Eagle). If identity is not explicitly defined in your session, request assignment per `MAINTAINERS.md` before performing changes or commits.
+
 **Project**: goneat
 **Purpose**: Single tool for format/lint operations - "making it neat"
 **Governance Model**: 3leaps Initiative

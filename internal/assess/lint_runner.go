@@ -182,10 +182,15 @@ func (r *LintAssessmentRunner) runGolangCILintWithMode(target string, config Ass
 		args = append(args, "--fix")
 	}
 
-	// Add output format (only for check mode, fix mode doesn't produce structured output)
-	if !fixMode && r.config.Format == "json" {
-		args = append(args, "--output.json.path", "stdout")
-	}
+    // Add output format (only for check mode, fix mode doesn't produce structured output)
+    if !fixMode && r.config.Format == "json" {
+        args = append(args, "--output.json.path", "stdout")
+    }
+
+    // Limit to new issues only when requested
+    if config.LintNewFromRev != "" {
+        args = append(args, "--new-from-rev", config.LintNewFromRev)
+    }
 
 	// Add enabled linters
 	for _, linter := range r.config.EnabledLinters {
@@ -246,16 +251,21 @@ func (r *LintAssessmentRunner) runGolangCILintWithMode(target string, config Ass
 
 	// golangci-lint returns non-zero exit code when issues are found
 	// This is expected behavior, not an error for check mode
-	if err != nil {
-		exitCode := 0
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			exitCode = exitErr.ExitCode()
-		}
-		// Exit code 1 means issues found (normal for check mode), other codes are actual errors
-		if exitCode != 1 {
-			return nil, fmt.Errorf("golangci-lint execution failed: %v, output: %s", err, string(output))
-		}
-	}
+    if err != nil {
+        exitCode := 0
+        if exitErr, ok := err.(*exec.ExitError); ok {
+            exitCode = exitErr.ExitCode()
+        }
+        // Exit code 1: issues found (normal for check mode)
+        // Exit code 5: no go files to analyze (treat as no issues when running new-from-rev)
+        if exitCode == 1 {
+            // proceed to parse output for issues
+        } else if exitCode == 5 && config.LintNewFromRev != "" {
+            return []Issue{}, nil
+        } else {
+            return nil, fmt.Errorf("golangci-lint execution failed: %v, output: %s", err, string(output))
+        }
+    }
 
 	// For fix mode, we don't parse issues (golangci-lint doesn't provide structured output when fixing)
 	if fixMode {

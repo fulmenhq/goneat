@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.goneat.io/output/content-find-report-v1.0.0.json",
+  "title": "Goneat Content Find Report",
+  "type": "object",
+  "required": ["version", "root", "manifest", "count", "items"],
+  "properties": {
+    "version": { "type": "string", "const": "1.0.0" },
+    "root": { "type": "string", "minLength": 1 },
+    "manifest": { "type": "string", "minLength": 1 },
+    "count": { "type": "integer", "minimum": 0 },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["slug", "path", "size"],
+        "properties": {
+          "slug": { "type": "string" },
+          "path": { "type": "string" },
+          "topic": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+          "size": { "type": "integer", "minimum": 0 },
+          "title": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    }
+  }
+}
+
