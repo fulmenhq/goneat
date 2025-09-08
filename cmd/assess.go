@@ -16,7 +16,8 @@ import (
 	"github.com/fulmenhq/goneat/internal/assess"
 	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/fulmenhq/goneat/pkg/logger"
-	"github.com/spf13/cobra"
+    "github.com/spf13/cobra"
+    pflag "github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
 )
 
@@ -66,7 +67,10 @@ var (
 	assessConcurrencyPercent int
 	assessCategories         string
 	assessStagedOnly         bool
-	assessTrackSuppressions  bool
+    assessTrackSuppressions  bool
+    // CI/Profiles
+    assessCISummary bool
+    assessProfile   string
 )
 
 func init() {
@@ -125,7 +129,11 @@ func setupAssessCommandFlags(cmd *cobra.Command) {
 	// File scope flags
 	cmd.Flags().BoolVar(&assessStagedOnly, "staged-only", false, "Only assess staged files in git (changed and added)")
 	// Suppression tracking (security)
-	cmd.Flags().BoolVar(&assessTrackSuppressions, "track-suppressions", false, "Track and report security suppressions (e.g., #nosec) in assessment output")
+    cmd.Flags().BoolVar(&assessTrackSuppressions, "track-suppressions", false, "Track and report security suppressions (e.g., #nosec) in assessment output")
+    // CI helpers
+    cmd.Flags().BoolVar(&assessCISummary, "ci-summary", false, "Print a single-line CI summary (PASS/FAIL + issue counts)")
+    // Profiles
+    cmd.Flags().StringVar(&assessProfile, "profile", "", "Preset profile: ci (fast, critical-only) or dev (comprehensive)")
 }
 
 func runAssess(cmd *cobra.Command, args []string) error {
@@ -153,7 +161,9 @@ func runAssess(cmd *cobra.Command, args []string) error {
 	assessNoIgnore, _ = flags.GetBool("no-ignore")
 	assessForceInclude, _ = flags.GetStringSlice("force-include")
 	assessSchemaEnableMeta, _ = flags.GetBool("schema-enable-meta")
-	assessScope, _ = flags.GetBool("scope")
+    assessScope, _ = flags.GetBool("scope")
+    assessCISummary, _ = flags.GetBool("ci-summary")
+    assessProfile, _ = flags.GetString("profile")
 
 	// Validate mode value
 	switch assessMode {
@@ -215,8 +225,8 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Create assessment configuration
-	config := assess.AssessmentConfig{
+    // Create assessment configuration
+    config := assess.AssessmentConfig{
 		Mode:               mode,
 		Verbose:            assessVerbose,
 		Timeout:            assessTimeout,
@@ -231,7 +241,12 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		Concurrency:        assessConcurrency,
 		ConcurrencyPercent: assessConcurrencyPercent,
 		TrackSuppressions:  assessTrackSuppressions,
-	}
+    }
+
+    // Apply profile defaults (non-intrusive; does not override explicitly set flags)
+    if strings.TrimSpace(assessProfile) != "" {
+        applyAssessProfile(strings.ToLower(strings.TrimSpace(assessProfile)), flags, &config)
+    }
 
 	// If limited to staged files, populate IncludeFiles from git staged set
 	if assessStagedOnly {
@@ -298,9 +313,9 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		format = assess.FormatConcise
 	}
 
-	// Format and output report
-	formatter := assess.NewFormatter(format)
-	formatter.SetTargetPath(target)
+    // Format and output report
+    formatter := assess.NewFormatter(format)
+    formatter.SetTargetPath(target)
 
 	if assessOutput != "" {
 		// Validate output path to prevent path traversal
@@ -340,8 +355,21 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Concise schema summary for DX (preview)
-	printSchemaSummary(report)
+    // Concise schema summary for DX (preview)
+    printSchemaSummary(report)
+
+    // CI summary line
+    if assessCISummary {
+        pass := !shouldFail(report, failOnSeverity)
+        c := countIssuesBySeverity(report)
+        status := "FAIL"
+        if pass {
+            status = "PASS"
+        }
+        fmt.Fprintf(cmd.OutOrStdout(), "CI: %s | critical=%d high=%d medium=%d low=%d info=%d total=%d\n",
+            status, c["critical"], c["high"], c["medium"], c["low"], c["info"], c["total"],
+        )
+    }
 
 	// Check if we should fail based on severity
 	if shouldFail(report, failOnSeverity) {
@@ -350,6 +378,44 @@ func runAssess(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+// applyAssessProfile sets sensible defaults for profiles without overriding explicit flags
+func applyAssessProfile(profile string, flags *pflag.FlagSet, cfg *assess.AssessmentConfig) {
+    switch profile {
+    case "ci":
+        if !flags.Changed("fail-on") {
+            cfg.FailOnSeverity = assess.SeverityCritical
+        }
+        if len(cfg.SelectedCategories) == 0 && !flags.Changed("categories") {
+            cfg.SelectedCategories = []string{"format", "lint", "security"}
+        }
+        if !flags.Changed("staged-only") {
+            // Favor staged-only if repository; leave discovery to include if populated elsewhere
+        }
+    case "dev":
+        if !flags.Changed("fail-on") {
+            cfg.FailOnSeverity = assess.SeverityLow
+        }
+        if len(cfg.SelectedCategories) == 0 && !flags.Changed("categories") {
+            cfg.SelectedCategories = []string{"format", "lint", "security", "schema"}
+        }
+    }
+}
+
+// countIssuesBySeverity returns counts per severity for a report
+func countIssuesBySeverity(report *assess.AssessmentReport) map[string]int {
+    m := map[string]int{"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0, "total": 0}
+    for _, cr := range report.Categories {
+        for _, is := range cr.Issues {
+            sev := strings.ToLower(string(is.Severity))
+            if _, ok := m[sev]; ok {
+                m[sev]++
+            }
+            m["total"]++
+        }
+    }
+    return m
 }
 
 // shouldFail determines if the assessment should fail based on issue severity
