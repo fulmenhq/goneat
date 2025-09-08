@@ -213,8 +213,8 @@ func (p *FormatProcessor) formatMarkdownFile(filePath string) error {
 		filePath = abs
 	}
 
-	// Read the file content
-	content, err := os.ReadFile(filePath)
+    // Read the file content
+    content, err := os.ReadFile(filePath) // #nosec G304 -- repo file read after Clean+Abs normalization
 	if err != nil {
 		return fmt.Errorf("failed to read file %s: %w", filePath, err)
 	}
@@ -226,10 +226,10 @@ func (p *FormatProcessor) formatMarkdownFile(filePath string) error {
 	}
 
 	// Write back if changed
-	if changed {
-		if err := os.WriteFile(filePath, normalizedContent, 0644); err != nil {
-			return fmt.Errorf("failed to write normalized content to %s: %w", filePath, err)
-		}
+    if changed {
+        if err := os.WriteFile(filePath, normalizedContent, 0600); err != nil {
+            return fmt.Errorf("failed to write normalized content to %s: %w", filePath, err)
+        }
 		logger.Debug(fmt.Sprintf("Applied normalization to %s", filePath))
 	} else {
 		logger.Debug(fmt.Sprintf("No normalization needed for %s", filePath))

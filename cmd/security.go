@@ -274,7 +274,7 @@ func runSecurity(cmd *cobra.Command, args []string) error {
 		if strings.Contains(securityOutput, "..") {
 			return fmt.Errorf("invalid output path: contains path traversal")
 		}
-		f, ferr := os.Create(securityOutput)
+            f, ferr := os.OpenFile(securityOutput, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 		if ferr != nil {
 			return fmt.Errorf("failed to create output file: %v", ferr)
 		}

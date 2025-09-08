@@ -323,8 +323,8 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		if strings.Contains(assessOutput, "..") {
 			return fmt.Errorf("invalid output path: contains path traversal")
 		}
-		// Write to file
-		file, err := os.Create(assessOutput)
+            // Write to file with restrictive permissions
+            file, err := os.OpenFile(assessOutput, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 		if err != nil {
 			return fmt.Errorf("failed to create output file: %v", err)
 		}
@@ -657,7 +657,7 @@ func loadHookManifest(path string) (*HookConfig, error) {
 	if strings.Contains(path, "..") {
 		return nil, fmt.Errorf("invalid manifest path: contains path traversal")
 	}
-	data, err := os.ReadFile(path)
+    data, err := os.ReadFile(path) // #nosec G304 -- path cleaned and traversal rejected above
 	if err != nil {
 		return nil, fmt.Errorf("read manifest: %w", err)
 	}

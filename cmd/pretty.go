@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
+    "os"
+    "path/filepath"
 	"strings"
 
 	"github.com/fulmenhq/goneat/internal/assess"
@@ -32,7 +32,9 @@ var prettyCmd = &cobra.Command{
 			if strings.Contains(input, "..") {
 				return fmt.Errorf("invalid input path: contains path traversal")
 			}
-			data, err = os.ReadFile(input)
+        // Read user-provided path (cleaned)
+        cleaned := filepath.Clean(input)
+        data, err = os.ReadFile(cleaned) // #nosec G304 -- reading user-provided path after cleaning
 			if err != nil {
 				return err
 			}
