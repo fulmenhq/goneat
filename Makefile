@@ -24,11 +24,12 @@ GOMOD := $(GOCMD) mod
 GOFMT := $(GOCMD) fmt
 
 # Build flags
-LDFLAGS := -ldflags "-X 'main.Version=$(VERSION)'"
+# Embed binary version for `go install` builds as well
+LDFLAGS := -ldflags "-X 'github.com/fulmenhq/goneat/pkg/buildinfo.BinaryVersion=$(VERSION)'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
 .PHONY: help build clean test fmt format-docs version-get version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease \
-	license-inventory license-save license-audit update-licenses embed-assets
+	license-inventory license-save license-audit update-licenses embed-assets verify-embeds
 
 # Default target
 all: clean build fmt
@@ -57,6 +58,10 @@ embed-assets: ## Sync templates/ and schemas/ into embedded assets (SSOT -> inte
 	@chmod +x scripts/embed-assets.sh
 	@./scripts/embed-assets.sh
 	@echo "✅ Assets embedded"
+
+verify-embeds: ## Verify embedded mirrors match SSOT (fails on drift)
+	@chmod +x scripts/verify-embeds.sh
+	@./scripts/verify-embeds.sh
 
 # Cross-platform build targets
 build-all: ## Build for all supported platforms

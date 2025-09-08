@@ -32,6 +32,10 @@ jobs:
         run: |
           make build
 
+      - name: Verify embedded assets in sync
+        run: |
+          make verify-embeds
+
       - name: Test
         run: |
           make test || true
@@ -44,4 +48,3 @@ jobs:
       - name: Lint
         run: |
           golangci-lint run || true
-
