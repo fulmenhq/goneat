@@ -48,6 +48,9 @@ var (
 	securityGosecTimeout       time.Duration
 	securityGovulnTimeout      time.Duration
 	securityTrackSuppressions  bool
+	securityProfile            string
+	securityExcludeFixtures    bool
+	securityFixturePatterns    []string
 )
 
 func init() {
@@ -76,6 +79,10 @@ func init() {
 	// Doctor-isolated behavior: optionally skip missing tools (otherwise fail fast if explicitly requested and missing)
 	securityCmd.Flags().Bool("ignore-missing-tools", false, "Skip missing security tools (otherwise fail if explicitly requested via --tools and missing)")
 	securityCmd.Flags().BoolVar(&securityTrackSuppressions, "track-suppressions", false, "Track and report security suppressions (e.g., #nosec comments)")
+	// Profiles and noise controls
+	securityCmd.Flags().StringVar(&securityProfile, "profile", "", "Preset profile: ci (fast, critical-only) or dev (comprehensive)")
+	securityCmd.Flags().BoolVar(&securityExcludeFixtures, "exclude-fixtures", true, "Exclude common test fixture paths from results")
+	securityCmd.Flags().StringSliceVar(&securityFixturePatterns, "fixture-patterns", []string{}, "Additional fixture path substrings to exclude (e.g., tests/fixtures/)")
 }
 
 func runSecurity(cmd *cobra.Command, args []string) error {
@@ -162,9 +169,14 @@ func runSecurity(cmd *cobra.Command, args []string) error {
 	}
 
 	// Build assessment config
-	cfg := assess.DefaultAssessmentConfig()
+    cfg := assess.DefaultAssessmentConfig()
 	cfg.Mode = assess.AssessmentModeCheck
-	cfg.FailOnSeverity = failOn
+    cfg.FailOnSeverity = failOn
+    // Exclusions configuration
+    cfg.SecurityExcludeFixtures = securityExcludeFixtures
+    if len(securityFixturePatterns) > 0 {
+        cfg.SecurityFixturePatterns = append(cfg.SecurityFixturePatterns, securityFixturePatterns...)
+    }
 	cfg.Verbose = false
 	// Timeout: from config unless flag provided
 	if f := cmd.Flags(); f.Changed("timeout") {
@@ -230,8 +242,20 @@ func runSecurity(cmd *cobra.Command, args []string) error {
 		cfg.TrackSuppressions = projCfg.Security.TrackSuppressions
 	}
 
-	// Limit to security category only
-	cfg.SelectedCategories = []string{"security"}
+    // Apply profile defaults (non-intrusive; do not override explicit flags)
+    switch strings.ToLower(strings.TrimSpace(securityProfile)) {
+    case "ci":
+        if !cmd.Flags().Changed("fail-on") {
+            cfg.FailOnSeverity = assess.SeverityCritical
+        }
+    case "dev":
+        if !cmd.Flags().Changed("fail-on") {
+            cfg.FailOnSeverity = assess.SeverityLow
+        }
+    }
+
+    // Limit to security category only
+    cfg.SelectedCategories = []string{"security"}
 
 	// Apply diff-only or staged-only scoping for code scanners
 	if securityStaged {

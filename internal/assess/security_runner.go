@@ -78,7 +78,15 @@ func (r *SecurityAssessmentRunner) Assess(ctx context.Context, target string, co
     for i := 0; i < len(adapters); i++ {
         rres := <-resultsCh
         if rres.err != nil {
-            logger.Warn(fmt.Sprintf("%s scan failed: %v", rres.name, rres.err))
+            // Provide actionable guidance on tool setup
+            var hint string
+            switch rres.name {
+            case "gosec":
+                hint = " (install/update with: go install github.com/securego/gosec/v2/cmd/gosec@latest)"
+            case "govulncheck":
+                hint = " (install/update with: go install golang.org/x/vuln/cmd/govulncheck@latest)"
+            }
+            logger.Warn(fmt.Sprintf("%s scan failed: %v%s", rres.name, rres.err, hint))
             continue
         }
         issues = append(issues, rres.issues...)
@@ -86,7 +94,7 @@ func (r *SecurityAssessmentRunner) Assess(ctx context.Context, target string, co
     }
 
     // Filter out known noise paths (e.g., test fixtures) from security scans
-    issues = r.filterSecurityNoise(issues)
+    issues = r.filterSecurityNoise(issues, config)
 
 	// Basic metrics
 	if ranGosec {
@@ -818,14 +826,28 @@ func (r *SecurityAssessmentRunner) mapGitleaksFinding(m map[string]interface{}) 
 }
 
 // filterSecurityNoise removes issues from paths that are expected to contain intentionally vulnerable fixtures
-func (r *SecurityAssessmentRunner) filterSecurityNoise(in []Issue) []Issue {
+func (r *SecurityAssessmentRunner) filterSecurityNoise(in []Issue, cfg AssessmentConfig) []Issue {
     if len(in) == 0 {
+        return in
+    }
+    if !cfg.SecurityExcludeFixtures {
         return in
     }
     var out []Issue
     for _, is := range in {
         p := strings.ToLower(filepath.ToSlash(is.File))
-        if strings.Contains(p, "tests/fixtures/") || strings.Contains(p, "test-fixtures/") {
+        excluded := false
+        patterns := cfg.SecurityFixturePatterns
+        if len(patterns) == 0 {
+            patterns = []string{"tests/fixtures/", "test-fixtures/"}
+        }
+        for _, pat := range patterns {
+            if strings.Contains(p, strings.ToLower(pat)) {
+                excluded = true
+                break
+            }
+        }
+        if excluded {
             continue
         }
         out = append(out, is)
