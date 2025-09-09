@@ -17,6 +17,25 @@ This document establishes standard operating procedures for Goneat repository op
 | **pre-commit** | Commit Ready     | 10%+     | Basic    | ~30s  |
 | **pre-push**   | Production Ready | 70%+     | Full     | ~2min |
 
+## Repository Phase Management
+
+**Phase Files (Single Source of Truth):**
+
+- `LIFECYCLE_PHASE`: Product maturity phase
+  - **Allowed values**: `experimental`, `alpha`, `beta`, `rc`, `ga`, `lts`
+  - **Current project phase**: `alpha` (30% coverage threshold)
+- `RELEASE_PHASE`: Distribution cadence phase
+  - **Allowed values**: `dev`, `rc`, `ga`
+  - **Current project phase**: `rc` (70% coverage threshold)
+
+**Coverage Thresholds by Phase:**
+
+- **Lifecycle**: experimental=0%, alpha=30%, beta=60%, rc=70%, ga=75%, lts=80%
+- **Release**: dev=50%, rc=70%, ga=75%
+- **Policy**: Coverage gates use LIFECYCLE_PHASE threshold (authoritative). RELEASE_PHASE is for distribution cadence only.
+
+**Documentation**: See [docs/standards/lifecycle-release-phase-standard.md](../standards/lifecycle-release-phase-standard.md) for complete definitions, validation rules, and change control procedures.
+
 ## Commit Operations
 
 ### Standard Commit Workflow

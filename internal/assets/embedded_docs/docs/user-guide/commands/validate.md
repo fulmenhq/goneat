@@ -48,9 +48,9 @@ goneat validate --format json --output validate.json
 - `--timeout`: Validation timeout (default 3m)
 - `--auto-detect`: Preview option to scan `.yaml/.yml/.json` by extension
 - `--no-ignore`: Disable `.goneatignore`/`.gitignore` during discovery (scan everything in scope)
- - `--force-include`: Force-include path(s) or glob(s) even if ignored (repeatable)
- - `--enable-meta`: Attempt meta-schema validation (may require network for remote $refs)
- - `--scope`: Limit traversal to `--include` paths and anchors from `--force-include` (clean DX)
+- `--force-include`: Force-include path(s) or glob(s) even if ignored (repeatable)
+- `--enable-meta`: Attempt meta-schema validation (may require network for remote $refs)
+- `--scope`: Limit traversal to `--include` paths and anchors from `--force-include` (clean DX)
 
 ### Ignore Overrides (DX)
 

@@ -63,24 +63,24 @@ func TestGetJSONSchemaMeta(t *testing.T) {
 }
 
 func TestGetDocsFS(t *testing.T) {
-    fsys := GetDocsFS()
-    if fsys == nil {
-        t.Fatal("GetDocsFS returned nil")
-    }
-    // Try a few curated files
-    candidates := []string{
-        "docs/user-guide/install.md",
-        "docs/configuration/feature-gates.md",
-    }
-    var found bool
-    for _, p := range candidates {
-        data, err := fs.ReadFile(fsys, p)
-        if err == nil && len(data) > 0 {
-            found = true
-            break
-        }
-    }
-    if !found {
-        t.Fatalf("no embedded docs found at expected paths: %v", candidates)
-    }
+	fsys := GetDocsFS()
+	if fsys == nil {
+		t.Fatal("GetDocsFS returned nil")
+	}
+	// Try a few curated files
+	candidates := []string{
+		"docs/user-guide/install.md",
+		"docs/configuration/feature-gates.md",
+	}
+	var found bool
+	for _, p := range candidates {
+		data, err := fs.ReadFile(fsys, p)
+		if err == nil && len(data) > 0 {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("no embedded docs found at expected paths: %v", candidates)
+	}
 }

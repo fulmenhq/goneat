@@ -1,8 +1,13 @@
-muh# Goneat - Maintainers
+# Goneat - Maintainers
 
 **Project**: goneat
 **Purpose**: Single tool for format/lint operations - "making it neat"
 **Governance Model**: 3leaps Initiative
+
+## Release Context
+
+- v0.2.1 shipped with adjusted quality gates to validate the policy update flow; some noncritical security, formatting, and lint fixes were intentionally deferred to prove policy updates work end-to-end.
+- v0.2.2 focuses on polish and restoring/enforcing the standard quality gates.
 
 ## Human Maintainers
 

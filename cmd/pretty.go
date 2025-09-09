@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-    "os"
-    "path/filepath"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/fulmenhq/goneat/internal/assess"
@@ -16,7 +16,7 @@ import (
 var prettyCmd = &cobra.Command{
 	Use:   "pretty",
 	Short: "Render assessment JSON as pretty console or HTML (stub)",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		to, _ := cmd.Flags().GetString("to")
 		from, _ := cmd.Flags().GetString("from")
 		input, _ := cmd.Flags().GetString("input")
@@ -32,9 +32,9 @@ var prettyCmd = &cobra.Command{
 			if strings.Contains(input, "..") {
 				return fmt.Errorf("invalid input path: contains path traversal")
 			}
-        // Read user-provided path (cleaned)
-        cleaned := filepath.Clean(input)
-        data, err = os.ReadFile(cleaned) // #nosec G304 -- reading user-provided path after cleaning
+			// Read user-provided path (cleaned)
+			cleaned := filepath.Clean(input)
+			data, err = os.ReadFile(cleaned) // #nosec G304 -- reading user-provided path after cleaning
 			if err != nil {
 				return err
 			}

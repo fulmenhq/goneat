@@ -19,8 +19,8 @@ status: "approved"
 
 1. Curated core assets in-repo (embedded)
    - JSON Schema meta-schemas (Draft-07, Draft 2020-12)
-   - Templates directory (hooks/bash/*.tmpl)
-   - Schemas directory (config/*.yaml, output/*.yaml, work/*.yaml)
+   - Templates directory (hooks/bash/\*.tmpl)
+   - Schemas directory (config/_.yaml, output/_.yaml, work/\*.yaml)
    - Stored under `internal/assets/embedded_*` subdirectories and embedded via `go:embed`
    - Accessed via `GetTemplatesFS()`, `GetSchemasFS()`, and `GetJSONSchemaMeta()`
    - Used by default for offline meta-validation and template rendering
@@ -43,4 +43,3 @@ status: "approved"
 
 - Additional assets follow the same pattern: curate → embed → optional cache for large catalogs
 - The embedded registry (`internal/assets/registry.go`) enumerates available assets for discovery/debugging
-

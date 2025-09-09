@@ -56,8 +56,8 @@ This checklist ensures all requirements are met before releasing goneat to the G
 
 ### RC Validation Gates ✅
 
-- [ ] Builds produced: `make build-all` (bin/* across platforms)
-- [ ] Packaging successful: `scripts/package-artifacts.sh` (dist/release/* + SHA256SUMS)
+- [ ] Builds produced: `make build-all` (bin/\* across platforms)
+- [ ] Packaging successful: `scripts/package-artifacts.sh` (dist/release/\* + SHA256SUMS)
 - [ ] License audit workflow green (GitHub Actions)
 - [ ] Pre-push gate passing (fail-on thresholds) after build-all
 - [ ] pkg.go.dev indexing verified for the tag
@@ -156,7 +156,7 @@ This checklist ensures all requirements are met before releasing goneat to the G
 
 ## Release Command Sequence
 
-```bash
+````bash
 # Pre-release preparation
 make test                    # Run all tests
 make build-all              # Build all platforms
@@ -178,6 +178,17 @@ Follow the Git Commit Consolidation SOP to squash work-in-progress commits into 
 
 Reference: docs/sop/git-commit-consolidation-sop.md
 
+## Prerequisites (CRITICAL)
+
+**⚠️ DO NOT BEGIN consolidation until ALL of the following are met:**
+
+- [ ] **Repository is clean**: `git status` shows "nothing to commit, working tree clean"
+- [ ] **Pre-push gates pass**: `./dist/goneat assess --hook=pre-push --fail-on=high` returns exit code 0
+- [ ] **All changes committed**: No unstaged or uncommitted files exist
+- [ ] **Backup branch created**: Safety backup exists before any history rewriting
+
+**Failure to meet these prerequisites will result in incomplete consolidation and potential data loss.**
+
 Quick flow:
 
 ```bash
@@ -193,13 +204,15 @@ git reset --soft "$LAST_PUSHED"
 # 3) Create consolidated commit (run gates first; see SOP)
 git add -A
 git commit -m "<consolidated message with attribution>"
-```
+````
 
 Emergency recovery steps are documented in the SOP (reflog and backup branch restore).
 
 # Post-release validation
+
 go install github.com/fulmenhq/goneat@v$VERSION
-goneat version              # Verify installation
+goneat version # Verify installation
+
 ```
 
 ## Contact Information
@@ -222,3 +235,4 @@ goneat version              # Verify installation
 **Release Checklist Version**: 1.0
 **Last Updated**: 2025-08-28
 **Next Review**: With each major release
+```

@@ -3,6 +3,8 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -15,8 +17,31 @@ func execRoot(t *testing.T, args []string) (string, error) {
 	// Reduce log noise to capture clean command output for JSON parsing
 	full := append([]string{"--log-level", "error"}, args...)
 	rootCmd.SetArgs(full)
+	// Run from repository root so relative defaults (docs/, schemas/) resolve consistently
+	cwd, _ := os.Getwd()
+	if repo := findRepoRootFS(cwd); repo != "" {
+		_ = os.Chdir(repo)
+		defer func() { _ = os.Chdir(cwd) }()
+	}
+	// Reset global assess flags to avoid cross-test bleed
+	assessMode, assessNoOp, assessCheck, assessFix = "check", false, false, false
 	err := rootCmd.Execute()
 	return buf.String(), err
+}
+
+// findRepoRootFS finds a parent directory containing .git
+func findRepoRootFS(start string) string {
+	dir := start
+	for {
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
 }
 
 func TestEnvinfo_JSON(t *testing.T) {

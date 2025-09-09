@@ -35,18 +35,21 @@ goneat format [target] [flags]
 The `-f` flag has been replaced with clearer file selection flags:
 
 **Old (v0.1.5 and earlier):**
+
 ```bash
 goneat format -f "*.go"     # ❌ Deprecated - treated files as patterns
 ```
 
 **New (v0.1.6+):**
+
 ```bash
 goneat format --files main.go,utils.go      # ✅ Explicit file list
 goneat format --patterns "*.go","test_*"    # ✅ Glob patterns for discovery
 ```
 
 **Migration Guide:**
-- Replace `-f pattern` with `--patterns pattern`  
+
+- Replace `-f pattern` with `--patterns pattern`
 - Replace `-f file.go` with `--files file.go`
 - Cannot combine `--files` and `--patterns` (validation enforced)
 
@@ -69,7 +72,7 @@ goneat format --files main.go,utils.go
 # Format using glob patterns
 goneat format --patterns "*.go","pkg/**/*.yaml"
 
-# Format with language-specific options  
+# Format with language-specific options
 goneat format --types go,yaml
 ```
 
@@ -128,15 +131,16 @@ goneat format --plan-only --group-by-size
 
 ### File Selection Flags
 
-| Flag          | Type    | Description                                    | Example                       |
-| ------------- | ------- | ---------------------------------------------- | ----------------------------- |
-| `--files`     | strings | Specific files to format (explicit list)      | `--files main.go,utils.go`    |
-| `--patterns`  | strings | Glob patterns to filter discovered files      | `--patterns "*.go","test_*"` |
-| `--folders`   | strings | Directories to process                         | `--folders src/,pkg/`         |
-| `--types`     | strings | File types to include                          | `--types go,yaml,json`        |
-| `--max-depth` | int     | Maximum directory depth                        | `--max-depth 3`               |
+| Flag          | Type    | Description                              | Example                      |
+| ------------- | ------- | ---------------------------------------- | ---------------------------- |
+| `--files`     | strings | Specific files to format (explicit list) | `--files main.go,utils.go`   |
+| `--patterns`  | strings | Glob patterns to filter discovered files | `--patterns "*.go","test_*"` |
+| `--folders`   | strings | Directories to process                   | `--folders src/,pkg/`        |
+| `--types`     | strings | File types to include                    | `--types go,yaml,json`       |
+| `--max-depth` | int     | Maximum directory depth                  | `--max-depth 3`              |
 
 **File Selection Precedence:**
+
 - `--files`: Processes exact files (no patterns, no discovery)
 - `--patterns`: Filters files during discovery (cannot combine with --files)
 - `--folders`, `--types`, `--include`, `--exclude`: Additional filtering options
@@ -153,12 +157,15 @@ goneat format --plan-only --group-by-size
 
 ### File Operation Flags
 
-| Flag                              | Type    | Description                    | Example                           |
-| --------------------------------- | ------- | ------------------------------ | --------------------------------- |
-| `--finalize-eof`                  | boolean | Ensure single trailing newline | `--finalize-eof`                  |
-| `--finalize-trim-trailing-spaces` | boolean | Remove trailing whitespace     | `--finalize-trim-trailing-spaces` |
-| `--finalize-line-endings`         | string  | Normalize line endings         | `--finalize-line-endings=lf`      |
-| `--finalize-remove-bom`           | boolean | Remove UTF-8/16/32 BOM         | `--finalize-remove-bom`           |
+| Flag                              | Type    | Description                                                                         | Example                            |
+| --------------------------------- | ------- | ----------------------------------------------------------------------------------- | ---------------------------------- |
+| `--finalize-eof`                  | boolean | Ensure single trailing newline                                                      | `--finalize-eof`                   |
+| `--finalize-trim-trailing-spaces` | boolean | Remove trailing whitespace                                                          | `--finalize-trim-trailing-spaces`  |
+| `--finalize-line-endings`         | string  | Normalize line endings                                                              | `--finalize-line-endings=lf`       |
+| `--finalize-remove-bom`           | boolean | Remove UTF-8/16/32 BOM                                                              | `--finalize-remove-bom`            |
+| `--text-normalize`                | boolean | Apply generic text normalization to any text file (unknown extensions included)     | `--text-normalize`                 |
+| `--text-encoding-policy`          | string  | Encoding policy for normalization: `utf8-only` (default), `utf8-or-bom`, `any-text` | `--text-encoding-policy=utf8-only` |
+| `--preserve-md-linebreaks`        | boolean | Preserve Markdown hard line breaks (two trailing spaces)                            | `--preserve-md-linebreaks`         |
 
 ### Language-specific Organizer Flags (Go)
 
@@ -721,3 +728,34 @@ Planned improvements for the format command:
 **Author**: @forge-neat
 **Supported File Types**: 15+ extensions
 **Performance**: Sub-millisecond per file
+
+### Generic Text Normalization (New)
+
+A safe, format-agnostic normalizer runs on any text file (including unknown extensions) to:
+
+- Ensure exactly one trailing newline (EOF)
+- Trim trailing whitespace at end of lines
+- Optionally normalize CRLF to LF
+- Optionally remove UTF‑8 BOM
+- Preserve Markdown hard line breaks (two trailing spaces) when enabled
+
+Controls:
+
+```bash
+# Enable/disable generic text normalization (default: enabled)
+goneat format --text-normalize                # on unknown text files too
+
+# Encoding policy (default: utf8-only)
+goneat format --text-encoding-policy=utf8-only   # safest
+goneat format --text-encoding-policy=utf8-or-bom # allow UTF-8 + UTF-8 BOM
+goneat format --text-encoding-policy=any-text    # any UTF-8 text heuristics
+
+# Preserve Markdown hard breaks (default: true)
+goneat format --preserve-md-linebreaks
+```
+
+Notes:
+
+- Unknown or non‑UTF‑8 encodings are skipped by default (no changes) to prevent corruption.
+- Use `.goneatignore` and `.gitignore` to exclude paths from normalization.
+- Markdown: when preserving hard breaks, trailing spaces are collapsed to exactly two.

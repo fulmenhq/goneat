@@ -39,6 +39,7 @@ Lifecycle-to-gate mapping (planned):
 To change lifecycle phase, edit the root file `LIFECYCLE_PHASE` to one of: `experimental`, `alpha`, `beta`, `rc`, `ga`, `lts`, commit, and rerun builds.
 
 See also:
+
 - Standards: docs/standards/lifecycle-release-phase-standard.md (allowed values and CI semantics)
 - Schemas: schemas/config/lifecycle-phase-v1.0.0.json, schemas/config/release-phase-v1.0.0.json
 - Ops: docs/ops/repository/2025-09-06-release-lifecycle-governance.md

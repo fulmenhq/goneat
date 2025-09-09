@@ -45,10 +45,49 @@ This document describes the standard operating procedure for **consolidating mul
 
 ## Prerequisites
 
+### Required Knowledge & Tools
+
 - Git version 2.0 or higher
 - Understanding of git reset, rebase, and commit concepts
 - Backup strategy in place (automatic or manual)
 - Goneat-specific: Familiarity with `goneat assess` and quality gates
+
+### CRITICAL Repository State Requirements
+
+**🚫 DO NOT BEGIN consolidation unless ALL of the following are TRUE:**
+
+```bash
+# 1) Repository must be completely clean
+git status
+# Should show: "nothing to commit, working tree clean"
+
+# 2) Pre-push quality gates must pass
+./dist/goneat assess --hook=pre-push --fail-on=high
+# Should return exit code 0 (success)
+
+# 3) No unstaged changes
+git diff --name-only
+# Should return no output
+
+# 4) No uncommitted changes
+git diff --cached --name-only
+# Should return no output
+```
+
+**⚠️ FAILURE TO MEET THESE REQUIREMENTS WILL RESULT IN:**
+
+- Incomplete consolidation
+- Potential data loss
+- Mixed state commits
+- Failed quality gates after consolidation
+
+### Verification Checklist
+
+- [ ] `git status` shows clean working tree
+- [ ] `./dist/goneat assess --hook=pre-push --fail-on=high` passes (exit code 0)
+- [ ] All intended changes are committed
+- [ ] Backup branch created
+- [ ] Team coordination completed (if collaborative work)
 
 ## Safety First: Always Create a Backup
 

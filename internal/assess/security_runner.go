@@ -75,26 +75,30 @@ func (r *SecurityAssessmentRunner) Assess(ctx context.Context, target string, co
 			}
 		}()
 	}
-    for i := 0; i < len(adapters); i++ {
-        rres := <-resultsCh
-        if rres.err != nil {
-            // Provide actionable guidance on tool setup
-            var hint string
-            switch rres.name {
-            case "gosec":
-                hint = " (install/update with: go install github.com/securego/gosec/v2/cmd/gosec@latest)"
-            case "govulncheck":
-                hint = " (install/update with: go install golang.org/x/vuln/cmd/govulncheck@latest)"
-            }
-            logger.Warn(fmt.Sprintf("%s scan failed: %v%s", rres.name, rres.err, hint))
-            continue
-        }
-        issues = append(issues, rres.issues...)
-        allSuppressions = append(allSuppressions, rres.suppressions...)
-    }
+	for i := 0; i < len(adapters); i++ {
+		rres := <-resultsCh
+		if rres.err != nil {
+			// Provide actionable guidance on tool setup
+			var hint string
+			switch rres.name {
+			case "gosec":
+				hint = " (install/update with: go install github.com/securego/gosec/v2/cmd/gosec@latest)"
+			case "govulncheck":
+				hint = " (install/update with: go install golang.org/x/vuln/cmd/govulncheck@latest)"
+			}
+			logger.Warn(fmt.Sprintf("%s scan failed: %v%s", rres.name, rres.err, hint))
+			continue
+		}
+		issues = append(issues, rres.issues...)
+		allSuppressions = append(allSuppressions, rres.suppressions...)
+	}
 
-    // Filter out known noise paths (e.g., test fixtures) from security scans
-    issues = r.filterSecurityNoise(issues, config)
+	// Filter out known noise paths (e.g., test fixtures) from security scans
+	issues = r.filterSecurityNoise(issues, config)
+
+	// Apply repository security suppression policy (e.g., required git hook perms)
+	var policySuppressions []Suppression
+	issues, policySuppressions = r.applySecuritySuppressionPolicy(issues)
 
 	// Basic metrics
 	if ranGosec {
@@ -103,17 +107,18 @@ func (r *SecurityAssessmentRunner) Assess(ctx context.Context, target string, co
 	}
 	metrics["tools_started"] = len(adapters)
 
-    // Add suppression metrics if tracking is enabled
-    var suppSummary SuppressionSummary
-    if config.TrackSuppressions && len(allSuppressions) > 0 {
-        // Optional Git enrichment (age/author) when inexpensive/available
-        allSuppressions = EnrichWithGitInfo(allSuppressions)
-        metrics["suppressions_found"] = len(allSuppressions)
-        suppSummary = GenerateSummary(allSuppressions)
-        metrics["suppression_summary"] = suppSummary
-    }
+	// Add suppression metrics if tracking is enabled
+	var suppSummary SuppressionSummary
+	if config.TrackSuppressions && (len(allSuppressions) > 0 || len(policySuppressions) > 0) {
+		// Optional Git enrichment (age/author) when inexpensive/available
+		merged := append(allSuppressions, policySuppressions...)
+		merged = EnrichWithGitInfo(merged)
+		metrics["suppressions_found"] = len(merged)
+		suppSummary = GenerateSummary(merged)
+		metrics["suppression_summary"] = suppSummary
+	}
 
-    result := &AssessmentResult{
+	result := &AssessmentResult{
 		CommandName:   r.commandName,
 		Category:      CategorySecurity,
 		Success:       true,
@@ -122,14 +127,14 @@ func (r *SecurityAssessmentRunner) Assess(ctx context.Context, target string, co
 		Metrics:       metrics,
 	}
 
-    // Store suppressions for later use in CategoryResult
-    if config.TrackSuppressions {
-        result.Metrics["_suppressions"] = allSuppressions
-        // Also attach a structured suppression report to downstream category result
-        // (engine will copy Metrics and can surface SuppressionReport in CategoryResult)
-        // Here we only compute the summary; CategoryResult population happens in engine.
-        _ = suppSummary
-    }
+	// Store suppressions for later use in CategoryResult
+	if config.TrackSuppressions {
+		result.Metrics["_suppressions"] = append(allSuppressions, policySuppressions...)
+		// Also attach a structured suppression report to downstream category result
+		// (engine will copy Metrics and can surface SuppressionReport in CategoryResult)
+		// Here we only compute the summary; CategoryResult population happens in engine.
+		_ = suppSummary
+	}
 
 	return result, nil
 }
@@ -154,6 +159,38 @@ func (r *SecurityAssessmentRunner) IsAvailable() bool {
 func (r *SecurityAssessmentRunner) toolAvailable(name string) bool {
 	_, err := exec.LookPath(name)
 	return err == nil
+}
+
+// applySecuritySuppressionPolicy filters issues that match documented repository policy exceptions
+// and returns the filtered issues along with synthetic suppressions.
+func (r *SecurityAssessmentRunner) applySecuritySuppressionPolicy(issues []Issue) ([]Issue, []Suppression) {
+	var out []Issue
+	var supps []Suppression
+	for _, is := range issues {
+		// Suppress gosec G302/G306 in cmd/hooks.go: git hooks must be executable (0700)
+		if strings.HasSuffix(is.File, filepath.ToSlash("cmd/hooks.go")) {
+			if strings.Contains(is.Message, "gosec(G302)") || strings.Contains(is.Message, "gosec(G306)") {
+				rule := "G302"
+				reason := "Git hooks require exec permissions (0700)"
+				if strings.Contains(is.Message, "G306") {
+					rule = "G306"
+					reason = "Git hooks require exec permissions when writing hook files"
+				}
+				supps = append(supps, Suppression{
+					Tool:     "gosec",
+					RuleID:   rule,
+					File:     is.File,
+					Line:     is.Line,
+					Reason:   reason,
+					Severity: is.Severity,
+					Syntax:   "#nosec " + rule + " - policy exception: git hooks executable",
+				})
+				continue // drop this issue
+			}
+		}
+		out = append(out, is)
+	}
+	return out, supps
 }
 
 // findModuleRoot finds the Go module root directory (best-effort)
@@ -835,32 +872,32 @@ func (r *SecurityAssessmentRunner) mapGitleaksFinding(m map[string]interface{}) 
 
 // filterSecurityNoise removes issues from paths that are expected to contain intentionally vulnerable fixtures
 func (r *SecurityAssessmentRunner) filterSecurityNoise(in []Issue, cfg AssessmentConfig) []Issue {
-    if len(in) == 0 {
-        return in
-    }
-    if !cfg.SecurityExcludeFixtures {
-        return in
-    }
-    var out []Issue
-    for _, is := range in {
-        p := strings.ToLower(filepath.ToSlash(is.File))
-        excluded := false
-        patterns := cfg.SecurityFixturePatterns
-        if len(patterns) == 0 {
-            patterns = []string{"tests/fixtures/", "test-fixtures/"}
-        }
-        for _, pat := range patterns {
-            if strings.Contains(p, strings.ToLower(pat)) {
-                excluded = true
-                break
-            }
-        }
-        if excluded {
-            continue
-        }
-        out = append(out, is)
-    }
-    return out
+	if len(in) == 0 {
+		return in
+	}
+	if !cfg.SecurityExcludeFixtures {
+		return in
+	}
+	var out []Issue
+	for _, is := range in {
+		p := strings.ToLower(filepath.ToSlash(is.File))
+		excluded := false
+		patterns := cfg.SecurityFixturePatterns
+		if len(patterns) == 0 {
+			patterns = []string{"tests/fixtures/", "test-fixtures/"}
+		}
+		for _, pat := range patterns {
+			if strings.Contains(p, strings.ToLower(pat)) {
+				excluded = true
+				break
+			}
+		}
+		if excluded {
+			continue
+		}
+		out = append(out, is)
+	}
+	return out
 }
 
 // pathMatchesAny checks if path contains any of the include anchors (substring match, absolute-safe)

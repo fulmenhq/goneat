@@ -15,6 +15,16 @@
 coverage.html
 coverage.out
 coverage.xml
+*-coverage.html
+*-coverage.out
+cmd_coverage.out
+full_coverage.out
+finalizer-coverage.out
+finalizer-coverage.html
+packages_coverage.out
+pkg_coverage.out
+work_coverage.out
+work-coverage.out
 
 # Dependency directories (remove the comment below to include it)
 # vendor/

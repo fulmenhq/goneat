@@ -197,10 +197,12 @@ func (p *FormatProcessor) formatMarkdownFile(filePath string) error {
 	// Apply finalizer normalization for markdown files
 	// This handles EOF, trailing whitespace, line endings, etc.
 	options := finalizer.NormalizationOptions{
-		EnsureEOF:              true, // Always ensure EOF for markdown
-		TrimTrailingWhitespace: true, // Always trim trailing whitespace for markdown
-		NormalizeLineEndings:   "",   // Use system default
-		RemoveUTF8BOM:          true, // Remove BOM if present
+		EnsureEOF:                  true, // Always ensure EOF for markdown
+		TrimTrailingWhitespace:     true, // Always trim trailing whitespace for markdown
+		NormalizeLineEndings:       "",   // Use system default
+		RemoveUTF8BOM:              true, // Remove BOM if present
+		PreserveMarkdownHardBreaks: true, // Preserve two-space hard line breaks
+		EncodingPolicy:             "utf8-only",
 	}
 
 	// Validate file path to prevent path traversal
@@ -213,8 +215,8 @@ func (p *FormatProcessor) formatMarkdownFile(filePath string) error {
 		filePath = abs
 	}
 
-    // Read the file content
-    content, err := os.ReadFile(filePath) // #nosec G304 -- repo file read after Clean+Abs normalization
+	// Read the file content
+	content, err := os.ReadFile(filePath) // #nosec G304 -- repo file read after Clean+Abs normalization
 	if err != nil {
 		return fmt.Errorf("failed to read file %s: %w", filePath, err)
 	}
@@ -226,10 +228,10 @@ func (p *FormatProcessor) formatMarkdownFile(filePath string) error {
 	}
 
 	// Write back if changed
-    if changed {
-        if err := os.WriteFile(filePath, normalizedContent, 0600); err != nil {
-            return fmt.Errorf("failed to write normalized content to %s: %w", filePath, err)
-        }
+	if changed {
+		if err := os.WriteFile(filePath, normalizedContent, 0600); err != nil {
+			return fmt.Errorf("failed to write normalized content to %s: %w", filePath, err)
+		}
 		logger.Debug(fmt.Sprintf("Applied normalization to %s", filePath))
 	} else {
 		logger.Debug(fmt.Sprintf("No normalization needed for %s", filePath))
@@ -247,10 +249,12 @@ func (p *FormatProcessor) checkMarkdownFile(filePath string) error {
 
 	// Apply finalizer check for markdown files
 	options := finalizer.NormalizationOptions{
-		EnsureEOF:              true, // Always ensure EOF for markdown
-		TrimTrailingWhitespace: true, // Always trim trailing whitespace for markdown
-		NormalizeLineEndings:   "",   // Use system default
-		RemoveUTF8BOM:          true, // Remove BOM if present
+		EnsureEOF:                  true, // Always ensure EOF for markdown
+		TrimTrailingWhitespace:     true, // Always trim trailing whitespace for markdown
+		NormalizeLineEndings:       "",   // Use system default
+		RemoveUTF8BOM:              true, // Remove BOM if present
+		PreserveMarkdownHardBreaks: true, // Preserve two-space hard line breaks
+		EncodingPolicy:             "utf8-only",
 	}
 
 	// Validate file path to prevent path traversal

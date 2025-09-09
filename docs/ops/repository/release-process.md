@@ -19,54 +19,54 @@ See schemas under `schemas/config/*-phase-v1.0.0.json` and the standard in `docs
 
 ## Steps
 
-1) Set phases
+1. Set phases
 
 ```bash
 echo rc > LIFECYCLE_PHASE
 echo rc > RELEASE_PHASE
 ```
 
-2) Set version (SemVer; use prerelease for RCs)
+2. Set version (SemVer; use prerelease for RCs)
 
 ```bash
 make version-set VERSION_SET=0.2.0-rc.1
 ```
 
-3) Build + test + coverage (gates apply via phases)
+3. Build + test + coverage (gates apply via phases)
 
 ```bash
 make test-coverage && make coverage-check
 ```
 
-4) Build artifacts
+4. Build artifacts
 
 ```bash
 make build-all
 ```
 
-5) Release notes artifact
+5. Release notes artifact
 
 ```bash
 make release-notes
 # dist/release/release-notes-v<version>.md
 ```
 
-6) Tag (annotated)
+6. Tag (annotated)
 
 ```bash
 git tag -a v$(cat VERSION) -m "$(head -n 1 dist/release/release-notes-v$(cat VERSION).md)"
 ```
 
-7) Push (manual approval step)
+7. Push (manual approval step)
 
 ```bash
 git push origin main
 git push origin v$(cat VERSION)
 ```
 
-8) Draft GitHub release
+8. Draft GitHub release
 
-- Attach bin/* (or packaged artifacts)
+- Attach bin/\* (or packaged artifacts)
 - Paste contents of dist/release/release-notes-v<version>.md
 
 ## Notes

@@ -84,7 +84,9 @@ goneat security --enable secrets --tools gitleaks --format json --output secrets
 For a fast secrets-only scan using gitleaks:
 
 ```
+
 goneat security secrets
+
 ```
 
 # Quick preset (fast checks)

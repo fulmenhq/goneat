@@ -744,6 +744,7 @@ version:
 This version management system provides the foundation for zero version drift across your entire DevOps toolchain, ensuring consistency and reliability in your release process.</content>
 </xai:function_call name="todowrite">
 <parameter name="todos">[{"content":"Add version validation functionality","status":"completed","priority":"medium","id":"implement_validation"},{"content":"Add version consistency checking across sources","status":"completed","priority":"medium","id":"implement_consistency_check"},{"content":"Extend version command with bump, set, validate subcommands","status":"in_progress","priority":"high","id":"extend_version_command"}]
+
 ### CLI Output Fields
 
 The `goneat version` command shows distinct version perspectives:

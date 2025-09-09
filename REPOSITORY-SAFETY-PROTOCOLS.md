@@ -120,6 +120,26 @@ If you accidentally overwrite a file:
 
 ## 🔒 Git Operations Safety
 
+### No Chained Critical Operations
+
+- Never chain `git add`, `git commit`, and/or `git push` in a single command or script line.
+- Run each as a separate step with validation between steps.
+
+Correct:
+```bash
+git add <files>
+make pre-commit
+git commit -m "..."
+# approval required before push
+git push
+```
+
+Incorrect:
+```bash
+git add . && git commit -m "..." && git push
+git commit && git push
+```
+
 ### Use `--no-pager` for Non-Interactive Commands
 
 When using git commands in scripts or automated contexts, always use the `--no-pager` flag to prevent output from opening in less:

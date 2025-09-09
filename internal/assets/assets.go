@@ -1,8 +1,8 @@
 package assets
 
 import (
-    "embed"
-    "io/fs"
+	"embed"
+	"io/fs"
 )
 
 // Curated JSON Schema meta-schemas (embedded)
@@ -29,31 +29,28 @@ func GetJSONSchemaMeta(draft string) ([]byte, bool) {
 	case "2020-12", "2020", "202012":
 		return JSONSchemaDraft2020_12, len(JSONSchemaDraft2020_12) > 0
 	default:
-		// default to 2020-12 if available
-		if len(JSONSchemaDraft2020_12) > 0 {
-			return JSONSchemaDraft2020_12, true
-		}
+		// Unknown draft requested; do not fallback implicitly
 		return nil, false
 	}
 }
 
 func GetTemplatesFS() fs.FS {
-    if sub, err := fs.Sub(Templates, "embedded_templates"); err == nil {
-        return sub
-    }
-    return Templates
+	if sub, err := fs.Sub(Templates, "embedded_templates"); err == nil {
+		return sub
+	}
+	return Templates
 }
 
 func GetSchemasFS() fs.FS {
-    if sub, err := fs.Sub(Schemas, "embedded_schemas"); err == nil {
-        return sub
-    }
-    return Schemas
+	if sub, err := fs.Sub(Schemas, "embedded_schemas"); err == nil {
+		return sub
+	}
+	return Schemas
 }
 
 func GetDocsFS() fs.FS {
-    if sub, err := fs.Sub(Docs, "embedded_docs"); err == nil {
-        return sub
-    }
-    return Docs
+	if sub, err := fs.Sub(Docs, "embedded_docs"); err == nil {
+		return sub
+	}
+	return Docs
 }

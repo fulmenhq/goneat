@@ -133,39 +133,30 @@ test-coverage: ## Run tests with coverage
 	@echo "Coverage report: coverage.html"
 
 # Coverage gating based on lifecycle phase
-coverage-check: test-coverage ## Enforce coverage threshold based on lifecycle/release phase
-    @lifecycle=$$(tr '[:upper:]' '[:lower:]' < LIFECYCLE_PHASE 2>/dev/null || echo alpha); \
-    @release=$$(tr '[:upper:]' '[:lower:]' < RELEASE_PHASE 2>/dev/null || echo ""); \
-    @# Determine thresholds
-    @case $$lifecycle in \
-      experimental) life_thr=0;; \
-      alpha) life_thr=30;; \
-      beta) life_thr=60;; \
-      rc) life_thr=70;; \
-      ga) life_thr=75;; \
-      lts) life_thr=80;; \
-      *) life_thr=30;; \
-    esac; \
-    @case $$release in \
-      dev) rel_thr=50;; \
-      rc)  rel_thr=70;; \
-      ga)  rel_thr=75;; \
-      *)   rel_thr=0;; \
-    esac; \
-    @# Use the higher of lifecycle/release thresholds when RELEASE_PHASE is present
-    @if [ -n "$$release" ]; then \
-      if [ $$life_thr -ge $$rel_thr ]; then threshold=$$life_thr; else threshold=$$rel_thr; fi; \
-      phase_label="$$lifecycle,$$release"; \
-    else \
-      threshold=$$life_thr; phase_label="$$lifecycle"; \
-    fi; \
-    if [ ! -f coverage.out ]; then echo "❌ coverage.out not found. Run make test-coverage first"; exit 1; fi; \
-    total=$$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/,"",$$3); print $$3}'); \
-    awk -v cov="$$total" -v thr="$$threshold" -v ph="$$phase_label" 'BEGIN { \
-      cov+=0; thr+=0; \
-      if (cov >= thr) { printf "✅ Coverage %.1f%% meets threshold %.1f%% (phase=%s)\n", cov, thr, ph; exit 0 } \
-      else { printf "❌ Coverage %.1f%% below threshold %.1f%% (phase=%s)\n", cov, thr, ph; exit 1 } \
-    }'
+coverage-check: test-coverage ## Enforce coverage threshold based on lifecycle phase
+	@lifecycle=$$(tr '[:upper:]' '[:lower:]' < LIFECYCLE_PHASE 2>/dev/null || echo alpha); \
+	release=$$(tr '[:upper:]' '[:lower:]' < RELEASE_PHASE 2>/dev/null || echo ""); \
+	case $$lifecycle in \
+	  experimental) threshold=0;; \
+	  alpha) threshold=30;; \
+	  beta) threshold=60;; \
+	  rc) threshold=70;; \
+	  ga) threshold=75;; \
+	  lts) threshold=80;; \
+	  *) threshold=30;; \
+	 esac; \
+	if [ -n "$$release" ]; then \
+	  phase_label="lifecycle=$$lifecycle,release=$$release"; \
+	else \
+	  phase_label="lifecycle=$$lifecycle"; \
+	fi; \
+	if [ ! -f coverage.out ]; then echo "❌ coverage.out not found. Run make test-coverage first"; exit 1; fi; \
+	total=$$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/,"",$$3); print $$3}'); \
+	awk -v cov="$$total" -v thr="$$threshold" -v ph="$$phase_label" 'BEGIN { \
+	  cov+=0; thr+=0; \
+	  if (cov >= thr) { printf "✅ Coverage %.1f%% meets threshold %.1f%% (%s)\n", cov, thr, ph; exit 0 } \
+	  else { printf "❌ Coverage %.1f%% below threshold %.1f%% (%s)\n", cov, thr, ph; exit 1 } \
+	}'
 
 # Format targets
 fmt: build ## Format code using goneat (dogfooding)
@@ -240,7 +231,7 @@ pre-commit: build ## Run pre-commit checks using goneat (format + lint)
 		exit 1; \
 	fi
 
-pre-push: build-all ## Run pre-push checks using goneat (format + lint + security)
+pre-push: build-all license-audit ## Run pre-push checks using goneat (format + lint + security + license audit)
 	@echo "Running pre-push checks with goneat..."
 	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
 		$(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-push; \

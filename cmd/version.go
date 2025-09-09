@@ -60,7 +60,7 @@ func init() {
 	// Note: assess command flags are defined in assess.go
 }
 
-func runVersion(cmd *cobra.Command, args []string) error {
+func runVersion(cmd *cobra.Command, _ []string) error {
 	extended, _ := cmd.Flags().GetBool("extended")
 	jsonOutput, _ := cmd.Flags().GetBool("json")
 	noOp, _ := cmd.Flags().GetBool("no-op")
@@ -101,17 +101,18 @@ func runVersion(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-    if jsonOutput {
-        // Provide both binary and project versions for clarity
-        versionInfo := map[string]any{
-            "projectVersion": version,
-            "projectSource":  source,
-            "binaryVersion":  buildinfo.BinaryVersion,
-            "moduleVersion":  buildinfo.ModuleVersion(),
-            "goVersion":      runtime.Version(),
-            "platform":       runtime.GOOS,
-            "arch":           runtime.GOARCH,
-        }
+	if jsonOutput {
+		// Provide both binary and project versions for clarity
+		versionInfo := map[string]any{
+			"version":        version, // Backward-compatible top-level field expected by tests/consumers
+			"projectVersion": version,
+			"projectSource":  source,
+			"binaryVersion":  buildinfo.BinaryVersion,
+			"moduleVersion":  buildinfo.ModuleVersion(),
+			"goVersion":      runtime.Version(),
+			"platform":       runtime.GOOS,
+			"arch":           runtime.GOARCH,
+		}
 		if extended {
 			versionInfo["buildTime"] = "unknown" // Maintain backward compatibility
 			if gitCommit != "" {
@@ -130,20 +131,20 @@ func runVersion(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-    if extended {
-        // Put Binary first for clarity in installed builds
-        _, _ = fmt.Fprintf(out, "Binary: %s\n", nonEmpty(buildinfo.BinaryVersion, "unknown"))
-        if mv := buildinfo.ModuleVersion(); mv != "" {
-            _, _ = fmt.Fprintf(out, "Module: %s\n", mv)
-        }
-        _, _ = fmt.Fprintf(out, "goneat (Project) %s\n", version)
-        _, _ = fmt.Fprintf(out, "Build time: unknown\n") // Maintain backward compatibility
+	if extended {
+		// Put Binary first for clarity in installed builds
+		_, _ = fmt.Fprintf(out, "Binary: %s\n", nonEmpty(buildinfo.BinaryVersion, "unknown"))
+		if mv := buildinfo.ModuleVersion(); mv != "" {
+			_, _ = fmt.Fprintf(out, "Module: %s\n", mv)
+		}
+		_, _ = fmt.Fprintf(out, "goneat (Project) %s\n", version)
+		_, _ = fmt.Fprintf(out, "Build time: unknown\n") // Maintain backward compatibility
 		if len(gitCommit) >= 8 {
 			_, _ = fmt.Fprintf(out, "Git commit: %s\n", gitCommit[:8]) // Short commit hash
 		} else {
 			_, _ = fmt.Fprintf(out, "Git commit: %s\n", gitCommit)
 		}
-        _, _ = fmt.Fprintf(out, "Project Source: %s\n", source)
+		_, _ = fmt.Fprintf(out, "Project Source: %s\n", source)
 		if gitBranch != "" {
 			_, _ = fmt.Fprintf(out, "Git branch: %s\n", gitBranch)
 		}
@@ -154,17 +155,17 @@ func runVersion(cmd *cobra.Command, args []string) error {
 		}
 		_, _ = fmt.Fprintf(out, "Go version: %s\n", runtime.Version())
 		_, _ = fmt.Fprintf(out, "Platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
-    } else {
-        // Binary first in compact output as well
-        _, _ = fmt.Fprintf(out, "Binary: %s\n", nonEmpty(buildinfo.BinaryVersion, "unknown"))
-        if mv := buildinfo.ModuleVersion(); mv != "" {
-            _, _ = fmt.Fprintf(out, "Module: %s\n", mv)
-        }
-        _, _ = fmt.Fprintf(out, "goneat (Project) %s\n", version)
-        _, _ = fmt.Fprintf(out, "Project Source: %s\n", source)
-        _, _ = fmt.Fprintf(out, "Go Version: %s\n", runtime.Version())
-        _, _ = fmt.Fprintf(out, "OS/Arch: %s/%s\n", runtime.GOOS, runtime.GOARCH)
-    }
+	} else {
+		// Binary first in compact output as well
+		_, _ = fmt.Fprintf(out, "Binary: %s\n", nonEmpty(buildinfo.BinaryVersion, "unknown"))
+		if mv := buildinfo.ModuleVersion(); mv != "" {
+			_, _ = fmt.Fprintf(out, "Module: %s\n", mv)
+		}
+		_, _ = fmt.Fprintf(out, "goneat (Project) %s\n", version)
+		_, _ = fmt.Fprintf(out, "Project Source: %s\n", source)
+		_, _ = fmt.Fprintf(out, "Go Version: %s\n", runtime.Version())
+		_, _ = fmt.Fprintf(out, "OS/Arch: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+	}
 
 	return nil
 }
@@ -284,10 +285,10 @@ func runVersionValidate(cmd *cobra.Command, args []string) error {
 
 // nonEmpty returns s if not empty, otherwise d
 func nonEmpty(s, d string) string {
-    if strings.TrimSpace(s) == "" {
-        return d
-    }
-    return s
+	if strings.TrimSpace(s) == "" {
+		return d
+	}
+	return s
 }
 
 // versionInitCmd represents the version init command
@@ -318,7 +319,7 @@ var versionCheckConsistencyCmd = &cobra.Command{
 	RunE:  runVersionCheckConsistency,
 }
 
-func runVersionCheckConsistency(cmd *cobra.Command, args []string) error {
+func runVersionCheckConsistency(cmd *cobra.Command, _ []string) error {
 	noOp, _ := cmd.Flags().GetBool("no-op")
 
 	out := cmd.OutOrStdout()

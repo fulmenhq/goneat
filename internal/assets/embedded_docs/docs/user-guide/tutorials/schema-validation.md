@@ -50,4 +50,3 @@ See also:
 - Assets architecture: `docs/architecture/assets-management.md`
 - Assets standard: `docs/standards/assets-standard.md`
 - Validate command reference: `docs/user-guide/commands/validate.md`
-

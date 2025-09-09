@@ -225,15 +225,17 @@ func TestAssessCLI_FailOnThresholds(t *testing.T) {
 			// Reset global mode flags for each subtest
 			assessMode, assessNoOp, assessCheck, assessFix = "check", false, false, false
 
+			// Build a fresh assess command instance to avoid state bleed and ensure RunE is wired
+			cmd := &cobra.Command{Use: "assess", RunE: runAssess}
+			setupAssessCommandFlags(cmd)
 			buf := new(bytes.Buffer)
-			assessCmd.SetOut(buf)
-			assessCmd.SetErr(buf)
-			assessCmd.SetArgs([]string{"--fail-on", tc.failOn, "--categories", "security", "--concurrency", "1", "."})
+			cmd.SetOut(buf)
+			cmd.SetErr(buf)
+			cmd.SetArgs([]string{"--fail-on", tc.failOn, "--categories", "security", "--concurrency", "1", "."})
 
-			err := assessCmd.ExecuteContext(context.Background())
+			err := cmd.ExecuteContext(context.Background())
 
 			if tc.shouldFail {
-				// Should exit with code 1, which is returned as error
 				if err == nil {
 					t.Fatalf("expected command to fail with %s threshold", tc.failOn)
 				}
@@ -266,11 +268,19 @@ func TestAssessCLI_CustomPriorities(t *testing.T) {
 	originalRegistry := assess.GetAssessmentRunnerRegistry()
 	t.Cleanup(func() { assess.RestoreRegistry(originalRegistry) })
 
-	// Exercise JSON output path with stable category to avoid external tool deps
-	out, err := execRoot(t, []string{"assess", "--mode", "check", "--categories", "schema", "--priority", "schema=1", "--format", "json", "--concurrency", "1", "."})
-	if err != nil {
-		t.Fatalf("unexpected error: %v\n%s", err, out)
+	// Ensure real schema runner is available (other tests may replace it)
+	assess.RegisterAssessmentRunner(assess.CategorySchema, assess.NewSchemaAssessmentRunner())
+	// Use a fresh assess command instance to avoid global root state
+	cmd := &cobra.Command{Use: "assess", RunE: runAssess}
+	setupAssessCommandFlags(cmd)
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"--mode", "check", "--categories", "schema", "--priority", "schema=1", "--format", "json", "--concurrency", "1", "."})
+	if err := cmd.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("unexpected error: %v\n%s", err, buf.String())
 	}
+	out := buf.String()
 	if !strings.Contains(out, `"tool":`) {
 		preview := out
 		if len(out) > 200 {

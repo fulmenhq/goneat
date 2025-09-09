@@ -69,21 +69,21 @@ type AssessmentConfig struct {
 	// Scoped discovery (limits traversal to include dirs and force-include anchors)
 	Scope bool `json:"scope,omitempty"`
 
-    // Security per-tool timeouts (optional)
-    SecurityGosecTimeout       time.Duration `json:"security_timeout_gosec,omitempty"`
-    SecurityGovulncheckTimeout time.Duration `json:"security_timeout_govulncheck,omitempty"`
+	// Security per-tool timeouts (optional)
+	SecurityGosecTimeout       time.Duration `json:"security_timeout_gosec,omitempty"`
+	SecurityGovulncheckTimeout time.Duration `json:"security_timeout_govulncheck,omitempty"`
 
-    // Security results hygiene
-    SecurityExcludeFixtures  bool     `json:"security_exclude_fixtures,omitempty"`
-    SecurityFixturePatterns  []string `json:"security_fixture_patterns,omitempty"`
+	// Security results hygiene
+	SecurityExcludeFixtures bool     `json:"security_exclude_fixtures,omitempty"`
+	SecurityFixturePatterns []string `json:"security_fixture_patterns,omitempty"`
 
-    // Lint new-only control (golangci-lint --new-from-rev)
-    LintNewFromRev string `json:"lint_new_from_rev,omitempty"`
+	// Lint new-only control (golangci-lint --new-from-rev)
+	LintNewFromRev string `json:"lint_new_from_rev,omitempty"`
 }
 
 // DefaultAssessmentConfig returns default assessment configuration
 func DefaultAssessmentConfig() AssessmentConfig {
-    return AssessmentConfig{
+	return AssessmentConfig{
 		Mode:               AssessmentModeCheck, // Default to check mode for safety
 		Verbose:            false,
 		Timeout:            5 * time.Minute,
@@ -102,11 +102,11 @@ func DefaultAssessmentConfig() AssessmentConfig {
 		EnableCode:    true,
 		EnableSecrets: false,
 		// Per-tool timeouts default to 0 (inherit global)
-        SecurityGosecTimeout:       0,
-        SecurityGovulncheckTimeout: 0,
-        // Exclude common fixture paths by default to reduce noise
-        SecurityExcludeFixtures: true,
-        SecurityFixturePatterns: []string{"tests/fixtures/", "test-fixtures/"},
+		SecurityGosecTimeout:       0,
+		SecurityGovulncheckTimeout: 0,
+		// Exclude common fixture paths by default to reduce noise
+		SecurityExcludeFixtures: true,
+		SecurityFixturePatterns: []string{"tests/fixtures/", "test-fixtures/"},
 		// Schema
 		SchemaEnableMeta: false,
 		// Scoped discovery default off

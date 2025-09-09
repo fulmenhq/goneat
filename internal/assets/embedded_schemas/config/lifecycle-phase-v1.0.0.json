@@ -4,8 +4,17 @@
   "title": "Lifecycle Phase",
   "description": "Product lifecycle maturity phase for gating policies and behaviors.",
   "type": "string",
-  "enum": ["experimental", "alpha", "beta", "rc", "ga", "lts"],
-  "examples": ["rc", "ga"],
+  "enum": [
+    "experimental",
+    "alpha",
+    "beta",
+    "rc",
+    "ga",
+    "lts"
+  ],
+  "examples": [
+    "rc",
+    "ga"
+  ],
   "$comment": "Used by Makefile coverage gates and other policy checks."
 }
-

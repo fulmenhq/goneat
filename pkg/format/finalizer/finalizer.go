@@ -10,7 +10,7 @@ import (
 )
 
 // NormalizeEOF normalizes the end-of-file formatting of the given content
-func NormalizeEOF(input []byte, ensure bool, collapse bool, trimTrailingSpaces bool, lineEnding string) (out []byte, changed bool, err error) {
+func NormalizeEOF(input []byte, ensure bool, collapse bool, trimTrailingSpaces bool, lineEnding string, preserveMarkdownHardBreaks bool) (out []byte, changed bool, err error) {
 	if len(input) == 0 {
 		return input, false, nil
 	}
@@ -34,6 +34,26 @@ func NormalizeEOF(input []byte, ensure bool, collapse bool, trimTrailingSpaces b
 	for i, line := range lines {
 		// Trim trailing whitespace if requested
 		if trimTrailingSpaces {
+			if preserveMarkdownHardBreaks {
+				// Count trailing spaces
+				n := 0
+				for j := len(line) - 1; j >= 0; j-- {
+					if line[j] == ' ' {
+						n++
+						continue
+					}
+					break
+				}
+				if n >= 2 {
+					// Collapse to exactly two spaces
+					trimmed := strings.TrimRight(line, " \t") + "  "
+					if trimmed != line {
+						lines[i] = trimmed
+						changed = true
+					}
+					continue
+				}
+			}
 			trimmed := strings.TrimRight(line, " \t")
 			if trimmed != line {
 				lines[i] = trimmed
@@ -63,8 +83,8 @@ func NormalizeEOF(input []byte, ensure bool, collapse bool, trimTrailingSpaces b
 }
 
 // NormalizeWhitespace removes trailing whitespace from all lines and normalizes EOF
-func NormalizeWhitespace(input []byte, ensureEOF bool, lineEnding string) (out []byte, changed bool, err error) {
-	return NormalizeEOF(input, ensureEOF, true, true, lineEnding)
+func NormalizeWhitespace(input []byte, ensureEOF bool, lineEnding string, preserveMarkdownHardBreaks bool) (out []byte, changed bool, err error) {
+	return NormalizeEOF(input, ensureEOF, true, true, lineEnding, preserveMarkdownHardBreaks)
 }
 
 // NormalizeLineEndings converts all line endings to the specified style
@@ -175,9 +195,39 @@ func GetBOMInfo(input []byte) (encoding string, bomSize int, found bool) {
 
 // ComprehensiveFileNormalization applies all normalization operations
 func ComprehensiveFileNormalization(input []byte, options NormalizationOptions) (out []byte, changed bool, err error) {
-	// Check if content is processable text
-	if !IsProcessableText(input) {
-		return input, false, nil
+	// Enforce encoding policy
+	switch strings.ToLower(strings.TrimSpace(options.EncodingPolicy)) {
+	case "", "utf8-only":
+		// For utf8-only, reject any content with non-UTF8 BOMs
+		if HasBOM(input) {
+			enc, _, found := GetBOMInfo(input)
+			if found && enc != "UTF-8" {
+				return input, false, nil
+			}
+		}
+		// Also reject if content without BOM is not valid UTF-8
+		contentNoBOM := RemoveBOMSafe(input)
+		if !utf8.Valid(contentNoBOM) {
+			return input, false, nil
+		}
+	case "utf8-or-bom":
+		if HasBOM(input) {
+			enc, _, found := GetBOMInfo(input)
+			if !found || enc != "UTF-8" {
+				return input, false, nil
+			}
+		} else if !utf8.Valid(input) {
+			return input, false, nil
+		}
+	case "any-text":
+		if !IsTextFile(input) {
+			return input, false, nil
+		}
+	default:
+		contentNoBOM := RemoveBOMSafe(input)
+		if !utf8.Valid(contentNoBOM) {
+			return input, false, nil
+		}
 	}
 
 	content := input
@@ -204,7 +254,7 @@ func ComprehensiveFileNormalization(input []byte, options NormalizationOptions) 
 	}
 
 	// Apply EOF and whitespace normalization
-	if result, hasChanged, err := NormalizeEOF(content, options.EnsureEOF, true, options.TrimTrailingWhitespace, ""); err != nil {
+	if result, hasChanged, err := NormalizeEOF(content, options.EnsureEOF, true, options.TrimTrailingWhitespace, "", options.PreserveMarkdownHardBreaks); err != nil {
 		return nil, false, err
 	} else if hasChanged {
 		content = result
@@ -216,10 +266,12 @@ func ComprehensiveFileNormalization(input []byte, options NormalizationOptions) 
 
 // NormalizationOptions configures file normalization behavior
 type NormalizationOptions struct {
-	EnsureEOF              bool   // Ensure file ends with exactly one newline
-	TrimTrailingWhitespace bool   // Remove trailing spaces/tabs from all lines
-	NormalizeLineEndings   string // Target line ending style ("", "\n", or "\r\n")
-	RemoveUTF8BOM          bool   // Remove Byte Order Mark (UTF-8, UTF-16, UTF-32)
+	EnsureEOF                  bool   // Ensure file ends with exactly one newline
+	TrimTrailingWhitespace     bool   // Remove trailing spaces/tabs from all lines
+	NormalizeLineEndings       string // Target line ending style ("", "\n", or "\r\n")
+	RemoveUTF8BOM              bool   // Remove Byte Order Mark (UTF-8 only recommended)
+	PreserveMarkdownHardBreaks bool   // Preserve exactly two trailing spaces in Markdown
+	EncodingPolicy             string // "utf8-only" (default), "utf8-or-bom", "any-text"
 }
 
 // detectLineEnding detects the primary line ending style used in the content

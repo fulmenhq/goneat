@@ -31,4 +31,3 @@ status: "approved"
 - If a curated asset triggers widespread false positives:
   - Pin to previous version or apply a hotfix to the asset file
   - Document in CHANGELOG and release notes
-

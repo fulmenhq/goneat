@@ -16,14 +16,14 @@ This document outlines the upcoming config block for project-level control.
 
 ```yaml
 schema:
-  enable: true           # master switch
-  auto_detect: false     # off by default; enable to scan .yaml/.yml/.json by extension
-  patterns:              # config-first discovery; combine with include flags
+  enable: true # master switch
+  auto_detect: false # off by default; enable to scan .yaml/.yml/.json by extension
+  patterns: # config-first discovery; combine with include flags
     - schemas/**/*.yaml
     - schemas/**/*.json
-  types:                 # future: type-specific options (jsonschema, openapi, asyncapi, protobuf)
+  types: # future: type-specific options (jsonschema, openapi, asyncapi, protobuf)
     jsonschema:
-      offline: true      # use embedded meta-schemas only
+      offline: true # use embedded meta-schemas only
 ```
 
 ## CLI Flags (Preview)
@@ -36,4 +36,3 @@ schema:
 - Project-level config parsing for `schema:` block
 - Type selectors and per-type options
 - OpenAPI/AsyncAPI/Protobuf validation (offline-first)
-

@@ -54,7 +54,7 @@ type LicenseSummary struct {
 	Modules     []string `json:"modules"`
 }
 
-func runInfoLicenses(cmd *cobra.Command, args []string) error {
+func runInfoLicenses(cmd *cobra.Command, _ []string) error {
 	jsonFormat, _ := cmd.Flags().GetBool("json")
 	filter, _ := cmd.Flags().GetString("filter")
 	summary, _ := cmd.Flags().GetBool("summary")

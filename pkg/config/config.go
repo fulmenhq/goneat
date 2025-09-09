@@ -125,13 +125,13 @@ func LoadConfig() (*Config, error) {
 	v.SetDefault("security.enable.code", defaultConfig.Security.Enable.Code)
 	v.SetDefault("security.enable.vuln", defaultConfig.Security.Enable.Vuln)
 	v.SetDefault("security.enable.secrets", defaultConfig.Security.Enable.Secrets)
-    v.SetDefault("security.tools", defaultConfig.Security.Tools)
-    v.SetDefault("security.tool_timeouts.gosec", defaultConfig.Security.ToolTimeouts.Gosec)
-    v.SetDefault("security.tool_timeouts.govulncheck", defaultConfig.Security.ToolTimeouts.Govulncheck)
-    v.SetDefault("security.track_suppressions", defaultConfig.Security.TrackSuppressions)
-    v.SetDefault("security.fail_on", defaultConfig.Security.FailOn)
-    v.SetDefault("security.exclude_fixtures", true)
-    v.SetDefault("security.fixture_patterns", []string{"tests/fixtures/", "test-fixtures/"})
+	v.SetDefault("security.tools", defaultConfig.Security.Tools)
+	v.SetDefault("security.tool_timeouts.gosec", defaultConfig.Security.ToolTimeouts.Gosec)
+	v.SetDefault("security.tool_timeouts.govulncheck", defaultConfig.Security.ToolTimeouts.Govulncheck)
+	v.SetDefault("security.track_suppressions", defaultConfig.Security.TrackSuppressions)
+	v.SetDefault("security.fail_on", defaultConfig.Security.FailOn)
+	v.SetDefault("security.exclude_fixtures", true)
+	v.SetDefault("security.fixture_patterns", []string{"tests/fixtures/", "test-fixtures/"})
 
 	// Schema defaults (preview)
 	v.SetDefault("schema.enable", defaultConfig.Schema.Enable)
@@ -227,16 +227,16 @@ func (c *Config) GetMarkdownConfig() MarkdownFormatConfig {
 
 // SecurityConfig holds security scanning settings
 type SecurityConfig struct {
-    Timeout            time.Duration        `mapstructure:"timeout"`
-    Concurrency        int                  `mapstructure:"concurrency"`
-    ConcurrencyPercent int                  `mapstructure:"concurrency_percent"`
-    Tools              []string             `mapstructure:"tools"`
-    Enable             SecurityEnable       `mapstructure:"enable"`
-    ToolTimeouts       SecurityToolTimeouts `mapstructure:"tool_timeouts"`
-    TrackSuppressions  bool                 `mapstructure:"track_suppressions"`
-    FailOn             string               `mapstructure:"fail_on"`
-    ExcludeFixtures    bool                 `mapstructure:"exclude_fixtures"`
-    FixturePatterns    []string             `mapstructure:"fixture_patterns"`
+	Timeout            time.Duration        `mapstructure:"timeout"`
+	Concurrency        int                  `mapstructure:"concurrency"`
+	ConcurrencyPercent int                  `mapstructure:"concurrency_percent"`
+	Tools              []string             `mapstructure:"tools"`
+	Enable             SecurityEnable       `mapstructure:"enable"`
+	ToolTimeouts       SecurityToolTimeouts `mapstructure:"tool_timeouts"`
+	TrackSuppressions  bool                 `mapstructure:"track_suppressions"`
+	FailOn             string               `mapstructure:"fail_on"`
+	ExcludeFixtures    bool                 `mapstructure:"exclude_fixtures"`
+	FixturePatterns    []string             `mapstructure:"fixture_patterns"`
 }
 
 type SecurityEnable struct {

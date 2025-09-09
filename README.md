@@ -4,18 +4,56 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/3leaps/goneat)](go.mod)
 
-A single CLI to make codebases neat: formatters, linters, security checks, and smart workflows — built for speed and large repositories.
+All about smoothly delivering neat code at scale
+
+We bring a smooth DX layer to the business of making neat code at scale.  We wrap language-specific tool chains for formatting, linting, security scanning and other similar functions.  Written in Go for speed and scale, we include in the package some of our additions as well, goneat enables you to solve common code and document quality problems across even large repositories.
 
 ## Quick Start (TL;DR)
 
-1) Install (Go):
+1) **Install goneat**:
+
+**Option A: Download binary** (recommended for most users)
+- Visit [Releases](https://github.com/fulmenhq/goneat/releases) and download for your platform
+- Extract and add to PATH, or:
 
 ```bash
-go install github.com/fulmenhq/goneat@latest
-goneat version
+# macOS/Linux example - adjust for your platform and version
+curl -L -o goneat https://github.com/fulmenhq/goneat/releases/download/v0.2.2-rc.1/goneat-darwin-arm64
+chmod +x goneat
+sudo mv goneat /usr/local/bin/
 ```
 
-2) Set up hooks (optional, recommended):
+**Option B: Go install**
+```bash
+go install github.com/fulmenhq/goneat@latest
+```
+
+Verify: `goneat version`
+
+2) **Get help and explore docs**:
+
+```bash
+# Built-in help system
+goneat --help
+goneat docs list                    # See available docs
+goneat docs show user-guide/getting-started  # First recommended read
+goneat docs show user-guide/commands/assess  # Deep dive on assessment
+```
+
+3) **Assess your repo**:
+
+```bash
+goneat assess                       # Full assessment
+goneat assess --categories=format   # Just formatting issues
+```
+
+4) **Fix formatting** (auto-fixable):
+
+```bash
+goneat format                       # Fix all format issues
+```
+
+5) **Set up hooks** (optional, recommended for teams):
 
 ```bash
 goneat hooks init
@@ -23,21 +61,9 @@ goneat hooks generate
 goneat hooks install
 ```
 
-3) Assess your repo:
-
-```bash
-goneat assess
-```
-
-4) Fix formatting (auto-fixable):
-
-```bash
-goneat format
-```
-
-Notes:
-- Pre-release channel: v0.2.0-rc.X. `@latest` will prefer GA once v0.2.0 is out.
-- Name clarification: This project is not affiliated with any other “goneat”. Use the full module path `github.com/fulmenhq/goneat`.
+**Notes:**
+- Name clarification: This project is not affiliated with any other "goneat". Use the full module path `github.com/fulmenhq/goneat`.
+- Upcoming: Homebrew and Scoop packages will be available soon for easier installation.
 
 ## Install
 
@@ -73,26 +99,72 @@ Verify install:
 goneat version
 ```
 
+## Developer Quick Start
+
+**For contributors and those building from source:**
+
+1) **Clone and build**:
+
+```bash
+git clone https://github.com/fulmenhq/goneat.git
+cd goneat
+make build          # Builds to dist/goneat
+```
+
+2) **Set up hooks** (recommended for development):
+
+```bash
+./dist/goneat hooks init
+./dist/goneat hooks generate
+./dist/goneat hooks install
+```
+
+3) **Development workflow**:
+
+```bash
+# Run tests
+make test
+
+# Run full assessment
+./dist/goneat assess
+
+# Format code
+make fmt            # Uses goneat itself (dogfooding)
+
+# Build for all platforms
+make build-all
+```
+
+4) **Embedded docs development**:
+
+```bash
+# If you edit docs/ or manifest, sync embedded docs:
+./dist/goneat content embed --manifest docs/embed-manifest.yaml --root docs --target internal/assets/embedded_docs/docs
+make build
+```
+
 ## Status
 
-- Release: v0.2.0-rc.3 (tagged)
-- Lifecycle Phase: RC (release candidate)
-- Repo Visibility: Private (pending binary distribution verification)
+- Release: v0.2.2-rc.1 (per `VERSION` file)
+- Lifecycle Phase: Alpha (per `LIFECYCLE_PHASE` file)
+- Release Phase: RC (per `RELEASE_PHASE` file)
+- Repo Visibility: Public
 - Gates: pre-commit (format+lint, fail-on=medium) passing; pre-push (format+lint+security, fail-on=high) passing
 - Licensing: Audit clean (no GPL/LGPL/AGPL/MPL/CDDL); inventory maintained under `docs/licenses/`
 
-Note: This is an active pre-release. Interfaces and outputs may evolve prior to GA.
+Note: This is alpha software in RC release phase. See `docs/standards/lifecycle-release-phase-standard.md` for phase definitions and operational details on coverage gates, contribution posture, and user guidance.
 
 ## Highlights
 
-- No‑hassle hooks: one manifest, one command, instant DX
-- Zero‑friction tooling: automatic tool detection and installation
-- JSON‑first SSOT: one structured output for CI and humans (markdown/html derived)
-- Enterprise‑scale: sharded parallelism, multi-module awareness, .goneatignore filtering
-- Extensible: add languages, tools, and policies without changing your hook scripts
-- Diff‑Aware Assessment: prioritizes and highlights issues in your current change set
-- Smart Semantic Validation (planned): detect and validate schemas beyond file extensions
-- Suppression Insights: top rules/files with rich summaries for governance
+- **Multi-function text formatter**: handles Go code files, markdown, YAML, JSON with a general text mode for EOF and whitespace trimming at EOL
+- **No‑hassle hooks**: one manifest, one command, instant DX
+- **Zero‑friction tooling**: automatic tool detection and installation
+- **JSON‑first SSOT**: one structured output for CI and humans (markdown/html derived)
+- **Enterprise‑scale**: sharded parallelism, multi-module awareness, .goneatignore filtering
+- **Extensible**: add languages, tools, and policies without changing your hook scripts
+- **Diff‑Aware Assessment**: prioritizes and highlights issues in your current change set
+- **Smart Semantic Validation** (planned): detect and validate schemas beyond file extensions
+- **Suppression Insights**: top rules/files with rich summaries for governance
 
 ## No‑hassle hooks
 

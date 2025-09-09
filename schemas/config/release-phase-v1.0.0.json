@@ -4,7 +4,14 @@
   "title": "Release Phase",
   "description": "Release cadence phase for distribution pipelines and policy gating.",
   "type": "string",
-  "enum": ["dev", "rc", "ga"],
-  "examples": ["rc", "ga"],
+  "enum": [
+    "dev",
+    "rc",
+    "ga"
+  ],
+  "examples": [
+    "rc",
+    "ga"
+  ],
   "$comment": "Intended to drive CI thresholds and publishing behavior."
 }

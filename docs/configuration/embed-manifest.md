@@ -27,6 +27,7 @@ topics:
 ```
 
 Notes:
+
 - Paths are relative to the `docs/` directory.
 - Only Markdown (`.md`) files are considered for embedding.
 - `**` patterns select recursively; `*` selects direct children.

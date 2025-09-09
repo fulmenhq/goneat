@@ -228,6 +228,7 @@ Flags:
 - `--pre-commit-apply-mode` check|fix
   - check = read-only validation (recommended)
   - fix = apply changes and re-stage (StageFixed on relevant entries)
+- `--optimization-parallel` auto|max|sequential (sets optimization.parallel)
 - `--install` Install after regeneration
 
 Notes:
@@ -236,6 +237,43 @@ Notes:
   - optimization.only_changed_files=true OR
   - optimization.content_source=index
 - See “File Filtering with .goneatignore” for project-level filtering
+
+### `goneat hooks policy`
+
+Manage hook policy without manual YAML edits.
+
+```bash
+# Show effective policy for a hook
+goneat hooks policy show --hook pre-commit --format json
+
+# Set fail-on and categories for pre-push, and enable max parallelism
+goneat hooks policy set --hook pre-push \
+  --fail-on high \
+  --categories format,lint,security \
+  --parallel max \
+  --dry-run   # preview changes
+
+# Apply the change
+goneat hooks policy set --hook pre-push --fail-on high --categories format,lint,security --parallel max --yes
+
+# Reset to defaults for pre-commit (dry-run first)
+goneat hooks policy reset --hook pre-commit --dry-run
+
+# Validate hooks.yaml against schema
+goneat hooks policy validate
+```
+
+Flags (set):
+
+- `--hook` pre-commit|pre-push
+- `--fail-on` critical|high|medium|low|info|error
+- `--categories` Comma list, e.g., `format,lint[,security]`
+- `--timeout` e.g., `90s|2m|3m`
+- `--only-changed-files` true|false
+- `--parallel` auto|max|sequential
+- `--dry-run` preview YAML without writing
+- `--yes` apply without prompt
+- `--install` install hooks after regeneration
 
 ### `goneat hooks inspect`
 

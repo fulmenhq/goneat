@@ -35,7 +35,7 @@ func init() {
 	homeCmd.Flags().Bool("reset", false, "Reset user configuration to defaults")
 }
 
-func runHome(cmd *cobra.Command, args []string) error {
+func runHome(cmd *cobra.Command, _ []string) error {
 	initConfig, _ := cmd.Flags().GetBool("init")
 	resetConfig, _ := cmd.Flags().GetBool("reset")
 

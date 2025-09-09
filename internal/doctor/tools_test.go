@@ -1,6 +1,8 @@
 package doctor
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -112,6 +114,378 @@ func TestLooksLikeVersion(t *testing.T) {
 	for _, c := range cases {
 		if got := looksLikeVersion(c.in); got != c.want {
 			t.Fatalf("looksLikeVersion(%q) = %v, want %v", c.in, got, c.want)
+		}
+	}
+}
+
+func TestKnownSecurityTools(t *testing.T) {
+	tools := KnownSecurityTools() //nolint:golint,errcheck,staticcheck // function exists in tools.go
+	if len(tools) == 0 {
+		t.Fatal("KnownSecurityTools should return at least one tool")
+	}
+
+	// Check that all tools have required fields
+	for _, tool := range tools {
+		if tool.Name == "" {
+			t.Error("Tool should have a non-empty name")
+		}
+		if tool.Kind == "" {
+			t.Error("Tool should have a non-empty kind")
+		}
+		if tool.Kind == "go" && tool.InstallPackage == "" {
+			t.Errorf("Go tool %s should have an install package", tool.Name)
+		}
+	}
+
+	// Check for expected tools
+	names := make([]string, len(tools))
+	for i, tool := range tools {
+		names[i] = tool.Name
+	}
+
+	expected := []string{"gosec", "govulncheck", "gitleaks"}
+	for _, exp := range expected {
+		found := false
+		for _, name := range names {
+			if name == exp {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Expected tool %s not found in KnownSecurityTools", exp)
+		}
+	}
+}
+
+func TestKnownFormatTools(t *testing.T) {
+	tools := KnownFormatTools()
+	if len(tools) == 0 {
+		t.Fatal("KnownFormatTools should return at least one tool")
+	}
+
+	// Check that all tools have required fields
+	for _, tool := range tools {
+		if tool.Name == "" {
+			t.Error("Tool should have a non-empty name")
+		}
+		if tool.Kind == "" {
+			t.Error("Tool should have a non-empty kind")
+		}
+	}
+
+	// Check for expected tools
+	names := make([]string, len(tools))
+	for i, tool := range tools {
+		names[i] = tool.Name
+	}
+
+	expected := []string{"goimports", "gofmt"}
+	for _, exp := range expected {
+		found := false
+		for _, name := range names {
+			if name == exp {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Expected tool %s not found in KnownFormatTools", exp)
+		}
+	}
+}
+
+func TestKnownAllTools(t *testing.T) {
+	allTools := KnownAllTools()
+	secTools := KnownSecurityTools() //nolint:golint,errcheck,staticcheck // function exists in tools.go
+	fmtTools := KnownFormatTools()
+
+	expectedCount := len(secTools) + len(fmtTools)
+	if len(allTools) != expectedCount {
+		t.Fatalf("KnownAllTools should return %d tools, got %d", expectedCount, len(allTools))
+	}
+
+	// Check that all security tools are included
+	for _, secTool := range secTools {
+		found := false
+		for _, allTool := range allTools {
+			if allTool.Name == secTool.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Security tool %s not found in KnownAllTools", secTool.Name)
+		}
+	}
+
+	// Check that all format tools are included
+	for _, fmtTool := range fmtTools {
+		found := false
+		for _, allTool := range allTools {
+			if allTool.Name == fmtTool.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Format tool %s not found in KnownAllTools", fmtTool.Name)
+		}
+	}
+}
+
+func TestFirstLine(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"single line", "single line"},
+		{"first line\nsecond line", "first line"},
+		{"", ""},
+		{"no newline", "no newline"},
+	}
+	for _, c := range cases {
+		got := firstLine(c.in)
+		if got != c.want {
+			t.Errorf("firstLine(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestInstallInstruction_BundledGo(t *testing.T) {
+	tool := Tool{
+		Name: "gofmt",
+		Kind: "bundled-go",
+	}
+	inst := installInstruction(tool)
+	if !strings.Contains(inst, "Go toolchain") || !strings.Contains(inst, "gofmt is included") {
+		t.Errorf("unexpected install instruction for bundled-go tool: %q", inst)
+	}
+}
+
+func TestInstallInstruction_System(t *testing.T) {
+	tool := Tool{
+		Name: "some-system-tool",
+		Kind: "system",
+	}
+	inst := installInstruction(tool)
+	if !strings.Contains(inst, "Manual install required") || !strings.Contains(inst, tool.Name) {
+		t.Errorf("unexpected install instruction for system tool: %q", inst)
+	}
+}
+
+func TestGetGoBinPath(t *testing.T) {
+	// Test with GOBIN set
+	oldGoBin := os.Getenv("GOBIN")
+	defer func() {
+		if oldGoBin == "" {
+			os.Unsetenv("GOBIN") //nolint:errcheck // test cleanup, error is not critical
+		} else {
+			os.Setenv("GOBIN", oldGoBin) //nolint:errcheck // test cleanup, error is not critical
+		}
+	}()
+
+	testPath := "/test/go/bin"
+	os.Setenv("GOBIN", testPath) //nolint:errcheck // test setup, error is not critical
+	if got := getGoBinPath(); got != testPath {
+		t.Errorf("getGoBinPath() = %q, want %q", got, testPath)
+	}
+
+	// Test with GOPATH set (no GOBIN)
+	os.Unsetenv("GOBIN") //nolint:errcheck // test setup, error is not critical
+	oldGoPath := os.Getenv("GOPATH")
+	defer func() {
+		if oldGoPath == "" {
+			os.Unsetenv("GOPATH") //nolint:errcheck // test cleanup, error is not critical
+		} else {
+			os.Setenv("GOPATH", oldGoPath) //nolint:errcheck // test cleanup, error is not critical
+		}
+	}()
+
+	os.Setenv("GOPATH", "/test/gopath") //nolint:errcheck // test setup, error is not critical
+	expected := filepath.Join("/test/gopath", "bin")
+	if got := getGoBinPath(); got != expected {
+		t.Errorf("getGoBinPath() = %q, want %q", got, expected)
+	}
+
+	// Test default case (no GOBIN, no GOPATH)
+	os.Unsetenv("GOPATH") //nolint:errcheck // test setup, error is not critical
+	if got := getGoBinPath(); got == "" {
+		t.Error("getGoBinPath() should not return empty when home directory is accessible")
+	} else {
+		homeDir, _ := os.UserHomeDir()
+		expected := filepath.Join(homeDir, "go", "bin")
+		if got != expected {
+			t.Errorf("getGoBinPath() = %q, want %q", got, expected)
+		}
+	}
+}
+
+func TestDetectVersion_NoArgs(t *testing.T) {
+	tool := Tool{
+		Name:        "echo",
+		VersionArgs: []string{},
+		CheckArgs:   []string{"hello"},
+	}
+	version := detectVersion(tool)
+	// echo with "hello" should return something, but we don't care about the exact value
+	// just that it doesn't panic and returns a string
+	if version == "" {
+		t.Log("detectVersion returned empty string (this may be normal)")
+	}
+}
+
+func TestTryCommand(t *testing.T) {
+	// Test with a command that should work
+	output, ok := tryCommand("echo", "test")
+	if !ok {
+		t.Error("tryCommand with echo should succeed")
+	}
+	if !strings.Contains(output, "test") {
+		t.Errorf("tryCommand output should contain 'test', got %q", output)
+	}
+
+	// Test with a command that should fail
+	_, ok = tryCommand("nonexistent-command", "arg")
+	if ok {
+		t.Error("tryCommand with nonexistent command should fail")
+	}
+}
+
+func TestCheckTool_Present(t *testing.T) {
+	// Test with a tool that should be present (echo)
+	tool := Tool{
+		Name:        "echo",
+		Kind:        "system",
+		VersionArgs: []string{"--version"},
+		CheckArgs:   []string{"hello"},
+	}
+
+	status := CheckTool(tool)
+	if !status.Present {
+		t.Errorf("CheckTool should find echo as present")
+	}
+	if status.Name != "echo" {
+		t.Errorf("CheckTool should return correct tool name")
+	}
+	if status.Error != nil {
+		t.Errorf("CheckTool should not return error for present tool: %v", status.Error)
+	}
+}
+
+func TestCheckTool_NotPresent(t *testing.T) {
+	// Test with a tool that should not be present
+	tool := Tool{
+		Name:        "nonexistent-tool-12345",
+		Kind:        "system",
+		VersionArgs: []string{"--version"},
+		CheckArgs:   []string{"--help"},
+	}
+
+	status := CheckTool(tool)
+	if status.Present {
+		t.Errorf("CheckTool should not find nonexistent tool as present")
+	}
+	if status.Name != "nonexistent-tool-12345" {
+		t.Errorf("CheckTool should return correct tool name")
+	}
+	if status.Error != nil {
+		t.Errorf("CheckTool should not return error for non-present tool: %v", status.Error)
+	}
+	if status.Instructions == "" {
+		t.Error("CheckTool should provide installation instructions for non-present tool")
+	}
+}
+
+func TestInstallTool_NonGo(t *testing.T) {
+	// Test installing a non-Go tool (should fail)
+	tool := Tool{
+		Name: "some-system-tool",
+		Kind: "system",
+	}
+
+	status := InstallTool(tool)
+	if status.Installed {
+		t.Error("InstallTool should not install non-Go tools")
+	}
+	if status.Error == nil {
+		t.Error("InstallTool should return error for non-Go tools")
+	}
+	if !strings.Contains(status.Instructions, "Manual install required") {
+		t.Error("InstallTool should provide manual install instructions for non-Go tools")
+	}
+}
+
+func TestInstallTool_NoGoToolchain(t *testing.T) {
+	// This test would require mocking exec.LookPath to return error for "go"
+	// For now, we'll skip this test as it requires more complex mocking
+	t.Skip("TestInstallTool_NoGoToolchain requires exec mocking")
+}
+
+func TestSanitizeVersion_EdgeCases(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"", ""},
+		{"no version here", "no version here"},
+		{"version", "version"},
+		{"Version", "Version"},
+		{"v", "v"},
+		{"govulncheck: version ", "version"}, // After govulncheck: prefix removal
+		{"version v1.2.3", "v1.2.3"},         // Normal case
+		{"Version 1.0.0", "1.0.0"},           // Normal case
+	}
+	for _, c := range cases {
+		got := sanitizeVersion(c.in)
+		if got != c.want {
+			t.Errorf("sanitizeVersion(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestExtractFirstVersionToken_EdgeCases(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"", ""},
+		{"no versions", ""},
+		{"text without version numbers", ""},
+		{"text with v1.2.3 and more text", "v1.2.3"},
+		{"text with 1.2.3 and more text", "1.2.3"},
+		{"text with 1.2 and more text", "1.2"},
+		{"text with v1 and more text", ""}, // v1 should not be considered a version
+	}
+	for _, c := range cases {
+		got := extractFirstVersionToken(c.in)
+		if got != c.want {
+			t.Errorf("extractFirstVersionToken(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestLooksLikeVersion_EdgeCases(t *testing.T) {
+	cases := []struct {
+		in   string
+		want bool
+	}{
+		{"", false},
+		{"v", false},
+		{"1", false},
+		{"1.2.3.4", true},     // 3 dots is within limit (1.2.3.4 has dots at positions 1-2, 2-3, 3-4)
+		{"v1.2.3.4", true},    // After 'v' removal: 3 dots
+		{"1.2.3.4.5", false},  // 4 dots exceeds limit
+		{"v1.2.3.4.5", false}, // After 'v' removal: 4 dots
+		{"0.0.0", true},
+		{"999.999.999", true},
+		{"1.2.3-snapshot", true}, // function only checks dots, not content
+		{"version", false},
+	}
+	for _, c := range cases {
+		got := looksLikeVersion(c.in)
+		if got != c.want {
+			t.Errorf("looksLikeVersion(%q) = %v, want %v", c.in, got, c.want)
 		}
 	}
 }

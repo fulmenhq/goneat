@@ -146,7 +146,7 @@ func (r *FormatAssessmentRunner) Assess(ctx context.Context, target string, conf
 		}
 
 		// Trailing whitespace check only (no EOF enforcement here)
-		if _, changed, _ := finalizer.NormalizeEOF(content, false, false, true, ""); changed {
+		if _, changed, _ := finalizer.NormalizeEOF(content, false, false, true, "", false); changed {
 			allIssues = append(allIssues, Issue{
 				File:          cleanFilePath,
 				Severity:      SeverityLow,
@@ -159,7 +159,7 @@ func (r *FormatAssessmentRunner) Assess(ctx context.Context, target string, conf
 		}
 
 		// EOF newline enforcement and multiple-EOF collapse (no trailing whitespace trimming here)
-		if _, changed, _ := finalizer.NormalizeEOF(content, true, true, false, ""); changed {
+		if _, changed, _ := finalizer.NormalizeEOF(content, true, true, false, "", false); changed {
 			logger.Debug(fmt.Sprintf("Creating EOF issue for file: '%s' (original: '%s')", cleanFilePath, filePath))
 			allIssues = append(allIssues, Issue{
 				File:          cleanFilePath,

@@ -49,6 +49,7 @@ func init() {
 	// File selection flags
 	formatCmd.Flags().StringSlice("files", []string{}, "Specific files to format (explicit list, no patterns)")
 	formatCmd.Flags().StringSlice("patterns", []string{}, "Glob patterns to filter files during discovery (e.g., '*.go', 'test_*.py')")
+	formatCmd.Flags().Bool("include-config-dirs", false, "Include common configuration directories (.claude, .vscode, .idea, etc.)")
 	formatCmd.Flags().StringSlice("folders", []string{}, "Folders to process (alternative to positional args)")
 
 	// Operation mode flags
@@ -72,11 +73,14 @@ func init() {
 	formatCmd.Flags().Bool("staged-only", false, "Only format staged files in git (changed and added)")
 	formatCmd.Flags().Bool("ignore-missing-tools", false, "Skip files requiring external formatters if tools are missing")
 
-	// EOF finalizer flags
+	// EOF/Text normalization flags
 	formatCmd.Flags().Bool("finalize-eof", true, "Ensure files end with exactly one newline")
 	formatCmd.Flags().Bool("finalize-trim-trailing-spaces", false, "Remove trailing whitespace from all lines")
 	formatCmd.Flags().String("finalize-line-endings", "", "Normalize line endings (lf, crlf, or auto)")
 	formatCmd.Flags().Bool("finalize-remove-bom", false, "Remove Byte Order Mark (UTF-8, UTF-16, UTF-32)")
+	formatCmd.Flags().Bool("text-normalize", true, "Apply generic text normalization to any text file (unknown extensions included)")
+	formatCmd.Flags().String("text-encoding-policy", "utf8-only", "Encoding policy for text normalization: utf8-only|utf8-or-bom|any-text")
+	formatCmd.Flags().Bool("preserve-md-linebreaks", true, "Preserve Markdown hard line breaks (two trailing spaces)")
 
 	// Import alignment (Go) - opt-in
 	formatCmd.Flags().Bool("use-goimports", false, "Organize Go imports with goimports (after gofmt)")
@@ -96,6 +100,7 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 	explicitFiles, _ := cmd.Flags().GetStringSlice("files")
 	patterns, _ := cmd.Flags().GetStringSlice("patterns")
 	folders, _ := cmd.Flags().GetStringSlice("folders")
+	includeConfigDirs, _ := cmd.Flags().GetBool("include-config-dirs")
 	checkOnly, _ := cmd.Flags().GetBool("check")
 	quiet, _ := cmd.Flags().GetBool("quiet")
 	verbose, _ := cmd.Flags().GetBool("verbose")
@@ -114,6 +119,9 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 	finalizeTrimTrailingSpaces, _ := cmd.Flags().GetBool("finalize-trim-trailing-spaces")
 	finalizeLineEndings, _ := cmd.Flags().GetString("finalize-line-endings")
 	finalizeRemoveBOM, _ := cmd.Flags().GetBool("finalize-remove-bom")
+	textNormalize, _ := cmd.Flags().GetBool("text-normalize")
+	textEncodingPolicy, _ := cmd.Flags().GetString("text-encoding-policy")
+	preserveMd, _ := cmd.Flags().GetBool("preserve-md-linebreaks")
 	useGoimports, _ := cmd.Flags().GetBool("use-goimports")
 
 	// Validate flag combinations per Arch Eagle's precedence rules
@@ -178,6 +186,7 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 			IgnoreFile:         ".goneatignore",                           // Enable .goneatignore support
 			EnableFinalizer:    finalizeEOF || finalizeTrimTrailingSpaces, // Enable finalizer support
 			Verbose:            verbose,                                   // Enable verbose logging
+			IncludeConfigDirs:  includeConfigDirs,                         // Include config directories like .claude
 		}
 	}
 
@@ -264,19 +273,21 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 	} else {
 		// Create normalization options
 		options := finalizer.NormalizationOptions{
-			EnsureEOF:              finalizeEOF,
-			TrimTrailingWhitespace: finalizeTrimTrailingSpaces,
-			NormalizeLineEndings:   finalizeLineEndings,
-			RemoveUTF8BOM:          finalizeRemoveBOM,
+			EnsureEOF:                  finalizeEOF,
+			TrimTrailingWhitespace:     finalizeTrimTrailingSpaces,
+			NormalizeLineEndings:       finalizeLineEndings,
+			RemoveUTF8BOM:              finalizeRemoveBOM,
+			PreserveMarkdownHardBreaks: preserveMd,
+			EncodingPolicy:             textEncodingPolicy,
 		}
 
-		return executeSequentialWithOptions(filesToProcess, checkOnly || noOp, quiet, cfg, ignoreMissingTools, options, useGoimports)
+		return executeSequentialWithOptions(filesToProcess, checkOnly || noOp, quiet, cfg, ignoreMissingTools, options, useGoimports, textNormalize)
 	}
 }
 
 // removed unused findSupportedFiles helper
 
-func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignoreMissingTools bool, options finalizer.NormalizationOptions, useGoimports bool) error {
+func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignoreMissingTools bool, options finalizer.NormalizationOptions, useGoimports bool, textNormalize bool) error {
 	ext := filepath.Ext(file)
 
 	var err error
@@ -315,9 +326,12 @@ func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignore
 		err = formatMarkdownFile(file, checkOnly, cfg)
 
 	default:
-		// Non-primary types: apply finalizer only if enabled and extension supported
-		if options.EnsureEOF || options.TrimTrailingWhitespace || options.NormalizeLineEndings != "" || options.RemoveUTF8BOM {
+		// Non-primary types: apply finalizer to supported extensions or any text file when textNormalize is enabled
+		if options.EnsureEOF || options.TrimTrailingWhitespace || options.NormalizeLineEndings != "" || options.RemoveUTF8BOM || textNormalize {
 			if finalizer.IsSupportedExtension(ext) {
+				return applyFinalizer(file, checkOnly, options)
+			}
+			if textNormalize {
 				return applyFinalizer(file, checkOnly, options)
 			}
 		}
@@ -661,7 +675,7 @@ func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config) error {
 }
 
 // executeSequential executes work items sequentially
-func executeSequentialWithOptions(files []string, checkOnly, quiet bool, cfg *config.Config, ignoreMissingTools bool, options finalizer.NormalizationOptions, useGoimports bool) error {
+func executeSequentialWithOptions(files []string, checkOnly, quiet bool, cfg *config.Config, ignoreMissingTools bool, options finalizer.NormalizationOptions, useGoimports bool, textNormalize bool) error {
 	start := time.Now()
 	var formattedCount, unchangedCount, errorCount int
 	totalFiles := len(files)
@@ -672,7 +686,7 @@ func executeSequentialWithOptions(files []string, checkOnly, quiet bool, cfg *co
 	}
 
 	for i, file := range files {
-		if err := processFile(file, checkOnly, quiet, cfg, ignoreMissingTools, options, useGoimports); err != nil {
+		if err := processFile(file, checkOnly, quiet, cfg, ignoreMissingTools, options, useGoimports, textNormalize); err != nil {
 			if err.Error() == "needs formatting" {
 				if checkOnly {
 					logger.Error(fmt.Sprintf("Failed to process %s", file), logger.Err(err))

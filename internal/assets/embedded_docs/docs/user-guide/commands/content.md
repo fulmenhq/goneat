@@ -51,4 +51,3 @@ The manifest (`docs/embed-manifest.yaml`) defines topics with include/exclude gl
 
 - `goneat docs` — Read-only access to embedded docs for users
 - `docs/sop/embedding-assets-sop.md` — SOP for embedding assets (including curated docs)
-

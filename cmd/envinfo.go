@@ -96,7 +96,7 @@ func init() {
 	envinfoCmd.Flags().Bool("extended", false, "Show extended system information including disk usage and tree stats")
 }
 
-func runEnvinfo(cmd *cobra.Command, args []string) error {
+func runEnvinfo(cmd *cobra.Command, _ []string) error {
 	jsonFormat, _ := cmd.Flags().GetBool("json")
 	extended, _ := cmd.Flags().GetBool("extended")
 	useColor := getColorPreference(cmd)
@@ -353,8 +353,8 @@ func getIgnoreFileInfo() map[string]interface{} {
 		"exists":   false,
 		"patterns": 0,
 	}
-    // Read with sanitized path; file is at repository root
-    if content, err := os.ReadFile(filepath.Clean(gitignorePath)); err == nil { // #nosec G304 -- fixed path under working directory
+	// Read with sanitized path; file is at repository root
+	if content, err := os.ReadFile(filepath.Clean(gitignorePath)); err == nil { // #nosec G304 -- fixed path under working directory
 		gitignoreInfo["exists"] = true
 		gitignoreInfo["patterns"] = countPatterns(string(content))
 	}
@@ -367,7 +367,7 @@ func getIgnoreFileInfo() map[string]interface{} {
 		"exists":   false,
 		"patterns": 0,
 	}
-    if content, err := os.ReadFile(filepath.Clean(goneatignorePath)); err == nil { // #nosec G304 -- fixed path under working directory
+	if content, err := os.ReadFile(filepath.Clean(goneatignorePath)); err == nil { // #nosec G304 -- fixed path under working directory
 		goneatignoreInfo["exists"] = true
 		goneatignoreInfo["patterns"] = countPatterns(string(content))
 	}
@@ -386,9 +386,9 @@ func getIgnoreFileInfo() map[string]interface{} {
 		"exists":   false,
 		"patterns": 0,
 	}
-    if userIgnorePath != "" {
-        // User override is constrained to goneat home or $HOME/.goneat
-        if content, err := os.ReadFile(filepath.Clean(userIgnorePath)); err == nil { // #nosec G304 -- cleaned path within user profile
+	if userIgnorePath != "" {
+		// User override is constrained to goneat home or $HOME/.goneat
+		if content, err := os.ReadFile(filepath.Clean(userIgnorePath)); err == nil { // #nosec G304 -- cleaned path within user profile
 			userIgnoreInfo["exists"] = true
 			userIgnoreInfo["patterns"] = countPatterns(string(content))
 		}

@@ -156,11 +156,19 @@ func (env *TestEnv) parseVersionOutput(result *VersionCommandResult) {
 	for line := range strings.SplitSeq(result.Output, "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "goneat ") {
-			// Extract version from "goneat 1.2.3" format
+			// Extract version from formats like:
+			// "goneat 1.2.3" or "goneat (Project) 1.2.3"
 			parts := strings.Fields(line)
 			if len(parts) >= 2 {
 				result.Component = parts[0]
-				result.Version = parts[1]
+				// Handle both "goneat 1.2.3" and "goneat (Project) 1.2.3" formats
+				if len(parts) >= 3 && strings.HasPrefix(parts[1], "(") && strings.HasSuffix(parts[1], ")") {
+					// Format: "goneat (Project) 1.2.3"
+					result.Version = parts[2]
+				} else {
+					// Format: "goneat 1.2.3"
+					result.Version = parts[1]
+				}
 			}
 		} else if strings.Contains(line, "Current version:") || strings.Contains(line, "[NO-OP] Current version:") {
 			// Extract version from "Current version: 1.2.3" format

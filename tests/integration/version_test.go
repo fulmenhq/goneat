@@ -30,8 +30,8 @@ func TestVersionCommand_BasicDisplay(t *testing.T) {
 	}
 
 	// Verify output contains expected format
-	if !strings.Contains(result.Output, "goneat 1.2.3") {
-		t.Errorf("Expected output to contain 'goneat 1.2.3', got: %s", result.Output)
+	if !strings.Contains(result.Output, "goneat (Project) 1.2.3") {
+		t.Errorf("Expected output to contain 'goneat (Project) 1.2.3', got: %s", result.Output)
 	}
 }
 
@@ -116,7 +116,7 @@ func TestVersionCommand_ExtendedOutput(t *testing.T) {
 
 	// Verify extended output contains additional information
 	expectedFields := []string{
-		"goneat 3.1.4",
+		"goneat (Project) 3.1.4",
 		"Build time:",
 		"Git commit:",
 		"Go version:",

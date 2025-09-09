@@ -8,7 +8,7 @@
 # Files that goneat format cannot process (unsupported by format processors)
 *.mod
 *.sum
-*.tmpl  
+*.tmpl
 *.template
 *.lock
 *.pid
@@ -32,8 +32,21 @@ tests/fixtures/**/*.goneatignore
 # Override examples:
 # To assess something normally ignored by git:
 # !important-ignored-file.go
-# 
+#
 # To skip something normally tracked by git:
 # sensitive-config.yaml
 # Test fixtures (schemas)
 tests/fixtures/**
+test-fixtures/**
+
+# Embedded asset mirrors (SSOT is templates/, schemas/, docs/)
+internal/assets/embedded_docs/**
+internal/assets/embedded_schemas/**
+internal/assets/embedded_templates/**
+
+# Third-party license texts (managed by tooling)
+docs/licenses/third-party/**
+
+# Backup and generated artifacts
+*.backup
+*coverage.html

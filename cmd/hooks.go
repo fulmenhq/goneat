@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"github.com/fulmenhq/goneat/internal/assets"
 	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/spf13/cobra"
+	"github.com/xeipuuv/gojsonschema"
 	"gopkg.in/yaml.v3"
 )
 
@@ -140,6 +142,7 @@ func init() {
 	hooksConfigureCmd.Flags().Bool("pre-commit-only-changed-files", false, "Limit pre-commit to changed files (recommended)")
 	hooksConfigureCmd.Flags().String("pre-commit-content-source", "", "Content source for pre-commit: index (staged only) or working")
 	hooksConfigureCmd.Flags().String("pre-commit-apply-mode", "", "Apply mode for pre-commit: check (no changes) or fix (apply fixes and re-stage)")
+	hooksConfigureCmd.Flags().String("optimization-parallel", "", "Parallel execution mode: auto|max|sequential")
 	hooksConfigureCmd.Flags().Bool("install", false, "Install hooks after generation")
 
 	// Register subcommands
@@ -247,38 +250,38 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-    render := func(templatePath, destPath string, data tplData) error {
-        // Validate template path to prevent path traversal
-        templatePath = filepath.Clean(templatePath)
-        if strings.Contains(templatePath, "..") {
-            return fmt.Errorf("invalid template path: contains path traversal")
-        }
-        templatesFS := assets.GetTemplatesFS()
-        content, err := fs.ReadFile(templatesFS, templatePath)
-        if err != nil {
-            // Fallback: attempt to read from filesystem SSOT (templates/ root)
-            if data, ferr := os.ReadFile(filepath.Clean(filepath.Join("templates", strings.TrimPrefix(templatePath, "templates/")))); ferr == nil {
-                content = data
-            } else {
-                return fmt.Errorf("failed to read embedded template %s: %v", templatePath, err)
-            }
-        }
-        tmpl, err := template.New(filepath.Base(templatePath)).Parse(string(content))
-        if err != nil {
-            return fmt.Errorf("failed to parse template %s: %v", templatePath, err)
-        }
-        var buf bytes.Buffer
-        if err := tmpl.Execute(&buf, data); err != nil {
-            return fmt.Errorf("failed to render template %s: %v", templatePath, err)
-        }
-        // Write with execute permissions: Git hooks must be executable
-        // Security justification: path is sanitized (Clean + no traversal), generated into .goneat/hooks,
-        // and content is produced by trusted templates. Git requires +x bits to invoke hooks.
-        if err := os.WriteFile(destPath, buf.Bytes(), 0700); err != nil { // #nosec G306 -- required exec perms for git hooks
-            return fmt.Errorf("failed to write %s: %v", destPath, err)
-        }
-        return nil
-    }
+	render := func(templatePath, destPath string, data tplData) error {
+		// Validate template path to prevent path traversal
+		templatePath = filepath.Clean(templatePath)
+		if strings.Contains(templatePath, "..") {
+			return fmt.Errorf("invalid template path: contains path traversal")
+		}
+		templatesFS := assets.GetTemplatesFS()
+		content, err := fs.ReadFile(templatesFS, templatePath)
+		if err != nil {
+			// Fallback: attempt to read from filesystem SSOT (templates/ root)
+			if data, ferr := os.ReadFile(filepath.Clean(filepath.Join("templates", strings.TrimPrefix(templatePath, "templates/")))); ferr == nil {
+				content = data
+			} else {
+				return fmt.Errorf("failed to read embedded template %s: %v", templatePath, err)
+			}
+		}
+		tmpl, err := template.New(filepath.Base(templatePath)).Parse(string(content))
+		if err != nil {
+			return fmt.Errorf("failed to parse template %s: %v", templatePath, err)
+		}
+		var buf bytes.Buffer
+		if err := tmpl.Execute(&buf, data); err != nil {
+			return fmt.Errorf("failed to render template %s: %v", templatePath, err)
+		}
+		// Write with execute permissions: Git hooks must be executable
+		// Security justification: path is sanitized (Clean + no traversal), generated into .goneat/hooks,
+		// and content is produced by trusted templates. Git requires +x bits to invoke hooks.
+		if err := os.WriteFile(destPath, buf.Bytes(), 0700); err != nil { // #nosec G306 -- required exec perms for git hooks
+			return fmt.Errorf("failed to write %s: %v", destPath, err)
+		}
+		return nil
+	}
 
 	buildArgs := func(hook string) ([]string, string) {
 		var args []string
@@ -364,10 +367,10 @@ func runHooksInstall(cmd *cobra.Command, args []string) error {
 		}
 
 		// Make executable - git hooks require execute permissions
-        // Git hooks need exec perms; destination path is validated and within .git/hooks
-        if err := os.Chmod(preCommitDst, 0700); err != nil { // #nosec G302 -- required exec perms for git hooks
-            return fmt.Errorf("failed to make pre-commit hook executable: %v", err)
-        }
+		// Git hooks need exec perms; destination path is validated and within .git/hooks
+		if err := os.Chmod(preCommitDst, 0700); err != nil { // #nosec G302 -- required exec perms for git hooks
+			return fmt.Errorf("failed to make pre-commit hook executable: %v", err)
+		}
 
 		fmt.Println("✅ Installed pre-commit hook")
 		hooksInstalled++
@@ -393,9 +396,9 @@ func runHooksInstall(cmd *cobra.Command, args []string) error {
 		}
 
 		// Make executable - git hooks require execute permissions
-        if err := os.Chmod(prePushDst, 0700); err != nil { // #nosec G302 -- required exec perms for git hooks
-            return fmt.Errorf("failed to make pre-push hook executable: %v", err)
-        }
+		if err := os.Chmod(prePushDst, 0700); err != nil { // #nosec G302 -- required exec perms for git hooks
+			return fmt.Errorf("failed to make pre-push hook executable: %v", err)
+		}
 
 		fmt.Println("✅ Installed pre-push hook")
 		hooksInstalled++
@@ -678,6 +681,424 @@ func runHooksInspect(cmd *cobra.Command, args []string) error {
 }
 
 // runHooksConfigure updates .goneat/hooks.yaml with CLI-provided options and regenerates hooks
+// --- Hooks Policy Management (show|set|reset|validate) ---
+
+var hooksPolicyCmd = &cobra.Command{
+	Use:   "policy",
+	Short: "Manage hook policy (categories, fail-on, timeouts, optimization)",
+}
+
+var hooksPolicyShowCmd = &cobra.Command{
+	Use:   "show",
+	Short: "Show effective hook policy",
+	RunE:  runHooksPolicyShow,
+}
+
+var hooksPolicySetCmd = &cobra.Command{
+	Use:   "set",
+	Short: "Update specific hook policy keys",
+	RunE:  runHooksPolicySet,
+}
+
+var hooksPolicyResetCmd = &cobra.Command{
+	Use:   "reset",
+	Short: "Restore defaults for a hook",
+	RunE:  runHooksPolicyReset,
+}
+
+var hooksPolicyValidateCmd = &cobra.Command{
+	Use:   "validate",
+	Short: "Validate hooks.yaml against schema",
+	RunE:  runHooksPolicyValidate,
+}
+
+func init() {
+	// Register policy subcommands separately to avoid large init edits above
+	hooksCmd.AddCommand(hooksPolicyCmd)
+	hooksPolicyCmd.AddCommand(hooksPolicyShowCmd)
+	hooksPolicyCmd.AddCommand(hooksPolicySetCmd)
+	hooksPolicyCmd.AddCommand(hooksPolicyResetCmd)
+	hooksPolicyCmd.AddCommand(hooksPolicyValidateCmd)
+
+	// Flags
+	hooksPolicyShowCmd.Flags().String("hook", "pre-commit", "Hook to show: pre-commit|pre-push")
+	hooksPolicyShowCmd.Flags().String("format", "text", "Output format: text|json")
+
+	hooksPolicySetCmd.Flags().String("hook", "pre-commit", "Hook to update: pre-commit|pre-push")
+	hooksPolicySetCmd.Flags().String("fail-on", "", "Fail threshold: critical|high|medium|low|info|error")
+	hooksPolicySetCmd.Flags().String("categories", "", "Comma-separated categories, e.g., format,lint[,security]")
+	hooksPolicySetCmd.Flags().String("timeout", "", "Timeout for the hook command, e.g., 90s|2m|3m")
+	hooksPolicySetCmd.Flags().Bool("only-changed-files", false, "Set optimization.only_changed_files true|false")
+	hooksPolicySetCmd.Flags().String("parallel", "", "Set optimization.parallel: auto|max|sequential")
+	hooksPolicySetCmd.Flags().Bool("dry-run", false, "Preview changes without writing")
+	hooksPolicySetCmd.Flags().Bool("yes", false, "Apply changes without prompt")
+	hooksPolicySetCmd.Flags().Bool("install", false, "Install hooks after generation")
+
+	hooksPolicyResetCmd.Flags().String("hook", "pre-commit", "Hook to reset: pre-commit|pre-push")
+	hooksPolicyResetCmd.Flags().Bool("dry-run", false, "Preview changes without writing")
+	hooksPolicyResetCmd.Flags().Bool("yes", false, "Apply changes without prompt")
+	hooksPolicyResetCmd.Flags().Bool("install", false, "Install hooks after generation")
+}
+
+func runHooksPolicyShow(cmd *cobra.Command, args []string) error {
+	hook, _ := cmd.Flags().GetString("hook")
+	format, _ := cmd.Flags().GetString("format")
+
+	raw, err := os.ReadFile(".goneat/hooks.yaml")
+	if err != nil {
+		return fmt.Errorf("failed to read hooks.yaml: %v", err)
+	}
+	// Reuse HookConfig structure
+	var cfg HookConfig
+	if err := yaml.Unmarshal(raw, &cfg); err != nil {
+		return fmt.Errorf("failed to parse hooks.yaml: %v", err)
+	}
+	cats := parseCategoriesFromHooks(cfg.Hooks, hook)
+	fail := parseFailOnFromHooks(cfg.Hooks, hook)
+	timeout := ""
+	// Scan raw YAML for timeout under hook assessor
+	var manifest map[string]any
+	_ = yaml.Unmarshal(raw, &manifest)
+	if hooks, ok := manifest["hooks"].(map[string]any); ok {
+		if seq, ok := hooks[hook].([]any); ok {
+			for _, item := range seq {
+				if m, ok := item.(map[string]any); ok {
+					if m["command"] == "assess" {
+						if tv, ok := m["timeout"].(string); ok {
+							timeout = tv
+						}
+						break
+					}
+				}
+			}
+		}
+	}
+	opt := map[string]any{"only_changed_files": cfg.Optimization.OnlyChangedFiles, "parallel": cfg.Optimization.Parallel}
+	if strings.ToLower(format) == "json" {
+		out := map[string]any{"hook": hook, "categories": cats, "fail_on": fail, "timeout": timeout, "optimization": opt}
+		b, _ := json.MarshalIndent(out, "", "  ")
+		fmt.Fprintln(cmd.OutOrStdout(), string(b)) //nolint:errcheck // CLI output, error is not critical
+		return nil
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "Hook: %s\nCategories: %s\nFail-on: %s\nTimeout: %s\nOptimization: only_changed_files=%v, parallel=%s\n", hook, strings.Join(cats, ","), fail, timeout, cfg.Optimization.OnlyChangedFiles, cfg.Optimization.Parallel) //nolint:errcheck // CLI output, error is not critical
+	return nil
+}
+
+// Helper: load manifest as node and as typed struct
+func loadHooksManifest() (*yaml.Node, []byte, error) {
+	raw, err := os.ReadFile(".goneat/hooks.yaml")
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read hooks.yaml: %v", err)
+	}
+	var root yaml.Node
+	if err := yaml.Unmarshal(raw, &root); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse hooks.yaml: %v", err)
+	}
+	return &root, raw, nil
+}
+
+// Helpers to navigate yaml.Node mappings
+func findMapValue(m *yaml.Node, key string) (*yaml.Node, int) {
+	if m == nil || m.Kind != yaml.MappingNode {
+		return nil, -1
+	}
+	for i := 0; i < len(m.Content); i += 2 {
+		k := m.Content[i]
+		if k.Value == key {
+			return m.Content[i+1], i + 1
+		}
+	}
+	return nil, -1
+}
+
+func setMapScalar(m *yaml.Node, key, val string) bool {
+	if m == nil || m.Kind != yaml.MappingNode {
+		return false
+	}
+	if v, _ := findMapValue(m, key); v != nil {
+		if v.Kind != yaml.ScalarNode || v.Value != val {
+			v.Kind = yaml.ScalarNode
+			v.Tag = "!!str"
+			v.Value = val
+			return true
+		}
+		return false
+	}
+	// append
+	m.Content = append(m.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key}, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: val})
+	return true
+}
+
+func setMapBool(m *yaml.Node, key string, val bool) bool {
+	if m == nil || m.Kind != yaml.MappingNode {
+		return false
+	}
+	str := "false"
+	if val {
+		str = "true"
+	}
+	return setMapScalar(m, key, str)
+}
+
+func updateArgsPair(args *yaml.Node, flag, value string) bool {
+	if args == nil || args.Kind != yaml.SequenceNode {
+		return false
+	}
+	changed := false
+	for i := 0; i < len(args.Content)-1; i++ {
+		if args.Content[i].Value == flag {
+			if args.Content[i+1].Value != value {
+				args.Content[i+1].Kind = yaml.ScalarNode
+				args.Content[i+1].Tag = "!!str"
+				args.Content[i+1].Value = value
+				changed = true
+			}
+			return changed
+		}
+	}
+	// not found, append
+	args.Content = append(args.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: flag}, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: value})
+	return true
+}
+
+func findAssessEntryForHook(root *yaml.Node, hook string) (*yaml.Node, *yaml.Node) {
+	// root is a DocumentNode -> Mapping "hooks" -> Mapping hook -> Sequence -> each item is Mapping
+	if root == nil || root.Kind != yaml.DocumentNode || len(root.Content) == 0 {
+		return nil, nil
+	}
+	doc := root.Content[0]
+	hooksMap, _ := findMapValue(doc, "hooks")
+	if hooksMap == nil || hooksMap.Kind != yaml.MappingNode {
+		return nil, nil
+	}
+	hookSeqNode, _ := findMapValue(hooksMap, hook)
+	if hookSeqNode == nil || hookSeqNode.Kind != yaml.SequenceNode {
+		return nil, nil
+	}
+	for _, item := range hookSeqNode.Content {
+		if item.Kind == yaml.MappingNode {
+			if cv, _ := findMapValue(item, "command"); cv != nil && cv.Value == "assess" {
+				return item, hookSeqNode
+			}
+		}
+	}
+	return nil, hookSeqNode
+}
+
+func policyWriteAtomic(path string, data []byte) error {
+	dir := filepath.Dir(path)
+	tmp := filepath.Join(dir, ".hooks.yaml.tmp")
+	if err := os.WriteFile(tmp, data, 0600); err != nil { // #nosec G306 - perms by design
+		return err
+	}
+	return os.Rename(tmp, path)
+}
+
+func runHooksPolicySet(cmd *cobra.Command, args []string) error {
+	hook, _ := cmd.Flags().GetString("hook")
+	failOn, _ := cmd.Flags().GetString("fail-on")
+	catsStr, _ := cmd.Flags().GetString("categories")
+	timeout, _ := cmd.Flags().GetString("timeout")
+	onlyChanged, _ := cmd.Flags().GetBool("only-changed-files")
+	parallel, _ := cmd.Flags().GetString("parallel")
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
+	yes, _ := cmd.Flags().GetBool("yes")
+	install, _ := cmd.Flags().GetBool("install")
+
+	root, orig, err := loadHooksManifest()
+	if err != nil {
+		return err
+	}
+	// Update assess entry for selected hook
+	entry, _ := findAssessEntryForHook(root, hook)
+	if entry == nil {
+		return fmt.Errorf("no assess entry found for hook %s", hook)
+	}
+	// args
+	argsNode, _ := findMapValue(entry, "args")
+	if argsNode == nil {
+		argsNode = &yaml.Node{Kind: yaml.SequenceNode}
+		entry.Content = append(entry.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "args"}, argsNode)
+	}
+	if strings.TrimSpace(catsStr) != "" {
+		cats := strings.Join(splitAndTrim(catsStr), ",")
+		_ = updateArgsPair(argsNode, "--categories", cats)
+	}
+	if strings.TrimSpace(failOn) != "" {
+		_ = updateArgsPair(argsNode, "--fail-on", strings.TrimSpace(failOn))
+	}
+	if strings.TrimSpace(timeout) != "" {
+		_ = setMapScalar(entry, "timeout", strings.TrimSpace(timeout))
+	}
+	// optimization
+	doc := root.Content[0]
+	optMap, _ := findMapValue(doc, "optimization")
+	if optMap == nil {
+		optMap = &yaml.Node{Kind: yaml.MappingNode}
+		doc.Content = append(doc.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "optimization"}, optMap)
+	}
+	if cmd.Flags().Changed("only-changed-files") {
+		_ = setMapBool(optMap, "only_changed_files", onlyChanged)
+	}
+	if cmd.Flags().Changed("parallel") {
+		pv := strings.ToLower(strings.TrimSpace(parallel))
+		if pv != "auto" && pv != "max" && pv != "sequential" {
+			return fmt.Errorf("invalid --parallel: %s (allowed: auto|max|sequential)", parallel)
+		}
+		_ = setMapScalar(optMap, "parallel", pv)
+	}
+
+	out, err := yaml.Marshal(root)
+	if err != nil {
+		return fmt.Errorf("failed to marshal updated YAML: %v", err)
+	}
+	if string(out) == string(orig) {
+		fmt.Fprintln(cmd.OutOrStdout(), "No changes required; policy already matches requested values") //nolint:errcheck // CLI output, error is not critical
+		return nil
+	}
+	if dryRun && !yes {
+		fmt.Fprintln(cmd.OutOrStdout(), "--dry-run: proposed .goneat/hooks.yaml:") //nolint:errcheck // CLI output, error is not critical
+		fmt.Fprintln(cmd.OutOrStdout(), string(out))                               //nolint:errcheck // CLI output, error is not critical
+		fmt.Fprintln(cmd.OutOrStdout(), "Run with --yes to apply.")                //nolint:errcheck // CLI output, error is not critical
+		return nil
+	}
+	if err := policyWriteAtomic(".goneat/hooks.yaml", out); err != nil {
+		return fmt.Errorf("failed to write updated hooks.yaml: %v", err)
+	}
+	fmt.Fprintln(cmd.OutOrStdout(), "✅ Updated .goneat/hooks.yaml") //nolint:errcheck // CLI output, error is not critical
+	// Regenerate and optionally install
+	if err := runHooksGenerate(cmd, nil); err != nil {
+		return fmt.Errorf("failed to regenerate hooks: %v", err)
+	}
+	if install {
+		if err := runHooksInstall(cmd, nil); err != nil {
+			return fmt.Errorf("failed to install hooks: %v", err)
+		}
+	}
+	return nil
+}
+
+func runHooksPolicyReset(cmd *cobra.Command, args []string) error {
+	hook, _ := cmd.Flags().GetString("hook")
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
+	yes, _ := cmd.Flags().GetBool("yes")
+	install, _ := cmd.Flags().GetBool("install")
+
+	root, orig, err := loadHooksManifest()
+	if err != nil {
+		return err
+	}
+	entry, _ := findAssessEntryForHook(root, hook)
+	if entry == nil {
+		return fmt.Errorf("no assess entry found for hook %s", hook)
+	}
+	argsNode, _ := findMapValue(entry, "args")
+	if argsNode == nil {
+		argsNode = &yaml.Node{Kind: yaml.SequenceNode}
+		entry.Content = append(entry.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "args"}, argsNode)
+	}
+	// Defaults similar to hooks init
+	switch hook {
+	case "pre-commit":
+		_ = updateArgsPair(argsNode, "--categories", "format,lint")
+		_ = updateArgsPair(argsNode, "--fail-on", "error")
+		_ = setMapScalar(entry, "timeout", "2m")
+	case "pre-push":
+		_ = updateArgsPair(argsNode, "--categories", "format,lint,static-analysis")
+		_ = updateArgsPair(argsNode, "--fail-on", "high")
+		_ = setMapScalar(entry, "timeout", "3m")
+	}
+	// optimization defaults
+	doc := root.Content[0]
+	optMap, _ := findMapValue(doc, "optimization")
+	if optMap == nil {
+		optMap = &yaml.Node{Kind: yaml.MappingNode}
+		doc.Content = append(doc.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "optimization"}, optMap)
+	}
+	_ = setMapBool(optMap, "only_changed_files", true)
+	_ = setMapScalar(optMap, "parallel", "auto")
+
+	out, err := yaml.Marshal(root)
+	if err != nil {
+		return fmt.Errorf("failed to marshal updated YAML: %v", err)
+	}
+	if string(out) == string(orig) {
+		fmt.Fprintln(cmd.OutOrStdout(), "No changes required; policy already at defaults") //nolint:errcheck // CLI output, error is not critical
+		return nil
+	}
+	if dryRun && !yes {
+		fmt.Fprintln(cmd.OutOrStdout(), "--dry-run: proposed .goneat/hooks.yaml (defaults):") //nolint:errcheck // CLI output, error is not critical
+		fmt.Fprintln(cmd.OutOrStdout(), string(out))                                          //nolint:errcheck // CLI output, error is not critical
+		fmt.Fprintln(cmd.OutOrStdout(), "Run with --yes to apply.")                           //nolint:errcheck // CLI output, error is not critical
+		return nil
+	}
+	if err := policyWriteAtomic(".goneat/hooks.yaml", out); err != nil {
+		return fmt.Errorf("failed to write updated hooks.yaml: %v", err)
+	}
+	fmt.Fprintln(cmd.OutOrStdout(), "✅ Reset .goneat/hooks.yaml to defaults for hook") //nolint:errcheck // CLI output, error is not critical
+	if err := runHooksGenerate(cmd, nil); err != nil {
+		return fmt.Errorf("failed to regenerate hooks: %v", err)
+	}
+	if install {
+		if err := runHooksInstall(cmd, nil); err != nil {
+			return fmt.Errorf("failed to install hooks: %v", err)
+		}
+	}
+	return nil
+}
+
+func runHooksPolicyValidate(cmd *cobra.Command, args []string) error {
+	// Load YAML
+	raw, err := os.ReadFile(".goneat/hooks.yaml")
+	if err != nil {
+		return fmt.Errorf("failed to read hooks.yaml: %v", err)
+	}
+	var doc any
+	if err := yaml.Unmarshal(raw, &doc); err != nil {
+		return fmt.Errorf("failed to parse hooks.yaml: %v", err)
+	}
+	docJSON, _ := json.Marshal(doc)
+	// Load schema from embedded FS (YAML -> JSON)
+	schemaFS := assets.GetSchemasFS()
+	sb, err := fs.ReadFile(schemaFS, "schemas/work/hooks-manifest-v1.0.0.yaml")
+	if err != nil {
+		return fmt.Errorf("failed to read embedded hooks schema: %v", err)
+	}
+	var schm any
+	if err := yaml.Unmarshal(sb, &schm); err != nil {
+		return fmt.Errorf("failed to parse embedded hooks schema: %v", err)
+	}
+	schJSON, _ := json.Marshal(schm)
+
+	schemaLoader := gojsonschema.NewBytesLoader(schJSON)
+	docLoader := gojsonschema.NewBytesLoader(docJSON)
+	res, err := gojsonschema.Validate(schemaLoader, docLoader)
+	if err != nil {
+		return fmt.Errorf("schema validation error: %v", err)
+	}
+	if !res.Valid() {
+		fmt.Fprintln(cmd.OutOrStdout(), "❌ hooks.yaml is invalid:") //nolint:errcheck // CLI output, error is not critical
+		for _, e := range res.Errors() {
+			fmt.Fprintf(cmd.OutOrStdout(), " - %s\n", e) //nolint:errcheck // CLI output, error is not critical
+		}
+		return fmt.Errorf("hooks.yaml failed schema validation")
+	}
+	fmt.Fprintln(cmd.OutOrStdout(), "✅ hooks.yaml is valid") //nolint:errcheck // CLI output, error is not critical
+	return nil
+}
+
+func splitAndTrim(s string) []string {
+	parts := strings.Split(s, ",")
+	var out []string
+	for _, p := range parts {
+		pp := strings.TrimSpace(p)
+		if pp != "" {
+			out = append(out, pp)
+		}
+	}
+	return out
+}
+
 func runHooksConfigure(cmd *cobra.Command, args []string) error {
 	hooksConfigPath := ".goneat/hooks.yaml"
 	if _, err := os.Stat(hooksConfigPath); os.IsNotExist(err) {
@@ -696,6 +1117,9 @@ func runHooksConfigure(cmd *cobra.Command, args []string) error {
 
 	applyMode, _ := cmd.Flags().GetString("pre-commit-apply-mode")
 	applyModeSet := cmd.Flags().Changed("pre-commit-apply-mode")
+
+	parallelVal, _ := cmd.Flags().GetString("optimization-parallel")
+	parallelSet := cmd.Flags().Changed("optimization-parallel")
 
 	// Load YAML
 	raw, err := os.ReadFile(hooksConfigPath)
@@ -757,6 +1181,7 @@ func runHooksConfigure(cmd *cobra.Command, args []string) error {
 	if reset {
 		manifest.Opt["only_changed_files"] = true
 		manifest.Opt["content_source"] = "index"
+		manifest.Opt["parallel"] = "auto"
 		// keep existing apply mode as-is; teams may prefer current default
 	}
 
@@ -770,6 +1195,13 @@ func runHooksConfigure(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("invalid --pre-commit-content-source: %s (allowed: index|working)", contentSource)
 		}
 		manifest.Opt["content_source"] = cs
+	}
+	if parallelSet {
+		pv := strings.ToLower(strings.TrimSpace(parallelVal))
+		if pv != "auto" && pv != "max" && pv != "sequential" {
+			return fmt.Errorf("invalid --optimization-parallel: %s (allowed: auto|max|sequential)", parallelVal)
+		}
+		manifest.Opt["parallel"] = pv
 	}
 	if applyModeSet {
 		pm := strings.ToLower(strings.TrimSpace(applyMode))

@@ -1,12 +1,12 @@
 # Fulmen Ecosystem: Package Repositories Setup (Brew, Scoop, Pacman)
 
-Status: Draft (operationally used for goneat rc.8+)  
+Status: Draft (operationally used for goneat rc.8+)
 Owner: Forge Neat + Code Scout (supervised by @3leapsdave)
 
 ## Goals
 
 - Provide a repeatable process to publish Fulmen CLI tools across ecosystems:
-  - Homebrew (macOS/Linux): tap repository with Formula/*.rb
+  - Homebrew (macOS/Linux): tap repository with Formula/\*.rb
   - Scoop (Windows): bucket repository with JSON manifests
   - Pacman/AUR (Arch Linux): package metadata for submission (or Fulmen-maintained repo)
 - Gate publishing behind release validation (builds, packaging, license audit, notes).
@@ -32,14 +32,16 @@ Owner: Forge Neat + Code Scout (supervised by @3leapsdave)
 
 ## Homebrew (Tap) Process
 
-1) Create or update `homebrew-tap` repo
+1. Create or update `homebrew-tap` repo
+
 - Path: `Formula/goneat.rb`
 - Template values:
   - `version` → tag (e.g., `0.2.0-rc.8`)
   - `url` → GitHub release URLs (one per OS/arch)
   - `sha256` → from `SHA256SUMS`
 
-2) Test locally (optional)
+2. Test locally (optional)
+
 ```bash
 brew tap fulmenhq/tap
 brew install --formula \
@@ -47,42 +49,49 @@ brew install --formula \
 brew upgrade goneat  # later upgrades
 ```
 
-3) PR workflow
+3. PR workflow
+
 - Open PR to `homebrew-tap` with updated Formula.
 - Merge when CI and smoke tests pass.
 
 ## Scoop (Windows) Process
 
-1) Create or update `scoop-bucket` repo
+1. Create or update `scoop-bucket` repo
+
 - Path: `goneat.json`
 - Template values:
   - `version` → tag (e.g., `0.2.0-rc.8`)
   - `url` → Windows artifact URL
   - `hash` → sha256 from `SHA256SUMS`
 
-2) Test locally
+2. Test locally
+
 ```powershell
 scoop bucket add fulmenhq https://github.com/fulmenhq/scoop-bucket
 scoop install goneat
 ```
 
-3) PR workflow
+3. PR workflow
+
 - Open PR to `scoop-bucket` with updated manifest.
 - Merge when validation completes.
 
 ## AUR (Arch Linux) Process
 
-1) Packaging strategy
+1. Packaging strategy
+
 - Option A (Upstream AUR): maintain `PKGBUILD` and submit; community builds/install via yay/paru.
 - Option B (Fulmen AUR mirror): host metadata in `fulmenhq/arch-pkgs`; upstream to AUR manually.
 
-2) PKGBUILD requirements (template)
+2. PKGBUILD requirements (template)
+
 - `pkgver` must match tag
 - `source` URLs → release artifacts
 - `sha256sums` → from `SHA256SUMS`
 - `install` script (optional) for shell completions, etc.
 
-3) Submission + updates
+3. Submission + updates
+
 - Follow Arch guidelines for uploads and updates.
 
 ## Release Pipeline Integration

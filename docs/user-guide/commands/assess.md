@@ -123,15 +123,15 @@ goneat assess --include "*.go" --exclude "vendor/**"
 
 ### Filtering Flags
 
-| Flag           | Type    | Description                   | Example                      |
-| -------------- | ------- | ----------------------------- | ---------------------------- |
-| `--include`    | strings | Include file patterns         | `--include "*.go"`           |
-| `--exclude`    | strings | Exclude file patterns         | `--exclude "vendor/**"`      |
-| `--categories` | string  | Specific categories to assess | `--categories "format,lint"` |
-| `--no-ignore`  | boolean | Disable ignore files          | `--no-ignore`                 |
-| `--force-include` | strings | Force-include ignored paths (repeatable) | `--force-include 'tests/fixtures/**'` |
-| `--scope`      | boolean | Limit traversal to include/force anchors | `--scope` |
-| `--schema-enable-meta` | boolean | Attempt schema meta validation | `--schema-enable-meta` |
+| Flag                   | Type    | Description                              | Example                               |
+| ---------------------- | ------- | ---------------------------------------- | ------------------------------------- |
+| `--include`            | strings | Include file patterns                    | `--include "*.go"`                    |
+| `--exclude`            | strings | Exclude file patterns                    | `--exclude "vendor/**"`               |
+| `--categories`         | string  | Specific categories to assess            | `--categories "format,lint"`          |
+| `--no-ignore`          | boolean | Disable ignore files                     | `--no-ignore`                         |
+| `--force-include`      | strings | Force-include ignored paths (repeatable) | `--force-include 'tests/fixtures/**'` |
+| `--scope`              | boolean | Limit traversal to include/force anchors | `--scope`                             |
+| `--schema-enable-meta` | boolean | Attempt schema meta validation           | `--schema-enable-meta`                |
 
 ### Hook Integration Flags
 
@@ -142,11 +142,11 @@ goneat assess --include "*.go" --exclude "vendor/**"
 
 ### Display Flags
 
-| Flag        | Type    | Description    | Example     |
-| ----------- | ------- | -------------- | ----------- |
-| `--verbose`   | boolean | Verbose output                         | `--verbose`   |
-| `--quiet`     | boolean | Minimal output                         | `--quiet`     |
-| `--ci-summary`| boolean | One-line CI status (PASS/FAIL + counts)| `--ci-summary`|
+| Flag           | Type    | Description                             | Example        |
+| -------------- | ------- | --------------------------------------- | -------------- |
+| `--verbose`    | boolean | Verbose output                          | `--verbose`    |
+| `--quiet`      | boolean | Minimal output                          | `--quiet`      |
+| `--ci-summary` | boolean | One-line CI status (PASS/FAIL + counts) | `--ci-summary` |
 
 ### Security Flags
 
@@ -158,10 +158,10 @@ goneat assess --include "*.go" --exclude "vendor/**"
 
 Use preset profiles to apply sensible defaults without overriding explicitly set flags:
 
-| Profile | Defaults                                                                                 |
-| ------- | ---------------------------------------------------------------------------------------- |
-| `ci`    | `--categories format,lint,security` and `--fail-on critical`                             |
-| `dev`   | `--categories format,lint,security,schema` and `--fail-on low`                           |
+| Profile | Defaults                                                       |
+| ------- | -------------------------------------------------------------- |
+| `ci`    | `--categories format,lint,security` and `--fail-on critical`   |
+| `dev`   | `--categories format,lint,security,schema` and `--fail-on low` |
 
 Example:
 
@@ -209,6 +209,7 @@ Goneat assess supports multiple validation categories:
 - **Auto-fixable:** No (requires architectural changes)
 
 ### Schema (`schema`) [Preview]
+
 - **Purpose:** Schema-aware validation (syntax + meta-schema checks)
 - **Tools:** Embedded JSON Schema meta-schemas (Draft-07, 2020-12)
 - **Typical Issues:** YAML/JSON syntax errors, schema structure violations

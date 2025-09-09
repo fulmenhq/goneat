@@ -17,7 +17,7 @@ hooks:
             - --categories
             - format,lint,security
             - --fail-on
-            - critical
+            - high
           priority: 10
           timeout: 2m
 optimization:

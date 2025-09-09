@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -16,8 +17,8 @@ import (
 	"github.com/fulmenhq/goneat/internal/assess"
 	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/fulmenhq/goneat/pkg/logger"
-    "github.com/spf13/cobra"
-    pflag "github.com/spf13/pflag"
+	"github.com/spf13/cobra"
+	pflag "github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
 )
 
@@ -67,11 +68,11 @@ var (
 	assessConcurrencyPercent int
 	assessCategories         string
 	assessStagedOnly         bool
-    assessTrackSuppressions  bool
-    // CI/Profiles
-    assessCISummary bool
-    assessProfile   string
-    assessLintNewFromRev string
+	assessTrackSuppressions  bool
+	// CI/Profiles
+	assessCISummary      bool
+	assessProfile        string
+	assessLintNewFromRev string
 )
 
 func init() {
@@ -105,9 +106,9 @@ func setupAssessCommandFlags(cmd *cobra.Command) {
 	// Schema validation options
 	cmd.Flags().BoolVar(&assessSchemaEnableMeta, "schema-enable-meta", false, "Attempt meta-schema validation using embedded drafts (may require network for remote $refs)")
 	// Scoped discovery
-    cmd.Flags().BoolVar(&assessScope, "scope", false, "Limit traversal scope to include paths and force-include anchors")
-    // Lint controls
-    cmd.Flags().StringVar(&assessLintNewFromRev, "lint-new-from-rev", "", "Report only new lint issues since a given git rev (passes to golangci-lint --new-from-rev)")
+	cmd.Flags().BoolVar(&assessScope, "scope", false, "Limit traversal scope to include paths and force-include anchors")
+	// Lint controls
+	cmd.Flags().StringVar(&assessLintNewFromRev, "lint-new-from-rev", "", "Report only new lint issues since a given git rev (passes to golangci-lint --new-from-rev)")
 	// Concurrency
 	cmd.Flags().IntVar(&assessConcurrency, "concurrency", 0, "Number of concurrent runners (0 uses --concurrency-percent)")
 	cmd.Flags().IntVar(&assessConcurrencyPercent, "concurrency-percent", 50, "Percent of CPU cores to use for concurrency (1-100)")
@@ -132,11 +133,11 @@ func setupAssessCommandFlags(cmd *cobra.Command) {
 	// File scope flags
 	cmd.Flags().BoolVar(&assessStagedOnly, "staged-only", false, "Only assess staged files in git (changed and added)")
 	// Suppression tracking (security)
-    cmd.Flags().BoolVar(&assessTrackSuppressions, "track-suppressions", false, "Track and report security suppressions (e.g., #nosec) in assessment output")
-    // CI helpers
-    cmd.Flags().BoolVar(&assessCISummary, "ci-summary", false, "Print a single-line CI summary (PASS/FAIL + issue counts)")
-    // Profiles
-    cmd.Flags().StringVar(&assessProfile, "profile", "", "Preset profile: ci (fast, critical-only) or dev (comprehensive)")
+	cmd.Flags().BoolVar(&assessTrackSuppressions, "track-suppressions", false, "Track and report security suppressions (e.g., #nosec) in assessment output")
+	// CI helpers
+	cmd.Flags().BoolVar(&assessCISummary, "ci-summary", false, "Print a single-line CI summary (PASS/FAIL + issue counts)")
+	// Profiles
+	cmd.Flags().StringVar(&assessProfile, "profile", "", "Preset profile: ci (fast, critical-only) or dev (comprehensive)")
 }
 
 func runAssess(cmd *cobra.Command, args []string) error {
@@ -164,9 +165,9 @@ func runAssess(cmd *cobra.Command, args []string) error {
 	assessNoIgnore, _ = flags.GetBool("no-ignore")
 	assessForceInclude, _ = flags.GetStringSlice("force-include")
 	assessSchemaEnableMeta, _ = flags.GetBool("schema-enable-meta")
-    assessScope, _ = flags.GetBool("scope")
-    assessCISummary, _ = flags.GetBool("ci-summary")
-    assessProfile, _ = flags.GetString("profile")
+	assessScope, _ = flags.GetBool("scope")
+	assessCISummary, _ = flags.GetBool("ci-summary")
+	assessProfile, _ = flags.GetString("profile")
 
 	// Validate mode value
 	switch assessMode {
@@ -228,8 +229,8 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-    // Create assessment configuration
-    config := assess.AssessmentConfig{
+	// Create assessment configuration
+	config := assess.AssessmentConfig{
 		Mode:               mode,
 		Verbose:            assessVerbose,
 		Timeout:            assessTimeout,
@@ -243,14 +244,14 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		FailOnSeverity:     failOnSeverity,
 		Concurrency:        assessConcurrency,
 		ConcurrencyPercent: assessConcurrencyPercent,
-        TrackSuppressions:  assessTrackSuppressions,
-        LintNewFromRev:     strings.TrimSpace(assessLintNewFromRev),
-    }
+		TrackSuppressions:  assessTrackSuppressions,
+		LintNewFromRev:     strings.TrimSpace(assessLintNewFromRev),
+	}
 
-    // Apply profile defaults (non-intrusive; does not override explicitly set flags)
-    if strings.TrimSpace(assessProfile) != "" {
-        applyAssessProfile(strings.ToLower(strings.TrimSpace(assessProfile)), flags, &config)
-    }
+	// Apply profile defaults (non-intrusive; does not override explicitly set flags)
+	if strings.TrimSpace(assessProfile) != "" {
+		applyAssessProfile(strings.ToLower(strings.TrimSpace(assessProfile)), flags, &config)
+	}
 
 	// If limited to staged files, populate IncludeFiles from git staged set
 	if assessStagedOnly {
@@ -302,16 +303,16 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		return runHookMode(cmd, assessHook, assessHookManifest, config, format)
 	}
 
-    // Hook defaults: lint new-only for pre-commit and pre-push unless overridden
-    if assessHook != "" {
-        if strings.TrimSpace(config.LintNewFromRev) == "" {
-            // Default to HEAD~ for new-only gating
-            config.LintNewFromRev = "HEAD~"
-        }
-    }
+	// Hook defaults: lint new-only for pre-commit and pre-push unless overridden
+	if assessHook != "" {
+		if strings.TrimSpace(config.LintNewFromRev) == "" {
+			// Default to HEAD~ for new-only gating
+			config.LintNewFromRev = "HEAD~"
+		}
+	}
 
-    // Create assessment engine
-    engine := assess.NewAssessmentEngine()
+	// Create assessment engine
+	engine := assess.NewAssessmentEngine()
 
 	// Run assessment
 	logger.Info(fmt.Sprintf("Starting comprehensive assessment of %s", target))
@@ -325,9 +326,9 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		format = assess.FormatConcise
 	}
 
-    // Format and output report
-    formatter := assess.NewFormatter(format)
-    formatter.SetTargetPath(target)
+	// Format and output report
+	formatter := assess.NewFormatter(format)
+	formatter.SetTargetPath(target)
 
 	if assessOutput != "" {
 		// Validate output path to prevent path traversal
@@ -335,8 +336,8 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		if strings.Contains(assessOutput, "..") {
 			return fmt.Errorf("invalid output path: contains path traversal")
 		}
-            // Write to file with restrictive permissions
-            file, err := os.OpenFile(assessOutput, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+		// Write to file with restrictive permissions
+		file, err := os.OpenFile(assessOutput, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 		if err != nil {
 			return fmt.Errorf("failed to create output file: %v", err)
 		}
@@ -367,26 +368,27 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-    // Concise schema summary for DX (preview)
-    printSchemaSummary(report)
+	// Concise schema summary for DX (preview)
+	printSchemaSummary(report)
 
-    // CI summary line
-    if assessCISummary {
-        pass := !shouldFail(report, failOnSeverity)
-        c := countIssuesBySeverity(report)
-        status := "FAIL"
-        if pass {
-            status = "PASS"
-        }
-        fmt.Fprintf(cmd.OutOrStdout(), "CI: %s | critical=%d high=%d medium=%d low=%d info=%d total=%d\n",
-            status, c["critical"], c["high"], c["medium"], c["low"], c["info"], c["total"],
-        )
-    }
+	// CI summary line
+	if assessCISummary {
+		pass := !shouldFail(report, failOnSeverity)
+		c := countIssuesBySeverity(report)
+		status := "FAIL"
+		if pass {
+			status = "PASS"
+		}
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "CI: %s | critical=%d high=%d medium=%d low=%d info=%d total=%d\n",
+			status, c["critical"], c["high"], c["medium"], c["low"], c["info"], c["total"],
+		)
+	}
 
 	// Check if we should fail based on severity
 	if shouldFail(report, failOnSeverity) {
-		logger.Error(fmt.Sprintf("Assessment failed: found issues at or above %s severity", failOnSeverity))
-		os.Exit(1)
+		msg := fmt.Sprintf("Assessment failed: found issues at or above %s severity", failOnSeverity)
+		logger.Error(msg)
+		return errors.New(msg)
 	}
 
 	return nil
@@ -394,40 +396,40 @@ func runAssess(cmd *cobra.Command, args []string) error {
 
 // applyAssessProfile sets sensible defaults for profiles without overriding explicit flags
 func applyAssessProfile(profile string, flags *pflag.FlagSet, cfg *assess.AssessmentConfig) {
-    switch profile {
-    case "ci":
-        if !flags.Changed("fail-on") {
-            cfg.FailOnSeverity = assess.SeverityCritical
-        }
-        if len(cfg.SelectedCategories) == 0 && !flags.Changed("categories") {
-            cfg.SelectedCategories = []string{"format", "lint", "security"}
-        }
-        if !flags.Changed("staged-only") {
-            // Favor staged-only if repository; leave discovery to include if populated elsewhere
-        }
-    case "dev":
-        if !flags.Changed("fail-on") {
-            cfg.FailOnSeverity = assess.SeverityLow
-        }
-        if len(cfg.SelectedCategories) == 0 && !flags.Changed("categories") {
-            cfg.SelectedCategories = []string{"format", "lint", "security", "schema"}
-        }
-    }
+	switch profile {
+	case "ci":
+		if !flags.Changed("fail-on") {
+			cfg.FailOnSeverity = assess.SeverityCritical
+		}
+		if len(cfg.SelectedCategories) == 0 && !flags.Changed("categories") {
+			cfg.SelectedCategories = []string{"format", "lint", "security"}
+		}
+		if !flags.Changed("staged-only") {
+			// Favor staged-only if repository; leave discovery to include if populated elsewhere
+		}
+	case "dev":
+		if !flags.Changed("fail-on") {
+			cfg.FailOnSeverity = assess.SeverityLow
+		}
+		if len(cfg.SelectedCategories) == 0 && !flags.Changed("categories") {
+			cfg.SelectedCategories = []string{"format", "lint", "security", "schema"}
+		}
+	}
 }
 
 // countIssuesBySeverity returns counts per severity for a report
 func countIssuesBySeverity(report *assess.AssessmentReport) map[string]int {
-    m := map[string]int{"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0, "total": 0}
-    for _, cr := range report.Categories {
-        for _, is := range cr.Issues {
-            sev := strings.ToLower(string(is.Severity))
-            if _, ok := m[sev]; ok {
-                m[sev]++
-            }
-            m["total"]++
-        }
-    }
-    return m
+	m := map[string]int{"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0, "total": 0}
+	for _, cr := range report.Categories {
+		for _, is := range cr.Issues {
+			sev := strings.ToLower(string(is.Severity))
+			if _, ok := m[sev]; ok {
+				m[sev]++
+			}
+			m["total"]++
+		}
+	}
+	return m
 }
 
 // shouldFail determines if the assessment should fail based on issue severity
@@ -526,17 +528,17 @@ func runHookMode(cmd *cobra.Command, hookType, manifestPath string, config asses
 				hookConfig.Categories = []string{"format", "lint"}
 			}
 		}
-        // Determine effective fail-on for this hook from args, fallback per-hook
-        if val := parseFailOnFromHooks(hookConfig.Hooks, hookType); val != "" {
-            hookConfig.FailOn = val
-        } else {
-            switch hookType {
-            case "pre-push":
-                hookConfig.FailOn = "high"
-            default: // pre-commit
-                hookConfig.FailOn = "medium"
-            }
-        }
+		// Determine effective fail-on for this hook from args, fallback per-hook
+		if val := parseFailOnFromHooks(hookConfig.Hooks, hookType); val != "" {
+			hookConfig.FailOn = val
+		} else {
+			switch hookType {
+			case "pre-push":
+				hookConfig.FailOn = "high"
+			default: // pre-commit
+				hookConfig.FailOn = "medium"
+			}
+		}
 
 		// Keep assessment config aligned for accurate metadata and behavior
 		switch hookConfig.FailOn {
@@ -565,13 +567,13 @@ func runHookMode(cmd *cobra.Command, hookType, manifestPath string, config asses
 		}
 	}
 
-    // Default lint to new-only in hook mode unless explicitly set
-    if strings.TrimSpace(config.LintNewFromRev) == "" {
-        config.LintNewFromRev = "HEAD~"
-    }
+	// Default lint to new-only in hook mode unless explicitly set
+	if strings.TrimSpace(config.LintNewFromRev) == "" {
+		config.LintNewFromRev = "HEAD~"
+	}
 
-    // Create assessment engine
-    engine := assess.NewAssessmentEngine()
+	// Create assessment engine
+	engine := assess.NewAssessmentEngine()
 
 	// Run assessment
 	target := "."
@@ -587,11 +589,11 @@ func runHookMode(cmd *cobra.Command, hookType, manifestPath string, config asses
 		return fmt.Errorf("failed to write hook report: %v", err)
 	}
 
-    // Fail hook when issues meet configured threshold (use .goneat/hooks.yaml to tune per-repo)
-    if shouldFailHook(report, hookConfig) {
-        logger.Error(fmt.Sprintf("Hook %s failed: found issues requiring attention", hookType))
-        os.Exit(1)
-    }
+	// Fail hook when issues meet configured threshold (use .goneat/hooks.yaml to tune per-repo)
+	if shouldFailHook(report, hookConfig) {
+		logger.Error(fmt.Sprintf("Hook %s failed: found issues requiring attention", hookType))
+		os.Exit(1)
+	}
 
 	return nil
 }
@@ -674,7 +676,7 @@ func loadHookManifest(path string) (*HookConfig, error) {
 	if strings.Contains(path, "..") {
 		return nil, fmt.Errorf("invalid manifest path: contains path traversal")
 	}
-    data, err := os.ReadFile(path) // #nosec G304 -- path cleaned and traversal rejected above
+	data, err := os.ReadFile(path) // #nosec G304 -- path cleaned and traversal rejected above
 	if err != nil {
 		return nil, fmt.Errorf("read manifest: %w", err)
 	}
@@ -717,11 +719,11 @@ func loadHookManifest(path string) (*HookConfig, error) {
 // getDefaultHookConfig returns default hook configuration
 func getDefaultHookConfig(hookType string) *HookConfig {
 	switch hookType {
-case "pre-commit":
-    return &HookConfig{
-        Categories: []string{"format", "lint"},
-        FailOn:     "high",
-    }
+	case "pre-commit":
+		return &HookConfig{
+			Categories: []string{"format", "lint"},
+			FailOn:     "high",
+		}
 	case "pre-push":
 		return &HookConfig{
 			Categories: []string{"format", "lint", "security"},

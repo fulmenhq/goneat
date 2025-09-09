@@ -30,4 +30,3 @@ Defines how goneat curates, embeds, and updates third-party validation assets (s
 
 - Each curated asset must have clear license/provenance
 - Update `docs/licenses/inventory.md` with module/asset name, URL, license, version
-

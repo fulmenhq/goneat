@@ -26,7 +26,7 @@ Examples:
    goneat envinfo     # Show system information
    goneat format      # Format files
    goneat assess      # Comprehensive codebase assessment`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 		initializeLogger(cmd)
 	},
 }
@@ -57,15 +57,15 @@ func init() {
 	rootCmd.SetVersionTemplate("goneat {{.Version}}\n")
 
 	// Grouped help by command group (Neat → Workflow → Support)
-    rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-        reg := ops.GetRegistry()
-        // Header
-        cmd.Println(cmd.Long)
-        cmd.Println()
-        cmd.Println("Tip: Use 'goneat docs' to view built-in guides for commands, hooks, and workflows.")
-        cmd.Println("Note: 'content' is for curation/building of docs; 'docs' is for viewing.")
-        cmd.Println()
-        cmd.Println("Functional Commands (Neat):")
+	rootCmd.SetHelpFunc(func(cmd *cobra.Command, _ []string) {
+		reg := ops.GetRegistry()
+		// Header
+		cmd.Println(cmd.Long)
+		cmd.Println()
+		cmd.Println("Tip: Use 'goneat docs' to view built-in guides for commands, hooks, and workflows.")
+		cmd.Println("Note: 'content' is for curation/building of docs; 'docs' is for viewing.")
+		cmd.Println()
+		cmd.Println("Functional Commands (Neat):")
 		for _, c := range reg.GetCommandsByGroup(ops.GroupNeat) {
 			cmd.Printf("  %-12s %s\n", c.Name, c.Description)
 		}

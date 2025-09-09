@@ -43,4 +43,3 @@ The embedded corpus is curated via a manifest (`docs/embed-manifest.yaml`). Main
 
 - `list --json` emits an array of items with fields: `slug`, `path`, `title`, `description`, `size`, `tags` (when available).
 - `show --format json` emits `{slug, path, title, description, tags, content}`.
-

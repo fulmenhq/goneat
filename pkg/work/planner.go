@@ -99,6 +99,7 @@ type PlannerConfig struct {
 	// Ignore overrides
 	NoIgnore             bool     // Disable .goneatignore/.gitignore matching entirely
 	ForceIncludePatterns []string // Paths/globs to force-include even if ignored
+	IncludeConfigDirs    bool     // Include common configuration directories (.claude, .vscode, etc.)
 }
 
 // Planner handles work planning and manifest generation
@@ -290,7 +291,10 @@ func (p *Planner) discoverFiles() ([]string, error) {
 
 			// Skip directories if they match ignore patterns (unless overridden)
 			if d.IsDir() {
-				if p.ignoreMatcher != nil && p.ignoreMatcher.IsIgnoredDir(path) && !p.config.NoIgnore {
+				// Check if this is a configuration directory that should be included
+				isConfigDir := p.config.IncludeConfigDirs && p.isConfigDirectory(path)
+
+				if p.ignoreMatcher != nil && p.ignoreMatcher.IsIgnoredDir(path) && !p.config.NoIgnore && !isConfigDir {
 					if p.config.Verbose {
 						logger.Debug(fmt.Sprintf("Skipping directory %s: matches ignore pattern", path))
 					}
@@ -721,4 +725,47 @@ func (p *Planner) getWorkingDirectory() string {
 		return ""
 	}
 	return wd
+}
+
+// isConfigDirectory checks if a directory is a common configuration directory
+func (p *Planner) isConfigDirectory(path string) bool {
+	baseName := filepath.Base(path)
+
+	// Common configuration directories
+	configDirs := []string{
+		".claude",
+		".vscode",
+		".idea",
+		".vs",
+		".eclipse",
+		".settings",
+		".metadata",
+		".project",
+		".classpath",
+		".config",
+		".local",
+		".cache",
+		"node_modules",
+		".git",
+		".gitignore",
+		".goneatignore",
+		".github",
+		".gitlab",
+		".circleci",
+		".travis",
+		".jenkins",
+		".ci",
+		"docs",
+		"packaging",
+		"scripts",
+		"templates",
+	}
+
+	for _, configDir := range configDirs {
+		if baseName == configDir {
+			return true
+		}
+	}
+
+	return false
 }

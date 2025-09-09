@@ -82,6 +82,39 @@ This release introduces a curated documentation workflow baked into the binary a
 ### Roadmap
 - v0.2.2: Frontmatter‑aware selection and metadata enrichment.
 
+## v0.2.2-rc.1 (2025-09-08)
+
+Fast-follow candidate focused on formatting pipeline hardening and security policy clarity.
+
+### New
+- Text Normalization (format):
+  - Generic, safe normalizer for any text file
+  - Ensures single EOF newline; trims trailing whitespace
+  - Optional CRLF→LF normalization and UTF‑8 BOM removal
+  - Preserves Markdown hard line breaks (two spaces)
+  - CLI flags: `--text-normalize` (default on), `--text-encoding-policy=utf8-only|utf8-or-bom|any-text`, `--preserve-md-linebreaks`
+- Security Policy Exception (git hooks):
+  - Repository‑level suppression of gosec G302/G306 for `cmd/hooks.go` where 0700 is required for git hook executables
+  - Policy documented in `docs/ops/security/2025-09-08-hooks-permissions-policy-exception.md`
+  - Suppressions are tracked in assessment metrics when `--track-suppressions` is enabled
+
+### Improvements
+- Hooks Policy: pre‑push gate restored to `fail-on=high`; pre‑commit remains `critical`
+- Hooks Configure: added `--optimization-parallel` (auto|max|sequential) to set `optimization.parallel`
+- Content Security Hardening:
+  - Manifest path validated under repo root; reject out‑of‑tree absolute paths
+  - Copy/verify constrained to validated roots; directory perms ≤0750; file perms ≤0640
+- CI Reliability: coverage gate now uses `LIFECYCLE_PHASE` thresholds (e.g., alpha=30%)
+- Tests: Assess CLI tests stabilized (fresh commands, error returns instead of os.Exit for gates)
+
+### Fixes
+- Error Handling: 15 high‑severity errcheck violations resolved (fmt writes, WalkDir, file Close)
+- Docs: Format command reference updated with new normalization flags
+
+### Notes
+- Remaining gosec G302/G306 findings in hooks are intentionally suppressed by policy and tracked.
+- Remaining G204 subprocess items will be addressed in a subsequent hardening pass.
+
 ## v0.2.1-rc.1
 
 Pre-GA candidate introducing curated docs embedding and the new docs/content commands. Served as the integration checkpoint before GA 0.2.1.

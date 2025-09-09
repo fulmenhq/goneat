@@ -9,15 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Initial release preparation
+- Format: Generic text normalizer (EOF newline, trailing whitespace trim, optional CRLF→LF, optional UTF‑8 BOM removal), with safe defaults and CLI flags (`--text-normalize`, `--text-encoding-policy`, `--preserve-md-linebreaks`)
+- Security: Repository policy suppression for git hooks (gosec G302/G306) with tracked suppressions and documentation
 
 ### Changed
 
-- Repository structure and documentation
+- Hooks: Reverted pre‑push fail‑on to `high`; pre‑commit remains `critical`
+- CI: Fixed Makefile coverage recipe (tabs) and improved build‑all stability
+- Docs: Updated format command reference to document new text normalization flags
 
 ### Fixed
 
-- Build and test infrastructure
+- Error handling: Resolved 15 high‑severity errcheck issues across cmd/ (fmt writes, WalkDir, file Close)
+- Security: Hardened `content` embed/verify (path validation under repo root, restrictive perms ≤0750/0640)
+
+## [0.2.2-rc.1] - 2025-09-08
+
+### Added
+
+- Format text normalizer (see Unreleased) and unit tests in finalizer package
+- Security policy filter suppressing gosec G302/G306 for required git hook exec perms (0700)
+- Docs: Security memo documenting hooks permissions policy exception
+
+### Changed
+
+- Hooks policy reverted to strict gates (pre‑push=high) ahead of v0.2.2 fast‑follow
+- CI tab fix for coverage target; ensures GitHub build-all job passes
+- Assess tests stabilized (fresh Cobra instances; no os.Exit on fail gates)
+
+### Fixed
+
+- Error handling: fmt.Fprintf/Fprintln returns and file Close handled across commands
+- Content path security: manifest and copy/verify operations constrained to repo root; variable path reads annotated
+
+[0.2.2-rc.1]: https://github.com/fulmenhq/goneat/compare/v0.2.1...v0.2.2-rc.1
 
 ## [0.2.1] - 2025-09-08
 
