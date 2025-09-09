@@ -65,13 +65,7 @@ func readIgnoreFile(path string) ([]string, error) {
 	// Only allow reading known ignore files in controlled locations
 	cleaned := filepath.Clean(path)
 	// Allowlist: files ending with .goneatignore or test-ignore (for testing)
-	allowed := false
-	if strings.HasSuffix(cleaned, ".goneatignore") {
-		allowed = true
-	}
-	if strings.HasSuffix(cleaned, "test-ignore") {
-		allowed = true // Allow test files
-	}
+	allowed := strings.HasSuffix(cleaned, ".goneatignore") || strings.HasSuffix(cleaned, "test-ignore")
 	if !allowed {
 		return nil, fmt.Errorf("disallowed ignore file path: %s", cleaned)
 	}

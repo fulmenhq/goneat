@@ -879,13 +879,13 @@ func (r *SecurityAssessmentRunner) filterSecurityNoise(in []Issue, cfg Assessmen
 		return in
 	}
 	var out []Issue
+	patterns := cfg.SecurityFixturePatterns
+	if len(patterns) == 0 {
+		patterns = []string{"tests/fixtures/", "test-fixtures/"}
+	}
 	for _, is := range in {
 		p := strings.ToLower(filepath.ToSlash(is.File))
 		excluded := false
-		patterns := cfg.SecurityFixturePatterns
-		if len(patterns) == 0 {
-			patterns = []string{"tests/fixtures/", "test-fixtures/"}
-		}
 		for _, pat := range patterns {
 			if strings.Contains(p, strings.ToLower(pat)) {
 				excluded = true

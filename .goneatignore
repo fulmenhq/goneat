@@ -35,7 +35,7 @@ tests/fixtures/**/*.goneatignore
 #
 # To skip something normally tracked by git:
 # sensitive-config.yaml
-# Test fixtures (schemas)
+# Test fixtures (schemas, golangci configs, etc.)
 tests/fixtures/**
 test-fixtures/**
 

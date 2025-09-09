@@ -1,0 +1,15 @@
+# golangci-lint configuration with schema violation - INVALID
+version: "2"
+
+run:
+  timeout: 3m
+  tests: true
+
+# This section doesn't belong at root level
+linters-settings:
+  some-linter:
+    invalid-option: true
+
+linters:
+  enable:
+    - govet

@@ -455,6 +455,7 @@ git rebase --abort
 - Supervisor approvals documented
 - Post-deployment reviews scheduled
 - Quality gate exceptions justified
+- License compliance verified per [License Compliance SOP](license-compliance-sop.md)
 
 ### Audit Trail
 

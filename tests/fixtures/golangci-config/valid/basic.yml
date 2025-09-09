@@ -1,11 +1,16 @@
+# golangci-lint v2.4.0 configuration - VALID
 version: "2"
+
 run:
   timeout: 3m
   tests: true
+
 linters:
   enable:
     - govet
+    - errcheck
     - staticcheck
     - ineffassign
-    - errcheck
-    - misspell
+  disable:
+    - lll
+    - gocyclo

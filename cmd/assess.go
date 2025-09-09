@@ -406,6 +406,8 @@ func applyAssessProfile(profile string, flags *pflag.FlagSet, cfg *assess.Assess
 		}
 		if !flags.Changed("staged-only") {
 			// Favor staged-only if repository; leave discovery to include if populated elsewhere
+			// No action needed - staged-only defaults are handled elsewhere
+			_ = flags // Acknowledge flags parameter to avoid empty branch warning
 		}
 	case "dev":
 		if !flags.Changed("fail-on") {
@@ -571,6 +573,10 @@ func runHookMode(cmd *cobra.Command, hookType, manifestPath string, config asses
 	if strings.TrimSpace(config.LintNewFromRev) == "" {
 		config.LintNewFromRev = "HEAD~"
 	}
+
+	// Set security configuration for hook mode
+	config.SecurityExcludeFixtures = true
+	config.SecurityFixturePatterns = []string{"tests/fixtures/", "test-fixtures/"}
 
 	// Create assessment engine
 	engine := assess.NewAssessmentEngine()

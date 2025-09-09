@@ -340,10 +340,27 @@ func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignore
 	}
 
 	// Apply finalizer after primary formatter (when enabled and extension supported)
+	// Always apply finalizer for supported extensions when finalizer options are enabled,
+	// regardless of whether the primary formatter made changes
 	if options.EnsureEOF || options.TrimTrailingWhitespace || options.NormalizeLineEndings != "" || options.RemoveUTF8BOM {
 		if finalizer.IsSupportedExtension(ext) {
 			if ferr := applyFinalizer(file, checkOnly, options); ferr != nil {
+				// If primary formatter said "already formatted" but finalizer found changes,
+				// the finalizer result takes precedence
+				if err != nil && err.Error() == "already formatted" {
+					return ferr
+				}
+				// If primary formatter had other errors, return the finalizer error
+				if err != nil {
+					return ferr
+				}
+				// If primary formatter succeeded but finalizer found issues, return finalizer error
 				return ferr
+			}
+			// If finalizer succeeded and primary formatter said "already formatted",
+			// we should indicate that changes were made
+			if err != nil && err.Error() == "already formatted" {
+				return fmt.Errorf("needs formatting")
 			}
 		}
 	}

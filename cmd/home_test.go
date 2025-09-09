@@ -57,16 +57,14 @@ func TestHomeCmd_Registration(t *testing.T) {
 	initFlag := homeCmd.Flag("init")
 	if initFlag == nil {
 		t.Error("homeCmd should have --init flag")
-	}
-	if initFlag.Value.String() != "false" {
+	} else if initFlag.Value.String() != "false" {
 		t.Errorf("Expected --init flag default to be 'false', got %q", initFlag.Value.String())
 	}
 
 	resetFlag := homeCmd.Flag("reset")
 	if resetFlag == nil {
 		t.Error("homeCmd should have --reset flag")
-	}
-	if resetFlag.Value.String() != "false" {
+	} else if resetFlag.Value.String() != "false" {
 		t.Errorf("Expected --reset flag default to be 'false', got %q", resetFlag.Value.String())
 	}
 }

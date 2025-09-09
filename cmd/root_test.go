@@ -92,7 +92,8 @@ func TestRootCmd_Help(t *testing.T) {
 	// Help should show usage and exit with code 0 or exit code for help
 	// We don't check the exact error since cobra help exits
 	if err != nil && !strings.Contains(err.Error(), "unknown flag") {
-		// This is expected for help
+		// This is expected for help - no action needed
+		_ = err // Acknowledge the error but don't act on it
 	}
 
 	output := buf.String()

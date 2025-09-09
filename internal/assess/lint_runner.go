@@ -83,6 +83,17 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 		}, nil
 	}
 
+	// 🔧 Preflight: Verify golangci-lint configuration
+	if err := r.verifyGolangciConfig(target); err != nil {
+		return &AssessmentResult{
+			CommandName:   r.commandName,
+			Category:      CategoryLint,
+			Success:       false,
+			ExecutionTime: time.Since(startTime),
+			Error:         err.Error(),
+		}, nil
+	}
+
 	// Find Go files to assess
 	goFiles, err := r.findGoFiles(target, config)
 	if err != nil {
@@ -176,6 +187,8 @@ func (r *LintAssessmentRunner) runGolangCILintWithMode(target string, config Ass
 	}
 	// Build command arguments
 	args := []string{"run", "--timeout", r.config.Timeout.String()}
+	// Optional JSON path to avoid mixing with summary text
+	jsonPath := ""
 
 	// Add fix flag if in fix mode
 	if fixMode {
@@ -184,7 +197,28 @@ func (r *LintAssessmentRunner) runGolangCILintWithMode(target string, config Ass
 
 	// Add output format (only for check mode, fix mode doesn't produce structured output)
 	if !fixMode && r.config.Format == "json" {
-		args = append(args, "--output.json.path", "stdout")
+		// Verify OS temp is writable before creating a temp file
+		tmpDir := os.TempDir()
+		tmpProbe, probeErr := os.CreateTemp(tmpDir, "goneat-probe-*.tmp")
+		if probeErr == nil {
+			_ = tmpProbe.Close()
+			_ = os.Remove(tmpProbe.Name())
+			// Prefer writing JSON to a temp file to avoid interleaving with summary text
+			if f, ferr := os.CreateTemp("", "goneat-gci-*.json"); ferr == nil {
+				jsonPath = f.Name()
+				_ = f.Close()
+				args = append(args, "--output.json.path", jsonPath)
+				args = append(args, "--output.text.path", "stderr")
+			} else {
+				// Fallback: still separate text to stderr
+				args = append(args, "--output.json.path", "stdout")
+				args = append(args, "--output.text.path", "stderr")
+			}
+		} else {
+			// Temp not writable; fallback to stdout + text to stderr
+			args = append(args, "--output.json.path", "stdout")
+			args = append(args, "--output.text.path", "stderr")
+		}
 	}
 
 	// Limit to new issues only when requested
@@ -275,7 +309,18 @@ func (r *LintAssessmentRunner) runGolangCILintWithMode(target string, config Ass
 
 	// Parse output for check mode
 	if r.config.Format == "json" {
-		return r.parseLintJSONOutput(output)
+		// Prefer reading JSON from file when available
+		var jsonBytes []byte
+		if jsonPath != "" {
+			if data, rerr := os.ReadFile(jsonPath); rerr == nil && len(data) > 0 {
+				jsonBytes = data
+			}
+			_ = os.Remove(jsonPath)
+		}
+		if len(jsonBytes) == 0 {
+			jsonBytes = output
+		}
+		return r.parseLintJSONOutput(jsonBytes)
 	}
 	return r.parseLintTextOutput(output)
 }
@@ -346,6 +391,29 @@ func (r *LintAssessmentRunner) findGoFiles(target string, config AssessmentConfi
 	return saRunner.findGoFiles(target, config)
 }
 
+// verifyGolangciConfig validates the .golangci.yml configuration file
+func (r *LintAssessmentRunner) verifyGolangciConfig(target string) error {
+	configPath := filepath.Join(target, ".golangci.yml")
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		// No config file is OK - golangci-lint will use defaults
+		return nil
+	}
+
+	// Run config verification
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "golangci-lint", "config", "verify")
+	cmd.Dir = target
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("golangci-lint config validation failed: %v\nOutput: %s\n\nPlease check your .golangci.yml file against the golangci-lint v2.4.0 schema.\nFor migration help, see: https://golangci-lint.run/usage/configuration/", err, string(output))
+	}
+
+	return nil
+}
+
 // parseLintJSONOutput parses golangci-lint JSON output
 func (r *LintAssessmentRunner) parseLintJSONOutput(output []byte) ([]Issue, error) {
 	var issues []Issue
@@ -367,15 +435,68 @@ func (r *LintAssessmentRunner) parseLintJSONOutput(output []byte) ([]Issue, erro
 
 	// Extract JSON part from golangci-lint output (it includes summary text after JSON)
 	jsonStr := string(output)
-	if idx := strings.Index(jsonStr, "}\n"); idx > 0 {
-		// Find the end of the JSON object
-		jsonStr = jsonStr[:idx+1]
+
+	// Find the start of JSON by looking for the opening brace
+	jsonStart := strings.Index(jsonStr, "{")
+	if jsonStart == -1 {
+		// No JSON found, fall back to text parsing
+		logger.Warn("No JSON found in golangci-lint output, falling back to text parsing")
+		return r.parseLintTextOutput(output)
+	}
+
+	// Find the end of the JSON object by looking for the closing brace of the root object
+	// The JSON structure is: {"Issues":[...],"Report":{...}}
+	// We need to find the matching closing brace for the root object
+	// Ignore braces inside strings
+	braceCount := 0
+	jsonEnd := -1
+	inString := false
+	escaped := false
+
+	for i := jsonStart; i < len(jsonStr); i++ {
+		char := jsonStr[i]
+
+		if escaped {
+			escaped = false
+			continue
+		}
+
+		if char == '\\' {
+			escaped = true
+			continue
+		}
+
+		if char == '"' {
+			inString = !inString
+			continue
+		}
+
+		if !inString {
+			if char == '{' {
+				braceCount++
+			} else if char == '}' {
+				braceCount--
+				if braceCount == 0 {
+					jsonEnd = i
+					break
+				}
+			}
+		}
+	}
+
+	if jsonEnd > jsonStart {
+		jsonStr = jsonStr[jsonStart : jsonEnd+1]
+	} else {
+		// Malformed JSON, fall back to text parsing
+		logger.Warn("Malformed JSON in golangci-lint output, falling back to text parsing")
+		return r.parseLintTextOutput(output)
 	}
 
 	var report LintReport
 	if err := json.Unmarshal([]byte(jsonStr), &report); err != nil {
 		// If JSON parsing fails, fall back to text parsing
 		logger.Warn(fmt.Sprintf("JSON parsing failed, falling back to text parsing: %v", err))
+		logger.Debug(fmt.Sprintf("Failed JSON string: %q", jsonStr))
 		return r.parseLintTextOutput(output)
 	}
 
