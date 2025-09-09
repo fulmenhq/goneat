@@ -23,6 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Error handling: Resolved 15 high‑severity errcheck issues across cmd/ (fmt writes, WalkDir, file Close)
 - Security: Hardened `content` embed/verify (path validation under repo root, restrictive perms ≤0750/0640)
 
+## [0.2.2-rc.2] - 2025-09-09
+
+### Fixed
+
+- CI: Updated golangci-lint-action from v6 to v7 to resolve compatibility issue with golangci-lint v2.4.0
+- CI: Aligned Go version from 1.22.x to 1.25.x in release workflow to match project requirements
+
 ## [0.2.2-rc.1] - 2025-09-08
 
 ### Added
