@@ -139,7 +139,7 @@ func init() {
 	// hooks configure flags
 	hooksConfigureCmd.Flags().Bool("show", false, "Show current effective hook settings")
 	hooksConfigureCmd.Flags().Bool("reset", false, "Reset to defaults")
-	hooksConfigureCmd.Flags().Bool("pre-commit-only-changed-files", false, "Limit pre-commit to changed files (recommended)")
+	hooksConfigureCmd.Flags().Bool("pre-commit-only-changed-files", false, "Enable --staged-only mode for pre-commit (faster, staged files only)")
 	hooksConfigureCmd.Flags().String("pre-commit-content-source", "", "Content source for pre-commit: index (staged only) or working")
 	hooksConfigureCmd.Flags().String("pre-commit-apply-mode", "", "Apply mode for pre-commit: check (no changes) or fix (apply fixes and re-stage)")
 	hooksConfigureCmd.Flags().String("optimization-parallel", "", "Parallel execution mode: auto|max|sequential")
@@ -186,7 +186,7 @@ hooks:
       priority: 10
       timeout: "3m"
 optimization:
-  only_changed_files: true
+  only_changed_files: false  # Set to true to enable --staged-only mode (faster, staged files only)
   cache_results: true
   parallel: "auto"
 `
@@ -1015,7 +1015,7 @@ func runHooksPolicyReset(cmd *cobra.Command, args []string) error {
 		optMap = &yaml.Node{Kind: yaml.MappingNode}
 		doc.Content = append(doc.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "optimization"}, optMap)
 	}
-	_ = setMapBool(optMap, "only_changed_files", true)
+	_ = setMapBool(optMap, "only_changed_files", false) // Default to false for better DX
 	_ = setMapScalar(optMap, "parallel", "auto")
 
 	out, err := yaml.Marshal(root)
@@ -1179,7 +1179,7 @@ func runHooksConfigure(cmd *cobra.Command, args []string) error {
 
 	// Reset to defaults
 	if reset {
-		manifest.Opt["only_changed_files"] = true
+		manifest.Opt["only_changed_files"] = false // Default to false for better DX (--staged-only is opt-in)
 		manifest.Opt["content_source"] = "index"
 		manifest.Opt["parallel"] = "auto"
 		// keep existing apply mode as-is; teams may prefer current default

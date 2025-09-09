@@ -18,6 +18,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI: Fixed Makefile coverage recipe (tabs) and improved build‑all stability
 - Docs: Updated format command reference to document new text normalization flags
 
+## [v0.2.2-rc.5] - 2025-01-25
+
+### Fixed
+
+- Hooks: Fixed hardcoded invalid severity level "error" in hook generation (changed to "high")
+- Hooks: Fixed default `--staged-only` behavior - now defaults to `false` for better developer experience
+- Hooks: Added helpful comments in default hooks.yaml explaining `only_changed_files` option
+
+### Changed
+
+- Hooks: `--staged-only` mode is now opt-in rather than opt-out, improving flexibility for teams
+- Hooks: Default configuration now includes explanatory comments for better understanding
+
+## [v0.2.2-rc.4] - 2025-01-25
+
+### Fixed
+
+- Hooks: Fixed hardcoded invalid severity level "error" in hook generation (changed to "high")
+
 ### Fixed
 
 - Error handling: Resolved 15 high‑severity errcheck issues across cmd/ (fmt writes, WalkDir, file Close)
