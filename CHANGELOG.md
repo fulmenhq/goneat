@@ -23,6 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Error handling: Resolved 15 high‑severity errcheck issues across cmd/ (fmt writes, WalkDir, file Close)
 - Security: Hardened `content` embed/verify (path validation under repo root, restrictive perms ≤0750/0640)
 
+## [0.2.2-rc.4] - 2025-09-09
+
+### Fixed
+
+- Hooks: Fixed hardcoded invalid severity level "error" in hook generation (replaced with "high")
+- Hooks: Updated help text to only show valid severity levels: critical|high|medium|low
+- Hooks: Fixed default pre-commit hook configuration to use valid severity levels
+
 ## [0.2.2-rc.3] - 2025-09-09
 
 ### Fixed

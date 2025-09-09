@@ -176,7 +176,7 @@ func runHooksInit(cmd *cobra.Command, args []string) error {
 hooks:
   pre-commit:
     - command: "assess"
-      args: ["--categories", "format,lint", "--fail-on", "error"]
+      args: ["--categories", "format,lint", "--fail-on", "high"]
       stage_fixed: true
       priority: 10
       timeout: "2m"
@@ -725,7 +725,7 @@ func init() {
 	hooksPolicyShowCmd.Flags().String("format", "text", "Output format: text|json")
 
 	hooksPolicySetCmd.Flags().String("hook", "pre-commit", "Hook to update: pre-commit|pre-push")
-	hooksPolicySetCmd.Flags().String("fail-on", "", "Fail threshold: critical|high|medium|low|info|error")
+	hooksPolicySetCmd.Flags().String("fail-on", "", "Fail threshold: critical|high|medium|low")
 	hooksPolicySetCmd.Flags().String("categories", "", "Comma-separated categories, e.g., format,lint[,security]")
 	hooksPolicySetCmd.Flags().String("timeout", "", "Timeout for the hook command, e.g., 90s|2m|3m")
 	hooksPolicySetCmd.Flags().Bool("only-changed-files", false, "Set optimization.only_changed_files true|false")
@@ -1001,7 +1001,7 @@ func runHooksPolicyReset(cmd *cobra.Command, args []string) error {
 	switch hook {
 	case "pre-commit":
 		_ = updateArgsPair(argsNode, "--categories", "format,lint")
-		_ = updateArgsPair(argsNode, "--fail-on", "error")
+		_ = updateArgsPair(argsNode, "--fail-on", "high")
 		_ = setMapScalar(entry, "timeout", "2m")
 	case "pre-push":
 		_ = updateArgsPair(argsNode, "--categories", "format,lint,static-analysis")
