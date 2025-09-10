@@ -18,7 +18,7 @@ We bring a smooth DX layer to the business of making neat code at scale.  We wra
 
 ```bash
 # macOS/Linux example - adjust for your platform and version
-curl -L -o goneat https://github.com/fulmenhq/goneat/releases/download/v0.2.2-rc.1/goneat-darwin-arm64
+curl -L -o goneat https://github.com/fulmenhq/goneat/releases/download/v0.2.2/goneat-darwin-arm64
 chmod +x goneat
 sudo mv goneat /usr/local/bin/
 ```
@@ -83,7 +83,7 @@ go install github.com/fulmenhq/goneat@latest
   - During RC bring-up (temporary), you can install directly from the raw formula for a specific tag:
   ```bash
   brew install --formula \
-    https://raw.githubusercontent.com/fulmenhq/goneat/v0.2.0-rc.8/packaging/homebrew/goneat.rb
+    https://raw.githubusercontent.com/fulmenhq/goneat/v0.2.2/packaging/homebrew/goneat.rb
   ```
 
 - Scoop (rc.8+):
@@ -145,9 +145,9 @@ make build
 
 ## Status
 
-- Release: v0.2.2-rc.1 (per `VERSION` file)
+- Release: v0.2.2 (per `VERSION` file)
 - Lifecycle Phase: Alpha (per `LIFECYCLE_PHASE` file)
-- Release Phase: RC (per `RELEASE_PHASE` file)
+- Release Phase: GA (per `RELEASE_PHASE` file)
 - Repo Visibility: Public
 - Gates: pre-commit (format+lint, fail-on=medium) passing; pre-push (format+lint+security, fail-on=high) passing
 - Licensing: Audit clean (no GPL/LGPL/AGPL/MPL/CDDL); inventory maintained under `docs/licenses/`

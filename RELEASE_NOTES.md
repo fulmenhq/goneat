@@ -1,33 +1,41 @@
-# Goneat v0.2.0-rc.1 — Schema Validation, Scoped Discovery, and Ignore Overrides (2025-09-05)
+# Goneat v0.2.2 — Hooks DX Improvements and Developer Experience Enhancements (2025-01-25)
 
 ## TL;DR
 
-- Schema validation (JSON/YAML): offline‑first structural checks for Draft‑07 and 2020‑12
-- Scoped discovery: `--scope` + `--force-include` for precise runs on ignored paths
-- Opt‑in meta validation: `--enable-meta` for full JSON Schema meta validation
+- **Hooks DX**: `--staged-only` mode is now opt-in rather than opt-out for better flexibility
+- **Error Fixes**: Resolved hardcoded invalid severity levels in hook generation
+- **Better UX**: Improved help text and configuration comments for easier understanding
+- **Security**: Enhanced content embed/verify with path validation and restrictive permissions
 
 ## Highlights
 
-- Schema Validation (offline‑first)
-  - Structural sanity checks: `type`, `required`, `additionalProperties`
-  - Cross‑platform path detection: recognizes any `schemas/` path segment
-  - Avoids inadvertent network access by default
+- **Hooks Developer Experience**
+  - `--staged-only` mode now defaults to `false` (opt-in rather than opt-out)
+  - Teams can easily disable staged-only mode without editing YAML files
+  - Added helpful comments in default hooks.yaml explaining configuration options
+  - Updated help text for better clarity on hook configuration flags
 
-- Discovery & DX Controls
-  - `--scope`: limit traversal to explicit `--include` directories and anchors from `--force-include`
-  - `--force-include`: bring back ignored files/dirs; supports quoted globs (repeatable)
-  - `--no-ignore`: bypass `.goneatignore`/`.gitignore` for the run
-  - DX docs updated with quoted glob examples and clear guidance
+- **Bug Fixes**
+  - Fixed hardcoded invalid severity level "error" in hook generation (changed to "high")
+  - Resolved 15 high-severity errcheck issues across cmd/ (fmt writes, WalkDir, file Close)
+  - Updated help text to only show valid severity levels: critical|high|medium|low
 
-- Meta‑Schema Validation (opt‑in)
-  - `--enable-meta` (validate) / `--schema-enable-meta` (assess)
-  - Uses embedded meta‑schemas; remote `$ref` may require network
+- **Security Improvements**
+  - Hardened `content` embed/verify with path validation under repo root
+  - Implemented restrictive permissions (≤0750/0640) for security
 
-## Performance
+## Why This Matters
 
-- Bad fixtures (2 files): ~260–280ms scoped
-- Single file: ~200ms
-- Repo schemas (5 files + meta): ~2–3s; 0 issues
+- **Team Adoption**: Addresses feedback from PPGate and Sumpter teams who found it difficult to configure hooks
+- **Flexibility**: Teams can now choose their preferred workflow without being forced into staged-only mode
+- **Reliability**: Fixed critical bugs that were causing hook generation failures
+- **Security**: Enhanced protection against path traversal and permission issues
+
+## Migration Notes
+
+- **Existing Hooks**: No breaking changes - existing configurations continue to work
+- **New Installations**: Default behavior changed to be more flexible (staged-only is opt-in)
+- **Configuration**: Teams can easily adjust behavior using `goneat hooks configure --pre-commit-only-changed-files=true`
 
 ## Upgrade Notes
 

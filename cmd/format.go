@@ -345,6 +345,11 @@ func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignore
 	if options.EnsureEOF || options.TrimTrailingWhitespace || options.NormalizeLineEndings != "" || options.RemoveUTF8BOM {
 		if finalizer.IsSupportedExtension(ext) {
 			if ferr := applyFinalizer(file, checkOnly, options); ferr != nil {
+				// If finalizer made changes, it takes precedence over primary formatter
+				if ferr.Error() == "finalized" {
+					// Finalizer made changes - this takes precedence over "already formatted"
+					return fmt.Errorf("needs formatting")
+				}
 				// If primary formatter said "already formatted" but finalizer found changes,
 				// the finalizer result takes precedence
 				if err != nil && err.Error() == "already formatted" {
@@ -397,17 +402,15 @@ func applyFinalizer(file string, checkOnly bool, options finalizer.Normalization
 		if err := os.WriteFile(file, finalized, 0600); err != nil {
 			return fmt.Errorf("failed to write finalized file: %v", err)
 		}
+		// Return an error to indicate changes were made (finalizer takes precedence)
+		return fmt.Errorf("finalized")
 	} else {
 		if checkOnly {
 			return fmt.Errorf("already formatted")
 		}
-		// For apply mode, when no changes are needed, we should indicate this
-		// But since the caller expects nil for success, we need a different approach
-		// The issue is that the current design doesn't distinguish between "changed" and "unchanged" in apply mode
-		// For now, we'll return nil and accept that unchanged files are counted as "formatted"
+		// No changes needed
+		return nil
 	}
-
-	return nil
 }
 
 func formatGoFile(file string, checkOnly bool, cfg *config.Config, useGoimports bool, ignoreMissingTools bool) error {
