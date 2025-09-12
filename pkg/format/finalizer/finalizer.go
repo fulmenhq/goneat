@@ -87,6 +87,72 @@ func NormalizeWhitespace(input []byte, ensureEOF bool, lineEnding string, preser
 	return NormalizeEOF(input, ensureEOF, true, true, lineEnding, preserveMarkdownHardBreaks)
 }
 
+// WhitespaceIssue represents a detected whitespace issue with location information
+type WhitespaceIssue struct {
+	Type        string // "trailing-whitespace" or "eof"
+	Description string
+	LineNumbers []int // Affected line numbers (1-based)
+}
+
+// DetectWhitespaceIssues detects trailing whitespace issues without modifying content
+// This is the shared function used by both assessment and format commands for consistency
+func DetectWhitespaceIssues(input []byte, options NormalizationOptions) (hasIssues bool, issues []WhitespaceIssue) {
+	if len(input) == 0 {
+		return false, nil
+	}
+
+	// Check if content is processable text
+	if !IsProcessableText(input) {
+		return false, nil
+	}
+
+	content := string(input)
+	lines := strings.Split(content, "\n")
+	var foundIssues []WhitespaceIssue
+
+	// Check for trailing whitespace
+	if options.TrimTrailingWhitespace {
+		var affectedLines []int
+		for i, line := range lines {
+			originalLine := line
+			trimmedLine := strings.TrimRight(line, " \t")
+			if trimmedLine != originalLine {
+				affectedLines = append(affectedLines, i+1) // 1-based line numbers
+			}
+		}
+		if len(affectedLines) > 0 {
+			foundIssues = append(foundIssues, WhitespaceIssue{
+				Type:        "trailing-whitespace",
+				Description: "Trailing whitespace present on one or more lines",
+				LineNumbers: affectedLines,
+			})
+		}
+	}
+
+	// Check for EOF issues
+	if options.EnsureEOF {
+		lineCount := len(lines)
+		contentBytes := []byte(content)
+
+		// Check if file ends with exactly one newline
+		if len(contentBytes) > 0 && contentBytes[len(contentBytes)-1] != '\n' {
+			foundIssues = append(foundIssues, WhitespaceIssue{
+				Type:        "eof",
+				Description: "Missing trailing newline at EOF",
+				LineNumbers: []int{lineCount}, // Last line
+			})
+		} else if len(contentBytes) > 1 && contentBytes[len(contentBytes)-1] == '\n' && contentBytes[len(contentBytes)-2] == '\n' {
+			foundIssues = append(foundIssues, WhitespaceIssue{
+				Type:        "eof",
+				Description: "Multiple trailing newlines at EOF",
+				LineNumbers: []int{lineCount + 1}, // After last content line
+			})
+		}
+	}
+
+	return len(foundIssues) > 0, foundIssues
+}
+
 // NormalizeLineEndings converts all line endings to the specified style
 func NormalizeLineEndings(input []byte, targetEnding string) (out []byte, changed bool, err error) {
 	if len(input) == 0 {

@@ -391,6 +391,15 @@ func applyFinalizer(file string, checkOnly bool, options finalizer.Normalization
 		return err
 	}
 
+	if checkOnly {
+		// Use shared detection function for consistent issue reporting
+		if hasIssues, issues := finalizer.DetectWhitespaceIssues(content, options); hasIssues {
+			logger.Info(fmt.Sprintf("File %s needs formatting: %v", file, issues))
+			return fmt.Errorf("needs formatting")
+		}
+		return fmt.Errorf("already formatted")
+	}
+
 	// Apply comprehensive normalization
 	finalized, changed, err := finalizer.ComprehensiveFileNormalization(content, options)
 	if err != nil {
@@ -398,23 +407,16 @@ func applyFinalizer(file string, checkOnly bool, options finalizer.Normalization
 	}
 
 	if changed {
-		if checkOnly {
-			return fmt.Errorf("needs formatting")
-		}
-
 		// Write back the finalized content
 		if err := os.WriteFile(file, finalized, 0600); err != nil {
 			return fmt.Errorf("failed to write finalized file: %v", err)
 		}
 		// Return an error to indicate changes were made (finalizer takes precedence)
 		return fmt.Errorf("finalized")
-	} else {
-		if checkOnly {
-			return fmt.Errorf("already formatted")
-		}
-		// No changes needed
-		return nil
 	}
+
+	// No changes needed
+	return nil
 }
 
 func formatGoFile(file string, checkOnly bool, cfg *config.Config, useGoimports bool, ignoreMissingTools bool) error {

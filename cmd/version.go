@@ -26,9 +26,10 @@ import (
 // versionCmd represents the version command
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Version management for goneat projects",
+	Short: "Version management for projects",
 	Long: `Version management system supporting semver, calver, and custom schemes.
-Works with VERSION files, git tags, and other version sources.`,
+Works with VERSION files, git tags, and other version sources.
+Automatically detects project name from go.mod, directory, or git remote.`,
 	RunE: runVersion,
 }
 
@@ -58,6 +59,93 @@ func init() {
 	versionInitCmd.Flags().String("initial-version", "1.0.0", "Initial version to set")
 
 	// Note: assess command flags are defined in assess.go
+}
+
+// detectProjectName detects the project name from multiple sources with fallback priority:
+// 1. Go module name (last component from go.mod)
+// 2. Current directory basename
+// 3. Git repository name (from git remote origin)
+// 4. Fallback to "goneat" (binary name)
+func detectProjectName() string {
+	// 1. Try go.mod module name
+	if modName := parseGoModuleName("go.mod"); modName != "" {
+		return filepath.Base(modName)
+	}
+
+	// 2. Try directory name
+	if cwd, err := os.Getwd(); err == nil {
+		return filepath.Base(cwd)
+	}
+
+	// 3. Try git repository name
+	if gitName := parseGitRepositoryName(); gitName != "" {
+		return gitName
+	}
+
+	// 4. Fallback to binary name
+	return "goneat"
+}
+
+// parseGoModuleName extracts the module name from go.mod file
+func parseGoModuleName(goModPath string) string {
+	// Validate path to prevent path traversal attacks
+	goModPath = filepath.Clean(goModPath)
+	if strings.Contains(goModPath, "..") || !strings.HasSuffix(goModPath, "go.mod") {
+		return ""
+	}
+
+	content, err := os.ReadFile(goModPath)
+	if err != nil {
+		return ""
+	}
+
+	lines := strings.Split(string(content), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "module ") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "module "))
+		}
+	}
+	return ""
+}
+
+// parseGitRepositoryName extracts repository name from git remote origin
+func parseGitRepositoryName() string {
+	cmd := exec.Command("git", "remote", "get-url", "origin")
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+
+	remoteURL := strings.TrimSpace(string(output))
+
+	// Handle different git URL formats
+	// SSH: git@github.com:user/repo.git or git@hostname:user/repo.git
+	// HTTPS: https://github.com/user/repo.git or https://hostname/user/repo.git
+
+	var repoPath string
+
+	if strings.HasPrefix(remoteURL, "git@") {
+		// SSH format: git@github.com:user/repo.git
+		parts := strings.Split(remoteURL, ":")
+		if len(parts) >= 2 {
+			repoPath = strings.TrimSuffix(parts[len(parts)-1], ".git")
+		}
+	} else if strings.HasPrefix(remoteURL, "https://") {
+		// HTTPS format: https://github.com/user/repo.git
+		remoteURL = strings.TrimSuffix(remoteURL, ".git")
+		parts := strings.Split(remoteURL, "/")
+		if len(parts) >= 2 {
+			repoPath = parts[len(parts)-1]
+		}
+	}
+
+	if repoPath != "" {
+		// Extract just the repository name (not the full path)
+		return filepath.Base(repoPath)
+	}
+
+	return ""
 }
 
 func runVersion(cmd *cobra.Command, _ []string) error {
@@ -102,11 +190,15 @@ func runVersion(cmd *cobra.Command, _ []string) error {
 	}
 
 	if jsonOutput {
+		// Detect project name for JSON output
+		projectName := detectProjectName()
+
 		// Provide both binary and project versions for clarity
 		versionInfo := map[string]any{
 			"version":        version, // Backward-compatible top-level field expected by tests/consumers
 			"projectVersion": version,
 			"projectSource":  source,
+			"projectName":    projectName,
 			"binaryVersion":  buildinfo.BinaryVersion,
 			"moduleVersion":  buildinfo.ModuleVersion(),
 			"goVersion":      runtime.Version(),
@@ -132,12 +224,15 @@ func runVersion(cmd *cobra.Command, _ []string) error {
 	}
 
 	if extended {
+		// Detect project name for display
+		projectName := detectProjectName()
+
 		// Put Binary first for clarity in installed builds
 		_, _ = fmt.Fprintf(out, "Binary: %s\n", nonEmpty(buildinfo.BinaryVersion, "unknown"))
 		if mv := buildinfo.ModuleVersion(); mv != "" {
 			_, _ = fmt.Fprintf(out, "Module: %s\n", mv)
 		}
-		_, _ = fmt.Fprintf(out, "goneat (Project) %s\n", version)
+		_, _ = fmt.Fprintf(out, "%s (Project) %s\n", projectName, version)
 		_, _ = fmt.Fprintf(out, "Build time: unknown\n") // Maintain backward compatibility
 		if len(gitCommit) >= 8 {
 			_, _ = fmt.Fprintf(out, "Git commit: %s\n", gitCommit[:8]) // Short commit hash
@@ -156,12 +251,15 @@ func runVersion(cmd *cobra.Command, _ []string) error {
 		_, _ = fmt.Fprintf(out, "Go version: %s\n", runtime.Version())
 		_, _ = fmt.Fprintf(out, "Platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 	} else {
+		// Detect project name for display
+		projectName := detectProjectName()
+
 		// Binary first in compact output as well
 		_, _ = fmt.Fprintf(out, "Binary: %s\n", nonEmpty(buildinfo.BinaryVersion, "unknown"))
 		if mv := buildinfo.ModuleVersion(); mv != "" {
 			_, _ = fmt.Fprintf(out, "Module: %s\n", mv)
 		}
-		_, _ = fmt.Fprintf(out, "goneat (Project) %s\n", version)
+		_, _ = fmt.Fprintf(out, "%s (Project) %s\n", projectName, version)
 		_, _ = fmt.Fprintf(out, "Project Source: %s\n", source)
 		_, _ = fmt.Fprintf(out, "Go Version: %s\n", runtime.Version())
 		_, _ = fmt.Fprintf(out, "OS/Arch: %s/%s\n", runtime.GOOS, runtime.GOARCH)

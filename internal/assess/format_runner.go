@@ -145,30 +145,53 @@ func (r *FormatAssessmentRunner) Assess(ctx context.Context, target string, conf
 			})
 		}
 
-		// Trailing whitespace check only (no EOF enforcement here)
-		if _, changed, _ := finalizer.NormalizeEOF(content, false, false, true, "", false); changed {
-			allIssues = append(allIssues, Issue{
-				File:          cleanFilePath,
-				Severity:      SeverityLow,
-				Message:       "Trailing whitespace present on one or more lines",
-				Category:      CategoryFormat,
-				SubCategory:   "trailing-whitespace",
-				AutoFixable:   true,
-				EstimatedTime: HumanReadableDuration(15 * time.Second),
-			})
+		// Use shared whitespace detection for consistency with format command
+		options := finalizer.NormalizationOptions{
+			TrimTrailingWhitespace: true,  // Assessment always checks for trailing whitespace
+			EnsureEOF:              false, // EOF enforcement handled separately
+		}
+
+		if hasIssues, whitespaceIssues := finalizer.DetectWhitespaceIssues(content, options); hasIssues {
+			for _, wsIssue := range whitespaceIssues {
+				if wsIssue.Type == "trailing-whitespace" && len(wsIssue.LineNumbers) > 0 {
+					allIssues = append(allIssues, Issue{
+						File:          cleanFilePath,
+						Line:          wsIssue.LineNumbers[0], // First affected line
+						Severity:      SeverityLow,
+						Message:       wsIssue.Description,
+						Category:      CategoryFormat,
+						SubCategory:   wsIssue.Type,
+						AutoFixable:   true,
+						EstimatedTime: HumanReadableDuration(15 * time.Second),
+						LinesModified: wsIssue.LineNumbers,
+						ChangeRelated: true,
+					})
+				}
+			}
 		}
 
 		// EOF newline enforcement and multiple-EOF collapse (no trailing whitespace trimming here)
 		if _, changed, _ := finalizer.NormalizeEOF(content, true, true, false, "", false); changed {
 			logger.Debug(fmt.Sprintf("Creating EOF issue for file: '%s' (original: '%s')", cleanFilePath, filePath))
+
+			// Determine line number for EOF issues
+			lines := strings.Split(string(content), "\n")
+			lineCount := len(lines)
+			eofLine := lineCount
+			if strings.HasSuffix(string(content), "\n\n") {
+				eofLine = lineCount + 1 // Multiple newlines after last content line
+			}
+
 			allIssues = append(allIssues, Issue{
 				File:          cleanFilePath,
+				Line:          eofLine,
 				Severity:      SeverityLow,
 				Message:       "Missing or multiple trailing newlines at EOF (enforce single newline)",
 				Category:      CategoryFormat,
 				SubCategory:   "eof",
 				AutoFixable:   true,
 				EstimatedTime: HumanReadableDuration(10 * time.Second),
+				ChangeRelated: true,
 			})
 		}
 	}

@@ -8,5 +8,6 @@ topics:
       - user-guide/tutorials/**/*.md
       - user-guide/workflows/assess-code.md
       - configuration/feature-gates.md
+      - appnotes/**/*.md
     exclude:
       - user-guide/commands/experimental/**

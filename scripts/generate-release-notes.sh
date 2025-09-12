@@ -18,7 +18,9 @@ if [[ ! -f "$NOTES_FILE" ]]; then
 fi
 
 mkdir -p "$OUT_DIR"
-OUT_FILE="$OUT_DIR/release-notes-v${VERSION}.md"
+# Strip 'v' prefix if present for filename
+VERSION_CLEAN=${VERSION#v}
+OUT_FILE="$OUT_DIR/release-notes-v${VERSION_CLEAN}.md"
 
 # Simple sanity: ensure notes mention the version
 if ! grep -qi "${VERSION}" "$NOTES_FILE"; then

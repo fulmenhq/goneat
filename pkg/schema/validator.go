@@ -589,6 +589,87 @@ func ValidateDirectoryWithOptions(schemaBytes []byte, dirPath string, pattern st
 	return ValidateFilesWithOptions(schemaBytes, files, opts)
 }
 
+// ValidateFileWithSchemaPath validates a data file against a schema file path.
+// This is an ergonomic helper that reads the schema file and auto-detects data format.
+func ValidateFileWithSchemaPath(schemaPath string, dataPath string) (*Result, error) {
+	// Read schema file
+	schemaClean, err := safeio.CleanUserPath(schemaPath)
+	if err != nil {
+		return nil, fmt.Errorf("schema path sanitization failed: %w", err)
+	}
+
+	schemaBytes, err := os.ReadFile(schemaClean) // #nosec G304 -- schemaClean sanitized with safeio.CleanUserPath
+	if err != nil {
+		return nil, fmt.Errorf("failed to read schema file %s: %w", schemaClean, err)
+	}
+
+	// Read data file
+	dataClean, err := safeio.CleanUserPath(dataPath)
+	if err != nil {
+		return nil, fmt.Errorf("data path sanitization failed: %w", err)
+	}
+
+	dataBytes, err := os.ReadFile(dataClean) // #nosec G304 -- dataClean sanitized with safeio.CleanUserPath
+	if err != nil {
+		return nil, fmt.Errorf("failed to read data file %s: %w", dataClean, err)
+	}
+
+	// Parse data (try YAML first, then JSON)
+	var data interface{}
+	if err := yaml.Unmarshal(dataBytes, &data); err != nil {
+		if err := json.Unmarshal(dataBytes, &data); err != nil {
+			return nil, fmt.Errorf("failed to parse data file %s: %w", dataClean, err)
+		}
+	}
+
+	// Validate using existing logic
+	return ValidateFromBytes(schemaBytes, data)
+}
+
+// ValidateFromFileWithBytes validates raw data bytes against a schema file path.
+func ValidateFromFileWithBytes(schemaPath string, dataBytes []byte) (*Result, error) {
+	// Read schema file
+	schemaClean, err := safeio.CleanUserPath(schemaPath)
+	if err != nil {
+		return nil, fmt.Errorf("schema path sanitization failed: %w", err)
+	}
+
+	schemaBytes, err := os.ReadFile(schemaClean) // #nosec G304 -- schemaClean sanitized with safeio.CleanUserPath
+	if err != nil {
+		return nil, fmt.Errorf("failed to read schema file %s: %w", schemaClean, err)
+	}
+
+	// Parse data (try YAML first, then JSON)
+	var data interface{}
+	if err := yaml.Unmarshal(dataBytes, &data); err != nil {
+		if err := json.Unmarshal(dataBytes, &data); err != nil {
+			return nil, fmt.Errorf("failed to parse data bytes: %w", err)
+		}
+	}
+
+	// Validate using existing logic
+	return ValidateFromBytes(schemaBytes, data)
+}
+
+// ValidateWithOptions validates data against schema bytes with advanced options.
+func ValidateWithOptions(schemaBytes []byte, data interface{}, opts ValidationOptions) (*Result, error) {
+	// For now, this is a thin wrapper that applies options to ValidateFromBytes
+	// Future enhancement could add SecurityContext and other advanced features
+	res, err := ValidateFromBytes(schemaBytes, data)
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply context to errors if provided
+	if !res.Valid && opts.Context.SourceFile != "" {
+		for i := range res.Errors {
+			res.Errors[i].Context = opts.Context
+		}
+	}
+
+	return res, nil
+}
+
 // legacyMapSchemaNameToPath maps schema names to their embedded filesystem paths.
 // NOTE: Retained only as a fallback for names not present in assets.GetSchemaNames().
 func legacyMapSchemaNameToPath(schemaName string) string {

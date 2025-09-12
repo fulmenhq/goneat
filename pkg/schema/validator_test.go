@@ -297,3 +297,245 @@ func TestLegacyMapSchemaNameToPath(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateFileWithSchemaPath(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create schema file
+	schemaFile := filepath.Join(tempDir, "schema.json")
+	schemaContent := `{
+		"type": "object",
+		"properties": {
+			"name": {"type": "string"},
+			"age": {"type": "number"}
+		},
+		"required": ["name"]
+	}`
+	if err := os.WriteFile(schemaFile, []byte(schemaContent), 0644); err != nil {
+		t.Fatalf("Failed to create schema file: %v", err)
+	}
+
+	// Create valid data file (JSON)
+	validDataFile := filepath.Join(tempDir, "valid.json")
+	validDataContent := `{"name": "test", "age": 30}`
+	if err := os.WriteFile(validDataFile, []byte(validDataContent), 0644); err != nil {
+		t.Fatalf("Failed to create valid data file: %v", err)
+	}
+
+	// Create invalid data file (JSON)
+	invalidDataFile := filepath.Join(tempDir, "invalid.json")
+	invalidDataContent := `{"age": 30}` // missing required "name"
+	if err := os.WriteFile(invalidDataFile, []byte(invalidDataContent), 0644); err != nil {
+		t.Fatalf("Failed to create invalid data file: %v", err)
+	}
+
+	// Create YAML data file
+	yamlDataFile := filepath.Join(tempDir, "data.yaml")
+	yamlDataContent := `
+name: "yaml-test"
+age: 25
+`
+	if err := os.WriteFile(yamlDataFile, []byte(yamlDataContent), 0644); err != nil {
+		t.Fatalf("Failed to create YAML data file: %v", err)
+	}
+
+	// Test valid JSON data
+	t.Run("valid JSON", func(t *testing.T) {
+		result, err := ValidateFileWithSchemaPath(schemaFile, validDataFile)
+		if err != nil {
+			t.Fatalf("ValidateFileWithSchemaPath() failed: %v", err)
+		}
+		if !result.Valid {
+			t.Errorf("Expected valid data to pass validation, got errors: %v", result.Errors)
+		}
+	})
+
+	// Test invalid JSON data
+	t.Run("invalid JSON", func(t *testing.T) {
+		result, err := ValidateFileWithSchemaPath(schemaFile, invalidDataFile)
+		if err != nil {
+			t.Fatalf("ValidateFileWithSchemaPath() failed: %v", err)
+		}
+		if result.Valid {
+			t.Error("Expected invalid data to fail validation")
+		}
+		if len(result.Errors) == 0 {
+			t.Error("Expected validation errors for invalid data")
+		}
+	})
+
+	// Test YAML data
+	t.Run("YAML data", func(t *testing.T) {
+		result, err := ValidateFileWithSchemaPath(schemaFile, yamlDataFile)
+		if err != nil {
+			t.Fatalf("ValidateFileWithSchemaPath() failed: %v", err)
+		}
+		if !result.Valid {
+			t.Errorf("Expected valid YAML data to pass validation, got errors: %v", result.Errors)
+		}
+	})
+
+	// Test non-existent schema file
+	t.Run("non-existent schema", func(t *testing.T) {
+		_, err := ValidateFileWithSchemaPath("non-existent.json", validDataFile)
+		if err == nil {
+			t.Error("Expected error for non-existent schema file")
+		}
+	})
+
+	// Test non-existent data file
+	t.Run("non-existent data", func(t *testing.T) {
+		_, err := ValidateFileWithSchemaPath(schemaFile, "non-existent.json")
+		if err == nil {
+			t.Error("Expected error for non-existent data file")
+		}
+	})
+}
+
+func TestValidateFromFileWithBytes(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create schema file
+	schemaFile := filepath.Join(tempDir, "schema.json")
+	schemaContent := `{
+		"type": "object",
+		"properties": {
+			"name": {"type": "string"},
+			"count": {"type": "number"}
+		},
+		"required": ["name"]
+	}`
+	if err := os.WriteFile(schemaFile, []byte(schemaContent), 0644); err != nil {
+		t.Fatalf("Failed to create schema file: %v", err)
+	}
+
+	// Test with JSON data bytes
+	t.Run("JSON data bytes", func(t *testing.T) {
+		dataBytes := []byte(`{"name": "test", "count": 42}`)
+		result, err := ValidateFromFileWithBytes(schemaFile, dataBytes)
+		if err != nil {
+			t.Fatalf("ValidateFromFileWithBytes() failed: %v", err)
+		}
+		if !result.Valid {
+			t.Errorf("Expected valid JSON data to pass validation, got errors: %v", result.Errors)
+		}
+	})
+
+	// Test with YAML data bytes
+	t.Run("YAML data bytes", func(t *testing.T) {
+		dataBytes := []byte(`
+name: "yaml-test"
+count: 100
+`)
+		result, err := ValidateFromFileWithBytes(schemaFile, dataBytes)
+		if err != nil {
+			t.Fatalf("ValidateFromFileWithBytes() failed: %v", err)
+		}
+		if !result.Valid {
+			t.Errorf("Expected valid YAML data to pass validation, got errors: %v", result.Errors)
+		}
+	})
+
+	// Test with invalid data bytes
+	t.Run("invalid data bytes", func(t *testing.T) {
+		dataBytes := []byte(`{"count": 42}`) // missing required "name"
+		result, err := ValidateFromFileWithBytes(schemaFile, dataBytes)
+		if err != nil {
+			t.Fatalf("ValidateFromFileWithBytes() failed: %v", err)
+		}
+		if result.Valid {
+			t.Error("Expected invalid data to fail validation")
+		}
+		if len(result.Errors) == 0 {
+			t.Error("Expected validation errors for invalid data")
+		}
+	})
+
+	// Test with malformed data bytes
+	t.Run("malformed data bytes", func(t *testing.T) {
+		dataBytes := []byte(`{invalid json}`)
+		result, err := ValidateFromFileWithBytes(schemaFile, dataBytes)
+		if err == nil {
+			// If no parse error, check if validation still works
+			if result.Valid {
+				t.Log("Note: Malformed JSON was accepted (possibly as YAML or other format)")
+			}
+		} else {
+			t.Logf("Expected error occurred: %v", err)
+		}
+	})
+
+	// Test with non-existent schema file
+	t.Run("non-existent schema", func(t *testing.T) {
+		dataBytes := []byte(`{"name": "test"}`)
+		_, err := ValidateFromFileWithBytes("non-existent.json", dataBytes)
+		if err == nil {
+			t.Error("Expected error for non-existent schema file")
+		}
+	})
+}
+
+func TestValidateWithOptions(t *testing.T) {
+	// Test schema
+	schemaBytes := []byte(`{
+		"type": "object",
+		"properties": {
+			"name": {"type": "string"}
+		},
+		"required": ["name"]
+	}`)
+
+	// Test data
+	validData := map[string]interface{}{"name": "test"}
+	invalidData := map[string]interface{}{"age": 30}
+
+	// Test without options
+	t.Run("without options", func(t *testing.T) {
+		opts := ValidationOptions{}
+		result, err := ValidateWithOptions(schemaBytes, validData, opts)
+		if err != nil {
+			t.Fatalf("ValidateWithOptions() failed: %v", err)
+		}
+		if !result.Valid {
+			t.Errorf("Expected valid data to pass validation, got errors: %v", result.Errors)
+		}
+	})
+
+	// Test with context
+	t.Run("with context", func(t *testing.T) {
+		opts := ValidationOptions{
+			Context: ValidationContext{
+				SourceFile: "test.json",
+				SourceType: "json",
+			},
+		}
+		result, err := ValidateWithOptions(schemaBytes, invalidData, opts)
+		if err != nil {
+			t.Fatalf("ValidateWithOptions() failed: %v", err)
+		}
+		if result.Valid {
+			t.Error("Expected invalid data to fail validation")
+		}
+		// Check that context was applied to errors
+		for _, err := range result.Errors {
+			if err.Context.SourceFile != "test.json" {
+				t.Errorf("Expected error context to have source file 'test.json', got %q", err.Context.SourceFile)
+			}
+		}
+	})
+
+	// Test invalid schema
+	t.Run("invalid schema", func(t *testing.T) {
+		invalidSchema := []byte(`{invalid json}`)
+		opts := ValidationOptions{}
+		result, err := ValidateWithOptions(invalidSchema, validData, opts)
+		if err == nil {
+			// If no parse error, check if validation still works
+			if result.Valid {
+				t.Log("Note: Invalid JSON schema was accepted (possibly as YAML or other format)")
+			}
+		} else {
+			t.Logf("Expected error occurred: %v", err)
+		}
+	})
+}

@@ -758,7 +758,7 @@ Example (`--extended`):
 ```
 Binary: 0.2.1-dev
 Module: v0.2.0
-goneat (Project) 0.2.1-dev
+myproject (Project) 0.2.1-dev
 Build time: unknown
 Git commit: 1a2b3c4d
 Project Source: VERSION file

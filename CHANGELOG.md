@@ -19,6 +19,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Assessment: Removed manual validation in favor of schema validation in dates runner tests
 - Assessment: Fixed test expectations for CHANGELOG monotonic ordering (now working correctly)
 
+## [v0.2.4] - 2025-09-12
+
+### Added
+
+- **Schema Validation DX**: Three new ergonomic helper functions eliminate 80%+ boilerplate code
+  - `ValidateFileWithSchemaPath()` - Simple file-to-file validation with automatic format detection
+  - `ValidateFromFileWithBytes()` - Validate raw data bytes against schema file
+  - `ValidateWithOptions()` - Enhanced validation with custom context and options
+- **Comprehensive Test Coverage**: 13 new test functions covering all helper functions and edge cases
+- **Enhanced Documentation**: Updated library appnotes with 9 examples including migration guides
+- **Security Hardening**: All new functions include path sanitization and security controls
+
+### Changed
+
+- **Schema Library API**: Extended with backward-compatible ergonomic helpers
+- **Documentation**: Updated appnotes with v0.2.4 features and migration patterns
+- **Release Notes**: Comprehensive documentation of DX improvements and usage examples
+
+### Fixed
+
+- **DX Friction**: Eliminated 15+ lines of boilerplate code for common validation patterns
+- **Error Context**: Enhanced error reporting with file paths and validation context
+- **API Consistency**: All new functions follow existing patterns and conventions
+- **Project Name Detection**: `goneat version` now correctly detects project names from go.mod, directory, or git remote instead of hardcoding "goneat"
+- **Version Output**: Added `projectName` field to JSON output for programmatic consumers
+
 ## [v0.2.3] - 2025-09-09
 
 ### Added

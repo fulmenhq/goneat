@@ -1,6 +1,6 @@
 # Goneat Makefile
 # Dogfooding: This Makefile uses goneat itself for formatting (when available)
-# SSOT Version: VERSION file is the single source of truth for version management
+# SSOT Version: Use our own version command for version management (dogfooding!)
 # Quick Start Commands:
 #   make help           - Show all available commands
 #   make build          - Build the binary
@@ -11,7 +11,7 @@
 
 # Variables
 BINARY_NAME := goneat
-VERSION := $(shell cat VERSION 2>/dev/null || echo "0.1.0")
+VERSION := $(shell ./dist/goneat version --json 2>/dev/null | jq -r '.projectVersion' 2>/dev/null || cat VERSION 2>/dev/null || echo "0.1.0")
 BUILD_DIR := dist
 SRC_DIR := .
 
@@ -81,7 +81,7 @@ package: ## Package built binaries into archives + checksums
 
 # Release notes artifact from RELEASE_NOTES.md
 release-notes: ## Generate release notes artifact (dist/release/release-notes-v<version>.md)
-	@echo "📝 Generating release notes for v$(VERSION)..."
+	@echo "📝 Generating release notes for $(VERSION)..."
 	@chmod +x scripts/generate-release-notes.sh
 	@./scripts/generate-release-notes.sh
 	@echo "✅ Release notes generated (dist/release)"
@@ -255,34 +255,19 @@ version-get: ## Show current version
 	@echo "Current version: $(VERSION)"
 
 version-bump-patch: ## Bump patch version (x.y.Z -> x.y.Z+1)
-	@echo "Bumping patch version..."
-	@current=$(shell cat VERSION); \
-	major=$$(echo $$current | cut -d. -f1); \
-	minor=$$(echo $$current | cut -d. -f2); \
-	patch=$$(echo $$current | cut -d. -f3); \
-	new_patch=$$((patch + 1)); \
-	new_version="$$major.$$minor.$$new_patch"; \
-	echo $$new_version > VERSION; \
-	echo "✅ Version bumped: $$current -> $$new_version"
+	@echo "Bumping patch version using goneat version command..."
+	@./dist/goneat version bump patch
+	@echo "✅ Patch version bumped"
 
 version-bump-minor: ## Bump minor version (x.Y.z -> x.Y+1.0)
-	@echo "Bumping minor version..."
-	@current=$(shell cat VERSION); \
-	major=$$(echo $$current | cut -d. -f1); \
-	minor=$$(echo $$current | cut -d. -f2); \
-	new_minor=$$((minor + 1)); \
-	new_version="$$major.$$new_minor.0"; \
-	echo $$new_version > VERSION; \
-	echo "✅ Version bumped: $$current -> $$new_version"
+	@echo "Bumping minor version using goneat version command..."
+	@./dist/goneat version bump minor
+	@echo "✅ Minor version bumped"
 
 version-bump-major: ## Bump major version (X.y.z -> X+1.0.0)
-	@echo "Bumping major version..."
-	@current=$(shell cat VERSION); \
-	major=$$(echo $$current | cut -d. -f1); \
-	new_major=$$((major + 1)); \
-	new_version="$$new_major.0.0"; \
-	echo $$new_version > VERSION; \
-	echo "✅ Version bumped: $$current -> $$new_version"
+	@echo "Bumping major version using goneat version command..."
+	@./dist/goneat version bump major
+	@echo "✅ Major version bumped"
 
 version-set: ## Set specific version (usage: make version-set VERSION=x.y.z)
 	@if [ -z "$(VERSION_SET)" ]; then \
@@ -312,9 +297,9 @@ release-prep: ## Prepare for release (run tests, coverage gate, build, etc.)
 	@echo "✅ Release preparation complete"
 
 release-tag: ## Create git tag for release
-	@echo "🏷️  Creating release tag v$(VERSION)..."
-	git tag -a v$(VERSION) -m "Release v$(VERSION)"
-	@echo "✅ Tag created: v$(VERSION)"
+	@echo "🏷️  Creating release tag $(VERSION)..."
+	git tag -a $(VERSION) -m "Release $(VERSION)"
+	@echo "✅ Tag created: $(VERSION)"
 
 release-push: ## Push release to all remotes
 	@echo "📤 Pushing release to all remotes..."
