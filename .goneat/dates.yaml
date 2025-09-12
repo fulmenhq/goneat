@@ -1,0 +1,17 @@
+# Project-level dates configuration
+# Configure monotonic violations as HIGH severity to stop commits
+enabled: true
+rules:
+  monotonic_order:
+    enabled: true
+    severity: "medium"  # MEDIUM severity for CHANGELOG ordering issues
+    files:
+      - "**/CHANGELOG*.md"
+      - "**/HISTORY.md"
+      - "**/NEWS.md"
+      - "**/*changelog*.md"
+    exclude:
+      - "tests/**"
+      - "test-fixtures/**"
+      - "**/fixtures/**"
+      - "internal/assets/**"

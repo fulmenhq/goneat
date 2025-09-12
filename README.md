@@ -6,31 +6,33 @@
 
 All about smoothly delivering neat code at scale
 
-We bring a smooth DX layer to the business of making neat code at scale.  We wrap language-specific tool chains for formatting, linting, security scanning and other similar functions.  Written in Go for speed and scale, we include in the package some of our additions as well, goneat enables you to solve common code and document quality problems across even large repositories.
+We bring a smooth DX layer to the business of making neat code at scale. We wrap language-specific tool chains for formatting, linting, security scanning and other similar functions. Written in Go for speed and scale, we include in the package some of our additions as well, goneat enables you to solve common code and document quality problems across even large repositories.
 
 ## Quick Start (TL;DR)
 
-1) **Install goneat**:
+1. **Install goneat**:
 
 **Option A: Download binary** (recommended for most users)
+
 - Visit [Releases](https://github.com/fulmenhq/goneat/releases) and download for your platform
 - Extract and add to PATH, or:
 
 ```bash
 # macOS/Linux example - adjust for your platform and version
-curl -L -o goneat https://github.com/fulmenhq/goneat/releases/download/v0.2.2/goneat-darwin-arm64
+curl -L -o goneat https://github.com/fulmenhq/goneat/releases/download/v0.2.3/goneat-darwin-arm64
 chmod +x goneat
 sudo mv goneat /usr/local/bin/
 ```
 
 **Option B: Go install**
+
 ```bash
 go install github.com/fulmenhq/goneat@latest
 ```
 
 Verify: `goneat version`
 
-2) **Get help and explore docs**:
+2. **Get help and explore docs**:
 
 ```bash
 # Built-in help system
@@ -40,20 +42,20 @@ goneat docs show user-guide/getting-started  # First recommended read
 goneat docs show user-guide/commands/assess  # Deep dive on assessment
 ```
 
-3) **Assess your repo**:
+3. **Assess your repo**:
 
 ```bash
 goneat assess                       # Full assessment
 goneat assess --categories=format   # Just formatting issues
 ```
 
-4) **Fix formatting** (auto-fixable):
+4. **Fix formatting** (auto-fixable):
 
 ```bash
 goneat format                       # Fix all format issues
 ```
 
-5) **Set up hooks** (optional, recommended for teams):
+5. **Set up hooks** (optional, recommended for teams):
 
 ```bash
 goneat hooks init
@@ -62,6 +64,7 @@ goneat hooks install
 ```
 
 **Notes:**
+
 - Name clarification: This project is not affiliated with any other "goneat". Use the full module path `github.com/fulmenhq/goneat`.
 - Upcoming: Homebrew and Scoop packages will be available soon for easier installation.
 
@@ -77,13 +80,16 @@ go install github.com/fulmenhq/goneat@latest
 
 - Homebrew (rc.8+):
   - After the tap is published:
+
   ```bash
   brew install fulmenhq/goneat/goneat
   ```
+
   - During RC bring-up (temporary), you can install directly from the raw formula for a specific tag:
+
   ```bash
   brew install --formula \
-    https://raw.githubusercontent.com/fulmenhq/goneat/v0.2.2/packaging/homebrew/goneat.rb
+    https://raw.githubusercontent.com/fulmenhq/goneat/v0.2.3/packaging/homebrew/goneat.rb
   ```
 
 - Scoop (rc.8+):
@@ -103,7 +109,7 @@ goneat version
 
 **For contributors and those building from source:**
 
-1) **Clone and build**:
+1. **Clone and build**:
 
 ```bash
 git clone https://github.com/fulmenhq/goneat.git
@@ -111,7 +117,7 @@ cd goneat
 make build          # Builds to dist/goneat
 ```
 
-2) **Set up hooks** (recommended for development):
+2. **Set up hooks** (recommended for development):
 
 ```bash
 ./dist/goneat hooks init
@@ -119,7 +125,7 @@ make build          # Builds to dist/goneat
 ./dist/goneat hooks install
 ```
 
-3) **Development workflow**:
+3. **Development workflow**:
 
 ```bash
 # Run tests
@@ -135,7 +141,7 @@ make fmt            # Uses goneat itself (dogfooding)
 make build-all
 ```
 
-4) **Embedded docs development**:
+4. **Embedded docs development**:
 
 ```bash
 # If you edit docs/ or manifest, sync embedded docs:
@@ -145,7 +151,7 @@ make build
 
 ## Status
 
-- Release: v0.2.2 (per `VERSION` file)
+- Release: v0.2.3 (per `VERSION` file)
 - Lifecycle Phase: Alpha (per `LIFECYCLE_PHASE` file)
 - Release Phase: GA (per `RELEASE_PHASE` file)
 - Repo Visibility: Public
@@ -231,7 +237,7 @@ Benefits:
 ## Commands
 
 - `goneat validate`: Schema-aware validation (preview; offline meta-validation)
-- `goneat assess`: Orchestrated assessment engine (format, lint, security, static analysis, schema)
+- `goneat assess`: Orchestrated assessment engine (format, lint, security, static analysis, schema, date-validation) with user-configurable assessment categories
 - `goneat format`: Multi-format formatting with finalizer stage (EOF/trailing spaces, line-endings, BOM)
 - `goneat security`: Security scanning (gosec, govulncheck), sharded + parallel
 - `goneat hooks`: Hook management (init, generate, install, validate, inspect)
@@ -245,10 +251,25 @@ dist/goneat content embed --manifest docs/embed-manifest.yaml --root docs --targ
 make build
 ```
 
-
 ### Doctor Command
 
 Goneat includes a built-in doctor for automatic tool management. See the "Zero-friction tooling" section above for usage examples, or check `docs/user-guide/commands/doctor.md` for complete documentation.
+
+## User Configuration
+
+Goneat supports user configuration through `.goneat/` directory in your project root. Each assessment category can be customized with YAML or JSON configuration files:
+
+- **Date Validation**: `.goneat/dates.yaml` - Configure file patterns, date formats, and validation rules
+- **Format**: `.goneat/format.yaml` - Customize formatting rules and file types
+- **Security**: `.goneat/security.yaml` - Configure security scanning rules and exclusions
+
+Goneat uses three distinct **[config file resolution patterns](docs/configuration/config-file-resolution-patterns.md)** to ensure consistent, predictable behavior:
+
+1. **User-extensible-from-default** (goneat configs) - Project overrides user overrides defaults
+2. **Repo root only** (tool configs like `.golangci.yml`) - Working directory resolution
+3. **Hierarchical ignore files** (like `.goneatignore`) - Directory traversal with precedence
+
+All configuration files use JSON Schema validation with fast-fail error handling. Invalid configurations fall back to sensible defaults with warning messages.
 
 ## JSON‑first SSOT
 
@@ -289,6 +310,32 @@ All commands produce structured JSON with rich metadata for programmatic process
 - CI/CD pipeline integration
 - Agentic backend compatibility
 
+### Date Semantics (optional)
+
+- Semantic date validation for key files (e.g., CHANGELOG): future-date detection, stale entries, and optional descending-order (monotonic) enforcement.
+- Disabled by default for compatibility. Enable and customize in `.goneat/dates.yaml`:
+
+```yaml
+# .goneat/dates.yaml
+enabled: true
+date_patterns:
+  - regex: "(\\d{4})-(\\d{2})-(\\d{2})"
+    order: "YMD"
+rules:
+  future_dates:
+    enabled: true
+    max_skew: "24h" # also supports 5d, 30d
+    severity: "error"
+  monotonic_order:
+    enabled: true
+    files:
+      - "CHANGELOG.md"
+      - "docs/releases/**"
+    severity: "warning"
+```
+
+See `docs/configuration/date-validation-config.md` for full configuration details.
+
 ## Offline Assets
 
 Goneat embeds critical validation assets to ensure deterministic, offline runs:
@@ -310,46 +357,6 @@ Project configuration (preview): see `docs/configuration/schema-config.md` for c
 - Secrets scanning (gitleaks) and multi-ecosystem dependency scanners (osv-scanner)
 - Concurrency manager and telemetry for cross-category budgeting
 
-## Lifecycle status
-
-This project follows the Fulmen Ecosystem Lifecycle Maturity Model. Current phase: see `LIFECYCLE_PHASE` and `docs/status/lifecycle.md` for what this means operationally (coverage gates, contribution posture, and user guidance).
-
----
-
-Generated by Code Scout under supervision of @3leapsdave
-
----
-
-## Support & Community
-
-- GitHub Repository: https://github.com/fulmenhq/goneat
-- Issues & Feature Requests: https://github.com/fulmenhq/goneat/issues
-- Releases: https://github.com/fulmenhq/goneat/releases
-- Documentation: see docs/ directory in this repo
-- Enterprise Support: contact 3 Leaps — support@3leaps.net
-
-## License & Policies
-
-- License: Apache-2.0 — see [LICENSE](LICENSE)
-- OSS Policies (Code of Conduct, Security, Contributing):
-  - https://github.com/3leaps/oss-policies (authoritative)
-  - Code of Conduct: https://github.com/3leaps/oss-policies/blob/main/CODE_OF_CONDUCT.md
-  - Security: https://github.com/3leaps/oss-policies/blob/main/SECURITY.md
-  - Contributing: https://github.com/3leaps/oss-policies/blob/main/CONTRIBUTING.md
-
-### Name Clarification
-
-This project (github.com/fulmenhq/goneat) is not affiliated with any other projects named “goneat”. Use the full module path `github.com/fulmenhq/goneat` for `go install` and imports.
-
----
-
-<div align="center">
-
-<sub>
-Built and maintained by the 3 Leaps team • Part of the <a href="https://fulmenhq.dev">Fulmen Ecosystem</a>
-</sub>
-
-</div>
 ## Built-in Docs (Offline)
 
 No repo? No problem. Goneat embeds a curated set of documentation for offline use:
@@ -370,7 +377,6 @@ goneat docs show user-guide/commands/hooks --format html > hooks.html
 
 Tip: Use `goneat docs` to learn about hooks, commands, tutorials, and workflows without leaving your terminal.
 
-
 ## Diff‑Aware Assessment (Change‑Set Intelligence)
 
 For large repositories, signal‑to‑noise matters. Goneat captures git change‑set context and:
@@ -380,3 +386,54 @@ For large repositories, signal‑to‑noise matters. Goneat captures git change�
 - Enables smarter CI: fail on high‑severity only when touched by the current diff
 
 This helps reviewers and bots focus on what changed, speeding feedback and reducing churn.
+
+## Lifecycle Status
+
+This project follows the Fulmen Ecosystem Lifecycle Maturity Model. Current phase: see `LIFECYCLE_PHASE` and `docs/status/lifecycle.md` for what this means operationally (coverage gates, contribution posture, and user guidance).
+
+## Support & Community
+
+- GitHub Repository: https://github.com/fulmenhq/goneat
+- Issues & Feature Requests: https://github.com/fulmenhq/goneat/issues
+- Releases: https://github.com/fulmenhq/goneat/releases
+- Documentation: see docs/ directory in this repo
+- Enterprise Support: contact 3 Leaps — support@3leaps.net
+
+---
+
+## 📜 **License & Legal**
+
+**Open Source**: Apache-2.0 License - see [LICENSE](LICENSE) for details.
+
+**Trademarks**: "Fulmen™", "goneat", and "3 Leaps®" are trademarks of 3 Leaps, LLC. While code is open source, please use distinct names for derivative works to prevent confusion.
+
+### Name Clarification
+
+This project (github.com/fulmenhq/goneat) is not affiliated with any other projects named "goneat". Use the full module path `github.com/fulmenhq/goneat` for `go install` and imports.
+
+### OSS Policies (Organization-wide)
+
+- Authoritative policies repository: https://github.com/3leaps/oss-policies/
+- Code of Conduct: https://github.com/3leaps/oss-policies/blob/main/CODE_OF_CONDUCT.md
+- Security Policy: https://github.com/3leaps/oss-policies/blob/main/SECURITY.md
+- Contributing Guide: https://github.com/3leaps/oss-policies/blob/main/CONTRIBUTING.md
+- Third-party notices are generated per release (see `docs/licenses/` for current inventory).
+
+### Enterprise Support
+
+For enterprise support, custom integrations, or commercial licensing inquiries, contact: support@3leaps.net
+
+---
+
+<div align="center">
+
+⚡ **All about smoothly delivering neat code at scale** ⚡
+
+_Multi-function formatting, linting, and assessment for enterprise development_
+
+<br><br>
+
+**Built with 🛠️ by the 3 Leaps team**
+**Part of the [Fulmen Ecosystem](https://fulmenhq.dev) - Lightning-fast enterprise development**
+
+</div>

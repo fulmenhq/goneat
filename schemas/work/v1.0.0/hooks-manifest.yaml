@@ -133,7 +133,7 @@ examples:
           timeout: "2m"
       pre-push:
         - command: "assess"
-          args: ["--full", "--format", "json", "--output", ".goneat/reports/"]
+          args: ["--full", "--format", "json", "--output", "$GONEAT_HOME/reports/pre-push.json"]
           priority: 10
         - command: "security"
           args: ["--scan"]

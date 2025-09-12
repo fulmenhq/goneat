@@ -14,13 +14,13 @@ func sampleReport() *AssessmentReport {
 			Tool:          "goneat",
 			Version:       "test",
 			Target:        ".",
-			ExecutionTime: 123 * time.Millisecond,
+			ExecutionTime: HumanReadableDuration(123 * time.Millisecond),
 		},
 		Summary: ReportSummary{
 			OverallHealth:        0.82,
 			CriticalIssues:       1,
 			TotalIssues:          3,
-			EstimatedTime:        5 * time.Minute,
+			EstimatedTime:        HumanReadableDuration(5 * time.Minute),
 			ParallelGroups:       1,
 			CategoriesWithIssues: 2,
 		},
@@ -31,7 +31,7 @@ func sampleReport() *AssessmentReport {
 				Parallelizable: false,
 				Status:         "success",
 				IssueCount:     1,
-				EstimatedTime:  2 * time.Minute,
+				EstimatedTime:  HumanReadableDuration(2 * time.Minute),
 				Issues:         []Issue{{File: "a.go", Line: 1, Severity: SeverityHigh, Message: "x", Category: CategorySecurity}},
 				Metrics:        map[string]interface{}{"gosec_shards": 7, "gosec_pool_size": 3},
 			},
@@ -41,11 +41,11 @@ func sampleReport() *AssessmentReport {
 				Parallelizable: true,
 				Status:         "success",
 				IssueCount:     2,
-				EstimatedTime:  3 * time.Minute,
+				EstimatedTime:  HumanReadableDuration(3 * time.Minute),
 				Issues:         []Issue{{File: "b.go", Line: 2, Severity: SeverityLow, Message: "fmt", Category: CategoryFormat}, {File: "c.go", Line: 3, Severity: SeverityLow, Message: "fmt2", Category: CategoryFormat}},
 			},
 		},
-		Workflow: WorkflowPlan{Phases: []WorkflowPhase{{Name: "p1", Description: "d", EstimatedTime: 5 * time.Minute, Categories: []AssessmentCategory{CategoryFormat, CategorySecurity}, Priority: 1}}},
+		Workflow: WorkflowPlan{Phases: []WorkflowPhase{{Name: "p1", Description: "d", EstimatedTime: HumanReadableDuration(5 * time.Minute), Categories: []AssessmentCategory{CategoryFormat, CategorySecurity}, Priority: 1}}},
 	}
 }
 

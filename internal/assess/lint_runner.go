@@ -78,7 +78,7 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 			CommandName:   r.commandName,
 			Category:      CategoryLint,
 			Success:       false,
-			ExecutionTime: time.Since(startTime),
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
 			Error:         fmt.Sprintf("%s command not found in PATH", r.toolName),
 		}, nil
 	}
@@ -89,7 +89,7 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 			CommandName:   r.commandName,
 			Category:      CategoryLint,
 			Success:       false,
-			ExecutionTime: time.Since(startTime),
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
 			Error:         err.Error(),
 		}, nil
 	}
@@ -101,7 +101,7 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 			CommandName:   r.commandName,
 			Category:      CategoryLint,
 			Success:       false,
-			ExecutionTime: time.Since(startTime),
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
 			Error:         fmt.Sprintf("failed to find Go files: %v", err),
 		}, nil
 	}
@@ -112,7 +112,7 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 			CommandName:   r.commandName,
 			Category:      CategoryLint,
 			Success:       true,
-			ExecutionTime: time.Since(startTime),
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
 			Issues:        []Issue{},
 		}, nil
 	}
@@ -140,7 +140,7 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 			CommandName:   r.commandName,
 			Category:      CategoryLint,
 			Success:       false,
-			ExecutionTime: time.Since(startTime),
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
 			Error:         fmt.Sprintf("unsupported assessment mode: %s", config.Mode),
 		}, nil
 	}
@@ -150,7 +150,7 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 			CommandName:   r.commandName,
 			Category:      CategoryLint,
 			Success:       false,
-			ExecutionTime: time.Since(startTime),
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
 			Error:         fmt.Sprintf("lint operation failed: %v", runErr),
 		}, nil
 	}
@@ -162,7 +162,7 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 		CommandName:   r.commandName,
 		Category:      CategoryLint,
 		Success:       true,
-		ExecutionTime: time.Since(startTime),
+		ExecutionTime: HumanReadableDuration(time.Since(startTime)),
 		Issues:        issues,
 	}, nil
 }
@@ -252,8 +252,25 @@ func (r *LintAssessmentRunner) runGolangCILintWithMode(target string, config Ass
 		}
 
 		if len(goFiles) > 0 {
-			// Append only Go files (golangci-lint requires .go files for named file mode)
-			args = append(args, goFiles...)
+			// Check if we should use package mode to avoid mixed-directory errors
+			if r.shouldUsePackageMode(goFiles, config) {
+				// Use package mode: convert file paths to package paths
+				packages := r.detectPackagesFromFiles(goFiles)
+				logger.Info(fmt.Sprintf("Using package mode for %d files from %d packages: %v", len(goFiles), len(packages), packages))
+
+				// Convert package paths to ./pkg/... format
+				for _, pkg := range packages {
+					if pkg == "." {
+						args = append(args, "./...")
+					} else {
+						args = append(args, fmt.Sprintf("./%s/...", pkg))
+					}
+				}
+			} else {
+				// Use individual file mode
+				logger.Info(fmt.Sprintf("Using individual file mode for %d files", len(goFiles)))
+				args = append(args, goFiles...)
+			}
 			cmd = exec.CommandContext(ctx, "golangci-lint", args...) // #nosec G204
 			cmd.Dir = target
 		} else {
@@ -391,20 +408,98 @@ func (r *LintAssessmentRunner) findGoFiles(target string, config AssessmentConfi
 	return saRunner.findGoFiles(target, config)
 }
 
-// verifyGolangciConfig validates the .golangci.yml configuration file
+// detectPackagesFromFiles extracts unique Go package paths from a list of Go files
+func (r *LintAssessmentRunner) detectPackagesFromFiles(goFiles []string) []string {
+	packages := make(map[string]bool)
+
+	for _, file := range goFiles {
+		// Extract package path by finding the directory containing go.mod or main.go
+		// For files like "internal/assets/file.go", the package is "internal/assets"
+		// For files like "cmd/main.go", the package is "cmd"
+
+		// Get the directory of the file
+		dir := filepath.Dir(file)
+
+		// If the directory is "." or empty, it's the root package
+		if dir == "." || dir == "" {
+			packages["."] = true
+			continue
+		}
+
+		// Check if this directory has a go.mod file (indicating a module root)
+		goModPath := filepath.Join(dir, "go.mod")
+		if _, err := os.Stat(goModPath); err == nil {
+			// This is a module root, add the module path
+			packages[dir] = true
+		} else {
+			// Not a module root, add the directory as a package
+			packages[dir] = true
+		}
+	}
+
+	// Convert map to slice
+	var result []string
+	for pkg := range packages {
+		result = append(result, pkg)
+	}
+
+	return result
+}
+
+// shouldUsePackageMode determines if we should use package mode instead of individual files
+func (r *LintAssessmentRunner) shouldUsePackageMode(goFiles []string, config AssessmentConfig) bool {
+	// If package mode is explicitly requested, use it
+	if config.PackageMode {
+		return true
+	}
+
+	// If no files specified, don't use package mode
+	if len(goFiles) == 0 {
+		return false
+	}
+
+	// If only one file, don't need package mode
+	if len(goFiles) == 1 {
+		return false
+	}
+
+	// Detect packages from the files
+	packages := r.detectPackagesFromFiles(goFiles)
+
+	// If files are from different packages, use package mode
+	return len(packages) > 1
+}
+
+// verifyGolangciConfig validates golangci-lint config file (Pattern 2: repo root only)
 func (r *LintAssessmentRunner) verifyGolangciConfig(target string) error {
-	configPath := filepath.Join(target, ".golangci.yml")
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+	// Use standardized config resolver to find working directory
+	// For single files, this resolves to the file's directory
+	resolver := NewConfigResolver(target)
+	workingDir := resolver.GetWorkingDir()
+
+	// Try common golangci-lint config file names (repo root only)
+	configNames := []string{".golangci.yml", ".golangci.yaml", ".golangci.toml", ".golangci.json"}
+	var configPath string
+
+	for _, name := range configNames {
+		candidatePath := filepath.Join(workingDir, name)
+		if _, err := os.Stat(candidatePath); err == nil {
+			configPath = candidatePath
+			break
+		}
+	}
+
+	if configPath == "" {
 		// No config file is OK - golangci-lint will use defaults
 		return nil
 	}
 
-	// Run config verification
+	// Run config verification in the working directory
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "golangci-lint", "config", "verify")
-	cmd.Dir = target
+	cmd.Dir = workingDir
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -519,7 +614,7 @@ func (r *LintAssessmentRunner) parseLintJSONOutput(output []byte) ([]Issue, erro
 			Category:      CategoryLint,
 			SubCategory:   subCategory,
 			AutoFixable:   r.isLintIssueAutoFixable(lintIssue.FromLinter),
-			EstimatedTime: r.estimateLintFixTime(lintIssue.FromLinter, lintIssue.Text),
+			EstimatedTime: HumanReadableDuration(r.estimateLintFixTime(lintIssue.FromLinter, lintIssue.Text)),
 		}
 
 		issues = append(issues, issue)
@@ -574,7 +669,7 @@ func (r *LintAssessmentRunner) parseLintTextOutput(output []byte) ([]Issue, erro
 				Category:      CategoryLint,
 				SubCategory:   subCategory,
 				AutoFixable:   r.isLintIssueAutoFixable(linterName),
-				EstimatedTime: r.estimateLintFixTime(linterName, message),
+				EstimatedTime: HumanReadableDuration(r.estimateLintFixTime(linterName, message)),
 			}
 
 			issues = append(issues, issue)

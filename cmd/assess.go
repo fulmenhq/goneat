@@ -25,16 +25,17 @@ import (
 // assessCmd represents the assess command
 var assessCmd = &cobra.Command{
 	Use:   "assess [target]",
-	Short: "Comprehensive codebase assessment and workflow planning",
-	Long: `Assess performs a comprehensive analysis of your codebase using all available
-formatting, linting, and analysis tools. It generates structured reports with
-prioritized remediation workflows and parallelization opportunities.
-
-Examples:
-  goneat assess                    # Assess current directory
-  goneat assess /path/to/project   # Assess specific directory
-  goneat assess --format json      # JSON output for automation
-  goneat assess --no-op            # Assessment mode only
+	Short: "Run comprehensive assessment (format, lint, security, etc.)",
+	Long: `Run a comprehensive assessment of the codebase.
+The target argument is optional. If not provided, it defaults to the current directory.
+You can restrict the assessment to specific categories using the --categories flag.`,
+	Example: `  goneat assess                                  # Run all assessments on current directory
+  goneat assess ./...                              # Run all assessments recursively
+  goneat assess --categories format,lint           # Run only format and lint
+  goneat assess --fix                              # Auto-fix fixable issues
+  goneat assess --staged-only                      # Assess only staged files
+  goneat assess --output report.html --format html # Output to HTML file
+  goneat assess --fail-on high                     # Exit with error on high-severity issues
   goneat assess --priority "security=1,format=2"  # Custom priorities`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runAssess,
@@ -73,6 +74,9 @@ var (
 	assessCISummary      bool
 	assessProfile        string
 	assessLintNewFromRev string
+	assessPackageMode    bool
+	// Extended output
+	assessExtended bool
 )
 
 func init() {
@@ -138,13 +142,17 @@ func setupAssessCommandFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&assessCISummary, "ci-summary", false, "Print a single-line CI summary (PASS/FAIL + issue counts)")
 	// Profiles
 	cmd.Flags().StringVar(&assessProfile, "profile", "", "Preset profile: ci (fast, critical-only) or dev (comprehensive)")
+	// Package mode for golangci-lint
+	cmd.Flags().BoolVar(&assessPackageMode, "package-mode", false, "Force package-based linting mode (./pkg/...) instead of individual files")
+	// Extended output
+	cmd.Flags().BoolVar(&assessExtended, "extended", false, "Include detailed workplan information in output for debugging and automation")
 }
 
 func runAssess(cmd *cobra.Command, args []string) error {
 	// Get flag values
 	flags := cmd.Flags()
-	assessFormat, _ = flags.GetString("format")
-	assessMode, _ = flags.GetString("mode")
+	assessFormat, _ := flags.GetString("format")
+	assessMode, _ := flags.GetString("mode")
 	assessNoOp, _ = flags.GetBool("no-op")
 	assessCheck, _ = flags.GetBool("check")
 	assessFix, _ = flags.GetBool("fix")
@@ -168,6 +176,8 @@ func runAssess(cmd *cobra.Command, args []string) error {
 	assessScope, _ = flags.GetBool("scope")
 	assessCISummary, _ = flags.GetBool("ci-summary")
 	assessProfile, _ = flags.GetString("profile")
+	assessPackageMode, _ = flags.GetBool("package-mode")
+	assessExtended, _ = flags.GetBool("extended")
 
 	// Validate mode value
 	switch assessMode {
@@ -240,12 +250,19 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		ForceInclude:       assessForceInclude,
 		SchemaEnableMeta:   assessSchemaEnableMeta,
 		Scope:              assessScope,
+		PackageMode:        assessPackageMode,
+		Extended:           assessExtended,
 		PriorityString:     assessPriority,
 		FailOnSeverity:     failOnSeverity,
 		Concurrency:        assessConcurrency,
 		ConcurrencyPercent: assessConcurrencyPercent,
 		TrackSuppressions:  assessTrackSuppressions,
 		LintNewFromRev:     strings.TrimSpace(assessLintNewFromRev),
+	}
+
+	// Add positional args to IncludeFiles
+	if len(args) > 0 {
+		config.IncludeFiles = append(config.IncludeFiles, args...)
 	}
 
 	// Apply profile defaults (non-intrusive; does not override explicitly set flags)

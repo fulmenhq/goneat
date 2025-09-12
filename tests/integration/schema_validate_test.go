@@ -22,7 +22,11 @@ func TestValidate_GoodSchemas(t *testing.T) {
 		t.Skip("goneat binary not found")
 	}
 	outFile := filepath.Join(env.Dir, "validate-good.json")
-	cmd := exec.Command(goneatPath, "validate", "--include", "tests/fixtures/schemas/good", "--format", "json", "--output", outFile)
+	// Test both draft versions (use --no-ignore to bypass .goneatignore in fixtures)
+	cmd := exec.Command(goneatPath, "validate",
+		"--include", "tests/fixtures/schemas/draft-07/good",
+		"--include", "tests/fixtures/schemas/draft-2020-12/good",
+		"--no-ignore", "--format", "json", "--output", outFile)
 	cmd.Dir = repoRootFromIntegration()
 	// Good schemas should succeed (exit code 0)
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -49,10 +53,11 @@ func TestValidate_BadSchemas(t *testing.T) {
 		t.Skip("goneat binary not found")
 	}
 	outFile := filepath.Join(env.Dir, "validate-bad.json")
-	// Pass explicit files to bypass .goneatignore for this test
-	bad1 := filepath.Join("tests", "fixtures", "schemas", "bad", "bad-required-wrong.yaml")
-	bad2 := filepath.Join("tests", "fixtures", "schemas", "bad", "bad-additionalprops-wrong.json")
-	cmd := exec.Command(goneatPath, "validate", "--include", bad1, "--include", bad2, "--format", "json", "--output", outFile)
+	// Test both draft versions with bad schemas (use --no-ignore to bypass .goneatignore in fixtures)
+	cmd := exec.Command(goneatPath, "validate",
+		"--include", "tests/fixtures/schemas/draft-07/bad",
+		"--include", "tests/fixtures/schemas/draft-2020-12/bad",
+		"--no-ignore", "--format", "json", "--output", outFile)
 	cmd.Dir = repoRootFromIntegration()
 	// Bad schemas should fail (non-zero), but still write report
 	_, _ = cmd.CombinedOutput()

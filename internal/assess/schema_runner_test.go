@@ -10,7 +10,7 @@ import (
 func TestSchemaRunner_GoodFixtures(t *testing.T) {
 	r := NewSchemaAssessmentRunner()
 	cfg := AssessmentConfig{Mode: AssessmentModeCheck, Timeout: 30 * time.Second}
-	base := filepath.Join("..", "..", "tests", "fixtures", "schemas", "good")
+	base := filepath.Join("..", "..", "tests", "fixtures", "schemas", "draft-07", "good")
 
 	goodFiles := []string{
 		filepath.Join(base, "good-config.yaml"),
@@ -34,7 +34,7 @@ func TestSchemaRunner_GoodFixtures(t *testing.T) {
 func TestSchemaRunner_BadFixtures(t *testing.T) {
 	r := NewSchemaAssessmentRunner()
 	cfg := AssessmentConfig{Mode: AssessmentModeCheck, Timeout: 30 * time.Second}
-	base := filepath.Join("..", "..", "tests", "fixtures", "schemas", "bad")
+	base := filepath.Join("..", "..", "tests", "fixtures", "schemas", "draft-07", "bad")
 
 	badFiles := []string{
 		filepath.Join(base, "bad-required-wrong.yaml"),

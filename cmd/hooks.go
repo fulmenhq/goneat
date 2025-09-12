@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"text/template"
 
@@ -241,6 +243,9 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to parse hooks manifest: %v", err)
 	}
 
+	// Detect appropriate shell type for the current OS
+	shellType, extension := detectShellType()
+
 	type tplData struct {
 		Args                 []string
 		Fallback             string
@@ -248,6 +253,21 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 			OnlyChangedFiles bool
 			ContentSource    string
 		}
+	}
+
+	buildArgs := func(hook string) ([]string, string) {
+		var args []string
+		var fallback string
+		for _, h := range manifest.Hooks[hook] {
+			if strings.TrimSpace(h.Command) == "assess" {
+				args = append(args, h.Args...)
+				if h.Fallback != "" {
+					fallback = h.Fallback
+				}
+				break
+			}
+		}
+		return args, fallback
 	}
 
 	render := func(templatePath, destPath string, data tplData) error {
@@ -283,21 +303,6 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	buildArgs := func(hook string) ([]string, string) {
-		var args []string
-		var fallback string
-		for _, h := range manifest.Hooks[hook] {
-			if strings.TrimSpace(h.Command) == "assess" {
-				args = append(args, h.Args...)
-				if h.Fallback != "" {
-					fallback = h.Fallback
-				}
-				break
-			}
-		}
-		return args, fallback
-	}
-
 	// Render pre-commit from template
 	argsPC, fbPC := buildArgs("pre-commit")
 	dataPC := tplData{Args: argsPC, Fallback: fbPC}
@@ -306,7 +311,9 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 	if dataPC.OptimizationSettings.ContentSource == "" {
 		dataPC.OptimizationSettings.ContentSource = "index"
 	}
-	if err := render("templates/hooks/bash/pre-commit.sh.tmpl", filepath.Join(hooksDir, "pre-commit"), dataPC); err != nil {
+	preCommitTemplate := fmt.Sprintf("templates/hooks/%s/pre-commit.%s.tmpl", shellType, extension)
+	preCommitHook := filepath.Join(hooksDir, "pre-commit")
+	if err := render(preCommitTemplate, preCommitHook, dataPC); err != nil {
 		return err
 	}
 
@@ -318,7 +325,9 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 	if dataPP.OptimizationSettings.ContentSource == "" {
 		dataPP.OptimizationSettings.ContentSource = "index"
 	}
-	if err := render("templates/hooks/bash/pre-push.sh.tmpl", filepath.Join(hooksDir, "pre-push"), dataPP); err != nil {
+	prePushTemplate := fmt.Sprintf("templates/hooks/%s/pre-push.%s.tmpl", shellType, extension)
+	prePushHook := filepath.Join(hooksDir, "pre-push")
+	if err := render(prePushTemplate, prePushHook, dataPP); err != nil {
 		return err
 	}
 
@@ -328,6 +337,38 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 	fmt.Println("📌 Next: Run 'goneat hooks install' to install hooks to .git/hooks")
 
 	return nil
+}
+
+// detectShellType determines the appropriate shell type and template directory based on OS
+func detectShellType() (string, string) {
+	switch runtime.GOOS {
+	case "windows":
+		// Prefer PowerShell if available, fallback to CMD
+		if isPowerShellAvailable() {
+			return "powershell", "ps1"
+		}
+		return "cmd", "bat"
+	default:
+		// Unix-like systems (Linux, macOS, etc.) use bash
+		return "bash", "sh"
+	}
+}
+
+// isPowerShellAvailable checks if PowerShell is available on Windows
+func isPowerShellAvailable() bool {
+	// On Windows, check if PowerShell is available
+	if runtime.GOOS != "windows" {
+		return false
+	}
+
+	// Try to find powershell.exe or pwsh.exe
+	for _, cmd := range []string{"powershell.exe", "pwsh.exe"} {
+		if _, err := exec.LookPath(cmd); err == nil {
+			return true
+		}
+	}
+
+	return false
 }
 
 func runHooksInstall(cmd *cobra.Command, args []string) error {

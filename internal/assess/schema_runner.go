@@ -10,6 +10,7 @@ import (
 
 	"bytes"
 	"encoding/json"
+
 	"github.com/fulmenhq/goneat/internal/assets"
 	"github.com/fulmenhq/goneat/pkg/work"
 	"github.com/xeipuuv/gojsonschema"
@@ -36,7 +37,7 @@ func (r *SchemaAssessmentRunner) Assess(ctx context.Context, target string, conf
 			CommandName:   r.commandName,
 			Category:      CategorySchema,
 			Success:       false,
-			ExecutionTime: time.Since(start),
+			ExecutionTime: HumanReadableDuration(time.Since(start)),
 			Error:         fmt.Sprintf("discovery failed: %v", err),
 		}, nil
 	}
@@ -44,7 +45,7 @@ func (r *SchemaAssessmentRunner) Assess(ctx context.Context, target string, conf
 	for _, f := range candidates {
 		select {
 		case <-ctx.Done():
-			return &AssessmentResult{CommandName: r.commandName, Category: CategorySchema, Success: false, ExecutionTime: time.Since(start), Error: ctx.Err().Error()}, nil
+			return &AssessmentResult{CommandName: r.commandName, Category: CategorySchema, Success: false, ExecutionTime: HumanReadableDuration(time.Since(start)), Error: ctx.Err().Error()}, nil
 		default:
 		}
 		// Syntax validation first
@@ -57,7 +58,7 @@ func (r *SchemaAssessmentRunner) Assess(ctx context.Context, target string, conf
 					Category:      CategorySchema,
 					SubCategory:   "json_syntax",
 					AutoFixable:   false,
-					EstimatedTime: 2 * time.Minute,
+					EstimatedTime: HumanReadableDuration(2 * time.Minute),
 				})
 				continue
 			}
@@ -71,7 +72,7 @@ func (r *SchemaAssessmentRunner) Assess(ctx context.Context, target string, conf
 					Category:      CategorySchema,
 					SubCategory:   "yaml_syntax",
 					AutoFixable:   false,
-					EstimatedTime: 2 * time.Minute,
+					EstimatedTime: HumanReadableDuration(2 * time.Minute),
 				})
 				continue
 			}
@@ -86,7 +87,7 @@ func (r *SchemaAssessmentRunner) Assess(ctx context.Context, target string, conf
 					Category:      CategorySchema,
 					SubCategory:   "jsonschema",
 					AutoFixable:   false,
-					EstimatedTime: 3 * time.Minute,
+					EstimatedTime: HumanReadableDuration(3 * time.Minute),
 				})
 			} else if config.SchemaEnableMeta {
 				if err := r.checkJSONSchemaWithMeta(f); err != nil {
@@ -97,7 +98,7 @@ func (r *SchemaAssessmentRunner) Assess(ctx context.Context, target string, conf
 						Category:      CategorySchema,
 						SubCategory:   "jsonschema_meta",
 						AutoFixable:   false,
-						EstimatedTime: 3 * time.Minute,
+						EstimatedTime: HumanReadableDuration(3 * time.Minute),
 					})
 				}
 			}
@@ -108,7 +109,7 @@ func (r *SchemaAssessmentRunner) Assess(ctx context.Context, target string, conf
 		CommandName:   r.commandName,
 		Category:      CategorySchema,
 		Success:       true,
-		ExecutionTime: time.Since(start),
+		ExecutionTime: HumanReadableDuration(time.Since(start)),
 		Issues:        issues,
 	}, nil
 }

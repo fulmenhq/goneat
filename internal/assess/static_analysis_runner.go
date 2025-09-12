@@ -42,7 +42,7 @@ func (r *StaticAnalysisAssessmentRunner) Assess(ctx context.Context, target stri
 			CommandName:   r.commandName,
 			Category:      CategoryStaticAnalysis,
 			Success:       false,
-			ExecutionTime: time.Since(startTime),
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
 			Error:         fmt.Sprintf("%s command not found in PATH", r.toolName),
 		}, nil
 	}
@@ -54,7 +54,7 @@ func (r *StaticAnalysisAssessmentRunner) Assess(ctx context.Context, target stri
 			CommandName:   r.commandName,
 			Category:      CategoryStaticAnalysis,
 			Success:       false,
-			ExecutionTime: time.Since(startTime),
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
 			Error:         fmt.Sprintf("failed to find Go files: %v", err),
 		}, nil
 	}
@@ -65,7 +65,7 @@ func (r *StaticAnalysisAssessmentRunner) Assess(ctx context.Context, target stri
 			CommandName:   r.commandName,
 			Category:      CategoryStaticAnalysis,
 			Success:       true,
-			ExecutionTime: time.Since(startTime),
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
 			Issues:        []Issue{},
 		}, nil
 	}
@@ -77,7 +77,7 @@ func (r *StaticAnalysisAssessmentRunner) Assess(ctx context.Context, target stri
 			CommandName:   r.commandName,
 			Category:      CategoryStaticAnalysis,
 			Success:       false,
-			ExecutionTime: time.Since(startTime),
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
 			Error:         fmt.Sprintf("static analysis check failed: %v", err),
 		}, nil
 	}
@@ -88,7 +88,7 @@ func (r *StaticAnalysisAssessmentRunner) Assess(ctx context.Context, target stri
 		CommandName:   r.commandName,
 		Category:      CategoryStaticAnalysis,
 		Success:       true,
-		ExecutionTime: time.Since(startTime),
+		ExecutionTime: HumanReadableDuration(time.Since(startTime)),
 		Issues:        issues,
 	}, nil
 }
@@ -292,7 +292,7 @@ func (r *StaticAnalysisAssessmentRunner) parseVetOutput(output, targetDir string
 			Category:      CategoryStaticAnalysis,
 			SubCategory:   r.categorizeVetIssue(message),
 			AutoFixable:   false, // go vet issues typically require manual fixes
-			EstimatedTime: r.estimateVetFixTime(message),
+			EstimatedTime: HumanReadableDuration(r.estimateVetFixTime(message)),
 		}
 
 		issues = append(issues, issue)

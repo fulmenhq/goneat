@@ -31,6 +31,82 @@ func NewSecurityAssessmentRunner() *SecurityAssessmentRunner {
 	return &SecurityAssessmentRunner{commandName: "security"}
 }
 
+// parseIgnorePatternsForGosec parses .goneatignore and .gitignore files to extract
+// directory patterns suitable for gosec's -exclude-dir option
+func parseIgnorePatternsForGosec(moduleRoot string) []string {
+	var excludeDirs []string
+
+	// Common ignore files to check
+	ignoreFiles := []string{
+		filepath.Join(moduleRoot, ".goneatignore"),
+		filepath.Join(moduleRoot, ".gitignore"),
+		filepath.Join(moduleRoot, ".goneat", "ignore"),
+	}
+
+	// Directory patterns that should be excluded (converted to relative paths for gosec)
+	dirPatterns := []string{
+		"node_modules",
+		"vendor",
+		"dist",
+		"build",
+		"bin",
+		".git",
+		".goneat",
+		"testdata",
+		"fixtures",
+		"coverage",
+		"logs",
+		"tmp",
+		"temp",
+	}
+
+	// Check if ignore files exist and add their directory patterns
+	for _, ignoreFile := range ignoreFiles {
+		// #nosec G304 -- ignoreFile from controlled list of known ignore files (.goneatignore, .gitignore, .goneat/ignore)
+		if file, err := os.Open(ignoreFile); err == nil {
+			defer func() {
+				_ = file.Close() // Ignore close errors for ignore file parsing - defensive programming
+			}()
+			scanner := bufio.NewScanner(file)
+			for scanner.Scan() {
+				line := strings.TrimSpace(scanner.Text())
+				if line == "" || strings.HasPrefix(line, "#") {
+					continue
+				}
+
+				// Convert patterns ending with / to directory exclusions
+				if strings.HasSuffix(line, "/") || strings.Contains(line, "*/") {
+					// Remove trailing slash and wildcards for gosec
+					cleanPattern := strings.TrimSuffix(line, "/")
+					cleanPattern = strings.ReplaceAll(cleanPattern, "*/", "")
+					if cleanPattern != "" && !sliceContainsString(excludeDirs, cleanPattern) {
+						excludeDirs = append(excludeDirs, cleanPattern)
+					}
+				}
+			}
+		}
+	}
+
+	// Add common directory patterns if not already present
+	for _, pattern := range dirPatterns {
+		if !sliceContainsString(excludeDirs, pattern) {
+			excludeDirs = append(excludeDirs, pattern)
+		}
+	}
+
+	return excludeDirs
+}
+
+// sliceContainsString checks if a slice contains a string
+func sliceContainsString(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
 // Assess implements AssessmentRunner.Assess
 func (r *SecurityAssessmentRunner) Assess(ctx context.Context, target string, config AssessmentConfig) (*AssessmentResult, error) {
 	start := time.Now()
@@ -122,7 +198,7 @@ func (r *SecurityAssessmentRunner) Assess(ctx context.Context, target string, co
 		CommandName:   r.commandName,
 		Category:      CategorySecurity,
 		Success:       true,
-		ExecutionTime: time.Since(start),
+		ExecutionTime: HumanReadableDuration(time.Since(start)),
 		Issues:        issues,
 		Metrics:       metrics,
 	}
@@ -288,6 +364,14 @@ func (r *SecurityAssessmentRunner) runGosec(ctx context.Context, moduleRoot stri
 			if config.TrackSuppressions {
 				args = append(args, "-track-suppressions")
 			}
+
+			// Add directory exclusions based on .goneatignore and .gitignore patterns
+			excludeDirs := parseIgnorePatternsForGosec(moduleRoot)
+			logger.Debug(fmt.Sprintf("gosec exclude dirs for %s: %v", dirArg, excludeDirs))
+			for _, dir := range excludeDirs {
+				args = append(args, "-exclude-dir", dir)
+			}
+
 			args = append(args, dirArg)
 			rctx, cancel := r.effectiveToolContext(ctx, config.Timeout, config.SecurityGosecTimeout)
 			defer cancel()
@@ -440,26 +524,66 @@ func (r *SecurityAssessmentRunner) findModuleDirs(root string) ([]string, error)
 	return dirs, nil
 }
 
-// pathIgnored checks .goneatignore patterns (repo-level and user-level)
+// pathIgnored checks .goneatignore patterns using standardized config resolution
 func (r *SecurityAssessmentRunner) pathIgnored(path string) bool {
-	if r.matchesIgnoreFile(path, filepath.Join(filepath.Dir(path), ".goneatignore")) { // best-effort local
-		return true
-	}
-	// Walk up to repo root; try root-level
-	// Simplify: check root-level .goneatignore
-	// Determine repo root as first path argument component from absolute path
-	// Users typically place .goneatignore at repo root; try joining with module root
-	// This runner doesn't track repo root explicitly; fall back to CWD
-	if r.matchesIgnoreFile(path, ".goneatignore") {
-		return true
-	}
-	// User-level ignore
-	if home, err := os.UserHomeDir(); err == nil {
-		if r.matchesIgnoreFile(path, filepath.Join(home, ".goneatignore")) {
+	// Get ignore file locations using standardized resolver
+	ignoreFiles := r.getIgnoreFiles(path)
+
+	for _, ignoreFilePath := range ignoreFiles {
+		if r.matchesIgnoreFile(path, ignoreFilePath) {
 			return true
 		}
 	}
 	return false
+}
+
+// getIgnoreFiles returns .goneatignore files in hierarchical order (Pattern 3: like .gitignore)
+// Returns files from most specific (closest to target) to least specific (user global)
+func (r *SecurityAssessmentRunner) getIgnoreFiles(targetPath string) []string {
+	var ignoreFiles []string
+
+	// Get the directory to start from (file's dir or target dir itself)
+	startDir := targetPath
+	if info, err := os.Stat(targetPath); err == nil && !info.IsDir() {
+		startDir = filepath.Dir(targetPath)
+	}
+
+	// Convert to absolute path for consistent behavior
+	if absDir, err := filepath.Abs(startDir); err == nil {
+		startDir = absDir
+	}
+
+	// Walk up the directory hierarchy looking for .goneatignore files
+	currentDir := startDir
+	for {
+		ignoreFile := filepath.Join(currentDir, ".goneatignore")
+		if _, err := os.Stat(ignoreFile); err == nil {
+			ignoreFiles = append(ignoreFiles, ignoreFile)
+		}
+
+		parentDir := filepath.Dir(currentDir)
+		if parentDir == currentDir {
+			// Reached filesystem root
+			break
+		}
+		currentDir = parentDir
+	}
+
+	// Add user-level global ignore (GONEAT_HOME/.goneatignore)
+	if homeDir := os.Getenv("GONEAT_HOME"); homeDir != "" {
+		userIgnore := filepath.Join(homeDir, ".goneatignore")
+		if _, err := os.Stat(userIgnore); err == nil {
+			ignoreFiles = append(ignoreFiles, userIgnore)
+		}
+	} else if homeDir, err := os.UserHomeDir(); err == nil {
+		// Standard location: ~/.goneat/.goneatignore
+		userIgnore := filepath.Join(homeDir, ".goneat", ".goneatignore")
+		if _, err := os.Stat(userIgnore); err == nil {
+			ignoreFiles = append(ignoreFiles, userIgnore)
+		}
+	}
+
+	return ignoreFiles
 }
 
 // matchesIgnoreFile checks if a path matches patterns in an ignore file

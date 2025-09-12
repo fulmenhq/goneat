@@ -5,7 +5,11 @@ package assess
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"time"
+
+	"github.com/fulmenhq/goneat/pkg/config"
 )
 
 // AssessmentRunner defines the interface that commands must implement to participate in assessments
@@ -68,6 +72,12 @@ type AssessmentConfig struct {
 
 	// Scoped discovery (limits traversal to include dirs and force-include anchors)
 	Scope bool `json:"scope,omitempty"`
+
+	// Lint package mode (force package-based linting instead of individual files)
+	PackageMode bool `json:"package_mode,omitempty"`
+
+	// Extended output with detailed workplan information
+	Extended bool `json:"extended,omitempty"`
 
 	// Security per-tool timeouts (optional)
 	SecurityGosecTimeout       time.Duration `json:"security_timeout_gosec,omitempty"`
@@ -180,4 +190,55 @@ func ResetRegistryForTesting() *AssessmentRunnerRegistry {
 // RestoreRegistry restores a previously saved registry for test teardown
 func RestoreRegistry(saved *AssessmentRunnerRegistry) {
 	globalRunnerRegistry = saved
+}
+
+// ConfigResolver provides standardized config file resolution for assessment runners
+type ConfigResolver struct {
+	workingDir string
+}
+
+// NewConfigResolver creates a config resolver for the given target
+// For single files, uses the file's directory as working directory for config resolution
+func NewConfigResolver(target string) *ConfigResolver {
+	workingDir := target
+	if info, err := os.Stat(target); err == nil && !info.IsDir() {
+		// Target is a file - use its directory for config resolution
+		workingDir = filepath.Dir(target)
+	}
+
+	// Ensure we have an absolute path for consistent behavior
+	if absDir, err := filepath.Abs(workingDir); err == nil {
+		workingDir = absDir
+	}
+
+	return &ConfigResolver{workingDir: workingDir}
+}
+
+// GetWorkingDir returns the working directory for config resolution
+func (cr *ConfigResolver) GetWorkingDir() string {
+	return cr.workingDir
+}
+
+// ResolveConfigFile finds category-specific config files using standardized search paths
+// Search order:
+// 1. .goneat/{category}.yaml (project-level)
+// 2. GONEAT_HOME/config/{category}.yaml (user-level)
+// 3. fallback to defaults
+func (cr *ConfigResolver) ResolveConfigFile(category string) (string, bool) {
+	// 1. Project-level config
+	projectConfig := filepath.Join(cr.workingDir, ".goneat", category+".yaml")
+	if info, err := os.Stat(projectConfig); err == nil && !info.IsDir() {
+		return projectConfig, true
+	}
+
+	// 2. User-level config (GONEAT_HOME)
+	if configDir, err := config.GetConfigDir(); err == nil {
+		userConfig := filepath.Join(configDir, category+".yaml")
+		if info, err := os.Stat(userConfig); err == nil && !info.IsDir() {
+			return userConfig, true
+		}
+	}
+
+	// 3. No config file found
+	return "", false
 }

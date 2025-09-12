@@ -54,3 +54,24 @@ func GetDocsFS() fs.FS {
 	}
 	return Docs
 }
+
+// GetEmbeddedAsset retrieves an embedded asset by path
+func GetEmbeddedAsset(path string) ([]byte, error) {
+	// Try templates first (embedded_templates is the root)
+	fullPath := path
+	if data, err := fs.ReadFile(Templates, fullPath); err == nil {
+		return data, nil
+	}
+
+	// Try schemas (embedded_schemas is the root)
+	if data, err := fs.ReadFile(Schemas, fullPath); err == nil {
+		return data, nil
+	}
+
+	// Try docs (embedded_docs is the root)
+	if data, err := fs.ReadFile(Docs, fullPath); err == nil {
+		return data, nil
+	}
+
+	return nil, fs.ErrNotExist
+}

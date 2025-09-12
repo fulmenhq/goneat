@@ -3,10 +3,11 @@ package cmd
 import (
 	"bytes"
 	"context"
-	"github.com/spf13/cobra"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/spf13/cobra"
 
 	"github.com/fulmenhq/goneat/internal/assess"
 )
@@ -19,7 +20,7 @@ func (c *cliFakeRunner) Assess(ctx context.Context, target string, cfg assess.As
 		CommandName:   "format",
 		Category:      assess.CategoryFormat,
 		Success:       true,
-		ExecutionTime: 5 * time.Millisecond,
+		ExecutionTime: assess.HumanReadableDuration(5 * time.Millisecond),
 		Issues:        nil,
 	}, nil
 }
@@ -51,7 +52,7 @@ func (c *configurableFakeRunner) Assess(ctx context.Context, target string, cfg 
 		CommandName:   string(c.category),
 		Category:      c.category,
 		Success:       true,
-		ExecutionTime: c.delay,
+		ExecutionTime: assess.HumanReadableDuration(c.delay),
 		Issues:        c.issues,
 	}, nil
 }

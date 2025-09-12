@@ -1,13 +1,17 @@
 package config
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/fulmenhq/goneat/internal/schema"
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 )
 
 // Config holds all configuration for goneat
@@ -27,7 +31,6 @@ type FormatConfig struct {
 
 // GoFormatConfig holds Go formatting options
 type GoFormatConfig struct {
-	// Currently gofmt has minimal config, but we can add options here
 	Simplify bool `mapstructure:"simplify"` // -s flag: simplify code
 }
 
@@ -88,6 +91,8 @@ var defaultConfig = Config{
 		ToolTimeouts:       SecurityToolTimeouts{Gosec: 0, Govulncheck: 0},
 		TrackSuppressions:  false,
 		FailOn:             "high",
+		ExcludeFixtures:    true,
+		FixturePatterns:    []string{"tests/fixtures/", "test-fixtures/"},
 	},
 	Schema: SchemaConfig{
 		Enable:     true,
@@ -130,8 +135,8 @@ func LoadConfig() (*Config, error) {
 	v.SetDefault("security.tool_timeouts.govulncheck", defaultConfig.Security.ToolTimeouts.Govulncheck)
 	v.SetDefault("security.track_suppressions", defaultConfig.Security.TrackSuppressions)
 	v.SetDefault("security.fail_on", defaultConfig.Security.FailOn)
-	v.SetDefault("security.exclude_fixtures", true)
-	v.SetDefault("security.fixture_patterns", []string{"tests/fixtures/", "test-fixtures/"})
+	v.SetDefault("security.exclude_fixtures", defaultConfig.Security.ExcludeFixtures)
+	v.SetDefault("security.fixture_patterns", defaultConfig.Security.FixturePatterns)
 
 	// Schema defaults (preview)
 	v.SetDefault("schema.enable", defaultConfig.Schema.Enable)
@@ -169,7 +174,7 @@ func LoadConfig() (*Config, error) {
 // LoadProjectConfig loads project-specific configuration
 func LoadProjectConfig() (*Config, error) {
 	// First load global config
-	config, err := LoadConfig()
+	globalConfig, err := LoadConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -184,25 +189,70 @@ func LoadProjectConfig() (*Config, error) {
 		"goneat.json",
 	}
 
-	for _, configFile := range projectConfigs {
-		if _, err := os.Stat(configFile); err == nil {
-			v := viper.New()
-			v.SetConfigFile(configFile)
-
-			if err := v.ReadInConfig(); err != nil {
-				continue // Try next config file
+	var rawData []byte
+	var configFile string
+	for _, cf := range projectConfigs {
+		if info, err := os.Stat(cf); err == nil && !info.IsDir() {
+			// #nosec G304
+			if data, err := os.ReadFile(cf); err == nil {
+				rawData = data
+				configFile = cf
+				break
 			}
-
-			// Merge project config with global config
-			if err := v.Unmarshal(config); err != nil {
-				continue
-			}
-
-			break
 		}
 	}
 
-	return config, nil
+	if len(rawData) == 0 {
+		return globalConfig, nil // No project config
+	}
+
+	// Parse raw data to interface{} for validation (handle YAML/JSON)
+	var doc interface{}
+	switch ext := strings.ToLower(filepath.Ext(configFile)); ext {
+	case ".yaml", ".yml":
+		if err := yaml.Unmarshal(rawData, &doc); err != nil {
+			return nil, fmt.Errorf("failed to parse %s as YAML: %w", configFile, err)
+		}
+	case ".json":
+		if err := json.Unmarshal(rawData, &doc); err != nil {
+			return nil, fmt.Errorf("failed to parse %s as JSON: %w", configFile, err)
+		}
+	default:
+		return nil, fmt.Errorf("unsupported config format: %s", ext)
+	}
+
+	// Validate against schema
+	schemaName := "goneat-config-v1.0.0"
+	valResult, err := schema.Validate(doc, schemaName)
+	if err != nil {
+		return nil, fmt.Errorf("schema validation setup failed: %w", err)
+	}
+	if !valResult.Valid {
+		var errs []string
+		for _, ve := range valResult.Errors {
+			errs = append(errs, fmt.Sprintf("%s: %s", ve.Path, ve.Message))
+		}
+		return nil, fmt.Errorf("project config validation failed: %s", strings.Join(errs, "; "))
+	}
+
+	// Unmarshal to struct if valid
+	v := viper.New()
+	v.SetConfigType(filepath.Ext(configFile)[1:])
+	if err := v.ReadConfig(bytes.NewReader(rawData)); err != nil {
+		return nil, fmt.Errorf("failed to read project config: %w", err)
+	}
+
+	var projectConfig Config
+	if err := v.Unmarshal(&projectConfig); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal project config: %w", err)
+	}
+
+	// Merge project into global (override)
+	globalConfig.Format = projectConfig.Format
+	globalConfig.Security = projectConfig.Security
+	globalConfig.Schema = projectConfig.Schema
+
+	return globalConfig, nil
 }
 
 // GetGoConfig returns Go formatting configuration

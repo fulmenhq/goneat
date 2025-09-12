@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/fulmenhq/goneat/internal/ops"
+	"github.com/fulmenhq/goneat/pkg/buildinfo"
 	"github.com/fulmenhq/goneat/pkg/config"
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/spf13/cobra"
@@ -68,6 +69,8 @@ type SystemInfo struct {
 	NumCPU       int       `json:"numCPU"`
 	Hostname     string    `json:"hostname"`
 	WorkingDir   string    `json:"workingDir"`
+	UserHomeDir  string    `json:"userHomeDir"`
+	TempDir      string    `json:"tempDir"`
 	Timestamp    time.Time `json:"timestamp"`
 	Version      string    `json:"version"`
 }
@@ -141,6 +144,8 @@ func runEnvinfo(cmd *cobra.Command, _ []string) error {
 	_, _ = fmt.Fprintf(out, "%s%-16s%s | %s%d%s\n", keyColor, "CPU Cores", resetColor, valueColor, envData.System.NumCPU, resetColor)
 	_, _ = fmt.Fprintf(out, "%s%-16s%s | %s%s%s\n", keyColor, "Hostname", resetColor, valueColor, envData.System.Hostname, resetColor)
 	_, _ = fmt.Fprintf(out, "%s%-16s%s | %s%s%s\n", keyColor, "Working Dir", resetColor, valueColor, envData.System.WorkingDir, resetColor)
+	_, _ = fmt.Fprintf(out, "%s%-16s%s | %s%s%s\n", keyColor, "User Home Dir", resetColor, valueColor, envData.System.UserHomeDir, resetColor)
+	_, _ = fmt.Fprintf(out, "%s%-16s%s | %s%s%s\n", keyColor, "Temp Dir", resetColor, valueColor, envData.System.TempDir, resetColor)
 	_, _ = fmt.Fprintf(out, "%s%-16s%s | %s%s%s\n", keyColor, "Timestamp", resetColor, valueColor, envData.System.Timestamp.Format(time.RFC3339), resetColor)
 	_, _ = fmt.Fprintf(out, "%s%-16s%s | %s%s%s\n", keyColor, "Goneat Version", resetColor, valueColor, envData.System.Version, resetColor)
 
@@ -248,6 +253,8 @@ func runEnvinfo(cmd *cobra.Command, _ []string) error {
 func collectEnvironmentData(extended bool) EnvData {
 	hostname, _ := os.Hostname()
 	wd, _ := os.Getwd()
+	userHomeDir, _ := os.UserHomeDir()
+	tempDir := os.TempDir()
 
 	systemInfo := SystemInfo{
 		OS:           runtime.GOOS,
@@ -256,8 +263,10 @@ func collectEnvironmentData(extended bool) EnvData {
 		NumCPU:       runtime.NumCPU(),
 		Hostname:     hostname,
 		WorkingDir:   wd,
+		UserHomeDir:  userHomeDir,
+		TempDir:      tempDir,
 		Timestamp:    time.Now(),
-		Version:      "v0.1.0", // TODO: make this dynamic
+		Version:      buildinfo.BinaryVersion,
 	}
 
 	envData := EnvData{

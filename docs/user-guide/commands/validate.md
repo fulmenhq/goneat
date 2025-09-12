@@ -1,106 +1,78 @@
----
-title: "Validate Command Reference"
-description: "Schema-aware validation (preview) for JSON/YAML with assess integration"
-author: "@arch-eagle"
-date: "2025-09-05"
-last_updated: "2025-09-05"
-status: "preview"
-tags: ["cli", "schema", "validation", "commands"]
-category: "user-guide"
----
-
-# Validate Command Reference (Preview)
-
-The `goneat validate` command runs schema-aware validation using the same engine as `goneat assess`, focused on the `schema` category.
+# Validate Command Reference
 
 ## Overview
 
-- Syntax-first: YAML/JSON syntax checks to catch broken files quickly.
-- Schema-aware (roadmap): Draft 2020-12 JSON Schema, OpenAPI/AsyncAPI, Protobuf.
-- Offline-first and deterministic; config-first discovery planned.
+The `validate` command provides schema-aware validation for JSON/YAML files, including syntax checks and structural validation against embedded schemas (preview).
 
-## Command Structure
+## Usage
 
 ```bash
-goneat validate [target] [flags]
+goneat validate [target]
 ```
 
-## Common Use
+### Flags
+
+- `--format`: Output format (markdown, json, html, both, concise)
+- `--verbose, -v`: Verbose output
+- `--fail-on`: Fail if issues at or above severity (critical, high, medium, low)
+- `--timeout`: Validation timeout
+- `--output, -o`: Output file (default: stdout)
+- `--include`: Include only these files/patterns
+- `--exclude`: Exclude these files/patterns
+- `--auto-detect`: Auto-detect schema files
+- `--no-ignore`: Disable .goneatignore/.gitignore
+- `--force-include`: Force-include paths/globs
+- `--enable-meta`: Attempt meta-schema validation
+- `--scope`: Limit traversal scope
+- `--list-schemas`: List available embedded schemas with drafts
+
+## Data Validation Subcommand
+
+Validate a data file against a specific schema:
 
 ```bash
-# Validate current directory
-goneat validate
-
-# Validate a specific file
-goneat validate --include schemas/config/goneat-config-v1.0.0.yaml
-
-# JSON output for automation
-goneat validate --format json --output validate.json
+goneat validate data --schema SCHEMA --data FILE
 ```
 
-## Flags
+- `--schema`: Schema name for embedded (required if no --schema-file, e.g., goneat-config-v1.0.0)
+- `--schema-file`: Path to arbitrary schema file (JSON/YAML; overrides --schema)
+- `--data`: Data file to validate (required, YAML/JSON)
+- `--format`: Output format (markdown, json)
 
-- `--format`: Output format (`markdown`, `json`, `html`, `both`, `concise`)
-- `--output`: Output file path (default stdout)
-- `--include`: Include files/patterns
-- `--exclude`: Exclude files/patterns
-- `--fail-on`: Fail gate (`critical`, `high`, `medium`, `low`, `info`)
-- `--timeout`: Validation timeout (default 3m)
-- `--auto-detect`: Preview option to scan `.yaml/.yml/.json` by extension
-- `--no-ignore`: Disable `.goneatignore`/`.gitignore` during discovery (scan everything in scope)
-- `--force-include`: Force-include path(s) or glob(s) even if ignored (repeatable)
-- `--enable-meta`: Attempt meta-schema validation (may require network for remote $refs)
-- `--scope`: Limit traversal to `--include` paths and anchors from `--force-include` (clean DX)
+### Supported Schemas
 
-### Ignore Overrides (DX)
+(Heuristics: Match schemaName to registry key without .yaml; Draft detection via $schema key. Arbitrary files via --schema-file support JSON/YAML, Draft-07/2020-12 only.)
 
-Use these when you want to validate files under paths that are normally ignored (e.g., `tests/fixtures/**`).
+- **goneat-config-v1.0.0** (Draft-2020-12): Main project config validation.
+- **dates** (Draft-07): Dates configuration validation.
+- **hooks-manifest-v1.0.0** (Draft-2020-12): Hooks manifest validation.
+- **work-manifest-v1.0.0** (Draft-2020-12): Work manifest validation.
 
-Examples:
+Note: Only Draft-07 and Draft-2020-12 supported. Use `goneat validate --list-schemas` to inspect available schemas and drafts.
+
+**Examples**:
 
 ```bash
-# Validate a whole ignored folder recursively (targeted directory)
-goneat validate --scope \
-  --include tests/fixtures/schemas/bad/ \
-  --force-include 'tests/fixtures/schemas/bad/**' \
-  --format json -o bad.json
+# Embedded YAML schema
+goneat validate data --schema goneat-config-v1.0.0 --data .goneat.yaml --format json
 
-# Validate a single ignored file
-goneat validate --include . \
-  --force-include tests/fixtures/schemas/bad/bad-required-wrong.yaml \
-  --format json -o one-file.json
+# Arbitrary JSON schema file
+goneat validate data --schema-file my-schema.json --data data.yaml
 
-# Bypass ignores completely for current dir (be careful on large trees)
-goneat validate --no-ignore --include . --format json -o all.json
+# Arbitrary YAML schema file
+goneat validate data --schema-file my-schema.yaml --data data.json
+
+# List first
+goneat validate --list-schemas
 ```
 
-### Quoting Globs
+Outputs validation result; fails on invalid data or unsupported drafts (e.g., Draft-04 → "unsupported $schema").
 
-Most shells expand globs before passing them to the CLI. To avoid accidental expansion into positional arguments (which can cause errors like "accepts at most 1 arg(s)"), quote your patterns:
+## Examples
 
-```bash
-# Good (quoted glob stays a single flag value)
-goneat validate --force-include '**/*.schema.yaml'
+- Validate schemas in current dir: `goneat validate . --include schemas/`
+- List schemas: `goneat validate --list-schemas`
+- Validate data: See subcommand above
+- Meta-validation: `goneat validate schemas/ --enable-meta`
 
-# Bad (unquoted glob may be expanded by the shell first)
-goneat validate --force-include **/*.schema.yaml
-```
-
-## Project Config (Preview)
-
-You can configure discovery via the project config using a `schema:` block.
-See `docs/configuration/schema-config.md` for proposed keys (enable, auto_detect, patterns, types).
-
-## Output
-
-Results are identical to `goneat assess` with issues under `categories.schema`.
-
-- Syntax errors:
-  - `sub_category`: `yaml_syntax` or `json_syntax`
-  - `severity`: `high`
-
-## Roadmap
-
-- Config-first patterns (`schema.patterns`) and type selectors
-- JSON Schema meta-validation (Draft 2020-12)
-- OpenAPI/AsyncAPI/Protobuf validation (offline-first)
+For config, see [schema-config.md](schema-config.md).

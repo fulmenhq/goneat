@@ -126,6 +126,7 @@ If you accidentally overwrite a file:
 - Run each as a separate step with validation between steps.
 
 Correct:
+
 ```bash
 git add <files>
 make pre-commit
@@ -135,6 +136,7 @@ git push
 ```
 
 Incorrect:
+
 ```bash
 git add . && git commit -m "..." && git push
 git commit && git push
@@ -257,6 +259,23 @@ make tidy-check            # Dependency validation
 - ~~Per-package: 75% minimum~~ (Now stage-specific)
 - **New code**: Should not decrease overall coverage (still applies)
 - **Critical packages**: Enhanced thresholds via package overrides
+
+### Test Coverage Protection
+
+**MANDATORY TEST COVERAGE RULES**: Tests are critical infrastructure - they are NOT optional.
+
+- **No Test Skipping Without Approval**: Never skip tests or add `t.Skip()` without explicit maintainer approval
+- **No Coverage Regression**: Test coverage must never decrease without documented justification
+- **Fix Don't Skip**: When tests fail, fix the underlying issue rather than skipping the test
+- **Test Fixtures Are Sacred**: Never assume test fixtures don't exist - always verify directory structure
+- **Coverage Reports**: Always check coverage impact before committing test changes
+
+**Why This Matters**:
+
+- Tests catch bugs before users do
+- Skipped tests hide real problems
+- Coverage regression makes the codebase less maintainable
+- Test fixtures are carefully crafted for specific scenarios
 
 ---
 
@@ -407,7 +426,7 @@ When hooks fail but code is correct:
 - [ ] No force-push without `--force-with-lease`
 - [ ] Team notified of significant changes
 - [ ] **Format tool dogfooding validated**
- - [ ] Explicit human approval to push was obtained
+- [ ] Explicit human approval to push was obtained
 
 ---
 

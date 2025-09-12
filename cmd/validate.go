@@ -1,18 +1,21 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/fulmenhq/goneat/internal/assess"
+	"github.com/fulmenhq/goneat/internal/assets"
 	"github.com/fulmenhq/goneat/internal/ops"
-	cfgpkg "github.com/fulmenhq/goneat/pkg/config"
+	"github.com/fulmenhq/goneat/pkg/config"
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/schema"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -28,6 +31,10 @@ var (
 	validateForceInclude []string
 	validateEnableMeta   bool
 	validateScope        bool
+	validateListSchemas  bool
+	validateSchemaFile   string
+	validateDataSchema   string
+	validateDataFile     string
 )
 
 var validateCmd = &cobra.Command{
@@ -36,6 +43,13 @@ var validateCmd = &cobra.Command{
 	Long:  "Validate JSON/YAML files with syntax checks and schema-aware processing (preview).",
 	Args:  cobra.MaximumNArgs(1),
 	RunE:  runValidate,
+}
+
+var validateDataCmd = &cobra.Command{
+	Use:   "data --schema SCHEMA --data FILE",
+	Short: "Validate data against a specific schema",
+	Long:  "Validate data file against named embedded schema (e.g., --schema goneat-config-v1.0.0 --data .goneat.yaml)",
+	RunE:  runValidateData,
 }
 
 func init() {
@@ -54,15 +68,24 @@ func init() {
 	validateCmd.Flags().StringSliceVar(&validateIncludeFiles, "include", []string{}, "Include only these files/patterns")
 	validateCmd.Flags().StringSliceVar(&validateExcludeFiles, "exclude", []string{}, "Exclude these files/patterns")
 	validateCmd.Flags().BoolVar(&validateAutoDetect, "auto-detect", false, "Auto-detect schema files (preview; uses extensions)")
-	// Ignore override flags
 	validateCmd.Flags().BoolVar(&validateNoIgnore, "no-ignore", false, "Disable .goneatignore/.gitignore for discovery (scan everything in scope)")
 	validateCmd.Flags().StringSliceVar(&validateForceInclude, "force-include", []string{}, "Force-include paths or globs even if ignored (repeatable). Examples: --force-include tests/fixtures/schemas/bad/** --force-include \"**/*.schema.yaml\"")
-	// Schema validation options
 	validateCmd.Flags().BoolVar(&validateEnableMeta, "enable-meta", false, "Attempt meta-schema validation using embedded drafts (may require network for remote $refs)")
-	// Scoped discovery
 	validateCmd.Flags().BoolVar(&validateScope, "scope", false, "Limit traversal scope to include paths and force-include anchors")
+	validateCmd.Flags().BoolVar(&validateListSchemas, "list-schemas", false, "List available embedded schemas with drafts")
+
+	// Subcommand for data validation
+	validateCmd.AddCommand(validateDataCmd)
+	validateDataCmd.Flags().StringVar(&validateDataSchema, "schema", "", "Schema name to validate against (use with --data; mutually exclusive with --schema-file)")
+	validateDataCmd.Flags().StringVar(&validateSchemaFile, "schema-file", "", "Path to arbitrary schema file (JSON/YAML; overrides --schema)")
+	validateDataCmd.Flags().StringVar(&validateDataFile, "data", "", "Data file to validate (required)")
+	if err := validateDataCmd.MarkFlagRequired("data"); err != nil {
+		panic(fmt.Sprintf("failed to mark data flag as required: %v", err))
+	}
+	validateDataCmd.Flags().StringVar(&validateFormat, "format", "markdown", "Output format (markdown, json)")
 }
 
+// runValidate is the main validate runner (existing)
 func runValidate(cmd *cobra.Command, args []string) error {
 	target := "."
 	if len(args) > 0 {
@@ -72,7 +95,12 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("target does not exist: %s", target)
 	}
 
-	// Output format
+	// Handle --list-schemas flag
+	if validateListSchemas {
+		listSchemas(cmd)
+		return nil
+	}
+
 	var outFmt assess.OutputFormat
 	switch strings.ToLower(validateFormat) {
 	case "markdown":
@@ -89,7 +117,6 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid format: %s", validateFormat)
 	}
 
-	// Fail-on severity
 	var failOn assess.IssueSeverity
 	switch validateFailOn {
 	case "critical":
@@ -121,7 +148,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Load project config (preview) and compute include list
-	if projCfg, err := cfgpkg.LoadProjectConfig(); err == nil && projCfg != nil {
+	if projCfg, err := config.LoadProjectConfig(); err == nil && projCfg != nil {
 		sc := projCfg.GetSchemaConfig()
 		var includes []string
 		if len(validateIncludeFiles) > 0 {
@@ -141,19 +168,16 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		}
 		assessCfg.IncludeFiles = includes
 	} else {
-		// Fallback to flags
 		assessCfg.IncludeFiles = append(assessCfg.IncludeFiles, validateIncludeFiles...)
 		if len(assessCfg.IncludeFiles) == 0 && validateAutoDetect {
 			assessCfg.IncludeFiles = append(assessCfg.IncludeFiles, "schemas/")
 		}
 	}
 
-	// Friendly hint when no include paths set
 	if len(assessCfg.IncludeFiles) == 0 {
 		logger.Info("No schema include paths set. Use --include or enable schema.auto_detect (see docs/configuration/schema-config.md)")
 	}
 
-	// Engine and run
 	engine := assess.NewAssessmentEngine()
 	logger.Info(fmt.Sprintf("Validating schema files in %s", target))
 	report, err := engine.RunAssessment(cmd.Context(), target, assessCfg)
@@ -161,18 +185,16 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("validation failed: %v", err)
 	}
 
-	// Output
 	formatter := assess.NewFormatter(outFmt)
 	formatter.SetTargetPath(target)
 	if validateOutput != "" {
-		// Create report file with restrictive permissions
 		f, err := os.OpenFile(filepath.Clean(validateOutput), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 		if err != nil {
 			return fmt.Errorf("failed to create output: %v", err)
 		}
 		defer func() {
-			if err := f.Close(); err != nil {
-				logger.Warn("Failed to close output file", logger.Err(err))
+			if closeErr := f.Close(); closeErr != nil {
+				logger.Warn(fmt.Sprintf("failed to close output file: %v", closeErr))
 			}
 		}()
 		if err := formatter.WriteReport(f, report); err != nil {
@@ -186,53 +208,129 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		logger.Info("Validation report written to stdout (use --output to save to file)")
 	}
 
-	// Fail-on gate
-	if shouldFail(report, failOn) {
-		summarizeValidation(report)
+	if validateShouldFail(report, failOn) {
+		validateSummarize(report)
 		return fmt.Errorf("validation failed: found issues at or above %s", failOn)
 	}
 	return nil
 }
 
-// summarizeValidation prints a brief summary for DX
-func summarizeValidation(report *assess.AssessmentReport) {
-	total := report.Summary.TotalIssues
-	if total == 0 {
-		return
+// runValidateData runs data validation subcommand
+func runValidateData(cmd *cobra.Command, args []string) error {
+	if validateDataFile == "" {
+		return fmt.Errorf("--data is required")
 	}
-	counts := map[string]int{}
-	var first []assess.Issue
-	for _, cr := range report.Categories {
-		if cr.Category != assess.CategorySchema {
-			continue
+	if validateDataSchema == "" && validateSchemaFile == "" {
+		return fmt.Errorf("either --schema or --schema-file is required")
+	}
+	if validateDataSchema != "" && validateSchemaFile != "" {
+		return fmt.Errorf("both --schema and --schema-file provided; use one")
+	}
+
+	data, err := os.ReadFile(filepath.Clean(validateDataFile))
+	if err != nil {
+		return fmt.Errorf("failed to read data file %s: %w", validateDataFile, err)
+	}
+
+	// Parse data to interface{} (handle YAML/JSON)
+	var doc interface{}
+	ext := strings.ToLower(filepath.Ext(validateDataFile))
+	switch ext {
+	case ".yaml", ".yml":
+		if err := yaml.Unmarshal(data, &doc); err != nil {
+			return fmt.Errorf("failed to parse %s as YAML: %w", validateDataFile, err)
 		}
-		for _, is := range cr.Issues {
-			counts[is.File]++
-			if len(first) < 3 {
-				first = append(first, is)
+	case ".json":
+		if err := json.Unmarshal(data, &doc); err != nil {
+			return fmt.Errorf("failed to parse %s as JSON: %w", validateDataFile, err)
+		}
+	default:
+		return fmt.Errorf("unsupported data format: %s (use .yaml/.yml or .json)", ext)
+	}
+
+	// Load schema (embedded or file)
+	var result *schema.Result
+	if validateSchemaFile != "" {
+		schemaBytes, err := os.ReadFile(filepath.Clean(validateSchemaFile))
+		if err != nil {
+			return fmt.Errorf("failed to read schema file %s: %w", validateSchemaFile, err)
+		}
+		// Use ValidateFromBytes for arbitrary schema files
+		result, err = schema.ValidateFromBytes(schemaBytes, doc)
+		if err != nil {
+			return fmt.Errorf("validation failed: %w", err)
+		}
+	} else if validateDataSchema != "" {
+		result, err = schema.Validate(doc, validateDataSchema)
+		if err != nil {
+			return fmt.Errorf("validation failed: %w", err)
+		}
+	} else {
+		return fmt.Errorf("either --schema or --schema-file required")
+	}
+
+	// Output
+	switch strings.ToLower(validateFormat) {
+	case "json":
+		out, _ := json.MarshalIndent(result, "", "  ")
+		cmd.Printf("%s\n", out)
+	case "markdown":
+		if result.Valid {
+			cmd.Println("✅ Validation passed")
+		} else {
+			cmd.Println("❌ Validation failed:")
+			for _, e := range result.Errors {
+				cmd.Printf("- %s: %s\n", e.Path, e.Message)
+			}
+		}
+	default:
+		cmd.Println("Invalid format; use markdown or json")
+		return nil
+	}
+
+	if !result.Valid {
+		return fmt.Errorf("data validation failed")
+	}
+	return nil
+}
+
+// validateShouldFail determines if the report should cause failure
+func validateShouldFail(report *assess.AssessmentReport, failOn assess.IssueSeverity) bool {
+	total := 0
+	for _, category := range report.Categories {
+		total += len(category.Issues)
+		for _, issue := range category.Issues {
+			if issue.Severity >= failOn {
+				return true
 			}
 		}
 	}
-	logger.Info(fmt.Sprintf("Schema validation found %d issue(s)", total))
-	// sort top files by count desc
-	type kv struct {
-		f string
-		c int
+	return false
+}
+
+// validateSummarize prints summary
+func validateSummarize(report *assess.AssessmentReport) {
+	total := 0
+	for _, category := range report.Categories {
+		total += len(category.Issues)
 	}
-	var arr []kv
-	for f, c := range counts {
-		arr = append(arr, kv{f, c})
+	if total == 0 {
+		return
 	}
-	sort.Slice(arr, func(i, j int) bool {
-		if arr[i].c == arr[j].c {
-			return arr[i].f < arr[j].f
-		}
-		return arr[i].c > arr[j].c
-	})
-	for i := 0; i < len(arr) && i < 3; i++ {
-		logger.Info(fmt.Sprintf("  - %s: %d", arr[i].f, arr[i].c))
+	logger.Info(fmt.Sprintf("Validation found %d issue(s)", total))
+	// Simple summary
+}
+
+// listSchemas lists available embedded schemas.
+func listSchemas(cmd *cobra.Command) {
+	cmd.Println("Available embedded schemas (Draft-07 and Draft-2020-12 supported only):")
+	infos := assets.GetSchemaNames()
+	if len(infos) == 0 {
+		cmd.Println("No schemas found.")
+		return
 	}
-	for _, is := range first {
-		logger.Info(fmt.Sprintf("    %s: %s", is.SubCategory, is.Message))
+	for _, info := range infos {
+		cmd.Printf("- %s (%s) - %s\n", info.Name, info.Path, info.Draft)
 	}
+	cmd.Println("\nNote: Use schema name without .yaml in 'validate data --schema <name>'. Heuristics match registry keys; drafts via $schema key.")
 }

@@ -2,6 +2,12 @@
 
 This checklist ensures all requirements are met before releasing goneat to the Go package ecosystem.
 
+## Current Release Status: v0.2.3 (2025-09-12)
+
+**✅ PRE-RELEASE COMPLETE**: All quality gates passed, binaries built, licenses audited.
+**⏳ READY FOR CONSOLIDATION**: Repository ready for Git commit consolidation per SOP.
+**🎯 NEXT STEPS**: Run `make release-notes`, consolidate commits, then tag and push.
+
 ## Pre-Release Preparation
 
 ### Code Quality ✅
@@ -67,14 +73,14 @@ This checklist ensures all requirements are met before releasing goneat to the G
 
 - [ ] **Release Created**: New release on GitHub
 - [ ] **Tag Selected**: Correct version tag
-- [ ] **Title Formatted**: "goneat v1.2.3"
+- [ ] **Title Formatted**: "goneat v0.2.3"
 - [ ] **Release Notes**: Comprehensive changelog
 - [ ] **Binaries Attached**: All platform binaries uploaded
 
 ### Go Module Verification ✅
 
-- [ ] **Module Accessible**: `go get github.com/fulmenhq/goneat@v1.2.3`
-- [ ] **Installation Works**: `go install github.com/fulmenhq/goneat@v1.2.3`
+- [ ] **Module Accessible**: `go get github.com/fulmenhq/goneat@v0.2.3`
+- [ ] **Installation Works**: `go install github.com/fulmenhq/goneat@v0.2.3`
 - [ ] **Binary Functional**: Installed binary works correctly
 
 ## Post-Release Validation
@@ -95,7 +101,7 @@ This checklist ensures all requirements are met before releasing goneat to the G
 
 ### Rollback Plan
 
-- [ ] **Tag Deletion**: `git tag -d v1.2.3 && git push origin :v1.2.3`
+- [ ] **Tag Deletion**: `git tag -d v0.2.3 && git push origin :v0.2.3`
 - [ ] **Release Deletion**: Delete GitHub release
 - [ ] **Version Revert**: Update VERSION to previous version
 - [ ] **Communication**: Notify users of rollback
@@ -161,7 +167,7 @@ This checklist ensures all requirements are met before releasing goneat to the G
 make test                    # Run all tests
 make build-all              # Build all platforms
 make fmt                    # Format code
-make version-set VERSION=$VERSION  # Update version (export VERSION)
+make version-set VERSION=v0.2.3  # Update version
 
 # RC validation (do not tag until all pass)
 make build-all              # Build platform binaries
@@ -170,7 +176,7 @@ make license-audit          # Should pass locally and in CI
 make pre-push               # Runs assess with build gate
 
 # Tag/push only after above succeed
-git tag -a v$VERSION -m "release: v$VERSION" && git push origin v$VERSION
+git tag -a v0.2.3 -m "release: v0.2.3" && git push origin v0.2.3
 
 ## Commit Consolidation (Required before push)
 
@@ -210,7 +216,7 @@ Emergency recovery steps are documented in the SOP (reflog and backup branch res
 
 # Post-release validation
 
-go install github.com/fulmenhq/goneat@v$VERSION
+go install github.com/fulmenhq/goneat@v0.2.3
 goneat version # Verify installation
 
 ```

@@ -9,16 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Format: Generic text normalizer (EOF newline, trailing whitespace trim, optional CRLF→LF, optional UTF‑8 BOM removal), with safe defaults and CLI flags (`--text-normalize`, `--text-encoding-policy`, `--preserve-md-linebreaks`)
-- Security: Repository policy suppression for git hooks (gosec G302/G306) with tracked suppressions and documentation
+- Schema: Complete directory-based versioning system implementation for maintainable schema evolution
+- Schema: Comprehensive schema validation integration for dates and main goneat configurations
+- Testing: Significantly improved test coverage for pkg/config and pkg/schema packages
 
-### Changed
+### Fixed
 
-- Hooks: Reverted pre‑push fail‑on to `high`; pre‑commit remains `critical`
-- CI: Fixed Makefile coverage recipe (tabs) and improved build‑all stability
-- Docs: Updated format command reference to document new text normalization flags
+- Assessment: Updated JSON test fixtures to use human-readable time durations instead of nanoseconds
+- Assessment: Removed manual validation in favor of schema validation in dates runner tests
+- Assessment: Fixed test expectations for CHANGELOG monotonic ordering (now working correctly)
 
-## [v0.2.2] - 2025-01-25
+## [v0.2.3] - 2025-09-09
+
+### Added
+
+- Assessment: Date validation category to prevent embarrassing date mistakes in documentation
+- Assessment: Configurable file patterns for date validation (CHANGELOG.md, RELEASE_NOTES.md, docs/releases/, etc.)
+- Assessment: Support for multiple date formats (YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD)
+- Hooks: Cross-platform hook template support for Windows (PowerShell/CMD) and Unix-like systems (bash)
+- Envinfo: Enhanced system information display including user home directory and temp directory paths
+- Documentation: Comprehensive user guide for date validation feature
+- Documentation: Configuration guide for customizing date validation patterns
+- Assessment: Extended output format (`--extended`) provides detailed workplan information for debugging and automation
+- Assessment: JSON output now displays human-readable time durations (e.g., "15m", "2h30m") instead of nanoseconds for better AI agent and API consumer usability
+- Assessment: Complete schema validation integration for all configuration files with graceful fallback to defaults
+- Changelog: Corrected monotonic date ordering in release version headers
+
+### Fixed
+
+- Assessment: Enabled monotonic date ordering validation by default in CHANGELOG.md and documentation files
+- Assessment: Fixed single file assessment to properly detect date validation issues
+- Format: Enhanced finalizer logic to ensure trailing whitespace trimming takes precedence over "already formatted" responses
+- Assessment: Improved file pattern matching for date validation runner
+- Lint: Fixed golangci-lint "mixed-directory" error when processing files from different Go packages; added automatic package detection and --package-mode flag for safe multi-package linting
+- Version: Cleaned up erroneous 1.x git tags (v1.0.0, v1.1.0) from early development; aligns with 0.x semver
+- Assess: Dynamic version reporting in assessment output (from hardcoded "1.0.0" to buildinfo.BinaryVersion)
+
+## [v0.2.2] - 2025-09-09
 
 ### Fixed
 
@@ -34,22 +61,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hooks: Default configuration now includes explanatory comments for better understanding
 - Hooks: Updated help text to only show valid severity levels: critical|high|medium|low
 
-## [v0.2.2-rc.4] - 2025-01-25
+## [v0.2.2-rc.4] - 2025-09-09
 
 ### Fixed
 
 - Hooks: Fixed hardcoded invalid severity level "error" in hook generation (changed to "high")
-
-### Fixed
-
 - Error handling: Resolved 15 high‑severity errcheck issues across cmd/ (fmt writes, WalkDir, file Close)
 - Security: Hardened `content` embed/verify (path validation under repo root, restrictive perms ≤0750/0640)
-
-## [0.2.2-rc.4] - 2025-09-09
-
-### Fixed
-
-- Hooks: Fixed hardcoded invalid severity level "error" in hook generation (replaced with "high")
 - Hooks: Updated help text to only show valid severity levels: critical|high|medium|low
 - Hooks: Fixed default pre-commit hook configuration to use valid severity levels
 
@@ -68,7 +86,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Test: Added test fixtures for golangci-lint configuration validation (valid/invalid configs)
 - Test: Unit tests for config verification functionality
 
-## [0.2.2-rc.1] - 2025-09-08
+## [0.2.2-rc.1] - 2025-09-07
 
 ### Added
 
@@ -89,7 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [0.2.2-rc.1]: https://github.com/fulmenhq/goneat/compare/v0.2.1...v0.2.2-rc.1
 
-## [0.2.1] - 2025-09-08
+## [0.2.1] - 2025-09-07
 
 ### Added
 
@@ -111,7 +129,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [0.2.1]: https://github.com/fulmenhq/goneat/compare/v0.2.0...v0.2.1
 
-## [0.2.1-rc.1] - 2025-09-08
+## [0.2.1-rc.1] - 2025-09-07
 
 ### Added
 
@@ -124,7 +142,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [0.2.1-rc.1]: https://github.com/fulmenhq/goneat/compare/v0.2.0...v0.2.1-rc.1
 
-## [0.2.0] - 2025-09-07
+## [0.2.0] - 2025-09-06
 
 ### Added
 
@@ -446,36 +464,11 @@ When creating a new release, copy this template and fill in the details:
 - 🔧 Technical improvements
 - 🐛 Bug fixes
 - 📚 Documentation updates
-- 🏗️ Infrastructure changes</content>
-  </xai:function_call name="write">
-  <parameter name="filePath">goneat/RELEASE_CHECKLIST.md
-## [0.2.0-rc.7] - 2025-09-07
+- 🏗️ Infrastructure changes
 
-### Added
-- GitHub Actions: License audit workflow (make license-audit) that uploads inventory artifact.
-
-### Changed
-- Pre-push now depends on build-all to ensure binaries are built before gate.
-- Packaging script writes artifacts to dist/release and includes SHA256SUMS.
-- Repo-wide low-severity formatting sweep (Go files).
-- Docs: install instructions and naming clarification in README.
-
-### Notes
-- rc.2–rc.6 were in-progress RCs used to refine the process; rc.7 consolidates the changes into a stable candidate.
-## v0.2.1 (Release Candidate)
-
-### Added
-- Content curation command: `goneat content` with `find`, `embed`, and `verify` subcommands for manifest‑driven docs selection and mirror management (JSON‑first).
-- Read‑only docs command: `goneat docs list|show` to access embedded curated documentation offline.
-- JSON Schema (2020‑12) for docs embed manifest: `schemas/content/docs-embed-manifest-v1.0.0.json`.
-
-### Changed
-- Embed/verify SOP extended to include curated docs. `scripts/embed-assets.sh` prefers CLI for docs; `scripts/verify-embeds.sh` now uses `goneat content verify`.
-- Security defaults: add `security.exclude_fixtures` and `security.fixture_patterns` to avoid scanning fixtures by default.
-
-### Notes
 - Curated docs are selected via `docs/embed-manifest.yaml` and mirrored to `internal/assets/embedded_docs/docs/` to ensure `go install` includes assets.
 - Frontmatter‑based selection planned for v0.2.2.
 
 ### Security
+
 - All content operations are rooted under `docs/`; writes use 0644; no network access.

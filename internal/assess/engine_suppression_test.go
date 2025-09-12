@@ -18,7 +18,7 @@ func TestEnginePromotesSuppressions(t *testing.T) {
 		result: &AssessmentResult{
 			CommandName:   "security",
 			Success:       true,
-			ExecutionTime: time.Second,
+			ExecutionTime: HumanReadableDuration(time.Second),
 			Issues:        []Issue{},
 			Metrics:       map[string]interface{}{"_suppressions": supps},
 		},

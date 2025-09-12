@@ -1,0 +1,4 @@
+# Un-exclude test fixtures for schema validation testing
+# This allows test files to be processed during schema validation tests
+# while still being excluded from regular goneat scanning
+!*

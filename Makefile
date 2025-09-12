@@ -128,9 +128,11 @@ test-integration: ## Run integration tests only
 
 test-coverage: ## Run tests with coverage
 	@echo "Running tests with coverage..."
-	$(GOTEST) ./... -coverprofile=coverage.out
-	go tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report: coverage.html"
+	@mkdir -p $(HOME)/.goneat/coverage
+	$(GOTEST) ./... -coverprofile=$(HOME)/.goneat/coverage/coverage.out
+	go tool cover -html=$(HOME)/.goneat/coverage/coverage.out -o $(HOME)/.goneat/coverage/coverage.html
+	@echo "Coverage report: $(HOME)/.goneat/coverage/coverage.html"
+	@echo "Coverage data: $(HOME)/.goneat/coverage/coverage.out"
 
 # Coverage gating based on lifecycle phase
 coverage-check: test-coverage ## Enforce coverage threshold based on lifecycle phase
@@ -150,8 +152,8 @@ coverage-check: test-coverage ## Enforce coverage threshold based on lifecycle p
 	else \
 	  phase_label="lifecycle=$$lifecycle"; \
 	fi; \
-	if [ ! -f coverage.out ]; then echo "❌ coverage.out not found. Run make test-coverage first"; exit 1; fi; \
-	total=$$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/,"",$$3); print $$3}'); \
+	if [ ! -f $(HOME)/.goneat/coverage/coverage.out ]; then echo "❌ coverage.out not found. Run make test-coverage first"; exit 1; fi; \
+	total=$$(go tool cover -func=$(HOME)/.goneat/coverage/coverage.out | awk '/^total:/ {gsub(/%/,"",$$3); print $$3}'); \
 	awk -v cov="$$total" -v thr="$$threshold" -v ph="$$phase_label" 'BEGIN { \
 	  cov+=0; thr+=0; \
 	  if (cov >= thr) { printf "✅ Coverage %.1f%% meets threshold %.1f%% (%s)\n", cov, thr, ph; exit 0 } \

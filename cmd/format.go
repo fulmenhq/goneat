@@ -92,6 +92,10 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 	// Load configuration
 	cfg, err := config.LoadProjectConfig()
 	if err != nil {
+		// Check if this is a validation error (config exists but is invalid)
+		if strings.Contains(err.Error(), "validation failed") {
+			return fmt.Errorf("invalid project configuration: %w", err)
+		}
 		// Config loading failed, use defaults (this is normal if no config file exists)
 		cfg = &config.Config{}
 	}

@@ -1,0 +1,31 @@
+# Project-level dates configuration
+# Test configuration to change monotonic violations from warning to error
+enabled: true
+rules:
+  monotonic_order:
+    enabled: true
+    severity: "error"
+    files:
+      - "**/CHANGELOG*.md"
+      - "**/HISTORY.md"
+      - "**/NEWS.md"
+      - "**/*changelog*.md"
+files:
+  include:
+    - "**/CHANGELOG*.md"
+    - "**/HISTORY.md"
+    - "**/NEWS.md"
+    - "**/*changelog*.md"
+  exclude:
+    - "**/node_modules/**"
+    - "**/.git/**"
+    - "**/dist/**"
+    - "**/build/**"
+  text_extensions:
+    - ".md"
+    - ".txt"
+    - ".yaml"
+    - ".yml"
+    - ".json"
+    - ".toml"
+  max_file_size_bytes: 4194304

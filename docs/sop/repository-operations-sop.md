@@ -34,7 +34,11 @@ This document establishes standard operating procedures for Goneat repository op
 - **Release**: dev=50%, rc=70%, ga=75%
 - **Policy**: Coverage gates use LIFECYCLE_PHASE threshold (authoritative). RELEASE_PHASE is for distribution cadence only.
 
-**Documentation**: See [docs/standards/lifecycle-release-phase-standard.md](../standards/lifecycle-release-phase-standard.md) for complete definitions, validation rules, and change control procedures.
+**Documentation**:
+
+- See [docs/standards/lifecycle-release-phase-standard.md](../standards/lifecycle-release-phase-standard.md) for complete definitions, validation rules, and change control procedures
+- See [docs/standards/ephemeral-and-local-data-storage-standard.md](../standards/ephemeral-and-local-data-storage-standard.md) for data storage locations and cache management
+- See [docs/standards/host-os-environment-support-standard.md](../standards/host-os-environment-support-standard.md) for cross-platform compatibility and OS support requirements
 
 ## Commit Operations
 
@@ -106,6 +110,8 @@ git add .gitignore
 - No IDE files (`.vscode/`, `.idea/`)
 - No sensitive data or credentials
 - No AI tool artifacts (`.claude/`, `.cursor/`)
+
+**Data Storage Reference**: See [Ephemeral and Local Data Storage Standard](../standards/ephemeral-and-local-data-storage-standard.md) for complete guidelines on goneat's data storage locations and cleanup procedures.
 
 #### 4. Pre-Commit Validation
 

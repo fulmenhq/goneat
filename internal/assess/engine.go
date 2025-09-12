@@ -6,6 +6,7 @@ package assess
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/fulmenhq/goneat/internal/gitctx"
+	"github.com/fulmenhq/goneat/pkg/buildinfo"
 	"github.com/fulmenhq/goneat/pkg/logger"
 )
 
@@ -162,7 +164,7 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 				cr.Status = "success"
 				cr.Issues = e.annotateIssuesWithChange(result.Issues, target, modifiedAbs, modifiedLinesAbs)
 				cr.IssueCount = len(result.Issues)
-				cr.EstimatedTime = e.estimateCategoryTime(result.Issues)
+				cr.EstimatedTime = HumanReadableDuration(e.estimateCategoryTime(result.Issues))
 				if result.Metrics != nil {
 					cr.Metrics = result.Metrics
 					// Extract suppression report if present
@@ -233,7 +235,7 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 						cr.Status = "success"
 						cr.Issues = e.annotateIssuesWithChange(result.Issues, target, modifiedAbs, modifiedLinesAbs)
 						cr.IssueCount = len(result.Issues)
-						cr.EstimatedTime = e.estimateCategoryTime(result.Issues)
+						cr.EstimatedTime = HumanReadableDuration(e.estimateCategoryTime(result.Issues))
 						if result.Metrics != nil {
 							cr.Metrics = result.Metrics
 							// Extract suppression report if present
@@ -282,16 +284,16 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 	workflow := e.generateWorkflowPlan(categoryResults, allIssues)
 
 	// Calculate summary statistics
-	summary := e.calculateSummary(categoryResults, allIssues, workflow.TotalTime)
+	summary := e.calculateSummary(categoryResults, allIssues, time.Duration(workflow.TotalTime))
 
 	// Create the final report
 	report := &AssessmentReport{
 		Metadata: ReportMetadata{
 			GeneratedAt:   time.Now(),
 			Tool:          "goneat",
-			Version:       "1.0.0", // TODO: Get from version package
+			Version:       buildinfo.BinaryVersion, // Dynamic from ldflags
 			Target:        target,
-			ExecutionTime: time.Since(startTime),
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
 			CommandsRun:   commandsRun,
 			FailOn:        string(config.FailOnSeverity),
 		},
@@ -309,6 +311,19 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 			GitSHA:        changeCtx.GitSHA,
 			Branch:        changeCtx.Branch,
 		}
+	}
+
+	// Add extended workplan if requested
+	if config.Extended {
+		report.Workplan = e.generateExtendedWorkplan(
+			target,
+			config,
+			orderedCategories,
+			categoryResults,
+			catRuntime,
+			workerCount,
+			time.Since(startTime),
+		)
 	}
 
 	// Log summary with concurrency and per-category runtimes
@@ -355,7 +370,7 @@ func (e *AssessmentEngine) estimateCategoryTime(issues []Issue) time.Duration {
 
 	for _, issue := range issues {
 		if issue.EstimatedTime > 0 {
-			totalTime += issue.EstimatedTime
+			totalTime += time.Duration(issue.EstimatedTime)
 		} else {
 			// Default time estimates based on severity
 			switch issue.Severity {
@@ -374,6 +389,86 @@ func (e *AssessmentEngine) estimateCategoryTime(issues []Issue) time.Duration {
 	}
 
 	return totalTime
+}
+
+// generateExtendedWorkplan creates detailed execution and discovery information
+func (e *AssessmentEngine) generateExtendedWorkplan(
+	target string,
+	config AssessmentConfig,
+	orderedCategories []AssessmentCategory,
+	categoryResults map[string]CategoryResult,
+	catRuntime map[AssessmentCategory]time.Duration,
+	workerCount int,
+	totalRuntime time.Duration,
+) *ExtendedWorkplan {
+	// Collect file list and discovery patterns from the target
+	fileList := []string{}
+
+	// For single file, just add the file
+	if info, err := os.Stat(target); err == nil && !info.IsDir() {
+		fileList = append(fileList, filepath.Base(target))
+	}
+
+	// Build discovery patterns
+	discoveryPatterns := DiscoveryPatterns{
+		Include:      config.IncludeFiles,
+		Exclude:      config.ExcludeFiles,
+		ForceInclude: config.ForceInclude,
+	}
+
+	// Count categories
+	categoriesPlanned := []string{}
+	categoriesSkipped := []string{}
+	skipReasons := make(map[string]string)
+
+	for _, category := range orderedCategories {
+		categoriesPlanned = append(categoriesPlanned, string(category))
+	}
+
+	// Check for skipped categories by examining available categories vs selected
+	availableCategories := e.runnerRegistry.GetAvailableCategories()
+	for _, category := range availableCategories {
+		categoryStr := string(category)
+		found := false
+		for _, planned := range categoriesPlanned {
+			if planned == categoryStr {
+				found = true
+				break
+			}
+		}
+		if !found {
+			categoriesSkipped = append(categoriesSkipped, categoryStr)
+			if len(config.SelectedCategories) > 0 {
+				skipReasons[categoryStr] = "not in selected categories"
+			} else {
+				skipReasons[categoryStr] = "not available or filtered out"
+			}
+		}
+	}
+
+	// Build category runtimes map
+	categoryRuntimes := make(map[string]HumanReadableDuration)
+	for category, duration := range catRuntime {
+		categoryRuntimes[string(category)] = HumanReadableDuration(duration)
+	}
+
+	return &ExtendedWorkplan{
+		FilesDiscovered:   len(fileList), // Simple approximation
+		FilesIncluded:     len(fileList),
+		FilesExcluded:     0,                // Would need file discovery logic to calculate properly
+		ExclusionReasons:  map[string]int{}, // Placeholder
+		CategoriesPlanned: categoriesPlanned,
+		CategoriesSkipped: categoriesSkipped,
+		SkipReasons:       skipReasons,
+		EstimatedDuration: HumanReadableDuration(totalRuntime),
+		FileList:          fileList,
+		DiscoveryPatterns: discoveryPatterns,
+		ExecutionSummary: ExecutionSummary{
+			WorkerCount:      workerCount,
+			CategoryRuntimes: categoryRuntimes,
+			TotalRuntime:     HumanReadableDuration(totalRuntime),
+		},
+	}
 }
 
 // generateWorkflowPlan creates a remediation workflow from assessment results
@@ -398,7 +493,7 @@ func (e *AssessmentEngine) generateWorkflowPlan(categoryResults map[string]Categ
 		for _, result := range categoryResults {
 			if result.Priority == priority && result.IssueCount > 0 {
 				phaseCategories = append(phaseCategories, result.Category)
-				phaseTime += result.EstimatedTime
+				phaseTime += time.Duration(result.EstimatedTime)
 				phaseIssues = append(phaseIssues, categoryIssues[result.Category]...)
 			}
 		}
@@ -407,7 +502,7 @@ func (e *AssessmentEngine) generateWorkflowPlan(categoryResults map[string]Categ
 			phase := WorkflowPhase{
 				Name:          fmt.Sprintf("Phase %d", priority),
 				Description:   e.getPhaseDescription(priority, phaseCategories),
-				EstimatedTime: phaseTime,
+				EstimatedTime: HumanReadableDuration(phaseTime),
 				Categories:    phaseCategories,
 				Priority:      priority,
 			}
@@ -427,7 +522,7 @@ func (e *AssessmentEngine) generateWorkflowPlan(categoryResults map[string]Categ
 	return WorkflowPlan{
 		Phases:         phases,
 		ParallelGroups: parallelGroups,
-		TotalTime:      e.calculateTotalTime(phases),
+		TotalTime:      HumanReadableDuration(e.calculateTotalTime(phases)),
 	}
 }
 
@@ -466,7 +561,7 @@ func (e *AssessmentEngine) identifyParallelGroups(issues []Issue, categories []A
 				Description:   fmt.Sprintf("Issues in %s", file),
 				Files:         []string{file},
 				Categories:    categories,
-				EstimatedTime: e.estimateCategoryTime(fileIssues),
+				EstimatedTime: HumanReadableDuration(e.estimateCategoryTime(fileIssues)),
 				IssueCount:    len(fileIssues),
 			}
 			groups = append(groups, group)
@@ -481,7 +576,7 @@ func (e *AssessmentEngine) identifyParallelGroups(issues []Issue, categories []A
 func (e *AssessmentEngine) calculateTotalTime(phases []WorkflowPhase) time.Duration {
 	var total time.Duration
 	for _, phase := range phases {
-		total += phase.EstimatedTime
+		total += time.Duration(phase.EstimatedTime)
 	}
 	return total
 }
@@ -527,7 +622,7 @@ func (e *AssessmentEngine) calculateSummary(categoryResults map[string]CategoryR
 		OverallHealth:        overallHealth,
 		CriticalIssues:       criticalCount,
 		TotalIssues:          len(allIssues),
-		EstimatedTime:        totalTime,
+		EstimatedTime:        HumanReadableDuration(totalTime),
 		ParallelGroups:       len(e.identifyParallelGroups(allIssues, []AssessmentCategory{})),
 		CategoriesWithIssues: categoriesWithIssues,
 	}

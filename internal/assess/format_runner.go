@@ -54,7 +54,7 @@ func (r *FormatAssessmentRunner) Assess(ctx context.Context, target string, conf
 			CommandName:   r.commandName,
 			Category:      CategoryFormat,
 			Success:       false,
-			ExecutionTime: time.Since(startTime),
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
 			Error:         fmt.Sprintf("failed to discover files: %v", err),
 		}, nil
 	}
@@ -127,7 +127,7 @@ func (r *FormatAssessmentRunner) Assess(ctx context.Context, target string, conf
 					Category:      CategoryFormat,
 					SubCategory:   "bom",
 					AutoFixable:   true,
-					EstimatedTime: 30 * time.Second,
+					EstimatedTime: HumanReadableDuration(30 * time.Second),
 				})
 			}
 		}
@@ -141,7 +141,7 @@ func (r *FormatAssessmentRunner) Assess(ctx context.Context, target string, conf
 				Category:      CategoryFormat,
 				SubCategory:   "line-endings",
 				AutoFixable:   true,
-				EstimatedTime: 20 * time.Second,
+				EstimatedTime: HumanReadableDuration(20 * time.Second),
 			})
 		}
 
@@ -154,7 +154,7 @@ func (r *FormatAssessmentRunner) Assess(ctx context.Context, target string, conf
 				Category:      CategoryFormat,
 				SubCategory:   "trailing-whitespace",
 				AutoFixable:   true,
-				EstimatedTime: 15 * time.Second,
+				EstimatedTime: HumanReadableDuration(15 * time.Second),
 			})
 		}
 
@@ -168,7 +168,7 @@ func (r *FormatAssessmentRunner) Assess(ctx context.Context, target string, conf
 				Category:      CategoryFormat,
 				SubCategory:   "eof",
 				AutoFixable:   true,
-				EstimatedTime: 10 * time.Second,
+				EstimatedTime: HumanReadableDuration(10 * time.Second),
 			})
 		}
 	}
@@ -179,7 +179,7 @@ func (r *FormatAssessmentRunner) Assess(ctx context.Context, target string, conf
 		CommandName:   r.commandName,
 		Category:      CategoryFormat,
 		Success:       true,
-		ExecutionTime: time.Since(startTime),
+		ExecutionTime: HumanReadableDuration(time.Since(startTime)),
 		Issues:        allIssues,
 	}, nil
 }
@@ -422,7 +422,7 @@ func (r *FormatAssessmentRunner) checkFormatting(goFiles []string, config Assess
 			Category:      CategoryFormat,
 			SubCategory:   "whitespace",
 			AutoFixable:   true,
-			EstimatedTime: 30 * time.Second, // Rough estimate for manual formatting
+			EstimatedTime: HumanReadableDuration(30 * time.Second), // Rough estimate for manual formatting
 		}
 
 		allIssues = append(allIssues, issue)

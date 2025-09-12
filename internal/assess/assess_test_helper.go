@@ -33,7 +33,7 @@ func (f *fakeRunner) Assess(ctx context.Context, target string, cfg AssessmentCo
 		CommandName:   ifEmpty(f.commandName, string(f.category)),
 		Category:      f.category,
 		Success:       true,
-		ExecutionTime: f.delay,
+		ExecutionTime: HumanReadableDuration(f.delay),
 		Issues:        append([]Issue(nil), f.issues...),
 		Metrics:       f.metrics,
 	}, nil

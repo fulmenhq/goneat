@@ -844,11 +844,67 @@ goneat assess --format executive-summary --output summary.md
 
 The assess command is designed for extensibility:
 
+- **Extended Output (`--extended`):** Enhanced output format with detailed workplan information including file discovery details, category planning, and execution transparency for debugging and automation ✅ **Available**
 - **Additional categories:** Testing, documentation, dependencies
 - **Custom tools:** Plugin system for proprietary validators
 - **Machine learning:** Intelligent prioritization based on codebase patterns
 - **Distributed execution:** Cluster support for large monorepos
 - **Real-time feedback:** IDE integration with incremental assessment
+
+### Extended Output Format (`--extended`)
+
+The `--extended` flag enhances output with comprehensive workplan details:
+
+```json
+{
+  "metadata": { ... },
+  "summary": { ... },
+  "workplan": {
+    "files_discovered": 45,
+    "files_included": 12,
+    "files_excluded": 33,
+    "exclusion_reasons": {
+      "gitignore": 20,
+      "goneatignore": 8,
+      "pattern_mismatch": 5
+    },
+    "categories_planned": ["dates", "format", "lint"],
+    "categories_skipped": ["security"],
+    "skip_reasons": { "security": "no matching files" },
+    "estimated_duration": "15s",
+    "file_list": ["CHANGELOG.md", "README.md", "internal/dates/dates.go"],
+    "discovery_patterns": {
+      "include": ["**/*.md", "**/*.go"],
+      "exclude": ["**/vendor/**", "**/.git/**"]
+    }
+  },
+  "categories": { ... }
+}
+```
+
+This enhanced output provides:
+
+- **Complete file discovery transparency** - see exactly what files were found, included, and excluded
+- **Category planning details** - understand why categories were run or skipped
+- **Debugging information** - pattern matching results and configuration resolution
+- **Automation support** - structured data for CI/CD pipeline decisions
+- **Performance insights** - detailed execution times per category and worker utilization
+
+### Usage Examples
+
+```bash
+# Enhanced JSON output for automation
+goneat assess --extended --format=json --output=detailed-report.json
+
+# Enhanced Markdown output for human review
+goneat assess --extended --format=markdown --output=detailed-report.md
+
+# Debug single file processing
+goneat assess --categories=dates --extended CHANGELOG.md
+
+# CI/CD pipeline with detailed workplan
+goneat assess --extended --format=json | jq '.workplan.execution_summary'
+```
 
 ## Related Commands
 
