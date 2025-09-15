@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 
@@ -31,8 +32,15 @@ var doctorToolsCmd = &cobra.Command{
 	Long: `Verify (and optionally install) external tools used by goneat features.
 
 Current scopes:
-- security: gosec, govulncheck, gitleaks
-- format:   goimports, gofmt (gofmt is bundled with Go toolchain)
+- security:     gosec, govulncheck, gitleaks
+- format:       goimports, gofmt (gofmt is bundled with Go toolchain)
+- foundation: ripgrep, jq, go-licenses (cross-platform CLI tools)
+- all:          all tools from all scopes
+
+Package Manager Installation:
+- --install-package-managers: Install missing package managers (scoop on Windows)
+- Requires --yes for non-interactive installation
+- Package managers are installed before tools to ensure PATH is updated
 
 PATH Troubleshooting:
 If tools are installed but not found, check your PATH:
@@ -57,6 +65,11 @@ var (
 	flagDoctorYes               bool
 	flagDoctorScope             string
 	flagDoctorCheckUpdates      bool
+	flagDoctorInstallPkgMgr     bool
+	flagDoctorConfig            string
+	flagDoctorListScopes        bool
+	flagDoctorValidateConfig    bool
+	flagDoctorDryRun            bool
 )
 
 func init() {
@@ -79,49 +92,39 @@ func init() {
 	doctorToolsCmd.Flags().StringSliceVar(&flagDoctorTools, "tools", []string{}, "Comma-separated list of tools (e.g., gosec,govulncheck,goimports,gofmt)")
 	doctorToolsCmd.Flags().BoolVar(&flagDoctorPrintInstructions, "print-instructions", false, "Print install instructions for missing tools")
 	doctorToolsCmd.Flags().BoolVar(&flagDoctorYes, "yes", false, "Assume 'yes' for prompts (non-interactive)")
-	doctorToolsCmd.Flags().StringVar(&flagDoctorScope, "scope", "security", "Tool scope to target (security|format|all)")
+	doctorToolsCmd.Flags().StringVar(&flagDoctorScope, "scope", "security", "Tool scope to target (security|format|foundation|all)")
 	doctorToolsCmd.Flags().BoolVar(&flagDoctorCheckUpdates, "check-updates", false, "Check for available updates (preview; informational only)")
+	doctorToolsCmd.Flags().BoolVar(&flagDoctorInstallPkgMgr, "install-package-managers", false, "Install missing package managers (requires --yes for non-interactive)")
+	doctorToolsCmd.Flags().StringVar(&flagDoctorConfig, "config", "", "Path to custom tools configuration file")
+	doctorToolsCmd.Flags().BoolVar(&flagDoctorListScopes, "list-scopes", false, "List available scopes and exit")
+	doctorToolsCmd.Flags().BoolVar(&flagDoctorValidateConfig, "validate-config", false, "Validate configuration file and exit")
+	doctorToolsCmd.Flags().BoolVar(&flagDoctorDryRun, "dry-run", false, "Show what would be installed without installing")
 }
 
 func runDoctorTools(cmd *cobra.Command, _ []string) error {
-	// Helper to resolve catalog by scope
-	resolveByScope := func(scope string) []intdoctor.Tool {
-		switch strings.ToLower(strings.TrimSpace(scope)) {
-		case "security":
-			return intdoctor.KnownSecurityTools()
-		case "format":
-			return intdoctor.KnownFormatTools()
-		case "all":
-			return intdoctor.KnownAllTools()
-		default:
-			// Fallback to security
-			return intdoctor.KnownSecurityTools()
-		}
+	// Handle special modes first
+	if flagDoctorListScopes {
+		return handleListScopes(cmd)
 	}
 
-	// Select tools per scope and flags
-	var selected []intdoctor.Tool
-	if len(flagDoctorTools) == 0 {
-		// No explicit tools; use --all within the chosen scope (default security)
-		selected = resolveByScope(flagDoctorScope)
-		// Note: --all flag retained for backward compatibility but no trimming needed in MVP
-	} else {
-		unknown := []string{}
-		for _, name := range flagDoctorTools {
-			if t, ok := intdoctor.GetToolByName(name); ok {
-				selected = append(selected, t)
-			} else {
-				unknown = append(unknown, strings.TrimSpace(name))
-			}
-		}
-		if len(unknown) > 0 {
-			// Build allowed list dynamically
-			var allowed []string
-			for _, t := range intdoctor.KnownAllTools() {
-				allowed = append(allowed, t.Name)
-			}
-			return fmt.Errorf("unknown tool(s): %s. Allowed: %s", strings.Join(unknown, ", "), strings.Join(allowed, ", "))
-		}
+	if flagDoctorValidateConfig {
+		return handleValidateConfig(cmd)
+	}
+
+	if flagDoctorDryRun {
+		return handleDryRun(cmd)
+	}
+
+	// Load configuration
+	config, err := loadToolsConfiguration()
+	if err != nil {
+		return fmt.Errorf("failed to load tools configuration: %w", err)
+	}
+
+	// Convert configuration tools to legacy Tool format for compatibility
+	selected, err := selectToolsFromConfig(config)
+	if err != nil {
+		return fmt.Errorf("failed to select tools: %w", err)
 	}
 
 	if len(selected) == 0 {
@@ -131,47 +134,10 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 
 	// Preview: check-updates mode (informational; no network latest lookup yet)
 	if flagDoctorCheckUpdates {
-		// Collect local info for output
-		type toolInfo struct {
-			Name    string `json:"name"`
-			Present bool   `json:"present"`
-			Version string `json:"version,omitempty"`
-		}
-		infos := make([]toolInfo, 0, len(selected))
-		for _, tool := range selected {
-			st := intdoctor.CheckTool(tool)
-			ver := st.Version
-			if ver == "" && st.Present {
-				ver = "unknown"
-			}
-			infos = append(infos, toolInfo{Name: tool.Name, Present: st.Present, Version: ver})
-		}
-
-		// Honor --json for structured output
-		if jsonOut, _ := cmd.Flags().GetBool("json"); jsonOut {
-			payload := map[string]any{
-				"tools":    infos,
-				"note":     "Upgrade checks will report latest versions in v0.1.x (preview)",
-				"scope":    flagDoctorScope,
-				"selected": flagDoctorTools,
-			}
-			data, _ := json.MarshalIndent(payload, "", "  ")
-			fmt.Fprintln(cmd.OutOrStdout(), string(data)) //nolint:errcheck // CLI output errors are typically ignored
-			return nil
-		}
-
-		// Human-readable summary
-		for _, ti := range infos {
-			if ti.Present {
-				fmt.Fprintf(cmd.OutOrStdout(), "%-12s present (version: %s)\n", ti.Name, ti.Version) //nolint:errcheck // CLI output errors are typically ignored
-			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "%-12s missing\n", ti.Name) //nolint:errcheck // CLI output errors are typically ignored
-			}
-		}
-		fmt.Fprintln(cmd.OutOrStdout(), "Note: Upgrade checks will report latest versions in v0.1.x. This is an informational preview.") //nolint:errcheck // CLI output errors are typically ignored
-		return nil
+		return handleCheckUpdates(cmd, selected)
 	}
 
+	// Process tools
 	missing := 0
 	installed := 0
 
@@ -402,4 +368,325 @@ func runDoctorEnv(cmd *cobra.Command, _ []string) error {
 	}
 
 	return nil
+}
+
+// loadToolsConfiguration loads the tools configuration
+func loadToolsConfiguration() (*intdoctor.ToolsConfig, error) {
+	// If custom config specified, load it directly
+	if flagDoctorConfig != "" {
+		// Validate path to prevent directory traversal
+		cleanPath := filepath.Clean(flagDoctorConfig)
+		if strings.Contains(cleanPath, "..") {
+			return nil, fmt.Errorf("config path contains invalid path traversal")
+		}
+
+		configBytes, err := os.ReadFile(cleanPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read config file: %w", err)
+		}
+
+		// Validate the config
+		if err := intdoctor.ValidateToolsConfig(configBytes); err != nil {
+			return nil, fmt.Errorf("config validation failed: %w", err)
+		}
+
+		// Parse the config
+		config, err := intdoctor.ParseConfig(configBytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse config: %w", err)
+		}
+
+		return config, nil
+	}
+
+	// Otherwise, load with defaults and user config merging
+	return intdoctor.LoadToolsConfig()
+}
+
+// selectToolsFromConfig selects tools based on configuration and flags
+func selectToolsFromConfig(config *intdoctor.ToolsConfig) ([]intdoctor.Tool, error) {
+	var selected []intdoctor.Tool
+
+	if len(flagDoctorTools) == 0 {
+		// No explicit tools; use scope
+		toolConfigs, err := config.GetToolsForScope(flagDoctorScope)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get tools for scope '%s': %w", flagDoctorScope, err)
+		}
+
+		// Convert ToolConfig to Tool
+		for _, toolConfig := range toolConfigs {
+			tool := convertToolConfigToTool(toolConfig)
+			selected = append(selected, tool)
+		}
+	} else {
+		// Explicit tools specified
+		unknown := []string{}
+		for _, name := range flagDoctorTools {
+			toolConfig, exists := config.GetTool(name)
+			if !exists {
+				unknown = append(unknown, strings.TrimSpace(name))
+			} else {
+				tool := convertToolConfigToTool(toolConfig)
+				selected = append(selected, tool)
+			}
+		}
+		if len(unknown) > 0 {
+			// Build allowed list
+			var allowed []string
+			for name := range config.Tools {
+				allowed = append(allowed, name)
+			}
+			return nil, fmt.Errorf("unknown tool(s): %s. Allowed: %s", strings.Join(unknown, ", "), strings.Join(allowed, ", "))
+		}
+	}
+
+	return selected, nil
+}
+
+// convertToolConfigToTool converts ToolConfig to legacy Tool format
+func convertToolConfigToTool(toolConfig intdoctor.ToolConfig) intdoctor.Tool {
+	tool := intdoctor.Tool{
+		Name:           toolConfig.Name,
+		Kind:           toolConfig.Kind,
+		InstallPackage: toolConfig.InstallPackage,
+		VersionArgs:    toolConfig.VersionArgs,
+		CheckArgs:      toolConfig.CheckArgs,
+		Description:    toolConfig.Description,
+		Platforms:      toolConfig.Platforms,
+	}
+
+	// Convert install commands to InstallMethods
+	if toolConfig.InstallCommands != nil {
+		tool.InstallMethods = make(map[string]intdoctor.InstallMethod)
+		for platform, command := range toolConfig.InstallCommands {
+			// Capture the detect command in a closure
+			detectCmd := toolConfig.DetectCommand
+			tool.InstallMethods[platform] = intdoctor.InstallMethod{
+				Detector: func() (string, bool) {
+					// Parse the detect command properly
+					parts := strings.Fields(detectCmd)
+					if len(parts) == 0 {
+						return "", false
+					}
+					// Use the first part as the command name, rest as args
+					return intdoctor.TryCommand(parts[0], parts[1:]...)
+				},
+				Installer: func() error {
+					// Execute the install command
+					return intdoctor.ExecuteInstallCommand(command)
+				},
+				Instructions: command,
+			}
+		}
+	}
+
+	return tool
+}
+
+// handleListScopes handles the --list-scopes flag
+func handleListScopes(cmd *cobra.Command) error {
+	config, err := loadToolsConfiguration()
+	if err != nil {
+		return fmt.Errorf("failed to load configuration: %w", err)
+	}
+
+	scopes := config.GetAllScopes()
+
+	// Honor --json for structured output
+	if jsonOut, _ := cmd.Flags().GetBool("json"); jsonOut {
+		payload := map[string]any{
+			"scopes": scopes,
+		}
+		data, _ := json.MarshalIndent(payload, "", "  ")
+		fmt.Fprintln(cmd.OutOrStdout(), string(data)) //nolint:errcheck // CLI output errors are typically ignored
+		return nil
+	}
+
+	// Human-readable output
+	fmt.Fprintln(cmd.OutOrStdout(), "Available scopes:") //nolint:errcheck // CLI output errors are typically ignored
+	for _, scope := range scopes {
+		fmt.Fprintf(cmd.OutOrStdout(), "  %-15s - %s\n", scope, config.Scopes[scope].Description) //nolint:errcheck // CLI output errors are typically ignored
+	}
+
+	return nil
+}
+
+// handleValidateConfig handles the --validate-config flag
+func handleValidateConfig(cmd *cobra.Command) error {
+	configPath := flagDoctorConfig
+	if configPath == "" {
+		configPath = ".goneat/tools.yaml"
+	}
+
+	err := intdoctor.ValidateConfigFile(configPath)
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStderr(), "❌ Configuration validation failed: %v\n", err) //nolint:errcheck // CLI output errors are typically ignored
+		return err
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "✅ Configuration is valid: %s\n", configPath) //nolint:errcheck // CLI output errors are typically ignored
+	return nil
+}
+
+// handleCheckUpdates handles the --check-updates flag
+func handleCheckUpdates(cmd *cobra.Command, selected []intdoctor.Tool) error {
+	// Collect local info for output
+	type toolInfo struct {
+		Name    string `json:"name"`
+		Present bool   `json:"present"`
+		Version string `json:"version,omitempty"`
+	}
+	infos := make([]toolInfo, 0, len(selected))
+	for _, tool := range selected {
+		st := intdoctor.CheckTool(tool)
+		ver := st.Version
+		if ver == "" && st.Present {
+			ver = "unknown"
+		}
+		infos = append(infos, toolInfo{Name: tool.Name, Present: st.Present, Version: ver})
+	}
+
+	// Honor --json for structured output
+	if jsonOut, _ := cmd.Flags().GetBool("json"); jsonOut {
+		payload := map[string]any{
+			"tools":    infos,
+			"note":     "Upgrade checks will report latest versions in v0.1.x (preview)",
+			"scope":    flagDoctorScope,
+			"selected": flagDoctorTools,
+		}
+		data, _ := json.MarshalIndent(payload, "", "  ")
+		fmt.Fprintln(cmd.OutOrStdout(), string(data)) //nolint:errcheck // CLI output errors are typically ignored
+		return nil
+	}
+
+	// Human-readable summary
+	for _, ti := range infos {
+		if ti.Present {
+			fmt.Fprintf(cmd.OutOrStdout(), "%-12s present (version: %s)\n", ti.Name, ti.Version) //nolint:errcheck // CLI output errors are typically ignored
+		} else {
+			fmt.Fprintf(cmd.OutOrStdout(), "%-12s missing\n", ti.Name) //nolint:errcheck // CLI output errors are typically ignored
+		}
+	}
+	fmt.Fprintln(cmd.OutOrStdout(), "Note: Upgrade checks will report latest versions in v0.1.x. This is an informational preview.") //nolint:errcheck // CLI output errors are typically ignored
+	return nil
+}
+
+// handleDryRun handles the --dry-run flag
+func handleDryRun(cmd *cobra.Command) error {
+	// Load configuration
+	config, err := loadToolsConfiguration()
+	if err != nil {
+		return fmt.Errorf("failed to load tools configuration: %w", err)
+	}
+
+	// Convert configuration tools to legacy Tool format for compatibility
+	selected, err := selectToolsFromConfig(config)
+	if err != nil {
+		return fmt.Errorf("failed to select tools: %w", err)
+	}
+
+	if len(selected) == 0 {
+		logger.Info("No tools selected")
+		return nil
+	}
+
+	// Check tools and collect installation information
+	type dryRunInfo struct {
+		Name           string `json:"name"`
+		Present        bool   `json:"present"`
+		Version        string `json:"version,omitempty"`
+		WouldInstall   bool   `json:"would_install"`
+		InstallCommand string `json:"install_command,omitempty"`
+		Instructions   string `json:"instructions,omitempty"`
+		Error          string `json:"error,omitempty"`
+	}
+
+	infos := make([]dryRunInfo, 0, len(selected))
+	wouldInstallCount := 0
+
+	for _, tool := range selected {
+		status := intdoctor.CheckTool(tool)
+		info := dryRunInfo{
+			Name:    tool.Name,
+			Present: status.Present,
+			Version: status.Version,
+		}
+
+		if !status.Present {
+			info.WouldInstall = true
+			info.InstallCommand = getInstallCommand(tool)
+			info.Instructions = status.Instructions
+			wouldInstallCount++
+		}
+
+		infos = append(infos, info)
+	}
+
+	// Honor --json for structured output
+	if jsonOut, _ := cmd.Flags().GetBool("json"); jsonOut {
+		payload := map[string]any{
+			"dry_run":        true,
+			"tools":          infos,
+			"would_install":  wouldInstallCount,
+			"total_tools":    len(selected),
+			"scope":          flagDoctorScope,
+			"selected_tools": flagDoctorTools,
+		}
+		data, _ := json.MarshalIndent(payload, "", "  ")
+		fmt.Fprintln(cmd.OutOrStdout(), string(data)) //nolint:errcheck // CLI output errors are typically ignored
+		return nil
+	}
+
+	// Human-readable output
+	fmt.Fprintln(cmd.OutOrStdout(), "Dry run: Tools that would be installed") //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintln(cmd.OutOrStdout(), "=====================================")  //nolint:errcheck // CLI output errors are typically ignored
+
+	if wouldInstallCount == 0 {
+		fmt.Fprintln(cmd.OutOrStdout(), "✅ All requested tools are already present") //nolint:errcheck // CLI output errors are typically ignored
+		return nil
+	}
+
+	for _, info := range infos {
+		if info.Present {
+			if info.Version != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "✅ %-15s present (%s)\n", info.Name, info.Version) //nolint:errcheck // CLI output errors are typically ignored
+			} else {
+				fmt.Fprintf(cmd.OutOrStdout(), "✅ %-15s present\n", info.Name) //nolint:errcheck // CLI output errors are typically ignored
+			}
+		} else {
+			fmt.Fprintf(cmd.OutOrStdout(), "📦 %-15s would install\n", info.Name) //nolint:errcheck // CLI output errors are typically ignored
+			if info.InstallCommand != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "   Command: %s\n", info.InstallCommand) //nolint:errcheck // CLI output errors are typically ignored
+			}
+			if info.Instructions != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "   Instructions: %s\n", info.Instructions) //nolint:errcheck // CLI output errors are typically ignored
+			}
+		}
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "\nSummary: %d tool(s) would be installed out of %d total\n", wouldInstallCount, len(selected)) //nolint:errcheck // CLI output errors are typically ignored
+	return nil
+}
+
+// getInstallCommand returns the install command for a tool
+func getInstallCommand(tool intdoctor.Tool) string {
+	if tool.Kind == "go" {
+		return fmt.Sprintf("go install %s", tool.InstallPackage)
+	}
+
+	if tool.Kind == "system" {
+		platform := runtime.GOOS
+		if method, ok := tool.InstallMethods[platform]; ok {
+			return method.Instructions
+		}
+		// Try fallback platforms
+		for fallbackPlatform, method := range tool.InstallMethods {
+			if fallbackPlatform == "all" || fallbackPlatform == "*" {
+				return method.Instructions
+			}
+		}
+	}
+
+	return "Manual installation required"
 }

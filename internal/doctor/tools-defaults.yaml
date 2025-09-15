@@ -1,0 +1,84 @@
+scopes:
+  security:
+    description: "Security scanning tools"
+    tools: ["gosec", "govulncheck", "gitleaks"]
+  format:
+    description: "Code formatting tools"
+    tools: ["goimports", "gofmt"]
+  foundation:
+    description: "Core foundation tools required for goneat and basic AI agent operation"
+    tools: ["ripgrep", "jq", "go-licenses"]
+  all:
+    description: "All tools from all scopes"
+    tools: ["gosec", "govulncheck", "gitleaks", "goimports", "gofmt", "ripgrep", "jq", "go-licenses"]
+tools:
+  # Security tools
+  gosec:
+    name: "gosec"
+    description: "Go security checker"
+    kind: "go"
+    detect_command: "gosec -version"
+    install_package: "github.com/securego/gosec/v2/cmd/gosec@latest"
+    version_args: ["-version"]
+    check_args: ["-h"]
+  govulncheck:
+    name: "govulncheck"
+    description: "Go vulnerability checker"
+    kind: "go"
+    detect_command: "govulncheck -version"
+    install_package: "golang.org/x/vuln/cmd/govulncheck@latest"
+    version_args: ["-version"]
+    check_args: ["-h"]
+  gitleaks:
+    name: "gitleaks"
+    description: "Git secrets scanner"
+    kind: "go"
+    detect_command: "gitleaks version"
+    install_package: "github.com/zricethezav/gitleaks/v8@latest"
+    version_args: ["version"]
+    check_args: ["help"]
+  # Format tools
+  goimports:
+    name: "goimports"
+    description: "Go import formatter"
+    kind: "go"
+    detect_command: "goimports -h"
+    install_package: "golang.org/x/tools/cmd/goimports@latest"
+    version_args: []
+    check_args: ["-h"]
+  gofmt:
+    name: "gofmt"
+    description: "Go formatter (bundled with Go toolchain)"
+    kind: "bundled-go"
+    detect_command: "gofmt -h"
+    version_args: []
+    check_args: ["-h"]
+  # Foundation tools
+  ripgrep:
+    name: "ripgrep"
+    description: "Fast text search tool used for enhanced text searching and license auditing"
+    kind: "system"
+    detect_command: "rg --version"
+    platforms: ["darwin", "linux", "windows"]
+    install_commands:
+      darwin: "brew install ripgrep"
+      linux: "sudo apt-get install ripgrep || sudo yum install ripgrep || sudo pacman -S ripgrep"
+      windows: "winget install BurntSushi.ripgrep.MSVC || scoop install ripgrep"
+  jq:
+    name: "jq"
+    description: "JSON processor used for CI/CD scripts and API response parsing"
+    kind: "system"
+    detect_command: "jq --version"
+    platforms: ["darwin", "linux", "windows"]
+    install_commands:
+      darwin: "brew install jq"
+      linux: "sudo apt-get install jq || sudo yum install jq || sudo pacman -S jq"
+      windows: "winget install jqlang.jq || scoop install jq"
+  go-licenses:
+    name: "go-licenses"
+    description: "License compliance tool for Go dependencies"
+    kind: "go"
+    detect_command: "go-licenses -h"
+    install_package: "github.com/google/go-licenses@latest"
+    version_args: []
+    check_args: ["-h"]

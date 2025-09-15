@@ -1,6 +1,7 @@
 package doctor
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -199,8 +200,9 @@ func TestKnownAllTools(t *testing.T) {
 	allTools := KnownAllTools()
 	secTools := KnownSecurityTools() //nolint:golint,errcheck,staticcheck // function exists in tools.go
 	fmtTools := KnownFormatTools()
+	infraTools := KnownInfrastructureTools()
 
-	expectedCount := len(secTools) + len(fmtTools)
+	expectedCount := len(secTools) + len(fmtTools) + len(infraTools)
 	if len(allTools) != expectedCount {
 		t.Fatalf("KnownAllTools should return %d tools, got %d", expectedCount, len(allTools))
 	}
@@ -230,6 +232,20 @@ func TestKnownAllTools(t *testing.T) {
 		}
 		if !found {
 			t.Errorf("Format tool %s not found in KnownAllTools", fmtTool.Name)
+		}
+	}
+
+	// Check that all foundation tools are included
+	for _, infraTool := range infraTools {
+		found := false
+		for _, allTool := range allTools {
+			if allTool.Name == infraTool.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Infrastructure tool %s not found in KnownAllTools", infraTool.Name)
 		}
 	}
 }
@@ -398,21 +414,238 @@ func TestCheckTool_NotPresent(t *testing.T) {
 }
 
 func TestInstallTool_NonGo(t *testing.T) {
-	// Test installing a non-Go tool (should fail)
+	// Test installing a system tool (should provide installation instructions)
 	tool := Tool{
 		Name: "some-system-tool",
 		Kind: "system",
+		InstallMethods: map[string]InstallMethod{
+			"linux": {
+				Detector: func() (string, bool) {
+					return "", false
+				},
+				Installer: func() error {
+					return fmt.Errorf("mock install error")
+				},
+				Instructions: "Install with: apt-get install some-system-tool",
+			},
+		},
 	}
 
 	status := InstallTool(tool)
 	if status.Installed {
-		t.Error("InstallTool should not install non-Go tools")
+		t.Error("InstallTool should not mark system tools as installed when installation fails")
 	}
 	if status.Error == nil {
-		t.Error("InstallTool should return error for non-Go tools")
+		t.Error("InstallTool should return error for failed system tool installation")
 	}
-	if !strings.Contains(status.Instructions, "Manual install required") {
-		t.Error("InstallTool should provide manual install instructions for non-Go tools")
+	if !strings.Contains(status.Instructions, "Install with: apt-get install some-system-tool") {
+		t.Errorf("InstallTool should provide platform-specific install instructions, got: %s", status.Instructions)
+	}
+}
+
+func TestLoadToolsConfig(t *testing.T) {
+	config, err := LoadToolsConfig()
+	if err != nil {
+		t.Errorf("LoadToolsConfig should not return error: %v", err)
+	}
+
+	if config == nil {
+		t.Fatal("LoadToolsConfig should return a non-nil config")
+	}
+
+	if len(config.Scopes) == 0 {
+		t.Error("Config should have at least one scope")
+	}
+
+	if len(config.Tools) == 0 {
+		t.Error("Config should have at least one tool")
+	}
+}
+
+func TestParseConfig(t *testing.T) {
+	yamlConfig := `
+scopes:
+  foundation:
+    description: "Foundation tools"
+    tools: ["ripgrep", "jq"]
+tools:
+  ripgrep:
+    name: "ripgrep"
+    description: "Fast text search"
+    kind: "system"
+    detect_command: "rg --version"
+`
+
+	config, err := ParseConfig([]byte(yamlConfig))
+	if err != nil {
+		t.Errorf("ParseConfig should not return error: %v", err)
+	}
+
+	if config == nil {
+		t.Fatal("ParseConfig should return a non-nil config")
+	}
+
+	if len(config.Scopes) != 1 {
+		t.Errorf("Expected 1 scope, got %d", len(config.Scopes))
+	}
+
+	if len(config.Tools) != 1 {
+		t.Errorf("Expected 1 tool, got %d", len(config.Tools))
+	}
+
+	// Check that the tool was parsed correctly
+	tool, exists := config.Tools["ripgrep"]
+	if !exists {
+		t.Error("ripgrep tool should exist in config")
+	}
+
+	if tool.Name != "ripgrep" {
+		t.Errorf("Expected tool name 'ripgrep', got '%s'", tool.Name)
+	}
+
+	if tool.Kind != "system" {
+		t.Errorf("Expected tool kind 'system', got '%s'", tool.Kind)
+	}
+}
+
+func TestParseConfig_InvalidYAML(t *testing.T) {
+	invalidYAML := `
+scopes:
+  foundation:
+    description: "Foundation tools"
+    tools: ["ripgrep", "jq"]
+  invalid: not a map
+`
+
+	_, err := ParseConfig([]byte(invalidYAML))
+	if err == nil {
+		t.Error("ParseConfig should return error for invalid YAML")
+	}
+}
+
+func TestValidateConfig(t *testing.T) {
+	validConfigPath := ".goneat/tools.yaml"
+	err := ValidateConfig(validConfigPath)
+	// This might fail if the file doesn't exist, which is OK for this test
+	// The important thing is that the function doesn't panic
+	if err != nil && !strings.Contains(err.Error(), "no such file") {
+		t.Errorf("ValidateConfig should handle file operations gracefully: %v", err)
+	}
+}
+
+func TestToolsConfig_GetToolsForScope(t *testing.T) {
+	config := &ToolsConfig{
+		Scopes: map[string]ScopeConfig{
+			"foundation": {
+				Description: "Foundation tools",
+				Tools:       []string{"ripgrep", "jq"},
+			},
+		},
+		Tools: map[string]ToolConfig{
+			"ripgrep": {
+				Name:          "ripgrep",
+				Description:   "Fast text search",
+				Kind:          "system",
+				DetectCommand: "rg --version",
+			},
+			"jq": {
+				Name:          "jq",
+				Description:   "JSON processor",
+				Kind:          "system",
+				DetectCommand: "jq --version",
+			},
+		},
+	}
+
+	tools, err := config.GetToolsForScope("foundation")
+	if err != nil {
+		t.Errorf("GetToolsForScope should not return error: %v", err)
+	}
+
+	if len(tools) != 2 {
+		t.Errorf("Expected 2 tools, got %d", len(tools))
+	}
+
+	// Check that tools are returned in the correct order
+	if tools[0].Name != "ripgrep" {
+		t.Errorf("First tool should be ripgrep, got %s", tools[0].Name)
+	}
+
+	if tools[1].Name != "jq" {
+		t.Errorf("Second tool should be jq, got %s", tools[1].Name)
+	}
+}
+
+func TestToolsConfig_GetToolsForScope_InvalidScope(t *testing.T) {
+	config := &ToolsConfig{
+		Scopes: map[string]ScopeConfig{},
+	}
+
+	_, err := config.GetToolsForScope("nonexistent")
+	if err == nil {
+		t.Error("GetToolsForScope should return error for nonexistent scope")
+	}
+}
+
+func TestToolsConfig_GetTool(t *testing.T) {
+	config := &ToolsConfig{
+		Tools: map[string]ToolConfig{
+			"ripgrep": {
+				Name:          "ripgrep",
+				Description:   "Fast text search",
+				Kind:          "system",
+				DetectCommand: "rg --version",
+			},
+		},
+	}
+
+	tool, exists := config.GetTool("ripgrep")
+	if !exists {
+		t.Error("GetTool should return true for existing tool")
+	}
+
+	if tool.Name != "ripgrep" {
+		t.Errorf("Expected tool name 'ripgrep', got '%s'", tool.Name)
+	}
+
+	_, exists = config.GetTool("nonexistent")
+	if exists {
+		t.Error("GetTool should return false for nonexistent tool")
+	}
+}
+
+func TestToolsConfig_GetAllScopes(t *testing.T) {
+	config := &ToolsConfig{
+		Scopes: map[string]ScopeConfig{
+			"foundation": {
+				Description: "Foundation tools",
+				Tools:       []string{"ripgrep", "jq"},
+			},
+			"security": {
+				Description: "Security tools",
+				Tools:       []string{"gosec", "gitleaks"},
+			},
+		},
+	}
+
+	scopes := config.GetAllScopes()
+
+	if len(scopes) != 2 {
+		t.Errorf("Expected 2 scopes, got %d", len(scopes))
+	}
+
+	// Check that both scopes are in the result
+	found := make(map[string]bool)
+	for _, scope := range scopes {
+		found[scope] = true
+	}
+
+	if !found["foundation"] {
+		t.Error("foundation scope should be in result")
+	}
+
+	if !found["security"] {
+		t.Error("security scope should be in result")
 	}
 }
 

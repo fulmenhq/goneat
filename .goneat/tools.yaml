@@ -1,0 +1,118 @@
+scopes:
+  foundation:
+    description: "Core foundation tools required for goneat and basic AI agent operation"
+    tools: ["mise", "ripgrep", "jq", "yamlfmt", "prettier"]
+  project-go:
+    description: "Go language project development tools"
+    tools: ["golangci", "go-licenses", "gosec", "govulncheck"]
+  custom:
+    description: "Custom tools for testing"
+    tools: ["custom-tool"]
+
+tools:
+  mise:
+    name: "mise"
+    description: "Polyglot runtime manager for Linux/macOS"
+    kind: "system"
+    detect_command: "mise --version"
+    platforms: ["linux", "darwin"]
+    install_commands:
+      linux: "curl https://mise.jdx.dev/install.sh | sh && echo '📦 mise installed. Restart your shell or run: source ~/.bashrc'"
+      darwin: "curl https://mise.jdx.dev/install.sh | sh && echo '📦 mise installed. Restart your shell or run: source ~/.zshrc'"
+
+  ripgrep:
+    name: "ripgrep"
+    description: "Fast text search tool for license auditing"
+    kind: "system"
+    detect_command: "rg --version"
+    platforms: ["linux", "darwin", "windows"]
+    install_commands:
+      linux: "mise use ripgrep@latest 2>/dev/null || echo '📦 Run: sudo apt-get install ripgrep' && exit 1"
+      darwin: "mise use ripgrep@latest || brew install ripgrep"
+      windows: "winget install BurntSushi.ripgrep.MSVC || scoop install ripgrep"
+
+  jq:
+    name: "jq"
+    description: "JSON processing tool for CI/CD scripts"
+    kind: "system"
+    detect_command: "jq --version"
+    platforms: ["linux", "darwin", "windows"]
+    install_commands:
+      linux: "mise use jq@latest 2>/dev/null || echo '📦 Run: sudo apt-get install jq' && exit 1"
+      darwin: "mise use jq@latest || brew install jq"
+      windows: "winget install jqlang.jq || scoop install jq"
+
+  golangci:
+    name: "golangci-lint"
+    description: "Fast linters Runner for Go"
+    kind: "system"
+    detect_command: "golangci-lint --version"
+    platforms: ["linux", "darwin", "windows"]
+    install_commands:
+      linux: "go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest || mise use golangci-lint@latest"
+      darwin: "go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest || mise use golangci-lint@latest"
+      windows: "go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest || mise use golangci-lint@latest"
+
+  go-licenses:
+    name: "go-licenses"
+    description: "License compliance checking for Go dependencies"
+    kind: "system"
+    detect_command: "go-licenses version"
+    platforms: ["linux", "darwin", "windows"]
+    install_commands:
+      linux: "go install github.com/google/go-licenses@latest"
+      darwin: "go install github.com/google/go-licenses@latest"
+      windows: "go install github.com/google/go-licenses@latest"
+
+  gosec:
+    name: "gosec"
+    description: "Go security linter that identifies security issues in Go code"
+    kind: "system"
+    detect_command: "gosec --version"
+    platforms: ["linux", "darwin", "windows"]
+    install_commands:
+      linux: "go install github.com/securego/gosec/v2/cmd/gosec@latest"
+      darwin: "go install github.com/securego/gosec/v2/cmd/gosec@latest"
+      windows: "go install github.com/securego/gosec/v2/cmd/gosec@latest"
+
+  govulncheck:
+    name: "govulncheck"
+    description: "Go vulnerability database checker for Go dependencies"
+    kind: "system"
+    detect_command: "govulncheck --version"
+    platforms: ["linux", "darwin", "windows"]
+    install_commands:
+      linux: "go install golang.org/x/vuln/cmd/govulncheck@latest"
+      darwin: "go install golang.org/x/vuln/cmd/govulncheck@latest"
+      windows: "go install golang.org/x/vuln/cmd/govulncheck@latest"
+
+  yamlfmt:
+    name: "yamlfmt"
+    description: "YAML formatter for configuration files"
+    kind: "system"
+    detect_command: "yamlfmt --version"
+    platforms: ["linux", "darwin", "windows"]
+    install_commands:
+      linux: "go install github.com/google/yamlfmt/cmd/yamlfmt@latest || mise use yamlfmt@latest"
+      darwin: "go install github.com/google/yamlfmt/cmd/yamlfmt@latest || mise use yamlfmt@latest"
+      windows: "go install github.com/google/yamlfmt/cmd/yamlfmt@latest || mise use yamlfmt@latest"
+
+  prettier:
+    name: "prettier"
+    description: "Code formatter for Markdown and other formats"
+    kind: "system"
+    detect_command: "prettier --version"
+    platforms: ["linux", "darwin", "windows"]
+    install_commands:
+      linux: "mise use prettier@latest 2>/dev/null || npm install -g prettier"
+      darwin: "mise use prettier@latest || npm install -g prettier"
+      windows: "mise use prettier@latest || npm install -g prettier"
+
+  custom-tool:
+    name: "custom-tool"
+    description: "A custom tool for testing"
+    kind: "system"
+    detect_command: "custom-tool --version"
+    platforms: ["linux"]
+    install_commands:
+      linux: "echo 'Custom tool install command'"

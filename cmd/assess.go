@@ -451,7 +451,7 @@ func countIssuesBySeverity(report *assess.AssessmentReport) map[string]int {
 	return m
 }
 
-// shouldFail determines if the assessment should fail based on issue severity
+// shouldFail determines if the assessment should fail based on issue severity or category errors
 func shouldFail(report *assess.AssessmentReport, failOnSeverity assess.IssueSeverity) bool {
 	severityLevels := map[assess.IssueSeverity]int{
 		assess.SeverityInfo:     0,
@@ -463,11 +463,20 @@ func shouldFail(report *assess.AssessmentReport, failOnSeverity assess.IssueSeve
 
 	failLevel := severityLevels[failOnSeverity]
 
+	// Check for issues at or above the fail severity level
 	for _, categoryResult := range report.Categories {
 		for _, issue := range categoryResult.Issues {
 			if severityLevels[issue.Severity] >= failLevel {
 				return true
 			}
+		}
+	}
+
+	// Also check for category errors (e.g., lint config validation failures)
+	for _, categoryResult := range report.Categories {
+		if categoryResult.Status == "error" {
+			logger.Error(fmt.Sprintf("Category %s failed with error: %s", categoryResult.Category, categoryResult.Error))
+			return true
 		}
 	}
 

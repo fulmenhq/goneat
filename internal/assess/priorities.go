@@ -12,6 +12,7 @@ import (
 // DefaultPriorities defines the expert-driven priority order for assessment categories
 var DefaultPriorities = map[AssessmentCategory]int{
 	CategoryFormat:         1, // Quick wins, often auto-fixable
+	CategoryTools:          1, // Critical for CI/CD, must run early
 	CategorySecurity:       2, // Critical issues, block progress
 	CategoryStaticAnalysis: 3, // Code correctness, potential bugs
 	CategoryLint:           4, // Code quality, variable effort

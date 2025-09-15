@@ -5,7 +5,7 @@ hooks:
           args:
             - --check
             - --categories
-            - format,lint,dates
+            - format,lint,dates,tools
             - --fail-on
             - critical
           priority: 10
@@ -15,7 +15,7 @@ hooks:
           args:
             - --check
             - --categories
-            - format,lint,security,dates
+            - format,lint,security,dates,tools
             - --fail-on
             - high
           priority: 10

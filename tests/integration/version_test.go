@@ -400,8 +400,8 @@ func TestVersionCommand_InitBasic(t *testing.T) {
 	}
 
 	content := env.ReadFile("VERSION")
-	if strings.TrimSpace(content) != "1.0.0" {
-		t.Errorf("Expected VERSION file to contain '1.0.0' after init, got '%s'", content)
+	if strings.TrimSpace(content) != "0.1.0" {
+		t.Errorf("Expected VERSION file to contain '0.1.0' after init, got '%s'", content)
 	}
 }
 
@@ -440,8 +440,8 @@ func TestVersionCommand_InitForceOverwrite(t *testing.T) {
 
 	// Should reset to default version
 	content := env.ReadFile("VERSION")
-	if strings.TrimSpace(content) != "1.0.0" {
-		t.Errorf("Expected VERSION file to contain '1.0.0' after force init, got '%s'", content)
+	if strings.TrimSpace(content) != "0.1.0" {
+		t.Errorf("Expected VERSION file to contain '0.1.0' after force init, got '%s'", content)
 	}
 }
 

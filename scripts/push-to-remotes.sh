@@ -85,6 +85,6 @@ if [ -n "$BACKUP_REMOTE" ]; then
 else
     echo "   ⚠️  Backup remote:  Not configured"
 fi
-echo "   ✅ Tags:           Pushed to all remotes"</content>
+echo "   ✅ Tags:           Pushed to all remotes"
 </xai:function_call name="bash">
 <parameter name="command">chmod +x goneat/scripts/push-to-remotes.sh

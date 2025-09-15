@@ -211,7 +211,7 @@ $ goneat version
   goneat version init --template basic
 
 🔧 Manual Setup:
-  1. Create a VERSION file: echo '1.0.0' > VERSION
+  1. Create a VERSION file: echo '0.1.0' > VERSION
   2. Or create a git tag: git tag v1.0.0
 
 📋 Available Templates:

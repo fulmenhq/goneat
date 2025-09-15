@@ -1,3 +1,245 @@
+# Goneat v0.2.5 — Foundation Tools Management (2025-09-13)
+
+## TL;DR
+
+- **Foundation Tools**: New `foundation` scope for managing ripgrep, jq, and go-licenses
+- **Intelligent Installation**: Cross-platform tool installation with ranked choice methods, language-native approaches, and zero-sudo strategies
+- **Schema-Driven Config**: JSON Schema validation for tool configurations with user overrides
+- **Assessment Integration**: Tools checking automatically included in pre-commit and pre-push hooks
+- **AI-Agent Ready**: JSON output support for programmatic consumption
+- **Cross-Platform**: Works on macOS, Linux, and Windows with platform-specific installation
+- **Zero Breaking Changes**: 100% backward compatible with existing workflows
+
+## Highlights
+
+### 🛠️ Foundation Tools Management
+
+Goneat now provides comprehensive management for essential development tools that are frequently required but often missing:
+
+```bash
+# Check foundation tools
+$ goneat doctor tools --scope foundation
+✅ ripgrep    present (14.1.0)
+✅ jq         present (1.7.1)
+✅ go-licenses present (1.0.0)
+
+# Install missing tools
+$ goneat doctor tools --scope foundation --install --yes
+📦 Installing missing tools...
+✅ All foundation tools installed successfully
+
+# Dry run to see what would be installed
+$ goneat doctor tools --scope foundation --dry-run
+📦 gosec           would install
+   Command: go install github.com/securego/gosec/v2/cmd/gosec@latest
+```
+
+### 🔧 Schema-Driven Configuration
+
+Tool configurations are now managed through a robust schema system with user customization:
+
+```yaml
+# .goneat/tools.yaml - Customize tool policies
+scopes:
+  foundation:
+    description: "Core foundation tools required for goneat and basic AI agent operation"
+    tools: [ripgrep, jq, go-licenses, yamllint] # Add custom tools
+
+tools:
+  ripgrep:
+    name: "ripgrep"
+    description: "Fast text search tool"
+    kind: "system"
+    detect_command: "rg --version"
+    install_commands:
+      linux: "mise use ripgrep@latest 2>/dev/null || echo '📦 Run: sudo apt-get install ripgrep' && exit 1"
+      darwin: "mise use ripgrep@latest || brew install ripgrep"
+      windows: "winget install BurntSushi.ripgrep.MSVC || scoop install ripgrep"
+```
+
+### 🎯 Assessment Integration
+
+Tools checking is now seamlessly integrated into goneat's assessment system:
+
+```bash
+# Tools checking in comprehensive assessment
+$ goneat assess --categories tools
+Assessment health=100% | total issues: 0 | time: 0s
+ - Tools: ok (est 0 seconds)
+
+# Tools checking in git hooks (automatically configured)
+$ git commit -m "Add new feature"
+🔍 Running goneat pre-commit validation...
+✅ Tools: ok (est 0 seconds)
+✅ Format: ok (est 0 seconds)
+✅ Dates: ok (est 0 seconds)
+```
+
+### 🤖 AI-Agent Ready
+
+Structured JSON output enables programmatic consumption by AI agents and CI/CD systems:
+
+```bash
+# JSON output for automation
+$ goneat doctor tools --scope foundation --json
+{
+  "tools": [
+    {
+      "name": "ripgrep",
+      "present": true,
+      "version": "14.1.0",
+      "would_install": false
+    }
+  ],
+  "total_tools": 3,
+  "would_install": 0
+}
+```
+
+### 🧠 Intelligent Installation Strategy
+
+Goneat v0.2.5 introduces a sophisticated cross-platform installation strategy that prioritizes user experience and operational efficiency:
+
+#### Ranked Choice Installation
+```bash
+# Linux: Tries mise first (no sudo), then provides clear fallback instructions
+$ goneat doctor tools --scope foundation --install --yes
+📦 Installing ripgrep...
+✅ ripgrep installed successfully via mise
+
+# macOS: Tries mise first, falls back to Homebrew
+$ goneat doctor tools --scope foundation --install --yes
+📦 Installing ripgrep...
+✅ ripgrep installed successfully via mise
+
+# Windows: Uses Winget (built-in), falls back to Scoop
+$ goneat doctor tools --scope foundation --install --yes
+📦 Installing ripgrep...
+✅ ripgrep installed successfully via winget
+```
+
+#### Language-Native Installation
+```bash
+# Go tools use go install (no external dependencies)
+$ goneat doctor tools --scope project-go --install --yes
+📦 Installing golangci-lint...
+✅ golangci-lint installed successfully via go install
+
+# Node.js tools prioritize mise over npm
+$ goneat doctor tools --scope foundation --install --yes
+📦 Installing prettier...
+✅ prettier installed successfully via mise
+```
+
+#### Zero-Sudo Philosophy
+- **Linux**: Prioritizes version managers (mise/asdf) to avoid sudo requirements
+- **macOS**: Uses Homebrew as primary, mise as secondary
+- **Windows**: Leverages built-in Winget, Scoop as fallback
+- **Enterprise**: Respects corporate package manager preferences
+
+**📖 Learn More**: See [Intelligent Tool Installation Strategy](docs/appnotes/intelligent-tool-installation.md) for comprehensive documentation on our installation philosophy and platform-specific optimizations.
+
+## What's New
+
+### Version Command Improvements
+
+- **Better Semver Defaults**: `basic` template now defaults to `0.1.0` instead of `1.0.0` for proper semantic versioning practices
+- **Enhanced Documentation**: Updated help text with examples showing how to specify custom initial versions using `--initial-version` flag
+- **Improved User Experience**: More intuitive defaults that align with semantic versioning best practices for initial releases
+
+### Foundation Tools Scope
+
+- **ripgrep**: Fast text search for license auditing and log parsing
+- **jq**: JSON processing for CI/CD scripts and API responses
+- **go-licenses**: License compliance checking for Go dependencies
+- **mise**: Polyglot runtime manager for cross-platform tool management
+- **yamlfmt**: YAML formatter for configuration files
+- **prettier**: Code formatter for Markdown and other formats
+
+### Enhanced CLI Experience
+
+- `--dry-run`: Preview installations without executing
+- `--config`: Specify custom tools configuration file
+- `--list-scopes`: Display available tool scopes
+- `--validate-config`: Validate configuration files
+- `--json`: Structured output for automation
+
+### Git Hooks Integration
+
+Tools checking is automatically included in:
+
+- **Pre-commit hooks**: Fast validation before commits
+- **Pre-push hooks**: Comprehensive validation before pushes
+- **Priority 1 execution**: Runs early in the pipeline for quick feedback
+
+## Configuration
+
+### Default Configuration
+
+Goneat includes sensible defaults for all foundation tools. No configuration is required to get started.
+
+### Custom Configuration
+
+Create `.goneat/tools.yaml` to customize tool policies:
+
+```yaml
+# Example: Add custom tools to foundation scope
+scopes:
+  foundation:
+    tools: [ripgrep, jq, go-licenses, yamllint, shellcheck]
+
+tools:
+  yamllint:
+    name: "yamllint"
+    description: "YAML linter"
+    kind: "system"
+    detect_command: "yamllint --version"
+    install_commands:
+      darwin: "brew install yamllint"
+      linux: "pip install yamllint"
+```
+
+## Migration Guide
+
+### For Existing Users
+
+- **No action required**: All existing functionality remains unchanged
+- **New features**: Foundation tools are opt-in via `--scope foundation`
+- **Hooks**: Existing hooks will automatically include tools checking on next regeneration
+
+### For CI/CD Pipelines
+
+- **Add tools checking**: Include `--categories tools` in assessment commands
+- **JSON output**: Use `--json` flag for programmatic consumption
+- **Dry run**: Use `--dry-run` to validate tool requirements without installation
+
+## What's Coming Next
+
+- **Tool Versioning**: Version requirements and update policies (v0.2.6)
+- **Expanded Tool Catalog**: Additional foundation tools like yamllint and shellcheck
+- **Version Introspection**: Enhanced version detection and comparison
+- **Policy Enforcement**: Fail assessments on version mismatches
+
+## Breaking Changes
+
+None. This release is 100% backward compatible.
+
+## Installation
+
+```bash
+# Go
+go install github.com/fulmenhq/goneat@v0.2.5
+
+# Homebrew (if tap available)
+brew install 3leaps/tap/goneat
+
+# Direct download
+curl -L https://github.com/fulmenhq/goneat/releases/download/v0.2.5/goneat-linux-amd64 -o goneat
+chmod +x goneat
+```
+
+---
+
 # Goneat v0.2.4 — Schema Validation DX Improvements (2025-09-12)
 
 ## TL;DR

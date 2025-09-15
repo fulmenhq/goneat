@@ -187,8 +187,6 @@ func (r *LintAssessmentRunner) runGolangCILintWithMode(target string, config Ass
 	}
 	// Build command arguments
 	args := []string{"run", "--timeout", r.config.Timeout.String()}
-	// Optional JSON path to avoid mixing with summary text
-	jsonPath := ""
 
 	// Add fix flag if in fix mode
 	if fixMode {
@@ -197,28 +195,9 @@ func (r *LintAssessmentRunner) runGolangCILintWithMode(target string, config Ass
 
 	// Add output format (only for check mode, fix mode doesn't produce structured output)
 	if !fixMode && r.config.Format == "json" {
-		// Verify OS temp is writable before creating a temp file
-		tmpDir := os.TempDir()
-		tmpProbe, probeErr := os.CreateTemp(tmpDir, "goneat-probe-*.tmp")
-		if probeErr == nil {
-			_ = tmpProbe.Close()
-			_ = os.Remove(tmpProbe.Name())
-			// Prefer writing JSON to a temp file to avoid interleaving with summary text
-			if f, ferr := os.CreateTemp("", "goneat-gci-*.json"); ferr == nil {
-				jsonPath = f.Name()
-				_ = f.Close()
-				args = append(args, "--output.json.path", jsonPath)
-				args = append(args, "--output.text.path", "stderr")
-			} else {
-				// Fallback: still separate text to stderr
-				args = append(args, "--output.json.path", "stdout")
-				args = append(args, "--output.text.path", "stderr")
-			}
-		} else {
-			// Temp not writable; fallback to stdout + text to stderr
-			args = append(args, "--output.json.path", "stdout")
-			args = append(args, "--output.text.path", "stderr")
-		}
+		// golangci-lint v2.x uses --output.json.path for JSON output
+		args = append(args, "--output.json.path", "stdout")
+		// JSON output goes to stdout in v2.x
 	}
 
 	// Limit to new issues only when requested
@@ -326,18 +305,8 @@ func (r *LintAssessmentRunner) runGolangCILintWithMode(target string, config Ass
 
 	// Parse output for check mode
 	if r.config.Format == "json" {
-		// Prefer reading JSON from file when available
-		var jsonBytes []byte
-		if jsonPath != "" {
-			if data, rerr := os.ReadFile(jsonPath); rerr == nil && len(data) > 0 {
-				jsonBytes = data
-			}
-			_ = os.Remove(jsonPath)
-		}
-		if len(jsonBytes) == 0 {
-			jsonBytes = output
-		}
-		return r.parseLintJSONOutput(jsonBytes)
+		// In golangci-lint v1.x, JSON output goes to stdout
+		return r.parseLintJSONOutput(output)
 	}
 	return r.parseLintTextOutput(output)
 }

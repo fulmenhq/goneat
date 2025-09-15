@@ -6,16 +6,28 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
 // Tool represents an external tool that doctor can check/install
 type Tool struct {
 	Name           string // canonical name, e.g., "gosec"
-	Kind           string // "go" | "system"
+	Kind           string // "go" | "bundled-go" | "system"
 	InstallPackage string // for Kind=="go", the go install package path with @latest
 	VersionArgs    []string
 	CheckArgs      []string
+	// System tool specific fields
+	Description    string                   // human-readable description of the tool's purpose
+	Platforms      []string                 // supported platforms: "darwin", "linux", "windows", "*" for all
+	InstallMethods map[string]InstallMethod // platform-specific installation methods
+}
+
+// InstallMethod represents a platform-specific installation method
+type InstallMethod struct {
+	Detector     func() (version string, found bool) // function to detect if tool is installed
+	Installer    func() error                        // function to install the tool
+	Instructions string                              // human-readable installation instructions
 }
 
 // Status represents the result of a tool check or install attempt
@@ -77,13 +89,167 @@ func KnownFormatTools() []Tool {
 	}
 }
 
+// KnownInfrastructureTools returns tools commonly needed by goneat ecosystem
+func KnownInfrastructureTools() []Tool {
+	return []Tool{
+		{
+			Name:        "ripgrep",
+			Kind:        "system",
+			Description: "Fast text search tool used for enhanced text searching and license auditing",
+			Platforms:   []string{"darwin", "linux", "windows"},
+			InstallMethods: map[string]InstallMethod{
+				"darwin": {
+					Detector: func() (string, bool) {
+						if ver, ok := tryCommand("rg", "--version"); ok {
+							return extractFirstVersionToken(ver), true
+						}
+						return "", false
+					},
+					Installer: func() error {
+						cmd := exec.Command("brew", "install", "ripgrep")
+						return cmd.Run()
+					},
+					Instructions: "macOS: brew install ripgrep",
+				},
+				"linux": {
+					Detector: func() (string, bool) {
+						if ver, ok := tryCommand("rg", "--version"); ok {
+							return extractFirstVersionToken(ver), true
+						}
+						return "", false
+					},
+					Installer: func() error {
+						// Try pacman first (Arch Linux)
+						if _, err := exec.LookPath("pacman"); err == nil {
+							cmd := exec.Command("sudo", "pacman", "-S", "--noconfirm", "ripgrep")
+							return cmd.Run()
+						}
+						// Try apt (Ubuntu/Debian)
+						if _, err := exec.LookPath("apt-get"); err == nil {
+							cmd := exec.Command("sudo", "apt-get", "update")
+							if err := cmd.Run(); err != nil {
+								return err
+							}
+							cmd = exec.Command("sudo", "apt-get", "install", "-y", "ripgrep")
+							return cmd.Run()
+						}
+						// Fallback to yum/dnf (RHEL/CentOS/Fedora)
+						if _, err := exec.LookPath("dnf"); err == nil {
+							cmd := exec.Command("sudo", "dnf", "install", "-y", "ripgrep")
+							return cmd.Run()
+						}
+						if _, err := exec.LookPath("yum"); err == nil {
+							cmd := exec.Command("sudo", "yum", "install", "-y", "ripgrep")
+							return cmd.Run()
+						}
+						return fmt.Errorf("no supported package manager found (pacman, apt-get, dnf, yum)")
+					},
+					Instructions: "Arch Linux: sudo pacman -S ripgrep\nUbuntu/Debian: sudo apt-get install ripgrep\nFedora: sudo dnf install ripgrep\nCentOS/RHEL: sudo yum install ripgrep",
+				},
+				"windows": {
+					Detector: func() (string, bool) {
+						if ver, ok := tryCommand("rg", "--version"); ok {
+							return extractFirstVersionToken(ver), true
+						}
+						return "", false
+					},
+					Installer: func() error {
+						cmd := exec.Command("winget", "install", "BurntSushi.ripgrep.MSVC")
+						return cmd.Run()
+					},
+					Instructions: "Windows: winget install BurntSushi.ripgrep.MSVC",
+				},
+			},
+		},
+		{
+			Name:        "jq",
+			Kind:        "system",
+			Description: "JSON processor used for CI/CD scripts and API response parsing",
+			Platforms:   []string{"darwin", "linux", "windows"},
+			InstallMethods: map[string]InstallMethod{
+				"darwin": {
+					Detector: func() (string, bool) {
+						if ver, ok := tryCommand("jq", "--version"); ok {
+							return strings.TrimPrefix(ver, "jq-"), true
+						}
+						return "", false
+					},
+					Installer: func() error {
+						cmd := exec.Command("brew", "install", "jq")
+						return cmd.Run()
+					},
+					Instructions: "macOS: brew install jq",
+				},
+				"linux": {
+					Detector: func() (string, bool) {
+						if ver, ok := tryCommand("jq", "--version"); ok {
+							return strings.TrimPrefix(ver, "jq-"), true
+						}
+						return "", false
+					},
+					Installer: func() error {
+						// Try pacman first (Arch Linux)
+						if _, err := exec.LookPath("pacman"); err == nil {
+							cmd := exec.Command("sudo", "pacman", "-S", "--noconfirm", "jq")
+							return cmd.Run()
+						}
+						// Try apt (Ubuntu/Debian)
+						if _, err := exec.LookPath("apt-get"); err == nil {
+							cmd := exec.Command("sudo", "apt-get", "update")
+							if err := cmd.Run(); err != nil {
+								return err
+							}
+							cmd = exec.Command("sudo", "apt-get", "install", "-y", "jq")
+							return cmd.Run()
+						}
+						// Fallback to yum/dnf (RHEL/CentOS/Fedora)
+						if _, err := exec.LookPath("dnf"); err == nil {
+							cmd := exec.Command("sudo", "dnf", "install", "-y", "jq")
+							return cmd.Run()
+						}
+						if _, err := exec.LookPath("yum"); err == nil {
+							cmd := exec.Command("sudo", "yum", "install", "-y", "jq")
+							return cmd.Run()
+						}
+						return fmt.Errorf("no supported package manager found (pacman, apt-get, dnf, yum)")
+					},
+					Instructions: "Arch Linux: sudo pacman -S jq\nUbuntu/Debian: sudo apt-get install jq\nFedora: sudo dnf install jq\nCentOS/RHEL: sudo yum install jq",
+				},
+				"windows": {
+					Detector: func() (string, bool) {
+						if ver, ok := tryCommand("jq", "--version"); ok {
+							return strings.TrimPrefix(ver, "jq-"), true
+						}
+						return "", false
+					},
+					Installer: func() error {
+						cmd := exec.Command("winget", "install", "jqlang.jq")
+						return cmd.Run()
+					},
+					Instructions: "Windows: winget install jqlang.jq",
+				},
+			},
+		},
+		{
+			Name:           "go-licenses",
+			Kind:           "go",
+			Description:    "License compliance tool for Go dependencies",
+			InstallPackage: "github.com/google/go-licenses@latest",
+			VersionArgs:    []string{}, // go-licenses doesn't support --version
+			CheckArgs:      []string{"-h"},
+		},
+	}
+}
+
 // KnownAllTools returns the union of all known tool catalogs
 func KnownAllTools() []Tool {
 	sec := KnownSecurityTools()
 	fmtTools := KnownFormatTools()
-	all := make([]Tool, 0, len(sec)+len(fmtTools))
+	infraTools := KnownInfrastructureTools()
+	all := make([]Tool, 0, len(sec)+len(fmtTools)+len(infraTools))
 	all = append(all, sec...)
 	all = append(all, fmtTools...)
+	all = append(all, infraTools...)
 	return all
 }
 
@@ -108,7 +274,29 @@ func CheckTool(t Tool) Status {
 		}
 	}
 
-	// If not in PATH, check common Go bin locations for better diagnostics
+	// For system tools, try platform-specific detection
+	if t.Kind == "system" {
+		platform := getCurrentPlatform()
+		if method, ok := t.InstallMethods[platform]; ok {
+			if version, found := method.Detector(); found {
+				return Status{
+					Name:    t.Name,
+					Present: true,
+					Version: version,
+				}
+			}
+		}
+		// Platform-specific instructions
+		if method, ok := t.InstallMethods[platform]; ok {
+			return Status{
+				Name:         t.Name,
+				Present:      false,
+				Instructions: method.Instructions,
+			}
+		}
+	}
+
+	// If not in PATH, check common Go bin locations for better diagnostics (for Go tools)
 	var commonPaths []string
 	if goBin := getGoBinPath(); goBin != "" {
 		commonPaths = append(commonPaths, goBin)
@@ -144,13 +332,57 @@ func CheckTool(t Tool) Status {
 }
 
 func InstallTool(t Tool) Status {
-	// Only install Go tools in MVP
+	// Handle system tools with platform-specific installation
+	if t.Kind == "system" {
+		platform := getCurrentPlatform()
+		method, ok := t.InstallMethods[platform]
+		if !ok {
+			return Status{
+				Name:         t.Name,
+				Present:      false,
+				Installed:    false,
+				Error:        fmt.Errorf("no installation method available for platform %s", platform),
+				Instructions: "Manual installation required - check vendor documentation",
+			}
+		}
+
+		// Try platform-specific installer
+		if err := method.Installer(); err != nil {
+			return Status{
+				Name:         t.Name,
+				Present:      false,
+				Installed:    false,
+				Error:        fmt.Errorf("installation failed: %v", err),
+				Instructions: method.Instructions,
+			}
+		}
+
+		// Post-install check
+		if version, found := method.Detector(); found {
+			return Status{
+				Name:      t.Name,
+				Present:   true,
+				Installed: true,
+				Version:   version,
+			}
+		}
+
+		return Status{
+			Name:         t.Name,
+			Present:      false,
+			Installed:    true,
+			Error:        fmt.Errorf("tool installed but not found in PATH"),
+			Instructions: "Tool installed successfully. Restart your shell or update PATH to use it.",
+		}
+	}
+
+	// Handle Go tools (existing logic)
 	if t.Kind != "go" {
 		return Status{
 			Name:         t.Name,
 			Present:      false,
 			Installed:    false,
-			Error:        fmt.Errorf("automatic install not supported for non-Go tools"),
+			Error:        fmt.Errorf("automatic install not supported for %s tools", t.Kind),
 			Instructions: installInstruction(t),
 		}
 	}
@@ -307,6 +539,12 @@ func installInstruction(t Tool) string {
 		return goInstallCommand(t)
 	case "bundled-go":
 		return "Install Go toolchain first: https://go.dev/dl/ (gofmt is included)"
+	case "system":
+		platform := getCurrentPlatform()
+		if method, ok := t.InstallMethods[platform]; ok {
+			return method.Instructions
+		}
+		return fmt.Sprintf("Manual install required for %s. Refer to vendor documentation.", t.Name)
 	default:
 		return fmt.Sprintf("Manual install required for %s. Refer to vendor documentation.", t.Name)
 	}
@@ -314,6 +552,30 @@ func installInstruction(t Tool) string {
 
 func goInstallCommand(t Tool) string {
 	return fmt.Sprintf("go install %s", t.InstallPackage)
+}
+
+// getCurrentPlatform returns the current platform identifier
+func getCurrentPlatform() string {
+	return runtime.GOOS
+}
+
+// TryCommand is a public wrapper for tryCommand
+func TryCommand(name string, args ...string) (string, bool) {
+	return tryCommand(name, args...)
+}
+
+// ExecuteInstallCommand executes an install command
+func ExecuteInstallCommand(command string) error {
+	// Split command into parts
+	parts := strings.Fields(command)
+	if len(parts) == 0 {
+		return fmt.Errorf("empty command")
+	}
+
+	// Execute the command
+	// #nosec G204 - Command parts come from internal configuration, not user input
+	cmd := exec.Command(parts[0], parts[1:]...)
+	return cmd.Run()
 }
 
 // getGoBinPath returns the Go bin directory where tools are installed

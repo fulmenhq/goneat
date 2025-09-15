@@ -116,6 +116,24 @@ func DetectWhitespaceIssues(input []byte, options NormalizationOptions) (hasIssu
 		for i, line := range lines {
 			originalLine := line
 			trimmedLine := strings.TrimRight(line, " \t")
+
+			// If preserving markdown hard breaks, allow exactly 2 trailing spaces
+			if options.PreserveMarkdownHardBreaks {
+				// Count trailing spaces
+				n := 0
+				for j := len(line) - 1; j >= 0; j-- {
+					if line[j] == ' ' {
+						n++
+						continue
+					}
+					break
+				}
+				// If exactly 2 trailing spaces, don't consider it an issue
+				if n == 2 {
+					continue
+				}
+			}
+
 			if trimmedLine != originalLine {
 				affectedLines = append(affectedLines, i+1) // 1-based line numbers
 			}

@@ -1,0 +1,10 @@
+scopes:
+  invalid:
+    description: "Invalid scope for testing"
+    tools: ["nonexistent-tool"]  # This tool doesn't exist
+
+tools:
+  # Missing required fields
+  bad-tool:
+    name: "bad-tool"
+    # Missing description, kind, detect_command

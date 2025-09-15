@@ -56,7 +56,7 @@ func init() {
 	// Init command flags
 	versionInitCmd.Flags().Bool("dry-run", false, "Preview setup without making changes")
 	versionInitCmd.Flags().Bool("force", false, "Overwrite existing version files")
-	versionInitCmd.Flags().String("initial-version", "1.0.0", "Initial version to set")
+	versionInitCmd.Flags().String("initial-version", "0.1.0", "Initial version to set")
 
 	// Note: assess command flags are defined in assess.go
 }
@@ -403,8 +403,9 @@ Available templates:
   • custom    - Custom versioning scheme
 
 Examples:
-  goneat version init basic     # Create VERSION file with 1.0.0
-  goneat version init --dry-run # Preview setup without making changes`,
+  goneat version init basic           # Create VERSION file with 0.1.0
+  goneat version init --dry-run       # Preview setup without making changes
+  goneat version init --initial-version 2.1.0 # Create VERSION file with custom version`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runVersionInit,
 }

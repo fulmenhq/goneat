@@ -147,8 +147,9 @@ func (r *FormatAssessmentRunner) Assess(ctx context.Context, target string, conf
 
 		// Use shared whitespace detection for consistency with format command
 		options := finalizer.NormalizationOptions{
-			TrimTrailingWhitespace: true,  // Assessment always checks for trailing whitespace
-			EnsureEOF:              false, // EOF enforcement handled separately
+			TrimTrailingWhitespace:     true,  // Assessment always checks for trailing whitespace
+			EnsureEOF:                  false, // EOF enforcement handled separately
+			PreserveMarkdownHardBreaks: true,  // Preserve markdown hard breaks (2 trailing spaces)
 		}
 
 		if hasIssues, whitespaceIssues := finalizer.DetectWhitespaceIssues(content, options); hasIssues {

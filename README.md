@@ -66,6 +66,7 @@ goneat hooks install
 **Notes:**
 
 - Name clarification: This project is not affiliated with any other "goneat". Use the full module path `github.com/fulmenhq/goneat`.
+- **Windows support is experimental until v0.3.0** - While goneat provides Windows binaries and basic functionality works, full compatibility testing and optimization is ongoing. Use with caution in production Windows environments.
 - Upcoming: Homebrew and Scoop packages will be available soon for easier installation.
 
 ## Install

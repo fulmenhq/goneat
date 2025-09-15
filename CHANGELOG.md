@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.2.5] - 2025-09-13
+
+### Added
+
+- **Infrastructure Tools Management**: New `infrastructure` scope for `goneat doctor tools` command
+  - Cross-platform detection and installation of ripgrep, jq, and go-licenses
+  - Schema-driven configuration system with JSON Schema validation
+  - Support for tool name vs binary name distinction (e.g., `ripgrep` vs `rg`)
+  - User-configurable tool policies via `.goneat/tools.yaml`
+- **Enhanced Doctor Tools CLI**:
+  - `--dry-run` flag to preview installations without executing
+  - `--config` flag to specify custom tools configuration file
+  - `--list-scopes` flag to display available tool scopes
+  - `--validate-config` flag to validate configuration files
+  - JSON output support for AI agent consumption
+- **Assessment Integration**: Tools checking integrated into `goneat assess` command
+  - New `tools` category with priority 1 (critical for CI/CD)
+  - Automatic tools validation in pre-commit and pre-push hooks
+  - Parallel execution with other assessment categories
+- **Schema System**: New tools configuration schema (`schemas/tools/v1.0.0/tools-config.yaml`)
+  - JSON Schema Draft 2020-12 compliance
+  - Embedded default configuration with user override support
+  - Comprehensive validation with detailed error reporting
+
+### Changed
+
+- **Version Command**: Changed `basic` template default version from `1.0.0` to `0.1.0` for better semver practices
+- **Version Command**: Enhanced `--initial-version` flag documentation with examples for custom version specification
+- **Hooks System**: Updated default pre-commit and pre-push hooks to include tools checking
+- **Assessment Engine**: Added tools runner for infrastructure tool validation
+- **Configuration Management**: Enhanced schema validation system with tools configuration support
+
+### Fixed
+
+- **Tool Detection**: Improved cross-platform tool detection with proper command parsing
+- **Installation Methods**: Enhanced platform-specific installation command handling
+- **Error Handling**: Better fallback instructions for manual tool installation
+- **Assessment Engine**: Fixed shouldFail function to properly handle category errors (e.g., lint config failures)
+
+## [Unreleased]
+
 ### Added
 
 - Schema: Complete directory-based versioning system implementation for maintainable schema evolution

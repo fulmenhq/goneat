@@ -298,7 +298,7 @@ func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignore
 
 	switch ext {
 	case ".go":
-		err = formatGoFile(file, checkOnly, cfg, useGoimports, ignoreMissingTools)
+		err = formatGoFile(file, checkOnly, cfg, useGoimports, ignoreMissingTools, options)
 
 	case ".yaml", ".yml":
 		// Skip if yamlfmt missing and ignoring missing tools
@@ -309,7 +309,7 @@ func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignore
 				break
 			}
 		}
-		err = formatYAMLFile(file, checkOnly, cfg)
+		err = formatYAMLFile(file, checkOnly, cfg, options)
 
 	case ".json":
 		if ignoreMissingTools {
@@ -318,7 +318,7 @@ func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignore
 				break
 			}
 		}
-		err = formatJSONFile(file, checkOnly, cfg)
+		err = formatJSONFile(file, checkOnly, cfg, options)
 
 	case ".md":
 		if ignoreMissingTools {
@@ -327,7 +327,7 @@ func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignore
 				break
 			}
 		}
-		err = formatMarkdownFile(file, checkOnly, cfg)
+		err = formatMarkdownFile(file, checkOnly, cfg, options)
 
 	default:
 		// Non-primary types: apply finalizer to supported extensions or any text file when textNormalize is enabled
@@ -392,9 +392,11 @@ func applyFinalizer(file string, checkOnly bool, options finalizer.Normalization
 	}
 
 	if checkOnly {
-		// Use shared detection function for consistent issue reporting
-		if hasIssues, issues := finalizer.DetectWhitespaceIssues(content, options); hasIssues {
-			logger.Info(fmt.Sprintf("File %s needs formatting: %v", file, issues))
+		// Use the same comprehensive normalization function for consistent checking
+		if _, changed, err := finalizer.ComprehensiveFileNormalization(content, options); err != nil {
+			return fmt.Errorf("normalization error: %v", err)
+		} else if changed {
+			logger.Info(fmt.Sprintf("File %s needs formatting (EOF, trailing whitespace, line endings, or BOM issues)", file))
 			return fmt.Errorf("needs formatting")
 		}
 		return fmt.Errorf("already formatted")
@@ -419,7 +421,7 @@ func applyFinalizer(file string, checkOnly bool, options finalizer.Normalization
 	return nil
 }
 
-func formatGoFile(file string, checkOnly bool, cfg *config.Config, useGoimports bool, ignoreMissingTools bool) error {
+func formatGoFile(file string, checkOnly bool, cfg *config.Config, useGoimports bool, ignoreMissingTools bool, options finalizer.NormalizationOptions) error {
 	// Validate file path to prevent path traversal
 	file = filepath.Clean(file)
 	if strings.Contains(file, "..") {
@@ -466,14 +468,31 @@ func formatGoFile(file string, checkOnly bool, cfg *config.Config, useGoimports 
 
 	changed := !bytes.Equal(original, final)
 
+	// Check if finalizer would make additional changes
+	finalizerWillChange := false
+	if options.EnsureEOF || options.TrimTrailingWhitespace || options.NormalizeLineEndings != "" || options.RemoveUTF8BOM {
+		if _, fChanged, err := finalizer.ComprehensiveFileNormalization(final, options); err == nil && fChanged {
+			finalizerWillChange = true
+		}
+	}
+
 	if checkOnly {
-		if changed {
+		if changed || finalizerWillChange {
 			return fmt.Errorf("needs formatting")
 		}
 		return fmt.Errorf("already formatted")
 	}
 
-	if changed {
+	if changed || finalizerWillChange {
+		// Apply finalizer if needed
+		if finalizerWillChange {
+			finalized, _, err := finalizer.ComprehensiveFileNormalization(final, options)
+			if err != nil {
+				return fmt.Errorf("finalizer error: %v", err)
+			}
+			final = finalized
+		}
+
 		logger.Info(fmt.Sprintf("Applying Go formatting changes to %s", file))
 		return os.WriteFile(file, final, 0600)
 	}
@@ -481,7 +500,7 @@ func formatGoFile(file string, checkOnly bool, cfg *config.Config, useGoimports 
 	return fmt.Errorf("already formatted")
 }
 
-func formatYAMLFile(file string, checkOnly bool, cfg *config.Config) error {
+func formatYAMLFile(file string, checkOnly bool, cfg *config.Config, options finalizer.NormalizationOptions) error {
 	// Clean file path to prevent path traversal
 	file = filepath.Clean(file)
 
@@ -545,10 +564,18 @@ func formatYAMLFile(file string, checkOnly bool, cfg *config.Config) error {
 		return fmt.Errorf("yamlfmt dry run failed: %v\nOutput: %s", dryErr, string(dryOutput))
 	}
 
-	// Check if formatting is needed by comparing dry output
-	willChange := len(dryOutput) > 0 && !bytes.Equal(originalContent, dryOutput)
+	// Check if yamlfmt formatting is needed by comparing dry output
+	yamlfmtWillChange := len(dryOutput) > 0 && !bytes.Equal(originalContent, dryOutput)
 
-	if !willChange {
+	// Check if finalizer would make changes
+	finalizerWillChange := false
+	if options.EnsureEOF || options.TrimTrailingWhitespace || options.NormalizeLineEndings != "" || options.RemoveUTF8BOM {
+		if _, changed, err := finalizer.ComprehensiveFileNormalization(originalContent, options); err == nil && changed {
+			finalizerWillChange = true
+		}
+	}
+
+	if !yamlfmtWillChange && !finalizerWillChange {
 		return fmt.Errorf("already formatted")
 	}
 
@@ -563,11 +590,30 @@ func formatYAMLFile(file string, checkOnly bool, cfg *config.Config) error {
 		return fmt.Errorf("yamlfmt failed: %v\nOutput: %s", err, string(output))
 	}
 
+	// Apply finalizer options if requested (EOF, trailing whitespace, etc.)
+	// Re-read the file to get the current content after yamlfmt formatting
+	currentContent, readErr := os.ReadFile(file)
+	if readErr != nil {
+		return fmt.Errorf("failed to re-read file after formatting: %v", readErr)
+	}
+
+	if options.EnsureEOF || options.TrimTrailingWhitespace || options.NormalizeLineEndings != "" || options.RemoveUTF8BOM {
+		finalized, changed, err := finalizer.ComprehensiveFileNormalization(currentContent, options)
+		if err != nil {
+			return fmt.Errorf("finalizer error: %v", err)
+		}
+		if changed {
+			if err := os.WriteFile(file, finalized, 0600); err != nil {
+				return fmt.Errorf("failed to write finalized file: %v", err)
+			}
+		}
+	}
+
 	logger.Info(fmt.Sprintf("Applying YAML formatting changes to %s", file))
 	return nil
 }
 
-func formatJSONFile(file string, checkOnly bool, cfg *config.Config) error {
+func formatJSONFile(file string, checkOnly bool, cfg *config.Config, options finalizer.NormalizationOptions) error {
 	// Validate file path to prevent path traversal
 	file = filepath.Clean(file)
 	if strings.Contains(file, "..") {
@@ -612,8 +658,21 @@ func formatJSONFile(file string, checkOnly bool, cfg *config.Config) error {
 		formatted = strings.TrimSuffix(formatted, "\n")
 	}
 
-	// Check if formatting changed the content
-	if bytes.Equal(originalContent, []byte(formatted)) {
+	// Apply finalizer options if requested (EOF, trailing whitespace, etc.)
+	if options.EnsureEOF || options.TrimTrailingWhitespace || options.NormalizeLineEndings != "" || options.RemoveUTF8BOM {
+		finalized, changed, err := finalizer.ComprehensiveFileNormalization([]byte(formatted), options)
+		if err != nil {
+			return fmt.Errorf("finalizer error: %v", err)
+		}
+		if changed {
+			formatted = string(finalized)
+		}
+	}
+
+	// Check if any formatting changed the content
+	contentChanged := !bytes.Equal(originalContent, []byte(formatted))
+
+	if !contentChanged {
 		if checkOnly {
 			return fmt.Errorf("already formatted")
 		}
@@ -628,7 +687,7 @@ func formatJSONFile(file string, checkOnly bool, cfg *config.Config) error {
 	return os.WriteFile(file, []byte(formatted), 0600)
 }
 
-func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config) error {
+func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config, options finalizer.NormalizationOptions) error {
 	// Validate file path to prevent path traversal
 	file = filepath.Clean(file)
 	if strings.Contains(file, "..") {
@@ -674,9 +733,34 @@ func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config) error {
 		return fmt.Errorf("prettier failed: %v", cmdErr)
 	}
 
-	// Handle trailing spaces if configured
+	// Handle trailing spaces - use finalizer options if specified, otherwise use config
 	formatted := string(output)
-	if mdConfig.TrailingSpaces {
+	if options.TrimTrailingWhitespace {
+		// Use finalizer logic which handles markdown hard breaks properly
+		lines := strings.Split(formatted, "\n")
+		for i, line := range lines {
+			if options.PreserveMarkdownHardBreaks {
+				// Count trailing spaces
+				n := 0
+				for j := len(line) - 1; j >= 0; j-- {
+					if line[j] == ' ' {
+						n++
+						continue
+					}
+					break
+				}
+				if n >= 2 {
+					// Collapse to exactly two spaces (preserve markdown hard breaks)
+					lines[i] = strings.TrimRight(line, " \t") + "  "
+					continue
+				}
+			}
+			// Trim all trailing whitespace
+			lines[i] = strings.TrimRight(line, " \t")
+		}
+		formatted = strings.Join(lines, "\n")
+	} else if mdConfig.TrailingSpaces {
+		// Fallback to config-based trimming
 		lines := strings.Split(formatted, "\n")
 		for i, line := range lines {
 			lines[i] = strings.TrimRight(line, " \t")
@@ -684,8 +768,25 @@ func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config) error {
 		formatted = strings.Join(lines, "\n")
 	}
 
-	// Check if formatting changed the content
-	if bytes.Equal(originalContent, []byte(formatted)) {
+	// Apply remaining finalizer options if requested (EOF, line endings, BOM)
+	if options.EnsureEOF || options.NormalizeLineEndings != "" || options.RemoveUTF8BOM {
+		// Create options without TrimTrailingWhitespace since we handled it above
+		finalizerOptions := options
+		finalizerOptions.TrimTrailingWhitespace = false
+
+		finalized, changed, err := finalizer.ComprehensiveFileNormalization([]byte(formatted), finalizerOptions)
+		if err != nil {
+			return fmt.Errorf("finalizer error: %v", err)
+		}
+		if changed {
+			formatted = string(finalized)
+		}
+	}
+
+	// Check if any formatting changed the content
+	contentChanged := !bytes.Equal(originalContent, []byte(formatted))
+
+	if !contentChanged {
 		if checkOnly {
 			return fmt.Errorf("already formatted")
 		}

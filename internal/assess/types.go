@@ -90,6 +90,7 @@ const (
 	CategoryPerformance    AssessmentCategory = "performance"
 	CategorySchema         AssessmentCategory = "schema"
 	CategoryDates          AssessmentCategory = "dates"
+	CategoryTools          AssessmentCategory = "tools"
 )
 
 // IssueSeverity represents the severity level of an assessment issue

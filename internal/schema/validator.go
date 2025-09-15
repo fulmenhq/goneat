@@ -29,6 +29,7 @@ func init() {
 	known := map[string]string{
 		"goneat-config-v1.0.0": "embedded_schemas/config/goneat-config-v1.0.0.yaml",
 		"dates":                "embedded_schemas/schemas/config/dates.yaml",
+		"tools-config-v1.0.0":  "embedded_schemas/schemas/tools/v1.0.0/tools-config.yaml",
 		// Add more as needed
 	}
 	for name, path := range known {
