@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.goneat.io/pathfinder/config-v1.0.0.json",
+  "title": "PathFinder Configuration",
+  "type": "object",
+  "required": [
+    "version",
+    "safety",
+    "loaders"
+  ],
+  "properties": {
+    "version": {
+      "const": "1.0.0",
+      "description": "Configuration schema version"
+    },
+    "safety": {
+      "type": "object",
+      "properties": {
+        "validation_level": {
+          "enum": [
+            "basic",
+            "standard",
+            "strict",
+            "paranoid"
+          ],
+          "default": "standard",
+          "description": "Level of path validation to apply"
+        },
+        "allow_symlinks": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to follow symbolic links"
+        },
+        "max_depth": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 20,
+          "description": "Maximum directory traversal depth"
+        },
+        "enforcement": {
+          "enum": [
+            "strict",
+            "warn",
+            "permissive"
+          ],
+          "default": "strict",
+          "description": "How strictly to enforce path constraints"
+        }
+      },
+      "description": "Path safety and validation settings"
+    },
+    "audit": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to enable audit trail logging"
+        },
+        "compliance_mode": {
+          "enum": [
+            "none",
+            "HIPAA",
+            "SOC2",
+            "PCI-DSS",
+            "GDPR"
+          ],
+          "default": "none",
+          "description": "Compliance standard to adhere to"
+        },
+        "retention_days": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 90,
+          "description": "How long to retain audit records"
+        },
+        "export_formats": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "json",
+              "csv",
+              "syslog"
+            ]
+          },
+          "default": [
+            "json"
+          ],
+          "description": "Supported audit export formats"
+        }
+      },
+      "description": "Audit trail configuration"
+    },
+    "cache": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to enable caching"
+        },
+        "ttl_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 300,
+          "description": "Cache entry time-to-live in seconds"
+        },
+        "max_entries": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 1000,
+          "description": "Maximum number of cache entries"
+        },
+        "distributed": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to use distributed caching"
+        }
+      },
+      "description": "Caching configuration"
+    },
+    "loaders": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "type",
+          "enabled"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "local",
+              "s3",
+              "gcs",
+              "azure",
+              "http"
+            ],
+            "description": "Type of source loader"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether this loader is enabled"
+          },
+          "config": {
+            "type": "object",
+            "description": "Loader-specific configuration"
+          },
+          "audit_trail": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to audit operations for this loader"
+          }
+        }
+      },
+      "description": "Configuration for different source loaders"
+    }
+  }
+}

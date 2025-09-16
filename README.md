@@ -63,6 +63,8 @@ goneat hooks generate
 goneat hooks install
 ```
 
+Hooks now include maturity validation and dirty repository protection to prevent careless version pushes and ensure release readiness. See [Release quality checking](#release-quality-checking) for details.
+
 **Notes:**
 
 - Name clarification: This project is not affiliated with any other "goneat". Use the full module path `github.com/fulmenhq/goneat`.
@@ -152,11 +154,11 @@ make build
 
 ## Status
 
-- Release: v0.2.3 (per `VERSION` file)
-- Lifecycle Phase: Alpha (per `LIFECYCLE_PHASE` file)
-- Release Phase: GA (per `RELEASE_PHASE` file)
+- Release: v0.2.6 (per `VERSION` file)
+- Lifecycle Phase: GA (per `LIFECYCLE_PHASE` file)
+- Release Phase: Release (per `RELEASE_PHASE` file)
 - Repo Visibility: Public
-- Gates: pre-commit (format+lint, fail-on=medium) passing; pre-push (format+lint+security, fail-on=high) passing
+- Gates: pre-commit (format+lint, fail-on=medium) passing; pre-push (format+lint+security+maturity+repo-status, fail-on=high) passing
 - Licensing: Audit clean (no GPL/LGPL/AGPL/MPL/CDDL); inventory maintained under `docs/licenses/`
 
 Note: This is alpha software in RC release phase. See `docs/standards/lifecycle-release-phase-standard.md` for phase definitions and operational details on coverage gates, contribution posture, and user guidance.
@@ -170,8 +172,47 @@ Note: This is alpha software in RC release phase. See `docs/standards/lifecycle-
 - **Enterprise‑scale**: sharded parallelism, multi-module awareness, .goneatignore filtering
 - **Extensible**: add languages, tools, and policies without changing your hook scripts
 - **Diff‑Aware Assessment**: prioritizes and highlights issues in your current change set
+- **Maturity Validation**: prevents version/phase mismatches and ensures release readiness ([see below](#release-quality-checking))
+- **Dirty Repository Protection**: blocks pushes with unstaged changes to prevent careless releases ([see below](#release-quality-checking))
 - **Smart Semantic Validation** (planned): detect and validate schemas beyond file extensions
 - **Suppression Insights**: top rules/files with rich summaries for governance
+- **Library Functions**: Reusable Go packages for schema validation and path resolution, enabling integration into custom tools without separate installation.
+
+## Library Functions
+
+### Schema Management
+
+Goneat's schema package provides fast, offline JSON Schema validation (Draft-07/2020-12) with embedded meta-schemas. Supports hierarchical configs and error reporting for enterprise-scale validation.
+
+- Import: `github.com/fulmenhq/goneat/pkg/schema`
+- Key Features: Validator rework for performance, schema discovery via patterns.
+- Reminder: No separate `go install` needed—use as library in your Go projects via `go get github.com/fulmenhq/goneat`.
+
+### Pathfinder _(Experimental until v0.3.0)_
+
+Pathfinder handles file discovery and resolution with loaders for multi-module repos and hierarchical ignores (like .goneatignore). Optimizes large-repo scans with glob patterns and directory traversal.
+
+- Import: `github.com/fulmenhq/goneat/pkg/pathfinder`
+- Key Features: Loaders for configs/tools, absolute/relative path handling, integration with ignore files.
+- ⚠️ **Experimental**: API may change before v0.3.0 stabilization.
+
+### Maturity Validation _(Experimental until v0.3.0)_
+
+The maturity package provides release lifecycle management and version consistency validation. Enables programmatic checking of repository phases and deployment readiness.
+
+- Import: `github.com/fulmenhq/goneat/internal/maturity`
+- Key Features: Phase file validation, version syntax checking, release readiness assessment.
+- Usage: Integrate into CI/CD pipelines for automated release gate checks.
+- ⚠️ **Experimental**: API may change before v0.3.0 stabilization.
+
+### Assessment Runners
+
+Extensible assessment framework with pluggable runners for different validation categories. Add custom checks by implementing the AssessmentRunner interface.
+
+- Import: `github.com/fulmenhq/goneat/internal/assess`
+- Key Features: Parallel execution, category-based assessment, JSON-first output for automation.
+- Categories: format, lint, security, maturity, repo-status, and extensible for custom validations.
+- Reminder: The library packages are part of the main module; no separate `go install` required—simply `go get github.com/fulmenhq/goneat` and import.
 
 ## No‑hassle hooks
 
@@ -186,8 +227,10 @@ goneat hooks install
 Sensible defaults:
 
 - Pre-commit: format + lint (fail-on medium)
-- Pre-push: format + lint + security (fail-on high)
+- Pre-push: format + lint + security + maturity + repo-status (fail-on high)
 - Optimizations: only_changed_files, cache_results, parallel
+
+See [Release quality checking](#release-quality-checking) for details on maturity validation and dirty repository protection.
 
 Update flow:
 
@@ -200,6 +243,95 @@ Tips:
 
 - `GONEAT_HOOK_OUTPUT=concise|markdown|json|html` controls hook output
 - Fail thresholds configurable via `--fail-on`; security concise shows `Fail-on: <level>`
+
+## Release Quality Management
+
+Goneat provides comprehensive release quality management through repository phase handling, maturity validation, and state checks. These features ensure your project progresses smoothly from development to production, integrating with git hooks and CI/CD for automated enforcement.
+
+### Repository Phases
+
+Manage project lifecycle phases (dev, rc, release, hotfix) and release phases (alpha, beta, ga, maintenance) to enforce appropriate standards at each stage.
+
+**Commands:**
+
+- `goneat repository phase set --release rc --lifecycle beta` - Transition to release candidate.
+- `goneat repository phase show` - Display current phases and rules.
+- `goneat repository policy show` - View phase-specific policies (e.g., min coverage, git cleanliness).
+- `goneat repository policy validate --level error` - Validate against current state.
+
+**Policies Example:**
+
+- Dev: 50% coverage, dirty git allowed, "-dev" suffix.
+- RC: 75% coverage, clean git required, "-rc.1" suffix, docs mandatory.
+- Release: 90% coverage, no suffixes, full validation.
+
+Configure in `.goneat/phases.yaml`.
+
+### Maturity Validation
+
+Validate repository health based on phases, checking git state, versions, docs, coverage, and schemas.
+
+**Commands:**
+
+- `goneat maturity validate --level warn` - Comprehensive check with warnings.
+- `goneat maturity release-check --phase rc --strict` - Phase-specific readiness (fails on issues).
+- Integrate via `goneat assess --categories maturity`.
+
+**Checks Include:**
+
+- Git cleanliness and branch state.
+- Version suffix matching phase (e.g., no "-rc" in release).
+- Required docs (CHANGELOG.md, RELEASE_NOTES.md).
+- Coverage thresholds with exceptions (e.g., node_modules=0%).
+- Schema validity for configs.
+
+**JSON Output for CI:**
+
+```json
+{
+  "ready": true,
+  "issues": [],
+  "phase": "rc"
+}
+```
+
+### Dirty Repository Protection
+
+Blocks pushes with uncommitted changes to prevent incomplete releases.
+
+- Runs `git status --porcelain` in hooks.
+- Fails pre-push if dirty (configurable per phase).
+- Clear fixes: "git add . && git commit".
+
+### Workflow Integration
+
+Follow phases in your release process:
+
+1. **Dev**: `goneat repository phase set --release dev`; lenient checks.
+2. **RC**: Set to rc/beta; run `goneat maturity release-check --phase rc --strict`.
+3. **Release**: Set to release/ga; full `goneat assess --categories all`.
+4. **Hotfix**: 80% coverage, focused security checks.
+
+**Hooks Setup:**
+
+- Pre-commit: `goneat maturity validate --level warn`.
+- Pre-push: Full `release-check --strict` + assess.
+
+**CI Example (GitHub Actions):**
+
+```yaml
+- run: goneat maturity release-check --phase rc --strict --json | jq '.ready'
+- run: if [ "$(goneat assess --categories maturity --json | jq '.issues | length')" -gt 0 ]; then exit 1; fi
+```
+
+**Benefits:**
+
+- Enforces standards per phase for enterprise-scale releases.
+- Prevents version drifts, dirty pushes, and doc gaps.
+- JSON-first for agentic/CI integration.
+- Customizable via `.goneat/phases.yaml` for multi-language repos.
+
+For full workflows, see [Release Readiness Guide](docs/user-guide/workflows/release-readiness.md).
 
 ## Zero‑friction tooling
 
@@ -237,13 +369,32 @@ Benefits:
 
 ## Commands
 
-- `goneat validate`: Schema-aware validation (preview; offline meta-validation)
-- `goneat assess`: Orchestrated assessment engine (format, lint, security, static analysis, schema, date-validation) with user-configurable assessment categories
-- `goneat format`: Multi-format formatting with finalizer stage (EOF/trailing spaces, line-endings, BOM)
-- `goneat security`: Security scanning (gosec, govulncheck), sharded + parallel
-- `goneat hooks`: Hook management (init, generate, install, validate, inspect)
-- `goneat docs`: Read-only access to embedded user guides (most user-facing help)
-- `goneat content`: Maintainer/curation tools for selecting and embedding docs (not for viewing)
+### Neat Commands (Core Functionality)
+
+- `goneat assess`: Orchestrated assessment engine (format, lint, security, static analysis, schema, date-validation, maturity, repo-status) with user-configurable assessment categories ([docs](docs/user-guide/commands/assess.md))
+- `goneat dates`: Validate and fix date consistency across your codebase ([docs](docs/user-guide/commands/dates.md))
+- `goneat format`: Multi-format formatting with finalizer stage (EOF/trailing spaces, line-endings, BOM) ([docs](docs/user-guide/commands/format.md))
+- `goneat security`: Security scanning (gosec, govulncheck), sharded + parallel ([docs](docs/user-guide/commands/security.md))
+- `goneat validate`: Schema-aware validation (preview; offline meta-validation) ([docs](docs/user-guide/commands/validate.md))
+
+### Workflow Commands (Repository Management)
+
+- `goneat hooks`: Hook management (init, generate, install, validate, inspect) ([docs](docs/user-guide/commands/hooks.md))
+- `goneat maturity`: Repository maturity validation and release readiness checks ([docs](docs/user-guide/commands/maturity.md))
+- `goneat repository`: Repository phase and policy management ([docs](docs/user-guide/commands/repository.md))
+
+### Content Commands (Documentation)
+
+- `goneat content`: Curate and embed documentation content ([docs](docs/user-guide/commands/content.md))
+- `goneat docs`: Read-only access to embedded user guides (most user-facing help) ([docs](docs/user-guide/commands/docs.md))
+
+### Support Commands (Utilities)
+
+- `goneat doctor`: Diagnostics and tooling checks ([docs](docs/user-guide/commands/doctor.md))
+- `goneat envinfo`: Display environment and system information
+- `goneat home`: Manage user configuration and preferences
+- `goneat info`: Display informational content and metadata
+- `goneat version`: Show goneat version information ([docs](docs/user-guide/commands/version.md))
 
 Development note: The embed step runs during `make build` and `build-all` via `embed-assets`. Docs mirroring uses the CLI when a local binary exists; otherwise the tracked mirror is used. If you edit `docs/` or the manifest, run:
 
@@ -376,7 +527,7 @@ goneat docs help format | less
 goneat docs show user-guide/commands/hooks --format html > hooks.html
 ```
 
-Tip: Use `goneat docs` to learn about hooks, commands, tutorials, and workflows without leaving your terminal.
+Tip: Use `goneat docs` to learn about hooks, commands, tutorialsdocs/user-guide/workflows/release-readiness.md, and workflows without leaving your terminal.
 
 ## Diff‑Aware Assessment (Change‑Set Intelligence)
 

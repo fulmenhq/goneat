@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.goneat.io/pathfinder/audit-record-v1.0.0.json",
+  "title": "PathFinder Audit Record",
+  "type": "object",
+  "required": [
+    "id",
+    "timestamp",
+    "operation",
+    "path",
+    "source_loader",
+    "result"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for the audit record"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the operation occurred"
+    },
+    "operation": {
+      "type": "string",
+      "enum": [
+        "open",
+        "list",
+        "walk",
+        "validate",
+        "discover",
+        "cache_hit",
+        "cache_miss",
+        "denied"
+      ],
+      "description": "Type of path operation performed"
+    },
+    "path": {
+      "type": "string",
+      "description": "The file or directory path involved in the operation"
+    },
+    "source_loader": {
+      "type": "string",
+      "description": "The source loader type (e.g., 'local', 's3', 'gcs')"
+    },
+    "constraint": {
+      "type": "string",
+      "description": "The path constraint that was applied"
+    },
+    "result": {
+      "type": "object",
+      "required": [
+        "status",
+        "code"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "success",
+            "failure",
+            "denied",
+            "rate_limited"
+          ],
+          "description": "Overall result status"
+        },
+        "code": {
+          "type": "integer",
+          "description": "HTTP-like status code"
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable result message"
+        }
+      }
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Operation duration in milliseconds"
+    },
+    "user_context": {
+      "type": "object",
+      "description": "Additional user context information"
+    },
+    "security_flags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Security-related flags or warnings"
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Error type classification"
+        },
+        "message": {
+          "type": "string",
+          "description": "Error message"
+        },
+        "code": {
+          "type": "string",
+          "description": "Error code if applicable"
+        }
+      },
+      "description": "Structured error details if operation failed"
+    }
+  }
+}

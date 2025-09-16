@@ -67,6 +67,17 @@ func TestStatusMapping(t *testing.T) {
 	if rpt.Categories[string(CategoryLint)].Status != "error" {
 		t.Fatalf("expected error")
 	}
+
+	// issues when result.Success=false but issues exist (no error)
+	globalRunnerRegistry = NewAssessmentRunnerRegistry()
+	eng = NewAssessmentEngine()
+	RegisterAssessmentRunner(CategoryLint, &statusRunner{category: CategoryLint, result: &AssessmentResult{
+		CommandName: "lint", Success: false, Issues: []Issue{{File: "x.go", Severity: SeverityLow, Message: "m"}},
+	}})
+	rpt, _ = eng.RunAssessment(context.Background(), ".", DefaultAssessmentConfig())
+	if rpt.Categories[string(CategoryLint)].Status != "issues" {
+		t.Fatalf("expected issues when results contain findings without hard error")
+	}
 }
 
 type assertErr struct{}

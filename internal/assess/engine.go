@@ -180,14 +180,34 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 				allIssues = append(allIssues, cr.Issues...)
 				logger.Info(fmt.Sprintf("%s assessment completed in %v: %d issues found", category, runDur, len(cr.Issues)))
 			} else {
-				// Map non-success without error to a consistent status.
+				cr.Issues = e.annotateIssuesWithChange(result.Issues, target, modifiedAbs, modifiedLinesAbs)
+				cr.IssueCount = len(result.Issues)
+				cr.EstimatedTime = HumanReadableDuration(e.estimateCategoryTime(result.Issues))
+				if result.Metrics != nil {
+					cr.Metrics = result.Metrics
+					// Extract suppression report if present
+					if suppressions, ok := result.Metrics["_suppressions"].([]Suppression); ok && len(suppressions) > 0 {
+						cr.SuppressionReport = &SuppressionReport{
+							Suppressions: suppressions,
+							Summary:      GenerateSummary(suppressions),
+						}
+						// Remove internal key from metrics
+						delete(result.Metrics, "_suppressions")
+					}
+				}
+				allIssues = append(allIssues, cr.Issues...)
 				if result.Error != "" {
 					cr.Status = "error"
 					cr.Error = result.Error
+					logger.Error(fmt.Sprintf("%s assessment failed after %v: %v", category, runDur, err))
+				} else if len(cr.Issues) > 0 {
+					// Runner reported issues without a hard error
+					cr.Status = "issues"
 				} else {
+					// No issues and no error but runner indicated Success=false; treat as skipped
 					cr.Status = "skipped"
 				}
-				logger.Debug(fmt.Sprintf("%s assessment non-success without error after %v (status=%s)", category, runDur, cr.Status))
+				logger.Info(fmt.Sprintf("%s assessment completed in %v: %d issues found", category, runDur, len(cr.Issues)))
 			}
 			categoryResults[string(category)] = cr
 		}
@@ -250,22 +270,40 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 						}
 						logger.Info(fmt.Sprintf("%s assessment completed in %v: %d issues found", j.category, runDur, len(cr.Issues)))
 					} else {
+						cr.Issues = e.annotateIssuesWithChange(result.Issues, target, modifiedAbs, modifiedLinesAbs)
+						cr.IssueCount = len(result.Issues)
+						cr.EstimatedTime = HumanReadableDuration(e.estimateCategoryTime(result.Issues))
+						if result.Metrics != nil {
+							cr.Metrics = result.Metrics
+							// Extract suppression report if present
+							if suppressions, ok := result.Metrics["_suppressions"].([]Suppression); ok && len(suppressions) > 0 {
+								cr.SuppressionReport = &SuppressionReport{
+									Suppressions: suppressions,
+									Summary:      GenerateSummary(suppressions),
+								}
+								// Remove internal key from metrics
+								delete(result.Metrics, "_suppressions")
+							}
+						}
 						if result.Error != "" {
 							cr.Status = "error"
 							cr.Error = result.Error
+							logger.Error(fmt.Sprintf("%s assessment failed after %v: %v", j.category, runDur, err))
+						} else if len(cr.Issues) > 0 {
+							// Runner reported issues without a hard error
+							cr.Status = "issues"
 						} else {
+							// No issues and no error but runner indicated Success=false; treat as skipped
 							cr.Status = "skipped"
 						}
-						logger.Debug(fmt.Sprintf("%s assessment non-success without error after %v (status=%s)", j.category, runDur, cr.Status))
+						logger.Info(fmt.Sprintf("%s assessment completed in %v: %d issues found", j.category, runDur, len(cr.Issues)))
 					}
 
 					mu.Lock()
 					catRuntime[j.category] = runDur
 					if result != nil {
 						commandsRun = append(commandsRun, result.CommandName)
-						if len(cr.Issues) > 0 {
-							allIssues = append(allIssues, cr.Issues...)
-						}
+						allIssues = append(allIssues, cr.Issues...)
 					}
 					categoryResults[string(j.category)] = cr
 					mu.Unlock()

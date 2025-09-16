@@ -5,7 +5,16 @@ author: "@forge-neat"
 date: "2025-08-31"
 last_updated: "2025-09-15"
 status: "approved"
-tags: ["cli", "formatting", "file-operations", "normalization", "commands", "consistency", "dx"]
+tags:
+  [
+    "cli",
+    "formatting",
+    "file-operations",
+    "normalization",
+    "commands",
+    "consistency",
+    "dx",
+  ]
 category: "user-guide"
 ---
 
@@ -35,6 +44,7 @@ Goneat format is a multi-purpose formatting tool that:
 #### Key Fixes
 
 **1. Markdown Hard Break Preservation**
+
 ```bash
 # Both commands now consistently handle markdown hard breaks
 goneat format --check --finalize-trim-trailing-spaces file.md
@@ -46,11 +56,13 @@ goneat assess --categories format file.md
 ```
 
 **2. Finalizer Options Support**
+
 - All format functions (`formatGoFile`, `formatYAMLFile`, `formatJSONFile`, `formatMarkdownFile`) now accept and apply finalizer options
 - `--finalize-trim-trailing-spaces`, `--finalize-eof`, `--finalize-line-endings`, `--finalize-remove-bom` work consistently across all file types
 - Check mode (`--check`) uses the same detection logic as actual formatting
 
 **3. Enhanced Markdown Handling**
+
 ```bash
 # Before: Inconsistent behavior
 goneat format --check --finalize-trim-trailing-spaces file.md  # Said "formatted"
@@ -64,11 +76,13 @@ goneat assess --categories format file.md                       # ✅ "0 issues 
 #### Technical Details
 
 **Detection Logic Unification**
+
 - Both `format --check` and `assess` now use `ComprehensiveFileNormalization()` for consistent issue detection
 - `DetectWhitespaceIssues()` respects `PreserveMarkdownHardBreaks` option
 - Finalizer options are applied after language-specific formatting (prettier, gofmt, etc.)
 
 **File Type Coverage**
+
 - **Go**: gofmt + finalizer options
 - **YAML**: yamlfmt + finalizer options
 - **JSON**: jq + finalizer options
@@ -76,6 +90,7 @@ goneat assess --categories format file.md                       # ✅ "0 issues 
 - **Text files**: Generic normalization + finalizer options
 
 **Impact**
+
 - ✅ Eliminates false positive formatting issues
 - ✅ Consistent CI/CD validation across different commands
 - ✅ Reliable pre-commit hook behavior

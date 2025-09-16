@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -43,34 +42,16 @@ func (r *DatesAssessmentRunner) Assess(ctx context.Context, target string, confi
 	// Create a runner with the loaded configuration
 	configRunner := dates.NewDatesRunnerWithConfig(datesConfig)
 
-	// Filter include files to respect .goneatignore patterns
-	filteredIncludeFiles := r.filterFilesRespectingIgnores(config.IncludeFiles, target)
-
-	// If no specific files are included, we need to do our own file discovery
-	// that respects .goneatignore patterns, since the internal dates runner doesn't
-	if len(filteredIncludeFiles) == 0 {
-		discoveredFiles, err := r.discoverFilesRespectingIgnores(target)
-		if err != nil {
-			return &AssessmentResult{
-				CommandName:   "dates",
-				Category:      CategoryDates,
-				Success:       false,
-				ExecutionTime: HumanReadableDuration(0),
-				Error:         err.Error(),
-			}, nil
-		}
-		filteredIncludeFiles = discoveredFiles
-	}
-
-	// If we have specific files to process, bypass the internal dates runner
-	// and process them directly to avoid the internal runner's own file discovery
-	if len(filteredIncludeFiles) > 0 {
+	// If the caller explicitly provided files (via assessment IncludeFiles), filter them and process directly.
+	// Otherwise, delegate discovery and analysis to the internal dates runner (respects dates config include/exclude).
+	explicitInclude := len(config.IncludeFiles) > 0
+	var filteredIncludeFiles []string
+	if explicitInclude {
+		filteredIncludeFiles = r.filterFilesRespectingIgnores(config.IncludeFiles, target)
 		return r.assessSpecificFiles(ctx, target, datesConfig, filteredIncludeFiles)
 	}
-
-	// Pass through the file filters from the main assessment config.
-	// The dates runner's internal file discovery will use these if the list is not empty.
-	dResult, err := configRunner.Assess(ctx, target, filteredIncludeFiles)
+	// Delegate to internal dates runner for full discovery + analysis
+	dResult, err := configRunner.Assess(ctx, target, nil)
 	if err != nil {
 		return &AssessmentResult{
 			CommandName:   "dates",
@@ -140,53 +121,6 @@ func (r *DatesAssessmentRunner) filterFilesRespectingIgnores(files []string, tar
 		}
 	}
 	return filtered
-}
-
-// discoverFilesRespectingIgnores discovers files while respecting .goneatignore patterns
-func (r *DatesAssessmentRunner) discoverFilesRespectingIgnores(target string) ([]string, error) {
-	var files []string
-
-	// Using custom file discovery that respects .goneatignore patterns
-
-	err := filepath.WalkDir(target, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return nil // Skip files with errors
-		}
-
-		// Skip directories
-		if d.IsDir() {
-			// Check if directory should be ignored
-			rel, err := filepath.Rel(target, path)
-			if err != nil {
-				return nil
-			}
-			if r.matchesGoneatIgnore(rel+"/", target) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		// Get relative path
-		rel, err := filepath.Rel(target, path)
-		if err != nil {
-			return nil
-		}
-
-		// Skip if file matches ignore patterns
-		if r.matchesGoneatIgnore(rel, target) {
-			return nil
-		}
-
-		// Only include text files that could contain dates
-		ext := strings.ToLower(filepath.Ext(path))
-		if ext == ".md" || ext == ".txt" || ext == ".yaml" || ext == ".yml" {
-			files = append(files, rel)
-		}
-
-		return nil
-	})
-
-	return files, err
 }
 
 // matchesGoneatIgnore checks if a file path matches .goneatignore patterns
@@ -330,32 +264,45 @@ func (r *DatesAssessmentRunner) assessSpecificFiles(ctx context.Context, target 
 func (r *DatesAssessmentRunner) processFile(ctx context.Context, target string, config dates.DatesConfig, file string) ([]Issue, error) {
 	var issues []Issue
 
-	// Read the file
-	fullPath := filepath.Join(target, file)
-	// #nosec G304 -- fullPath constructed from target (controlled) and file (from our discovery, safe)
-	content, err := os.ReadFile(fullPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read file %s: %w", file, err)
+	// Determine the full path to read
+	var fullPath string
+	if filepath.IsAbs(file) {
+		// file is already an absolute path
+		fullPath = file
+	} else {
+		// Check if target is a single file
+		if stat, err := os.Stat(target); err == nil && !stat.IsDir() {
+			// target is a single file, use it directly
+			fullPath = target
+		} else {
+			// target is a directory, join with file
+			fullPath = filepath.Join(target, file)
+		}
 	}
 
-	// Simple date validation - check for basic patterns
-	lines := strings.Split(string(content), "\n")
-	_ = time.Now() // Placeholder for future date validation logic
+	// Verify the file exists (we don't need to read it here since the dates runner will do that)
+	if _, err := os.Stat(fullPath); err != nil {
+		return nil, fmt.Errorf("failed to access file %s: %w", fullPath, err)
+	}
 
-	for _, line := range lines {
-		select {
-		case <-ctx.Done():
-			return issues, ctx.Err()
-		default:
-		}
+	// Use the enhanced dates runner for sophisticated analysis
+	tempRunner := dates.NewDatesRunnerWithConfig(config)
+	dResult, err := tempRunner.Assess(ctx, target, nil)
+	if err != nil {
+		return issues, err
+	}
 
-		// Look for date patterns in the line
-		if strings.Contains(line, "## [") && strings.Contains(line, "] - ") {
-			// This looks like a changelog entry, check for date issues
-			// For now, just skip processing to avoid false positives during consolidation
-			// This can be enhanced later with proper date parsing
-			continue
-		}
+	// Convert DatesIssue to Issue
+	for _, di := range dResult.Issues {
+		issues = append(issues, Issue{
+			File:        di.File,
+			Line:        di.Line,
+			Column:      di.Column,
+			Severity:    IssueSeverity(di.Severity),
+			Message:     di.Message,
+			Category:    CategoryDates,
+			AutoFixable: di.AutoFixable,
+		})
 	}
 
 	return issues, nil

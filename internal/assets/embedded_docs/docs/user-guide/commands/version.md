@@ -1,767 +1,512 @@
-# Version Management
+# Version Command
 
-Goneat provides comprehensive version management capabilities that support multiple versioning schemes and sources, ensuring zero version drift across your DevOps toolchain.
+The `version` command provides clear information about the **goneat binary** and optionally the **host project** it's running in.
 
-## Overview
+## Quick Start
 
-The version management system is designed to be:
-
-- **Multi-scheme**: Supports semantic versioning, calendar versioning, and custom patterns
-- **Multi-source**: Reads from and writes to multiple version sources with priority ordering
-- **Assessment-first**: Includes `--no-op` mode for safe testing and validation
-- **CI/CD ready**: Perfect for automated release workflows
-
-## Version Schemes
-
-### Semantic Versioning (semver)
-
-Standard semantic versioning following [semver.org](https://semver.org) specifications.
-
-**Supported Formats:**
-
-- `1.2.3` - Standard release
-- `v1.2.3` - With 'v' prefix
-- `1.2.3-alpha` - Pre-release
-- `1.2.3+build.1` - With build metadata
-- `v1.2.3-rc.1+build.1` - Full semver
-
-**Bump Rules:**
-
-- **Patch**: `1.2.3` → `1.2.4`
-- **Minor**: `1.2.3` → `1.3.0`
-- **Major**: `1.2.3` → `2.0.0`
-
-### Calendar Versioning (calver)
-
-Date-based versioning following calendar patterns.
-
-**Supported Formats:**
-
-- `2024.01.15` - YYYY.MM.DD
-- `24.01` - YY.MM
-- `2024.01` - YYYY.MM
-
-**Planned Bump Rules:**
-
-- **Patch**: Day increment
-- **Minor**: Month increment
-- **Major**: Year increment
-
-### Custom Versioning
-
-Regex-based custom versioning for proprietary schemes.
-
-**Configuration:**
-
-```yaml
-version:
-  method: custom
-  custom:
-    pattern: "^(\\d+)\\.(\\d+)\\.(\\d+)$"
-    bump_logic:
-      patch: "increment_last"
-      minor: "increment_middle"
-      major: "increment_first"
-```
-
-## Version Sources
-
-Goneat can read from and write to multiple version sources simultaneously.
-
-### Supported Sources
-
-#### 1. Version Files
-
-Simple text files containing version numbers.
-
-```yaml
-sources:
-  - type: version_file
-    path: VERSION
-    priority: 1
-```
-
-**File Content:**
-
-```
-1.2.3
-```
-
-#### 2. Go Module Files
-
-Reads version from go.mod module declarations.
-
-```yaml
-sources:
-  - type: go_mod
-    path: go.mod
-    priority: 2
-```
-
-**Note:** go.mod files typically don't contain explicit versions for unreleased modules.
-
-#### 3. Git Tags
-
-Reads latest version from git tags.
-
-```yaml
-sources:
-  - type: git_tags
-    pattern: "v*"
-    priority: 3
-```
-
-**Supported Patterns:**
-
-- `v*` - All tags starting with 'v'
-- `release/*` - Tags in release branch
-- `*` - All tags
-
-#### 4. Go Constants
-
-Reads version from Go source code constants.
-
-```yaml
-sources:
-  - type: version_const
-    path: version.go
-    pattern: 'const\s+Version\s*=\s*"([^"]+)"'
-    priority: 4
-```
-
-**Go Code Example:**
-
-```go
-package main
-
-const Version = "1.2.3"
-```
-
-#### 5. Package.json
-
-Reads version from Node.js package files.
-
-```yaml
-sources:
-  - type: package_json
-    path: package.json
-    priority: 5
-```
-
-## Configuration
-
-### Basic Configuration
-
-```yaml
-version:
-  method: semver
-  sources:
-    - type: version_file
-      path: VERSION
-      priority: 1
-    - type: git_tags
-      pattern: "v*"
-      priority: 2
-```
-
-### Advanced Configuration
-
-```yaml
-version:
-  method: semver
-  sources:
-    - type: version_file
-      path: VERSION
-      priority: 1
-    - type: git_tags
-      pattern: "v*"
-      priority: 2
-    - type: go_mod
-      path: go.mod
-      priority: 3
-  bump_rules:
-    semver:
-      patch: micro
-      minor: minor
-      major: major
-```
-
-## First-Time Setup
-
-When you run `goneat version` for the first time in a repository, goneat will intelligently detect your current version management setup:
-
-### Automatic Detection
-
-Goneat automatically detects version sources in this priority order:
-
-1. **VERSION file** - Plain text file containing version
-2. **Git tags** - Latest semver-formatted git tag
-3. **Go module** - Version from go.mod (limited support)
-4. **Go constants** - Version constants in Go source files
-
-### Setup Guidance
-
-If no version management is detected, goneat provides comprehensive setup guidance:
+### Show Goneat Version (Default)
 
 ```bash
-$ goneat version
-🚀 Welcome to goneat version management!
-
-📝 Quick Setup (Recommended):
-  goneat version init --template basic
-
-🔧 Manual Setup:
-  1. Create a VERSION file: echo '0.1.0' > VERSION
-  2. Or create a git tag: git tag v1.0.0
-
-📋 Available Templates:
-  • basic     - VERSION file with semantic versioning
-  • git-tags  - Git tag-based versioning
-  • calver    - Calendar versioning (YYYY.MM.DD)
-  • custom    - Custom versioning scheme
-
-💡 Pro Tips:
-  • Use 'goneat version init --dry-run' to preview setup
-  • Run 'goneat version --help' for all options
-  • Version management is non-destructive by default
-```
-
-### Quick Setup Templates
-
-#### Basic Template (Recommended)
-
-```bash
-# Preview setup
-goneat version init basic --dry-run
-
-# Apply setup
-goneat version init basic
-```
-
-Creates a `VERSION` file with semantic versioning support.
-
-#### Git Tags Template
-
-```bash
-# For git tag-based versioning
-goneat version init git-tags
-```
-
-Sets up git tag-based versioning with automatic tag creation.
-
-#### Calendar Versioning
-
-```bash
-# For date-based versioning
-goneat version init calver
-```
-
-Creates calendar versioning with format `YYYY.MM.DD` (e.g., `2025.08.28`).
-
-#### Custom Template
-
-```bash
-# For custom versioning schemes
-goneat version init custom
-```
-
-Provides guidance for implementing custom versioning patterns.
-
-## Usage
-
-### Display Current Version
-
-```bash
-# Show current version from highest priority source
 goneat version
+```
 
-# Show detailed version information with git integration
+**Output**:
+
+```
+goneat 0.2.6
+Go: go1.25.0
+Platform: linux/amd64
+```
+
+Shows the **goneat binary version** - exactly what users expect from a CLI tool.
+
+### Extended Binary Information
+
+```bash
 goneat version --extended
+```
 
-# Output in JSON format for automation
+**Output**:
+
+```
+goneat 0.2.6
+Module:
+Build time: unknown
+Git commit: abc12345
+Git branch: main
+Go version: go1.25.0
+Platform: linux/amd64
+```
+
+Includes additional build details about the goneat binary.
+
+### JSON Output
+
+```bash
 goneat version --json
 ```
 
-**Extended Output Example:**
+**Output**:
 
-```bash
-$ goneat version --extended
-goneat 1.0.1
-Build time: unknown
-Git commit: 4896bdfc
-Source: VERSION file
-Git branch: main
-Git status: clean
-Go version: go1.25.0
-Platform: darwin/arm64
+```json
+{
+  "binaryVersion": "0.2.6",
+  "moduleVersion": "",
+  "goVersion": "go1.25.0",
+  "platform": "linux",
+  "arch": "amd64"
+}
 ```
 
-### Version Assessment (No-Op Mode)
+Clean JSON focused on the binary version for programmatic use.
+
+## Project Version Management
+
+### Show Host Project Version
 
 ```bash
-# Assess current version state without making changes
-goneat version --no-op
-
-# Check version consistency across all sources
-goneat version check-consistency --no-op
-
-# Validate version format
-goneat version validate 1.2.3 --no-op
+goneat version --project
 ```
 
-### Version Bumping
+**Output** (when run in a project with `VERSION=1.2.3`):
 
-```bash
-# Bump patch version (creates git tag automatically)
-goneat version bump patch
-
-# Bump minor version
-goneat version bump minor
-
-# Bump major version
-goneat version bump major
-
-# Preview bump without making changes
-goneat version bump patch --no-op
-
-# Force bump even if git operations fail
-goneat version bump patch --force
+```
+Binary: 0.2.6
+Module:
+Project: myproject 1.2.3
+Project Source: VERSION file
+Go Version: go1.25.0
+OS/Arch: linux/amd64
 ```
 
-**Git Integration:** Version bumps automatically create corresponding git tags and update VERSION files. If git tagging fails, the command continues with a warning (use `--force` to override).
+Shows the **host project's** version information (legacy behavior, now opt-in).
 
-### Version Setting
+### Project JSON Output
 
 ```bash
-# Set specific version (creates git tag automatically)
-goneat version set 1.2.3
-
-# Set version with pre-release
-goneat version set 1.2.3-alpha
-
-# Preview version change
-goneat version set 1.2.3 --no-op
-
-# Force set even if git operations fail
-goneat version set 1.2.3 --force
+goneat version --project --json
 ```
 
-**Git Integration:** Version setting automatically creates corresponding git tags and updates VERSION files. If git tagging fails, the command continues with a warning (use `--force` to override).
+**Output**:
 
-### Version Initialization
+```json
+{
+  "binaryVersion": "0.2.6",
+  "project": {
+    "name": "myproject",
+    "version": "1.2.3",
+    "source": "VERSION file"
+  },
+  "moduleVersion": "",
+  "goVersion": "go1.25.0",
+  "platform": "linux",
+  "arch": "amd64"
+}
+```
+
+Includes both binary and project version information.
+
+## Why This Distinction Matters
+
+### Real-World Scenario: Goneat in Another Repository
+
+Imagine you've installed goneat globally and are working on your own project:
+
+**Your Project Structure:**
+
+```
+myproject/
+├── go.mod (module github.com/user/myproject)
+├── VERSION (contains "0.1.0")
+└── main.go
+```
+
+### Before v0.2.6 (The Problem)
+
+When you ran `goneat version` in your project, it would show **your project's version** instead of goneat's:
 
 ```bash
-# Initialize version management with basic template
-goneat version init basic
+cd myproject
+goneat version
+```
 
-# Initialize with git tag-based versioning
-goneat version init git-tags
+**Incorrect Output (v0.2.5 and earlier):**
 
-# Initialize with calendar versioning
+```
+Binary: 0.2.5
+myproject (Project) 0.1.0  # ← Shows YOUR project's version!
+Project Source: VERSION file
+Go Version: go1.25.0
+OS/Arch: linux/amd64
+```
+
+**Problem**: You expected to see "goneat 0.2.5" but saw your project's "0.1.0". This was confusing and made it hard to verify which version of goneat you had installed.
+
+### After v0.2.6 (The Fix)
+
+Now the default behavior shows **goneat's binary version** clearly:
+
+```bash
+cd myproject
+goneat version
+```
+
+**Correct Output (v0.2.6+):**
+
+```
+goneat 0.2.6
+Go: go1.25.0
+Platform: linux/amd64
+```
+
+**What users see**: Clear confirmation that they have goneat 0.2.6 installed, regardless of what project they're in.
+
+### Accessing Project Version Information
+
+If you need to see your project's version information (the original functionality), use the `--project` flag:
+
+```bash
+goneat version --project
+```
+
+**Output:**
+
+```
+Binary: 0.2.6
+Module:
+Project: myproject 0.1.0
+Project Source: VERSION file
+Go Version: go1.25.0
+OS/Arch: linux/amd64
+```
+
+This preserves the legacy project version management functionality for users who need it.
+
+## Subcommands
+
+### `version init` - Initialize Project Version Management
+
+**Note**: This subcommand always operates on the host project, regardless of the main command flags.
+
+```bash
+goneat version init [template]
+```
+
+**Available templates**:
+
+- `basic` - VERSION file with semantic versioning (default)
+- `git-tags` - Git tag-based versioning
+- `calver` - Calendar versioning (YYYY.MM.DD)
+- `custom` - Custom versioning scheme
+
+**Examples**:
+
+```bash
+# Basic setup with VERSION file
+goneat version init
+
+# Calendar versioning
 goneat version init calver
 
-# Preview initialization without making changes
-goneat version init basic --dry-run
+# Dry run to preview
+goneat version init --dry-run
 
-# Override existing version management
-goneat version init basic --force
-
-# Set custom initial version
-goneat version init basic --initial-version 2.0.0
+# Custom initial version
+goneat version init --initial-version 2.0.0
 ```
 
-**Available Templates:**
+### `version bump` - Increment Project Version
 
-- **`basic`**: VERSION file with semantic versioning (recommended)
-- **`git-tags`**: Git tag-based versioning
-- **`calver`**: Calendar versioning (YYYY.MM.DD format)
-- **`custom`**: Custom versioning scheme guidance
-
-### Validation & Consistency
+**Note**: Always affects the host project.
 
 ```bash
-# Validate version format
-goneat version validate 1.2.3
+goneat version bump [patch|minor|major]
+```
 
-# Check consistency across all sources
+**Examples**:
+
+```bash
+goneat version bump patch    # 0.1.0 → 0.1.1 (updates your project's VERSION file)
+goneat version bump minor    # 0.1.0 → 0.2.0
+goneat version bump major    # 0.1.0 → 1.0.0
+```
+
+### `version set` - Set Specific Project Version
+
+```bash
+goneat version set <version>
+```
+
+**Example**:
+
+```bash
+goneat version set 1.0.0     # Sets your project's version to 1.0.0
+```
+
+### `version validate` - Validate Version Format
+
+```bash
+goneat version validate <version>
+```
+
+**Example**:
+
+```bash
+goneat version validate 1.2.3      # Valid ✓
+goneat version validate v1.2.3     # Valid ✓
+goneat version validate invalid    # Invalid ✗
+```
+
+### `version check-consistency` - Verify Source Consistency
+
+```bash
 goneat version check-consistency
-
-# Show version information from all sources
-goneat version --all-sources
 ```
 
-## Examples
+Checks that version information is consistent across all configured sources in the host project.
 
-### Basic Semver Workflow
+## Flags Reference
+
+| Flag         | Shorthand | Description                                         | Default |
+| ------------ | --------- | --------------------------------------------------- | ------- |
+| `--project`  | `-p`      | Show host project version information (legacy mode) | `false` |
+| `--extended` |           | Show detailed build and git information             | `false` |
+| `--json`     |           | JSON output format                                  | `false` |
+| `--no-op`    |           | Assessment mode (logging only)                      | `false` |
+
+## Complete Example: Working in Your Project
+
+Let's walk through a complete example of using goneat in your own project:
+
+### 1. Verify Goneat Installation
 
 ```bash
-# Check current version
+# Check what version of goneat you have installed
 goneat version
+```
 
-# Assess what patch bump would do
+**Output:**
+
+```
+goneat 0.2.6
+Go: go1.25.0
+Platform: linux/amd64
+```
+
+✅ You now know you have goneat 0.2.6 installed.
+
+### 2. Check Your Project's Version
+
+```bash
+# See your project's current version status
+goneat version --project
+```
+
+**Output:**
+
+```
+Binary: 0.2.6
+Module:
+Project: myproject 0.1.0
+Project Source: VERSION file
+Go Version: go1.25.0
+OS/Arch: linux/amd64
+```
+
+✅ Your project is at version 0.1.0.
+
+### 3. Initialize Version Management (First Time)
+
+```bash
+# Preview what will be created
+goneat version init --dry-run
+
+# Apply the setup
+goneat version init
+```
+
+This creates a `VERSION` file in your project with initial version 0.1.0.
+
+### 4. Bump Your Project Version
+
+```bash
+# Preview the bump
 goneat version bump patch --no-op
 
 # Apply the patch bump
 goneat version bump patch
-
-# Verify the change
-goneat version
 ```
 
-### Multi-Source Consistency
+**Before:** `VERSION` contains "0.1.0"  
+**After:** `VERSION` contains "0.1.1"
 
-```yaml
-# goneat.yaml
-version:
-  method: semver
-  sources:
-    - type: version_file
-      path: VERSION
-      priority: 1
-    - type: git_tags
-      pattern: "v*"
-      priority: 2
-    - type: go_mod
-      path: go.mod
-      priority: 3
-```
+### 5. Verify Everything
 
 ```bash
-# Check consistency
-goneat version check-consistency
+# Check goneat version (binary)
+goneat version
 
-# Bump version across all sources
-goneat version bump minor
+# Check project version
+goneat version --project
+
+# Validate the new version
+goneat version validate 0.1.1
 ```
 
-### CI/CD Integration
+### 6. JSON for Automation
+
+```bash
+# Get both versions in JSON for CI/CD
+goneat version --project --json
+```
+
+**Output:**
+
+```json
+{
+  "binaryVersion": "0.2.6",
+  "project": {
+    "name": "myproject",
+    "version": "0.1.1",
+    "source": "VERSION file"
+  },
+  "moduleVersion": "",
+  "goVersion": "go1.25.0",
+  "platform": "linux",
+  "arch": "amd64"
+}
+```
+
+## Exit Codes
+
+- `0`: Success
+- `1`: Invalid version format or missing version sources
+- `2`: Git operations failed (non-fatal for some operations)
+
+## Integration Examples
+
+### CI/CD Pipeline
 
 ```yaml
 # .github/workflows/release.yml
 name: Release
 on:
   push:
-    tags:
-      - "v*"
+    tags: ["v*"]
 
 jobs:
-  release:
+  validate-versions:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Setup goneat
+      - name: Verify goneat version
         run: |
-          # Install goneat
+          GONEAT_VERSION=$(goneat version --json | jq -r '.binaryVersion')
+          echo "Goneat version: $GONEAT_VERSION"
+          if [[ "$GONEAT_VERSION" != "0.2.6" ]]; then
+            echo "Error: Expected goneat 0.2.6, got $GONEAT_VERSION"
+            exit 1
+          fi
 
-      - name: Validate version consistency
-        run: goneat version check-consistency
-
-      - name: Create release
+      - name: Validate project version
         run: |
-          VERSION=$(goneat version)
-          gh release create $VERSION --generate-notes
+          PROJECT_VERSION=$(goneat version --project --json | jq -r '.project.version')
+          echo "Project version: $PROJECT_VERSION"
+          goneat version validate "$PROJECT_VERSION"
 ```
 
-## Version Discovery & Learning
-
-Goneat automatically discovers version information from multiple sources with intelligent fallback logic:
-
-### Discovery Priority Order
-
-1. **VERSION file** (highest priority - explicit user configuration)
-2. **Git tags** (automatic detection from repository history)
-3. **Go module** (limited support for released modules)
-4. **Go constants** (version constants in source code)
-
-### Learning from Existing Patterns
-
-When goneat encounters version information in non-primary sources, it can "learn" and suggest optimal configurations:
-
-```bash
-# Example: Repository with git tags but no VERSION file
-$ goneat version
-goneat v1.2.3
-Source: git tag
-
-# Suggestion for optimization
-💡 Consider creating a VERSION file for faster lookups:
-   echo '1.2.3' > VERSION
-   goneat version init basic --force
-```
-
-### Configuration Learning
-
-Goneat can analyze your repository patterns and suggest optimal version management strategies:
-
-- **Monorepo**: Suggests VERSION file as primary source
-- **Microservices**: Suggests per-service VERSION files
-- **GitOps**: Suggests git tag-based versioning
-- **Calendar releases**: Suggests calver template
-
-### Handling Missing VERSION Files
-
-When version information exists in secondary sources (like git tags) but not in a VERSION file, goneat provides intelligent guidance:
-
-#### Scenario: Git Tags Exist, No VERSION File
-
-```bash
-$ goneat version
-goneat v1.2.3
-Source: git tag
-
-# goneat suggests optimization
-💡 Consider creating a VERSION file for faster lookups:
-   echo '1.2.3' > VERSION
-   goneat version init basic --force
-```
-
-#### Learning from Existing Patterns
-
-Goneat can "learn" from your repository's version patterns:
-
-1. **Pattern Recognition**: Analyzes existing git tags, commit messages, and release patterns
-2. **Scheme Detection**: Identifies semver, calver, or custom versioning schemes
-3. **Migration Suggestions**: Provides commands to migrate to optimal configurations
-4. **Consistency Validation**: Ensures all version sources remain synchronized
-
-#### Automatic Learning Examples
-
-```bash
-# Repository with git tags v1.0.0, v1.1.0, v2.0.0
-$ goneat version
-goneat v2.0.0
-Source: git tag
-Learned: semver pattern detected
-
-# Repository with tags 2024.01.15, 2024.02.01, 2024.03.15
-$ goneat version
-goneat 2024.03.15
-Source: git tag
-Learned: calendar versioning pattern detected
-Suggestion: Use 'goneat version init calver' for optimization
-```
-
-#### Specifying Custom Version Sources
-
-For advanced scenarios, you can specify custom version sources:
-
-```bash
-# Version in custom file
-echo '1.2.3' > custom-version.txt
-
-# Version in Go constant
-const AppVersion = "1.2.3"
-
-# Version in environment
-export APP_VERSION=1.2.3
-```
-
-Goneat's learning system can detect and incorporate these patterns into its version discovery logic.
-
-## Best Practices
-
-### 1. First-Time Setup
-
-Always use dry-run mode for initial setup:
-
-```bash
-# Preview what will be created
-goneat version init basic --dry-run
-
-# Apply the setup
-goneat version init basic
-```
-
-### 2. Source Priority
-
-Configure your primary source with the highest priority:
+### Pre-commit Hook for Version Consistency
 
 ```yaml
-sources:
-  - type: version_file
-    path: VERSION
-    priority: 1 # Primary source
-  - type: git_tags
-    pattern: "v*"
-    priority: 2 # Secondary source
+# .goneat/hooks.yaml
+pre-commit:
+  commands:
+    - command: version
+      args: ["check-consistency"]
+      fail_threshold: medium
+      only_changed_files: true
 ```
 
-### 2. Use Assessment Mode
-
-Always test version operations with `--no-op` first:
+### Shell Script Integration
 
 ```bash
-# Test bump operation
-goneat version bump patch --no-op
+#!/bin/bash
 
-# Test version setting
-goneat version set 1.2.3 --no-op
+set -e
 
-# Check consistency
-goneat version check-consistency --no-op
+# Get goneat version for logging
+GONEAT_VERSION=$(goneat version --json | jq -r '.binaryVersion')
+echo "Using goneat $GONEAT_VERSION"
 
-# Preview initialization
-goneat version init basic --dry-run
-```
+# Get current project version
+PROJECT_VERSION=$(goneat version --project --json | jq -r '.project.version')
+echo "Current project version: $PROJECT_VERSION"
 
-### 3. Dry-Run for Safe Setup
+# Validate versions
+goneat version validate "$GONEAT_VERSION"
+goneat version validate "$PROJECT_VERSION"
 
-The `init` command supports `--dry-run` for safe experimentation:
+# For release: bump and validate
+if [[ "$1" == "release" ]]; then
+  echo "Bumping project version..."
+  goneat version bump patch
 
-```bash
-# Preview any template setup
-goneat version init basic --dry-run
-goneat version init calver --dry-run
-goneat version init git-tags --dry-run
+  NEW_VERSION=$(goneat version --project --json | jq -r '.project.version')
+  echo "New project version: $NEW_VERSION"
 
-# Test with custom initial version
-goneat version init basic --dry-run --initial-version 2.0.0
-```
-
-### 3. Regular Consistency Checks
-
-Add consistency checks to your CI pipeline:
-
-```bash
-# In CI script
-goneat version check-consistency
-
-if [ $? -ne 0 ]; then
-  echo "Version inconsistency detected!"
-  exit 1
+  goneat version validate "$NEW_VERSION"
 fi
 ```
 
-### 4. Version Validation
+## Backward Compatibility
 
-Validate version formats in your release process:
+### v0.2.6 Changes Summary
 
-```bash
-# Validate before tagging
-goneat version validate "$NEW_VERSION"
+| Behavior           | Before v0.2.6          | After v0.2.6                               | Command                    |
+| ------------------ | ---------------------- | ------------------------------------------ | -------------------------- |
+| **Default**        | Showed project version | Shows **binary version** (0.2.6)           | `goneat version`           |
+| **Project Info**   | Default behavior       | Opt-in via flag                            | `goneat version --project` |
+| **JSON Structure** | Mixed fields           | Clear `binaryVersion` + optional `project` | `goneat version --json`    |
+| **Subcommands**    | Project-focused        | Unchanged (always project)                 | `goneat version bump` etc. |
 
-if [ $? -ne 0 ]; then
-  echo "Invalid version format: $NEW_VERSION"
-  exit 1
-fi
-```
+### Migration Guide
 
-## Integration with Other Commands
-
-### Format Command
+**No breaking changes** - existing scripts using project version management continue to work:
 
 ```bash
-# Format code and bump version
-goneat format --folders src/
-goneat version bump patch
+# These commands were always project-focused and remain unchanged:
+goneat version bump patch          # Still bumps project version
+goneat version init                # Still initializes project
+goneat version set 1.2.3           # Still sets project version
+
+# New default behavior for simple version checking:
+goneat version                     # Now shows goneat 0.2.6 (was project version)
+goneat version --project           # Shows project version (old default behavior)
 ```
 
-### Assessment Workflows
+### For Script Authors
+
+Update scripts that rely on the default output format:
 
 ```bash
-# Full assessment workflow
-goneat format --no-op --folders .
-goneat version --no-op
-goneat version check-consistency --no-op
+# OLD (v0.2.5): Assumed project version in default output
+OLD_VERSION=$(goneat version | grep -oP '\(\K[^)]+')
+
+# NEW (v0.2.6+): Use --project flag for project version
+PROJECT_VERSION=$(goneat version --project --json | jq -r '.project.version')
+
+# NEW: Binary version is now default and cleaner
+GONEAT_VERSION=$(goneat version --json | jq -r '.binaryVersion')
 ```
 
-## Troubleshooting
+## Notes
 
-### Common Issues
+- **Binary Version**: Embedded at build time via `ldflags`; shows the actual installed goneat version
+- **Module Version**: Go module version (visible for `go install` builds from source)
+- **Project Version**: Host project's version from `VERSION` file, git tags, etc.
+- **Security**: All file operations include path validation to prevent traversal attacks
+- **Performance**: Binary version lookup is O(1); project version requires file/git operations
+- **Cross-platform**: Works on Linux, macOS, Windows with consistent output
 
-#### Version Not Found
-
-```
-Error: no version found in any configured source
-```
-
-**Solutions:**
-
-- Check that your version sources exist and are readable
-- Verify source paths in configuration
-- Ensure at least one source contains a valid version
-
-#### Inconsistent Versions
-
-```
-Warning: Version inconsistency detected
-Source VERSION: 1.2.3
-Source git_tags: v1.2.4
-```
-
-**Solutions:**
-
-- Use `goneat version check-consistency` to identify issues
-- Use `goneat version set <version>` to synchronize all sources
-- Review your source priority configuration
-
-#### Invalid Version Format
-
-```
-Error: invalid semver format: 1.2.3.4
-```
-
-**Solutions:**
-
-- Check your version format against the expected pattern
-- Use `goneat version validate <version>` to test formats
-- Review your version scheme configuration
-
-### Debug Mode
-
-Enable debug logging for detailed version operations:
-
-```bash
-goneat version --log-level debug bump patch
-```
-
-## Future Extensions
-
-### Planned Features
-
-- **Changelog Generation**: Automatic changelog from git history
-- **Release Automation**: Integration with GitHub releases
-- **Version Aliases**: Support for version aliases and channels
-- **Dependency Versioning**: Version management for dependencies
-- **Multi-repo Coordination**: Version coordination across multiple repositories
-
-### Custom Bump Logic
-
-Advanced custom versioning with programmable bump rules:
-
-```yaml
-version:
-  method: custom
-  custom:
-    pattern: "^(\\d+)\\.(\\d+)\\.(\\d+)$"
-    bump_logic:
-      patch: "increment_last"
-      minor: "increment_middle"
-      major: "increment_first"
-```
-
-This version management system provides the foundation for zero version drift across your entire DevOps toolchain, ensuring consistency and reliability in your release process.</content>
-</xai:function_call name="todowrite">
-<parameter name="todos">[{"content":"Add version validation functionality","status":"completed","priority":"medium","id":"implement_validation"},{"content":"Add version consistency checking across sources","status":"completed","priority":"medium","id":"implement_consistency_check"},{"content":"Extend version command with bump, set, validate subcommands","status":"in_progress","priority":"high","id":"extend_version_command"}]
-
-### CLI Output Fields
-
-The `goneat version` command shows distinct version perspectives:
-
-- **Binary**: The version embedded at build time (e.g., from `-ldflags`); reflects the installed CLI
-- **Module**: The Go module version recorded by the toolchain (visible for `go install` builds)
-- **Project**: The repository’s current version (from `VERSION` file or latest git tag)
-
-Example (`--extended`):
-
-```
-Binary: 0.2.1-dev
-Module: v0.2.0
-myproject (Project) 0.2.1-dev
-Build time: unknown
-Git commit: 1a2b3c4d
-Project Source: VERSION file
-Go version: go1.25.0
-Platform: darwin/arm64
-```
+For more details, see the [CHANGELOG](https://github.com/fulmenhq/goneat/blob/main/CHANGELOG.md).

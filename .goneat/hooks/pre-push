@@ -66,6 +66,6 @@ if [ -z "$GONEAT_BIN" ]; then
 fi
 
 # Use goneat's orchestrated assessment (manifest-driven)
-"$GONEAT_BIN" assess --hook pre-push --hook-manifest "$REPO_ROOT/.goneat/hooks.yaml" --package-mode --check --categories format,lint,security,dates,tools --fail-on high
+"$GONEAT_BIN" assess --hook pre-push --hook-manifest "$REPO_ROOT/.goneat/hooks.yaml" --package-mode --check --categories format,lint,security,dates,tools,maturity,repo-status --fail-on high
 
 echo "✅ Pre-push validation passed!"}

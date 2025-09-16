@@ -91,6 +91,8 @@ const (
 	CategorySchema         AssessmentCategory = "schema"
 	CategoryDates          AssessmentCategory = "dates"
 	CategoryTools          AssessmentCategory = "tools"
+	CategoryMaturity       AssessmentCategory = "maturity"
+	CategoryRepoStatus     AssessmentCategory = "repo-status"
 )
 
 // IssueSeverity represents the severity level of an assessment issue
@@ -127,7 +129,7 @@ type CategoryResult struct {
 	IssueCount        int                    `json:"issue_count"`
 	EstimatedTime     HumanReadableDuration  `json:"estimated_time"`
 	Parallelizable    bool                   `json:"parallelizable"`
-	Status            string                 `json:"status"` // "success", "error", "skipped"
+	Status            string                 `json:"status"` // "success", "error", "skipped", "issues"
 	Error             string                 `json:"error,omitempty"`
 	Metrics           map[string]interface{} `json:"metrics,omitempty"`
 	SuppressionReport *SuppressionReport     `json:"suppression_report,omitempty"`

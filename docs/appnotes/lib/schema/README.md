@@ -1,9 +1,9 @@
 ---
-title: "Using the Schema Validation Library"
+title: "Schema Validation Library"
 description: "Programmatic JSON Schema validation in Go projects using Goneat's pkg/schema with file operations, batch processing, and real-world implementation patterns"
 author: "@forge-neat"
 date: "2025-09-10"
-last_updated: "2025-09-14"
+last_updated: "2025-09-15"
 status: "stable"
 tags:
   [

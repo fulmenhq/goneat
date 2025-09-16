@@ -196,7 +196,7 @@ func LoadDatesConfig(target string) DatesConfig {
 	}
 
 	// DEBUG: Log what we loaded
-	fmt.Printf("DEBUG LoadDatesConfig: Include=%v, Exclude=%v\n", fileCfg.Files.Include, fileCfg.Files.Exclude)
+	logger.Debug(fmt.Sprintf("dates config loaded: AiSafety.Enabled=%v", fileCfg.AiSafety.Enabled))
 
 	// Schema validated config can be trusted - apply smart merging for unset fields
 	if len(fileCfg.Files.Include) == 0 {
@@ -423,8 +423,25 @@ func (r *DatesRunner) Assess(ctx context.Context, target string, _ interface{}) 
 
 	if isSingleFile {
 		// Target is a single file. Check if it should be included.
+		// For single files, we need to check the full relative path from cwd or the filename
 		rel := filepath.Base(target)
+
+		// First try matching the base filename against patterns
 		included := includeFile(rel, st)
+
+		// If that fails, try the full relative path (useful for patterns like "**/CHANGELOG*.md")
+		if !included {
+			if cwd, err := os.Getwd(); err == nil {
+				if relPath, err := filepath.Rel(cwd, target); err == nil {
+					relPath = filepath.ToSlash(relPath)
+					included = includeFile(relPath, st)
+					if included {
+						rel = relPath // Use the relative path that matched
+					}
+				}
+			}
+		}
+
 		logger.Debug(fmt.Sprintf("Dates single file: rel=%s, included=%v (patterns: %v)", rel, included, cfg.Files.Include))
 		if included {
 			files = append(files, rel) // Use the relative path
@@ -497,10 +514,42 @@ func (r *DatesRunner) Assess(ctx context.Context, target string, _ interface{}) 
 				}
 				content := string(data)
 				if cfg.AiSafety.Enabled && cfg.AiSafety.DetectPlaceholders {
-					if strings.Contains(content, "[DATE]") || strings.Contains(content, "YYYY-MM-DD") {
+					// Check for obvious placeholder patterns
+					hasPlaceholder := false
+					placeholderMsg := ""
+
+					// Check for [DATE] placeholder
+					if strings.Contains(content, "[DATE]") {
+						hasPlaceholder = true
+						placeholderMsg = "Placeholder date detected: [DATE]"
+					}
+
+					// Check for YYYY-MM-DD in contexts that suggest placeholders (not documentation)
+					if strings.Contains(content, "YYYY-MM-DD") {
+						lines := strings.Split(content, "\n")
+						for _, line := range lines {
+							trimmed := strings.TrimSpace(line)
+							// Check for template-like patterns (headings with placeholders)
+							if strings.Contains(trimmed, "YYYY-MM-DD") &&
+								(strings.HasPrefix(trimmed, "##") ||
+									strings.Contains(trimmed, "x.y.z") ||
+									strings.Contains(trimmed, "YYYY-MM-DD") && strings.Count(trimmed, "YYYY-MM-DD") == 1 && len(trimmed) < 50) {
+								// Skip if it's clearly documentation about date formats
+								if !strings.Contains(strings.ToLower(line), "format") &&
+									!strings.Contains(strings.ToLower(line), "support") &&
+									!strings.Contains(strings.ToLower(line), "pattern") {
+									hasPlaceholder = true
+									placeholderMsg = fmt.Sprintf("Template placeholder detected: %s", strings.TrimSpace(line))
+									break
+								}
+							}
+						}
+					}
+
+					if hasPlaceholder {
 						mu.Lock()
 						severity := mapSeverityStringToAssessSeverity(cfg.AiSafety.Severity)
-						issues = append(issues, DatesIssue{File: rel, Line: 0, Column: 0, Severity: severity, Message: "Placeholder date detected (AI safety)", Category: "dates", AutoFixable: true})
+						issues = append(issues, DatesIssue{File: rel, Line: 0, Column: 0, Severity: severity, Message: placeholderMsg, Category: "dates", AutoFixable: true})
 						mu.Unlock()
 					}
 				}
@@ -531,29 +580,98 @@ func (r *DatesRunner) Assess(ctx context.Context, target string, _ interface{}) 
 						}
 					}
 				}
-				// Monotonic order enforcement (optional, release headings only)
+				// Enhanced changelog analysis with better error messages
 				if cfg.Rules.MonotonicOrder.Enabled && matchesAny(rel, cfg.Rules.MonotonicOrder.Files) && !matchesAny(rel, cfg.Rules.MonotonicOrder.IgnoreFiles) {
-					hd, hdrLines := extractHeadingDates(content, now.Location())
-					checked := hd
-					topN := cfg.Rules.MonotonicOrder.CheckTopN
-					if topN > 0 && len(checked) > topN {
-						checked = checked[:topN]
+					entries := extractChangelogEntries(content, now.Location())
+
+					// Check for multiple "Unreleased" sections
+					unreleasedCount := 0
+					for _, entry := range entries {
+						if strings.EqualFold(entry.Version, "unreleased") {
+							unreleasedCount++
+						}
 					}
-					if len(checked) > 1 && !isMonotonicDescending(checked) {
+					if unreleasedCount > 1 {
 						mu.Lock()
 						severity := mapSeverityStringToAssessSeverity(cfg.Rules.MonotonicOrder.Severity)
-						issues = append(issues, DatesIssue{File: rel, Line: 0, Column: 0, Severity: severity, Message: "Changelog release headings not in descending date order", Category: "dates", AutoFixable: false})
+						issues = append(issues, DatesIssue{
+							File: rel, Line: 0, Column: 0, Severity: severity,
+							Message:  fmt.Sprintf("Multiple 'Unreleased' sections found (%d) - should have only one at the top", unreleasedCount),
+							Category: "dates", AutoFixable: false,
+						})
 						mu.Unlock()
 					}
-					// Add informational issue summarizing the scan window
-					sample := sampleDates(hd, 5)
-					msg := fmt.Sprintf("Monotonic scan: found %d headings; checked top %d; sample: %s", len(hd), func() int {
-						if topN > 0 && topN < len(hd) {
-							return topN
+
+					// Check for "In Development" entries in wrong places
+					for i, entry := range entries {
+						if strings.Contains(strings.ToLower(entry.Text), "development") && i > 0 {
+							mu.Lock()
+							severity := mapSeverityStringToAssessSeverity(cfg.Rules.MonotonicOrder.Severity)
+							issues = append(issues, DatesIssue{
+								File: rel, Line: 0, Column: 0, Severity: severity,
+								Message:  fmt.Sprintf("'In Development' entry '%s' appears after other releases - should be at top or have a proper date", entry.Version),
+								Category: "dates", AutoFixable: false,
+							})
+							mu.Unlock()
 						}
-						return len(hd)
-					}(), sample)
-					_ = hdrLines // reserved for future richer reporting
+					}
+
+					// Extract dated entries for monotonic order checking
+					var datedEntries []ChangelogEntry
+					for _, entry := range entries {
+						if entry.Date != nil {
+							datedEntries = append(datedEntries, entry)
+						}
+					}
+
+					// Check monotonic order of dated releases
+					if len(datedEntries) > 1 {
+						var dates []time.Time
+						for _, entry := range datedEntries {
+							dates = append(dates, *entry.Date)
+						}
+
+						topN := cfg.Rules.MonotonicOrder.CheckTopN
+						checkedDates := dates
+						if topN > 0 && len(checkedDates) > topN {
+							checkedDates = checkedDates[:topN]
+						}
+
+						if !isMonotonicDescending(checkedDates) {
+							mu.Lock()
+							severity := mapSeverityStringToAssessSeverity(cfg.Rules.MonotonicOrder.Severity)
+
+							// Find the specific violation
+							violationMsg := "Changelog release dates not in descending order"
+							for i := 0; i < len(checkedDates)-1; i++ {
+								if checkedDates[i].Before(checkedDates[i+1]) {
+									older := checkedDates[i].Format("2006-01-02")
+									newer := checkedDates[i+1].Format("2006-01-02")
+									violationMsg = fmt.Sprintf("Changelog date order violation: %s appears before %s (should be after)", older, newer)
+									break
+								}
+							}
+
+							issues = append(issues, DatesIssue{
+								File: rel, Line: 0, Column: 0, Severity: severity,
+								Message: violationMsg, Category: "dates", AutoFixable: false,
+							})
+							mu.Unlock()
+						}
+					}
+
+					// Add informational issue summarizing the scan
+					sample := sampleDates(func() []time.Time {
+						var dates []time.Time
+						for _, entry := range datedEntries {
+							dates = append(dates, *entry.Date)
+						}
+						return dates
+					}(), 5)
+
+					msg := fmt.Sprintf("Changelog scan: found %d total entries (%d dated, %d undated); sample dates: %s",
+						len(entries), len(datedEntries), len(entries)-len(datedEntries), sample)
+
 					mu.Lock()
 					issues = append(issues, DatesIssue{File: rel, Line: 0, Column: 0, Severity: "info", Message: msg, Category: "dates", AutoFixable: false})
 					mu.Unlock()
@@ -787,33 +905,63 @@ func isMonotonicDescending(dates []time.Time) bool {
 	return true
 }
 
-// extractHeadingDates parses H2 release headings and returns dates (top-to-bottom order) and raw heading lines
-// Matches forms like: "## [v1.2.3] - YYYY-MM-DD" or "## v1.2.3 - YYYY-MM-DD"
-func extractHeadingDates(content string, loc *time.Location) ([]time.Time, []string) {
+// ChangelogEntry represents a parsed changelog heading
+type ChangelogEntry struct {
+	Line      string
+	Date      *time.Time
+	Version   string
+	IsRelease bool   // true for dated releases, false for Unreleased/In Development
+	Text      string // The non-date text portion
+}
+
+// extractChangelogEntries parses H2 changelog headings and returns structured entries
+// Handles: "## [v1.2.3] - YYYY-MM-DD", "## [Unreleased]", "## [0.1.6] - In Development"
+func extractChangelogEntries(content string, loc *time.Location) []ChangelogEntry {
 	lines := strings.Split(content, "\n")
-	re := regexp.MustCompile(`^##\s+\[[^\]]+\]\s*-\s*(\d{4})-(\d{2})-(\d{2})\s*$|^##\s+[^\[]\S*\s*-\s*(\d{4})-(\d{2})-(\d{2})\s*$`)
-	var out []time.Time
-	var hdrs []string
+
+	// More flexible regex that captures version/text and optional date
+	dateRe := regexp.MustCompile(`^##\s+\[([^\]]+)\](?:\s*-\s*(.+?))?\s*$`)
+
+	var entries []ChangelogEntry
 	for _, line := range lines {
-		m := re.FindStringSubmatch(line)
+		m := dateRe.FindStringSubmatch(line)
 		if len(m) == 0 {
 			continue
 		}
-		// m has either groups 1-3 or 4-6 filled
-		var yStr, moStr, dStr string
-		if m[1] != "" {
-			yStr, moStr, dStr = m[1], m[2], m[3]
-		} else {
-			yStr, moStr, dStr = m[4], m[5], m[6]
+
+		version := strings.TrimSpace(m[1])
+		dateText := ""
+		if len(m) > 2 {
+			dateText = strings.TrimSpace(m[2])
 		}
-		y, mo, d := parseInt(yStr), parseInt(moStr), parseInt(dStr)
-		if !isValidDate(y, mo, d) {
-			continue
+
+		entry := ChangelogEntry{
+			Line:    line,
+			Version: version,
+			Text:    dateText,
 		}
-		out = append(out, time.Date(y, time.Month(mo), d, 0, 0, 0, 0, loc))
-		hdrs = append(hdrs, line)
+
+		// Try to parse the date
+		if dateText != "" {
+			// Try ISO date format first
+			if dateMatch := regexp.MustCompile(`(\d{4})-(\d{2})-(\d{2})`).FindStringSubmatch(dateText); dateMatch != nil {
+				y, mo, d := parseInt(dateMatch[1]), parseInt(dateMatch[2]), parseInt(dateMatch[3])
+				if isValidDate(y, mo, d) {
+					date := time.Date(y, time.Month(mo), d, 0, 0, 0, 0, loc)
+					entry.Date = &date
+					entry.IsRelease = true
+				}
+			}
+		}
+
+		// Special handling for known non-date entries
+		if strings.EqualFold(version, "unreleased") || strings.Contains(strings.ToLower(dateText), "development") {
+			entry.IsRelease = false
+		}
+
+		entries = append(entries, entry)
 	}
-	return out, hdrs
+	return entries
 }
 
 // sampleDates formats up to k ISO dates from a slice for info output

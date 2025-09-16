@@ -105,6 +105,119 @@ git add .plans/         # ❌ Plans are gitignored
 git commit .plans/      # ❌ Should remain local
 ```
 
+#### Development Operations
+
+**⚠️ CRITICAL**: Always use `make` targets for development operations. Never manually edit version files or run raw Go commands unless specifically debugging goneat itself.
+
+##### Version Management
+
+**DO**: Use make targets for all version operations
+
+```bash
+make version-set VERSION=v0.2.5    # ✅ Set version properly with embeds
+make version-bump-patch           # ✅ Bump patch version
+make version-bump-minor           # ✅ Bump minor version
+make version-bump-major           # ✅ Bump major version
+```
+
+**DO NOT**: Manually edit VERSION file or use raw commands
+
+```bash
+echo "v0.2.5" > VERSION              # ❌ Manual edit - breaks embeds
+go run ./cmd/version version-set   # ❌ Raw command - missing context
+```
+
+##### Build Operations
+
+**DO**: Use make targets that include required embeds
+
+```bash
+make build          # ✅ Builds to dist/ with embeds
+make build-all      # ✅ Cross-platform builds
+make install        # ✅ Install with proper versioning
+```
+
+**DO NOT**: Use raw go build commands
+
+```bash
+go build .                          # ❌ Missing embeds
+go build -o goneat .               # ❌ Creates binary in wrong location
+go install ./cmd/goneat            # ❌ Missing version context
+```
+
+##### Code Formatting
+
+**DO**: Use make targets for consistent formatting
+
+```bash
+make fmt            # ✅ Format all Go code
+make format         # ✅ Full format (Go + docs)
+./dist/goneat format # ✅ Use built binary for formatting
+```
+
+**DO NOT**: Use raw go fmt or other formatters
+
+```bash
+go fmt ./...                        # ❌ Inconsistent with project standards
+gofmt -w .                          # ❌ Missing project-specific rules
+prettier --write .                  # ❌ Use goneat format instead
+```
+
+##### Go Code Quality Standards
+
+**DO**: Follow STDOUT hygiene and logging standards (see [docs/standards/go-coding-standards.md](docs/standards/go-coding-standards.md))
+
+```go
+logger.Debug("repo-status: detected files")   # ✅ Use logger for debug output
+logger.Info("Assessment completed")           # ✅ Use logger for informational output
+logger.Error("Failed to process")            # ✅ Use logger for error output
+```
+
+**DO NOT**: Pollute STDOUT with debug or log output
+
+```go
+fmt.Printf("DEBUG: Creating issue\n")        # ❌ Pollutes STDOUT (breaks JSON output)
+fmt.Println("Processing files...")           # ❌ Pollutes STDOUT (breaks structured output)
+log.Printf("Status: %v", status)             # ❌ Use logger.Info instead
+```
+
+**Critical**: STDOUT must remain clean for JSON output and CLI tools that consume goneat's structured output. All debug, informational, and error messages must use the logger package to maintain output integrity.
+
+##### Testing and Quality Gates
+
+**DO**: Use make targets for comprehensive testing
+
+```bash
+make test           # ✅ Run all tests
+make pre-push       # ✅ Full pre-push validation
+make license-audit  # ✅ License compliance check
+```
+
+**DO NOT**: Run individual commands without context
+
+```bash
+go test ./...                       # ❌ Missing build context
+golangci-lint run                  # ❌ Use make pre-push instead
+go-licenses csv .                   # ❌ Use make license-audit
+```
+
+##### Documentation and Assets
+
+**DO**: Use make targets that handle embedding
+
+```bash
+make embed-assets   # ✅ Embed docs and schemas
+make verify-embeds  # ✅ Verify embeds are correct
+```
+
+**DO NOT**: Manually manage embedded assets
+
+```bash
+# ❌ Don't manually copy files to internal/assets/
+# ❌ Don't edit embedded content directly
+# ❌ Don't commit without verifying embeds
+```
+
 ### Git Operation Safety
 
 **DO**
@@ -210,4 +323,4 @@ Authored-By: Dave Thompson <dave.thompson@3leaps.net> [@3leapsdave](https://gith
 
 ---
 
-**Last Updated**: September 1, 2025
+**Last Updated**: September 15, 2025

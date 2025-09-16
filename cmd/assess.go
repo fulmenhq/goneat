@@ -753,13 +753,14 @@ func getDefaultHookConfig(hookType string) *HookConfig {
 	switch hookType {
 	case "pre-commit":
 		return &HookConfig{
-			Categories: []string{"format", "lint"},
+			Categories: []string{"format", "lint", "dates", "tools"},
 			FailOn:     "high",
 		}
 	case "pre-push":
 		return &HookConfig{
-			Categories: []string{"format", "lint", "security"},
-			FailOn:     "critical",
+			// Align with documented defaults: include maturity and repo-status
+			Categories: []string{"format", "lint", "security", "dates", "tools", "maturity", "repo-status"},
+			FailOn:     "high",
 		}
 	default:
 		return &HookConfig{

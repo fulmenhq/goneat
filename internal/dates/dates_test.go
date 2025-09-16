@@ -465,7 +465,15 @@ Another date
 Older date
 `
 
-	dates, headers := extractHeadingDates(content, time.UTC)
+	entries := extractChangelogEntries(content, time.UTC)
+	var dates []time.Time
+	var headers []string
+	for _, entry := range entries {
+		if entry.Date != nil {
+			dates = append(dates, *entry.Date)
+			headers = append(headers, entry.Line)
+		}
+	}
 
 	// Should extract 5 dates
 	if len(dates) != 5 {
@@ -561,7 +569,15 @@ func TestExtractHeadingDatesFromRealChangelog(t *testing.T) {
 		return
 	}
 
-	dates, headers := extractHeadingDates(string(content), time.UTC)
+	entries := extractChangelogEntries(string(content), time.UTC)
+	var dates []time.Time
+	var headers []string
+	for _, entry := range entries {
+		if entry.Date != nil {
+			dates = append(dates, *entry.Date)
+			headers = append(headers, entry.Line)
+		}
+	}
 
 	t.Logf("Found %d dates in CHANGELOG.md", len(dates))
 	for i, date := range dates {
@@ -610,7 +626,13 @@ func TestDatesValidationWithRealChangelog(t *testing.T) {
 	}
 
 	// Test the monotonic order detection directly
-	hd, _ := extractHeadingDates(string(content), time.UTC)
+	entries := extractChangelogEntries(string(content), time.UTC)
+	var hd []time.Time
+	for _, entry := range entries {
+		if entry.Date != nil {
+			hd = append(hd, *entry.Date)
+		}
+	}
 	t.Logf("Extracted %d dates from CHANGELOG.md", len(hd))
 
 	if len(hd) > 1 {

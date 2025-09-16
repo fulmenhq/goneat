@@ -193,7 +193,15 @@ func TestFixtures_ExtractHeadingDates(t *testing.T) {
 				t.Fatalf("Failed to read fixture: %v", err)
 			}
 
-			dates, headers := extractHeadingDates(string(content), time.UTC)
+			entries := extractChangelogEntries(string(content), time.UTC)
+			var dates []time.Time
+			var headers []string
+			for _, entry := range entries {
+				if entry.Date != nil {
+					dates = append(dates, *entry.Date)
+					headers = append(headers, entry.Line)
+				}
+			}
 
 			if len(dates) != tt.expectedDateCount {
 				t.Errorf("Expected %d dates, got %d", tt.expectedDateCount, len(dates))

@@ -34,8 +34,8 @@ func TestFormatRunner_WhitespaceConsistency(t *testing.T) {
 		t.Error("Expected to detect whitespace issues, but none found")
 	} else if len(issues) == 0 {
 		t.Error("Expected whitespace issues to be reported")
-	} else if !strings.Contains(issues[0].Description, "trailing whitespace") {
-		t.Errorf("Expected trailing whitespace issue, got: %v", issues)
+	} else if !strings.Contains(strings.ToLower(issues[0].Description), "trailing whitespace") {
+		t.Errorf("Expected trailing whitespace issue (case-insensitive), got: %v", issues)
 	}
 }
 
@@ -65,7 +65,7 @@ func TestFormatRunner_ConsistencyWithFormatCommand(t *testing.T) {
 
 	foundWhitespace := false
 	for _, issue := range result.Issues {
-		if strings.Contains(issue.Message, "trailing whitespace") {
+		if strings.Contains(strings.ToLower(issue.Message), "trailing whitespace") {
 			foundWhitespace = true
 			break
 		}

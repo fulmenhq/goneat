@@ -15,7 +15,7 @@ hooks:
           args:
             - --check
             - --categories
-            - format,lint,security,dates,tools
+            - format,lint,security,dates,tools,maturity,repo-status
             - --fail-on
             - high
           priority: 10

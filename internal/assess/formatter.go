@@ -135,6 +135,12 @@ func (f *Formatter) formatConcise(report *AssessmentReport) string {
 					files = append(files, iss.File)
 				}
 			}
+			// If the only entry is the repository sentinel, prefer metrics-provided file list
+			if (len(files) == 1 && files[0] == "repository") || len(files) == 0 {
+				if sample := extractSampleFiles(res.Metrics); len(sample) > 0 {
+					files = sample
+				}
+			}
 			const maxShow = 5
 			shown := files
 			if len(files) > maxShow {
@@ -266,12 +272,56 @@ func (f *Formatter) formatMarkdown(report *AssessmentReport) string {
 				sb.WriteString(fmt.Sprintf("\n_Showing %d of %d issues. Use --format json for full details._\n", maxToShow, len(result.Issues)))
 			}
 			sb.WriteString("\n")
+
+			// If sentinel-only file reference, add an affected files summary from metrics for clarity
+			onlySentinel := false
+			if len(result.Issues) > 0 {
+				onlySentinel = true
+				for _, is := range result.Issues {
+					if strings.TrimSpace(is.File) != "repository" && strings.TrimSpace(is.File) != "" {
+						onlySentinel = false
+						break
+					}
+				}
+			}
+			if onlySentinel {
+				if sample := extractSampleFiles(result.Metrics); len(sample) > 0 {
+					shown := sample
+					const maxShow = 10
+					if len(shown) > maxShow {
+						shown = shown[:maxShow]
+					}
+					more := ""
+					if len(sample) > len(shown) {
+						more = fmt.Sprintf(" (+%d more)", len(sample)-len(shown))
+					}
+					sb.WriteString(fmt.Sprintf("**Affected files:** %s%s\n\n", strings.Join(shown, ", "), more))
+				}
+			}
 		}
 	}
 
 	// Recommended Workflow
 	if len(report.Workflow.Phases) > 0 {
 		sb.WriteString("## Recommended Workflow\n\n")
+
+		// Build map for quick lookup of parallel groups by name
+		groupByName := map[string]ParallelGroup{}
+		for _, g := range report.Workflow.ParallelGroups {
+			groupByName[g.Name] = g
+		}
+		// Prepare git-state samples once for potential sentinel expansion
+		var gitStateSamples []string
+		if cr, ok := report.Categories[string(CategoryRepoStatus)]; ok {
+			if s := extractSampleFiles(cr.Metrics); len(s) > 0 {
+				gitStateSamples = append(gitStateSamples, s...)
+			}
+		}
+		if cr, ok := report.Categories[string(CategoryMaturity)]; ok {
+			if s := extractSampleFiles(cr.Metrics); len(s) > 0 {
+				gitStateSamples = append(gitStateSamples, s...)
+			}
+		}
 
 		for i, phase := range report.Workflow.Phases {
 			sb.WriteString(fmt.Sprintf("### Phase %d: %s\n\n", i+1, phase.Description))
@@ -280,6 +330,26 @@ func (f *Formatter) formatMarkdown(report *AssessmentReport) string {
 
 			if len(phase.ParallelGroups) > 0 {
 				sb.WriteString(fmt.Sprintf("**Parallel Groups:** %s\n", strings.Join(phase.ParallelGroups, ", ")))
+				// List files for each group (expand sentinel using git-state samples)
+				for _, name := range phase.ParallelGroups {
+					if g, ok := groupByName[name]; ok {
+						files := g.Files
+						if (len(files) == 1 && (files[0] == "repository" || files[0] == ".git")) && len(gitStateSamples) > 0 {
+							const maxShow = 10
+							shown := gitStateSamples
+							if len(shown) > maxShow {
+								shown = shown[:maxShow]
+							}
+							more := ""
+							if len(gitStateSamples) > len(shown) {
+								more = fmt.Sprintf(" (+%d more)", len(gitStateSamples)-len(shown))
+							}
+							sb.WriteString(fmt.Sprintf("- %s files: %s%s\n", name, strings.Join(shown, ", "), more))
+						} else if len(files) > 0 {
+							sb.WriteString(fmt.Sprintf("- %s files: %s\n", name, strings.Join(files, ", ")))
+						}
+					}
+				}
 			}
 			sb.WriteString("\n")
 		}
@@ -291,10 +361,38 @@ func (f *Formatter) formatMarkdown(report *AssessmentReport) string {
 	if len(report.Workflow.ParallelGroups) > 0 {
 		sb.WriteString("## Parallelization Opportunities\n\n")
 
+		// Build a helper list of sample files from metrics for git-state categories
+		var gitStateSamples []string
+		if cr, ok := report.Categories[string(CategoryRepoStatus)]; ok {
+			if s := extractSampleFiles(cr.Metrics); len(s) > 0 {
+				gitStateSamples = append(gitStateSamples, s...)
+			}
+		}
+		if cr, ok := report.Categories[string(CategoryMaturity)]; ok {
+			if s := extractSampleFiles(cr.Metrics); len(s) > 0 {
+				gitStateSamples = append(gitStateSamples, s...)
+			}
+		}
+
 		for _, group := range report.Workflow.ParallelGroups {
 			sb.WriteString(fmt.Sprintf("### %s\n", group.Name))
 			sb.WriteString(fmt.Sprintf("**Description:** %s\n", group.Description))
-			sb.WriteString(fmt.Sprintf("**Files:** %s\n", strings.Join(group.Files, ", ")))
+			// If group files are sentinel-only, expand with git-state samples for clarity
+			files := group.Files
+			if (len(files) == 1 && (files[0] == "repository" || files[0] == ".git")) && len(gitStateSamples) > 0 {
+				const maxShow = 20
+				shown := gitStateSamples
+				if len(shown) > maxShow {
+					shown = shown[:maxShow]
+				}
+				more := ""
+				if len(gitStateSamples) > len(shown) {
+					more = fmt.Sprintf(" (+%d more)", len(gitStateSamples)-len(shown))
+				}
+				sb.WriteString(fmt.Sprintf("**Files:** %s%s\n", strings.Join(shown, ", "), more))
+			} else {
+				sb.WriteString(fmt.Sprintf("**Files:** %s\n", strings.Join(files, ", ")))
+			}
 			sb.WriteString(fmt.Sprintf("**Categories:** %s\n", f.formatCategories(group.Categories)))
 			sb.WriteString(fmt.Sprintf("**Issues:** %d\n", group.IssueCount))
 			sb.WriteString(fmt.Sprintf("**Estimated Time:** %s\n\n", f.formatDuration(time.Duration(group.EstimatedTime))))
@@ -500,10 +598,26 @@ func (f *Formatter) generateHTMLFromJSON(report *AssessmentReport) string {
 	// Extract project information
 	projectName, version, displayPath := f.extractProjectInfo(f.targetPath)
 
-	// Group issues by file
+	// Group issues by file (expand repository/git-state sentinel using metrics when available)
 	fileGroupsMap := make(map[string][]TemplateIssue)
 	for _, category := range report.Categories {
 		for _, issue := range category.Issues {
+			// Expand sentinel to actual files when metrics provide them
+			if (issue.File == "repository" || issue.File == ".git") && (category.Metrics != nil) {
+				if sample := extractSampleFiles(category.Metrics); len(sample) > 0 {
+					for _, fn := range sample {
+						templateIssue := TemplateIssue{
+							Line:     issue.Line,
+							Severity: string(issue.Severity),
+							Category: string(issue.Category),
+							Message:  issue.Message,
+						}
+						fileGroupsMap[fn] = append(fileGroupsMap[fn], templateIssue)
+					}
+					continue
+				}
+			}
+
 			templateIssue := TemplateIssue{
 				Line:     issue.Line,
 				Severity: string(issue.Severity),
@@ -729,4 +843,32 @@ type FileIssues struct {
 	Filename string          `json:"filename"`
 	Issues   []TemplateIssue `json:"issues"`
 	Count    int             `json:"count"`
+}
+
+// extractSampleFiles tries to extract a list of filenames from common metrics keys
+func extractSampleFiles(metrics map[string]interface{}) []string {
+	if metrics == nil {
+		return nil
+	}
+	// Preferred keys in order
+	keys := []string{"uncommitted_files", "git_dirty_files"}
+	for _, k := range keys {
+		if v, ok := metrics[k]; ok {
+			switch vv := v.(type) {
+			case []string:
+				return vv
+			case []interface{}:
+				var out []string
+				for _, it := range vv {
+					if s, ok2 := it.(string); ok2 {
+						out = append(out, s)
+					}
+				}
+				if len(out) > 0 {
+					return out
+				}
+			}
+		}
+	}
+	return nil
 }

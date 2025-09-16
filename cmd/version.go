@@ -26,10 +26,15 @@ import (
 // versionCmd represents the version command
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Version management for projects",
-	Long: `Version management system supporting semver, calver, and custom schemes.
-Works with VERSION files, git tags, and other version sources.
-Automatically detects project name from go.mod, directory, or git remote.`,
+	Short: "Show goneat version information",
+	Long: `Show goneat binary version and optional project version information.
+
+By default shows the goneat binary version. Use --project to show the host project's version management information.
+
+Examples:
+  goneat version              # Show goneat binary version
+  goneat version --project     # Show host project version
+  goneat version --json        # JSON output with both binary and project info`,
 	RunE: runVersion,
 }
 
@@ -38,10 +43,11 @@ func init() {
 
 	// Register command in ops registry with taxonomy
 	capabilities := ops.GetDefaultCapabilities(ops.GroupSupport, ops.CategoryInformation)
-	if err := ops.RegisterCommandWithTaxonomy("version", ops.GroupSupport, ops.CategoryInformation, capabilities, versionCmd, "Show version information"); err != nil {
+	if err := ops.RegisterCommandWithTaxonomy("version", ops.GroupSupport, ops.CategoryInformation, capabilities, versionCmd, "Show goneat version information"); err != nil {
 		panic(fmt.Sprintf("Failed to register version command: %v", err))
 	}
 
+	versionCmd.Flags().BoolP("project", "p", false, "Show host project version information")
 	versionCmd.Flags().Bool("extended", false, "Show detailed build and git information")
 	versionCmd.Flags().Bool("json", false, "Output version information in JSON format")
 	versionCmd.Flags().Bool("no-op", false, "Run in assessment mode without making changes")
@@ -148,32 +154,45 @@ func parseGitRepositoryName() string {
 	return ""
 }
 
-func runVersion(cmd *cobra.Command, _ []string) error {
+func runVersion(cmd *cobra.Command, args []string) error {
+	projectMode, _ := cmd.Flags().GetBool("project")
 	extended, _ := cmd.Flags().GetBool("extended")
 	jsonOutput, _ := cmd.Flags().GetBool("json")
 	noOp, _ := cmd.Flags().GetBool("no-op")
 
 	out := cmd.OutOrStdout()
 
-	// Get current version from multiple sources
-	version, source, err := getVersionFromSources()
+	if projectMode {
+		// Legacy project version mode
+		return runProjectVersion(cmd, args, extended, jsonOutput, noOp, out)
+	}
+
+	// Default: Binary version mode
+	return runBinaryVersion(cmd, args, extended, jsonOutput, noOp, out)
+}
+
+func runProjectVersion(cmd *cobra.Command, args []string, extended, jsonOutput, noOp bool, out io.Writer) error {
+	// Get project version from multiple sources (legacy behavior)
+	projectVersion, source, err := getVersionFromSources()
 	if err != nil {
 		if jsonOutput {
-			versionInfo := map[string]any{
-				"error":     "No version found",
-				"goVersion": runtime.Version(),
-				"platform":  runtime.GOOS,
-				"arch":      runtime.GOARCH,
+			projectInfo := map[string]any{
+				"error":         "No project version found",
+				"project":       detectProjectName(),
+				"binaryVersion": buildinfo.BinaryVersion,
+				"goVersion":     runtime.Version(),
+				"platform":      runtime.GOOS,
+				"arch":          runtime.GOARCH,
 			}
-			jsonData, _ := json.MarshalIndent(versionInfo, "", "  ")
+			jsonData, _ := json.MarshalIndent(projectInfo, "", "  ")
 			_, _ = fmt.Fprintln(out, string(jsonData))
 			return nil
 		}
-		return fmt.Errorf("no version found: %v", err)
+		return fmt.Errorf("no project version found: %v", err)
 	}
 
 	if noOp {
-		logger.Info(fmt.Sprintf("[NO-OP] Current version: %s (from %s)", version, source))
+		logger.Info(fmt.Sprintf("[NO-OP] Project version: %s (from %s)", projectVersion, source))
 	}
 
 	// Get additional git information for extended output
@@ -190,27 +209,22 @@ func runVersion(cmd *cobra.Command, _ []string) error {
 	}
 
 	if jsonOutput {
-		// Detect project name for JSON output
 		projectName := detectProjectName()
-
-		// Provide both binary and project versions for clarity
 		versionInfo := map[string]any{
-			"version":        version, // Backward-compatible top-level field expected by tests/consumers
-			"projectVersion": version,
-			"projectSource":  source,
-			"projectName":    projectName,
-			"binaryVersion":  buildinfo.BinaryVersion,
-			"moduleVersion":  buildinfo.ModuleVersion(),
-			"goVersion":      runtime.Version(),
-			"platform":       runtime.GOOS,
-			"arch":           runtime.GOARCH,
+			"binaryVersion": buildinfo.BinaryVersion,
+			"project": map[string]any{
+				"name":    projectName,
+				"version": projectVersion,
+				"source":  source,
+			},
+			"moduleVersion": buildinfo.ModuleVersion(),
+			"goVersion":     runtime.Version(),
+			"platform":      runtime.GOOS,
+			"arch":          runtime.GOARCH,
 		}
 		if extended {
-			versionInfo["buildTime"] = "unknown" // Maintain backward compatibility
 			if gitCommit != "" {
 				versionInfo["gitCommit"] = gitCommit[:8]
-			} else {
-				versionInfo["gitCommit"] = "unknown"
 			}
 			versionInfo["gitBranch"] = gitBranch
 			versionInfo["gitDirty"] = gitDirty
@@ -224,22 +238,18 @@ func runVersion(cmd *cobra.Command, _ []string) error {
 	}
 
 	if extended {
-		// Detect project name for display
 		projectName := detectProjectName()
-
-		// Put Binary first for clarity in installed builds
 		_, _ = fmt.Fprintf(out, "Binary: %s\n", nonEmpty(buildinfo.BinaryVersion, "unknown"))
 		if mv := buildinfo.ModuleVersion(); mv != "" {
 			_, _ = fmt.Fprintf(out, "Module: %s\n", mv)
 		}
-		_, _ = fmt.Fprintf(out, "%s (Project) %s\n", projectName, version)
-		_, _ = fmt.Fprintf(out, "Build time: unknown\n") // Maintain backward compatibility
+		_, _ = fmt.Fprintf(out, "Project: %s %s\n", projectName, projectVersion)
+		_, _ = fmt.Fprintf(out, "Project Source: %s\n", source)
 		if len(gitCommit) >= 8 {
-			_, _ = fmt.Fprintf(out, "Git commit: %s\n", gitCommit[:8]) // Short commit hash
-		} else {
+			_, _ = fmt.Fprintf(out, "Git commit: %s\n", gitCommit[:8])
+		} else if gitCommit != "" {
 			_, _ = fmt.Fprintf(out, "Git commit: %s\n", gitCommit)
 		}
-		_, _ = fmt.Fprintf(out, "Project Source: %s\n", source)
 		if gitBranch != "" {
 			_, _ = fmt.Fprintf(out, "Git branch: %s\n", gitBranch)
 		}
@@ -251,18 +261,74 @@ func runVersion(cmd *cobra.Command, _ []string) error {
 		_, _ = fmt.Fprintf(out, "Go version: %s\n", runtime.Version())
 		_, _ = fmt.Fprintf(out, "Platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 	} else {
-		// Detect project name for display
 		projectName := detectProjectName()
-
-		// Binary first in compact output as well
 		_, _ = fmt.Fprintf(out, "Binary: %s\n", nonEmpty(buildinfo.BinaryVersion, "unknown"))
 		if mv := buildinfo.ModuleVersion(); mv != "" {
 			_, _ = fmt.Fprintf(out, "Module: %s\n", mv)
 		}
-		_, _ = fmt.Fprintf(out, "%s (Project) %s\n", projectName, version)
+		_, _ = fmt.Fprintf(out, "Project: %s %s\n", projectName, projectVersion)
 		_, _ = fmt.Fprintf(out, "Project Source: %s\n", source)
 		_, _ = fmt.Fprintf(out, "Go Version: %s\n", runtime.Version())
 		_, _ = fmt.Fprintf(out, "OS/Arch: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+	}
+
+	return nil
+}
+
+func runBinaryVersion(cmd *cobra.Command, args []string, extended, jsonOutput, noOp bool, out io.Writer) error {
+	if noOp {
+		logger.Info(fmt.Sprintf("[NO-OP] Binary version: %s", buildinfo.BinaryVersion))
+	}
+
+	if jsonOutput {
+		versionInfo := map[string]any{
+			"binaryVersion": buildinfo.BinaryVersion,
+			"moduleVersion": buildinfo.ModuleVersion(),
+			"goVersion":     runtime.Version(),
+			"platform":      runtime.GOOS,
+			"arch":          runtime.GOARCH,
+		}
+		if extended {
+			// Add build details if available
+			if gitCommit, gitBranch, err := getGitCommitInfo(); err == nil && gitCommit != "" {
+				versionInfo["gitCommit"] = gitCommit[:8]
+				versionInfo["gitBranch"] = gitBranch
+			}
+		}
+		jsonData, err := json.MarshalIndent(versionInfo, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to format JSON: %v", err)
+		}
+		_, _ = fmt.Fprintln(out, string(jsonData))
+		return nil
+	}
+
+	if extended {
+		mv := buildinfo.ModuleVersion()
+		_, _ = fmt.Fprintf(out, "goneat %s\n", buildinfo.BinaryVersion)
+		if mv != "" {
+			_, _ = fmt.Fprintf(out, "Module: %s\n", mv)
+		}
+		_, _ = fmt.Fprintf(out, "Build time: %s\n", "unknown") // To be enhanced with ldflags
+		if gitCommit, gitBranch, err := getGitCommitInfo(); err == nil && gitCommit != "" {
+			if len(gitCommit) >= 8 {
+				_, _ = fmt.Fprintf(out, "Git commit: %s\n", gitCommit[:8])
+			}
+			if gitBranch != "" {
+				_, _ = fmt.Fprintf(out, "Git branch: %s\n", gitBranch)
+			}
+		}
+		_, _ = fmt.Fprintf(out, "Go version: %s\n", runtime.Version())
+		_, _ = fmt.Fprintf(out, "Platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+	} else {
+		// Compact binary version output
+		mv := buildinfo.ModuleVersion()
+		_, _ = fmt.Fprintf(out, "goneat %s\n", buildinfo.BinaryVersion)
+		if mv != "" {
+			_, _ = fmt.Fprintf(out, "Module: %s\n", mv)
+		}
+		_, _ = fmt.Fprintf(out, "Go: %s\n", runtime.Version())
+		_, _ = fmt.Fprintf(out, "Platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 	}
 
 	return nil

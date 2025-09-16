@@ -1,37 +1,71 @@
-# Goneat v0.2.5 — Foundation Tools Management (2025-09-13)
+# Goneat v0.2.6 — Repository Validation & Critical Fixes (2025-09-15)
 
 ## TL;DR
 
-- **Foundation Tools**: New `foundation` scope for managing ripgrep, jq, and go-licenses
-- **Intelligent Installation**: Cross-platform tool installation with ranked choice methods, language-native approaches, and zero-sudo strategies
-- **Schema-Driven Config**: JSON Schema validation for tool configurations with user overrides
-- **Assessment Integration**: Tools checking automatically included in pre-commit and pre-push hooks
-- **AI-Agent Ready**: JSON output support for programmatic consumption
-- **Cross-Platform**: Works on macOS, Linux, and Windows with platform-specific installation
-- **Zero Breaking Changes**: 100% backward compatible with existing workflows
+- **Repository Validation System**: New comprehensive repository health and release readiness validation (Phase 1)
+- **Version Command Fixed**: `goneat version` now correctly shows goneat binary version instead of host project version
+- **Content Glob Patterns Fixed**: `**/*.json` and `docs/**/*.md` patterns now work correctly
+- **Security Hardening**: Resolved 3 security vulnerabilities and 8 lint issues
+- **Release Readiness Workflow**: New comprehensive workflow guide for release management
+- **Import Cycle Resolved**: Fixed circular dependency in pathfinder package
+- **Code Quality**: Applied consistent formatting across entire codebase
 
 ## Highlights
 
-### 🛠️ Foundation Tools Management
+### 🏗️ Repository Validation System (Phase 1)
 
-Goneat now provides comprehensive management for essential development tools that are frequently required but often missing:
+Goneat now provides comprehensive repository health and release readiness validation to prevent common development mistakes:
 
 ```bash
-# Check foundation tools
-$ goneat doctor tools --scope foundation
-✅ ripgrep    present (14.1.0)
-✅ jq         present (1.7.1)
-✅ go-licenses present (1.0.0)
+# Set release phase
+$ goneat repository phase set --release rc --lifecycle beta
 
-# Install missing tools
-$ goneat doctor tools --scope foundation --install --yes
-📦 Installing missing tools...
-✅ All foundation tools installed successfully
+# Validate repository maturity
+$ goneat maturity validate --level warn
+✅ Git state: Clean working directory
+✅ Version consistency: VERSION file matches phase policy
+✅ Documentation sync: CHANGELOG.md has v0.2.6 entry
+✅ Release readiness: Ready for RC phase
 
-# Dry run to see what would be installed
-$ goneat doctor tools --scope foundation --dry-run
-📦 gosec           would install
-   Command: go install github.com/securego/gosec/v2/cmd/gosec@latest
+# Release readiness check
+$ goneat maturity release-check --phase rc --strict
+✅ Repository ready for release candidate phase
+
+# Assessment integration
+$ goneat assess --categories maturity --json
+{
+  "health": "good",
+  "issues": [],
+  "categories": {
+    "maturity": {
+      "status": "passed",
+      "issues": 0
+    }
+  }
+}
+```
+
+### 🔧 Version Command Fixed
+
+The version command now correctly prioritizes the goneat binary version:
+
+```bash
+# Before (broken)
+$ goneat version
+Binary: 0.2.5
+myproject (Project) 0.1.0  # ← Wrong! User expected goneat version
+
+# After (fixed)
+$ goneat version
+goneat 0.2.6                # ← Correct! Shows actual goneat version
+Go: go1.25.0
+Platform: linux/amd64
+
+# Project version (unchanged)
+$ goneat version --project
+Binary: 0.2.6
+Project: myproject 0.1.0     # Your project's version
+Project Source: VERSION file
 ```
 
 ### 🔧 Schema-Driven Configuration
@@ -101,6 +135,7 @@ $ goneat doctor tools --scope foundation --json
 Goneat v0.2.5 introduces a sophisticated cross-platform installation strategy that prioritizes user experience and operational efficiency:
 
 #### Ranked Choice Installation
+
 ```bash
 # Linux: Tries mise first (no sudo), then provides clear fallback instructions
 $ goneat doctor tools --scope foundation --install --yes
@@ -119,6 +154,7 @@ $ goneat doctor tools --scope foundation --install --yes
 ```
 
 #### Language-Native Installation
+
 ```bash
 # Go tools use go install (no external dependencies)
 $ goneat doctor tools --scope project-go --install --yes
@@ -132,6 +168,7 @@ $ goneat doctor tools --scope foundation --install --yes
 ```
 
 #### Zero-Sudo Philosophy
+
 - **Linux**: Prioritizes version managers (mise/asdf) to avoid sudo requirements
 - **macOS**: Uses Homebrew as primary, mise as secondary
 - **Windows**: Leverages built-in Winget, Scoop as fallback

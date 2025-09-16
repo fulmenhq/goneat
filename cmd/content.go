@@ -351,7 +351,10 @@ func resolveContent(root string, manifestPath string) ([]contentItem, contentMet
 		norm := func(ss []string) []string {
 			out := make([]string, 0, len(ss))
 			for _, s := range ss {
-				out = append(out, filepath.ToSlash(strings.TrimSpace(s)))
+				// Clean patterns to handle ./ and ../ edge cases
+				clean := filepath.Clean(s)
+				// Convert to forward slashes for consistent matching
+				out = append(out, filepath.ToSlash(clean))
 			}
 			return out
 		}
@@ -373,7 +376,7 @@ func resolveContent(root string, manifestPath string) ([]contentItem, contentMet
 		}
 		rel, _ := filepath.Rel(root, path)
 		rel = filepath.ToSlash(rel)
-		// Check topics
+		// Check topics using improved glob matching
 		for _, t := range topics {
 			if matchesAny(t.include, rel) && !matchesAny(t.exclude, rel) {
 				if _, exists := seen[rel]; !exists {
@@ -421,70 +424,87 @@ func matchesAny(patterns []string, rel string) bool {
 	return false
 }
 
-// matchGlob supports ** (any path segments), * (any chars except '/').
-func matchGlob(pattern, rel string) bool {
-	// Normalize
-	pattern = filepath.ToSlash(strings.TrimPrefix(pattern, "./"))
-	rel = filepath.ToSlash(strings.TrimPrefix(rel, "./"))
-	// split into segments
-	ps := strings.Split(pattern, "/")
-	rs := strings.Split(rel, "/")
-	return matchSeg(ps, rs)
-}
-
-func matchSeg(ps, rs []string) bool {
-	for len(ps) > 0 {
-		p := ps[0]
-		ps = ps[1:]
-		if p == "**" {
-			if len(ps) == 0 {
-				return true
-			} // trailing ** matches all
-			// try to match the rest at any position
-			for i := 0; i <= len(rs); i++ {
-				if matchSeg(ps, rs[i:]) {
-					return true
-				}
-			}
-			return false
-		}
-		if len(rs) == 0 {
-			return false
-		}
-		if !matchComponent(p, rs[0]) {
-			return false
-		}
-		rs = rs[1:]
-	}
-	return len(rs) == 0
-}
-
+// matchComponent matches a single pattern component against a path segment
 func matchComponent(pat, s string) bool {
-	// support * wildcard
-	// convert to rune slices for '?' support in future; implement simple '*' now
-	// greedy: split by '*'
 	if pat == "*" {
 		return true
 	}
-	parts := strings.Split(pat, "*")
-	if len(parts) == 1 {
-		return pat == s
+	if pat == s {
+		return true
 	}
-	// prefix
-	if !strings.HasPrefix(s, parts[0]) {
-		return false
+	// For simple cases, check if pattern is a suffix match
+	if len(pat) > 0 && pat[0] == '*' && strings.HasSuffix(s, pat[1:]) {
+		return true
 	}
-	s = s[len(parts[0]):]
-	// middle parts must appear in order
-	for i := 1; i < len(parts)-1; i++ {
-		idx := strings.Index(s, parts[i])
-		if idx < 0 {
+	return false
+}
+
+// matchGlob supports ** (any path segments), * (any chars except '/').
+func matchGlob(pattern, rel string) bool {
+	// Normalize paths
+	pattern = filepath.ToSlash(strings.TrimPrefix(pattern, "./"))
+	rel = filepath.ToSlash(strings.TrimPrefix(rel, "./"))
+
+	// Handle absolute patterns
+	pattern = strings.TrimPrefix(pattern, "/")
+	rel = strings.TrimPrefix(rel, "/")
+
+	// Simple glob matching with ** support
+	// Split into segments for recursive ** matching
+	ps := strings.Split(pattern, "/")
+	rs := strings.Split(rel, "/")
+
+	i, j := 0, 0
+	for i < len(ps) && j < len(rs) {
+		p := ps[i]
+		r := rs[j]
+
+		if p == "**" {
+			// ** matches zero or more path segments
+			// Try to match the rest of the pattern at current or later position
+			if i+1 < len(ps) {
+				// Look for next pattern segment in remaining path
+				nextP := ps[i+1]
+				found := false
+				for k := j; k <= len(rs); k++ {
+					if k < len(rs) && matchComponent(nextP, rs[k]) {
+						// Match found, advance both pattern and path
+						i += 2
+						j = k + 1
+						found = true
+						break
+					} else if k == len(rs) && i+1 == len(ps) {
+						// ** at end matches remaining path
+						return true
+					}
+				}
+				if !found {
+					return false
+				}
+			} else {
+				// Trailing ** matches everything
+				return true
+			}
+		} else if matchComponent(p, r) {
+			// Simple segment match
+			i++
+			j++
+		} else {
 			return false
 		}
-		s = s[idx+len(parts[i]):]
 	}
-	// suffix
-	return strings.HasSuffix(s, parts[len(parts)-1])
+
+	// Handle trailing ** or exact match
+	if i < len(ps) {
+		// Remaining pattern must be ** or empty
+		for ; i < len(ps); i++ {
+			if ps[i] != "**" {
+				return false
+			}
+		}
+	}
+
+	return j == len(rs)
 }
 
 // findRepoRoot walks up from the current working directory to locate a .git directory

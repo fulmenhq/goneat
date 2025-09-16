@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.2.6] - 2025-09-15
+
+### Added
+
+- **Repository Validation System (Phase 1)**: New comprehensive repository health and release readiness validation
+  - Git state validation (clean working directory, correct branch, proper tags)
+  - Version consistency checking (VERSION file vs RELEASE_PHASE policies)
+  - Documentation sync validation (CHANGELOG.md, RELEASE_NOTES.md version alignment)
+  - Release readiness assessment for different phases (dev/rc/release)
+  - Schema validation for configuration files
+  - New `repository` command for phase management (`phase set/show`)
+  - New `maturity` command for validation (`validate`, `release-check`)
+  - Assessment integration with `maturity` category
+  - Pre-commit/pre-push hook integration
+  - JSON output support for CI/CD pipelines
+- **Release Readiness Workflow Documentation**: New comprehensive workflow guide at `docs/user-guide/workflows/release-readiness.md`
+- **Command Documentation**: New maturity.md and repository.md command documentation files
+
+### Fixed
+
+- **Version Command Binary-First Display**: `goneat version` now correctly shows goneat binary version (0.2.6) instead of host project version
+  - Default behavior prioritizes embedded binary version
+  - Project version management preserved via `--project` flag
+  - Clear separation in JSON output structure
+- **Content Command Glob Pattern Matching**: Fixed `**/*.json` and `docs/**/*.md` patterns
+  - Pure Go implementation of comprehensive glob pattern matching
+  - Recursive `**` wildcard support for directory trees
+  - Proper path segment processing with boundary validation
+- **Import Cycle Resolution**: Fixed circular dependency between `pkg/pathfinder` and `pkg/pathfinder/loaders`
+  - Removed duplicate type/function declarations
+  - Cleaned up conflicting implementations
+- **Security Issues**: Resolved 3 security vulnerabilities
+  - G304 file inclusion via variable (2 instances)
+  - G104 unhandled error in file operations
+- **Lint Issues**: Fixed 8 golangci-lint violations
+  - Unhandled errors in test functions
+  - Empty branch conditions
+  - Missing error handling in defer statements
+
+### Changed
+
+- **Code Formatting**: Applied consistent formatting across all Go and documentation files
+- **Documentation Formatting**: Standardized Markdown and YAML formatting throughout docs tree
+
 ## [v0.2.5] - 2025-09-13
 
 ### Added
@@ -45,20 +89,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Installation Methods**: Enhanced platform-specific installation command handling
 - **Error Handling**: Better fallback instructions for manual tool installation
 - **Assessment Engine**: Fixed shouldFail function to properly handle category errors (e.g., lint config failures)
-
-## [Unreleased]
-
-### Added
-
-- Schema: Complete directory-based versioning system implementation for maintainable schema evolution
-- Schema: Comprehensive schema validation integration for dates and main goneat configurations
-- Testing: Significantly improved test coverage for pkg/config and pkg/schema packages
-
-### Fixed
-
-- Assessment: Updated JSON test fixtures to use human-readable time durations instead of nanoseconds
-- Assessment: Removed manual validation in favor of schema validation in dates runner tests
-- Assessment: Fixed test expectations for CHANGELOG monotonic ordering (now working correctly)
 
 ## [v0.2.4] - 2025-09-12
 
@@ -251,25 +281,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Eliminated previous slowdowns from remote meta-schema fetch during default validation
 
 [0.2.0-rc.1]: https://github.com/fulmenhq/goneat/compare/v0.1.5...v0.2.0-rc.1
-
-## [0.1.6] - In Development
-
-### Added
-
-- Comprehensive test coverage improvements for `pkg/work/format_processor`, `pkg/work/planner`, and `pkg/format/finalizer` packages
-- New intuitive CLI flags for format command: `--files` and `--patterns` for clearer file selection
-
-### Changed
-
-- **BREAKING**: Replaced confusing `-f/--files` flag behavior in format command
-  - **Old**: `-f "*.go"` treated as glob pattern for file discovery
-  - **New**: `--files file1 file2` for explicit file lists, `--patterns "*.go"` for glob filtering
-  - **Migration**: Use `--patterns` for old `-f` pattern behavior, `--files` for specific files
-  - **Validation**: Clear error messages prevent conflicting flag combinations
-
-### Fixed
-
-- Fixed os.RemoveAll error handling in test cleanup code (addressed high-severity lint issues)
 
 ## [0.1.5] - 2025-09-05
 

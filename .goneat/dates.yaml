@@ -4,14 +4,21 @@ enabled: true
 rules:
   monotonic_order:
     enabled: true
-    severity: "medium"  # MEDIUM severity for CHANGELOG ordering issues
+    severity: "medium" # MEDIUM severity for CHANGELOG ordering issues
     files:
       - "**/CHANGELOG*.md"
       - "**/HISTORY.md"
       - "**/NEWS.md"
       - "**/*changelog*.md"
-    exclude:
-      - "tests/**"
-      - "test-fixtures/**"
-      - "**/fixtures/**"
-      - "internal/assets/**"
+files:
+  exclude:
+    - "tests/**"
+    - "test-fixtures/**"
+    - "**/fixtures/**"
+    - "internal/assets/**"
+# Enable AI safety to catch actual date errors from AI agents
+ai_safety:
+  enabled: true
+  detect_placeholders: true
+  detect_impossible: true
+  severity: "medium"
