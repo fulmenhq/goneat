@@ -4,9 +4,8 @@ This checklist ensures all requirements are met before releasing goneat to the G
 
 ## Current Release Status: v0.2.7 (2025-09-20)
 
-**✅ PRE-RELEASE COMPLETE**: All quality gates passed, binaries built, licenses audited.
-**⏳ READY FOR CONSOLIDATION**: Repository ready for Git commit consolidation per SOP.
-**🎯 NEXT STEPS**: Run `make release-notes`, consolidate commits, then tag and push.
+**✅ RELEASE COMPLETE**: v0.2.7 successfully tagged and pushed to GitHub.
+**✅ POST-RELEASE**: All quality gates passed, binaries built, licenses audited, consolidation completed.
 
 ## Pre-Release Preparation
 
@@ -56,8 +55,8 @@ This checklist ensures all requirements are met before releasing goneat to the G
 ### Git Operations ✅
 
 - [x] **Version Commit**: Version update committed
-- [ ] **Git Tag**: Annotated tag created (`git tag -a v0.2.5`)
-- [ ] **Primary Push**: Pushed to GitHub (`make release-push`)
+- [x] **Git Tag**: Annotated tag created (`git tag -a v0.2.7`)
+- [x] **Primary Push**: Pushed to GitHub (`git push origin v0.2.7`)
 - [ ] **Backup Push**: Pushed to GitLab (if configured)
 
 ### RC Validation Gates ✅
@@ -68,6 +67,7 @@ This checklist ensures all requirements are met before releasing goneat to the G
 - [x] Pre-push gate passing (fail-on thresholds) after build-all
 - [ ] pkg.go.dev indexing verified for the tag
 - [x] README/CHANGELOG/RELEASE_NOTES updated for the RC
+- [x] Git tag created and pushed: v0.2.7
 
 ### GitHub Release ✅
 
