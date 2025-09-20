@@ -19,7 +19,7 @@ We bring a smooth DX layer to the business of making neat code at scale. We wrap
 
 ```bash
 # macOS/Linux example - adjust for your platform and version
-curl -L -o goneat https://github.com/fulmenhq/goneat/releases/download/v0.2.3/goneat-darwin-arm64
+curl -L -o goneat https://github.com/fulmenhq/goneat/releases/download/v0.2.7/goneat-darwin-arm64
 chmod +x goneat
 sudo mv goneat /usr/local/bin/
 ```
@@ -178,7 +178,31 @@ Note: This is alpha software in RC release phase. See `docs/standards/lifecycle-
 - **Suppression Insights**: top rules/files with rich summaries for governance
 - **Library Functions**: Reusable Go packages for schema validation and path resolution, enabling integration into custom tools without separate installation.
 
-## Library Functions
+## Developer Libraries
+
+Goneat provides reusable Go libraries for common DX patterns. See the [libraries guide](docs/user-guide/libraries.md) for details on available packages, integration patterns, and API documentation.
+
+Key libraries include:
+
+- **Configuration**: Hierarchical YAML/JSON loading with schema validation
+- **Pathfinder**: Safe file discovery with gitignore support (experimental)
+- **Schema**: Offline JSON/YAML schema validation
+- **Safe I/O**: Secure file operations with traversal protection
+- **Versioning**: Full SemVer 2.0.0 support with phase integration
+
+**Single import covers everything**: If you've already `go install github.com/fulmenhq/goneat@latest` for the CLI tool, you don't need separate imports for libraries—they're included in the main module. Simply import the specific packages in your code:
+
+```go
+import (
+    "github.com/fulmenhq/goneat/pkg/config"
+    "github.com/fulmenhq/goneat/pkg/schema"
+    // etc.
+)
+```
+
+No duplicate `go install` commands needed—goneat's libraries are part of the main module and follow the same release cadence with backward compatibility guarantees.
+
+For detailed documentation, see [docs/appnotes/lib/](docs/appnotes/lib/).
 
 ### Schema Management
 

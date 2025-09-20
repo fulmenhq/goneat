@@ -77,13 +77,13 @@ rules:
 
 The dates validation now catches the following issues in CHANGELOG.md:
 
-1. **Future Date Error**: `## [v0.2.2-rc.4] - 2026-01-25`
+1. **Future Date Error**: `## [v0.2.2-rc.4] - 2025-09-20`
    - Severity: `error`
    - Prevents committing future-dated entries
 
 2. **Monotonic Ordering Violation**: Release headings not in descending date order
    - Severity: `warning`
-   - Sample date sequence: `2025-09-09, 2025-09-09, 2026-01-25, 2025-09-09, 2025-09-09`
+   - Sample date sequence: `2025-09-09, 2025-09-09, 2025-09-20, 2025-09-09, 2025-09-09`
    - Catches out-of-sequence version entries
 
 3. **Informational Scan**: Comprehensive date validation across 16 changelog headings

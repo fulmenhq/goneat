@@ -11,7 +11,7 @@
 
 # Variables
 BINARY_NAME := goneat
-VERSION := $(shell ./dist/goneat version --json 2>/dev/null | jq -r '.projectVersion' 2>/dev/null || cat VERSION 2>/dev/null || echo "0.1.0")
+VERSION := $(shell [ -f dist/goneat ] && ./dist/goneat version --project --json 2>/dev/null | jq -r '.project.version' 2>/dev/null || cat VERSION 2>/dev/null || echo "0.1.0")
 BUILD_DIR := dist
 SRC_DIR := .
 
@@ -29,7 +29,7 @@ LDFLAGS := -ldflags "-X 'github.com/fulmenhq/goneat/pkg/buildinfo.BinaryVersion=
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
 .PHONY: help build clean test fmt format-docs version-get version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease \
-	license-inventory license-save license-audit update-licenses embed-assets verify-embeds
+	license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites
 
 # Default target
 all: clean build fmt
@@ -212,7 +212,7 @@ license-audit: ## Audit dependencies for forbidden licenses; fail on detection
 	forbidden='GPL|LGPL|AGPL|MPL|CDDL'; \
 		out=$$(go-licenses csv .); \
 		echo "$$out" > dist/reports/license-inventory.csv; \
-		if echo "$$out" | rg -E "$$forbidden" >/dev/null; then \
+		if echo "$$out" | rg "$$forbidden" >/dev/null; then \
 			echo "❌ Forbidden license detected. See dist/reports/license-inventory.csv"; \
 			echo "   Forbidden patterns: $$forbidden"; \
 			exit 1; \
@@ -244,7 +244,30 @@ pre-push: build-all license-audit ## Run pre-push checks using goneat (format + 
 	fi
 
 # Development setup
-dev: ## Set up development environment
+prerequisites: ## Check and install required development tools using goneat
+	@echo "🔧 Checking development prerequisites..."
+	@if [ ! -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
+		echo "⚠️  goneat binary not found, building first..."; \
+		$(MAKE) embed-assets; \
+		$(GOBUILD) $(BUILD_FLAGS) ./$(SRC_DIR); \
+	fi
+	@echo "📋 Checking Go toolchain..."
+	@if ! command -v go >/dev/null 2>&1; then \
+		echo "❌ Go toolchain not found in PATH"; \
+		echo "🔧 Please install Go: https://golang.org/dl/"; \
+		echo "💡 For macOS: brew install go"; \
+		echo "💡 Add to PATH: export PATH=\"$$PATH:$$(go env GOPATH)/bin\""; \
+		echo "🔄 After installing Go, restart your shell and re-run this command"; \
+		exit 1; \
+	fi
+	@echo "📦 Installing development tools using goneat..."
+	@$(BUILD_DIR)/$(BINARY_NAME) doctor tools --scope all --install --yes || true
+	@echo "✅ Prerequisites check complete"
+	@echo "💡 If tools were installed but not found, you may need to:"
+	@echo "   export PATH=\"$$PATH:$$(go env GOPATH)/bin\""
+	@echo "   source ~/.zshrc  # or ~/.bashrc on Linux"
+
+dev: prerequisites ## Set up development environment
 	@echo "Setting up development environment..."
 	$(MAKE) build
 	$(MAKE) fmt

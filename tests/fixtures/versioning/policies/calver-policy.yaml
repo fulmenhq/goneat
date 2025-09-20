@@ -1,0 +1,6 @@
+version_scheme: calver
+minimum_version: "2024.06.01"
+recommended_version: "2024.09.01"
+disallowed_versions:
+  - "2024.01.01"
+  - "2024.02.01"

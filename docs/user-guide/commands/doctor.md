@@ -14,7 +14,7 @@ Available scopes:
 
 ## doctor tools
 
-Check presence and versions of supported tools, print remediation instructions, and optionally install tools using platform-specific package managers or Go install.
+Check presence, versions, and version policy compliance of supported tools, print remediation instructions, and optionally install tools using platform-specific package managers or Go install.
 
 ### Supported Tools by Scope
 
@@ -231,6 +231,13 @@ goneat hooks install
 - **Platform-specific detection**: Different detection methods per operating system
 - **PATH validation**: Checks if tools are in PATH and provides helpful relocation instructions
 - **Go bin detection**: Special handling for Go-installed tools in GOPATH/bin
+
+#### Version Policy Checking
+
+- **Policy enforcement**: Checks installed tool versions against configured minimum and recommended versions
+- **Severity levels**: Minimum version violations reported as high severity, recommended as medium severity
+- **Version schemes**: Supports semver (semantic versioning) and lexical (string comparison) schemes
+- **Configuration-driven**: Version policies defined in `.goneat/tools.yaml` with `minimum_version` and `recommended_version` fields
 
 #### Installation Behavior
 

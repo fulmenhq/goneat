@@ -6,6 +6,7 @@ package assess
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/versioning"
 )
 
 // LintAssessmentRunner implements AssessmentRunner for linting tools like golangci-lint
@@ -23,6 +25,22 @@ type LintAssessmentRunner struct {
 	commandName string
 	toolName    string
 	config      LintConfig
+}
+
+type golangciLintMode int
+
+const (
+	golangciLintModeUnknown golangciLintMode = iota
+	golangciLintModeV1
+	golangciLintModeV2Early
+	golangciLintModeV24Plus
+)
+
+type golangciLintEnvironment struct {
+	mode      golangciLintMode
+	raw       string
+	version   *versioning.Version
+	detectErr error
 }
 
 // LintConfig contains configuration for lint assessment
@@ -83,8 +101,13 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 		}, nil
 	}
 
-	// 🔧 Preflight: Verify golangci-lint configuration
-	if err := r.verifyGolangciConfig(target); err != nil {
+	env := r.detectGolangciLintEnvironment()
+	if env.detectErr != nil {
+		logger.Warn(fmt.Sprintf("golangci-lint version detection failed: %v", env.detectErr))
+	}
+
+	// 🔧 Preflight: Verify golangci-lint configuration using detected version context
+	if err := r.verifyGolangciConfig(target, env); err != nil {
 		return &AssessmentResult{
 			CommandName:   r.commandName,
 			Category:      CategoryLint,
@@ -129,11 +152,11 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 
 	case AssessmentModeCheck:
 		// Check mode: run linting and report issues
-		issues, runErr = r.runGolangCILintCheck(target, config)
+		issues, runErr = r.runGolangCILintCheck(target, config, env)
 
 	case AssessmentModeFix:
 		// Fix mode: run linting with auto-fix
-		issues, runErr = r.runGolangCILintFix(target, config)
+		issues, runErr = r.runGolangCILintFix(target, config, env)
 
 	default:
 		return &AssessmentResult{
@@ -168,17 +191,17 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 }
 
 // runGolangCILintCheck runs golangci-lint in check mode (report issues)
-func (r *LintAssessmentRunner) runGolangCILintCheck(target string, config AssessmentConfig) ([]Issue, error) {
-	return r.runGolangCILintWithMode(target, config, false)
+func (r *LintAssessmentRunner) runGolangCILintCheck(target string, config AssessmentConfig, env golangciLintEnvironment) ([]Issue, error) {
+	return r.runGolangCILintWithMode(target, config, env, false)
 }
 
 // runGolangCILintFix runs golangci-lint in fix mode (apply fixes)
-func (r *LintAssessmentRunner) runGolangCILintFix(target string, config AssessmentConfig) ([]Issue, error) {
-	return r.runGolangCILintWithMode(target, config, true)
+func (r *LintAssessmentRunner) runGolangCILintFix(target string, config AssessmentConfig, env golangciLintEnvironment) ([]Issue, error) {
+	return r.runGolangCILintWithMode(target, config, env, true)
 }
 
 // runGolangCILintWithMode runs golangci-lint with the specified mode
-func (r *LintAssessmentRunner) runGolangCILintWithMode(target string, config AssessmentConfig, fixMode bool) ([]Issue, error) {
+func (r *LintAssessmentRunner) runGolangCILintWithMode(target string, config AssessmentConfig, env golangciLintEnvironment, fixMode bool) ([]Issue, error) {
 	// Clean paths to prevent path traversal issues
 	target = filepath.Clean(target)
 	includeFiles := make([]string, len(config.IncludeFiles))
@@ -195,9 +218,12 @@ func (r *LintAssessmentRunner) runGolangCILintWithMode(target string, config Ass
 
 	// Add output format (only for check mode, fix mode doesn't produce structured output)
 	if !fixMode && r.config.Format == "json" {
-		// golangci-lint v2.x uses --output.json.path for JSON output
-		args = append(args, "--output.json.path", "stdout")
-		// JSON output goes to stdout in v2.x
+		outputArgs, expectedJSON := resolveGolangciOutputArgs(env)
+		if expectedJSON {
+			args = append(args, outputArgs...)
+		} else {
+			logger.Warn("golangci-lint JSON output unsupported for detected version; falling back to text parsing")
+		}
 	}
 
 	// Limit to new issues only when requested
@@ -440,7 +466,16 @@ func (r *LintAssessmentRunner) shouldUsePackageMode(goFiles []string, config Ass
 }
 
 // verifyGolangciConfig validates golangci-lint config file (Pattern 2: repo root only)
-func (r *LintAssessmentRunner) verifyGolangciConfig(target string) error {
+func (r *LintAssessmentRunner) verifyGolangciConfig(target string, env golangciLintEnvironment) error {
+	if env.mode == golangciLintModeV1 {
+		logger.Info("Skipping golangci-lint config verification: version < 2.0.0 does not support 'config verify'")
+		return nil
+	}
+	if env.detectErr != nil {
+		logger.Warn("Skipping golangci-lint config verification due to version detection failure")
+		return nil
+	}
+
 	// Use standardized config resolver to find working directory
 	// For single files, this resolves to the file's directory
 	resolver := NewConfigResolver(target)
@@ -476,6 +511,97 @@ func (r *LintAssessmentRunner) verifyGolangciConfig(target string) error {
 	}
 
 	return nil
+}
+
+func (r *LintAssessmentRunner) detectGolangciLintEnvironment() golangciLintEnvironment {
+	cmd := exec.Command("golangci-lint", "--version")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return golangciLintEnvironment{
+			detectErr: fmt.Errorf("failed to execute golangci-lint --version: %w", err),
+		}
+	}
+
+	rawOutput := string(output)
+	versionToken := extractGolangciLintVersion(rawOutput)
+	if versionToken == "" {
+		return golangciLintEnvironment{
+			detectErr: errors.New("unable to parse golangci-lint version output"),
+			raw:       strings.TrimSpace(rawOutput),
+		}
+	}
+
+	parsed, parseErr := versioning.ParseLenient(versionToken)
+	if parseErr != nil {
+		return golangciLintEnvironment{
+			detectErr: fmt.Errorf("failed to parse golangci-lint version token '%s': %w", versionToken, parseErr),
+			raw:       versionToken,
+		}
+	}
+
+	mode := determineGolangciLintMode(parsed)
+	switch mode {
+	case golangciLintModeV1:
+		logger.Warn("Detected golangci-lint < 2.0.0; using legacy compatibility mode. Please upgrade to v2.4.0+ for best results.")
+	case golangciLintModeV2Early:
+		logger.Info("Detected golangci-lint v2.0.x–v2.3.x; enabling transitional compatibility flags.")
+	case golangciLintModeV24Plus:
+		logger.Debug("Detected golangci-lint v2.4.0 or newer; using modern output capabilities.")
+	}
+
+	return golangciLintEnvironment{
+		mode:    mode,
+		raw:     versionToken,
+		version: parsed,
+	}
+}
+
+func resolveGolangciOutputArgs(env golangciLintEnvironment) ([]string, bool) {
+	switch env.mode {
+	case golangciLintModeV24Plus:
+		return []string{"--output.json.path", "stdout"}, true
+	case golangciLintModeV2Early:
+		return []string{"--out-format", "json"}, true
+	case golangciLintModeV1:
+		return []string{"--out-format", "json"}, true
+	default:
+		return []string{"--out-format", "json"}, true
+	}
+}
+
+var golangciLintVersionPattern = regexp.MustCompile(`(?i)v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?`)
+
+func extractGolangciLintVersion(output string) string {
+	trimmed := strings.TrimSpace(output)
+	if trimmed == "" {
+		return ""
+	}
+
+	match := golangciLintVersionPattern.FindString(trimmed)
+	return strings.TrimSpace(match)
+}
+
+func determineGolangciLintMode(v *versioning.Version) golangciLintMode {
+	if v == nil {
+		return golangciLintModeUnknown
+	}
+
+	versionStr := v.String()
+	cmpV2, err := versioning.Compare(versioning.SchemeSemverFull, versionStr, "2.0.0")
+	if err != nil {
+		return golangciLintModeUnknown
+	}
+	if cmpV2 == versioning.ComparisonLess {
+		return golangciLintModeV1
+	}
+	cmpV24, err := versioning.Compare(versioning.SchemeSemverFull, versionStr, "2.4.0")
+	if err != nil {
+		return golangciLintModeUnknown
+	}
+	if cmpV24 == versioning.ComparisonLess {
+		return golangciLintModeV2Early
+	}
+	return golangciLintModeV24Plus
 }
 
 // parseLintJSONOutput parses golangci-lint JSON output

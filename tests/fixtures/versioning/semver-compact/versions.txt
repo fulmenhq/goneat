@@ -1,0 +1,60 @@
+# Semantic Versioning Test Fixtures - COMPACT Mode
+# Simple numeric progression without prerelease or build metadata
+# Enforces x.y.z format only, rejects any extensions
+
+# VALID CASES - These should parse successfully
+
+## Standard SemVer (x.y.z only)
+1.0.0
+1.2.3
+2.0.0
+10.20.30
+0.1.0
+0.0.1
+999.999.999
+
+## With v Prefix (still valid in compact mode)
+v1.0.0
+v1.2.3
+v2.0.0
+v10.20.30
+
+# INVALID CASES - These should cause validation errors in compact mode
+
+## Prerelease Versions (rejected in compact mode)
+1.0.0-alpha
+1.0.0-alpha.1
+1.0.0-beta
+1.0.0-beta.1
+1.0.0-rc.1
+1.0.0-rc.2
+2.0.0-alpha.1
+
+## Build Metadata (rejected in compact mode)
+1.0.0+build.1
+1.0.0+build.123
+1.2.3+20250101
+1.2.3+git.abc123
+
+## Complex Combinations (rejected in compact mode)
+1.0.0-alpha.1+build.123
+2.0.0-beta.2+20250101.abc123
+10.5.0-rc.1+build.456
+
+## Malformed Versions (always invalid)
+1.0.0-alpha..1   # Double dots
+1.0.0+build..123 # Double dots in build metadata
+1..0              # Empty minor version
+1.0.              # Empty patch version
+1.0.0-            # Empty prerelease
+1.0.0+            # Empty build metadata
+1.0.0-=rc.red     # Invalid: starts with = instead of -
+
+## Invalid Numeric Components
+1.0.0-alpha.01   # Leading zero in prerelease (invalid even in full mode)
+1.0.0+build.01   # Leading zero in build metadata (invalid even in full mode)
+
+## Prerelease Syntax Cases (invalid in compact mode)
+1.0.0-rc.red     # Invalid: non-numeric identifier in prerelease
+1.0.0-rc.2       # Invalid in compact: prerelease not allowed
+1.0.0-rc.11      # Invalid in compact: prerelease not allowed

@@ -1,0 +1,56 @@
+# Calendar Versioning Test Fixtures
+# Strict numeric format validation: YYYY.MM or YYYY.MM.DD only
+# Rejects invalid months/days, partial formats, and inconsistent separators
+
+# VALID CASES - These should parse successfully
+
+## Year-Month-Day Format (YYYY.MM.DD)
+2024.01.01
+2024.12.31
+2025.03.15
+2023.01.01
+2024.09.15
+2024.12.25
+2025.01.01
+
+## Year-Month Format (YYYY.MM)
+2024.01
+2024.12
+2025.03
+2023.01
+
+## With Dash Separators (YYYY-MM-DD, YYYY-MM)
+2024-01-01
+2024-12-31
+2024-01
+2024-12
+
+## With Underscore Separators (YYYY_MM_DD, YYYY_MM)
+2024_01_01
+2024_12_31
+2024_01
+2024_12
+
+# INVALID CASES - These should cause validation errors
+
+## Year Only (not strict YYYY.MM/YYYY.MM.DD format)
+2024
+2025
+2023
+
+## Mixed/Inconsistent Separators
+2024.01-01
+2024-01.01
+2024_01-01
+
+## Invalid Dates (impossible months/days)
+2024.13.01  # Invalid month (13)
+2024.01.32  # Invalid day (32)
+2024.00.01  # Invalid month (00)
+2024.01.00  # Invalid day (00)
+0000.01.01  # Invalid year (0000)
+
+## Partial/Incomplete Formats
+2024.1      # Missing leading zero on month
+2024.01.1   # Missing leading zero on day
+24.01.01    # Missing century digits

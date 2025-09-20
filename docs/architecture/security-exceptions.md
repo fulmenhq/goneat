@@ -99,7 +99,7 @@ Add optional structured metadata while preserving native syntax:
 ```go
 // Go example
 // #nosec G304
-// @goneat-exception reason="Path validated in middleware" reviewer="@3leapsdave" expires="2025-12-01"
+// @goneat-exception reason="Path validated in middleware" reviewer="@3leapsdave" expires="2025-09-20"
 content, err := os.ReadFile(userPath)
 
 // TypeScript example

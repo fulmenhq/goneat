@@ -1,0 +1,52 @@
+# Lexical Versioning Test Fixtures
+# Various lexical formats for fallback testing
+
+# Simple strings
+v1.0.0
+v1.0.1
+v2.0.0
+version-1.0
+release-2024
+
+# With whitespace
+  v1.0.0
+v1.0.0
+v1.0.0
+
+# Case variations
+v1.0.0
+V1.0.0
+v1.0.0-alpha
+V1.0.0-ALPHA
+
+# Special characters
+v1.0.0-alpha.1
+v1.0.0+build.123
+v1.0.0-rc.1+build.456
+version_1.0.0
+version-1.0.0
+
+# Unicode characters
+v1.0.0
+v1.0.0ü
+v1.0.0-beta
+v1.0.0-ßeta
+
+# Numbers and letters mixed
+v1.0a
+v1.0b
+v1.0.0a
+v1.0.0b
+
+# Different lengths
+v1
+v1.0
+v1.0.0
+v1.0.0.0
+
+# Real-world examples
+main
+develop
+feature-branch
+hotfix-1.2.3
+tag-2024-09-15

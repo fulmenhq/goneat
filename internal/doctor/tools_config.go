@@ -5,188 +5,112 @@ import (
 	"os"
 	"path/filepath"
 
-	"gopkg.in/yaml.v3"
+	pkgtools "github.com/fulmenhq/goneat/pkg/tools"
 )
 
-// ToolsConfig represents the complete tools configuration
-type ToolsConfig struct {
-	Scopes map[string]ScopeConfig `yaml:"scopes" json:"scopes"`
-	Tools  map[string]ToolConfig  `yaml:"tools" json:"tools"`
-}
+// Alias exported structures from pkg/tools for backwards compatibility within the doctor package.
+type ToolsConfig = pkgtools.Config
+type ScopeConfig = pkgtools.Scope
+type ToolConfig = pkgtools.Tool
 
-// ScopeConfig represents a tool scope definition
-type ScopeConfig struct {
-	Description string   `yaml:"description" json:"description"`
-	Tools       []string `yaml:"tools" json:"tools"`
-}
-
-// ToolConfig represents a single tool definition
-type ToolConfig struct {
-	Name            string            `yaml:"name" json:"name"`
-	Description     string            `yaml:"description" json:"description"`
-	Kind            string            `yaml:"kind" json:"kind"`
-	DetectCommand   string            `yaml:"detect_command" json:"detect_command"`
-	InstallPackage  string            `yaml:"install_package,omitempty" json:"install_package,omitempty"`
-	VersionArgs     []string          `yaml:"version_args,omitempty" json:"version_args,omitempty"`
-	CheckArgs       []string          `yaml:"check_args,omitempty" json:"check_args,omitempty"`
-	Platforms       []string          `yaml:"platforms,omitempty" json:"platforms,omitempty"`
-	InstallCommands map[string]string `yaml:"install_commands,omitempty" json:"install_commands,omitempty"`
-}
-
-// LoadToolsConfig loads the tools configuration with schema validation
+// LoadToolsConfig loads the tools configuration with schema validation and user overrides.
 func LoadToolsConfig() (*ToolsConfig, error) {
-	// 1. Load embedded defaults (already validated during build)
 	config, err := loadDefaultConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load default config: %w", err)
 	}
 
-	// 2. Check for user config
 	userConfigPath := ".goneat/tools.yaml"
 	if _, err := os.Stat(userConfigPath); err == nil {
-		// Read user config bytes
-		configBytes, err := os.ReadFile(userConfigPath)
+		data, err := os.ReadFile(userConfigPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read user config: %w", err)
 		}
-
-		// 3. CRITICAL: Validate against schema BEFORE parsing
-		if err := validateToolsConfig(configBytes); err != nil {
+		if err := pkgtools.ValidateBytes(data); err != nil {
 			return nil, fmt.Errorf("user config validation failed: %w", err)
 		}
-
-		// 4. Parse validated config
-		userConfig, err := parseConfig(configBytes)
+		userConfig, err := pkgtools.ParseConfig(data)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse user config: %w", err)
 		}
+		config.Merge(userConfig)
 
-		// 5. Merge user config with defaults
-		mergeConfigs(config, userConfig)
+		// Ensure core scopes are always available (fallback guarantee)
+		ensureCoreScopes(config)
 	}
 
 	return config, nil
 }
 
-// loadDefaultConfig loads the embedded default configuration
-func loadDefaultConfig() (*ToolsConfig, error) {
-	// Load from embedded defaults
-	configBytes := GetDefaultToolsConfig()
+// ensureCoreScopes guarantees that essential scopes (foundation, format, security, all)
+// are always available, even if user config tries to replace or remove them.
+func ensureCoreScopes(config *ToolsConfig) {
+	coreScopes := map[string]ScopeConfig{
+		"foundation": {
+			Description: "Core foundation tools required for goneat and basic AI agent operation",
+			Tools:       []string{"ripgrep", "jq", "go-licenses", "golangci-lint", "yamlfmt", "yq"},
+		},
+		"format": {
+			Description: "Code formatting tools",
+			Tools:       []string{"goimports", "gofmt"},
+		},
+		"security": {
+			Description: "Security scanning tools",
+			Tools:       []string{"gosec", "govulncheck", "gitleaks"},
+		},
+		"all": {
+			Description: "All tools from all scopes",
+			Tools:       []string{"gosec", "govulncheck", "gitleaks", "goimports", "gofmt", "ripgrep", "jq", "go-licenses", "golangci-lint", "yamlfmt", "yq"},
+		},
+	}
 
-	// Parse the embedded config
-	config, err := parseConfig(configBytes)
+	if config.Scopes == nil {
+		config.Scopes = make(map[string]ScopeConfig)
+	}
+
+	for name, coreScope := range coreScopes {
+		if _, exists := config.Scopes[name]; !exists {
+			config.Scopes[name] = coreScope
+		}
+		// Note: We don't override existing scopes to preserve user customizations,
+		// but we ensure they exist if missing
+	}
+}
+
+func loadDefaultConfig() (*ToolsConfig, error) {
+	configBytes := GetDefaultToolsConfig()
+	if len(configBytes) == 0 {
+		return nil, fmt.Errorf("embedded default config is empty")
+	}
+
+	cfg, err := pkgtools.ParseConfig(configBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse embedded config: %w", err)
 	}
-
-	return config, nil
+	return cfg, nil
 }
 
-// parseConfig parses YAML configuration into ToolsConfig
-func parseConfig(configBytes []byte) (*ToolsConfig, error) {
-	var config ToolsConfig
-	if err := yaml.Unmarshal(configBytes, &config); err != nil {
-		return nil, fmt.Errorf("yaml parse error: %w", err)
-	}
-	return &config, nil
+// ParseConfig parses YAML configuration into ToolsConfig (public function for backwards compatibility).
+func ParseConfig(configBytes []byte) (*ToolsConfig, error) {
+	return pkgtools.ParseConfig(configBytes)
 }
 
-// validateToolsConfig validates configuration against JSON Schema
-func validateToolsConfig(configBytes []byte) error {
-	return ValidateToolsConfig(configBytes)
-}
-
-// mergeConfigs merges user config into default config
-func mergeConfigs(defaultConfig, userConfig *ToolsConfig) {
-	// Merge scopes
-	if userConfig.Scopes != nil {
-		if defaultConfig.Scopes == nil {
-			defaultConfig.Scopes = make(map[string]ScopeConfig)
-		}
-		for name, scope := range userConfig.Scopes {
-			defaultConfig.Scopes[name] = scope
-		}
-	}
-
-	// Merge tools
-	if userConfig.Tools != nil {
-		if defaultConfig.Tools == nil {
-			defaultConfig.Tools = make(map[string]ToolConfig)
-		}
-		for name, tool := range userConfig.Tools {
-			defaultConfig.Tools[name] = tool
-		}
-	}
-}
-
-// GetToolsForScope returns tools for a specific scope
-func (c *ToolsConfig) GetToolsForScope(scopeName string) ([]ToolConfig, error) {
-	scope, exists := c.Scopes[scopeName]
-	if !exists {
-		return nil, fmt.Errorf("scope '%s' not found", scopeName)
-	}
-
-	var tools []ToolConfig
-	for _, toolName := range scope.Tools {
-		tool, exists := c.Tools[toolName]
-		if !exists {
-			return nil, fmt.Errorf("tool '%s' referenced in scope '%s' but not defined", toolName, scopeName)
-		}
-		tools = append(tools, tool)
-	}
-
-	return tools, nil
-}
-
-// GetAllScopes returns all available scope names
-func (c *ToolsConfig) GetAllScopes() []string {
-	var scopes []string
-	for name := range c.Scopes {
-		scopes = append(scopes, name)
-	}
-	return scopes
-}
-
-// GetTool returns a specific tool by name
-func (c *ToolsConfig) GetTool(toolName string) (ToolConfig, bool) {
-	tool, exists := c.Tools[toolName]
-	return tool, exists
-}
-
-// ValidateConfig validates a configuration file
+// ValidateConfig validates a configuration file.
 func ValidateConfig(configPath string) error {
-	return ValidateConfigFile(configPath)
+	return pkgtools.ValidateFile(configPath)
 }
 
-// CreateDefaultConfig creates a default configuration file
+// CreateDefaultConfig creates a default configuration file on disk.
 func CreateDefaultConfig(configPath string) error {
-	// Ensure directory exists
 	dir := filepath.Dir(configPath)
-	if err := os.MkdirAll(dir, 0750); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	// Load default config
-	config, err := loadDefaultConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load default config: %w", err)
-	}
-
-	// Marshal to YAML
-	configBytes, err := yaml.Marshal(config)
-	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
-	}
-
-	// Write to file
-	if err := os.WriteFile(configPath, configBytes, 0600); err != nil {
+	cfgBytes := GetDefaultToolsConfig()
+	if err := os.WriteFile(configPath, cfgBytes, 0o600); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
 	return nil
-}
-
-// ParseConfig parses YAML configuration into ToolsConfig (public function)
-func ParseConfig(configBytes []byte) (*ToolsConfig, error) {
-	return parseConfig(configBytes)
 }

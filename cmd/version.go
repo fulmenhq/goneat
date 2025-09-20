@@ -20,6 +20,7 @@ import (
 	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/fulmenhq/goneat/pkg/buildinfo"
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/versioning"
 	"github.com/spf13/cobra"
 )
 
@@ -535,62 +536,33 @@ func writeVersionToFile(filename, version string) error {
 	return os.WriteFile(filename, []byte(version+"\n"), 0600)
 }
 
+// validateSemverVersion validates a semantic version string using the library
 func validateSemverVersion(version string) error {
-	// Basic semver pattern: v?MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]
-	pattern := `^v?(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.-]+))?(?:\+([a-zA-Z0-9.-]+))?$`
-	matched, err := regexp.MatchString(pattern, version)
+	_, err := versioning.ParseLenient(version)
 	if err != nil {
-		return err
-	}
-	if !matched {
-		return fmt.Errorf("invalid semver format: %s", version)
+		return fmt.Errorf("invalid semver format: %w", err)
 	}
 	return nil
 }
 
 func bumpSemverVersion(version, bumpType string) (string, error) {
-	// Parse version
-	pattern := `^v?(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.-]+))?(?:\+([a-zA-Z0-9.-]+))?$`
-	re := regexp.MustCompile(pattern)
-	matches := re.FindStringSubmatch(version)
-	if len(matches) < 4 {
-		return "", fmt.Errorf("invalid semver format: %s", version)
+	v, err := versioning.ParseLenient(version)
+	if err != nil {
+		return "", fmt.Errorf("invalid semver format: %w", err)
 	}
 
-	major, _ := strconv.Atoi(matches[1])
-	minor, _ := strconv.Atoi(matches[2])
-	patch, _ := strconv.Atoi(matches[3])
-	prerelease := matches[4]
-	build := matches[5]
-
-	// Apply bump
 	switch bumpType {
 	case "patch":
-		patch++
+		v = v.BumpPatch()
 	case "minor":
-		minor++
-		patch = 0
+		v = v.BumpMinor()
 	case "major":
-		major++
-		minor = 0
-		patch = 0
+		v = v.BumpMajor()
+	default:
+		return "", fmt.Errorf("invalid bump type: %s (must be patch, minor, or major)", bumpType)
 	}
 
-	// Construct new version
-	newVersion := fmt.Sprintf("%d.%d.%d", major, minor, patch)
-	if prerelease != "" {
-		newVersion += "-" + prerelease
-	}
-	if build != "" {
-		newVersion += "+" + build
-	}
-
-	// Preserve 'v' prefix if original had it
-	if strings.HasPrefix(version, "v") {
-		newVersion = "v" + newVersion
-	}
-
-	return newVersion, nil
+	return v.String(), nil
 }
 
 // Git integration functions

@@ -85,6 +85,17 @@ properties:
             description: Severity level for order violations
             enum: ["critical", "high", "medium", "low", "info", "warning", "error"]
             default: "warning"
+          check_top_n:
+            type: integer
+            description: Check only the top N entries (0 = check all)
+            minimum: 0
+            default: 0
+          ignore_files:
+            type: array
+            description: Files to ignore for monotonic checks
+            items:
+              type: string
+            default: []
         additionalProperties: false
       cross_file_consistency:
         type: object
@@ -117,10 +128,10 @@ properties:
     properties:
       include:
         type: array
-        description: Globs to include (supports ** via doublestar)
+        description: Globs to include (supports ** via doublestar). Opt-in approach - only specified files are checked.
         items:
           type: string
-        default: ["**/CHANGELOG*.md", "**/HISTORY.md", "**/NEWS.md", "**/VERSION", "**/package.json", "**/Cargo.toml"]
+        default: ["CHANGELOG.md", "**/CHANGELOG*.md", "**/HISTORY.md", "RELEASE_NOTES.md", "**/RELEASE*.md", "**/VERSION"]
       exclude:
         type: array
         description: Globs to exclude (supports **)

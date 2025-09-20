@@ -132,6 +132,17 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
+	// Foundation scope validation - proactive checks for common issues
+	if flagDoctorScope == "foundation" {
+		if warnings := intdoctor.ValidateFoundationTools(); len(warnings) > 0 {
+			logger.Warn("Foundation scope validation warnings:")
+			for _, warning := range warnings {
+				fmt.Fprintf(cmd.ErrOrStderr(), "⚠️  %s\n", warning) //nolint:errcheck // CLI output errors are typically ignored
+			}
+			fmt.Fprintln(cmd.ErrOrStderr()) //nolint:errcheck // CLI output errors are typically ignored
+		}
+	}
+
 	// Preview: check-updates mode (informational; no network latest lookup yet)
 	if flagDoctorCheckUpdates {
 		return handleCheckUpdates(cmd, selected)
@@ -140,9 +151,12 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 	// Process tools
 	missing := 0
 	installed := 0
+	policyViolations := 0
 
 	for _, tool := range selected {
 		status := intdoctor.CheckTool(tool)
+		policyStatus := status
+
 		if status.Present {
 			if status.Version != "" {
 				logger.Info(fmt.Sprintf("%s present (%s)", tool.Name, status.Version))
@@ -151,25 +165,30 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 			}
 		} else {
 			missing++
-			if strings.Contains(status.Instructions, "not in PATH") {
-				logger.Warn(fmt.Sprintf("%s installed but not in PATH", tool.Name))
+			if strings.Contains(status.Instructions, "not in PATH") || strings.Contains(status.Instructions, "is installed at") {
+				logger.Warn(fmt.Sprintf("%s installed but not accessible (PATH issue)", tool.Name))
 			} else {
 				logger.Warn(fmt.Sprintf("%s missing", tool.Name))
 			}
 
 			if flagDoctorPrintInstructions && status.Instructions != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "Install %s with:\n  %s\n", tool.Name, status.Instructions) //nolint:errcheck // CLI output errors are typically ignored
+				if strings.Contains(status.Instructions, "not in PATH") || strings.Contains(status.Instructions, "is installed at") {
+					fmt.Fprintf(cmd.OutOrStdout(), "Fix PATH for %s:\n%s\n", tool.Name, status.Instructions) //nolint:errcheck // CLI output errors are typically ignored
+				} else {
+					fmt.Fprintf(cmd.OutOrStdout(), "Install %s with:\n  %s\n", tool.Name, status.Instructions) //nolint:errcheck // CLI output errors are typically ignored
+				}
 			}
 
-			// Install path
 			if flagDoctorInstall {
 				if !flagDoctorYes {
 					if !promptYes(cmd, fmt.Sprintf("Install %s now using: %s ? [y/N] ", tool.Name, status.Instructions)) {
 						logger.Warn(fmt.Sprintf("Skipped install for %s", tool.Name))
+						policyViolations += summarizePolicy(tool, policyStatus)
 						continue
 					}
 				}
 				res := intdoctor.InstallTool(tool)
+				policyStatus = res
 				if res.Error != nil {
 					logger.Error(fmt.Sprintf("Install failed for %s: %v", tool.Name, res.Error))
 					if res.Instructions != "" {
@@ -183,18 +202,19 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 						logger.Info(fmt.Sprintf("Installed %s", tool.Name))
 					}
 				} else if res.Installed && !res.Present {
-					// Installed but not in PATH
 					installed++
-					logger.Warn(fmt.Sprintf("Installed %s but not in PATH", tool.Name))
+					logger.Warn(fmt.Sprintf("Installed %s but not accessible (PATH issue)", tool.Name))
 					if res.Instructions != "" {
-						fmt.Fprintf(cmd.OutOrStdout(), "Add to PATH:\n  %s\n", res.Instructions) //nolint:errcheck // CLI output errors are typically ignored
+						fmt.Fprintf(cmd.OutOrStdout(), "Fix PATH access:\n%s\n", res.Instructions)           //nolint:errcheck // CLI output errors are typically ignored
+						fmt.Fprintf(cmd.OutOrStdout(), "For detailed PATH diagnostics: goneat doctor env\n") //nolint:errcheck // CLI output errors are typically ignored
 					}
 				} else if res.Present {
-					// Edge: command now present but not marked installed
 					logger.Info(fmt.Sprintf("%s now present", tool.Name))
 				}
 			}
 		}
+
+		policyViolations += summarizePolicy(tool, policyStatus)
 	}
 
 	// Re-check if we attempted installs
@@ -210,11 +230,43 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Summary
-	if missing == 0 {
+	switch {
+	case missing == 0 && policyViolations == 0:
 		logger.Info("All requested tools are present")
 		return nil
+	case missing > 0 && policyViolations > 0:
+		return fmt.Errorf("%d tool(s) missing and %d tool(s) violate version policy", missing, policyViolations)
+	case missing > 0:
+		return fmt.Errorf("%d tool(s) missing after doctor run", missing)
+	default:
+		return fmt.Errorf("%d tool(s) violate version policy requirements", policyViolations)
 	}
-	return fmt.Errorf("%d tool(s) missing after doctor run", missing)
+}
+func summarizePolicy(tool intdoctor.Tool, status intdoctor.Status) int {
+	if status.PolicyError != nil {
+		logger.Warn(fmt.Sprintf("%s version check skipped: %v", tool.Name, status.PolicyError))
+		return 0
+	}
+	if status.PolicyEvaluation == nil {
+		return 0
+	}
+	eval := status.PolicyEvaluation
+	if eval.IsDisallowed {
+		logger.Error(fmt.Sprintf("%s version %s is disallowed by policy", tool.Name, eval.ActualVersion))
+		return 1
+	}
+	if !eval.MeetsMinimum {
+		logger.Warn(fmt.Sprintf("%s version %s below minimum %s", tool.Name, eval.ActualVersion, eval.MinimumVersion))
+		return 1
+	}
+	if !eval.MeetsRecommended {
+		recommended := eval.RecommendedVersion
+		if recommended == "" {
+			recommended = "latest"
+		}
+		logger.Warn(fmt.Sprintf("%s version %s below recommended %s (run 'goneat doctor tools --install %s' to upgrade)", tool.Name, eval.ActualVersion, recommended, tool.Name))
+	}
+	return 0
 }
 
 func promptYes(cmd *cobra.Command, message string) bool {
@@ -408,31 +460,33 @@ func selectToolsFromConfig(config *intdoctor.ToolsConfig) ([]intdoctor.Tool, err
 	var selected []intdoctor.Tool
 
 	if len(flagDoctorTools) == 0 {
-		// No explicit tools; use scope
 		toolConfigs, err := config.GetToolsForScope(flagDoctorScope)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get tools for scope '%s': %w", flagDoctorScope, err)
 		}
 
-		// Convert ToolConfig to Tool
 		for _, toolConfig := range toolConfigs {
-			tool := convertToolConfigToTool(toolConfig)
+			tool, err := convertToolConfigToTool(toolConfig)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse tool definition for %s: %w", toolConfig.Name, err)
+			}
 			selected = append(selected, tool)
 		}
 	} else {
-		// Explicit tools specified
 		unknown := []string{}
 		for _, name := range flagDoctorTools {
 			toolConfig, exists := config.GetTool(name)
 			if !exists {
 				unknown = append(unknown, strings.TrimSpace(name))
-			} else {
-				tool := convertToolConfigToTool(toolConfig)
-				selected = append(selected, tool)
+				continue
 			}
+			tool, err := convertToolConfigToTool(toolConfig)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse tool definition for %s: %w", toolConfig.Name, err)
+			}
+			selected = append(selected, tool)
 		}
 		if len(unknown) > 0 {
-			// Build allowed list
 			var allowed []string
 			for name := range config.Tools {
 				allowed = append(allowed, name)
@@ -445,7 +499,7 @@ func selectToolsFromConfig(config *intdoctor.ToolsConfig) ([]intdoctor.Tool, err
 }
 
 // convertToolConfigToTool converts ToolConfig to legacy Tool format
-func convertToolConfigToTool(toolConfig intdoctor.ToolConfig) intdoctor.Tool {
+func convertToolConfigToTool(toolConfig intdoctor.ToolConfig) (intdoctor.Tool, error) {
 	tool := intdoctor.Tool{
 		Name:           toolConfig.Name,
 		Kind:           toolConfig.Kind,
@@ -454,34 +508,49 @@ func convertToolConfigToTool(toolConfig intdoctor.ToolConfig) intdoctor.Tool {
 		CheckArgs:      toolConfig.CheckArgs,
 		Description:    toolConfig.Description,
 		Platforms:      toolConfig.Platforms,
+		DetectCommand:  toolConfig.DetectCommand,
 	}
 
-	// Convert install commands to InstallMethods
-	if toolConfig.InstallCommands != nil {
+	if policy, err := toolConfig.VersionPolicy(); err != nil {
+		return intdoctor.Tool{}, err
+	} else {
+		tool.VersionPolicy = policy
+	}
+
+	if len(toolConfig.InstallCommands) > 0 {
+		tool.InstallCommands = make(map[string]string, len(toolConfig.InstallCommands))
 		tool.InstallMethods = make(map[string]intdoctor.InstallMethod)
-		for platform, command := range toolConfig.InstallCommands {
-			// Capture the detect command in a closure
-			detectCmd := toolConfig.DetectCommand
-			tool.InstallMethods[platform] = intdoctor.InstallMethod{
-				Detector: func() (string, bool) {
-					// Parse the detect command properly
-					parts := strings.Fields(detectCmd)
-					if len(parts) == 0 {
-						return "", false
-					}
-					// Use the first part as the command name, rest as args
-					return intdoctor.TryCommand(parts[0], parts[1:]...)
-				},
-				Installer: func() error {
-					// Execute the install command
-					return intdoctor.ExecuteInstallCommand(command)
-				},
-				Instructions: command,
+		for key, command := range toolConfig.InstallCommands {
+			tool.InstallCommands[key] = command
+			switch key {
+			case "darwin", "linux", "windows", "all":
+				cmdCopy := command
+				detectCmd := toolConfig.DetectCommand
+				tool.InstallMethods[key] = intdoctor.InstallMethod{
+					Detector: func() (string, bool) {
+						parts := strings.Fields(detectCmd)
+						if len(parts) == 0 {
+							return "", false
+						}
+						return intdoctor.TryCommand(parts[0], parts[1:]...)
+					},
+					Installer: func() error {
+						return intdoctor.ExecuteInstallCommand(cmdCopy)
+					},
+					Instructions: command,
+				}
 			}
 		}
 	}
 
-	return tool
+	if len(toolConfig.InstallerPriority) > 0 {
+		tool.InstallerPriority = make(map[string][]string, len(toolConfig.InstallerPriority))
+		for platform, priorities := range toolConfig.InstallerPriority {
+			tool.InstallerPriority[platform] = append([]string(nil), priorities...)
+		}
+	}
+
+	return tool, nil
 }
 
 // handleListScopes handles the --list-scopes flag

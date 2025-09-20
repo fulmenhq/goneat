@@ -1,0 +1,6 @@
+version_scheme: semver
+minimum_version: "1.21.0"
+recommended_version: "1.22.0"
+disallowed_versions:
+  - "1.20.0"
+  - "1.19.0"

@@ -2,7 +2,7 @@
 
 This checklist ensures all requirements are met before releasing goneat to the Go package ecosystem.
 
-## Current Release Status: v0.2.5 (2025-09-15)
+## Current Release Status: v0.2.7 (2025-09-20)
 
 **✅ PRE-RELEASE COMPLETE**: All quality gates passed, binaries built, licenses audited.
 **⏳ READY FOR CONSOLIDATION**: Repository ready for Git commit consolidation per SOP.
@@ -20,7 +20,7 @@ This checklist ensures all requirements are met before releasing goneat to the G
 
 ### Version Management ✅
 
-- [x] **Version Updated**: VERSION file contains v0.2.5
+- [x] **Version Updated**: VERSION file contains v0.2.7
 - [x] **Changelog Updated**: CHANGELOG.md reflects all changes
 - [x] **Go Module**: go.mod version is correct
 - [x] **Embedded Version**: Binary embeds correct version info
@@ -73,14 +73,14 @@ This checklist ensures all requirements are met before releasing goneat to the G
 
 - [ ] **Release Created**: New release on GitHub
 - [ ] **Tag Selected**: Correct version tag
-- [ ] **Title Formatted**: "goneat v0.2.3"
+- [ ] **Title Formatted**: "goneat v0.2.7"
 - [ ] **Release Notes**: Comprehensive changelog
 - [ ] **Binaries Attached**: All platform binaries uploaded
 
 ### Go Module Verification ✅
 
-- [ ] **Module Accessible**: `go get github.com/fulmenhq/goneat@v0.2.3`
-- [ ] **Installation Works**: `go install github.com/fulmenhq/goneat@v0.2.3`
+- [ ] **Module Accessible**: `go get github.com/fulmenhq/goneat@v0.2.7`
+- [ ] **Installation Works**: `go install github.com/fulmenhq/goneat@v0.2.7`
 - [ ] **Binary Functional**: Installed binary works correctly
 
 ## Post-Release Validation
@@ -101,7 +101,7 @@ This checklist ensures all requirements are met before releasing goneat to the G
 
 ### Rollback Plan
 
-- [ ] **Tag Deletion**: `git tag -d v0.2.3 && git push origin :v0.2.3`
+- [ ] **Tag Deletion**: `git tag -d v0.2.7 && git push origin :v0.2.7`
 - [ ] **Release Deletion**: Delete GitHub release
 - [ ] **Version Revert**: Update VERSION to previous version
 - [ ] **Communication**: Notify users of rollback
@@ -167,7 +167,7 @@ This checklist ensures all requirements are met before releasing goneat to the G
 make test                    # Run all tests
 make build-all              # Build all platforms
 make fmt                    # Format code
-make version-set VERSION=v0.2.3  # Update version
+make version-set VERSION=v0.2.7  # Update version
 
 # RC validation (do not tag until all pass)
 make build-all              # Build platform binaries
@@ -176,7 +176,7 @@ make license-audit          # Should pass locally and in CI
 make pre-push               # Runs assess with build gate
 
 # Tag/push only after above succeed
-git tag -a v0.2.3 -m "release: v0.2.3" && git push origin v0.2.3
+git tag -a v0.2.7 -m "release: v0.2.7" && git push origin v0.2.7
 
 ## Commit Consolidation (Required before push)
 
@@ -216,7 +216,7 @@ Emergency recovery steps are documented in the SOP (reflog and backup branch res
 
 # Post-release validation
 
-go install github.com/fulmenhq/goneat@v0.2.3
+go install github.com/fulmenhq/goneat@v0.2.7
 goneat version # Verify installation
 
 ```
@@ -239,6 +239,6 @@ goneat version # Verify installation
 ---
 
 **Release Checklist Version**: 1.0
-**Last Updated**: 2025-09-15
+**Last Updated**: 2025-09-20
 **Next Review**: With each major release
 ```

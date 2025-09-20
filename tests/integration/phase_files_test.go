@@ -55,9 +55,10 @@ func TestReleasePhaseValue(t *testing.T) {
 		return
 	}
 	allowed := map[string]struct{}{
-		"dev": {},
-		"rc":  {},
-		"ga":  {},
+		"dev":     {},
+		"rc":      {},
+		"ga":      {},
+		"release": {},
 	}
 	if _, ok := allowed[strings.ToLower(val)]; !ok {
 		t.Fatalf("invalid RELEASE_PHASE value: %q", val)

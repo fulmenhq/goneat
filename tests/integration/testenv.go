@@ -164,6 +164,17 @@ func (env *TestEnv) parseVersionOutput(result *VersionCommandResult) {
 				result.Component = parts[0]
 				result.Version = parts[2]
 			}
+		} else if strings.Contains(line, "Project: ") {
+			// Extract version from formats like:
+			// "Project: goneat 1.2.3" or "Project: myproject 1.2.3"
+			if idx := strings.Index(line, "Project: "); idx != -1 {
+				remaining := strings.TrimSpace(line[idx+9:]) // Skip "Project: "
+				parts := strings.Fields(remaining)
+				if len(parts) >= 2 {
+					result.Component = parts[0]
+					result.Version = parts[1]
+				}
+			}
 		} else if strings.Contains(line, " ") && !strings.Contains(line, ":") {
 			// Extract version from formats like:
 			// "goneat 1.2.3" or "myproject 1.2.3"

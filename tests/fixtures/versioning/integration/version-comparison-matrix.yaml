@@ -1,0 +1,160 @@
+# Version Comparison Matrix for Integration Testing
+# Comprehensive test cases covering all version scheme combinations
+
+comparison_tests:
+  # Semver vs Semver
+  - name: semver_basic_comparison
+    scheme: semver
+    versions:
+      - "1.0.0"
+      - "1.0.1"
+      - "1.1.0"
+      - "2.0.0"
+    expected_order: ["1.0.0", "1.0.1", "1.1.0", "2.0.0"]
+
+  - name: semver_with_prefixes
+    scheme: semver
+    versions:
+      - "v1.0.0"
+      - "1.0.1"
+      - "v1.1.0"
+      - "2.0.0"
+    expected_order: ["v1.0.0", "1.0.1", "v1.1.0", "2.0.0"]
+
+  - name: semver_full_prerelease
+    scheme: semver-full
+    versions:
+      - "1.0.0-alpha"
+      - "1.0.0-beta"
+      - "1.0.0-rc.1"
+      - "1.0.0-rc.2"
+      - "1.0.0-rc.11"
+      - "1.0.0"
+    expected_order: ["1.0.0-alpha", "1.0.0-beta", "1.0.0-rc.1", "1.0.0-rc.2", "1.0.0-rc.11", "1.0.0"]
+
+  - name: semver_full_with_build_metadata
+    scheme: semver-full
+    versions:
+      - "1.0.0-alpha+build.1"
+      - "1.0.0-beta+build.2"
+      - "1.0.0-rc.1+build.3"
+      - "1.0.0+build.4"
+    expected_order: ["1.0.0-alpha+build.1", "1.0.0-beta+build.2", "1.0.0-rc.1+build.3", "1.0.0+build.4"]
+
+  - name: semver_compact_basic
+    scheme: semver-compact
+    versions:
+      - "1.0.0"
+      - "1.0.1"
+      - "1.1.0"
+      - "2.0.0"
+    expected_order: ["1.0.0", "1.0.1", "1.1.0", "2.0.0"]
+
+  - name: semver_compact_with_prefix
+    scheme: semver-compact
+    versions:
+      - "v1.0.0"
+      - "1.0.1"
+      - "v1.1.0"
+      - "2.0.0"
+    expected_order: ["v1.0.0", "1.0.1", "v1.1.0", "2.0.0"]
+
+  # Natural sorting edge cases
+  - name: semver_full_natural_sorting_rc
+    scheme: semver-full
+    versions:
+      - "1.0.0-rc.2"
+      - "1.0.0-rc.11"
+      - "1.0.0-rc.3"
+      - "1.0.0-rc.1"
+    expected_order: ["1.0.0-rc.1", "1.0.0-rc.2", "1.0.0-rc.3", "1.0.0-rc.11"]
+
+  - name: semver_full_natural_sorting_beta
+    scheme: semver-full
+    versions:
+      - "2.0.0-beta.2"
+      - "2.0.0-beta.11"
+      - "2.0.0-beta.3"
+      - "2.0.0-beta.1"
+    expected_order: ["2.0.0-beta.1", "2.0.0-beta.2", "2.0.0-beta.3", "2.0.0-beta.11"]
+
+  # Calver vs Calver
+  - name: calver_year_month_day
+    scheme: calver
+    versions:
+      - "2024.01.01"
+      - "2024.01.15"
+      - "2024.02.01"
+      - "2024.12.31"
+    expected_order: ["2024.01.01", "2024.01.15", "2024.02.01", "2024.12.31"]
+
+  - name: calver_year_month
+    scheme: calver
+    versions:
+      - "2024.01"
+      - "2024.02"
+      - "2024.10"
+      - "2024.12"
+    expected_order: ["2024.01", "2024.02", "2024.10", "2024.12"]
+
+  - name: calver_mixed_formats
+    scheme: calver
+    versions:
+      - "2024.01"
+      - "2024.01.01"
+      - "2024.01.15"
+      - "2024.02"
+    expected_order: ["2024.01", "2024.01.01", "2024.01.15", "2024.02"]
+
+  # Lexical comparisons
+  - name: lexical_basic
+    scheme: lexical
+    versions:
+      - "v1.0.0"
+      - "v1.0.1"
+      - "v1.1.0"
+      - "v2.0.0"
+    expected_order: ["v1.0.0", "v1.0.1", "v1.1.0", "v2.0.0"]
+
+  - name: lexical_case_sensitivity
+    scheme: lexical
+    versions:
+      - "V1.0.0"
+      - "v1.0.0"
+      - "v1.0.0-alpha"
+      - "v1.0.0-Alpha"
+    expected_order: ["V1.0.0", "v1.0.0", "v1.0.0-Alpha", "v1.0.0-alpha"]
+
+# Cross-scheme comparison tests (should fail appropriately)
+cross_scheme_tests:
+  - name: semver_vs_calver_should_fail
+    scheme: semver
+    version_a: "1.0.0"
+    version_b: "2024.01.01"
+    should_error: true
+
+  - name: calver_vs_semver_should_fail
+    scheme: calver
+    version_a: "2024.01.01"
+    version_b: "1.0.0"
+    should_error: true
+
+# Edge case tests
+edge_cases:
+  - name: empty_versions
+    scheme: semver
+    version_a: ""
+    version_b: "1.0.0"
+    should_error: true
+
+  - name: invalid_semver
+    scheme: semver
+    version_a: "invalid"
+    version_b: "1.0.0"
+    should_error: true
+
+  - name: invalid_calver
+    scheme: calver
+    version_a: "2024.13.01"
+    version_b: "2024.01.01"
+    should_error: true

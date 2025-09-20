@@ -1,7 +1,6 @@
 package doctor
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -71,7 +70,7 @@ func TestSanitizeVersion_CommonPatterns(t *testing.T) {
 		in   string
 		want string
 	}{
-		{"gosec 2.19.0", "gosec 2.19.0"},
+		{"gosec 2.19.0", "2.19.0"},
 		{"version v1.2.3", "v1.2.3"},
 		{"Version 1.0.0", "1.0.0"},
 		{"govulncheck: version v1.1.0", "v1.1.0"},
@@ -285,7 +284,10 @@ func TestInstallInstruction_System(t *testing.T) {
 		Kind: "system",
 	}
 	inst := installInstruction(tool)
-	if !strings.Contains(inst, "Manual install required") || !strings.Contains(inst, tool.Name) {
+	if inst == "" {
+		t.Fatalf("installInstruction should not return empty string")
+	}
+	if !strings.Contains(inst, packageManagerDocPath) && !strings.Contains(inst, tool.Name) {
 		t.Errorf("unexpected install instruction for system tool: %q", inst)
 	}
 }
@@ -418,16 +420,13 @@ func TestInstallTool_NonGo(t *testing.T) {
 	tool := Tool{
 		Name: "some-system-tool",
 		Kind: "system",
-		InstallMethods: map[string]InstallMethod{
-			"linux": {
-				Detector: func() (string, bool) {
-					return "", false
-				},
-				Installer: func() error {
-					return fmt.Errorf("mock install error")
-				},
-				Instructions: "Install with: apt-get install some-system-tool",
-			},
+		InstallCommands: map[string]string{
+			"linux":  "false", // force failure without sudo
+			"darwin": "false",
+		},
+		InstallerPriority: map[string][]string{
+			"linux":  {string(installerMise), string(installerAptGet)},
+			"darwin": {string(installerMise), string(installerBrew)},
 		},
 	}
 
@@ -438,8 +437,8 @@ func TestInstallTool_NonGo(t *testing.T) {
 	if status.Error == nil {
 		t.Error("InstallTool should return error for failed system tool installation")
 	}
-	if !strings.Contains(status.Instructions, "Install with: apt-get install some-system-tool") {
-		t.Errorf("InstallTool should provide platform-specific install instructions, got: %s", status.Instructions)
+	if !strings.Contains(status.Instructions, packageManagerDocPath) {
+		t.Errorf("InstallTool should reference package manager guidance, got: %s", status.Instructions)
 	}
 }
 

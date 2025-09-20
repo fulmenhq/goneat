@@ -40,6 +40,9 @@ bin/
 goneat
 ./goneat
 
+# Go cache directory
+.gocache/
+
 # Scratchpad for generated files and testing
 .scratchpad/
 
@@ -81,3 +84,7 @@ Thumbs.db
 .scratchpad/
 test-plan.json
 # Note: embedded asset mirrors are tracked to support `go install` builds
+test-override.md
+
+# User configuration directory (except our own repo config)
+# .goneat/

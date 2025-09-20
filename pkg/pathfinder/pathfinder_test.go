@@ -11,6 +11,7 @@ import (
 
 func TestSafetyValidator_ValidatePath(t *testing.T) {
 	validator := NewSafetyValidator()
+	validator.SetAllowSymlinks(true)
 
 	tests := []struct {
 		name    string
@@ -36,6 +37,7 @@ func TestSafetyValidator_ValidatePath(t *testing.T) {
 
 func TestSafetyValidator_SafeJoin(t *testing.T) {
 	validator := NewSafetyValidator()
+	validator.SetAllowSymlinks(true)
 
 	tests := []struct {
 		name    string
@@ -224,6 +226,7 @@ func TestDiscoveryEngine_DiscoverFiles(t *testing.T) {
 	}
 
 	validator := NewSafetyValidator()
+	validator.SetAllowSymlinks(true)
 	engine := NewDiscoveryEngine(validator)
 
 	opts := DiscoveryOptions{
@@ -286,6 +289,7 @@ func TestSafeWalker_WalkDirectory(t *testing.T) {
 	}
 
 	validator := NewSafetyValidator()
+	validator.SetAllowSymlinks(true)
 	walker := NewSafeWalker(validator)
 
 	var foundFiles []string

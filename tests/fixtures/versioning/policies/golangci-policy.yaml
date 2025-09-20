@@ -1,0 +1,6 @@
+version_scheme: semver
+minimum_version: "1.60.0"
+recommended_version: "1.61.0"
+disallowed_versions:
+  - "1.59.0"
+  - "1.58.0"

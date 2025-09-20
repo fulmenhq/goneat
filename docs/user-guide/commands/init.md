@@ -776,7 +776,7 @@ Planned improvements for the init command:
 
 - [Configuration Guide](../configuration/feature-gates.md) - Feature gate configuration
 - [Environment Variables](../../environment-variables.md) - Configuration options
-- [Repository Safety Protocols](../../REPOSITORY-SAFETY-PROTOCOLS.md) - Safety guidelines
+- [Repository Safety Protocols](../../repository-safety-protocols.md) - Safety guidelines
 - [Work Planning Guide](../work-planning.md) - Advanced work planning features
 
 ---

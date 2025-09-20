@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+## [0.2.7] - 2025-09-20
+
+### Added
+
+- **Version Policy Enforcement**: Comprehensive tool version management and compliance checking
+  - Added version policy configuration to `.goneat/tools.yaml` with `minimum_version`, `recommended_version`, and `version_scheme` fields
+  - Implemented version detection in `doctor` command using `DetectCommand` parsing for accurate version extraction
+  - Enhanced `assess` command to enforce version policies with proper severity levels (minimum violations = high, recommended = medium)
+  - Added support for multiple version schemes: `semver` (semantic versioning) and `lexical` (string comparison)
+  - Demonstrated real-world capability with golangci-lint v1.64.8 → v2.4.0 upgrade enforcement
+
+- **Tool Assessment Improvements**: Enhanced tool checking capabilities across assessment and doctor commands
+  - Fixed version detection logic to properly parse tool version commands
+  - Added version policy violation reporting with actionable guidance
+  - Improved cross-platform version detection for Go, Node.js, and system tools
+  - Enhanced error messaging for version policy violations
+
+### Fixed
+
+- **YAML Schema Validation**: Corrected indentation issues in `schemas/config/v1.0.0/dates.yaml`
+  - Fixed `cross_file_consistency` and `monotonic_order` property alignments
+  - Resolved YAML syntax errors that were causing schema validation failures
+
+### Changed
+
+- **Documentation Updates**: Updated command documentation to reflect new version checking capabilities
+  - Enhanced `docs/user-guide/commands/doctor.md` with version policy checking details
+  - Updated `docs/appnotes/intelligent-tool-installation.md` with version policy configuration examples
+
+### Added
+
+- **Versioning Library**: New `pkg/versioning` library for version comparison and policy enforcement
+  - Support for multiple version schemes: semver-full, semver-compact, semver-legacy, calver, lexical
+  - Version policy evaluation with minimum/recommended version checking
+  - Comprehensive test coverage and integration tests
+  - Used internally by tool assessment for version policy enforcement
+
+- **Developer Libraries Documentation**: Comprehensive documentation for reusable pkg/ libraries
+  - Added detailed guides for all public libraries in `docs/appnotes/lib/` (config, pathfinder, schema, ignore, safeio, logger, exitcode, buildinfo, versioning)
+  - Created `docs/user-guide/libraries.md` overview with import guidelines, stability matrix, and integration patterns
+  - Updated README.md with "Developer Libraries" section clarifying single `go install` covers CLI + libraries (no duplicate installs needed)
+  - Added code examples, API references, and best practices for each library
+
+- **Dates Configuration and Documentation**: Enhanced date validation configuration and user guidance
+  - Updated `.goneat/dates.yaml` with production-ready configuration including docs exclusion to eliminate false positives
+  - Enhanced `docs/user-guide/commands/dates.md` with complete quick start, go install instructions, and production examples
+  - Updated `docs/configuration/date-validation-config.md` with full reference, troubleshooting, and advanced patterns
+  - Added comprehensive exclusions for docs/tests/vendor, file type severity modifiers, and performance tuning
+
+### Changed
+
+- **Dates Assessment**: Improved DX by excluding documentation from date validation (reduces noise in library docs and examples)
+  - Default configuration now excludes `docs/**` while preserving CHANGELOG/release notes validation
+  - Added detailed comments and rationale in `.goneat/dates.yaml` for all sections and exclusions
+
+### Fixed
+
+- **Dates False Positives**: Resolved documentation date issues by implementing `docs/**` exclusion pattern
+  - Reduced date assessment issues from 7 to 0 in the repository
+  - Preserved AI safety features and critical file validation (CHANGELOG.md, RELEASE_NOTES.md)
+
+
+
 ## [v0.2.6] - 2025-09-15
 
 ### Added
@@ -313,240 +378,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/fulmenhq/goneat/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/fulmenhq/goneat/compare/v0.2.7...HEAD
+[v0.2.7]: https://github.com/fulmenhq/goneat/compare/v0.2.6...v0.2.7
+[v0.2.6]: https://github.com/fulmenhq/goneat/compare/v0.2.5...v0.2.6
+[v0.2.5]: https://github.com/fulmenhq/goneat/compare/v0.2.4...v0.2.5
+[v0.2.4]: https://github.com/fulmenhq/goneat/compare/v0.2.3...v0.2.4
+[v0.2.3]: https://github.com/fulmenhq/goneat/compare/v0.2.2...v0.2.3
+[v0.2.2]: https://github.com/fulmenhq/goneat/compare/v0.2.1...v0.2.2
+[v0.2.1]: https://github.com/fulmenhq/goneat/compare/v0.2.0...v0.2.1
+[v0.2.0]: https://github.com/fulmenhq/goneat/releases/tag/v0.2.0
 [0.1.5]: https://github.com/fulmenhq/goneat/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/fulmenhq/goneat/compare/v0.1.2...v0.1.4
 [0.1.2]: https://github.com/fulmenhq/goneat/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/fulmenhq/goneat/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/fulmenhq/goneat/releases/tag/v0.1.0
-
-## [0.1.4] - 2025-09-04
-
-### Added
-
-- 🛠️ Enhanced Configuration Schema Support
-  - Comprehensive YAML schema validation with proper formatter options structure
-  - JSON and Markdown formatting configuration support
-  - Improved schema organization with consistent indentation and structure
-
-### Changed
-
-- 🔧 Work Planner File Discovery Improvements
-  - Fixed eliminateRedundancies logic to preserve sibling files instead of incorrectly filtering by directory
-  - Enhanced file validation to prevent corrupted path processing
-  - Improved hook configuration consistency with proper YAML formatting
-
-### Fixed
-
-- 🐛 Critical Auto-fix Reliability Issues
-  - Resolved work planner bug that was dropping valid files from processing queue
-  - Fixed YAML schema structural corruption that prevented format operations
-  - Corrected test environment binary discovery to use dist/ directory structure
-  - Fixed Makefile GOTEST variable reference for proper test execution
-
-## [0.1.2] - 2025-08-30
-
-### Added
-
-- 🛠️ Hooks Dogfooding & Template Engine
-  - Schema-driven hook templates under `templates/hooks/bash/` rendered via `goneat hooks generate`
-  - Templates consume `.goneat/hooks.yaml` for args, fallback, and optimization (`only_changed_files`)
-  - Dev-mode fallback and robust binary discovery (PATH + repo `dist/` + common locations)
-  - Docs updated with setup, output modes, and JSON piping
-    - `docs/user-guide/workflows/git-hooks-operation.md`
-    - `docs/user-guide/commands/hooks.md`
-
-- 🔎 Concise Hook Output + Pretty Renderer (prototype)
-  - New `concise` output format for short, colorized summaries in hooks (top-N files listed)
-  - `goneat pretty` (stub) renders JSON to console (concise) or HTML using existing formatter
-  - Env override: `GONEAT_HOOK_OUTPUT=concise|markdown|json|html|both`
-
-- ✍️ Format Command Improvements
-  - `--staged-only` to operate on staged files (ACMR)
-  - `--ignore-missing-tools` to skip YAML/JSON/MD formatting if external tools absent
-  - Plan/dry-run works with staged-only (synthesized plan)
-
-- 📚 Environment Variables (SSOT)
-  - Added `docs/environment-variables.md` covering `GONEAT_HOOK_OUTPUT`, `NO_COLOR`, `GONEAT_TEMPLATE_PATH`, and future vars
-
-### Changed
-
-- Hook mode output selection:
-  - Honors explicit `--format`; otherwise `GONEAT_HOOK_OUTPUT`, else `--verbose` → markdown, else concise
-- Reduced runner “failed without error” log noise to debug in hook mode context
-- Concise output: fallback to first issue message when no file path is available
-
-### Fixed
-
-- Robust JSON parsing in `goneat pretty` (tolerates log preambles)
-- Hook templates prefer repo-local `dist/goneat`; improved fail-fast guidance when missing
-
-### Technical Details
-
-- Taxonomy docs: `docs/architecture/command-taxonomy-validation-adr.md`
-- Hook docs: `docs/user-guide/workflows/git-hooks-operation.md`, `docs/user-guide/commands/hooks.md`
-- Structured fixtures: `tests/fixtures/` for ongoing lint/format testing
-
-## [0.1.1] - 2025-08-28
-
-### Added
-
-- **Assessment System Enhancement**: Concurrency support for parallel processing
-  - Configurable worker count and CPU percentage utilization
-  - Improved performance for large codebase assessments
-  - JSON-first reporting with HTML fallback
-
-### Changed
-
-- **Report Format**: Enhanced HTML template with better styling and information architecture
-- **Assessment Engine**: Format run summaries and improved error handling
-- **Git Integration**: Better semver/calver tag detection and validation
-
-### Fixed
-
-- Lint issues across assessment engine and formatter modules
-- Static analysis warnings in runner and engine components
-
-## [0.1.0] - 2025-08-28
-
-### Added
-
-- **Version Command**: Complete version management system
-  - Multi-source version detection (VERSION files, git tags, Go constants)
-  - Version bumping (patch, minor, major)
-  - Version setting with validation
-  - First-run detection and intelligent setup guidance
-  - Git integration with tag creation
-  - JSON and extended output formats
-  - Assessment mode (`--no-op`) for safe testing
-
-- **Format Command**: Code formatting with Go support
-  - Go file formatting using `gofmt`
-  - Dry-run and plan-only modes
-  - Sequential and parallel execution strategies
-  - File discovery and filtering
-  - Comprehensive error handling
-
-- **Test Infrastructure**: Enterprise-grade testing framework
-  - Integration test suite (28+ tests)
-  - Test environment framework (`TestEnv`)
-  - Fixture helpers for various scenarios
-  - Cross-platform testing support
-
-- **Standards & Documentation**: Comprehensive project standards
-  - Document frontmatter standard
-  - Copyright template for code files
-  - Authoring guidelines and templates
-  - Repository safety protocols
-  - User guides and API documentation
-
-- **Internal Architecture**: Robust internal systems
-  - Operations registry for command management
-  - Assessment engine foundation
-  - Configuration management system
-  - Logger infrastructure
-
-### Changed
-
-- Repository structure optimized for Fulmen ecosystem
-- Build system enhanced with cross-platform support
-- Error handling improved throughout codebase
-
-### Fixed
-
-- Errcheck issues resolved in test files
-- Code formatting consistency improved
-- Static analysis warnings addressed
-
-### Technical Details
-
-- **Go Version**: 1.21+
-- **Dependencies**: Cobra CLI, Viper config, Testify testing
-- **Platforms**: Linux, macOS, Windows (AMD64/ARM64)
-- **Test Coverage**: 75%+ of testable code
-- **Build System**: Makefile with cross-platform targets
-
----
-
-## Release Notes Template
-
-When creating a new release, copy this template and fill in the details:
-
-```markdown
-## [x.y.z] - YYYY-MM-DD
-
-### Added
-
-- New features and functionality
-
-### Changed
-
-- Modifications to existing functionality
-
-### Deprecated
-
-- Features scheduled for removal
-
-### Removed
-
-- Removed features
-
-### Fixed
-
-- Bug fixes and patches
-
-### Security
-
-- Security-related changes
-```
-
-### Version Numbering
-
-- **MAJOR**: Breaking changes (1.0.0 → 2.0.0)
-- **MINOR**: New features, backward compatible (1.0.0 → 1.1.0)
-- **PATCH**: Bug fixes, backward compatible (1.0.0 → 1.0.1)
-
-### Pre-release Versions
-
-- **Alpha**: `1.1.0-alpha.1` - Early testing
-- **Beta**: `1.1.0-beta.1` - Feature complete, testing
-- **RC**: `1.1.0-rc.1` - Release candidate
-
----
-
-## Guidelines
-
-### Contributing to the Changelog
-
-1. **Keep entries brief but descriptive**
-2. **Group changes by type** (Added, Changed, Fixed, etc.)
-3. **Use present tense** for changes ("Add feature" not "Added feature")
-4. **Reference issues/PRs** when applicable
-5. **Update on release** - Move unreleased changes to version section
-
-### Release Process
-
-1. Update VERSION file with new version
-2. Move unreleased changes to new version section
-3. Add release date
-4. Commit changes
-5. Create git tag
-6. Push to all remotes
-7. Create GitHub release
-
----
-
-**Legend:**
-
-- 🎉 Major features and milestones
-- 🔧 Technical improvements
-- 🐛 Bug fixes
-- 📚 Documentation updates
-- 🏗️ Infrastructure changes
-
-- Curated docs are selected via `docs/embed-manifest.yaml` and mirrored to `internal/assets/embedded_docs/docs/` to ensure `go install` includes assets.
-- Frontmatter‑based selection planned for v0.2.2.
-
-### Security
-
-- All content operations are rooted under `docs/`; writes use 0644; no network access.

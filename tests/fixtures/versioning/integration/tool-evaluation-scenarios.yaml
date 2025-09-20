@@ -1,0 +1,101 @@
+# Integration Test Scenarios for Version Policy Evaluation
+# These simulate real-world tool version checking scenarios
+
+scenarios:
+  - name: golangci-lint-current
+    description: "Current golangci-lint version evaluation"
+    tool:
+      name: "golangci-lint"
+      version_scheme: "semver"
+      minimum_version: "1.60.0"
+      recommended_version: "1.61.0"
+      disallowed_versions: ["1.59.0"]
+    test_versions:
+      - version: "1.62.0"
+        expected_meets_minimum: true
+        expected_meets_recommended: true
+        expected_disallowed: false
+      - version: "1.60.5"
+        expected_meets_minimum: true
+        expected_meets_recommended: false
+        expected_disallowed: false
+      - version: "1.59.0"
+        expected_meets_minimum: false
+        expected_meets_recommended: false
+        expected_disallowed: true
+
+  - name: go-version-policy
+    description: "Go toolchain version policy"
+    tool:
+      name: "go"
+      version_scheme: "semver"
+      minimum_version: "1.21.0"
+      recommended_version: "1.22.0"
+      disallowed_versions: ["1.20.0", "1.19.0"]
+    test_versions:
+      - version: "1.22.1"
+        expected_meets_minimum: true
+        expected_meets_recommended: true
+        expected_disallowed: false
+      - version: "1.21.5"
+        expected_meets_minimum: true
+        expected_meets_recommended: false
+        expected_disallowed: false
+      - version: "1.20.0"
+        expected_meets_minimum: false
+        expected_meets_recommended: false
+        expected_disallowed: true
+
+  - name: calendar-versioning
+    description: "Calendar-based versioning policy"
+    tool:
+      name: "myapp"
+      version_scheme: "calver"
+      minimum_version: "2024.06.01"
+      recommended_version: "2024.09.01"
+      disallowed_versions: ["2024.01.01"]
+    test_versions:
+      - version: "2024.10.15"
+        expected_meets_minimum: true
+        expected_meets_recommended: true
+        expected_disallowed: false
+      - version: "2024.07.15"
+        expected_meets_minimum: true
+        expected_meets_recommended: false
+        expected_disallowed: false
+      - version: "2024.01.01"
+        expected_meets_minimum: false
+        expected_meets_recommended: false
+        expected_disallowed: true
+
+  - name: minimum-only-policy
+    description: "Policy with only minimum version constraint"
+    tool:
+      name: "ripgrep"
+      version_scheme: "semver"
+      minimum_version: "13.0.0"
+    test_versions:
+      - version: "14.0.0"
+        expected_meets_minimum: true
+        expected_meets_recommended: true
+        expected_disallowed: false
+      - version: "12.0.0"
+        expected_meets_minimum: false
+        expected_meets_recommended: true
+        expected_disallowed: false
+
+  - name: recommended-only-policy
+    description: "Policy with only recommended version constraint"
+    tool:
+      name: "node"
+      version_scheme: "semver"
+      recommended_version: "18.0.0"
+    test_versions:
+      - version: "20.0.0"
+        expected_meets_minimum: true
+        expected_meets_recommended: true
+        expected_disallowed: false
+      - version: "16.0.0"
+        expected_meets_minimum: true
+        expected_meets_recommended: false
+        expected_disallowed: false

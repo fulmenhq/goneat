@@ -1,463 +1,742 @@
-# Dates
+# Dates Command
 
-Validate dates in documentation and configuration files to prevent embarrassing date mistakes.
+The `dates` command validates date consistency across your codebase using an **opt-in approach**, ensuring chronological accuracy in changelogs, release notes, and critical files. It prevents common mistakes like future dates, out-of-order changelog entries, and impossible chronology while focusing on files that matter for release engineering.
 
-## Overview
+## Quick Start
 
-The dates feature automatically scans your codebase for future dates in documentation and configuration files. This prevents common mistakes like accidentally using tomorrow's date or incorrect year when creating releases, changelogs, or documentation.
-
-## Important Limitations
-
-**This tool can only detect obvious future dates - it cannot determine if historical dates are "wrong".**
-
-### What the Tool CAN Do
-
-- ✅ Catch obvious future dates (e.g., `2026-01-01` when today is `2025-01-01`)
-- ✅ Catch typos in dates (e.g., `2026-01-01` when you meant `2025-01-01`)
-- ✅ Prevent new mistakes when adding changelog entries
-- ✅ Validate the latest entry in your changelog
-- ✅ **Warn about stale changelog entries** (e.g., "latest entry is 6 months old")
-- ✅ **Support all major programming languages** and project types
-- ✅ **Detect dates in package manager files** (package.json, Cargo.toml, etc.)
-
-### What the Tool CANNOT Do
-
-- ❌ Determine if historical dates are accurate (e.g., was v1.2.3 really released on 2025-01-15?)
-- ❌ Know your project's actual release timeline
-- ❌ Understand context about planned vs actual release dates
-- ❌ Fix existing incorrect dates in your changelog
-- ❌ Understand project-specific release schedules
-
-**For existing incorrect dates in your CHANGELOG.md, you'll need to fix those manually.** The tool's value is in preventing NEW mistakes and alerting you to potentially stale documentation.
-
-## Usage
-
-### Basic Assessment
+Install goneat and run basic date validation:
 
 ```bash
-# Run date validation as part of comprehensive assessment
-goneat assess
+# Install goneat (single command covers CLI + all libraries)
+go install github.com/fulmenhq/goneat@latest
 
-# Run only date validation
-goneat assess --categories dates
+# Basic assessment (opt-in: only checks changelog/release files by default)
+goneat assess --categories=dates
 
-# Run with JSON output for automation
-goneat assess --categories dates --format json
+# Full scan (includes everything, overrides opt-in defaults)
+goneat assess --categories=dates --no-exclusions
+
+# JSON output for CI/CD
+goneat assess --categories=dates --json
+
+# Fix auto-fixable issues (reorders dates in changelogs)
+goneat dates fix --dry-run  # Preview changes first
+goneat dates fix           # Apply fixes
 ```
 
-### Hook Integration
+## How It Works
 
-Date validation is automatically included in git hooks:
+The dates command:
+
+1. **Scans files** using configurable patterns (markdown, YAML, JSON, etc.)
+2. **Extracts dates** matching defined regex patterns (ISO 8601, US format, etc.)
+3. **Validates** against rules:
+   - No future dates (with configurable clock skew tolerance)
+   - Chronological order in changelogs (monotonic ordering)
+   - No "impossible chronology" (dates before repo creation)
+4. **Excludes** common false-positive locations (docs, tests, vendor) by default
+5. **Reports** issues with context, severity, and estimated fix time
+
+## Configuration File
+
+Date validation is controlled by `.goneat/dates.yaml` in your project root. This file is **optional**—goneat uses sensible defaults, but customization is recommended for production use.
+
+### Creating `.goneat/dates.yaml`
+
+If you installed goneat via `go install` but haven't cloned the repository, create `.goneat/dates.yaml` manually:
 
 ```bash
-# Pre-commit hook (format+lint+dates)
-goneat assess --hook=pre-commit
+# Create the configuration directory
+mkdir -p .goneat
 
-# Pre-push hook (format+lint+security+dates)
-goneat assess --hook=pre-push
+# Option 1: Generate template (requires full goneat installation with docs embedded)
+goneat dates config template > .goneat/dates.yaml
+
+# Option 2: Use the production-ready example below
+# Copy the example below into .goneat/dates.yaml
 ```
 
-## What Gets Checked
+### Production-Ready Example
 
-### File Patterns
-
-The date validation scans these file patterns by default:
-
-#### Standard Changelog Files
-
-- `CHANGELOG.md`, `CHANGELOG`, `CHANGELOG.txt`, `CHANGELOG.rst`
-- `CHANGES.md`, `CHANGES`, `CHANGES.txt`, `CHANGES.rst`
-- `HISTORY.md`, `HISTORY`, `HISTORY.txt`, `HISTORY.rst`
-- `NEWS.md`, `NEWS`, `NEWS.txt`, `NEWS.rst`
-- `RELEASE_NOTES.md`, `RELEASE_NOTES`, `RELEASE_NOTES.txt`
-- `RELEASES.md`, `RELEASES`, `RELEASES.txt`
-- `VERSION.md`, `VERSION`, `VERSION.txt`
-
-#### Documentation Directories
-
-- `docs/releases/`, `docs/changelog/`, `docs/history/`, `docs/news/`
-- `doc/releases/`, `doc/changelog/`, `doc/history/`, `doc/news/`
-- `documentation/releases/`, `documentation/changelog/`
-
-#### Language-Specific Patterns
-
-- **JavaScript/TypeScript**: `**/package.json`, `**/package-lock.json`, `**/yarn.lock`
-- **Rust**: `**/Cargo.toml`, `packages/*/Cargo.toml`
-- **Python**: `**/pyproject.toml`, `**/setup.py`, `**/requirements.txt`
-- **Java**: `**/pom.xml`, `**/build.gradle`
-- **PHP**: `**/composer.json`
-- **Go**: `**/go.mod`, `**/go.sum`
-- **Ruby**: `**/Gemfile`, `**/Gemfile.lock`
-- **Dart**: `**/pubspec.yaml`
-- **Elixir**: `**/mix.exs`
-- **And many more...**
-
-#### Monorepo Support
-
-- `packages/*/CHANGELOG.md`, `apps/*/CHANGELOG.md`, `libs/*/CHANGELOG.md`
-- `modules/*/CHANGELOG.md`, `services/*/CHANGELOG.md`
-
-**Note**: These patterns are configurable - you can customize them for your project's structure. The tool is designed to be language-agnostic and will work with any project type.
-
-### Date Formats Detected
-
-The validator recognizes these date formats:
-
-#### International Standards
-
-- `YYYY-MM-DD` - ISO 8601 format (e.g., `2025-09-09`)
-- `YYYY/MM/DD` - Slash-separated format (e.g., `2025/09/09`)
-- `YYYY.MM.DD` - Dot-separated format (e.g., `2025.09.09`)
-- `YYYYMMDD` - Compact format (e.g., `20250909`)
-
-#### Regional Formats
-
-- `MM/DD/YYYY` - US format (e.g., `09/09/2025`)
-- `DD.MM.YYYY` - European format (e.g., `09.09.2025`)
-- `DD-MM-YYYY` - European format (e.g., `09-09-2025`)
-- `DD/MM/YYYY` - European format (e.g., `09/09/2025`)
-
-#### Asian Formats
-
-- `YYYY年MM月DD日` - Japanese format (e.g., `2025年09月09日`)
-- `YYYY.MM.DD` - Korean/Chinese format (e.g., `2025.09.09`)
-
-#### Alternative Separators
-
-- `YYYY_MM_DD` - Underscore format (e.g., `2025_09_09`)
-- `YYYY MM DD` - Space format (e.g., `2025 09 09`)
-- `M/D/YYYY` - Flexible format (e.g., `9/9/2025`)
-- `M/D/YY` - 2-digit year (e.g., `9/9/25`)
-
-**Note**: All formats are configurable - you can add custom patterns for your specific needs.
-
-### Common Patterns
-
-The validator looks for dates in these contexts:
-
-```markdown
-## [v1.2.3] - 2025-01-25 # Changelog entries
-
-Release date: 2025-01-25 # Release notes
-Created: 2025-01-25 # Documentation headers
-Updated: 2025-01-25 # Update timestamps
-```
-
-## Configuration
-
-### File Type Detection
-
-The validator automatically detects text files by extension:
-
-- Markdown: `.md`
-- Text: `.txt`
-- Go: `.go`
-- YAML: `.yaml`, `.yml`
-- JSON: `.json`
-- Config: `.toml`, `.ini`, `.cfg`, `.conf`
-
-### Configuration File
-
-Date validation is fully configurable through YAML or JSON configuration files. Create a configuration file in your project's `.goneat/` directory to customize behavior.
-
-#### Configuration File Location
-
-The validator looks for configuration files in this order:
-
-1. `.goneat/dates.yaml`
-2. `.goneat/dates.json`
-
-If no configuration file is found, default settings are used.
-
-#### Canonical Configuration (v0.2.3+)
-
-Create a `.goneat/dates.yaml` file in your project root:
+Here's a comprehensive `.goneat/dates.yaml` for most projects:
 
 ```yaml
 # .goneat/dates.yaml
+#
+# Date validation configuration for goneat
+#
+# This file controls date consistency checking across your repository.
+# Dates are extracted from files matching the patterns below and validated
+# for chronological consistency, future dates, and monotonic ordering.
+#
+# Key concepts:
+# - Future dates: Warns about dates in the future (with configurable skew)
+# - Monotonic order: Ensures dates appear in chronological order in files like CHANGELOG
+# - Repository context: Uses git history to establish baseline dates
+#
+# Exclusions: Use patterns to skip files that contain illustrative/synthetic dates
+#
+# For full documentation:
+#   - Terminal: goneat docs show configuration/date-validation-config
+#   - Online: https://github.com/fulmenhq/goneat/blob/main/docs/configuration/date-validation-config.md
+#
+
+# Enable/disable date validation entirely
 enabled: true
 
-files:
-  include:
-    - "CHANGELOG.md"
-    - "docs/releases/**"
-  exclude:
-    - "**/node_modules/**"
-    - "**/.git/**"
-
+# Date extraction patterns (regex + expected format)
 date_patterns:
-  - regex: "(\\d{4})-(\\d{2})-(\\d{2})" # YYYY-MM-DD (ISO 8601)
+  # ISO 8601 (most common in modern projects)
+  - regex: "(\\d{4})-(\\d{2})-(\\d{2})"
     order: "YMD"
+    description: "ISO 8601 date format (YYYY-MM-DD) - common in docs, configs, changelogs"
 
+  # US format (common in comments and legacy docs)
+  - regex: "(\\d{1,2})/(\\d{1,2})/(\\d{4})"
+    order: "MDY"
+    description: "US date format (MM/DD/YYYY) - common in comments and examples"
+
+  # European format (dot separator)
+  - regex: "(\\d{1,2})\\.(\\d{1,2})\\.(\\d{4})"
+    order: "DMY"
+    description: "European date format (DD.MM.YYYY)"
+
+# Validation rules
 rules:
+  # Prevent future dates (clock skew tolerance)
   future_dates:
     enabled: true
-    max_skew: "24h" # also supports shorthand like "5d"
+    max_skew: "24h" # Allow 24 hours for clock differences
     severity: "error"
+    description: "Prevents accidentally committing future dates (allows small clock skew)"
 
-  stale_entries:
-    enabled: true
-    warn_days: 180 # warn if latest entry is older than 180 days
-    severity: "warning"
-
+  # Ensure chronological order in changelogs
   monotonic_order:
-    enabled: false # opt-in by default; set to true to enforce
+    enabled: true
+    files:
+      # Standard changelog locations
+      - "**/CHANGELOG*.md"
+      - "**/CHANGELOG.yaml"
+      - "**/HISTORY*.md"
+      - "**/NEWS*.md"
+      - "**/*changelog*.md"
+      - "RELEASE_NOTES*.md"
+      # Release directories
+      - "docs/releases/**"
+      - "releases/**"
+      - "**/releases/**"
+    severity: "warning" # Don't block commits, but warn about issues
+    description: "Ensures changelog entries appear in chronological order"
+
+  # AI safety features (catches common AI-generated date errors)
+  ai_safety:
+    enabled: true
+    detect_placeholders: true # Catches "2025-09-01" patterns in examples
+    detect_impossible: true # Catches dates before repo creation
+    severity: "medium"
+
+# File inclusions (opt-in approach - only check these files by default)
+includes:
+  # Default includes (focused on changelog and release files)
+  - "CHANGELOG.md"
+  - "**/CHANGELOG*.md"
+  - "**/HISTORY.md"
+  - "RELEASE_NOTES.md"
+  - "**/RELEASE*.md"
+  - "**/VERSION"
+
+# File exclusions (merged with defaults - additive safety net)
+exclusions:
+  # Your custom exclusions (added to standard defaults)
+  - "custom-dir/**"  # Example: exclude your custom directory
+  # Standard defaults are automatically included:
+  # - "**/node_modules/**", "**/.git/**", "**/dist/**", "**/build/**", "**/.scratchpad/**"
+
+# File type specific rules (severity modifiers)
+file_types:
+  # Documentation (lower severity - illustrative content)
+  markdown:
+    severity_modifier: "low"
+    patterns:
+      - regex: "20\\d{2}-\\d{2}-\\d{2}"
+        description: "Four-digit years (more likely to be real dates)"
+        severity: "medium"
+      - regex: "\\d{1,2}/\\d{1,2}/\\d{2,4}"
+        description: "Slash-separated dates (often examples)"
+        severity: "low"
+
+  # Configuration files (medium priority)
+  yaml:
+    severity_modifier: "medium"
+    patterns:
+      - regex: "timestamp: \\d{4}-\\d{2}-\\d{2}"
+        description: "Explicit YAML timestamps"
+        severity: "high"
+
+  # Changelogs (highest priority)
+  changelog:
+    severity_modifier: "high"
+    patterns:
+      - regex: "\\d{4}-\\d{2}-\\d{2}"
+        description: "Changelog release dates"
+        severity: "high"
+        files: ["CHANGELOG.*", "**/CHANGELOG.*", "releases/*"]
+
+# Performance tuning
+max_file_size: "1MB" # Skip files larger than 1MB
+max_date_count: 1000 # Limit date extraction per file
+parallel_workers: 4 # Number of concurrent file processors
+
+# Output preferences
+output_format: "markdown" # markdown, json, html, concise
+show_context: true # Include surrounding lines for context
+group_by_file: true # Group issues by file rather than type
+```
+
+### Key Configuration Concepts
+
+1. **Opt-in Includes**: Specify exactly which files to check (focused approach)
+   - Default includes: `CHANGELOG.md`, `**/CHANGELOG*.md`, `RELEASE_NOTES.md`, etc.
+   - Add custom patterns for your project's critical date files
+   - No false positives from documentation/examples by default
+
+2. **Date Patterns**: Define regex patterns to extract dates from files
+   - Each pattern must capture exactly 3 groups (year, month, day)
+   - `order` specifies the expected sequence: YMD, MDY, DMY
+   - Common formats: ISO 8601 (YYYY-MM-DD), US (MM/DD/YYYY), European (DD.MM.YYYY)
+
+3. **Validation Rules**:
+   - `future_dates`: Blocks commits with future dates (allows clock skew)
+   - `monotonic_order`: Ensures changelog entries are in chronological order
+   - `ai_safety`: Catches common AI-generated date errors (placeholders, impossible chronology)
+
+4. **Exclusions**: Merged with defaults for comprehensive safety net
+   - Your custom exclusions are added to standard defaults
+   - Standard exclusions: node_modules, .git, dist, build, .scratchpad
+   - Useful for project-specific directories that should be skipped
+
+4. **File Type Rules**: Different severity for different contexts
+   - **Markdown docs**: Low severity (illustrative content)
+   - **YAML configs**: Medium severity (timestamps matter)
+   - **Changelogs**: High severity (release history is critical)
+
+5. **Performance Tuning**: Limits to prevent scanning huge files or extracting thousands of dates
+
+### Common Use Cases
+
+#### Changelog Validation (Most Common)
+
+Ensure CHANGELOG.md entries are chronologically ordered:
+
+```yaml
+rules:
+  monotonic_order:
+    enabled: true
     files:
       - "CHANGELOG.md"
-      - "docs/releases/**"
-    severity: "warning"
+      - "**/CHANGELOG*.md"
+    severity: "error" # Fail builds on out-of-order entries
 ```
 
-Notes:
+#### Release Notes Consistency
 
-- `date_patterns` are order-aware (YMD, MDY, DMY) and require 3 capture groups.
-- `max_skew` accepts Go durations (e.g., `24h`, `72h`) and `Nd` shorthand (e.g., `5d`).
-- `stale_entries` checks only the latest date by design.
-- Exclude paths keep the repo scan fast and focused.
-
-#### Advanced Checks
-
-- Monotonic Order (optional): Ensures dates appear in descending order in configured files (e.g., `CHANGELOG.md`). Useful to catch accidentally out-of-sequence entries.
-- Repo-Time Plausibility (error): If any date predates the repository’s first commit (with a small grace window), an error is raised. This catches “impossible chronology” mistakes (e.g., dates months before the repository existed).
-
-#### Legacy Configuration
-
-Older examples in this page (`file_patterns`, `warn_stale_days`) are retained for illustration; prefer the canonical schema above for v0.2.3+.
-
-#### Schema Validation
-
-Configuration files are validated using JSON Schema 2020 with fast-fail validation. Invalid configurations will fall back to defaults with a warning message.
-
-## Language-Specific Examples
-
-### JavaScript/TypeScript Projects
+Validate dates across multiple release artifacts:
 
 ```yaml
-# .goneat/dates.yaml
-file_patterns:
-  - "CHANGELOG.md"
-  - "**/package.json"
-  - "packages/*/CHANGELOG.md"
-  - "apps/*/package.json"
-warn_stale_days: 90 # Warn if no updates in 3 months
+date_patterns:
+  - regex: "(\\d{4})-(\\d{2})-(\\d{2})"
+    order: "YMD"
+    files: ["**/*.md", "**/*.yaml", "**/*.json"]
+  - regex: "(\\d{1,2})/(\\d{1,2})/(\\d{4})"
+    order: "MDY"
+    files: ["legacy-docs/**"] # Only for legacy content
 ```
 
-### Rust Projects
+#### Documentation-Focused Projects
+
+For documentation-heavy projects, customize the includes to focus on critical files:
 
 ```yaml
-# .goneat/dates.yaml
-file_patterns:
+includes:
+  # Core release files
   - "CHANGELOG.md"
-  - "**/Cargo.toml"
-  - "crates/*/CHANGELOG.md"
-  - "crates/*/Cargo.toml"
-warn_stale_days: 120 # Warn if no updates in 4 months
+  - "RELEASE_NOTES.md"
+  - "**/CHANGELOG*.md"
+
+  # Include specific documentation that matters
+  - "docs/releases/**" # Release-specific docs
+  - "docs/CHANGELOG*.md" # Changelog docs
+
+  # Exclude everything else (no exclusions needed - opt-in approach)
 ```
 
-### Python Projects
+#### Code-Only Projects
+
+For projects without documentation, use minimal includes:
 
 ```yaml
-# .goneat/dates.yaml
-file_patterns:
+includes:
+  # Only check changelog and version files
   - "CHANGELOG.md"
-  - "**/pyproject.toml"
-  - "**/setup.py"
-  - "packages/*/CHANGELOG.md"
-warn_stale_days: 60 # Warn if no updates in 2 months
+  - "VERSION"
 ```
 
-### Monorepo Projects
+### Command Reference
 
-```yaml
-# .goneat/dates.yaml
-file_patterns:
-  - "CHANGELOG.md"
-  - "packages/*/CHANGELOG.md"
-  - "apps/*/CHANGELOG.md"
-  - "libs/*/CHANGELOG.md"
-  - "**/package.json"
-  - "**/Cargo.toml"
-  - "**/pyproject.toml"
-warn_stale_days: 180 # Warn if no updates in 6 months
-```
-
-## Examples
-
-### Valid Dates (No Issues)
-
-```markdown
-## [v1.2.3] - 2025-09-09 # Today's date
-
-Release date: 2025-09-09 # Today's date
-Created: 2025-09-08 # Yesterday's date
-Updated: 2025-09-07 # Past date
-```
-
-### Invalid Dates (Will Trigger Issues)
-
-```markdown
-## [v1.2.3] - 2025-01-25 # Future date (wrong month)
-
-Release date: 2025-12-31 # Future date
-Created: 2026-01-01 # Future year
-Updated: 2025-09-10 # Tomorrow's date
-```
-
-### Stale Entry Warnings
-
-```markdown
-## [v1.2.3] - 2025-03-15 # Latest entry is 6 months old
-
-Release date: 2025-03-15 # This will trigger a stale warning
-```
-
-**Note**: Stale warnings help you identify when your changelog hasn't been updated recently, which might indicate:
-
-- The project is no longer actively maintained
-- You forgot to update the changelog after a release
-- The project is in a maintenance-only phase
-
-## Output
-
-### Success Case
+#### Assessment Commands
 
 ```bash
-$ goneat assess --categories dates
-2025-09-09 21:06:47 [INFO] goneat: Starting assessment of . with 1 categories (workers=6)
-2025-09-09 21:06:47 [INFO] goneat: Running date validation assessment...
-2025-09-09 21:06:47 [INFO] goneat: Date validation completed: 0 issues found
-Assessment health=100% | total issues: 0 | time: 154.523ms
+# Basic date validation (uses .goneat/dates.yaml if present)
+goneat assess --categories=dates
+
+# Verbose output with line context
+goneat dates assess --verbose --show-context
+
+# JSON output for automation/CI
+goneat dates assess --json | jq '.issues | length'
+
+# Scan specific files only
+goneat dates assess --files CHANGELOG.md RELEASE_NOTES.md
+
+# Override configuration (for testing)
+goneat dates assess --config dates-test.yaml
+
+# Include everything (ignore exclusions)
+goneat dates assess --no-exclusions
+
+# Dry run for fixes
+goneat dates fix --dry-run --verbose
 ```
 
-### Error Case
+#### Fix Commands
 
 ```bash
-$ goneat assess --categories dates
-2025-09-09 21:06:47 [INFO] goneat: Starting assessment of . with 1 categories (workers=6)
-2025-09-09 21:06:47 [INFO] goneat: Running date validation assessment...
-2025-09-09 21:06:47 [INFO] goneat: Date validation completed: 2 issues found
+# Auto-fix sortable date issues (changelogs, lists)
+goneat dates fix
+
+# Fix specific files
+goneat dates fix --files CHANGELOG.md
+
+# Preview changes first
+goneat dates fix --dry-run
+
+# Only fix high-severity issues
+goneat dates fix --min-severity high
+```
+
+#### Configuration Commands
+
+```bash
+# Generate template configuration
+goneat dates config template
+
+# Validate current configuration
+goneat dates config validate
+
+# Show effective configuration (merged defaults + .goneat/dates.yaml)
+goneat dates config show
+
+# Convert legacy config to new format (if needed)
+goneat dates config migrate
+```
+
+### Output Examples
+
+#### Terminal Output (Success)
+
+```
+$ goneat assess --categories=dates
+2025-09-19 11:40:00 [INFO] goneat: Starting assessment of . with 1 categories
+2025-09-19 11:40:00 [INFO] goneat: Running dates assessment...
+2025-09-19 11:40:00 [INFO] goneat: Scanned 127 files, found 15 dates
+2025-09-19 11:40:00 [INFO] goneat: Dates assessment completed: 0 issues found
+
+✅ Assessment health=100% | total issues: 0 | time: 245ms
+
+Configuration applied:
+- Files excluded: docs/**, tests/**, vendor/**
+- Patterns: ISO 8601, US format
+- Rules: future_dates (error), monotonic_order (warning)
+- Customize: .goneat/dates.yaml
+```
+
+#### Terminal Output (With Issues)
+
+```
+$ goneat assess --categories=dates
+2025-09-19 11:40:00 [INFO] goneat: Starting assessment of . with 1 categories
+2025-09-19 11:40:00 [INFO] goneat: Running dates assessment...
+2025-09-19 11:40:01 [WARN] goneat: Found 2 date issues
 
 # Codebase Assessment Report
 
-**Generated:** 2025-09-09T21:06:47-04:00
-**Tool:** goneat
-**Version:** 1.0.0
+**Generated:** 2025-09-19T11:40:01-04:00
+**Tool:** goneat v0.2.7
 **Target:** .
-**Execution Time:** 154.523ms
+**Execution Time:** 1.2s
 
-## Executive Summary
+## Issues Found (2 total)
 
-- **Overall Health:** 🔴 Needs Attention (50%)
-- **Critical Issues:** 0
-- **Total Issues:** 2
-- **Estimated Fix Time:** 0 seconds
-
-## Assessment Results
-
-### Date Validation
-
-- **Status:** ❌ Failed
-- **Issues Found:** 2
-- **Files Checked:** 5
-
-#### Issues
-
-1. **CHANGELOG.md** - Future date found: 2025-01-25 (current date: 2025-09-09)
-   - **Context:** `## [v1.2.3] - 2025-01-25`
-   - **Severity:** Error
-   - **Rule:** dates
-
-2. **docs/releases/1.2.3.md** - Future date found: 2025-01-25 (current date: 2025-09-09)
-   - **Context:** `Release date: 2025-01-25`
-   - **Severity:** Error
-   - **Rule:** dates
+### CHANGELOG.md [HIGH - future_date]
+**Line:** 15
+**Date:** 2025-09-19T00:00:00Z
+**Context:**
 ```
 
-## Integration with CI/CD
+## [v2.0.0] - 2025-09-19
 
-### GitHub Actions
+- Major feature release
+
+```
+**Message:** Future date detected (85 days from now)
+**Fix:** Update to realistic release date or remove date
+**Auto-fixable:** No
+
+### RELEASE_NOTES.md [MEDIUM - monotonic_order]
+**Line:** 23-25
+**Dates Found:** 2025-06-15, 2025-05-30, 2025-06-01
+**Expected Order:** 2025-05-30, 2025-06-01, 2025-06-15
+**Context:**
+```
+
+## v1.5.1 - 2025-06-15
+
+## v1.5.0 - 2025-05-30
+
+## v1.4.9 - 2025-06-01 # Out of order
+
+```
+**Message:** Changelog entries not in chronological order
+**Fix:** Reorder entries or use `goneat dates fix`
+**Auto-fixable:** Yes
+
+## Configuration Summary
+- **Enabled:** Yes
+- **Files Scanned:** 127 (excluded: docs/**, tests/**, vendor/**)
+- **Dates Found:** 15 total
+- **Rules Applied:** future_dates (error), monotonic_order (warning)
+- **Customization:** Edit `.goneat/dates.yaml` to modify behavior
+- **Docs:** `goneat docs show configuration/date-validation-config`
+
+**Next Steps:**
+1. Run `goneat dates fix` to auto-sort changelog entries
+2. Manually update future dates in CHANGELOG.md
+3. Customize exclusions in `.goneat/dates.yaml` if needed
+```
+
+#### JSON Output (Machine-Readable)
+
+```json
+{
+  "metadata": {
+    "tool": "goneat",
+    "version": "v0.2.7",
+    "command": "assess",
+    "categories": ["dates"],
+    "timestamp": "2025-09-19T11:40:01-04:00",
+    "target": ".",
+    "execution_time_ms": 1245
+  },
+  "summary": {
+    "overall_health": 0.85,
+    "total_issues": 2,
+    "critical_issues": 0,
+    "estimated_fix_time_minutes": 5,
+    "files_scanned": 127,
+    "files_excluded": 89,
+    "dates_found": 15,
+    "auto_fixable_issues": 1
+  },
+  "configuration": {
+    "enabled": true,
+    "date_patterns": 2,
+    "exclusions": 7,
+    "rules": {
+      "future_dates": { "enabled": true, "severity": "error" },
+      "monotonic_order": { "enabled": true, "severity": "warning" }
+    },
+    "config_file": ".goneat/dates.yaml"
+  },
+  "issues": [
+    {
+      "category": "dates",
+      "type": "future_date",
+      "file": "CHANGELOG.md",
+      "line": 15,
+      "severity": "high",
+      "message": "Future date detected (85 days from now)",
+      "date": "2025-09-19T00:00:00Z",
+      "context": "## [v2.0.0] - 2025-09-19\n- Major feature release",
+      "auto_fixable": false,
+      "suggested_fix": "Update to realistic release date or remove date",
+      "rule": "future_dates",
+      "pattern": "(\\d{4})-(\\d{2})-(\\d{2})"
+    },
+    {
+      "category": "dates",
+      "type": "monotonic_order",
+      "file": "RELEASE_NOTES.md",
+      "lines": [23, 24, 25],
+      "severity": "medium",
+      "message": "Changelog entries not in chronological order",
+      "dates_found": ["2025-06-15", "2025-05-30", "2025-06-01"],
+      "expected_order": ["2025-05-30", "2025-06-01", "2025-06-15"],
+      "context": "## v1.5.1 - 2025-06-15\n## v1.5.0 - 2025-05-30\n## v1.4.9 - 2025-06-01",
+      "auto_fixable": true,
+      "suggested_fix": "Run 'goneat dates fix --files RELEASE_NOTES.md'",
+      "rule": "monotonic_order",
+      "affected_files": ["RELEASE_NOTES.md"]
+    }
+  ],
+  "resolution_hints": {
+    "dates": {
+      "configurable": true,
+      "config_file": ".goneat/dates.yaml",
+      "exclude_patterns": "Add patterns to exclusions array",
+      "auto_fix": "Use 'goneat dates fix' for sortable issues",
+      "docs": "goneat docs show configuration/date-validation-config"
+    }
+  }
+}
+```
+
+### Integration Examples
+
+#### Git Hooks
+
+Add date validation to your git workflow:
+
+**.goneat/hooks.yaml:**
 
 ```yaml
-name: Date Validation
+hooks:
+  pre-commit:
+    commands:
+      - name: dates-light
+        run: goneat assess --categories=dates --fail-on high --scope=staged
+        description: "Validate dates in staged changes"
+        timeout: 30s
+        parallel: true
+
+  pre-push:
+    commands:
+      - name: dates-release
+        run: |
+          goneat dates assess --files CHANGELOG.md RELEASE_NOTES.md --fail-on high
+          goneat dates assess --no-exclusions --severity medium --json | jq '.issues | length == 0'
+        description: "Full date validation for release artifacts"
+        timeout: 60s
+
+  post-merge:
+    commands:
+      - name: dates-update
+        run: goneat dates assess --changed-only --verbose
+        description: "Check dates after merge (warnings only)"
+        fail_on: low
+```
+
+#### CI/CD Pipelines
+
+**GitHub Actions:**
+
+```yaml
+name: Code Quality
 on: [push, pull_request]
 
 jobs:
   dates:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+
       - name: Install goneat
         run: |
-          curl -L https://github.com/fulmenhq/goneat/releases/latest/download/goneat_linux_amd64.tar.gz | tar -xz
+          curl -fsSL https://github.com/fulmenhq/goneat/releases/latest/download/goneat_linux_amd64.tar.gz | tar -xz
           sudo mv goneat /usr/local/bin/
-      - name: Run date validation
-        run: goneat assess --categories dates --format json
+          goneat version
+
+      - name: Validate Dates
+        run: |
+          # Check critical files first
+          if ! goneat dates assess --files CHANGELOG.md --fail-on high; then
+            echo "::error::Changelog date validation failed"
+            exit 1
+          fi
+
+          # Full assessment (warnings OK)
+          goneat assess --categories=dates --json > dates-report.json
+
+          # Fail only on high severity
+          high_issues=$(jq '.issues | map(.severity == "high") | any' dates-report.json)
+          if [ "$high_issues" = "true" ]; then
+            echo "::error::High severity date issues found"
+            cat dates-report.json
+            exit 1
+          fi
+
+          echo "::notice::Date validation passed ($(jq '.issues | length' dates-report.json) warnings)"
+
+      - name: Upload Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dates-report
+          path: dates-report.json
 ```
 
-### Pre-commit Hook
-
-```yaml
-# .pre-commit-config.yaml
-repos:
-  - repo: local
-    hooks:
-      - id: goneat-dates
-        name: goneat date validation
-        entry: goneat assess --categories dates --fail-on high
-        language: system
-        files: \.(md|txt|yaml|yml|json)$
-```
-
-## Troubleshooting
-
-### Common Issues
-
-**1. False Positives**
-
-- The validator may flag dates that are intentionally in the future (e.g., planned release dates)
-- Consider adding these files to `.goneatignore` or modifying the validation patterns
-
-**2. Missing Files**
-
-- The validator only checks specific file patterns
-- If you have documentation in other locations, you may need to customize the patterns
-
-**3. Date Format Issues**
-
-- The validator only recognizes specific date formats
-- Ensure your dates follow the supported patterns
-
-### Debugging
-
-Enable verbose output to see which files are being checked:
+**Shell Script (Generic CI):**
 
 ```bash
-goneat assess --categories dates --verbose
+#!/bin/bash
+set -e
+
+echo "Installing goneat..."
+curl -fsSL https://github.com/fulmenhq/goneat/releases/latest/download/goneat_linux_amd64.tar.gz | tar -xz
+sudo mv goneat /usr/local/bin/
+
+echo "Validating dates..."
+# Create minimal config if none exists
+if [ ! -f .goneat/dates.yaml ]; then
+  mkdir -p .goneat
+  cat > .goneat/dates.yaml << 'EOF'
+enabled: true
+rules:
+  future_dates:
+    enabled: true
+    severity: "error"
+  monotonic_order:
+    enabled: true
+    severity: "warning"
+    files:
+      - "CHANGELOG*"
+exclusions:
+  - "docs/**"
+  - "tests/**"
+EOF
+  echo "Created default .goneat/dates.yaml"
+fi
+
+# Run validation
+goneat assess --categories=dates --json > dates-report.json
+
+# Check for critical issues
+critical=$(jq '.issues? // [] | map(.severity == "high") | any' dates-report.json)
+if [ "$critical" = "true" ]; then
+  echo "ERROR: High severity date issues found:"
+  jq '.issues[]? | select(.severity == "high")' dates-report.json
+  exit 1
+fi
+
+total_issues=$(jq '.issues? // [] | length' dates-report.json)
+echo "Date validation passed ($total_issues warnings)"
 ```
 
-## Best Practices
+### Troubleshooting Common Issues
 
-1. **Run Early and Often**: Include date validation in pre-commit hooks
-2. **Fix Immediately**: Address date issues as soon as they're detected
-3. **Use Consistent Formats**: Stick to ISO 8601 (YYYY-MM-DD) format
-4. **Document Intentions**: If you need future dates, document why in comments
-5. **Automate**: Include date validation in your CI/CD pipeline
-6. **Manual Review**: For historical dates, manually verify accuracy
-7. **Context Matters**: Remember that the tool can't understand project context
+#### "Need to Check Additional Files"
 
-## Manual Fix Requirements
+**Problem:** Want to validate dates in files beyond the defaults.
 
-**Important**: This tool cannot fix existing incorrect dates in your changelog. You must manually correct:
+**Solution:** Add custom includes to `.goneat/dates.yaml`:
 
-- Historical release dates that are wrong
-- Dates that were planned but changed
-- Context-dependent date corrections
-- Any dates that require project knowledge to validate
+```yaml
+includes:
+  # Default includes (automatically included)
+  # - "CHANGELOG.md"
+  # - "**/CHANGELOG*.md"
+  # - etc.
 
-The tool's value is in preventing NEW mistakes, not fixing existing ones.
+  # Add your custom files
+  - "docs/releases/**" # Release documentation
+  - "api/CHANGELOG.md" # API changelog
+  - "SECURITY.md" # Security advisories
+```
 
-## Related Commands
+#### "Missing Date Format"
 
-- [`goneat assess`](assess.md) - Comprehensive codebase assessment
-- [`goneat format`](format.md) - Code formatting and style consistency
-- [`goneat hooks`](hooks.md) - Git hook management and automation
+**Problem:** Your project uses a custom date format not recognized by default patterns.
+
+**Solution:** Add custom patterns:
+
+```yaml
+date_patterns:
+  # Your custom format (e.g., YYYY.MM.DD)
+  - regex: "(\\d{4})\\.(\\d{2})\\.(\\d{2})"
+    order: "YMD"
+    description: "Custom dot-separated format (YYYY.MM.DD)"
+
+  # Flexible month (1-12)
+  - regex: "(\\d{4})-(\\d{1,2})-(\\d{1,2})"
+    order: "YMD"
+    description: "ISO 8601 with flexible month/day (1-12)"
+```
+
+#### "Performance Issues"
+
+**Problem:** Large repository takes too long to scan.
+
+**Solution:** Tune performance settings:
+
+```yaml
+# Performance tuning
+max_file_size: "512KB" # Skip files > 512KB
+max_date_count: 500 # Max 500 dates per file
+parallel_workers: 8 # Use 8 cores
+exclusions:
+  - "**/*.log" # Skip log files
+  - "build/**" # Skip build artifacts
+  - "**/coverage/**" # Skip coverage reports
+```
+
+#### "Changelog Out-of-Order Errors"
+
+**Problem:** `monotonic_order` rule flags correctly ordered entries.
+
+**Solution:** Verify the rule is configured correctly and run auto-fix:
+
+```bash
+# Check current configuration
+goneat dates config show | grep -A 10 monotonic_order
+
+# Auto-fix sortable issues
+goneat dates fix --files CHANGELOG.md --dry-run
+
+# Apply fixes
+goneat dates fix --files CHANGELOG.md
+```
+
+### Best Practices
+
+1. **Start Simple**: Use the default opt-in configuration (works for most projects)
+2. **Add Selectively**: Only add custom includes for files that truly need date validation
+3. **Focus on Critical Files**: CHANGELOG.md and RELEASE_NOTES.md are already included by default
+4. **Automate**: Include in pre-commit hooks and CI/CD pipelines
+5. **Document**: Add comments to `.goneat/dates.yaml` explaining your custom includes
+6. **Review Regularly**: Periodically review includes as your project adds new date-critical files
+7. **Use Auto-Fix**: Leverage `goneat dates fix` for sortable issues
+
+### Exit Codes
+
+The dates command uses standard exit codes:
+
+- `0`: Success (no issues or only warnings)
+- `1`: General error
+- `2`: Configuration error
+- `64`: Invalid command line usage
+- `78`: Configuration schema validation failed
+- `128+N`: Fatal error signal N
+
+**For CI/CD:**
+
+- Use `--fail-on high` to block on critical issues only
+- Use `--json` for programmatic parsing
+- Check exit code `1` for any issues (including warnings)
+
+### Related Features
+
+- [`assess`](assess.md): Comprehensive codebase analysis including dates
+- [`format`](format.md): Code formatting (dates in code comments)
+- [`hooks`](hooks.md): Git hook integration for automated validation
+- [`maturity`](maturity.md): Release readiness including date consistency
+- [Configuration](configuration.md): Full configuration system reference
+
+The dates command provides essential quality control for release engineering and documentation workflows, catching common mistakes before they reach production.

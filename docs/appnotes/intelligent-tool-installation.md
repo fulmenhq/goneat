@@ -106,6 +106,41 @@ project-node:
   tools: ["eslint", "prettier", "typescript"] # Future implementation
 ```
 
+#### Version Policy Configuration
+
+Tools can be configured with version policies to ensure minimum and recommended version requirements:
+
+```yaml
+tools:
+  golangci:
+    name: "golangci-lint"
+    description: "Fast linters Runner for Go"
+    kind: "system"
+    detect_command: "golangci-lint --version"
+    version_scheme: "semver"
+    minimum_version: "2.0.0"
+    recommended_version: "2.4.0"
+    platforms: ["linux", "darwin", "windows"]
+    install_commands:
+      linux: "go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest"
+      darwin: "go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest"
+      windows: "go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest"
+
+  jq:
+    name: "jq"
+    description: "JSON processing tool for CI/CD scripts"
+    kind: "system"
+    detect_command: "jq --version"
+    version_scheme: "lexical"
+    minimum_version: "1.6"
+    recommended_version: "1.7"
+    platforms: ["linux", "darwin", "windows"]
+    install_commands:
+      linux: "mise use jq@latest 2>/dev/null || echo '📦 Run: sudo apt-get install jq' && exit 1"
+      darwin: "mise use jq@latest || brew install jq"
+      windows: "winget install jqlang.jq || scoop install jq"
+```
+
 ## Implementation Details
 
 ### Mise Integration
@@ -293,6 +328,35 @@ preferences:
 - Multiple distributions with different package managers
 - Version managers work well across all distros
 - Could implement: mise → distro-specific package manager → manual
+
+## Version Policy Enforcement
+
+### Assessment Integration
+
+Version policies are enforced through goneat's assessment system:
+
+```bash
+# Check all tools for version compliance
+goneat assess --categories tools
+
+# Check specific tools
+goneat doctor tools --scope foundation
+```
+
+### Policy Violation Handling
+
+- **Minimum Version Violations**: Reported as high severity (blocking) issues
+- **Recommended Version Violations**: Reported as medium severity (warning) issues
+- **Version Schemes**:
+  - `semver`: Semantic versioning (major.minor.patch)
+  - `lexical`: String comparison for tools with non-standard versioning
+
+### Example Policy Violations
+
+```
+❌ Tool golangci-lint version 1.64.8 does not meet minimum requirement 2.0.0 (scheme: semver)
+⚠️  Tool prettier version 3.2.0 does not meet recommended version 3.3.0 (scheme: semver)
+```
 
 ## Benefits and Impact
 

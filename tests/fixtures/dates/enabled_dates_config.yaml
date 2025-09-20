@@ -10,7 +10,7 @@ rules:
     warn_days: 180
     severity: "medium"
   monotonic_order:
-    enabled: true  # KEY: Enable monotonic ordering checks
+    enabled: true
     files:
       - "CHANGELOG.md"
       - "CHANGELOG*.md"
@@ -18,7 +18,7 @@ rules:
       - "RELEASE*.md"
       - "*.md"
     severity: "high"
-    check_top_n: 0  # Check all entries
+    check_top_n: 0
     ignore_files: []
   cross_file_consistency:
     enabled: false
@@ -51,4 +51,4 @@ ai_safety:
   severity: "medium"
 output:
   format: "text"
-  fail_on: "high"
+  fail_on: "error"

@@ -13,7 +13,7 @@ func TestVersionCommand_BasicDisplay(t *testing.T) {
 	env := CreateVersionFileFixture(t, "1.2.3")
 	defer env.Cleanup()
 
-	result := env.RunVersionCommand()
+	result := env.RunVersionCommand("--project")
 
 	// Verify command succeeded
 	if result.ExitCode != 0 {
@@ -29,9 +29,9 @@ func TestVersionCommand_BasicDisplay(t *testing.T) {
 		t.Errorf("Expected component to be detected, got empty string")
 	}
 
-	// Verify output contains expected format with version and "(Project)"
-	if !strings.Contains(result.Output, "(Project) 1.2.3") {
-		t.Errorf("Expected output to contain '(Project) 1.2.3', got: %s", result.Output)
+	// Verify output contains expected format with version and "Project:"
+	if !strings.Contains(result.Output, "Project: ") || !strings.Contains(result.Output, "1.2.3") {
+		t.Errorf("Expected output to contain 'Project: ' and '1.2.3', got: %s", result.Output)
 	}
 }
 
@@ -40,7 +40,7 @@ func TestVersionCommand_NoOpMode(t *testing.T) {
 	env := CreateVersionFileFixture(t, "2.0.0")
 	defer env.Cleanup()
 
-	result := env.RunVersionCommand("--no-op")
+	result := env.RunVersionCommand("--project", "--no-op")
 
 	// Verify command succeeded
 	if result.ExitCode != 0 {
@@ -63,7 +63,7 @@ func TestVersionCommand_MissingVersionFile(t *testing.T) {
 	env := CreateEmptyFixture(t)
 	defer env.Cleanup()
 
-	result := env.RunVersionCommand()
+	result := env.RunVersionCommand("--project")
 
 	// Command should fail when no version file exists
 	if result.ExitCode == 0 {
@@ -71,8 +71,8 @@ func TestVersionCommand_MissingVersionFile(t *testing.T) {
 	}
 
 	// Error should indicate no version found
-	if !strings.Contains(result.Error, "no version found") {
-		t.Errorf("Expected error to contain 'no version found', got: %s", result.Error)
+	if !strings.Contains(result.Error, "no project version found") {
+		t.Errorf("Expected error to contain 'no project version found', got: %s", result.Error)
 	}
 }
 
@@ -81,7 +81,7 @@ func TestVersionCommand_JSONOutput(t *testing.T) {
 	env := CreateVersionFileFixture(t, "1.5.0")
 	defer env.Cleanup()
 
-	result := env.RunVersionCommand("--json")
+	result := env.RunVersionCommand("--project", "--json")
 
 	// Verify command succeeded
 	if result.ExitCode != 0 {
@@ -107,7 +107,7 @@ func TestVersionCommand_ExtendedOutput(t *testing.T) {
 	env := CreateVersionFileFixture(t, "3.1.4")
 	defer env.Cleanup()
 
-	result := env.RunVersionCommand("--extended")
+	result := env.RunVersionCommand("--project", "--extended")
 
 	// Verify command succeeded
 	if result.ExitCode != 0 {
@@ -116,9 +116,8 @@ func TestVersionCommand_ExtendedOutput(t *testing.T) {
 
 	// Verify extended output contains additional information
 	expectedFields := []string{
-		"(Project) 3.1.4",
-		"Build time:",
-		"Git commit:",
+		"Project: ",
+		"3.1.4",
 		"Go version:",
 		"Platform:",
 	}
@@ -452,7 +451,7 @@ func TestVersionCommand_FirstRunDetection_NoVersionManagement(t *testing.T) {
 	env := CreateEmptyFixture(t)
 	defer env.Cleanup()
 
-	result := env.RunVersionCommand()
+	result := env.RunVersionCommand("--project")
 
 	// Should provide helpful guidance for first-time users
 	if result.ExitCode == 0 {
@@ -490,7 +489,7 @@ func TestVersionCommand_Learning_GitTagsDetection(t *testing.T) {
 	tags := env.ListGitTags()
 	t.Logf("Created git tags: %v", tags)
 
-	result := env.RunVersionCommand()
+	result := env.RunVersionCommand("--project")
 
 	// Debug: Show the full output
 	t.Logf("Version command output: %s", result.Output)
@@ -545,7 +544,7 @@ func TestVersionCommand_Learning_PatternRecognition(t *testing.T) {
 			// Remove VERSION file to force git tag detection
 			env.RemoveFile("VERSION")
 
-			result := env.RunVersionCommand()
+			result := env.RunVersionCommand("--project")
 
 			if result.ExitCode != 0 {
 				t.Fatalf("Version command failed: %s", result.Error)

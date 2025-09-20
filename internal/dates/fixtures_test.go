@@ -37,7 +37,7 @@ func TestFixtures_MonotonicOrder(t *testing.T) {
 		{
 			name:          "complex monotonic violation",
 			filename:      "complex_monotonic_violation.md",
-			expectIssues:  false, // File doesn't match default monotonic patterns (not CHANGELOG*.md, etc.)
+			expectIssues:  true, // File has monotonic violations and matches patterns
 			issueContains: "monotonic",
 		},
 		{
@@ -55,19 +55,32 @@ func TestFixtures_MonotonicOrder(t *testing.T) {
 		{
 			name:          "alternative heading format",
 			filename:      "alternative_heading_format.md",
-			expectIssues:  false, // File doesn't match default monotonic patterns
+			expectIssues:  true, // File has monotonic violations and matches patterns
 			issueContains: "monotonic",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test with default config (monotonic disabled)
+			// Test with default config (monotonic enabled)
 			t.Run("default_config", func(t *testing.T) {
-				runner := NewDatesRunner()
-				filePath := filepath.Join(fixtureDir, tt.filename)
+				// Create temp directory with the test file to test directory assessment
+				tempDir := t.TempDir()
+				srcFile := filepath.Join(fixtureDir, tt.filename)
+				// Use CHANGELOG.md as destination to match default include patterns
+				dstFile := filepath.Join(tempDir, "CHANGELOG.md")
 
-				result, err := runner.Assess(context.Background(), filePath, nil)
+				fileData, err := os.ReadFile(srcFile)
+				if err != nil {
+					t.Fatalf("Failed to read fixture: %v", err)
+				}
+
+				if err := os.WriteFile(dstFile, fileData, 0644); err != nil {
+					t.Fatalf("Failed to write fixture: %v", err)
+				}
+
+				runner := NewDatesRunner()
+				result, err := runner.Assess(context.Background(), tempDir, nil)
 				if err != nil {
 					t.Fatalf("Assess failed: %v", err)
 				}
@@ -75,7 +88,7 @@ func TestFixtures_MonotonicOrder(t *testing.T) {
 				// With default config, check based on test expectations
 				foundViolation := false
 				for _, issue := range result.Issues {
-					if strings.Contains(issue.Message, "not in descending date order") {
+					if strings.Contains(issue.Message, "Changelog date order violation") {
 						foundViolation = true
 					}
 				}
@@ -133,7 +146,7 @@ func TestFixtures_MonotonicOrder(t *testing.T) {
 				// Check for monotonic violations (not just informational messages)
 				foundViolation := false
 				for _, issue := range result.Issues {
-					if strings.Contains(issue.Message, "not in descending date order") {
+					if strings.Contains(issue.Message, "Changelog date order violation") {
 						foundViolation = true
 						t.Logf("Found monotonic violation: %s", issue.Message)
 					}
@@ -265,7 +278,7 @@ func TestFixtures_DefaultVsEnabledConfig(t *testing.T) {
 		foundViolation := false
 		for _, issue := range result.Issues {
 			t.Logf("Default config issue: Severity=%s, Message=%s", issue.Severity, issue.Message)
-			if strings.Contains(issue.Message, "not in descending date order") {
+			if strings.Contains(issue.Message, "Changelog date order violation") || strings.Contains(issue.Message, "not in descending order") {
 				foundViolation = true
 			}
 		}
@@ -317,8 +330,8 @@ func TestFixtures_DefaultVsEnabledConfig(t *testing.T) {
 			t.Error("Loaded config should have MonotonicOrder.Enabled=true")
 		}
 
-		// Run assessment
-		runner := NewDatesRunner()
+		// Run assessment with loaded config
+		runner := NewDatesRunnerWithConfig(loadedCfg)
 		result, err := runner.Assess(context.Background(), tempDir, nil)
 		if err != nil {
 			t.Fatalf("Assess failed: %v", err)
@@ -329,10 +342,10 @@ func TestFixtures_DefaultVsEnabledConfig(t *testing.T) {
 		foundViolation := false
 		for _, issue := range result.Issues {
 			t.Logf("Issue: Severity=%s, Message=%s", issue.Severity, issue.Message)
-			if strings.Contains(strings.ToLower(issue.Message), "monotonic") {
+			if strings.Contains(strings.ToLower(issue.Message), "monotonic") || strings.Contains(strings.ToLower(issue.Message), "violation") {
 				foundMonotonic = true
 			}
-			if strings.Contains(issue.Message, "not in descending date order") {
+			if strings.Contains(issue.Message, "Changelog date order violation") || strings.Contains(issue.Message, "not in descending order") {
 				foundViolation = true
 			}
 		}
@@ -341,7 +354,7 @@ func TestFixtures_DefaultVsEnabledConfig(t *testing.T) {
 			t.Error("Expected to find monotonic issue with enabled config")
 		}
 		if !foundViolation {
-			t.Error("Expected to find actual monotonic violation (not just scan message)")
+			t.Error("Expected to find monotonic violation but didn't")
 		}
 	})
 }

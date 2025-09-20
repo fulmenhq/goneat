@@ -10,7 +10,7 @@ import (
 // minimalReportJSON returns a minimal valid AssessmentReport JSON
 func minimalReportJSON() string {
 	return `{
-      "metadata": {"generated_at": "2025-01-01T00:00:00Z","tool":"goneat","version":"1.0.0","target":".","execution_time":"0s","commands_run":[]},
+      "metadata": {"generated_at": "2025-09-01T00:00:00Z","tool":"goneat","version":"1.0.0","target":".","execution_time":"0s","commands_run":[]},
       "summary": {"overall_health":1,"critical_issues":0,"total_issues":0,"estimated_time":"0s","parallel_groups":0,"categories_with_issues":0},
       "categories": {},
       "workflow": {"phases": null, "parallel_groups": null, "total_time": "0s"}

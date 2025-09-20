@@ -25,9 +25,9 @@ YYYY-MM-DD-operation-type-brief-description.md
 
 - `2025-08-29-repository-version-history-rewrite.md`
 - `2025-09-15-security-gpg-key-rotation.md`
-- `2025-10-01-infrastructure-ci-migration-github-actions.md`
-- `2025-11-12-dependencies-nodejs-18-upgrade.md`
-- `2025-12-03-compliance-license-audit-apache2.md`
+- `2025-09-16-infrastructure-ci-migration-github-actions.md`
+- `2025-09-17-dependencies-nodejs-18-upgrade.md`
+- `2025-09-18-compliance-license-audit-apache2.md`
 
 ## Directory Structure
 

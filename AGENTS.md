@@ -59,16 +59,20 @@
 ### Initialization
 
 1. **Read Project Context**: Review `MAINTAINERS.md`, `AGENTS.md`, and project documentation
-2. **Understand Scope**: Focus on devops/CI/CD, tooling, QA, and formatting standards
-3. **Establish Communication**: Use consistent attribution and professional communication
+2. **Complete Session Initialization Protocol**: Follow [docs/ops/templates/session-initialization-protocol.md](docs/ops/templates/session-initialization-protocol.md) for every work session
+3. **Understand Scope**: Focus on devops/CI/CD, tooling, QA, and formatting standards
+4. **Establish Communication**: Use consistent attribution and professional communication
 
 ### Operational Guidelines
 
+- **Session Initialization Protocol**: 🚨 MANDATORY for every work session - [docs/ops/templates/session-initialization-protocol.md](docs/ops/templates/session-initialization-protocol.md)
 - **Attribution**: Include `Co-Authored-By` only for material contributors, per [docs/standards/agentic-attribution.md](docs/standards/agentic-attribution.md).
 - **Agent Emails**: Use `noreply@3leaps.net` for 3leaps agents (e.g., `Co-Authored-By: Code Scout <noreply@3leaps.net>`).
 - **Supervision**: All contributions require human maintainer approval
+- **Push Authorization**: 🚨 NEVER push without explicit per-incident human approval
 - **Quality Gates**: Implement automated validation with human oversight
 - **Documentation**: Maintain clear, formatted documentation in `docs/` tree
+- **Referenced Docs**: Always read all referenced documentation before work
 
 #### Build and Binary Management
 
@@ -220,12 +224,21 @@ make verify-embeds  # ✅ Verify embeds are correct
 
 ### Git Operation Safety
 
+**🚨 CRITICAL: PUSH AUTHORIZATION REQUIREMENT**
+
+**MANDATORY RULE**: AI agents are NEVER authorized to push code to remote repositories without explicit, per-incident human maintainer approval. This includes:
+
+- Feature branches
+- Main/master branches
+- Release branches
+- Any remote push operation
+
 **DO**
 
 ```bash
 git add <files>       # stage only
 git commit -m "..."   # commit only
-git push              # push only (with approval)
+git push              # ❌ NEVER WITHOUT EXPLICIT APPROVAL
 ```
 
 **DO NOT**
@@ -234,9 +247,49 @@ git push              # push only (with approval)
 # Never chain critical ops
 git add . && git commit -m "..." && git push
 git commit && git push
+# ❌ Never push without explicit human approval
 ```
 
-See [REPOSITORY-SAFETY-PROTOCOLS.md](REPOSITORY-SAFETY-PROTOCOLS.md) for full rules.
+**Push Process**:
+
+1. Complete all work and commits locally
+2. Request explicit push approval from human maintainer
+3. Document approval in commit/PR description
+4. Only then execute push with `--force-with-lease` if needed
+
+See [repository-safety-protocols.md](repository-safety-protocols.md) for full rules.
+
+### **🚨 CRITICAL OPERATIONS CHECKLIST**
+
+**MANDATORY**: Before ANY repository operation, complete this checklist:
+
+#### **Pre-Operation Safety Check**
+- [ ] **Operation Type**: Is this local-only or remote-affecting?
+- [ ] **Safety Classification**: Level 1 (CATASTROPHIC), 2 (HIGH RISK), or 3 (MEDIUM RISK)?
+- [ ] **Explicit Approval**: Do I have per-incident human maintainer approval?
+- [ ] **Backup Created**: Is there a safety backup branch?
+- [ ] **Repository Clean**: `git status` shows clean working tree?
+
+#### **Level 1 CATASTROPHIC Operations** (NEVER without approval)
+- [ ] History rewriting (`git reset --soft`, `git rebase`)
+- [ ] Tag creation/deletion
+- [ ] Remote push operations
+- [ ] Force operations (`--force-with-lease`)
+- [ ] Repository consolidation operations
+
+#### **Level 2 HIGH RISK Operations** (Validate before execution)
+- [ ] Bulk file operations
+- [ ] Dependency modifications
+- [ ] Configuration changes affecting CI/CD
+- [ ] Large refactoring operations
+
+#### **Level 3 MEDIUM RISK Operations** (Proceed with caution)
+- [ ] Single file edits
+- [ ] Documentation updates
+- [ ] Test additions
+- [ ] Code formatting operations
+
+**❌ STOP**: If ANY checklist item is unanswered or marked "NO", request explicit human maintainer approval before proceeding.
 
 ### Attribution Standards
 
@@ -283,6 +336,7 @@ Authored-By: Dave Thompson <dave.thompson@3leaps.net> [@3leapsdave](https://gith
 - Establish QA processes
 - Manage document formatting standards
 - Architect information architecture
+- **CRITICAL**: Enforce repository safety protocols and operation checklists
 
 #### Code Scout (Task Execution & Assessment)
 
@@ -291,6 +345,7 @@ Authored-By: Dave Thompson <dave.thompson@3leaps.net> [@3leapsdave](https://gith
 - Optimize parallel processing capabilities
 - Design error handling and reporting systems
 - Create testing and validation workflows
+- **CRITICAL**: Complete safety checklists before any repository operations
 
 #### Arch Eagle (Enterprise Architecture & Security)
 
@@ -299,6 +354,7 @@ Authored-By: Dave Thompson <dave.thompson@3leaps.net> [@3leapsdave](https://gith
 - Develop policy enforcement frameworks
 - Create security compliance architectures
 - Design distributed system patterns
+- **CRITICAL**: Ensure security compliance in all operations
 
 ## Agentic Backend Development
 

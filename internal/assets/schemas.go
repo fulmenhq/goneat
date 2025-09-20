@@ -38,6 +38,7 @@ func GetSchemaNames() []SchemaInfo {
 		"work-manifest-v1.0.0":       "embedded_schemas/schemas/work/v1.0.0/work-manifest.yaml",
 		"docs-embed-manifest-v1.0.0": "embedded_schemas/schemas/content/v1.0.0/docs-embed-manifest.json",
 		"content-find-report-v1.0.0": "embedded_schemas/schemas/output/v1.0.0/content-find-report.json",
+		"tools-config-v1.0.0":        "embedded_schemas/schemas/tools/v1.0.0/tools-config.yaml",
 	}
 
 	var infos []SchemaInfo

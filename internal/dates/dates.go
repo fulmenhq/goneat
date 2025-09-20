@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/bmatcuk/doublestar/v4"
+	"github.com/fulmenhq/goneat/pkg/ignore"
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/fulmenhq/goneat/pkg/schema"
 	git "github.com/go-git/go-git/v5"
@@ -133,9 +134,9 @@ func DefaultDatesConfig() DatesConfig {
 		},
 		Files: Files{
 			Include: []string{
-				"**/CHANGELOG*.md", "**/HISTORY.md", "**/NEWS.md", "**/VERSION", "**/*.md",
+				"CHANGELOG.md", "**/CHANGELOG*.md", "**/HISTORY.md", "RELEASE_NOTES.md", "**/RELEASE*.md", "**/VERSION",
 			},
-			Exclude:          []string{"**/node_modules/**", "**/.git/**", "**/dist/**", "**/build/**"},
+			Exclude:          []string{"**/node_modules/**", "**/.git/**", "**/dist/**", "**/build/**", "**/.scratchpad/**"},
 			TextExtensions:   []string{".md", ".txt", ".yaml", ".yml", ".json", ".toml"},
 			MaxFileSizeBytes: 4 * 1024 * 1024,
 		},
@@ -198,13 +199,13 @@ func LoadDatesConfig(target string) DatesConfig {
 	// DEBUG: Log what we loaded
 	logger.Debug(fmt.Sprintf("dates config loaded: AiSafety.Enabled=%v", fileCfg.AiSafety.Enabled))
 
-	// Schema validated config can be trusted - apply smart merging for unset fields
+	// Schema validated config can be trusted - merge defaults with user config
+	// Includes: Opt-in approach - if user specifies any includes, use only theirs
 	if len(fileCfg.Files.Include) == 0 {
 		fileCfg.Files.Include = cfg.Files.Include
 	}
-	if len(fileCfg.Files.Exclude) == 0 {
-		fileCfg.Files.Exclude = cfg.Files.Exclude
-	}
+	// Excludes: Always include defaults, plus any user-specified excludes
+	fileCfg.Files.Exclude = append(fileCfg.Files.Exclude, cfg.Files.Exclude...)
 	if len(fileCfg.Files.TextExtensions) == 0 {
 		fileCfg.Files.TextExtensions = cfg.Files.TextExtensions
 	}
@@ -399,7 +400,24 @@ func (r *DatesRunner) Assess(ctx context.Context, target string, _ interface{}) 
 		}
 	}
 
+	// Create ignore matcher to respect .gitignore and .goneatignore
+	var ignoreMatcher *ignore.Matcher
+	if repoRoot, err := findRepoRoot(target); err == nil {
+		if matcher, err := ignore.NewMatcher(repoRoot); err == nil {
+			ignoreMatcher = matcher
+		}
+	}
+
 	includeFile := func(rel string, info fs.FileInfo) bool {
+		// Check ignore patterns first (highest priority)
+		if ignoreMatcher != nil {
+			fullPath := filepath.Join(target, rel)
+			if ignoreMatcher.IsIgnored(fullPath) {
+				return false
+			}
+		}
+
+		// Fallback to legacy include/exclude patterns for backward compatibility
 		if rel == "." || strings.HasPrefix(rel, ".git/") {
 			return false
 		}
@@ -804,6 +822,7 @@ func findLineNumber(content, substr string) int {
 }
 
 func matchInclude(rel string, patterns []string) bool {
+	rel = filepath.ToSlash(rel)
 	for _, p := range patterns {
 		p = filepath.ToSlash(p)
 		if strings.ContainsAny(p, "*?[") {
@@ -824,6 +843,7 @@ func matchInclude(rel string, patterns []string) bool {
 }
 
 func matchExclude(rel string, patterns []string) bool {
+	rel = filepath.ToSlash(rel)
 	for _, p := range patterns {
 		p = filepath.ToSlash(p)
 		if strings.ContainsAny(p, "*?[") {
@@ -920,7 +940,8 @@ func extractChangelogEntries(content string, loc *time.Location) []ChangelogEntr
 	lines := strings.Split(content, "\n")
 
 	// More flexible regex that captures version/text and optional date
-	dateRe := regexp.MustCompile(`^##\s+\[([^\]]+)\](?:\s*-\s*(.+?))?\s*$`)
+	// Supports both bracketed [v1.2.3] and unbracketed v1.2.3 formats
+	dateRe := regexp.MustCompile(`^##\s+(?:\[([^\]]+)\]|([^\s-]+))(?:\s*-\s*(.+?))?\s*$`)
 
 	var entries []ChangelogEntry
 	for _, line := range lines {
@@ -929,10 +950,19 @@ func extractChangelogEntries(content string, loc *time.Location) []ChangelogEntr
 			continue
 		}
 
-		version := strings.TrimSpace(m[1])
+		// Handle both bracketed and unbracketed version formats
+		version := ""
+		if m[1] != "" {
+			// Bracketed format: [v1.2.3]
+			version = strings.TrimSpace(m[1])
+		} else if m[2] != "" {
+			// Unbracketed format: v1.2.3
+			version = strings.TrimSpace(m[2])
+		}
+
 		dateText := ""
-		if len(m) > 2 {
-			dateText = strings.TrimSpace(m[2])
+		if len(m) > 3 {
+			dateText = strings.TrimSpace(m[3])
 		}
 
 		entry := ChangelogEntry{
@@ -977,6 +1007,39 @@ func sampleDates(dts []time.Time, k int) string {
 		parts = append(parts, dts[i].Format("2006-01-02"))
 	}
 	return strings.Join(parts, ", ")
+}
+
+// findRepoRoot finds the git repository root directory from a given path
+func findRepoRoot(target string) (string, error) {
+	// Get absolute path to start searching from
+	absPath, err := filepath.Abs(target)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	// If target is a file, start from its directory
+	if info, err := os.Stat(absPath); err == nil && !info.IsDir() {
+		absPath = filepath.Dir(absPath)
+	}
+
+	// Walk up the directory tree looking for .git
+	current := absPath
+	for {
+		gitDir := filepath.Join(current, ".git")
+		if info, err := os.Stat(gitDir); err == nil && info.IsDir() {
+			return current, nil
+		}
+
+		// Move up one directory
+		parent := filepath.Dir(current)
+		if parent == current {
+			// Reached filesystem root without finding .git
+			break
+		}
+		current = parent
+	}
+
+	return "", fmt.Errorf("no git repository found in %s or its parent directories", target)
 }
 
 // repoFirstCommitTime returns the earliest commit timestamp across all refs

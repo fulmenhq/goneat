@@ -12,10 +12,37 @@ fallback_lint_check() {
 
     # Try golangci-lint first (most comprehensive)
     if command -v golangci-lint &> /dev/null; then
-        # For alpha release, make lint check informational only
-        echo "ℹ️  Running golangci-lint (informational for alpha)"
-        # Limit to new issues only against previous commit to avoid blocking legacy cleanups
-        if golangci-lint run --new-from-rev=HEAD~ --timeout 5m >/dev/null 2>&1; then
+        version_output="$(golangci-lint --version 2>/dev/null || true)"
+        version_token="$(printf '%s\n' "$version_output" | grep -Eo 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
+        major=0
+        minor=0
+        patch=0
+        if [ -n "$version_token" ]; then
+            version_core="${version_token#v}"
+            IFS='.-' read -r major minor patch _ <<< "$version_core"
+            major=${major:-0}
+            minor=${minor:-0}
+            patch=${patch:-0}
+        fi
+
+        lint_cmd=("golangci-lint" "run" "--new-from-rev=HEAD~" "--timeout" "5m")
+
+        if [ "$major" -gt 2 ] || { [ "$major" -eq 2 ] && [ "$minor" -ge 4 ]; }; then
+            lint_cmd=("golangci-lint" "run" "--output=json" "--new-from-rev=HEAD~" "--timeout" "5m")
+        elif [ "$major" -ge 2 ]; then
+            lint_cmd=("golangci-lint" "run" "--out-format" "json" "--new-from-rev=HEAD~" "--timeout" "5m")
+            echo "ℹ️  golangci-lint $version_token detected (v2.0–v2.3). Using transitional JSON flags; consider upgrading to v2.4.0+ for richer output."
+        else
+            if [ -n "$version_token" ]; then
+                echo "⚠️  golangci-lint $version_token detected (<v2.0). Falling back to legacy JSON output; upgrade recommended."
+            else
+                echo "⚠️  Unable to detect golangci-lint version. Falling back to legacy JSON output."
+            fi
+            lint_cmd=("golangci-lint" "run" "--out-format" "json" "--new-from-rev=HEAD~" "--timeout" "5m")
+        fi
+
+        echo "ℹ️  Running ${lint_cmd[*]} (informational for alpha)"
+        if "${lint_cmd[@]}" >/dev/null 2>&1; then
             echo "✅ golangci-lint passed"
         else
             echo "⚠️  golangci-lint found issues (acceptable for alpha)"

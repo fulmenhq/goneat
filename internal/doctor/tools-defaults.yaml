@@ -1,18 +1,41 @@
 scopes:
   security:
     description: "Security scanning tools"
-    tools: ["gosec", "govulncheck", "gitleaks"]
+    tools:
+      - "gosec"
+      - "govulncheck"
+      - "gitleaks"
   format:
     description: "Code formatting tools"
-    tools: ["goimports", "gofmt"]
+    tools:
+      - "goimports"
+      - "gofmt"
   foundation:
     description: "Core foundation tools required for goneat and basic AI agent operation"
-    tools: ["ripgrep", "jq", "go-licenses"]
+    tools:
+      - "go"
+      - "ripgrep"
+      - "jq"
+      - "go-licenses"
+      - "golangci-lint"
+      - "yamlfmt"
+      - "yq"
   all:
     description: "All tools from all scopes"
-    tools: ["gosec", "govulncheck", "gitleaks", "goimports", "gofmt", "ripgrep", "jq", "go-licenses"]
+    tools:
+      - "go"
+      - "gosec"
+      - "govulncheck"
+      - "gitleaks"
+      - "goimports"
+      - "gofmt"
+      - "ripgrep"
+      - "jq"
+      - "go-licenses"
+      - "golangci-lint"
+      - "yamlfmt"
+      - "yq"
 tools:
-  # Security tools
   gosec:
     name: "gosec"
     description: "Go security checker"
@@ -53,6 +76,28 @@ tools:
     detect_command: "gofmt -h"
     version_args: []
     check_args: ["-h"]
+  go:
+    name: "go"
+    description: "Go toolchain required for Go projects"
+    kind: "system"
+    detect_command: "go version"
+    platforms: ["darwin", "linux", "windows"]
+    version_scheme: "semver"
+    minimum_version: "1.21.0"
+    recommended_version: "1.22.0"
+    installer_priority:
+      darwin: ["mise", "brew"]
+      linux: ["mise", "pacman", "apt-get", "dnf", "yum"]
+      windows: ["scoop", "winget"]
+    install_commands:
+      mise: "mise use go@1.22.0"
+      brew: "brew install go"
+      pacman: "sudo pacman -S --noconfirm go"
+      apt-get: "sudo apt-get install -y golang"
+      dnf: "sudo dnf install -y golang"
+      yum: "sudo yum install -y golang"
+      scoop: "scoop install go"
+      winget: "winget install GoLang.Go"
   # Foundation tools
   ripgrep:
     name: "ripgrep"
@@ -60,20 +105,38 @@ tools:
     kind: "system"
     detect_command: "rg --version"
     platforms: ["darwin", "linux", "windows"]
+    installer_priority:
+      darwin: ["mise", "brew"]
+      linux: ["mise", "pacman", "apt-get", "dnf", "yum"]
+      windows: ["scoop", "winget"]
     install_commands:
-      darwin: "brew install ripgrep"
-      linux: "sudo apt-get install ripgrep || sudo yum install ripgrep || sudo pacman -S ripgrep"
-      windows: "winget install BurntSushi.ripgrep.MSVC || scoop install ripgrep"
+      mise: "mise use ripgrep@latest"
+      brew: "brew install ripgrep"
+      pacman: "sudo pacman -S --noconfirm ripgrep"
+      apt-get: "sudo apt-get install -y ripgrep"
+      dnf: "sudo dnf install -y ripgrep"
+      yum: "sudo yum install -y ripgrep"
+      scoop: "scoop install ripgrep"
+      winget: "winget install BurntSushi.ripgrep.MSVC"
   jq:
     name: "jq"
     description: "JSON processor used for CI/CD scripts and API response parsing"
     kind: "system"
     detect_command: "jq --version"
     platforms: ["darwin", "linux", "windows"]
+    installer_priority:
+      darwin: ["mise", "brew"]
+      linux: ["mise", "pacman", "apt-get", "dnf", "yum"]
+      windows: ["scoop", "winget"]
     install_commands:
-      darwin: "brew install jq"
-      linux: "sudo apt-get install jq || sudo yum install jq || sudo pacman -S jq"
-      windows: "winget install jqlang.jq || scoop install jq"
+      mise: "mise use jq@latest"
+      brew: "brew install jq"
+      pacman: "sudo pacman -S --noconfirm jq"
+      apt-get: "sudo apt-get install -y jq"
+      dnf: "sudo dnf install -y jq"
+      yum: "sudo yum install -y jq"
+      scoop: "scoop install jq"
+      winget: "winget install jqlang.jq"
   go-licenses:
     name: "go-licenses"
     description: "License compliance tool for Go dependencies"
@@ -82,3 +145,50 @@ tools:
     install_package: "github.com/google/go-licenses@latest"
     version_args: []
     check_args: ["-h"]
+  golangci-lint:
+    name: "golangci-lint"
+    description: "Fast linters Runner for Go"
+    kind: "go"
+    detect_command: "golangci-lint --version"
+    install_package: "github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
+    version_args: ["--version"]
+    check_args: ["--help"]
+    version_scheme: "semver"
+    minimum_version: "1.54.0"
+    recommended_version: "2.4.0"
+    installer_priority:
+      darwin: ["go-install", "mise", "brew"]
+      linux: ["go-install", "mise"]
+      windows: ["go-install", "scoop", "winget"]
+    install_commands:
+      mise: "mise use golangci-lint@latest"
+      brew: "brew install golangci-lint"
+      scoop: "scoop install golangci-lint"
+      winget: "winget install GolangCI.golangci-lint"
+  yamlfmt:
+    name: "yamlfmt"
+    description: "YAML formatter and linter"
+    kind: "go"
+    detect_command: "yamlfmt --version"
+    install_package: "github.com/google/yamlfmt/cmd/yamlfmt@latest"
+    version_args: ["--version"]
+    check_args: ["--help"]
+  yq:
+    name: "yq"
+    description: "Command-line YAML/XML/TOML processor"
+    kind: "system"
+    detect_command: "yq --version"
+    platforms: ["darwin", "linux", "windows"]
+    installer_priority:
+      darwin: ["mise", "brew"]
+      linux: ["mise", "pacman", "apt-get", "dnf", "yum"]
+      windows: ["scoop", "winget"]
+    install_commands:
+      mise: "mise use yq@latest"
+      brew: "brew install yq"
+      pacman: "sudo pacman -S --noconfirm yq"
+      apt-get: "sudo apt-get install -y yq"
+      dnf: "sudo dnf install -y yq"
+      yum: "sudo yum install -y yq"
+      scoop: "scoop install yq"
+      winget: "winget install mikefarah.yq"

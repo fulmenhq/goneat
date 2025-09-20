@@ -1,24 +1,47 @@
-# Project-level dates configuration
-# Configure monotonic violations as HIGH severity to stop commits
+# Dates assessment configuration
+# This file controls which files are checked for date-related issues
 enabled: true
 rules:
   monotonic_order:
-    enabled: true
-    severity: "medium" # MEDIUM severity for CHANGELOG ordering issues
+    enabled: true  # KEY: Enable monotonic ordering checks
     files:
-      - "**/CHANGELOG*.md"
-      - "**/HISTORY.md"
-      - "**/NEWS.md"
-      - "**/*changelog*.md"
+      - "CHANGELOG.md"
+      - "CHANGELOG*.md"
+      - "HISTORY.md"
+      - "RELEASE*.md"
+      - "*.md"
+    severity: "high"
 files:
+  # Using default includes (opt-in approach):
+  # - CHANGELOG.md, **/CHANGELOG*.md
+  # - **/HISTORY.md
+  # - RELEASE_NOTES.md, **/RELEASE*.md
+  # - **/VERSION
   exclude:
-    - "tests/**"
-    - "test-fixtures/**"
-    - "**/fixtures/**"
-    - "internal/assets/**"
-# Enable AI safety to catch actual date errors from AI agents
+    # Default excludes (safety net) - merged with user config
+    - "**/node_modules/**"
+    - "**/.git/**"
+    - "**/dist/**"
+    - "**/build/**"
+    - "**/.scratchpad/**"
+  text_extensions:
+    - ".md"
+    - ".txt"
+    - ".yaml"
+    - ".yml"
+    - ".json"
+    - ".toml"
+  max_file_size_bytes: 4194304
+date_patterns:
+  - regex: '(\d{4})-(\d{2})-(\d{2})'
+    order: "YMD"
+    description: "ISO 8601 YYYY-MM-DD format"
+timezone: "UTC"
 ai_safety:
   enabled: true
   detect_placeholders: true
   detect_impossible: true
   severity: "medium"
+output:
+  format: "text"
+  fail_on: "error"

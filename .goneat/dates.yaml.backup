@@ -1,0 +1,118 @@
+# .goneat/dates.yaml
+#
+# Date validation configuration for goneat
+# 
+# This file controls date consistency checking across your repository.
+# Dates are extracted from files matching the patterns below and validated
+# for chronological consistency, future dates, and monotonic ordering.
+#
+# Key concepts:
+# - Future dates: Warns about dates in the future (with configurable skew)
+# - Monotonic order: Ensures dates appear in chronological order in files like CHANGELOG
+# - Repository context: Uses git history to establish baseline dates
+#
+# Exclusions: Use patterns to skip files that contain illustrative/synthetic dates
+#
+# For full documentation: goneat docs show configuration/date-validation-config
+#
+enabled: true
+
+date_patterns:
+  - regex: "(\\d{4})-(\\d{2})-(\\d{2})"
+    order: "YMD"
+    description: "ISO 8601 date format (YYYY-MM-DD) - common in docs, configs, changelogs"
+  - regex: "(\\d{2})/(\\d{2})/(\\d{4})"
+    order: "MDY"
+    description: "US date format (MM/DD/YYYY) - common in comments and examples"
+
+rules:
+  future_dates:
+    enabled: true
+    max_skew: "24h"
+    severity: "error"
+    description: "Prevents accidentally committing future dates (allows small clock skew)"
+  monotonic_order:
+    enabled: true
+    files:
+      - "**/CHANGELOG*.md"
+      - "**/CHANGELOG.yaml"
+      - "**/HISTORY*.md"
+      - "**/NEWS*.md"
+      - "**/*changelog*.md"
+      - "RELEASE_NOTES*.md"
+      - "docs/releases/**"
+      - "releases/**"
+    severity: "medium"
+    description: "Ensures changelog entries appear in chronological order"
+
+# Preserve existing AI safety configuration
+ai_safety:
+  enabled: true
+  detect_placeholders: true
+  detect_impossible: true
+  severity: "medium"
+
+# File exclusions (combining existing and new patterns)
+files:
+  exclude:
+    # Existing exclusions (preserved)
+    - "tests/**"
+    - "test-fixtures/**"
+    - "**/fixtures/**"
+    - "internal/assets/**"
+    - "internal/assets/embedded_docs/**"
+    
+    # New exclusions for documentation and examples
+    - "docs/**"
+      # Documentation examples use future/hypothetical dates for illustration, not repository history
+    - "docs/user-guide/**"
+      # User guide examples and tutorials with illustrative dates
+    - "docs/user-guide/commands/dates.md"
+      # Specific exclusion for dates command documentation
+    - "docs/appnotes/**"
+      # Application notes with example code and dates
+    - "**/examples/**"
+      # Code examples with synthetic/illustrative dates
+    - "**/vendor/**"
+      # Third-party dependencies with arbitrary dates
+    - "**/node_modules/**"
+      # JavaScript dependencies with package metadata dates
+    - "**/*.min.*"
+      # Minified/bundled files with build timestamps
+
+# File type specific configurations
+file_types:
+  markdown:
+    severity_modifier: "low"  # Docs are less critical than release files
+    patterns:
+      - regex: "20\\d{2}-\\d{2}-\\d{2}"
+        description: "Four-digit years (more likely to be real dates)"
+        severity: "medium"
+      - regex: "\\d{1,2}/\\d{1,2}/\\d{2,4}"
+        description: "Slash-separated dates (often examples)"
+        severity: "low"
+  
+  yaml:
+    severity_modifier: "medium"
+    patterns:
+      - regex: "timestamp: \\d{4}-\\d{2}-\\d{2}"
+        description: "Explicit YAML timestamps"
+        severity: "high"
+  
+  changelog:
+    severity_modifier: "high"
+    patterns:
+      - regex: "\\d{4}-\\d{2}-\\d{2}"
+        description: "Changelog release dates"
+        severity: "high"
+        files: ["CHANGELOG.*", "releases/*"]
+
+# Performance tuning
+max_file_size: "1MB"  # Skip large files that might contain many dates
+max_date_count: 1000  # Limit date extraction per file to prevent performance issues
+parallel_workers: 4   # Number of concurrent file processors
+
+# Output customization
+output_format: "markdown"  # markdown, json, html, concise
+show_context: true         # Include line context for date issues
+group_by_file: true        # Group issues by file instead of by type
