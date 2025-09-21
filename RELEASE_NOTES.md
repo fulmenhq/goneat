@@ -1,4 +1,16 @@
 # Goneat v0.2.7 — Version Policy Enforcement (2025-09-20)
+# Goneat v0.2.8 Release Notes
+
+## TL;DR
+
+- Placeholder for v0.2.8 features
+
+## What's New
+
+### Placeholder Features
+- To be determined
+
+---
 
 ## TL;DR
 
