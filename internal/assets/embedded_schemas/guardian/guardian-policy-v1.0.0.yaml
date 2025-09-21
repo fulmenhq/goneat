@@ -1,0 +1,137 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: Goneat Guardian Policy Schema
+description: Schema for goneat guardian policy configuration
+type: object
+properties:
+  guardian:
+    type: object
+    required: [version, defaults, scopes]
+    properties:
+      version:
+        type: string
+        enum: ["1.0.0"]
+      defaults:
+        type: object
+        required: [method, expires, audit_all]
+        properties:
+          method:
+            type: string
+            enum: ["browser", "grant"]
+          expires:
+            type: string
+            pattern: "^\\d+[smhd]$"
+          require_reason:
+            type: boolean
+          audit_all:
+            type: boolean
+      scopes:
+        type: object
+        additionalProperties:
+          $ref: "#/definitions/scopePolicy"
+      security:
+        $ref: "#/definitions/securitySettings"
+      integrations:
+        $ref: "#/definitions/integrationSettings"
+required: [guardian]
+
+definitions:
+  scopePolicy:
+    type: object
+    required: [operations]
+    properties:
+      description:
+        type: string
+      operations:
+        type: object
+        additionalProperties:
+          $ref: "#/definitions/operationPolicy"
+  operationPolicy:
+    type: object
+    required: [enabled]
+    properties:
+      enabled:
+        type: boolean
+      method:
+        type: string
+        enum: ["browser", "grant"]
+      expires:
+        type: string
+        pattern: "^\\d+[smhd]$"
+      require_reason:
+        type: boolean
+      risk:
+        type: string
+      conditions:
+        type: object
+        additionalProperties:
+          type: array
+          items:
+            type: string
+  securitySettings:
+    type: object
+    properties:
+      encryption:
+        type: object
+        properties:
+          enabled:
+            type: boolean
+          algorithm:
+            type: string
+          key_rotation_days:
+            type: integer
+      audit:
+        type: object
+        properties:
+          enabled:
+            type: boolean
+          retention_days:
+            type: integer
+          include_context:
+            type: boolean
+      browser_approval:
+        type: object
+        properties:
+          timeout_seconds:
+            type: integer
+          port_range:
+            type: array
+            minItems: 2
+            maxItems: 2
+            items:
+              type: integer
+          localhost_only:
+            type: boolean
+          auto_open_browser:
+            type: boolean
+          show_url_in_terminal:
+            type: boolean
+      grants:
+        type: object
+        properties:
+          max_duration:
+            type: string
+          max_concurrent:
+            type: integer
+          auto_cleanup:
+            type: boolean
+      branding:
+        type: object
+        properties:
+          project_name:
+            type: string
+          logo_path:
+            type: string
+          custom_message:
+            type: string
+  integrationSettings:
+    type: object
+    properties:
+      hooks:
+        type: object
+        properties:
+          auto_install:
+            type: boolean
+          backup_existing:
+            type: boolean
+          verify_integrity:
+            type: boolean
