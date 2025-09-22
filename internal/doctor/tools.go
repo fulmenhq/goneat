@@ -910,12 +910,22 @@ func summarizeInstallerInstructions(attempts []installerAttempt) string {
 		return ""
 	}
 	var b strings.Builder
+	hasFailures := false
 	for _, attempt := range attempts {
 		if attempt.instructions == "" {
 			continue
 		}
 		b.WriteString(fmt.Sprintf("- %s\n", attempt.instructions))
+		if strings.Contains(attempt.instructions, "(failed:") {
+			hasFailures = true
+		}
 	}
+
+	// If all attempts failed, add reference to package manager documentation
+	if hasFailures && b.Len() > 0 {
+		b.WriteString(fmt.Sprintf("\nFor package manager installation guides, see: %s", packageManagerDocPath))
+	}
+
 	return strings.TrimSpace(b.String())
 }
 
