@@ -113,6 +113,54 @@ if (-not $GONEAT_BIN) {
     }
 }
 
+# Guardian enforcement for protected git commit operations
+{{- if .Guardian.Enabled }}
+$CurrentBranch = git rev-parse --abbrev-ref HEAD 2>$null
+if ($LASTEXITCODE -ne 0) {
+    $CurrentBranch = ""
+}
+
+$GuardianScope = "{{ .Guardian.Scope }}"
+$GuardianOperation = "{{ .Guardian.Operation }}"
+$guardianArgs = @("guardian", "check", $GuardianScope, $GuardianOperation)
+if ($CurrentBranch) {
+    $guardianArgs += @("--branch", $CurrentBranch)
+}
+
+& $GONEAT_BIN @guardianArgs | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host ""
+    Write-Host "❌ Operation blocked by guardian"
+    Write-Host "🔐 Approval required for: $GuardianScope $GuardianOperation"
+    if ($CurrentBranch) {
+        Write-Host "   • Branch: $CurrentBranch"
+    }
+    {{- if .Guardian.Risk }}
+    Write-Host "   • Risk level: {{ .Guardian.Risk }}"
+    {{- end }}
+    {{- if .Guardian.Method }}
+    Write-Host "   • Method: {{ .Guardian.Method }}"
+    {{- end }}
+    {{- if .Guardian.Expires }}
+    Write-Host "   • Approval expires in: {{ .Guardian.Expires }}"
+    {{- end }}
+    {{- if .Guardian.RequireReason }}
+    Write-Host "📝 A reason is required when approving this operation."
+    {{- end }}
+    Write-Host ""
+    Write-Host "Choose an approval path:"
+    if ($CurrentBranch) {
+        Write-Host "  $GONEAT_BIN guardian approve $GuardianScope $GuardianOperation --branch \"$CurrentBranch\""
+    } else {
+        Write-Host "  $GONEAT_BIN guardian approve $GuardianScope $GuardianOperation"
+    }
+    Write-Host "  $GONEAT_BIN guardian grant $GuardianScope $GuardianOperation"
+    exit 1
+}
+
+Write-Host "✅ Guardian approval satisfied"
+{{- end }}
+
 # Use goneat's orchestrated assessment (manifest-driven)
 $args = @(
     "assess",

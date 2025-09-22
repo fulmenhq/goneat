@@ -3,7 +3,7 @@ title: "Hooks Command Reference"
 description: "Complete reference for the goneat hooks command - manage git hooks with intelligent validation"
 author: "@forge-neat"
 date: "2025-08-28"
-last_updated: "2025-09-01"
+last_updated: "2025-09-21"
 status: "approved"
 tags: ["cli", "hooks", "git", "validation", "commands"]
 category: "user-guide"
@@ -75,19 +75,35 @@ goneat hooks generate
 
 **What it does:**
 
-- Reads `.goneat/hooks.yaml` configuration
-- Generates bash scripts for each hook type
+- Reads `.goneat/hooks.yaml`
+- Generates platform-specific hook scripts from embedded templates
 - Includes fallback logic when goneat isn't available
+- Optionally injects guardian approval checks when enabled
 - Writes generated files to `.goneat/hooks/`
+
+**Guardian integration:**
+
+- Use `--with-guardian` to force guardian enforcement into the generated hooks.
+- When the guardian config sets `guardian.integrations.hooks.auto_install: true`, the flag defaults on automatically.
+- Guardian metadata (scope, method, risk, expiry) is embedded so terminal prompts show approval context when an operation is blocked.
+
+**Example with guardian:**
+
+```bash
+goneat hooks generate --with-guardian
+```
+
+When auto-install is enabled in the config, the same guardian block is emitted without passing the explicit flag, so hooks stay in sync with security policy updates.
 
 **Example output:**
 
 ```bash
 🔨 Generating hook files from manifest...
-
-✅ Generated .goneat/hooks/pre-commit
-✅ Generated .goneat/hooks/pre-push
-📦 Ready for installation
+🛡️  Guardian integration enabled in generated hooks
+✅ Hook files generated successfully!
+📁 Created: .goneat/hooks/pre-commit
+📁 Created: .goneat/hooks/pre-push
+📌 Next: Run 'goneat hooks install' to install hooks to .git/hooks
 ```
 
 ### `goneat hooks install`
@@ -103,17 +119,18 @@ goneat hooks install
 - Copies generated hooks from `.goneat/hooks/` to `.git/hooks/`
 - Sets executable permissions on hook files
 - Provides backup of existing hooks if they exist
-- Ensures git can execute the hooks
+- Detects guardian-enabled scripts and ensures guardian configuration is bootstrapped
+- Confirms git can execute the hooks
 
 **Example output:**
 
 ```bash
 📦 Installing hooks to .git/hooks...
-
 ✅ Installed pre-commit hook
 ✅ Installed pre-push hook
-✅ Set executable permissions
-🎯 Hooks are now active!
+🎯 Successfully installed 2 hook(s)!
+🛡️  Guardian integration detected. Config available at /Users/alex/.goneat/guardian/config.yaml
+🔐 Protected operations will require guardian approval before proceeding
 ```
 
 ### `goneat hooks validate`

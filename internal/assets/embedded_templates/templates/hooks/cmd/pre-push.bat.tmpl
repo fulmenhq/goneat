@@ -86,6 +86,55 @@ if "%GONEAT_BIN%"=="" (
     )
 )
 
+REM Guardian enforcement for protected git push operations
+{{- if .Guardian.Enabled }}
+set "GUARDIAN_SCOPE={{ .Guardian.Scope }}"
+set "GUARDIAN_OPERATION={{ .Guardian.Operation }}"
+set "CURRENT_BRANCH="
+for /f "usebackq tokens=*" %%b in (`git rev-parse --abbrev-ref HEAD 2^>nul`) do set "CURRENT_BRANCH=%%b"
+
+set "REMOTE_NAME=%~1"
+set "REMOTE_URL=%~2"
+
+set "GUARDIAN_ARGS=guardian check %GUARDIAN_SCOPE% %GUARDIAN_OPERATION%"
+if defined CURRENT_BRANCH set "GUARDIAN_ARGS=%GUARDIAN_ARGS% --branch %CURRENT_BRANCH%"
+if defined REMOTE_NAME (
+    set "GUARDIAN_ARGS=%GUARDIAN_ARGS% --remote %REMOTE_NAME%"
+) else if defined REMOTE_URL (
+    set "GUARDIAN_ARGS=%GUARDIAN_ARGS% --remote %REMOTE_URL%"
+)
+
+"%GONEAT_BIN%" %GUARDIAN_ARGS%
+if errorlevel 1 (
+    echo.
+    echo ❌ Operation blocked by guardian
+    echo 🔐 Approval required for: %GUARDIAN_SCOPE% %GUARDIAN_OPERATION%
+    if defined CURRENT_BRANCH echo    • Branch: %CURRENT_BRANCH%
+    if defined REMOTE_NAME (
+        echo    • Remote: %REMOTE_NAME%
+    ) else if defined REMOTE_URL (
+        echo    • Remote URL: %REMOTE_URL%
+    )
+    {{- if .Guardian.Risk }}echo    • Risk level: {{ .Guardian.Risk }}{{- end }}
+    {{- if .Guardian.Method }}echo    • Method: {{ .Guardian.Method }}{{- end }}
+    {{- if .Guardian.Expires }}echo    • Approval expires in: {{ .Guardian.Expires }}{{- end }}
+    {{- if .Guardian.RequireReason }}echo 📝 A reason is required when approving this operation.{{- end }}
+    echo.
+    echo Choose an approval path:
+    if defined REMOTE_NAME (
+        echo   %GONEAT_BIN% guardian approve %GUARDIAN_SCOPE% %GUARDIAN_OPERATION% --remote %REMOTE_NAME%
+    ) else if defined REMOTE_URL (
+        echo   %GONEAT_BIN% guardian approve %GUARDIAN_SCOPE% %GUARDIAN_OPERATION% --remote %REMOTE_URL%
+    ) else (
+        echo   %GONEAT_BIN% guardian approve %GUARDIAN_SCOPE% %GUARDIAN_OPERATION%
+    )
+    echo   %GONEAT_BIN% guardian grant %GUARDIAN_SCOPE% %GUARDIAN_OPERATION%
+    exit /b 1
+)
+
+echo ✅ Guardian approval satisfied
+{{- end }}
+
 REM Use goneat's orchestrated assessment (manifest-driven)
 set "ARGS=assess --hook pre-push --hook-manifest "%REPO_ROOT%\.goneat\hooks.yaml""
 

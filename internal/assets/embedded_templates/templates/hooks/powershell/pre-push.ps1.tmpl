@@ -93,6 +93,68 @@ if (-not $GONEAT_BIN) {
     }
 }
 
+# Guardian enforcement for protected git push operations
+{{- if .Guardian.Enabled }}
+$RemoteName = if ($args.Length -ge 1) { $args[0] } else { "" }
+$RemoteUrl = if ($args.Length -ge 2) { $args[1] } else { "" }
+$CurrentBranch = git rev-parse --abbrev-ref HEAD 2>$null
+if ($LASTEXITCODE -ne 0) {
+    $CurrentBranch = ""
+}
+
+$GuardianScope = "{{ .Guardian.Scope }}"
+$GuardianOperation = "{{ .Guardian.Operation }}"
+$guardianArgs = @("guardian", "check", $GuardianScope, $GuardianOperation)
+if ($CurrentBranch) {
+    $guardianArgs += @("--branch", $CurrentBranch)
+}
+if ($RemoteName) {
+    $guardianArgs += @("--remote", $RemoteName)
+} elseif ($RemoteUrl) {
+    $guardianArgs += @("--remote", $RemoteUrl)
+}
+
+& $GONEAT_BIN @guardianArgs | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host ""
+    Write-Host "❌ Operation blocked by guardian"
+    Write-Host "🔐 Approval required for: $GuardianScope $GuardianOperation"
+    if ($CurrentBranch) {
+        Write-Host "   • Branch: $CurrentBranch"
+    }
+    if ($RemoteName) {
+        Write-Host "   • Remote: $RemoteName"
+    } elseif ($RemoteUrl) {
+        Write-Host "   • Remote URL: $RemoteUrl"
+    }
+    {{- if .Guardian.Risk }}
+    Write-Host "   • Risk level: {{ .Guardian.Risk }}"
+    {{- end }}
+    {{- if .Guardian.Method }}
+    Write-Host "   • Method: {{ .Guardian.Method }}"
+    {{- end }}
+    {{- if .Guardian.Expires }}
+    Write-Host "   • Approval expires in: {{ .Guardian.Expires }}"
+    {{- end }}
+    {{- if .Guardian.RequireReason }}
+    Write-Host "📝 A reason is required when approving this operation."
+    {{- end }}
+    Write-Host ""
+    Write-Host "Choose an approval path:"
+    if ($RemoteName) {
+        Write-Host "  $GONEAT_BIN guardian approve $GuardianScope $GuardianOperation --remote \"$RemoteName\""
+    } elseif ($RemoteUrl) {
+        Write-Host "  $GONEAT_BIN guardian approve $GuardianScope $GuardianOperation --remote \"$RemoteUrl\""
+    } else {
+        Write-Host "  $GONEAT_BIN guardian approve $GuardianScope $GuardianOperation"
+    }
+    Write-Host "  $GONEAT_BIN guardian grant $GuardianScope $GuardianOperation"
+    exit 1
+}
+
+Write-Host "✅ Guardian approval satisfied"
+{{- end }}
+
 # Use goneat's orchestrated assessment (manifest-driven)
 $args = @(
     "assess",

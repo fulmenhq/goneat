@@ -69,6 +69,62 @@ if [ -z "$GONEAT_BIN" ]; then
   fi
 fi
 
+# Guardian enforcement for protected git push operations
+{{- if .Guardian.Enabled }}
+REMOTE_NAME="${1:-}"
+REMOTE_URL="${2:-}"
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+GUARDIAN_SCOPE="{{ .Guardian.Scope }}"
+GUARDIAN_OPERATION="{{ .Guardian.Operation }}"
+
+GUARDIAN_ARGS=("$GONEAT_BIN" guardian check "$GUARDIAN_SCOPE" "$GUARDIAN_OPERATION")
+if [ -n "$CURRENT_BRANCH" ]; then
+  GUARDIAN_ARGS+=("--branch" "$CURRENT_BRANCH")
+fi
+if [ -n "$REMOTE_NAME" ]; then
+  GUARDIAN_ARGS+=("--remote" "$REMOTE_NAME")
+elif [ -n "$REMOTE_URL" ]; then
+  GUARDIAN_ARGS+=("--remote" "$REMOTE_URL")
+fi
+
+if ! "${GUARDIAN_ARGS[@]}"; then
+  echo ""
+  echo "❌ Operation blocked by guardian"
+  echo "🔐 Approval required for: ${GUARDIAN_SCOPE} ${GUARDIAN_OPERATION}"
+  if [ -n "$CURRENT_BRANCH" ]; then
+    echo "   • Branch: $CURRENT_BRANCH"
+  fi
+  if [ -n "$REMOTE_NAME" ]; then
+    echo "   • Remote: $REMOTE_NAME"
+  elif [ -n "$REMOTE_URL" ]; then
+    echo "   • Remote URL: $REMOTE_URL"
+  fi
+  {{- if .Guardian.Risk }}
+  echo "   • Risk level: {{ .Guardian.Risk }}"
+  {{- end }}
+  {{- if .Guardian.Method }}
+  echo "   • Method: {{ .Guardian.Method }}"
+  {{- end }}
+  {{- if .Guardian.Expires }}
+  echo "   • Approval expires in: {{ .Guardian.Expires }}"
+  {{- end }}
+  {{- if .Guardian.RequireReason }}
+  echo "📝 A reason is required when approving this operation."
+  {{- end }}
+  echo ""
+  echo "Choose an approval path:"
+  if [ -n "$REMOTE_NAME" ]; then
+    echo "  $GONEAT_BIN guardian approve $GUARDIAN_SCOPE $GUARDIAN_OPERATION --remote \"$REMOTE_NAME\""
+  else
+    echo "  $GONEAT_BIN guardian approve $GUARDIAN_SCOPE $GUARDIAN_OPERATION"
+  fi
+  echo "  $GONEAT_BIN guardian grant $GUARDIAN_SCOPE $GUARDIAN_OPERATION"
+  exit 1
+fi
+
+echo "✅ Guardian approval satisfied"
+{{- end }}
+
 # Use goneat's orchestrated assessment (manifest-driven)
 "$GONEAT_BIN" assess --hook pre-push --hook-manifest "$REPO_ROOT/.goneat/hooks.yaml"{{ if or .OptimizationSettings.OnlyChangedFiles (eq .OptimizationSettings.ContentSource "index") }} --staged-only{{ end }} --package-mode{{- range .Args }} {{ . }}{{- end }}
 

@@ -16,6 +16,7 @@ import (
 	"text/template"
 
 	"github.com/fulmenhq/goneat/internal/assets"
+	"github.com/fulmenhq/goneat/internal/guardian"
 	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/spf13/cobra"
 	"github.com/xeipuuv/gojsonschema"
@@ -94,7 +95,10 @@ restoring any previously backed up hooks if they exist.`,
 	RunE: runHooksRemove,
 }
 
-var removeNoRestore bool
+var (
+	removeNoRestore bool
+	hooksGuardian   bool
+)
 
 // hooksUpgradeCmd represents the hooks upgrade command
 var hooksUpgradeCmd = &cobra.Command{
@@ -146,6 +150,7 @@ func init() {
 	hooksConfigureCmd.Flags().String("pre-commit-apply-mode", "", "Apply mode for pre-commit: check (no changes) or fix (apply fixes and re-stage)")
 	hooksConfigureCmd.Flags().String("optimization-parallel", "", "Parallel execution mode: auto|max|sequential")
 	hooksConfigureCmd.Flags().Bool("install", false, "Install hooks after generation")
+	hooksGenerateCmd.Flags().BoolVar(&hooksGuardian, "with-guardian", false, "Include guardian security checks when generating hooks")
 
 	// Register subcommands
 	subcommands := []*cobra.Command{hooksInitCmd, hooksGenerateCmd, hooksInstallCmd, hooksValidateCmd, hooksRemoveCmd, hooksUpgradeCmd, hooksInspectCmd, hooksConfigureCmd}
@@ -243,6 +248,36 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to parse hooks manifest: %v", err)
 	}
 
+	guardianFlagSet := cmd.Flags().Changed("with-guardian")
+	withGuardian := hooksGuardian
+
+	var guardianCfg *guardian.ConfigRoot
+	if !guardianFlagSet || withGuardian {
+		cfg, cfgErr := guardian.LoadConfig()
+		if cfgErr != nil {
+			if guardianFlagSet && withGuardian {
+				return fmt.Errorf("failed to load guardian configuration: %w", cfgErr)
+			}
+			fmt.Fprintf(cmd.ErrOrStderr(), "⚠️  Guardian integration disabled due to configuration error: %v\n", cfgErr)
+		} else {
+			guardianCfg = cfg
+			if !guardianFlagSet {
+				withGuardian = cfg.Guardian.Integrations.Hooks.AutoInstall
+			}
+		}
+	}
+
+	type guardianTpl struct {
+		Enabled       bool
+		Scope         string
+		Operation     string
+		Method        string
+		Expires       string
+		Risk          string
+		RequireReason bool
+		HasPolicy     bool
+	}
+
 	// Detect appropriate shell type for the current OS
 	shellType, extension := detectShellType()
 
@@ -253,6 +288,7 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 			OnlyChangedFiles bool
 			ContentSource    string
 		}
+		Guardian guardianTpl
 	}
 
 	buildArgs := func(hook string) ([]string, string) {
@@ -268,6 +304,50 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 			}
 		}
 		return args, fallback
+	}
+
+	resolveGuardian := func(scope, operation string) (guardianTpl, error) {
+		gt := guardianTpl{
+			Enabled:   withGuardian,
+			Scope:     scope,
+			Operation: operation,
+		}
+
+		if !withGuardian {
+			if gt.Enabled && gt.Method == "" {
+				gt.Method = string(guardian.MethodBrowser)
+			}
+			return gt, nil
+		}
+
+		if guardianCfg != nil {
+			policy, enforced, err := guardianCfg.ResolvePolicy(scope, operation)
+			if err != nil {
+				return gt, err
+			}
+			if enforced && policy != nil {
+				gt.HasPolicy = true
+				gt.Method = string(policy.Method)
+				gt.Expires = policy.Expires.String()
+				gt.Risk = policy.Risk
+				gt.RequireReason = policy.RequireReason
+			}
+			if gt.Method == "" {
+				gt.Method = string(guardianCfg.Guardian.Defaults.Method)
+			}
+			if gt.Expires == "" {
+				gt.Expires = guardianCfg.Guardian.Defaults.Expires
+			}
+			if !gt.HasPolicy {
+				gt.RequireReason = guardianCfg.Guardian.Defaults.RequireReason
+			}
+		}
+
+		if gt.Method == "" {
+			gt.Method = string(guardian.MethodBrowser)
+		}
+
+		return gt, nil
 	}
 
 	render := func(templatePath, destPath string, data tplData) error {
@@ -311,6 +391,11 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 	if dataPC.OptimizationSettings.ContentSource == "" {
 		dataPC.OptimizationSettings.ContentSource = "index"
 	}
+	guardianPC, err := resolveGuardian("git", "commit")
+	if err != nil {
+		return fmt.Errorf("failed to resolve guardian policy for pre-commit: %w", err)
+	}
+	dataPC.Guardian = guardianPC
 	preCommitTemplate := fmt.Sprintf("templates/hooks/%s/pre-commit.%s.tmpl", shellType, extension)
 	preCommitHook := filepath.Join(hooksDir, "pre-commit")
 	if err := render(preCommitTemplate, preCommitHook, dataPC); err != nil {
@@ -325,12 +410,20 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 	if dataPP.OptimizationSettings.ContentSource == "" {
 		dataPP.OptimizationSettings.ContentSource = "index"
 	}
+	guardianPP, err := resolveGuardian("git", "push")
+	if err != nil {
+		return fmt.Errorf("failed to resolve guardian policy for pre-push: %w", err)
+	}
+	dataPP.Guardian = guardianPP
 	prePushTemplate := fmt.Sprintf("templates/hooks/%s/pre-push.%s.tmpl", shellType, extension)
 	prePushHook := filepath.Join(hooksDir, "pre-push")
 	if err := render(prePushTemplate, prePushHook, dataPP); err != nil {
 		return err
 	}
 
+	if withGuardian {
+		fmt.Println("🛡️  Guardian integration enabled in generated hooks")
+	}
 	fmt.Println("✅ Hook files generated successfully!")
 	fmt.Printf("📁 Created: %s/pre-commit\n", hooksDir)
 	fmt.Printf("📁 Created: %s/pre-push\n", hooksDir)
@@ -387,6 +480,28 @@ func runHooksInstall(cmd *cobra.Command, args []string) error {
 	}
 
 	hooksInstalled := 0
+
+	detectGuardian := func(paths ...string) (bool, error) {
+		needle := []byte("goneat guardian check")
+		for _, p := range paths {
+			data, readErr := os.ReadFile(p)
+			if readErr != nil {
+				if os.IsNotExist(readErr) {
+					continue
+				}
+				return false, readErr
+			}
+			if bytes.Contains(data, needle) {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+
+	guardianActive, err := detectGuardian(filepath.Join(hooksDir, "pre-commit"), filepath.Join(hooksDir, "pre-push"))
+	if err != nil {
+		return fmt.Errorf("failed to inspect generated hooks for guardian integration: %w", err)
+	}
 
 	// Install pre-commit hook
 	preCommitSrc := filepath.Join(hooksDir, "pre-commit")
@@ -452,6 +567,15 @@ func runHooksInstall(cmd *cobra.Command, args []string) error {
 	fmt.Printf("🎯 Successfully installed %d hook(s)!\n", hooksInstalled)
 	fmt.Println("💡 Your git operations will now use goneat's intelligent validation")
 	fmt.Println("🔍 Test with: goneat assess --hook pre-commit")
+
+	if guardianActive {
+		path, cfgErr := guardian.EnsureConfig()
+		if cfgErr != nil {
+			return fmt.Errorf("failed to ensure guardian configuration: %w", cfgErr)
+		}
+		fmt.Printf("🛡️  Guardian integration detected. Config available at %s\n", path)
+		fmt.Println("🔐 Protected operations will require guardian approval before proceeding")
+	}
 
 	return nil
 }
