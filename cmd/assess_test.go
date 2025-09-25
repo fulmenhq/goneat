@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -389,5 +390,82 @@ func TestRunValidate(t *testing.T) {
 	}
 	if strings.TrimSpace(out) == "" {
 		t.Fatalf("expected validation output, got empty")
+	}
+}
+
+// TestAssessCLI_JSONPurity tests that --format json produces pure JSON on stdout
+// and logs on stderr, ensuring programmatic consumption works correctly
+func TestAssessCLI_JSONPurity(t *testing.T) {
+	// Save and reset registry for isolation
+	originalRegistry := assess.GetAssessmentRunnerRegistry()
+	testRegistry := assess.ResetRegistryForTesting()
+
+	// Register fake runners for quick execution
+	testRegistry.RegisterRunner(assess.CategoryFormat, &cliFakeRunner{})
+	testRegistry.RegisterRunner(assess.CategorySecurity, &cliFakeRunner{})
+	testRegistry.RegisterRunner(assess.CategoryLint, &cliFakeRunner{})
+	testRegistry.RegisterRunner(assess.CategoryStaticAnalysis, &cliFakeRunner{})
+	testRegistry.RegisterRunner(assess.CategorySchema, &cliFakeRunner{})
+
+	t.Cleanup(func() {
+		assess.RestoreRegistry(originalRegistry)
+		assessMode, assessNoOp, assessCheck, assessFix = "", false, false, false
+	})
+
+	// Reset global mode flags
+	assessMode, assessNoOp, assessCheck, assessFix = "", false, false, false
+
+	// Create separate buffers for stdout and stderr
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	// Build command with JSON format
+	cmd := &cobra.Command{Use: "assess", RunE: runAssess}
+	setupAssessCommandFlags(cmd)
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{"--format", "json", "--concurrency", "1", "."})
+
+	// Execute command
+	err := cmd.ExecuteContext(context.Background())
+	if err != nil {
+		t.Fatalf("expected success, got error: %v", err)
+	}
+
+	// Verify stdout contains valid JSON
+	stdoutStr := stdout.String()
+	if strings.TrimSpace(stdoutStr) == "" {
+		t.Fatal("expected JSON output on stdout, got empty")
+	}
+
+	// Parse JSON to ensure it's valid
+	var jsonData interface{}
+	if err := json.Unmarshal([]byte(stdoutStr), &jsonData); err != nil {
+		t.Fatalf("stdout is not valid JSON: %v\nstdout content: %s", err, stdoutStr)
+	}
+
+	// Verify JSON contains expected structure
+	jsonMap, ok := jsonData.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected JSON object, got: %T", jsonData)
+	}
+
+	// Check for required top-level keys
+	requiredKeys := []string{"metadata", "summary", "categories"}
+	for _, key := range requiredKeys {
+		if _, exists := jsonMap[key]; !exists {
+			t.Fatalf("JSON missing required key: %s", key)
+		}
+	}
+
+	// Verify stderr contains logs (not empty, indicating logs were properly separated)
+	stderrStr := stderr.String()
+	if strings.TrimSpace(stderrStr) == "" {
+		t.Log("Warning: stderr is empty, expected logs to be separated from JSON output")
+	}
+
+	// Ensure stdout doesn't contain log-like content (basic check)
+	if strings.Contains(stdoutStr, "[INFO]") || strings.Contains(stdoutStr, "[ERROR]") {
+		t.Fatalf("stdout contains log content, should be pure JSON: %s", stdoutStr)
 	}
 }

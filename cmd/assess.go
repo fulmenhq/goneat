@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -152,6 +153,18 @@ func runAssess(cmd *cobra.Command, args []string) error {
 	// Get flag values
 	flags := cmd.Flags()
 	assessFormat, _ := flags.GetString("format")
+
+	// Suppress logs for JSON output to keep clean
+	if assessFormat == "json" {
+		// Reinitialize logger to only show errors for clean JSON output
+		logger.Initialize(logger.Config{
+			Level:     logger.ErrorLevel,
+			UseColor:  false,
+			JSON:      false,
+			Component: "goneat",
+			NoOp:      false,
+		})
+	}
 	assessMode, _ := flags.GetString("mode")
 	assessNoOp, _ = flags.GetBool("no-op")
 	assessCheck, _ = flags.GetBool("check")
@@ -326,6 +339,11 @@ func runAssess(cmd *cobra.Command, args []string) error {
 			// Default to HEAD~ for new-only gating
 			config.LintNewFromRev = "HEAD~"
 		}
+	}
+
+	// Suppress logs for JSON output to keep clean
+	if format == assess.FormatJSON {
+		logger.SetOutput(io.Discard)
 	}
 
 	// Create assessment engine
