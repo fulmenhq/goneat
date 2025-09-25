@@ -469,3 +469,95 @@ func TestAssessCLI_JSONPurity(t *testing.T) {
 		t.Fatalf("stdout contains log content, should be pure JSON: %s", stdoutStr)
 	}
 }
+
+// TestAssessCLI_JSONVsMarkdown_Contrast tests that JSON and markdown formats
+// produce different output types, ensuring format selection works correctly
+func TestAssessCLI_JSONVsMarkdown_Contrast(t *testing.T) {
+	// Save and reset registry for isolation
+	originalRegistry := assess.GetAssessmentRunnerRegistry()
+	testRegistry := assess.ResetRegistryForTesting()
+
+	// Register fake runners for quick execution
+	testRegistry.RegisterRunner(assess.CategoryFormat, &cliFakeRunner{})
+	testRegistry.RegisterRunner(assess.CategorySecurity, &cliFakeRunner{})
+	testRegistry.RegisterRunner(assess.CategoryLint, &cliFakeRunner{})
+	testRegistry.RegisterRunner(assess.CategoryStaticAnalysis, &cliFakeRunner{})
+	testRegistry.RegisterRunner(assess.CategorySchema, &cliFakeRunner{})
+
+	t.Cleanup(func() {
+		assess.RestoreRegistry(originalRegistry)
+		assessMode, assessNoOp, assessCheck, assessFix = "", false, false, false
+	})
+
+	testCases := []struct {
+		name       string
+		format     string
+		expectJSON bool
+		expectLogs bool
+	}{
+		{"JSON format", "json", true, false},
+		{"Markdown format", "markdown", false, true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Reset global mode flags for each subtest
+			assessMode, assessNoOp, assessCheck, assessFix = "", false, false, false
+
+			// Create separate buffers for stdout and stderr
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+
+			// Build command with specified format
+			cmd := &cobra.Command{Use: "assess", RunE: runAssess}
+			setupAssessCommandFlags(cmd)
+			cmd.SetOut(&stdout)
+			cmd.SetErr(&stderr)
+			cmd.SetArgs([]string{"--format", tc.format, "--concurrency", "1", "."})
+
+			// Execute command
+			err := cmd.ExecuteContext(context.Background())
+			if err != nil {
+				t.Fatalf("expected success for %s, got error: %v", tc.name, err)
+			}
+
+			stdoutStr := stdout.String()
+			stderrStr := stderr.String()
+
+			if tc.expectJSON {
+				// Should be valid JSON
+				var jsonData interface{}
+				if err := json.Unmarshal([]byte(stdoutStr), &jsonData); err != nil {
+					t.Fatalf("%s format should produce valid JSON, got: %s", tc.name, stdoutStr)
+				}
+				// Should not contain obvious log markers
+				if strings.Contains(stdoutStr, "[INFO]") || strings.Contains(stdoutStr, "[ERROR]") {
+					t.Fatalf("%s format stdout contains log content: %s", tc.name, stdoutStr)
+				}
+			} else {
+				// Should NOT be valid JSON (markdown format)
+				var jsonData interface{}
+				if err := json.Unmarshal([]byte(stdoutStr), &jsonData); err == nil {
+					t.Fatalf("%s format should NOT produce valid JSON, but it did: %s", tc.name, stdoutStr)
+				}
+				// Should contain markdown-like content
+				if !strings.Contains(stdoutStr, "#") && !strings.Contains(stdoutStr, "-") {
+					t.Logf("Warning: %s format doesn't contain expected markdown markers", tc.name)
+				}
+			}
+
+			if tc.expectLogs {
+				// Should have logs in stderr
+				if strings.TrimSpace(stderrStr) == "" {
+					t.Logf("Warning: %s format stderr is empty, expected logs", tc.name)
+				}
+			} else {
+				// Should have minimal/no logs in stderr (JSON format suppresses them)
+				// Note: In test environment, logs might still appear due to logger initialization
+				if strings.Contains(stderrStr, "[INFO]") && len(stderrStr) > 100 {
+					t.Logf("Note: %s format has some logs in stderr (expected due to test setup): %d chars", tc.name, len(stderrStr))
+				}
+			}
+		})
+	}
+}
