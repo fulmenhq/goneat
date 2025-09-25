@@ -534,32 +534,66 @@ func (b *BrowserServer) displayApprovalInstructions(url string) error {
 	}
 	fmt.Println()
 
-	fmt.Println("┌─────────────────────────────────────────────────────────────────────────────┐")
-	fmt.Printf("│ 🛡️  GUARDIAN APPROVAL REQUIRED – %-28s │\n", truncateForBox(b.projectName, 28))
-	fmt.Println("├─────────────────────────────────────────────────────────────────────────────┤")
-	fmt.Println("│                                                                             │")
-	fmt.Println("│ Open this URL in your browser to approve/deny the operation:                 │")
-	fmt.Println("│                                                                             │")
-	fmt.Printf("│ 🔗  %-65s │\n", url)
-	fmt.Println("│                                                                             │")
-	fmt.Printf("│ ⏱️   Expires in: %2d:%02d                                                    │\n", minutes, seconds)
-	fmt.Println("│                                                                             │")
-	fmt.Println("│ 📋  Copy the URL: Select the link above or use Ctrl+C / right-click copy    │")
-	fmt.Println("│                                                                             │")
-	fmt.Printf("│ 📂  Project folder: %-45s │\n", truncateForBox(b.projectFolder, 45))
-	fmt.Printf("│ 💻  Machine: %-52s │\n", truncateForBox(machineName, 52))
-	fmt.Println("│                                                                             │")
+	// Build content lines
+	var lines []string
+	lines = append(lines, fmt.Sprintf("🛡️  GUARDIAN APPROVAL REQUIRED for %s.%s on %s", b.session.Scope, b.session.Operation, b.projectName))
+	lines = append(lines, "")
+	lines = append(lines, "Open this URL in your browser to approve/deny the operation:")
+	lines = append(lines, "")
+	lines = append(lines, fmt.Sprintf("🔗  %s", url))
+	lines = append(lines, "")
+	lines = append(lines, fmt.Sprintf("⏱️   Expires in: %2d:%02d", minutes, seconds))
+	lines = append(lines, "")
+	lines = append(lines, "📋  Copy the URL: Select the link above or use Ctrl+C / right-click copy")
+	lines = append(lines, "")
+	lines = append(lines, fmt.Sprintf("📂  Project folder: %s", b.projectFolder))
+	lines = append(lines, fmt.Sprintf("💻  Machine: %s", machineName))
 	if b.customMessage != "" {
-		fmt.Printf("│ 💬  %-65s │\n", truncateForBox(b.customMessage, 65))
-		fmt.Println("│                                                                             │")
+		lines = append(lines, "")
+		lines = append(lines, fmt.Sprintf("💬  %s", b.customMessage))
 	}
-	fmt.Println("│ ℹ️   Auto-open was attempted (if enabled). If it opened in the wrong         │")
-	fmt.Println("│      browser/profile, or this is CI/CD/headless, paste the URL manually.    │")
-	fmt.Println("│      No browser? Use curl or another tool to visit the URL.                 │")
-	fmt.Println("└─────────────────────────────────────────────────────────────────────────────┘")
+	lines = append(lines, "")
+	lines = append(lines, "ℹ️   Auto-open was attempted (if enabled). If it opened in the wrong")
+	lines = append(lines, "     browser/profile, or this is CI/CD/headless, paste the URL manually.")
+	lines = append(lines, "     No browser? Use curl or another tool to visit the URL.")
+
+	// Draw the box
+	drawBox(lines)
 	fmt.Println("\n⏳ Waiting for approval... (Ctrl+C to cancel)")
 
 	return nil
+}
+
+// drawBox draws a properly aligned ASCII box around the given lines
+func drawBox(lines []string) {
+	if len(lines) == 0 {
+		return
+	}
+
+	// Trim trailing spaces and find the maximum line length
+	maxLen := 0
+	for i, line := range lines {
+		lines[i] = strings.TrimRight(line, " ")
+		if len(lines[i]) > maxLen {
+			maxLen = len(lines[i])
+		}
+	}
+
+	// Add padding (2 spaces on each side, plus 2 for margins)
+	contentWidth := maxLen + 4
+	border := strings.Repeat("─", contentWidth)
+
+	// Top border
+	fmt.Printf("┌%s┐\n", border)
+
+	// Content lines
+	for _, line := range lines {
+		padding := contentWidth - len(line)
+		fmt.Printf("│ %s%s │\n", line, strings.Repeat(" ", padding))
+	}
+
+	// Bottom border
+	fmt.Printf("└%s┘\n", border)
 }
 
 func truncateForBox(value string, width int) string {

@@ -1,5 +1,7 @@
 # `goneat guardian`
 
+> **⚠️ EXPERIMENTAL**: This feature is experimental until v0.3.x. It may have breaking changes, incomplete documentation, or unexpected behavior. Use in production repositories at your own risk.
+
 Guardian enforces high-risk repository operations with explicit human approval. It evaluates configured policies for each scope/operation pair (for example `git.push`) and, when required, launches a secure local approval server before the command proceeds.
 
 ## `goneat guardian check`

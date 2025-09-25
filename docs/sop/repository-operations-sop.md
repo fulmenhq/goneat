@@ -44,6 +44,8 @@ This document establishes standard operating procedures for Goneat repository op
 
 ### Standard Commit Workflow
 
+> 🔐 **Guardian policy**: Commits to protected branches (`main`, `master`, release/*) must be executed through guardian approval. Perform staging and validation as usual, then wrap the actual commit in `goneat guardian approve git commit -- git commit ...`. Feature branches remain unprotected for day-to-day work.
+
 #### 1. Pre-Commit Quality Check
 
 ```bash
@@ -130,8 +132,8 @@ make pre-commit
 #### 5. Commit Execution
 
 ```bash
-# Standard commit with descriptive message
-git commit -m "feat: enhance format command with work planning
+# Standard commit with guardian approval (protected branches)
+goneat guardian approve git commit -- git commit -m "feat: enhance format command with work planning
 
 - Add work planning integration (branch, priority, dependencies)
 - Implement environment detection (development/production)
@@ -156,6 +158,8 @@ Coverage: 70%"
 
 **RESTRICTED OPERATION - Requires Supervisor Approval**
 
+⚠️ Skipping hooks also skips guardian enforcement. Use only for documented emergencies and notify @3leapsdave. Expect remote enforcement (v0.2.9) to reject unapproved pushes automatically.
+
 ##### Minimum Requirements (Even in Emergency)
 
 ```bash
@@ -172,11 +176,12 @@ make fmt-docs     # Documentation formatting (best effort)
 # Emergency bypass (SUPERVISOR APPROVAL REQUIRED)
 git commit --no-verify -m "hotfix: critical formatting patch
 
-EMERGENCY BYPASS: Pre-commit checks skipped
+EMERGENCY BYPASS: Pre-commit/guardian checks skipped
 Supervisor: @3leapsdave
 Ticket: URGENT-001
 Reason: Production formatting vulnerability
 Formatting: Applied (make fmt + make fmt-docs)
+Guardian: Skipped (documented emergency; notify @3leapsdave)
 
 Will address quality gates in follow-up commit"
 ```
@@ -192,6 +197,7 @@ Supervisor: @3leapsdave
 Ticket: DEV-456
 Reason: End-of-day checkpoint, tests incomplete
 Formatting: Applied (make fmt + make fmt-docs)
+Guardian: Skipped (feature branch; log reason)
 
 Will complete implementation and tests in next commit"
 ```
@@ -219,6 +225,8 @@ Will complete implementation and tests in next commit"
 - Collaborative development handoffs
 
 ## Push Operations
+
+> 🔐 **Guardian policy**: All pushes to protected branches require guardian approval. Run validations, then execute `goneat guardian approve git push -- git push origin <branch>` so the push happens only after the approval server is satisfied. Feature branches may push normally unless the guardian config enforces additional scopes. Remote enforcement (pre-receive/CI) is planned for v0.2.9 to reject pushes that bypass guardian.
 
 ### Standard Push Workflow
 
@@ -311,13 +319,13 @@ git tag -l -n9 v0.1.0
 
 ```bash
 # Standard push (set upstream on first push)
-git push -u origin main
+goneat guardian approve git push -- git push -u origin main
 
 # Push tag immediately after successful branch push
-git push origin v0.1.0
+goneat guardian approve git push -- git push origin v0.1.0
 
 # Force push after rebase (if needed)
-git push --force-with-lease origin main
+goneat guardian approve git push -- git push --force-with-lease origin main
 ```
 
 **IMPORTANT**: Always push tags immediately after successful branch push to maintain version consistency.
@@ -341,6 +349,7 @@ Goneat includes git hooks for automated quality validation:
 - **Purpose**: Runs `make pre-push` before allowing pushes
 - **Validation**: Full test suite, security scans, production-ready coverage
 - **Bypass**: Use `git push --no-verify` (requires supervisor approval per SOP)
+- **Guardian**: Executes guardian checks/approvals when enabled. Remote enforcement (v0.2.9) will backstop hooks on the server side.
 
 ### Hook Setup Verification
 
