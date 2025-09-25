@@ -203,6 +203,17 @@ func runGuardianApprove(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	grant, err := guardian.IssueGrant(scope, operation, policy, opCtx)
+	if err != nil {
+		return fmt.Errorf("failed to issue guardian grant: %w", err)
+	}
+	revokeGrant := true
+	defer func() {
+		if revokeGrant {
+			guardian.RevokeGrant(grant.ID)
+		}
+	}()
+
 	// Approval granted, execute the command
 	logger.Info("Guardian approval granted, executing command", logger.String("command", strings.Join(cmdArgs, " ")))
 	ecmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
@@ -211,12 +222,15 @@ func runGuardianApprove(cmd *cobra.Command, args []string) error {
 	ecmd.Stdin = cmd.InOrStdin()
 
 	if err := ecmd.Run(); err != nil {
+		guardian.RevokeGrant(grant.ID)
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			// Return the command's exit code
 			return exitErr
 		}
 		return fmt.Errorf("failed to execute command: %w", err)
 	}
+
+	revokeGrant = false
 
 	return nil
 }

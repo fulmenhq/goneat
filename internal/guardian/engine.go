@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	"github.com/fulmenhq/goneat/pkg/logger"
 )
 
 // ErrApprovalRequired indicates the operation requires approval before proceeding.
@@ -54,6 +56,13 @@ func (e *Engine) Check(scope, operation string, ctx OperationContext) (*Resolved
 
 	if !passesConditions(policy, ctx) {
 		return nil, nil
+	}
+
+	// Allow single-use grants to satisfy guardian checks before re-evaluating policy.
+	if used, grantErr := consumeGrant(scope, operation, ctx); used {
+		return nil, nil
+	} else if grantErr != nil && !errors.Is(grantErr, errGrantNotFound) {
+		logger.Debug("Guardian grant lookup failed", logger.String("scope", scope), logger.String("operation", operation), logger.Err(grantErr))
 	}
 
 	// Future commits will integrate grants/approvals. For now return the policy and signal approval requirement.

@@ -92,3 +92,47 @@ func TestEngineCheckHonorsConditions(t *testing.T) {
 		t.Fatalf("expected no policy enforcement for feature branch")
 	}
 }
+
+func TestEngineCheckUsesGrant(t *testing.T) {
+	setupTempHome(t)
+
+	cfg, err := guardian.LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig() error = %v", err)
+	}
+
+	policy, enforced, err := cfg.ResolvePolicy("git", "commit")
+	if err != nil {
+		t.Fatalf("ResolvePolicy() error = %v", err)
+	}
+	if !enforced || policy == nil {
+		t.Fatalf("expected git.commit policy to be enforced")
+	}
+
+	engine, err := guardian.NewEngine()
+	if err != nil {
+		t.Fatalf("NewEngine() error = %v", err)
+	}
+
+	ctx := guardian.OperationContext{Branch: "main"}
+	_, err = engine.Check("git", "commit", ctx)
+	if err == nil || !guardian.IsApprovalRequired(err) {
+		t.Fatalf("expected approval required before grant, got %v", err)
+	}
+
+	grant, err := guardian.IssueGrant("git", "commit", policy, ctx)
+	if err != nil {
+		t.Fatalf("IssueGrant() error = %v", err)
+	}
+	if grant == nil {
+		t.Fatal("expected grant")
+	}
+
+	result, err := engine.Check("git", "commit", ctx)
+	if err != nil {
+		t.Fatalf("expected grant to satisfy check, got error %v", err)
+	}
+	if result != nil {
+		t.Fatalf("expected nil policy when grant consumed")
+	}
+}

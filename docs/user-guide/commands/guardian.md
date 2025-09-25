@@ -29,6 +29,7 @@ goneat guardian approve git push -- git push origin main
 - Approval sessions expire automatically based on policy duration (shorter of policy `expires` and `browser_approval.timeout_seconds`).
 - If the session expires before approval, the command fails with `guardian approval expired`.
 - Use `--branch`, `--remote`, `--user`, or `--reason` to provide additional context shown to reviewers.
+- Successful approval issues a single-use guardian grant (stored in `~/.goneat/guardian/grants/`) that hooks consume automatically. Re-running the command after the grant is consumed requires a new approval.
 
 ## `goneat guardian setup`
 

@@ -120,12 +120,26 @@ type OperationContext struct {
 
 // ResolvedPolicy is the compiled policy after defaults are applied.
 type ResolvedPolicy struct {
-	Scope         string
-	Operation     string
-	Method        Method
-	Expires       time.Duration
-	RequireReason bool
-	Risk          string
-	Conditions    map[string][]string
-	Raw           *OperationPolicy
+    Scope         string
+    Operation     string
+    Method        Method
+    Expires       time.Duration
+    RequireReason bool
+    Risk          string
+    Conditions    map[string][]string
+    Raw           *OperationPolicy
+}
+
+// Grant represents a single-use approval artifact created after guardian approval succeeds.
+type Grant struct {
+    ID        string    `json:"id"`
+    Scope     string    `json:"scope"`
+    Operation string    `json:"operation"`
+    Branch    string    `json:"branch,omitempty"`
+    Remote    string    `json:"remote,omitempty"`
+    User      string    `json:"user,omitempty"`
+    IssuedAt  time.Time `json:"issued_at"`
+    ExpiresAt time.Time `json:"expires_at"`
+    Method    Method    `json:"method"`
+    Nonce     string    `json:"nonce"`
 }
