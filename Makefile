@@ -116,7 +116,7 @@ clean: ## Clean build artifacts
 # Test targets
 test: ## Run all tests
 	@echo "Running test suite..."
-	$(GOTEST) ./... -v
+	GONEAT_OFFLINE_SCHEMA_VALIDATION=true $(GOTEST) ./... -v
 
 test-unit: ## Run unit tests only
 	@echo "Running unit tests..."
@@ -223,7 +223,7 @@ license-audit: ## Audit dependencies for forbidden licenses; fail on detection
 update-licenses: license-inventory license-save ## Update license inventory and third-party texts
 
 # Hook targets (dogfooding)
-pre-commit: build ## Run pre-commit checks using goneat (format + lint)
+pre-commit: build test ## Run pre-commit checks using goneat (format + lint)
 	@echo "Running pre-commit checks with goneat..."
 	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
 		$(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-commit; \
@@ -236,7 +236,7 @@ pre-commit: build ## Run pre-commit checks using goneat (format + lint)
 pre-push: build-all license-audit ## Run pre-push checks using goneat (format + lint + security + license audit)
 	@echo "Running pre-push checks with goneat..."
 	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
-		$(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-push; \
+		GONEAT_OFFLINE_SCHEMA_VALIDATION=false $(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-push; \
 		echo "✅ Pre-push checks passed"; \
 	else \
 		echo "❌ goneat binary not found, cannot run pre-push checks"; \

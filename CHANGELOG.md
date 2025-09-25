@@ -12,11 +12,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [v0.2.8] - 2025-09-20
 
 ### Added
-- Placeholder for v0.2.8 features
+- Guardian command suite (`check`, `approve`, `setup`) with repository-scope policy evaluation and sudo-style approval flow for git operations
+- Local guardian browser approval server with configurable branding, automatic expiry, and structured terminal guidance
+- Guardian-aware hook templates (Bash, PowerShell, Windows CMD) that surface policy context and instruct operators to wrap blocked commands with `guardian approve`
+- New user guide for guardian workflows describing CLI usage, hook remediation, and browser approval UX
 
 ### Changed
+- `guardian approve` now requires the protected command to be supplied after `--`, executing it atomically once approval succeeds and surfacing precise expiry timing
+- Default guardian configuration defers project branding to the host repository, ensuring approval UX reflects the active project by default
 
 ### Fixed
+- Hook prompts no longer advertise unimplemented grant workflows and now align their remediation guidance with the enforced guardian CLI contract
+
+### Notes
+- Additional guardian integrations (`guardian-devops-foundation`, `guardian-sql-proxy`) are re-scoped for v0.2.9 planning
 
 ## [0.2.7] - 2025-09-20
 

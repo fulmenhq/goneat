@@ -120,15 +120,23 @@ if errorlevel 1 (
     {{- if .Guardian.Expires }}echo    • Approval expires in: {{ .Guardian.Expires }}{{- end }}
     {{- if .Guardian.RequireReason }}echo 📝 A reason is required when approving this operation.{{- end }}
     echo.
-    echo Choose an approval path:
+    echo Wrap your git push with guardian approval to proceed:
     if defined REMOTE_NAME (
-        echo   %GONEAT_BIN% guardian approve %GUARDIAN_SCOPE% %GUARDIAN_OPERATION% --remote %REMOTE_NAME%
+        if defined CURRENT_BRANCH (
+            echo   %GONEAT_BIN% guardian approve %GUARDIAN_SCOPE% %GUARDIAN_OPERATION% -- git push %REMOTE_NAME% %CURRENT_BRANCH%
+        ) else (
+            echo   %GONEAT_BIN% guardian approve %GUARDIAN_SCOPE% %GUARDIAN_OPERATION% -- git push %REMOTE_NAME% <branch>
+        )
     ) else if defined REMOTE_URL (
-        echo   %GONEAT_BIN% guardian approve %GUARDIAN_SCOPE% %GUARDIAN_OPERATION% --remote %REMOTE_URL%
+        if defined CURRENT_BRANCH (
+            echo   %GONEAT_BIN% guardian approve %GUARDIAN_SCOPE% %GUARDIAN_OPERATION% -- git push %REMOTE_URL% %CURRENT_BRANCH%
+        ) else (
+            echo   %GONEAT_BIN% guardian approve %GUARDIAN_SCOPE% %GUARDIAN_OPERATION% -- git push %REMOTE_URL% <branch>
+        )
     ) else (
-        echo   %GONEAT_BIN% guardian approve %GUARDIAN_SCOPE% %GUARDIAN_OPERATION%
+        echo   %GONEAT_BIN% guardian approve %GUARDIAN_SCOPE% %GUARDIAN_OPERATION% -- git push <remote> <branch>
     )
-    echo   %GONEAT_BIN% guardian grant %GUARDIAN_SCOPE% %GUARDIAN_OPERATION%
+    echo Once approved, the push runs automatically under guardian supervision.
     exit /b 1
 )
 

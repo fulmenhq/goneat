@@ -127,13 +127,9 @@ if errorlevel 1 (
     {{- if .Guardian.Expires }}echo    • Approval expires in: {{ .Guardian.Expires }}{{- end }}
     {{- if .Guardian.RequireReason }}echo 📝 A reason is required when approving this operation.{{- end }}
     echo.
-    echo Choose an approval path:
-    if defined CURRENT_BRANCH (
-        echo   %GONEAT_BIN% guardian approve %GUARDIAN_SCOPE% %GUARDIAN_OPERATION% --branch %CURRENT_BRANCH%
-    ) else (
-        echo   %GONEAT_BIN% guardian approve %GUARDIAN_SCOPE% %GUARDIAN_OPERATION%
-    )
-    echo   %GONEAT_BIN% guardian grant %GUARDIAN_SCOPE% %GUARDIAN_OPERATION%
+    echo Wrap your git commit with guardian approval to continue:
+    echo   %GONEAT_BIN% guardian approve %GUARDIAN_SCOPE% %GUARDIAN_OPERATION% -- git commit
+    echo   ^# append your normal commit arguments after git commit
     exit /b 1
 )
 

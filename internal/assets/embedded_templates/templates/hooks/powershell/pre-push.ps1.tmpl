@@ -140,15 +140,15 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "📝 A reason is required when approving this operation."
     {{- end }}
     Write-Host ""
-    Write-Host "Choose an approval path:"
-    if ($RemoteName) {
-        Write-Host "  $GONEAT_BIN guardian approve $GuardianScope $GuardianOperation --remote \"$RemoteName\""
-    } elseif ($RemoteUrl) {
-        Write-Host "  $GONEAT_BIN guardian approve $GuardianScope $GuardianOperation --remote \"$RemoteUrl\""
+    Write-Host "Wrap your git push with guardian approval to proceed:"
+    if ($RemoteName -and $CurrentBranch) {
+        Write-Host "  $GONEAT_BIN guardian approve $GuardianScope $GuardianOperation -- git push \"$RemoteName\" \"$CurrentBranch\""
+    } elseif ($RemoteUrl -and $CurrentBranch) {
+        Write-Host "  $GONEAT_BIN guardian approve $GuardianScope $GuardianOperation -- git push \"$RemoteUrl\" \"$CurrentBranch\""
     } else {
-        Write-Host "  $GONEAT_BIN guardian approve $GuardianScope $GuardianOperation"
+        Write-Host "  $GONEAT_BIN guardian approve $GuardianScope $GuardianOperation -- git push <remote> <branch>"
     }
-    Write-Host "  $GONEAT_BIN guardian grant $GuardianScope $GuardianOperation"
+    Write-Host "Once approved, the push runs automatically under guardian supervision."
     exit 1
 }
 

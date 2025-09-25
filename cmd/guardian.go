@@ -3,7 +3,9 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/fulmenhq/goneat/internal/guardian"
 	"github.com/fulmenhq/goneat/internal/ops"
@@ -15,6 +17,7 @@ var (
 	guardianBranch string
 	guardianRemote string
 	guardianUser   string
+	guardianReason string
 )
 
 var guardianCmd = &cobra.Command{
@@ -33,13 +36,10 @@ var guardianCheckCmd = &cobra.Command{
 }
 
 var guardianApproveCmd = &cobra.Command{
-	Use:   "approve <scope> <operation>",
-	Short: "Initiate interactive approval flow (browser)",
-	Args:  cobra.ExactArgs(2),
-	RunE: func(cmd *cobra.Command, _ []string) error {
-		cmd.SilenceUsage = true
-		return errors.New("guardian approve not yet implemented - pending interactive flow")
-	},
+	Use:   "approve <scope> <operation> <command...>",
+	Short: "Initiate interactive approval flow and execute command if approved",
+	Args:  cobra.MinimumNArgs(3),
+	RunE:  runGuardianApprove,
 }
 
 var guardianGrantCmd = &cobra.Command{
@@ -48,7 +48,7 @@ var guardianGrantCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		cmd.SilenceUsage = true
-		return errors.New("guardian grant not yet implemented - grant store work pending")
+		return fmt.Errorf("guardian grant not yet implemented - grant store work pending")
 	},
 }
 
@@ -57,7 +57,7 @@ var guardianStatusCmd = &cobra.Command{
 	Short: "Show guardian status, policies, and active grants",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		cmd.SilenceUsage = true
-		return errors.New("guardian status not yet implemented")
+		return fmt.Errorf("guardian status not yet implemented")
 	},
 }
 
@@ -84,6 +84,11 @@ func init() {
 	guardianCheckCmd.Flags().StringVar(&guardianBranch, "branch", "", "Active branch (used for branch-based policies)")
 	guardianCheckCmd.Flags().StringVar(&guardianRemote, "remote", "", "Git remote name or URL (used for remote-based policies)")
 	guardianCheckCmd.Flags().StringVar(&guardianUser, "user", "", "User performing the operation (optional)")
+
+	guardianApproveCmd.Flags().StringVar(&guardianBranch, "branch", "", "Active branch (used for branch-based policies)")
+	guardianApproveCmd.Flags().StringVar(&guardianRemote, "remote", "", "Git remote name or URL (used for remote-based policies)")
+	guardianApproveCmd.Flags().StringVar(&guardianUser, "user", "", "User requesting approval (optional)")
+	guardianApproveCmd.Flags().StringVar(&guardianReason, "reason", "", "Reason for requesting approval (displayed to reviewers)")
 }
 
 func runGuardianCheck(cmd *cobra.Command, args []string) error {
@@ -119,6 +124,101 @@ func runGuardianCheck(cmd *cobra.Command, args []string) error {
 
 	fmt.Fprintf(cmd.ErrOrStderr(), "guardian check failed: %v\n", err)
 	return err
+}
+
+func runGuardianApprove(cmd *cobra.Command, args []string) error {
+	cmd.SilenceUsage = true
+
+	if len(args) < 3 {
+		return fmt.Errorf("usage: goneat guardian approve <scope> <operation> <command...>")
+	}
+
+	scope := strings.TrimSpace(args[0])
+	operation := strings.TrimSpace(args[1])
+	cmdArgs := args[2:]
+
+	if len(cmdArgs) == 0 {
+		return fmt.Errorf("command to execute is required. Wrap your operation, for example: goneat guardian approve %s %s -- git push origin main", scope, operation)
+	}
+
+	opCtx := guardian.OperationContext{
+		Branch: guardianBranch,
+		Remote: guardianRemote,
+		User:   guardianUser,
+	}
+
+	engine, err := guardian.NewEngine()
+	if err != nil {
+		return err
+	}
+
+	policy, err := engine.Check(scope, operation, opCtx)
+	if err == nil && policy == nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "No guardian policy requires approval for %s.%s\n", scope, operation)
+		return nil
+	}
+	if err != nil && !guardian.IsApprovalRequired(err) {
+		return err
+	}
+
+	if policy == nil {
+		if approvalErr, ok := err.(*guardian.ApprovalRequiredError); ok && approvalErr.Policy != nil {
+			policy = approvalErr.Policy
+		}
+	}
+	if policy == nil {
+		return fmt.Errorf("guardian policy not found for %s.%s", scope, operation)
+	}
+	if policy.Method != guardian.MethodBrowser {
+		return fmt.Errorf("guardian method %s not yet supported", policy.Method)
+	}
+
+	session := guardian.ApprovalSession{
+		Scope:       scope,
+		Operation:   operation,
+		Policy:      policy,
+		Reason:      guardianReason,
+		RequestedAt: time.Now().UTC(),
+	}
+
+	server, err := guardian.StartBrowserApproval(cmd.Context(), session)
+	if err != nil {
+		return err
+	}
+
+	expiresAt := server.ExpiresAt()
+	remaining := time.Until(expiresAt).Round(time.Second)
+	if remaining < 0 {
+		remaining = 0
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "Guardian approval server listening on %s\n", server.URL())
+	fmt.Fprintf(cmd.OutOrStdout(), "Approval URL: %s\n", server.ApprovalURL())
+	fmt.Fprintf(cmd.OutOrStdout(), "Approval expires at %s (%s remaining)\n", expiresAt.Format(time.RFC3339), remaining)
+	fmt.Fprintln(cmd.OutOrStdout(), "Press Ctrl+C to cancel the approval session.")
+
+	if err := server.Wait(); err != nil {
+		if errors.Is(err, guardian.ErrApprovalExpired) {
+			return fmt.Errorf("guardian approval expired before the command could be executed")
+		}
+		return err
+	}
+
+	// Approval granted, execute the command
+	logger.Info("Guardian approval granted, executing command", logger.String("command", strings.Join(cmdArgs, " ")))
+	ecmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+	ecmd.Stdout = cmd.OutOrStdout()
+	ecmd.Stderr = cmd.ErrOrStderr()
+	ecmd.Stdin = cmd.InOrStdin()
+
+	if err := ecmd.Run(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			// Return the command's exit code
+			return exitErr
+		}
+		return fmt.Errorf("failed to execute command: %w", err)
+	}
+
+	return nil
 }
 
 func runGuardianSetup(cmd *cobra.Command, _ []string) error {

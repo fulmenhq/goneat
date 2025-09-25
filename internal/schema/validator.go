@@ -3,6 +3,7 @@ package schema
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/fulmenhq/goneat/internal/assets"
 	"github.com/xeipuuv/gojsonschema"
@@ -24,6 +25,11 @@ type Result struct {
 // registry holds pre-compiled schemas for known schema names (e.g., "goneat-config-v1.0.0").
 var registry = make(map[string]*gojsonschema.Schema)
 
+// isOfflineMode checks if offline schema validation is enabled via environment variable
+func isOfflineMode() bool {
+	return os.Getenv("GONEAT_OFFLINE_SCHEMA_VALIDATION") == "true"
+}
+
 // init populates the registry with known schemas.
 func init() {
 	known := map[string]string{
@@ -41,12 +47,20 @@ func init() {
 				continue
 			}
 
+			// Conditionally remove $schema field to prevent remote fetching in offline mode
+			if isOfflineMode() {
+				if m, ok := schemaData.(map[string]interface{}); ok {
+					delete(m, "$schema")
+				}
+			}
+
 			jsonBytes, err := json.Marshal(schemaData)
 			if err != nil {
 				// Skip on error
 				continue
 			}
 
+			// Create schema with offline-only loading (no remote references)
 			schemaLoader := gojsonschema.NewBytesLoader(jsonBytes)
 			schema, err := gojsonschema.NewSchema(schemaLoader)
 			if err != nil {

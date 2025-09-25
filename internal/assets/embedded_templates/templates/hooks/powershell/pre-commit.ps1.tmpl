@@ -148,13 +148,9 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "📝 A reason is required when approving this operation."
     {{- end }}
     Write-Host ""
-    Write-Host "Choose an approval path:"
-    if ($CurrentBranch) {
-        Write-Host "  $GONEAT_BIN guardian approve $GuardianScope $GuardianOperation --branch \"$CurrentBranch\""
-    } else {
-        Write-Host "  $GONEAT_BIN guardian approve $GuardianScope $GuardianOperation"
-    }
-    Write-Host "  $GONEAT_BIN guardian grant $GuardianScope $GuardianOperation"
+    Write-Host "Wrap your git commit with guardian approval to continue:"
+    Write-Host "  $GONEAT_BIN guardian approve $GuardianScope $GuardianOperation -- git commit"
+    Write-Host "  # append your normal commit arguments after git commit"
     exit 1
 }
 

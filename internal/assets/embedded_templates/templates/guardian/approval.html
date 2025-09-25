@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Guardian Approval</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8f9fa;
+            color: #2d3748;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 25px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .logo {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        h1 {
+            margin: 0 0 5px 0;
+            color: #2d3748;
+            font-size: 1.4em;
+        }
+        .context {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        .machine-info {
+            background: #f0fff4;
+            padding: 8px;
+            border-radius: 4px;
+            margin: 8px 0;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-approve {
+            background: #48bb78;
+            color: white;
+        }
+        .btn-deny {
+            background: #f56565;
+            color: white;
+        }
+        .countdown {
+            text-align: center;
+            margin-top: 15px;
+            padding: 8px;
+            background: #ebf8ff;
+            border-radius: 6px;
+            color: #2c5282;
+            font-weight: 500;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            color: #a0aec0;
+            font-size: 0.85em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🛡️</div>
+            <h1>Guardian Approval Required</h1>
+        </div>
+
+        <div class="context">
+            <strong>Operation:</strong> {{.Scope}}.{{.Operation}}<br>
+            <strong>Risk:</strong> {{.RiskLevel}}<br>
+            <strong>Requested:</strong> {{.Timestamp}}<br>
+            {{if .Reason}}<strong>Reason:</strong> {{.Reason}}<br>{{end}}
+            <div class="machine-info">
+                <strong>From:</strong> {{.MachineName}} / {{.ProjectFolder}}
+            </div>
+        </div>
+
+        <div class="buttons">
+            <button onclick="approve()" class="btn btn-approve">Approve</button>
+            <button onclick="deny()" class="btn btn-deny">Deny</button>
+        </div>
+
+        <div class="countdown" id="countdown">
+            Expires in: <span id="timer">{{.ExpiresIn}}</span>
+        </div>
+    </div>
+
+    <div class="footer">
+        Close this window after action.
+    </div>
+
+    <script>
+        let expiresInSeconds = {{.ExpiresInSeconds}};
+        const timerEl = document.getElementById('timer');
+        const countdownEl = document.getElementById('countdown');
+
+        const interval = setInterval(() => {
+            const minutes = Math.floor(expiresInSeconds / 60);
+            const seconds = expiresInSeconds % 60;
+            timerEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+            if (expiresInSeconds <= 0) {
+                clearInterval(interval);
+                countdownEl.innerHTML = '<strong>Expired</strong>';
+            }
+            expiresInSeconds--;
+        }, 1000);
+
+        async function approve() {
+            try {
+                const response = await fetch(`/approve/{{.Nonce}}/confirm`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'approve' })
+                });
+                if (response.ok) {
+                    document.body.innerHTML = '<div style="text-align: center; margin-top: 50px;"><h2>✅ Approved</h2><p>Close window.</p></div>';
+                    clearInterval(interval);
+                } else {
+                    alert('Approval failed.');
+                }
+            } catch (error) {
+                alert('Network error.');
+            }
+        }
+
+        async function deny() {
+            try {
+                const response = await fetch(`/approve/{{.Nonce}}/deny`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'deny' })
+                });
+                if (response.ok) {
+                    document.body.innerHTML = '<div style="text-align: center; margin-top: 50px;"><h2>❌ Denied</h2><p>Close window.</p></div>';
+                    clearInterval(interval);
+                } else {
+                    alert('Deny failed.');
+                }
+            } catch (error) {
+                alert('Network error.');
+            }
+        }
+    </script>
+</body>
+</html>

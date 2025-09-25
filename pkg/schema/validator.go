@@ -18,6 +18,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// isOfflineMode checks if offline schema validation is enabled via environment variable
+func isOfflineMode() bool {
+	return os.Getenv("GONEAT_OFFLINE_SCHEMA_VALIDATION") == "true"
+}
+
 // Result holds the validation result.
 type Result struct {
 	Valid  bool              `json:"valid"`
@@ -113,6 +118,12 @@ func compileSchemaBytes(schemaBytes []byte) (*gojsonschema.Schema, error) {
 	// Try YAML first; if it parses, convert to canonical JSON bytes for loader
 	var tmp any
 	if err := yaml.Unmarshal(schemaBytes, &tmp); err == nil {
+		// Conditionally remove $schema field to prevent remote fetching in offline mode
+		if isOfflineMode() {
+			if m, ok := tmp.(map[string]interface{}); ok {
+				delete(m, "$schema")
+			}
+		}
 		jb, jerr := json.Marshal(tmp)
 		if jerr != nil {
 			return nil, fmt.Errorf("failed to encode schema to JSON: %w", jerr)
@@ -124,7 +135,18 @@ func compileSchemaBytes(schemaBytes []byte) (*gojsonschema.Schema, error) {
 		}
 		return sch, nil
 	}
-	// Fall back to JSON bytes directly
+	// Fall back to JSON bytes directly - conditionally strip $schema in offline mode
+	if isOfflineMode() {
+		var jsonTmp any
+		if err := json.Unmarshal(schemaBytes, &jsonTmp); err == nil {
+			if m, ok := jsonTmp.(map[string]interface{}); ok {
+				delete(m, "$schema")
+				if jb, jerr := json.Marshal(jsonTmp); jerr == nil {
+					schemaBytes = jb
+				}
+			}
+		}
+	}
 	loader := gojsonschema.NewBytesLoader(schemaBytes)
 	sch, err := gojsonschema.NewSchema(loader)
 	if err != nil {

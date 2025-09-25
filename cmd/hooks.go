@@ -1233,6 +1233,12 @@ func runHooksPolicyValidate(cmd *cobra.Command, args []string) error {
 	if err := yaml.Unmarshal(sb, &schm); err != nil {
 		return fmt.Errorf("failed to parse embedded hooks schema: %v", err)
 	}
+	// Conditionally remove $schema field to prevent remote fetching in offline mode
+	if os.Getenv("GONEAT_OFFLINE_SCHEMA_VALIDATION") == "true" {
+		if m, ok := schm.(map[string]interface{}); ok {
+			delete(m, "$schema")
+		}
+	}
 	schJSON, _ := json.Marshal(schm)
 
 	schemaLoader := gojsonschema.NewBytesLoader(schJSON)

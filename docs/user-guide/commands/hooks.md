@@ -86,6 +86,7 @@ goneat hooks generate
 - Use `--with-guardian` to force guardian enforcement into the generated hooks.
 - When the guardian config sets `guardian.integrations.hooks.auto_install: true`, the flag defaults on automatically.
 - Guardian metadata (scope, method, risk, expiry) is embedded so terminal prompts show approval context when an operation is blocked.
+- When guardian blocks an operation, re-run the command using `goneat guardian approve <scope> <operation> -- <command>` so the action executes atomically after approval (for example, `goneat guardian approve git push -- git push origin main`).
 
 **Example with guardian:**
 

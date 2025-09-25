@@ -224,7 +224,7 @@ const defaultConfigYAML = `guardian:
       max_concurrent: 10
       auto_cleanup: true
     branding:
-      project_name: "goneat"
+      project_name: ""
       logo_path: ""
       custom_message: ""
   integrations:

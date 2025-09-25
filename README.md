@@ -517,6 +517,7 @@ See `docs/configuration/date-validation-config.md` for full configuration detail
 Goneat embeds critical validation assets to ensure deterministic, offline runs:
 
 - JSON Schema meta-schemas: Draft-07, 2020-12
+- **Offline Schema Validation**: Automatically strips `$schema` fields from schemas and data to prevent network access during validation, enabling full offline operation
 - See `docs/architecture/assets-management.md` and `docs/standards/assets-standard.md`
 
 To refresh curated assets (optional):

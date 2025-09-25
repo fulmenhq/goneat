@@ -1,16 +1,39 @@
-# Goneat v0.2.7 — Version Policy Enforcement (2025-09-20)
-# Goneat v0.2.8 Release Notes
+# Goneat v0.2.8 — Guardian Repository Protection (2025-09-20)
 
 ## TL;DR
 
-- Placeholder for v0.2.8 features
+- Guardian command suite (`check`, `approve`, `setup`) protects high-risk git operations with policy-driven approvals
+- Local browser approval server delivers branded, expiring approval flows with sudo-style execution
+- Pre-commit/pre-push hooks now guide operators to wrap blocked commands with `guardian approve`
+- New guardian command documentation covers CLI usage, hooks remediation, and approval UX
 
 ## What's New
 
-### Placeholder Features
-- To be determined
+### Guardian Command Suite
+- Introduced `goneat guardian check`, `approve`, and `setup` commands for repository-scope approval enforcement
+- `guardian approve` now requires the protected git operation after `--`, ensuring the action runs atomically once approval completes
+- Rich terminal output highlights approval scope, project, reason, and expiry timing to aid maintainers
+
+### Browser Approval Experience
+- Added a local guardian approval server with cryptographic nonces, auto-expiring sessions, and localhost binding
+- Terminal instructions respect branding settings and project context; the approval page now features project name as an H1 with optional custom messaging
+- Sessions honor the shorter of policy `expires` and `browser_approval.timeout_seconds`, returning a clear expiration error when unattended
+
+### Guardian Hook Integration
+- Updated generated hooks for Bash, PowerShell, and CMD to surface guardian context and instruct operators to re-run blocked commands via `guardian approve`
+- Removed guidance for not-yet-implemented grant workflows to keep remediation actionable today
+- Hooks auto-bootstrap guardian configuration when integration is detected, keeping security posture consistent across platforms
+
+### Documentation
+- Added `docs/user-guide/commands/guardian.md` covering guardian CLI usage, hook workflows, and troubleshooting tips
+- Expanded `docs/user-guide/commands/hooks.md` to describe the new guardian remediation pattern
+
+## What's Next
+- The guardian DevOps and SQL extensions (`guardian-devops-foundation`, `guardian-sql-proxy`) move to the v0.2.9 planning cycle while we finalise repository coverage in v0.2.8.
 
 ---
+
+# Goneat v0.2.7 — Version Policy Enforcement (2025-09-20)
 
 ## TL;DR
 

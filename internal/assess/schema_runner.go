@@ -17,6 +17,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// isOfflineMode checks if offline schema validation is enabled via environment variable
+func isOfflineMode() bool {
+	return os.Getenv("GONEAT_OFFLINE_SCHEMA_VALIDATION") == "true"
+}
+
 // SchemaAssessmentRunner implements AssessmentRunner for schema-aware validation (preview)
 type SchemaAssessmentRunner struct {
 	commandName string
@@ -381,8 +386,7 @@ func (r *SchemaAssessmentRunner) checkJSONSchemaStructure(path string) error {
 }
 
 // checkJSONSchemaWithMeta attempts meta-schema validation via gojsonschema using embedded drafts.
-// Note: Some draft meta-schemas reference remote fragments; in such cases the library may attempt network access.
-// In that case, the error is returned for the caller to report under the 'jsonschema_meta' subcategory.
+// Note: Remote references are disabled to ensure offline operation.
 func (r *SchemaAssessmentRunner) checkJSONSchemaWithMeta(path string) error {
 	data, err := safeReadFile(path) // #nosec G304 -- path cleaned and restricted to working directory
 	if err != nil {
@@ -398,6 +402,14 @@ func (r *SchemaAssessmentRunner) checkJSONSchemaWithMeta(path string) error {
 		}
 		doc = j
 	}
+
+	// Conditionally remove $schema field to prevent remote fetching in offline mode
+	if isOfflineMode() {
+		if m, ok := doc.(map[string]interface{}); ok {
+			delete(m, "$schema")
+		}
+	}
+
 	// Determine draft
 	draft := "2020-12"
 	if m, ok := doc.(map[string]interface{}); ok {
@@ -414,6 +426,20 @@ func (r *SchemaAssessmentRunner) checkJSONSchemaWithMeta(path string) error {
 	if !ok || len(meta) == 0 {
 		return fmt.Errorf("embedded meta-schema not available for %s", draft)
 	}
+
+	// Conditionally remove $schema from meta-schema in offline mode
+	if isOfflineMode() {
+		var metaDoc interface{}
+		if err := json.Unmarshal(meta, &metaDoc); err == nil {
+			if m, ok := metaDoc.(map[string]interface{}); ok {
+				delete(m, "$schema")
+				if newMeta, err := json.Marshal(metaDoc); err == nil {
+					meta = newMeta
+				}
+			}
+		}
+	}
+
 	jsonDoc, err := toCanonicalJSON(doc)
 	if err != nil {
 		return fmt.Errorf("json conversion failed: %v", err)
