@@ -22,6 +22,7 @@ import (
 
 	"github.com/fulmenhq/goneat/internal/assets"
 	"github.com/fulmenhq/goneat/internal/server"
+	"github.com/fulmenhq/goneat/pkg/ascii"
 	"github.com/fulmenhq/goneat/pkg/buildinfo"
 	"github.com/fulmenhq/goneat/pkg/logger"
 )
@@ -558,53 +559,10 @@ func (b *BrowserServer) displayApprovalInstructions(url string) error {
 	lines = append(lines, "     No browser? Use curl or another tool to visit the URL.")
 
 	// Draw the box
-	drawBox(lines)
+	ascii.DrawBox(lines)
 	fmt.Println("\n⏳ Waiting for approval... (Ctrl+C to cancel)")
 
 	return nil
-}
-
-// drawBox draws a properly aligned ASCII box around the given lines
-func drawBox(lines []string) {
-	if len(lines) == 0 {
-		return
-	}
-
-	// Trim trailing spaces and find the maximum line length
-	maxLen := 0
-	for i, line := range lines {
-		lines[i] = strings.TrimRight(line, " ")
-		if len(lines[i]) > maxLen {
-			maxLen = len(lines[i])
-		}
-	}
-
-	// Add padding (2 spaces on each side, plus 2 for margins)
-	contentWidth := maxLen + 4
-	border := strings.Repeat("─", contentWidth)
-
-	// Top border
-	fmt.Printf("┌%s┐\n", border)
-
-	// Content lines
-	for _, line := range lines {
-		padding := contentWidth - len(line)
-		fmt.Printf("│ %s%s │\n", line, strings.Repeat(" ", padding))
-	}
-
-	// Bottom border
-	fmt.Printf("└%s┘\n", border)
-}
-
-func truncateForBox(value string, width int) string {
-	runes := []rune(value)
-	if len(runes) <= width {
-		return value
-	}
-	if width <= 3 {
-		return string(runes[:width])
-	}
-	return string(runes[:width-3]) + "..."
 }
 
 func (b *BrowserServer) monitorExpiry() {
