@@ -22,6 +22,9 @@ var Schemas embed.FS
 //go:embed embedded_docs
 var Docs embed.FS
 
+//go:embed embedded_config
+var Config embed.FS
+
 func GetJSONSchemaMeta(draft string) ([]byte, bool) {
 	switch draft {
 	case "draft-07", "07", "7":
@@ -55,6 +58,13 @@ func GetDocsFS() fs.FS {
 	return Docs
 }
 
+func GetConfigFS() fs.FS {
+	if sub, err := fs.Sub(Config, "embedded_config"); err == nil {
+		return sub
+	}
+	return Config
+}
+
 // GetEmbeddedAsset retrieves an embedded asset by path
 func GetEmbeddedAsset(path string) ([]byte, error) {
 	// Try templates first (embedded_templates is the root)
@@ -73,5 +83,24 @@ func GetEmbeddedAsset(path string) ([]byte, error) {
 		return data, nil
 	}
 
+	// Try config (embedded_config is the root)
+	if data, err := fs.ReadFile(Config, fullPath); err == nil {
+		return data, nil
+	}
+
 	return nil, fs.ErrNotExist
+}
+
+// GetAsset returns a specific embedded asset by name
+func GetAsset(name string) ([]byte, bool) {
+	switch name {
+	case "terminal-overrides.yaml":
+		// Read from embedded config
+		if data, err := fs.ReadFile(Config, "embedded_config/config/ascii/terminal-overrides.yaml"); err == nil {
+			return data, true
+		}
+		return nil, false
+	default:
+		return nil, false
+	}
 }

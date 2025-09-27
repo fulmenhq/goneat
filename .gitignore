@@ -88,3 +88,6 @@ test-override.md
 
 # User configuration directory (except our own repo config)
 # .goneat/
+
+# Backup files in .goneat directory
+.goneat/*.backup

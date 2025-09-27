@@ -39,6 +39,7 @@ func GetSchemaNames() []SchemaInfo {
 		"docs-embed-manifest-v1.0.0": "embedded_schemas/schemas/content/v1.0.0/docs-embed-manifest.json",
 		"content-find-report-v1.0.0": "embedded_schemas/schemas/output/v1.0.0/content-find-report.json",
 		"tools-config-v1.0.0":        "embedded_schemas/schemas/tools/v1.0.0/tools-config.yaml",
+		"terminal-overrides-v1.0.0":  "embedded_schemas/schemas/ascii/v1.0.0/terminal-overrides.yaml",
 	}
 
 	var infos []SchemaInfo

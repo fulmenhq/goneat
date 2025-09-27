@@ -1,0 +1,13 @@
+CJK Characters Test
+Chinese: 你好世界 こんにちは世界 안녕하세요 세계
+Japanese: こんにちは さようなら ありがとう すみません
+Korean: 안녕하세요 감사합니다 죄송합니다 실례합니다
+Mixed CJK: 中文 English 日本語 한국어
+Numbers: 一二三四五 六七八九十 1234567890
+Punctuation: 。、！？；：""''（）【】《》
+Full-width: ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺ
+Half-width: ａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ
+Symbols: ＠＃＄％＾＆＊＋－＝＜＞？／＼｜～｀
+Hiragana: あいうえお かきくけこ さしすせそ たちつてと
+Katakana: アイウエオ カキクケコ サシスセソ タチツテト
+Hangul: 가나다라마 바사아자차 카타파하

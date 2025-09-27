@@ -8,10 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-
-## [v0.2.8] - 2025-09-20
-
-### Added
+- **Intelligent Hooks Format Detection**: Automatic detection and configuration of format capabilities in `hooks init`
+  - Auto-detects `make format-all`, `make format`, `make fmt` targets in Makefiles
+  - Detects npm format scripts, prettier, and Python formatters (black, ruff)
+  - Automatically includes format commands (priority 5) before assess commands (priority 10) in generated hooks
+  - Eliminates need for manual hooks.yaml editing - users get project-aware configuration automatically
+- **ASCII Art Terminal Calibration System**: Complete toolkit for handling Unicode character width issues across different terminal emulators
+  - New `ascii` command suite with `box`, `stringinfo`, `calibrate`, `mark`, `analyze`, and `diag` subcommands
+  - Terminal-specific width override system supporting Ghostty, iTerm2, Apple Terminal with emoji variation selector handling
+  - Automated analysis tools that detect alignment issues and generate correction commands
+  - Comprehensive calibration workflow with test fixtures for emoji, symbols, and box drawing characters
+  - Configuration system with embedded defaults and user override support via `$GONEAT_HOME/config/terminal-overrides.yaml`
 - Guardian command suite (`check`, `approve`, `setup`) with repository-scope policy evaluation and sudo-style approval flow for git operations
 - Local guardian browser approval server with configurable branding, automatic expiry, and structured terminal guidance
 - Guardian-aware hook templates (Bash, PowerShell, Windows CMD) that surface policy context and instruct operators to wrap blocked commands with `guardian approve`

@@ -19,7 +19,7 @@ We bring a smooth DX layer to the business of making neat code at scale. We wrap
 
 ```bash
 # macOS/Linux example - adjust for your platform and version
-curl -L -o goneat https://github.com/fulmenhq/goneat/releases/download/v0.2.7/goneat-darwin-arm64
+curl -L -o goneat https://github.com/fulmenhq/goneat/releases/download/v0.2.8/goneat-darwin-arm64
 chmod +x goneat
 sudo mv goneat /usr/local/bin/
 ```
@@ -58,12 +58,12 @@ goneat format                       # Fix all format issues
 5. **Set up hooks** (optional, recommended for teams):
 
 ```bash
-goneat hooks init
-goneat hooks generate
+goneat hooks init                       # Auto-detects format capabilities
+goneat hooks generate --with-guardian   # Add security approval workflows
 goneat hooks install
 ```
 
-Hooks now include maturity validation and dirty repository protection to prevent careless version pushes and ensure release readiness. See [Release quality checking](#release-quality-checking) for details.
+Hooks automatically detect and configure format capabilities (make format-all, prettier, etc.) and include maturity validation, dirty repository protection, and optional guardian security approval workflows. See [Release quality checking](#release-quality-checking) and [Guardian Security](#guardian-security) for details.
 
 **Notes:**
 
@@ -154,7 +154,7 @@ make build
 
 ## Status
 
-- Release: v0.2.6 (per `VERSION` file)
+- Release: v0.2.8 (per `VERSION` file)
 - Lifecycle Phase: GA (per `LIFECYCLE_PHASE` file)
 - Release Phase: Release (per `RELEASE_PHASE` file)
 - Repo Visibility: Public
@@ -166,14 +166,16 @@ Note: This is alpha software in RC release phase. See `docs/standards/lifecycle-
 ## Highlights
 
 - **Multi-function text formatter**: handles Go code files, markdown, YAML, JSON with a general text mode for EOF and whitespace trimming at EOL
-- **No‑hassle hooks**: one manifest, one command, instant DX
+- **Intelligent hooks**: auto-detects format capabilities, one manifest, one command, instant DX ([see below](#intelligent-hooks))
+- **Guardian security**: approval workflows for protected git operations with browser-based authentication ([see below](#guardian-security))
+- **ASCII terminal calibration**: complete toolkit for handling Unicode width issues across different terminal emulators ([see below](#ascii-terminal-calibration))
 - **Zero‑friction tooling**: automatic tool detection and installation
 - **JSON‑first SSOT**: one structured output for CI and humans (markdown/html derived)
 - **Enterprise‑scale**: sharded parallelism, multi-module awareness, .goneatignore filtering
 - **Extensible**: add languages, tools, and policies without changing your hook scripts
 - **Diff‑Aware Assessment**: prioritizes and highlights issues in your current change set
-- **Maturity Validation**: prevents version/phase mismatches and ensures release readiness ([see below](#release-quality-checking))
-- **Dirty Repository Protection**: blocks pushes with unstaged changes to prevent careless releases ([see below](#release-quality-checking))
+- **Maturity Validation**: prevents version/phase mismatches and ensures release readiness ([see below](#release-quality-management))
+- **Dirty Repository Protection**: blocks pushes with unstaged changes to prevent careless releases ([see below](#release-quality-management))
 - **Smart Semantic Validation** (planned): detect and validate schemas beyond file extensions
 - **Suppression Insights**: top rules/files with rich summaries for governance
 - **Library Functions**: Reusable Go packages for schema validation and path resolution, enabling integration into custom tools without separate installation.
@@ -238,35 +240,105 @@ Extensible assessment framework with pluggable runners for different validation 
 - Categories: format, lint, security, maturity, repo-status, and extensible for custom validations.
 - Reminder: The library packages are part of the main module; no separate `go install` required—simply `go get github.com/fulmenhq/goneat` and import.
 
-## No‑hassle hooks
+## Intelligent Hooks
 
-Goneat manages Git hooks from a single manifest — not hand-edited scripts. Update `/.goneat/hooks.yaml`, then regenerate and install with one command. Optimized for speed: staged-only scope, result caching, and parallel execution.
+Goneat manages Git hooks with intelligent format detection and zero-configuration setup. No more manual hooks.yaml editing — the system auto-detects your project's format capabilities and configures optimal workflows.
 
 ```bash
-goneat hooks init
-goneat hooks generate
+goneat hooks init                       # Auto-detects format capabilities
+goneat hooks generate --with-guardian   # Add security approval workflows
 goneat hooks install
 ```
 
-Sensible defaults:
+**Smart Detection:**
+- Auto-detects `make format-all`, `make format`, `make fmt` in Makefiles
+- Finds npm format scripts, prettier configs, Python formatters (black, ruff)
+- Configures format commands (priority 5) before assess commands (priority 10)
+- No manual editing required — get project-aware configuration automatically
 
-- Pre-commit: format + lint (fail-on medium)
-- Pre-push: format + lint + security + maturity + repo-status (fail-on high)
-- Optimizations: only_changed_files, cache_results, parallel
+**Sensible defaults:**
+- Pre-commit: format + assess (fail-on critical)
+- Pre-push: format + assess with security + maturity + repo-status (fail-on high)
+- Optimizations: cache_results, parallel execution, change-aware scoping
 
-See [Release quality checking](#release-quality-checking) for details on maturity validation and dirty repository protection.
+See [Release Quality Management](#release-quality-management) for details on maturity validation and dirty repository protection.
 
-Update flow:
-
+**Update flow:**
 ```bash
-# Edit .goneat/hooks.yaml or pull newer templates
-goneat hooks generate && goneat hooks install
+# Re-run init to pick up new format capabilities
+goneat hooks init --force && goneat hooks generate && goneat hooks install
 ```
 
-Tips:
-
+**Configuration:**
 - `GONEAT_HOOK_OUTPUT=concise|markdown|json|html` controls hook output
-- Fail thresholds configurable via `--fail-on`; security concise shows `Fail-on: <level>`
+- Fail thresholds configurable via `--fail-on`
+- Guardian integration available for security-conscious teams
+
+## Guardian Security
+
+Protect critical git operations with policy-driven approval workflows. Guardian provides sudo-style approval for commits and pushes on protected branches, with browser-based authentication and configurable policies.
+
+```bash
+# Setup guardian protection
+goneat guardian setup
+
+# Generate hooks with guardian integration
+goneat hooks generate --with-guardian
+goneat hooks install
+
+# Manual approval for protected operations
+goneat guardian approve git commit -- git commit -m "protected change"
+```
+
+**Features:**
+- **Browser approval**: Local web server with project branding and expiring sessions
+- **Policy enforcement**: Repository-scope policies with branch-specific rules
+- **Hook integration**: Automatically blocks protected operations until approved
+- **Atomic execution**: Commands run only after successful approval
+- **Configurable security**: Risk levels, expiry times, and approval methods
+
+**Workflow:**
+1. Protected git operations (commit/push) are blocked by hooks
+2. Guardian prompts for approval via browser
+3. User approves in browser with project context
+4. Original command executes automatically once approved
+
+Perfect for teams requiring approval workflows on main branches or release operations.
+
+## ASCII Terminal Calibration
+
+Handle Unicode character width inconsistencies across different terminal emulators with goneat's comprehensive ASCII toolkit. Fix emoji alignment issues, calibrate box drawing, and ensure consistent rendering.
+
+```bash
+# Diagnose current terminal
+goneat ascii diag
+
+# Test rendering with calibration files
+goneat ascii box < tests/fixtures/ascii/calibration/emoji-grid.txt
+
+# Detect and fix alignment issues
+goneat ascii analyze --apply < tests/fixtures/ascii/calibration/width-test.txt
+
+# Manual width corrections
+goneat ascii mark --wide "🎟️" "🛠️" --term-program iTerm.app
+```
+
+**Features:**
+- **Terminal detection**: Auto-detects Ghostty, iTerm2, Apple Terminal, and more
+- **Width calibration**: Handles emoji variation selector rendering differences
+- **Automated analysis**: Detects misalignment and generates correction commands
+- **Box rendering**: Test Unicode box drawing and ASCII art alignment
+- **Configuration system**: User overrides via `$GONEAT_HOME/config/terminal-overrides.yaml`
+
+**Commands:**
+- `ascii box`: Render text in aligned boxes for testing
+- `ascii calibrate`: Interactive terminal width calibration
+- `ascii analyze`: Automated alignment analysis with correction generation
+- `ascii mark`: Manual width override configuration
+- `ascii diag`: Terminal diagnostics and capability detection
+- `ascii stringinfo`: Detailed character width analysis
+
+Perfect for teams using ASCII art, box drawing, or emoji in documentation and CLIs.
 
 ## Release Quality Management
 
@@ -396,8 +468,10 @@ Benefits:
 ### Neat Commands (Core Functionality)
 
 - `goneat assess`: Orchestrated assessment engine (format, lint, security, static analysis, schema, date-validation, maturity, repo-status) with user-configurable assessment categories ([docs](docs/user-guide/commands/assess.md))
+- `goneat ascii`: ASCII art and Unicode terminal calibration toolkit with box rendering, width analysis, and terminal-specific corrections ([docs](docs/user-guide/ascii.md))
 - `goneat dates`: Validate and fix date consistency across your codebase ([docs](docs/user-guide/commands/dates.md))
 - `goneat format`: Multi-format formatting with finalizer stage (EOF/trailing spaces, line-endings, BOM) ([docs](docs/user-guide/commands/format.md))
+- `goneat guardian`: Security approval workflows for protected git operations with browser-based authentication ([docs](docs/user-guide/commands/guardian.md))
 - `goneat security`: Security scanning (gosec, govulncheck), sharded + parallel ([docs](docs/user-guide/commands/security.md))
 - `goneat validate`: Schema-aware validation (preview; offline meta-validation) ([docs](docs/user-guide/commands/validate.md))
 

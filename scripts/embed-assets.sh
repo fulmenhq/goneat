@@ -5,13 +5,15 @@ ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
 SRC_TEMPLATES="$ROOT_DIR/templates"
 SRC_SCHEMAS="$ROOT_DIR/schemas"
+SRC_CONFIG="$ROOT_DIR/config"
 
 DST_TEMPLATES="$ROOT_DIR/internal/assets/embedded_templates/templates"
 DST_SCHEMAS="$ROOT_DIR/internal/assets/embedded_schemas/schemas"
+DST_CONFIG="$ROOT_DIR/internal/assets/embedded_config/config"
 
-echo "📦 Embedding assets from SSOT (templates/, schemas/)..."
+echo "📦 Embedding assets from SSOT (templates/, schemas/, config/)..."
 
-mkdir -p "$DST_TEMPLATES" "$DST_SCHEMAS"
+mkdir -p "$DST_TEMPLATES" "$DST_SCHEMAS" "$DST_CONFIG"
 
 sync_dir() {
   local src="$1"
@@ -32,6 +34,7 @@ sync_dir() {
 
 sync_dir "$SRC_TEMPLATES" "$DST_TEMPLATES"
 sync_dir "$SRC_SCHEMAS" "$DST_SCHEMAS"
+sync_dir "$SRC_CONFIG" "$DST_CONFIG"
 
 echo "📦 Embedding curated docs (docs/ -> internal/assets/embedded_docs/docs via CLI if available)..."
 # Prefer CLI-driven embedding when built binary is present

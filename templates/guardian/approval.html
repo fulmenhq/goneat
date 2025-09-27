@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Guardian Approval</title>
+    <title>{{.ProjectName}} - Guardian Approval</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -90,7 +90,7 @@
     <div class="container">
         <div class="header">
             <div class="logo">🛡️</div>
-            <h1>Guardian Approval Required</h1>
+            <h1>{{.ProjectName}} - Guardian Approval Required</h1>
         </div>
 
         <div class="context">
@@ -98,6 +98,7 @@
             <strong>Risk:</strong> {{.RiskLevel}}<br>
             <strong>Requested:</strong> {{.Timestamp}}<br>
             {{if .Reason}}<strong>Reason:</strong> {{.Reason}}<br>{{end}}
+            {{if .CustomMessage}}<strong>Message:</strong> {{.CustomMessage}}<br>{{end}}
             <div class="machine-info">
                 <strong>From:</strong> {{.MachineName}} / {{.ProjectFolder}}
             </div>

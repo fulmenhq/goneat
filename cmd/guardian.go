@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -111,14 +113,59 @@ func runGuardianCheck(cmd *cobra.Command, args []string) error {
 
 	if guardian.IsApprovalRequired(err) {
 		var approvalMsg string
+		var policyPtr *guardian.ResolvedPolicy
 		if ar, ok := err.(*guardian.ApprovalRequiredError); ok && ar.Policy != nil {
 			approvalMsg = fmt.Sprintf("guardian approval required for %s.%s (method=%s, expires=%s)", ar.Scope, ar.Operation, ar.Policy.Method, ar.Policy.Expires)
+			policyPtr = ar.Policy
 		} else if policy != nil {
 			approvalMsg = fmt.Sprintf("guardian approval required for %s.%s (method=%s, expires=%s)", scope, operation, policy.Method, policy.Expires)
+			policyPtr = policy
 		} else {
 			approvalMsg = fmt.Sprintf("guardian approval required for %s.%s", scope, operation)
 		}
-		fmt.Fprintln(cmd.ErrOrStderr(), approvalMsg)
+
+		// If browser approval is required, start a temporary server to show the URL
+		if policyPtr != nil && policyPtr.Method == guardian.MethodBrowser {
+			// In test mode, skip browser server and immediately return approval required error
+			if os.Getenv("GONEAT_GUARDIAN_TEST_MODE") != "" {
+				fmt.Fprintln(cmd.ErrOrStderr(), approvalMsg)
+				fmt.Fprintln(cmd.ErrOrStderr(), "Test mode: skipping browser approval server")
+				return fmt.Errorf("guardian approval required for %s.%s", scope, operation)
+			}
+
+			session := guardian.ApprovalSession{
+				Scope:       scope,
+				Operation:   operation,
+				Policy:      policyPtr,
+				Reason:      fmt.Sprintf("Guardian policy check for %s.%s - testing only", scope, operation),
+				RequestedAt: time.Now().UTC(),
+				ProjectName: "", // Will be populated by StartBrowserApproval from git repo or config
+			}
+
+			server, serverErr := guardian.StartBrowserApproval(context.Background(), session)
+			if serverErr == nil {
+				fmt.Fprintln(cmd.ErrOrStderr(), approvalMsg)
+				fmt.Fprintf(cmd.ErrOrStderr(), "Approval URL: %s\n", server.ApprovalURL())
+				fmt.Fprintln(cmd.ErrOrStderr(), "Open this URL in your browser to approve/deny the operation.")
+				fmt.Fprintln(cmd.ErrOrStderr(), "The approval server will run for the duration of this check.")
+
+				// Wait for approval or timeout
+				waitErr := server.Wait()
+				if waitErr == nil {
+					fmt.Fprintln(cmd.ErrOrStderr(), "✅ Approval granted!")
+					return nil
+				} else if errors.Is(waitErr, guardian.ErrApprovalExpired) {
+					fmt.Fprintln(cmd.ErrOrStderr(), "❌ Approval expired")
+				} else {
+					fmt.Fprintf(cmd.ErrOrStderr(), "❌ Approval failed: %v\n", waitErr)
+				}
+			} else {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to start approval server: %v\n", serverErr)
+				fmt.Fprintln(cmd.ErrOrStderr(), approvalMsg)
+			}
+		} else {
+			fmt.Fprintln(cmd.ErrOrStderr(), approvalMsg)
+		}
 		return err
 	}
 
@@ -179,6 +226,7 @@ func runGuardianApprove(cmd *cobra.Command, args []string) error {
 		Policy:      policy,
 		Reason:      guardianReason,
 		RequestedAt: time.Now().UTC(),
+		ProjectName: "", // Will be populated by StartBrowserApproval from git repo or config
 	}
 
 	server, err := guardian.StartBrowserApproval(cmd.Context(), session)

@@ -1,0 +1,21 @@
+Logging Emojis Test
+ℹ️  Information message
+⚠️  Warning message
+❌  Error message
+✅  Success message
+🔄  Processing message
+⏳  Waiting message
+⏱️  Timer message
+📋  Copy message
+📂  Folder message
+💻  Machine message
+🔗  Link message
+🚀  Launch message
+🎯  Target message
+🛠️  Tool message
+🔧  Config message
+📊  Stats message
+🔍  Search message
+📝  Note message
+💡  Idea message
+🎉  Celebration message

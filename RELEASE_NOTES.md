@@ -1,10 +1,12 @@
-# Goneat v0.2.8 — Guardian Repository Protection (2025-09-20)
+# Goneat v0.2.8 — Guardian Repository Protection & Format Intelligence (2025-09-27)
 
 ## TL;DR
 
 - Guardian command suite (`check`, `approve`, `setup`) protects high-risk git operations with policy-driven approvals
 - Local browser approval server delivers branded, expiring approval flows with sudo-style execution
 - Pre-commit/pre-push hooks now guide operators to wrap blocked commands with `guardian approve`
+- Hooks system now auto-detects and configures format capabilities - no more manual hooks.yaml editing
+- Complete ASCII art toolkit handles Unicode width issues across different terminal emulators
 - New guardian command documentation covers CLI usage, hooks remediation, and approval UX
 
 ## What's New
@@ -24,9 +26,32 @@
 - Removed guidance for not-yet-implemented grant workflows to keep remediation actionable today
 - Hooks auto-bootstrap guardian configuration when integration is detected, keeping security posture consistent across platforms
 
+### Intelligent Hooks Format Detection
+- `goneat hooks init` now automatically detects format capabilities in your project
+- Auto-configures hooks.yaml with format commands (priority 5) before assess commands (priority 10)
+- Supports detection of `make format-all`, `make format`, `make fmt`, npm format scripts, prettier, and Python formatters
+- Eliminates manual hooks.yaml editing while maintaining full user control over generated configuration
+- Projects with format capabilities get comprehensive formatting workflow automatically
+
+### ASCII Art Terminal Calibration System
+- New `ascii` command suite: `box`, `stringinfo`, `calibrate`, `mark`, `analyze`, and `diag`
+- Terminal-specific width override system handles emoji variation selector rendering differences
+- Automated analysis detects alignment issues in ASCII art and generates correction commands
+- Support for Ghostty, iTerm2, Apple Terminal with extensible configuration system
+- Comprehensive test fixtures for emoji, symbols, and box drawing characters
+- User configuration via `$GONEAT_HOME/config/terminal-overrides.yaml` with embedded defaults
+
+### Enhanced Format Coverage
+- Added `format-config` and `format-all` Makefile targets for comprehensive project formatting
+- Configuration and schema files (config/, schemas/) now included in format workflow
+- Integrated format targets into git hooks workflow with proper priority ordering
+
 ### Documentation
 - Added `docs/user-guide/commands/guardian.md` covering guardian CLI usage, hook workflows, and troubleshooting tips
 - Expanded `docs/user-guide/commands/hooks.md` to describe the new guardian remediation pattern
+- Added comprehensive ASCII command documentation in `docs/user-guide/ascii.md`
+- Updated format workflow documentation with new Makefile targets
+- Added terminal calibration guides and troubleshooting tips
 
 ## What's Next
 - The guardian DevOps and SQL extensions (`guardian-devops-foundation`, `guardian-sql-proxy`) move to the v0.2.9 planning cycle while we finalise repository coverage in v0.2.8.

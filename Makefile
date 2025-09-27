@@ -28,7 +28,7 @@ GOFMT := $(GOCMD) fmt
 LDFLAGS := -ldflags "-X 'github.com/fulmenhq/goneat/pkg/buildinfo.BinaryVersion=$(VERSION)'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
-.PHONY: help build clean test fmt format-docs version-get version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease \
+.PHONY: help build clean test fmt format-docs format-config format-all version-get version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease \
 	license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites
 
 # Default target
@@ -107,16 +107,18 @@ build-windows-amd64: ## Build for Windows AMD64
 	GOOS=windows GOARCH=amd64 $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe ./$(SRC_DIR)
 
 # Clean targets
-clean: ## Clean build artifacts
+clean: ## Clean build artifacts and backup files
 	@echo "Cleaning build artifacts..."
 	$(GOCLEAN)
 	rm -rf $(BUILD_DIR)
+	@echo "Cleaning backup files..."
+	@find . -name "*.backup" -type f -delete 2>/dev/null || true
 	@echo "✅ Clean completed"
 
 # Test targets
 test: ## Run all tests
 	@echo "Running test suite..."
-	GONEAT_OFFLINE_SCHEMA_VALIDATION=true $(GOTEST) ./... -v
+	GONEAT_OFFLINE_SCHEMA_VALIDATION=true GONEAT_GUARDIAN_TEST_MODE=true $(GOTEST) ./... -v
 
 test-unit: ## Run unit tests only
 	@echo "Running unit tests..."
@@ -180,6 +182,18 @@ format-docs: build ## Format documentation files using goneat (dogfooding)
 		echo "❌ goneat binary not found, falling back to manual formatting"; \
 		echo "Please install yamlfmt, jq, and prettier for documentation formatting"; \
 	fi
+
+format-config: build ## Format configuration and schema files using goneat (dogfooding)
+	@echo "Formatting configuration and schema files with goneat..."
+	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
+		$(BUILD_DIR)/$(BINARY_NAME) format --types yaml,json --folders config/ schemas/; \
+		echo "✅ Configuration formatting completed with goneat"; \
+	else \
+		echo "❌ goneat binary not found, cannot format config files"; \
+		echo "Please install yamlfmt and jq for configuration formatting"; \
+	fi
+
+format-all: fmt format-docs format-config ## Format all code, documentation, and configuration files
 
 # License compliance
 license-inventory: ## Generate CSV inventory of dependency licenses

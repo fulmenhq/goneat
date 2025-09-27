@@ -161,6 +161,53 @@ func init() {
 	}
 }
 
+// detectFormatCapabilities detects if the project has format capabilities
+func detectFormatCapabilities(targetDir string) []string {
+	var capabilities []string
+
+	// Check for Makefile with format targets
+	makefilePath := filepath.Join(targetDir, "Makefile")
+	if data, err := os.ReadFile(makefilePath); err == nil {
+		content := string(data)
+
+		// Look for specific format targets that we know about
+		if strings.Contains(content, "format-all:") {
+			capabilities = append(capabilities, "make format-all")
+		} else if strings.Contains(content, "format:") && strings.Contains(content, "fmt:") {
+			// Has both format and fmt targets, likely supports comprehensive formatting
+			capabilities = append(capabilities, "make format")
+		} else if strings.Contains(content, "fmt:") {
+			// Basic fmt target
+			capabilities = append(capabilities, "make fmt")
+		}
+	}
+
+	// Check for package.json with format scripts
+	packageJSONPath := filepath.Join(targetDir, "package.json")
+	if data, err := os.ReadFile(packageJSONPath); err == nil {
+		content := string(data)
+		if strings.Contains(content, `"format"`) && strings.Contains(content, `"scripts"`) {
+			capabilities = append(capabilities, "npm run format")
+		}
+	}
+
+	// Check for other common format setups
+	if _, err := os.Stat(filepath.Join(targetDir, ".prettierrc")); err == nil {
+		capabilities = append(capabilities, "prettier")
+	}
+
+	if _, err := os.Stat(filepath.Join(targetDir, "pyproject.toml")); err == nil {
+		if data, err := os.ReadFile(filepath.Join(targetDir, "pyproject.toml")); err == nil {
+			content := string(data)
+			if strings.Contains(content, "black") || strings.Contains(content, "ruff") {
+				capabilities = append(capabilities, "python format")
+			}
+		}
+	}
+
+	return capabilities
+}
+
 func runHooksInit(cmd *cobra.Command, args []string) error {
 	fmt.Println("🐾 Initializing goneat hooks system...")
 
@@ -178,8 +225,66 @@ func runHooksInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create .goneat directory: %v", err)
 	}
 
-	// Create default hooks.yaml manifest
-	hooksConfig := `version: "1.0.0"
+	// Detect format capabilities
+	formatCapabilities := detectFormatCapabilities(".")
+
+	// Build hooks configuration with format support if detected
+	var hooksConfig string
+	if len(formatCapabilities) > 0 {
+		// Include format commands for projects with format capabilities
+		var formatCmd string
+		var formatArgs string
+
+		// Prioritize make format-all if available, else use the first detected capability
+		for _, cap := range formatCapabilities {
+			if strings.Contains(cap, "make format-all") {
+				formatCmd = "make"
+				formatArgs = `["format-all"]`
+				break
+			}
+		}
+
+		// Fallback to first capability if format-all not found
+		if formatCmd == "" {
+			parts := strings.Fields(formatCapabilities[0])
+			if len(parts) >= 2 {
+				formatCmd = parts[0]
+				formatArgs = fmt.Sprintf(`["%s"]`, strings.Join(parts[1:], `", "`))
+			} else {
+				formatCmd = parts[0]
+				formatArgs = `[]`
+			}
+		}
+
+		hooksConfig = fmt.Sprintf(`version: "1.0.0"
+hooks:
+  pre-commit:
+    - command: "%s"
+      args: %s
+      priority: 5
+      timeout: "60s"
+    - command: "assess"
+      args: ["--check", "--categories", "format,lint,dates,tools", "--fail-on", "critical"]
+      priority: 10
+      timeout: "90s"
+  pre-push:
+    - command: "%s"
+      args: %s
+      priority: 5
+      timeout: "60s"
+    - command: "assess"
+      args: ["--check", "--categories", "format,lint,security,dates,tools,maturity,repo-status", "--fail-on", "high"]
+      priority: 10
+      timeout: "2m"
+optimization:
+  cache_results: true
+  content_source: working
+  only_changed_files: false
+  parallel: auto
+`, formatCmd, formatArgs, formatCmd, formatArgs)
+	} else {
+		// Standard configuration without format commands
+		hooksConfig = `version: "1.0.0"
 hooks:
   pre-commit:
     - command: "assess"
@@ -197,6 +302,7 @@ optimization:
   cache_results: true
   parallel: "auto"
 `
+	}
 
 	hooksPath := filepath.Join(goneatDir, "hooks.yaml")
 	if err := os.WriteFile(hooksPath, []byte(hooksConfig), 0600); err != nil { // #nosec G306 - Configuration files use restrictive permissions
@@ -204,7 +310,12 @@ optimization:
 	}
 
 	fmt.Println("✅ Hooks system initialized successfully!")
-	fmt.Println("📝 Created .goneat/hooks.yaml with default configuration")
+	if len(formatCapabilities) > 0 {
+		fmt.Printf("📝 Created .goneat/hooks.yaml with format support (detected: %s)\n", strings.Join(formatCapabilities, ", "))
+		fmt.Println("🎨 Format commands will run automatically before assessment in git hooks")
+	} else {
+		fmt.Println("📝 Created .goneat/hooks.yaml with default configuration")
+	}
 	fmt.Println("🚀 Next steps:")
 	fmt.Println("   1. Run 'goneat hooks generate' to create hook files")
 	fmt.Println("   2. Run 'goneat hooks install' to install hooks to .git/hooks")

@@ -1,0 +1,94 @@
+# Terminal Width Override Configuration
+# 
+# This file contains empirically determined character widths for different terminals.
+# Users can override this by placing their own terminal-overrides.yaml in:
+#   $GONEAT_HOME/config/terminal-overrides.yaml
+#
+# To contribute new entries:
+# 1. Run: goneat ascii diag in your terminal
+# 2. Test with: goneat ascii box <tests/fixtures/ascii/*.txt
+# 3. Document misalignments and submit a PR
+version: "1.0.0"
+terminals:
+  Apple_Terminal:
+    name: macOS Terminal
+    notes: Generally follows Unicode width standards
+  ghostty:
+    name: Ghostty
+    overrides:
+      ⏱️: 2
+      ☠️: 2
+      ☹️: 2
+      ⚠️: 2
+      ✌️: 2
+      "🎗️": 2
+      "🎟️": 2
+      "🖐️": 2
+      "🛠️": 2
+      ℹ️: 2
+    notes: Calibrated via interactive session on Ghostty
+  iTerm.app:
+    name: iTerm2
+    overrides:
+      ⏱️: 2
+      ☠️: 2
+      ☹️: 2
+      ⚠️: 2
+      ✌️: 2
+      "🎗️": 2
+      "🎟️": 2
+      "🖐️": 2
+      "🛠️": 2
+      ℹ️: 2
+    notes: Calibrated via interactive session on iTerm2
+    # Common terminals to be tested and added:
+    # - WezTerm
+    # - Alacritty
+    # - kitty  
+    # - "Windows Terminal" (TERM_PROGRAM may vary)
+    # - Hyper
+    # - Konsole
+    # - gnome-terminal
+# Test sequences for terminal calibration
+# These are commonly problematic characters across terminals
+test_sequences:
+  emoji_with_vs:
+    - "ℹ️" # Information source
+    - "⚠️" # Warning sign
+    - "⏱️" # Stopwatch
+    - "🛠️" # Hammer and wrench
+    - "⭐️" # Star
+    - "▶️" # Play button
+    - "◀️" # Reverse button
+    - "⏸️" # Pause button
+    - "⏹️" # Stop button
+  emoji_without_vs:
+    - "🚀" # Rocket
+    - "📋" # Clipboard
+    - "🔗" # Link
+    - "💻" # Computer
+    - "📂" # Folder
+    - "🎯" # Target
+    - "📊" # Bar chart
+    - "🔍" # Magnifying glass
+  special_symbols:
+    - "✓" # Check mark
+    - "✗" # X mark
+    - "➜" # Arrow right
+    - "…" # Horizontal ellipsis
+    - "•" # Bullet
+    - "▸" # Triangle right
+    - "▪" # Square
+    - "◆" # Diamond
+  box_drawing:
+    - "┌" # Top left corner
+    - "┐" # Top right corner
+    - "└" # Bottom left corner
+    - "┘" # Bottom right corner
+    - "─" # Horizontal line
+    - "│" # Vertical line
+    - "├" # Vertical right
+    - "┤" # Vertical left
+    - "┬" # Horizontal down
+    - "┴" # Horizontal up
+    - "┼" # Cross

@@ -148,7 +148,7 @@ includes:
 # File exclusions (merged with defaults - additive safety net)
 exclusions:
   # Your custom exclusions (added to standard defaults)
-  - "custom-dir/**"  # Example: exclude your custom directory
+  - "custom-dir/**" # Example: exclude your custom directory
   # Standard defaults are automatically included:
   # - "**/node_modules/**", "**/.git/**", "**/dist/**", "**/build/**", "**/.scratchpad/**"
 
@@ -215,12 +215,12 @@ group_by_file: true # Group issues by file rather than type
    - Standard exclusions: node_modules, .git, dist, build, .scratchpad
    - Useful for project-specific directories that should be skipped
 
-4. **File Type Rules**: Different severity for different contexts
+5. **File Type Rules**: Different severity for different contexts
    - **Markdown docs**: Low severity (illustrative content)
    - **YAML configs**: Medium severity (timestamps matter)
    - **Changelogs**: High severity (release history is critical)
 
-5. **Performance Tuning**: Limits to prevent scanning huge files or extracting thousands of dates
+6. **Performance Tuning**: Limits to prevent scanning huge files or extracting thousands of dates
 
 ### Common Use Cases
 
@@ -266,6 +266,7 @@ includes:
   # Include specific documentation that matters
   - "docs/releases/**" # Release-specific docs
   - "docs/CHANGELOG*.md" # Changelog docs
+
 
   # Exclude everything else (no exclusions needed - opt-in approach)
 ```

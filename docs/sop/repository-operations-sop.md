@@ -44,7 +44,7 @@ This document establishes standard operating procedures for Goneat repository op
 
 ### Standard Commit Workflow
 
-> 🔐 **Guardian policy**: Commits to protected branches (`main`, `master`, release/*) must be executed through guardian approval. Perform staging and validation as usual, then wrap the actual commit in `goneat guardian approve git commit -- git commit ...`. Feature branches remain unprotected for day-to-day work.
+> 🔐 **Guardian policy**: Commits to protected branches (`main`, `master`, release/\*) must be executed through guardian approval. Perform staging and validation as usual, then wrap the actual commit in `goneat guardian approve git commit -- git commit ...`. Feature branches remain unprotected for day-to-day work.
 
 #### 1. Pre-Commit Quality Check
 

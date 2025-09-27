@@ -56,6 +56,7 @@ func TestRunGuardianCheck_ApprovalRequired(t *testing.T) {
 
 	homeDir := filepath.Join(tmp, "home")
 	t.Setenv("GONEAT_HOME", homeDir)
+	t.Setenv("GONEAT_GUARDIAN_TEST_MODE", "true")
 
 	cmd := &cobra.Command{Use: "check"}
 	var stdout, stderr bytes.Buffer

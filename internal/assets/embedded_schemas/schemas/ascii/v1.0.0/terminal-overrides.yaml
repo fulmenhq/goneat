@@ -1,0 +1,79 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://schemas.goneat.dev/ascii/v1.0.0/terminal-overrides
+$version: 1.0.0
+title: Terminal Width Override Configuration
+description: |
+  Configuration for terminal-specific character width overrides.
+  This allows goneat to render ASCII boxes correctly across different terminals
+  that handle Unicode character widths differently.
+type: object
+properties:
+  version:
+    type: string
+    description: Configuration format version
+    const: "1.0.0"
+  terminals:
+    type: object
+    description: Terminal-specific override configurations
+    additionalProperties:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Human-readable terminal name
+        overrides:
+          type: [object, "null"]
+          description: |
+            Map of character/sequence to actual rendered width.
+            Key: Unicode character or sequence (e.g., "ℹ️")
+            Value: Display width in terminal columns
+          additionalProperties:
+            type: integer
+            minimum: 0
+            maximum: 8
+            description: Display width in terminal columns
+        notes:
+          type: string
+          description: Additional notes about this terminal's behavior
+      required:
+        - name
+      additionalProperties: false
+  test_sequences:
+    type: object
+    description: Sequences to test when calibrating terminals
+    properties:
+      emoji_with_vs:
+        type: array
+        items:
+          type: string
+        description: Emoji with variation selectors
+      emoji_without_vs:
+        type: array
+        items:
+          type: string
+        description: Emoji without variation selectors
+      special_symbols:
+        type: array
+        items:
+          type: string
+        description: Special Unicode symbols
+      box_drawing:
+        type: array
+        items:
+          type: string
+        description: Box drawing characters
+    additionalProperties: false
+required:
+  - version
+  - terminals
+additionalProperties: false
+
+examples:
+  - version: "1.0.0"
+    terminals:
+      ghostty:
+        name: "Ghostty"
+        overrides:
+          "ℹ️": 2
+          "⚠️": 2
+        notes: "Renders emoji+VS as double-width"

@@ -27,6 +27,8 @@ import (
 	"github.com/fulmenhq/goneat/pkg/logger"
 )
 
+const instructionBoxWidth = 76
+
 // ApprovalSession describes the approval request context used by the browser server.
 type ApprovalSession struct {
 	Scope         string
@@ -118,7 +120,7 @@ func StartBrowserApproval(ctx context.Context, session ApprovalSession) (*Browse
 
 	nonce, err := generateNonce()
 	if err != nil {
-		listener.Close()
+		_ = listener.Close() // Best effort cleanup
 		return nil, err
 	}
 
@@ -165,7 +167,7 @@ func StartBrowserApproval(ctx context.Context, session ApprovalSession) (*Browse
 	}
 
 	if err := server.Save(srv.info); err != nil {
-		listener.Close()
+		_ = listener.Close() // Best effort cleanup
 		return nil, err
 	}
 
@@ -535,30 +537,40 @@ func (b *BrowserServer) displayApprovalInstructions(url string) error {
 	}
 	fmt.Println()
 
-	// Build content lines
-	var lines []string
-	lines = append(lines, fmt.Sprintf("🛡️  GUARDIAN APPROVAL REQUIRED for %s.%s on %s", b.session.Scope, b.session.Operation, b.projectName))
-	lines = append(lines, "")
-	lines = append(lines, "Open this URL in your browser to approve/deny the operation:")
-	lines = append(lines, "")
-	lines = append(lines, fmt.Sprintf("🔗  %s", url))
-	lines = append(lines, "")
-	lines = append(lines, fmt.Sprintf("⏱️   Expires in: %2d:%02d", minutes, seconds))
-	lines = append(lines, "")
-	lines = append(lines, "📋  Copy the URL: Select the link above or use Ctrl+C / right-click copy")
-	lines = append(lines, "")
-	lines = append(lines, fmt.Sprintf("📂  Project folder: %s", b.projectFolder))
-	lines = append(lines, fmt.Sprintf("💻  Machine: %s", machineName))
+	trim := func(msg string) string {
+		return ascii.TruncateForBox(msg, instructionBoxWidth)
+	}
+
+	// Create title bar with separator
+	titleLine := trim(fmt.Sprintf("GUARDIAN APPROVAL REQUIRED for project %s on operation '%s.%s'", b.projectName, b.session.Scope, b.session.Operation))
+	separator := strings.Repeat("═", ascii.StringWidth(titleLine)) // Match title display width using ASCII library
+
+	lines := []string{
+		titleLine,
+		separator,
+		"",
+		trim("Open this URL in your browser to approve/deny the operation:"),
+		"",
+		trim(fmt.Sprintf("🔗  %s", url)),
+		"",
+		trim(fmt.Sprintf("⏱️  Expires in: %2d:%02d", minutes, seconds)),
+		"",
+		trim("📋  Copy the URL: Select the link above or use Ctrl+C / right-click copy"),
+		"",
+		trim(fmt.Sprintf("📂  Project folder: %s", b.projectFolder)),
+		trim(fmt.Sprintf("💻  Machine: %s", machineName)),
+	}
+
 	if b.customMessage != "" {
 		lines = append(lines, "")
-		lines = append(lines, fmt.Sprintf("💬  %s", b.customMessage))
+		lines = append(lines, trim(fmt.Sprintf("💬  %s", b.customMessage)))
 	}
-	lines = append(lines, "")
-	lines = append(lines, "ℹ️   Auto-open was attempted (if enabled). If it opened in the wrong")
-	lines = append(lines, "     browser/profile, or this is CI/CD/headless, paste the URL manually.")
-	lines = append(lines, "     No browser? Use curl or another tool to visit the URL.")
 
-	// Draw the box
+	lines = append(lines, "")
+	lines = append(lines, trim("ℹ️  Auto-open was attempted (if enabled). If it opened in the wrong"))
+	lines = append(lines, trim("     browser/profile, or this is CI/CD/headless, paste the URL manually."))
+	lines = append(lines, trim("     No browser? Use curl or another tool to visit the URL."))
+
 	ascii.DrawBox(lines)
 	fmt.Println("\n⏳ Waiting for approval... (Ctrl+C to cancel)")
 
@@ -601,7 +613,7 @@ func allocateListener(cfg BrowserSettings) (int, net.Listener, error) {
 		maxPort = server.PortMax
 	}
 
-	rng := mathrand.New(mathrand.NewSource(time.Now().UnixNano()))
+	rng := mathrand.New(mathrand.NewSource(time.Now().UnixNano())) // #nosec G404 - Port allocation doesn't require cryptographic randomness
 	for i := 0; i < 25; i++ {
 		candidate := rng.Intn(maxPort-minPort+1) + minPort
 		addr := fmt.Sprintf("127.0.0.1:%d", candidate)

@@ -1,0 +1,17 @@
+GUARDIAN APPROVAL REQUIRED for project goneat on operation 'git.commit'
+═══════════════════════════════════════════════════════════════════════
+
+Open this URL in your browser to approve/deny the operation:
+
+🔗  http://127.0.0.1:63411/approve/test-token-placeholder
+
+⏱️  Expires in:  4:59
+
+📋  Copy the URL: Select the link above or use Ctrl+C / right-click copy
+
+📂  Project folder: goneat
+💻  Machine: bluefin.local
+
+ℹ️  Auto-open was attempted (if enabled). If it opened in the wrong
+     browser/profile, or this is CI/CD/headless, paste the URL manually.
+     No browser? Use curl or another tool to visit the URL.
