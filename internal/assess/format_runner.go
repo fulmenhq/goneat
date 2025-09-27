@@ -442,7 +442,7 @@ func (r *FormatAssessmentRunner) checkFormatting(goFiles []string, config Assess
 		issue := Issue{
 			File:          line,
 			Severity:      SeverityLow,
-			Message:       "File needs formatting (run 'gofmt -w' to fix)",
+			Message:       "File needs formatting (run 'goneat format <file>' to fix)",
 			Category:      CategoryFormat,
 			SubCategory:   "whitespace",
 			AutoFixable:   true,

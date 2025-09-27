@@ -152,7 +152,7 @@ func TestRunGuardianCheck_InvalidArgs(t *testing.T) {
 			t.Fatal("expected panic for insufficient args, but none occurred")
 		}
 	}()
-	runGuardianCheck(cmd, []string{})
+	_ = runGuardianCheck(cmd, []string{}) // Error ignored as this test expects a panic
 }
 
 func TestRunGuardianApprove_InvalidArgs(t *testing.T) {

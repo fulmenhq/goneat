@@ -1,5 +1,5 @@
 # Terminal Width Override Configuration
-# 
+#
 # This file contains empirically determined character widths for different terminals.
 # Users can override this by placing their own terminal-overrides.yaml in:
 #   $GONEAT_HOME/config/terminal-overrides.yaml

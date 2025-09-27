@@ -157,13 +157,15 @@ func runAssess(cmd *cobra.Command, args []string) error {
 	// Suppress logs for JSON output to keep clean
 	if assessFormat == "json" {
 		// Reinitialize logger to only show errors for clean JSON output
-		logger.Initialize(logger.Config{
+		if err := logger.Initialize(logger.Config{
 			Level:     logger.ErrorLevel,
 			UseColor:  false,
 			JSON:      false,
 			Component: "goneat",
 			NoOp:      false,
-		})
+		}); err != nil {
+			return fmt.Errorf("failed to reinitialize logger: %w", err)
+		}
 	}
 	assessMode, _ := flags.GetString("mode")
 	assessNoOp, _ = flags.GetBool("no-op")

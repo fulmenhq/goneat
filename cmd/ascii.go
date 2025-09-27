@@ -9,6 +9,7 @@ import (
 
 	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/fulmenhq/goneat/pkg/ascii"
+	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -231,7 +232,7 @@ var asciiCalibrateCmd = &cobra.Command{
 	Use:   "calibrate [test-file]",
 	Short: "Interactively calibrate terminal character widths",
 	Long: `Interactively calibrate character widths for the current terminal.
-	
+
 This command displays a test box and guides you through identifying characters
 that render wider or narrower than calculated. Adjustments are saved to your
 GONEAT_HOME configuration.`,
@@ -270,7 +271,6 @@ var asciiMarkCmd = &cobra.Command{
 	Use:   "mark",
 	Short: "Mark characters as wide or narrow",
 	Long: `Mark specific characters as wider or narrower than calculated.
-	
 This is a quick way to adjust character widths without the interactive session.
 Changes are applied to the current terminal configuration.`,
 	Example: strings.TrimSpace(`  # Mark emojis as too wide
@@ -328,7 +328,6 @@ var asciiResetCmd = &cobra.Command{
 	Use:   "reset",
 	Short: "Reset user terminal configuration to defaults",
 	Long: `Reset user terminal configuration to repository defaults.
-	
 This removes your user-specific terminal overrides and resets to the
 embedded defaults from the goneat repository. Useful for testing or
 starting fresh with calibration.`,
@@ -375,7 +374,11 @@ and converts it to one emoji per line with descriptive labels for visual calibra
 			if err != nil {
 				return fmt.Errorf("failed to open file: %w", err)
 			}
-			defer file.Close()
+			defer func() {
+			if err := file.Close(); err != nil {
+				logger.Error("Failed to close file", logger.Err(err))
+			}
+		}()
 			input = file
 		}
 

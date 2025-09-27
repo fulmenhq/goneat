@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/fulmenhq/goneat/pkg/config"
+	"github.com/fulmenhq/goneat/pkg/logger"
 )
 
 const (
@@ -154,7 +155,11 @@ func ProbeHello(info Info, client *http.Client) (*HelloResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Error("Failed to close response body", logger.Err(err))
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)

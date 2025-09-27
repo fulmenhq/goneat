@@ -15,6 +15,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Helper function to handle fmt print errors without cluttering code
+func printErr(w interface{ Write([]byte) (int, error) }, message string) {
+	if _, err := fmt.Fprintln(w, message); err != nil {
+		logger.Error("Failed to write message", logger.Err(err))
+	}
+}
+
+// Helper function for formatted messages
+func printErrf(w interface{ Write([]byte) (int, error) }, format string, args ...interface{}) {
+	if _, err := fmt.Fprintf(w, format, args...); err != nil {
+		logger.Error("Failed to write message", logger.Err(err))
+	}
+}
+
 var (
 	guardianBranch string
 	guardianRemote string
@@ -128,8 +142,8 @@ func runGuardianCheck(cmd *cobra.Command, args []string) error {
 		if policyPtr != nil && policyPtr.Method == guardian.MethodBrowser {
 			// In test mode, skip browser server and immediately return approval required error
 			if os.Getenv("GONEAT_GUARDIAN_TEST_MODE") != "" {
-				fmt.Fprintln(cmd.ErrOrStderr(), approvalMsg)
-				fmt.Fprintln(cmd.ErrOrStderr(), "Test mode: skipping browser approval server")
+				printErr(cmd.ErrOrStderr(), approvalMsg)
+				printErr(cmd.ErrOrStderr(), "Test mode: skipping browser approval server")
 				return fmt.Errorf("guardian approval required for %s.%s", scope, operation)
 			}
 
@@ -144,32 +158,32 @@ func runGuardianCheck(cmd *cobra.Command, args []string) error {
 
 			server, serverErr := guardian.StartBrowserApproval(context.Background(), session)
 			if serverErr == nil {
-				fmt.Fprintln(cmd.ErrOrStderr(), approvalMsg)
-				fmt.Fprintf(cmd.ErrOrStderr(), "Approval URL: %s\n", server.ApprovalURL())
-				fmt.Fprintln(cmd.ErrOrStderr(), "Open this URL in your browser to approve/deny the operation.")
-				fmt.Fprintln(cmd.ErrOrStderr(), "The approval server will run for the duration of this check.")
+				printErr(cmd.ErrOrStderr(), approvalMsg)
+				printErrf(cmd.ErrOrStderr(), "Approval URL: %s\n", server.ApprovalURL())
+				printErr(cmd.ErrOrStderr(), "Open this URL in your browser to approve/deny the operation.")
+				printErr(cmd.ErrOrStderr(), "The approval server will run for the duration of this check.")
 
 				// Wait for approval or timeout
 				waitErr := server.Wait()
 				if waitErr == nil {
-					fmt.Fprintln(cmd.ErrOrStderr(), "✅ Approval granted!")
+					printErr(cmd.ErrOrStderr(), "✅ Approval granted!")
 					return nil
 				} else if errors.Is(waitErr, guardian.ErrApprovalExpired) {
-					fmt.Fprintln(cmd.ErrOrStderr(), "❌ Approval expired")
+					printErr(cmd.ErrOrStderr(), "❌ Approval expired")
 				} else {
-					fmt.Fprintf(cmd.ErrOrStderr(), "❌ Approval failed: %v\n", waitErr)
+					printErrf(cmd.ErrOrStderr(), "❌ Approval failed: %v\n", waitErr)
 				}
 			} else {
-				fmt.Fprintf(cmd.ErrOrStderr(), "Failed to start approval server: %v\n", serverErr)
-				fmt.Fprintln(cmd.ErrOrStderr(), approvalMsg)
+				printErrf(cmd.ErrOrStderr(), "Failed to start approval server: %v\n", serverErr)
+				printErr(cmd.ErrOrStderr(), approvalMsg)
 			}
 		} else {
-			fmt.Fprintln(cmd.ErrOrStderr(), approvalMsg)
+			printErr(cmd.ErrOrStderr(), approvalMsg)
 		}
 		return err
 	}
 
-	fmt.Fprintf(cmd.ErrOrStderr(), "guardian check failed: %v\n", err)
+	printErrf(cmd.ErrOrStderr(), "guardian check failed: %v\n", err)
 	return err
 }
 

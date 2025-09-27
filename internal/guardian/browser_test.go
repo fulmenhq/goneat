@@ -17,14 +17,16 @@ import (
 func TestEmbeddedTemplateExists(t *testing.T) {
 	// List all files in the embedded FS
 	t.Log("Listing embedded templates FS:")
-	fs.WalkDir(assets.Templates, ".", func(path string, d fs.DirEntry, err error) error {
+	if err := fs.WalkDir(assets.Templates, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			t.Errorf("Error walking FS: %v", err)
 			return err
 		}
 		t.Logf("  %s", path)
 		return nil
-	})
+	}); err != nil {
+		t.Fatalf("Failed to walk embedded templates: %v", err)
+	}
 
 	// Test that the embedded template file exists and contains expected content
 	data, err := fs.ReadFile(assets.Templates, "embedded_templates/templates/guardian/approval.html")
