@@ -17,7 +17,7 @@ func TestNewEngine(t *testing.T) {
 	if engine == nil {
 		t.Fatal("expected non-nil engine")
 	}
-	if engine.config == nil {
+	if engine != nil && engine.config == nil {
 		t.Fatal("expected engine to have config")
 	}
 }
@@ -139,7 +139,7 @@ func TestEngine_Check_WithDefaults(t *testing.T) {
 	}
 
 	// Check that defaults are applied
-	if policy.Method != MethodBrowser {
+	if policy != nil && policy.Method != MethodBrowser {
 		t.Errorf("expected default method browser, got: %s", policy.Method)
 	}
 	expectedDuration := 15 * time.Minute // from default config

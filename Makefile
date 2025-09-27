@@ -122,16 +122,16 @@ test: ## Run all tests
 
 test-unit: ## Run unit tests only
 	@echo "Running unit tests..."
-	$(GOTEST) ./cmd/... ./internal/... -v
+	GONEAT_OFFLINE_SCHEMA_VALIDATION=true GONEAT_GUARDIAN_TEST_MODE=true $(GOTEST) ./cmd/... ./internal/... -v
 
 test-integration: ## Run integration tests only
 	@echo "Running integration tests..."
-	$(GOTEST) ./tests/integration/... -v
+	GONEAT_OFFLINE_SCHEMA_VALIDATION=true GONEAT_GUARDIAN_TEST_MODE=true $(GOTEST) ./tests/integration/... -v
 
 test-coverage: ## Run tests with coverage
 	@echo "Running tests with coverage..."
 	@mkdir -p $(HOME)/.goneat/coverage
-	$(GOTEST) ./... -coverprofile=$(HOME)/.goneat/coverage/coverage.out
+	GONEAT_OFFLINE_SCHEMA_VALIDATION=true GONEAT_GUARDIAN_TEST_MODE=true $(GOTEST) ./... -coverprofile=$(HOME)/.goneat/coverage/coverage.out
 	go tool cover -html=$(HOME)/.goneat/coverage/coverage.out -o $(HOME)/.goneat/coverage/coverage.html
 	@echo "Coverage report: $(HOME)/.goneat/coverage/coverage.html"
 	@echo "Coverage data: $(HOME)/.goneat/coverage/coverage.out"

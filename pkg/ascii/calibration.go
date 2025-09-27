@@ -456,7 +456,7 @@ func (cs *CalibrationSession) saveAdjustments() error {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	if err := os.WriteFile(configFile, configBytes, 0644); err != nil {
+	if err := os.WriteFile(configFile, configBytes, 0600); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
@@ -475,7 +475,7 @@ func (cs *CalibrationSession) initializeUserConfigFromEmbedded(userConfigFile st
 	}
 
 	// Write embedded config to user location
-	if err := os.WriteFile(userConfigFile, embeddedData, 0644); err != nil {
+	if err := os.WriteFile(userConfigFile, embeddedData, 0600); err != nil {
 		return fmt.Errorf("failed to initialize user config: %w", err)
 	}
 
@@ -586,7 +586,7 @@ func ResetUserConfig() error {
 	}
 
 	// Write embedded config to user location (overwrite existing)
-	if err := os.WriteFile(userConfigFile, embeddedData, 0644); err != nil {
+	if err := os.WriteFile(userConfigFile, embeddedData, 0600); err != nil {
 		return fmt.Errorf("failed to reset user config: %w", err)
 	}
 

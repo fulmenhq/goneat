@@ -75,7 +75,7 @@ func init() {
 
 	// EOF/Text normalization flags
 	formatCmd.Flags().Bool("finalize-eof", true, "Ensure files end with exactly one newline")
-	formatCmd.Flags().Bool("finalize-trim-trailing-spaces", false, "Remove trailing whitespace from all lines")
+	formatCmd.Flags().Bool("finalize-trim-trailing-spaces", true, "Remove trailing whitespace from all lines")
 	formatCmd.Flags().String("finalize-line-endings", "", "Normalize line endings (lf, crlf, or auto)")
 	formatCmd.Flags().Bool("finalize-remove-bom", false, "Remove Byte Order Mark (UTF-8, UTF-16, UTF-32)")
 	formatCmd.Flags().Bool("text-normalize", true, "Apply generic text normalization to any text file (unknown extensions included)")

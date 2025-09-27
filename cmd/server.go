@@ -10,6 +10,7 @@ import (
 
 	"github.com/fulmenhq/goneat/internal/ops"
 	srv "github.com/fulmenhq/goneat/internal/server"
+	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -58,26 +59,32 @@ func runServerList(cmd *cobra.Command, _ []string) error {
 	}
 
 	if len(infos) == 0 {
-		fmt.Fprintln(cmd.OutOrStdout(), "No managed servers found.")
+		if _, err := fmt.Fprintln(cmd.OutOrStdout(), "No managed servers found."); err != nil {
+			logger.Error("Failed to write message", logger.Err(err))
+		}
 		return nil
 	}
 
 	sort.Slice(infos, func(i, j int) bool { return infos[i].Name < infos[j].Name })
 
 	tw := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 4, 2, ' ', 0)
-	fmt.Fprintln(tw, "NAME\tPORT\tPID\tVERSION\tSTARTED")
+	if _, err := fmt.Fprintln(tw, "NAME\tPORT\tPID\tVERSION\tSTARTED"); err != nil {
+		logger.Error("Failed to write header", logger.Err(err))
+	}
 	for _, info := range infos {
 		started := "-"
 		if !info.StartedAt.IsZero() {
 			started = info.StartedAt.Format(time.RFC3339)
 		}
-		fmt.Fprintf(tw, "%s\t%d\t%d\t%s\t%s\n",
+		if _, err := fmt.Fprintf(tw, "%s\t%d\t%d\t%s\t%s\n",
 			info.Name,
 			info.Port,
 			info.PID,
 			dashIfEmpty(info.Version),
 			started,
-		)
+		); err != nil {
+			logger.Error("Failed to write server info", logger.Err(err))
+		}
 	}
 	_ = tw.Flush()
 	return nil
@@ -105,7 +112,9 @@ func runServerStatus(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		if info == nil {
-			fmt.Fprintf(cmd.OutOrStdout(), "No metadata found for server %q.\n", name)
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "No metadata found for server %q.\n", name); err != nil {
+				logger.Error("Failed to write message", logger.Err(err))
+			}
 			return nil
 		}
 		targets = append(targets, *info)
@@ -114,17 +123,21 @@ func runServerStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(targets) == 0 {
-		fmt.Fprintln(cmd.OutOrStdout(), "No managed servers found.")
+		if _, err := fmt.Fprintln(cmd.OutOrStdout(), "No managed servers found."); err != nil {
+			logger.Error("Failed to write message", logger.Err(err))
+		}
 		return nil
 	}
 
 	client := &http.Client{Timeout: 2 * time.Second}
 
 	tw := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 4, 2, ' ', 0)
-	fmt.Fprintln(tw, "NAME\tPORT\tSTATE\tVERSION\tDETAILS")
+	if _, err := fmt.Fprintln(tw, "NAME\tPORT\tSTATE\tVERSION\tDETAILS"); err != nil {
+		logger.Error("Failed to write header", logger.Err(err))
+	}
 
 	for _, info := range targets {
-		state := "unknown"
+		var state string
 		version := dashIfEmpty(info.Version)
 		details := ""
 
@@ -151,13 +164,15 @@ func runServerStatus(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		fmt.Fprintf(tw, "%s\t%d\t%s\t%s\t%s\n",
+		if _, err := fmt.Fprintf(tw, "%s\t%d\t%s\t%s\t%s\n",
 			info.Name,
 			info.Port,
 			state,
 			version,
 			dashIfEmpty(details),
-		)
+		); err != nil {
+			logger.Error("Failed to write server status", logger.Err(err))
+		}
 	}
 
 	_ = tw.Flush()

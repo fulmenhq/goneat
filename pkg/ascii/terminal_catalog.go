@@ -9,6 +9,7 @@ import (
 
 	"github.com/fulmenhq/goneat/internal/assets"
 	"github.com/fulmenhq/goneat/pkg/config"
+	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/fulmenhq/goneat/pkg/schema"
 	"github.com/mattn/go-runewidth"
 	"gopkg.in/yaml.v3"
@@ -86,7 +87,7 @@ func loadTerminalCatalog() error {
 	// Check for user overrides in GONEAT_HOME
 	if err := loadUserOverrides(schemaData); err != nil {
 		// Log error but don't fail - user overrides are optional
-		// In production, this would use the logger package
+		logger.Debug("Failed to load user terminal overrides", logger.Err(err))
 	}
 
 	return nil

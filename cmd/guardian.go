@@ -148,10 +148,15 @@ func runGuardianCheck(cmd *cobra.Command, args []string) error {
 			}
 
 			session := guardian.ApprovalSession{
-				Scope:       scope,
-				Operation:   operation,
-				Policy:      policyPtr,
-				Reason:      fmt.Sprintf("Guardian policy check for %s.%s - testing only", scope, operation),
+				Scope:     scope,
+				Operation: operation,
+				Policy:    policyPtr,
+				Reason: func() string {
+					if os.Getenv("GONEAT_GUARDIAN_TEST_MODE") != "" {
+						return fmt.Sprintf("Guardian policy check for %s.%s - testing only", scope, operation)
+					}
+					return fmt.Sprintf("Guardian policy check for %s.%s", scope, operation)
+				}(),
 				RequestedAt: time.Now().UTC(),
 				ProjectName: "", // Will be populated by StartBrowserApproval from git repo or config
 			}
@@ -215,7 +220,7 @@ func runGuardianApprove(cmd *cobra.Command, args []string) error {
 
 	policy, err := engine.Check(scope, operation, opCtx)
 	if err == nil && policy == nil {
-		fmt.Fprintf(cmd.OutOrStdout(), "No guardian policy requires approval for %s.%s\n", scope, operation)
+		printErrf(cmd.OutOrStdout(), "No guardian policy requires approval for %s.%s\n", scope, operation)
 		return nil
 	}
 	if err != nil && !guardian.IsApprovalRequired(err) {
@@ -253,10 +258,10 @@ func runGuardianApprove(cmd *cobra.Command, args []string) error {
 	if remaining < 0 {
 		remaining = 0
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "Guardian approval server listening on %s\n", server.URL())
-	fmt.Fprintf(cmd.OutOrStdout(), "Approval URL: %s\n", server.ApprovalURL())
-	fmt.Fprintf(cmd.OutOrStdout(), "Approval expires at %s (%s remaining)\n", expiresAt.Format(time.RFC3339), remaining)
-	fmt.Fprintln(cmd.OutOrStdout(), "Press Ctrl+C to cancel the approval session.")
+	printErrf(cmd.OutOrStdout(), "Guardian approval server listening on %s\n", server.URL())
+	printErrf(cmd.OutOrStdout(), "Approval URL: %s\n", server.ApprovalURL())
+	printErrf(cmd.OutOrStdout(), "Approval expires at %s (%s remaining)\n", expiresAt.Format(time.RFC3339), remaining)
+	printErr(cmd.OutOrStdout(), "Press Ctrl+C to cancel the approval session.")
 
 	if err := server.Wait(); err != nil {
 		if errors.Is(err, guardian.ErrApprovalExpired) {
@@ -306,6 +311,6 @@ func runGuardianSetup(cmd *cobra.Command, _ []string) error {
 	}
 
 	logger.Info("Guardian config ensured", logger.String("path", path))
-	fmt.Fprintf(cmd.OutOrStdout(), "Guardian configuration available at %s\n", path)
+	printErrf(cmd.OutOrStdout(), "Guardian configuration available at %s\n", path)
 	return nil
 }

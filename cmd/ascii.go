@@ -356,7 +356,7 @@ var asciiExpandCmd = &cobra.Command{
 	Use:   "expand [input-file]",
 	Short: "Expand multi-emoji lines into single-emoji calibration format",
 	Long: `Convert multi-emoji test files into single-emoji-per-line format for easier calibration.
-	
+
 This command takes a file with multiple emojis per line (like emojis-collection.txt)
 and converts it to one emoji per line with descriptive labels for visual calibration.`,
 	Example: strings.TrimSpace(`  # Expand emoji collection for calibration
@@ -375,10 +375,10 @@ and converts it to one emoji per line with descriptive labels for visual calibra
 				return fmt.Errorf("failed to open file: %w", err)
 			}
 			defer func() {
-			if err := file.Close(); err != nil {
-				logger.Error("Failed to close file", logger.Err(err))
-			}
-		}()
+				if err := file.Close(); err != nil {
+					logger.Error("Failed to close file", logger.Err(err))
+				}
+			}()
 			input = file
 		}
 

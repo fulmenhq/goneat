@@ -25,6 +25,8 @@ import (
 	"github.com/fulmenhq/goneat/pkg/ascii"
 	"github.com/fulmenhq/goneat/pkg/buildinfo"
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 const instructionBoxWidth = 76
@@ -470,7 +472,7 @@ func (a *approvalPage) template() (*template.Template, error) {
 	}
 
 	funcMap := template.FuncMap{
-		"title": strings.Title,
+		"title": cases.Title(language.English).String,
 		"substr": func(s string, start int) string {
 			if len(s) > start+8 {
 				return s[:start+8]

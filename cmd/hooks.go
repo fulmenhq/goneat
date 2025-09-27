@@ -18,6 +18,7 @@ import (
 	"github.com/fulmenhq/goneat/internal/assets"
 	"github.com/fulmenhq/goneat/internal/guardian"
 	"github.com/fulmenhq/goneat/internal/ops"
+	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/spf13/cobra"
 	"github.com/xeipuuv/gojsonschema"
 	"gopkg.in/yaml.v3"
@@ -369,7 +370,9 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 			if guardianFlagSet && withGuardian {
 				return fmt.Errorf("failed to load guardian configuration: %w", cfgErr)
 			}
-			fmt.Fprintf(cmd.ErrOrStderr(), "⚠️  Guardian integration disabled due to configuration error: %v\n", cfgErr)
+			if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "⚠️  Guardian integration disabled due to configuration error: %v\n", cfgErr); err != nil {
+				logger.Error("Failed to write warning message", logger.Err(err))
+			}
 		} else {
 			guardianCfg = cfg
 			if !guardianFlagSet {

@@ -9,6 +9,8 @@ import (
 )
 
 // ghosttyMode indicates we need special handling for Ghostty terminal
+//
+//nolint:unused // Used in init.go
 var ghosttyMode bool
 
 // Box builds a box containing the provided lines and returns it as a string.

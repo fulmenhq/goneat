@@ -452,11 +452,11 @@ func TestLoadToolsConfig(t *testing.T) {
 		t.Fatal("LoadToolsConfig should return a non-nil config")
 	}
 
-	if len(config.Scopes) == 0 {
+	if config != nil && len(config.Scopes) == 0 {
 		t.Error("Config should have at least one scope")
 	}
 
-	if len(config.Tools) == 0 {
+	if config != nil && len(config.Tools) == 0 {
 		t.Error("Config should have at least one tool")
 	}
 }
@@ -484,7 +484,7 @@ tools:
 		t.Fatal("ParseConfig should return a non-nil config")
 	}
 
-	if len(config.Scopes) != 1 {
+	if config != nil && len(config.Scopes) != 1 {
 		t.Errorf("Expected 1 scope, got %d", len(config.Scopes))
 	}
 

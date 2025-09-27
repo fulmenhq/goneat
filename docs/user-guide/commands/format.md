@@ -229,10 +229,12 @@ goneat format --plan-only --group-by-size
 
 ### File Operation Flags
 
-| Flag                              | Type    | Description                                                                         | Example                            |
-| --------------------------------- | ------- | ----------------------------------------------------------------------------------- | ---------------------------------- |
-| `--finalize-eof`                  | boolean | Ensure single trailing newline                                                      | `--finalize-eof`                   |
-| `--finalize-trim-trailing-spaces` | boolean | Remove trailing whitespace                                                          | `--finalize-trim-trailing-spaces`  |
+**Note**: The defaults for `--finalize-eof` and `--finalize-trim-trailing-spaces` are set to `true` to ensure consistency with `goneat assess --categories format` expectations.
+
+| Flag                              | Type    | Description                                                                         | Default | Example                            |
+| --------------------------------- | ------- | ----------------------------------------------------------------------------------- | ------- | ---------------------------------- |
+| `--finalize-eof`                  | boolean | Ensure single trailing newline                                                      | `true`  | `--finalize-eof`                   |
+| `--finalize-trim-trailing-spaces` | boolean | Remove trailing whitespace                                                          | `true`  | `--finalize-trim-trailing-spaces`  |
 | `--finalize-line-endings`         | string  | Normalize line endings                                                              | `--finalize-line-endings=lf`       |
 | `--finalize-remove-bom`           | boolean | Remove UTF-8/16/32 BOM                                                              | `--finalize-remove-bom`            |
 | `--text-normalize`                | boolean | Apply generic text normalization to any text file (unknown extensions included)     | `--text-normalize`                 |
@@ -834,3 +836,45 @@ Notes:
 - Unknown or non‑UTF‑8 encodings are skipped by default (no changes) to prevent corruption.
 - Use `.goneatignore` and `.gitignore` to exclude paths from normalization.
 - Markdown: when preserving hard breaks, trailing spaces are collapsed to exactly two.
+
+## Recommended Makefile Integration
+
+For consistent formatting in your projects, add this target to your Makefile:
+
+```makefile
+# Format targets
+fmt: build ## Format code using goneat (dogfooding)
+	@echo "Formatting code with goneat..."
+	@if [ -f "dist/goneat" ]; then \
+		dist/goneat format cmd/ pkg/ main.go; \
+		echo "✅ Formatting completed with goneat"; \
+	else \
+		echo "❌ goneat binary not found, falling back to go fmt"; \
+		go fmt ./cmd/... ./pkg/... ./main.go; \
+	fi
+
+# Format all files (docs, config, code)
+format-all: fmt format-docs format-config ## Format all code, documentation, and configuration files
+
+format-docs: build ## Format documentation files
+	@if [ -f "dist/goneat" ]; then \
+		dist/goneat format --types yaml,json,markdown --folders docs/; \
+		echo "✅ Documentation formatting completed"; \
+	else \
+		echo "❌ goneat binary not found, cannot format docs"; \
+	fi
+
+format-config: build ## Format configuration and schema files
+	@if [ -f "dist/goneat" ]; then \
+		dist/goneat format --types yaml,json --folders config/ schemas/; \
+		echo "✅ Configuration formatting completed"; \
+	else \
+		echo "❌ goneat binary not found, cannot format config"; \
+	fi
+```
+
+**Key benefits:**
+- **Consistent defaults**: Uses goneat's assessment-aligned defaults (`--finalize-eof=true`, `--finalize-trim-trailing-spaces=true`)
+- **Graceful fallback**: Falls back to `go fmt` if goneat binary isn't available
+- **Comprehensive coverage**: Separate targets for code, docs, and config files
+- **Assessment alignment**: What `make fmt` fixes matches what `goneat assess --categories format` detects

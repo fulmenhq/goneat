@@ -266,31 +266,7 @@ func extractCharacterFromContent(content string) string {
 	return emojiPart
 }
 
-// extractEmojiFromLine extracts emoji character from a content line using Unicode identifier
-func extractEmojiFromLine(content string) string {
-	// For our format: "🎟️  Character U+1F39F+VS (width=1, bytes=7)"
-	// Extract the Unicode identifier and rebuild the character
-
-	// Pattern to match: "Character U+XXXX+VS" or "Character U+XXXX"
-	unicodePattern := regexp.MustCompile(`Character U\+([0-9A-F]+)(\+VS)?`)
-	matches := unicodePattern.FindStringSubmatch(content)
-
-	if len(matches) >= 2 {
-		// Parse the hex Unicode value
-		if codepoint, err := strconv.ParseInt(matches[1], 16, 32); err == nil {
-			char := string(rune(codepoint))
-
-			// If it has +VS suffix, add variation selector
-			if len(matches) > 2 && matches[2] == "+VS" {
-				char += "\uFE0F" // Add variation selector
-			}
-
-			return char
-		}
-	}
-
-	return ""
-}
+// extractEmojiFromLine was removed - unused function
 
 // analyzeEmojiSequences analyzes for emoji+variation selector sequences
 func analyzeEmojiSequences(lines []StringInfoLine, result *AnalysisResult) *AnalysisResult {

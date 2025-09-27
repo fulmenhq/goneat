@@ -20,7 +20,7 @@ func TestToolsRunner_Assess_WithToolsPresent(t *testing.T) {
 		t.Fatal("Assessment should return a result")
 	}
 
-	if result.Category != CategoryTools {
+	if result != nil && result.Category != CategoryTools {
 		t.Errorf("Expected category %s, got %s", CategoryTools, result.Category)
 	}
 
@@ -126,7 +126,7 @@ func TestToolsRunner_Assess_EmptyTarget(t *testing.T) {
 		t.Fatal("Should return result even with empty target")
 	}
 
-	if result.Category != CategoryTools {
+	if result != nil && result.Category != CategoryTools {
 		t.Errorf("Should maintain category with empty target: got %s", result.Category)
 	}
 }
@@ -169,7 +169,7 @@ func TestToolsRunner_Assess_EmptyDirectory(t *testing.T) {
 		t.Fatal("Should return result for empty directory")
 	}
 
-	if result.Category != CategoryTools {
+	if result != nil && result.Category != CategoryTools {
 		t.Errorf("Should maintain category for empty directory: got %s", result.Category)
 	}
 
