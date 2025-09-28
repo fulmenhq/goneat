@@ -124,19 +124,24 @@ func (l *LocalLoader) ListFiles(basePath string, include, exclude []string) ([]s
 			return err
 		}
 
-		// Skip directories unless they match include patterns
-		if d.IsDir() && !l.shouldInclude(path, include, exclude) {
+		// Skip the base directory itself
+		if path == cleanBase {
 			return nil
 		}
 
-		// Check if file matches patterns
-		if l.shouldInclude(path, include, exclude) {
-			// Convert to relative path from base
-			relPath, err := filepath.Rel(cleanBase, path)
-			if err != nil {
-				return err
-			}
+		// Skip directories - only include files
+		if d.IsDir() {
+			return nil
+		}
 
+		// Convert to relative path from base
+		relPath, err := filepath.Rel(cleanBase, path)
+		if err != nil {
+			return err
+		}
+
+		// Check if file matches patterns (use relative path for pattern matching)
+		if l.shouldInclude(relPath, include, exclude) {
 			// Normalize path separators for consistency
 			relPath = filepath.ToSlash(relPath)
 			files = append(files, relPath)

@@ -259,26 +259,27 @@ func TestDiscoveryEngine_DiscoverFiles(t *testing.T) {
 }
 
 func TestSafeWalker_WalkDirectory(t *testing.T) {
-	// Create temporary directory structure
-	tmpDir, err := os.MkdirTemp("", "walker_test")
-	if err != nil {
+	// Use testdata directory to avoid temp dir symlink issues
+	testDir := "testdata"
+	walkerTestDir := filepath.Join(testDir, "walker_test")
+	if err := os.MkdirAll(walkerTestDir, 0755); err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
-		_ = os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(walkerTestDir)
 	}()
 
 	// Create test files
 	files := []string{"a.txt", "b.txt", "c.go"}
 	for _, file := range files {
-		path := filepath.Join(tmpDir, file)
+		path := filepath.Join(walkerTestDir, file)
 		if err := os.WriteFile(path, []byte("content"), 0644); err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	// Create subdirectory
-	subDir := filepath.Join(tmpDir, "subdir")
+	subDir := filepath.Join(walkerTestDir, "subdir")
 	if err := os.MkdirAll(subDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -298,13 +299,13 @@ func TestSafeWalker_WalkDirectory(t *testing.T) {
 			return err
 		}
 		if !info.IsDir() {
-			relPath, _ := filepath.Rel(tmpDir, path)
+			relPath, _ := filepath.Rel(walkerTestDir, path)
 			foundFiles = append(foundFiles, relPath)
 		}
 		return nil
 	}
 
-	err = walker.WalkDirectory(tmpDir, walkFunc, WalkOptions{})
+	err := walker.WalkDirectory(walkerTestDir, walkFunc, WalkOptions{})
 	if err != nil {
 		t.Errorf("WalkDirectory() error = %v", err)
 	}

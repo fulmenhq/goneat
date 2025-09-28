@@ -237,6 +237,7 @@ type DiscoveryOptions struct {
 	SkipDirs         []string
 	MaxDepth         int
 	FollowSymlinks   bool
+	Concurrency      int
 	IncludeHidden    bool
 	FileSizeLimits   SizeRange
 	ModTimeRange     TimeRange

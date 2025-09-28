@@ -46,6 +46,10 @@ goneat
 # Scratchpad for generated files and testing
 .scratchpad/
 
+# Temporary test directories
+test_temp/
+test_dir/
+
 # Plans folder - ignore all except PROMPT.md
 .plans/
 !.plans/PROMPT.md

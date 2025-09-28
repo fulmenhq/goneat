@@ -1,22 +1,32 @@
 # Pathfinder Library Documentation
 
-This directory contains documentation for the Pathfinder library implementation.
+This directory contains documentation for the Pathfinder library implementation and related tooling.
 
-## Planned Documents
+## Document Map
 
-- `audit-trail-usage.md` - Audit trail implementation guide
-- `loader-patterns.md` - File loader patterns and best practices
-- `security-considerations.md` - Security features and considerations
-- `api-reference.md` - Complete API reference
+- [`finder_facade.md`](finder_facade.md) – Guide to the simplified `FinderFacade`, transforms, streaming, and worker coordination.
+- `audit-trail-usage.md` *(planned)* – Audit trail implementation guide.
+- `loader-patterns.md` *(planned)* – File loader patterns and best practices.
+- `security-considerations.md` *(planned)* – Security features and considerations.
+- `api-reference.md` *(planned)* – Complete API reference for the core interfaces.
+
+Looking for the CLI instead of the Go library? See the user-facing command reference in [`docs/user-guide/commands/pathfinder.md`](../../../user-guide/commands/pathfinder.md).
 
 ## Overview
 
 Pathfinder is a secure file system abstraction library designed for:
 
-- **Secure file operations** with audit trails
+- **Secure file operations** with audit trails and policy enforcement
 - **Multiple loader backends** (local, remote, cloud)
-- **Compliance-ready** audit logging
-- **Deterministic testing** capabilities
+- **Facilitated access** via the high-level `FinderFacade` introduced in v0.2.9
+- **Compliance-ready logging** with deterministic replay modes
+- **Deterministic testing** capabilities across loaders and audit storage
+
+### What lives where?
+
+- The **core `PathFinder` interface** (see `pkg/pathfinder/pathfinder.go`) exposes the full set of safety validators, loader factories, audit logging, and discovery controls. Use it when you need custom loaders, audit tuning, or low-level orchestration.
+- The **`FinderFacade`** (documented in [`finder_facade.md`](finder_facade.md)) provides an ergonomic API for common discovery tasks—pattern filters, logical-path transforms, streaming, and worker hints—while delegating all heavy lifting to the core engine.
+- The **`goneat pathfinder` CLI** wraps the facade so non-Go consumers can run consistent discovery straight from the binary.
 
 ## UUID Generation Strategy
 

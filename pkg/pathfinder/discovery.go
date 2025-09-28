@@ -43,6 +43,30 @@ func (d *DiscoveryEngine) DiscoverFiles(basePath string, opts DiscoveryOptions) 
 			return err
 		}
 
+		// Skip symlinks unless explicitly enabled
+		if !opts.FollowSymlinks && info.Mode()&os.ModeSymlink != 0 {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		relForDepth, relErr := filepath.Rel(basePath, path)
+		if relErr != nil {
+			return relErr
+		}
+
+		// Enforce max depth if provided (0 or negative means unlimited)
+		if opts.MaxDepth > 0 && relForDepth != "." {
+			depth := calculateDepth(relForDepth, info.IsDir())
+			if info.IsDir() && depth >= opts.MaxDepth {
+				return filepath.SkipDir
+			}
+			if !info.IsDir() && depth > opts.MaxDepth {
+				return nil
+			}
+		}
+
 		// Skip directories if configured
 		if info.IsDir() {
 			// Check if directory should be skipped
@@ -54,19 +78,15 @@ func (d *DiscoveryEngine) DiscoverFiles(basePath string, opts DiscoveryOptions) 
 			return nil
 		}
 
+		relPathNormalized := filepath.ToSlash(relForDepth)
+
 		// Apply file filters
-		if !d.matchesFilters(path, info, opts) {
+		if !d.matchesFilters(path, relPathNormalized, info, opts) {
 			return nil
 		}
 
 		// Convert to relative path
-		relPath, err := filepath.Rel(basePath, path)
-		if err != nil {
-			return err
-		}
-
-		// Normalize path separators
-		relPath = filepath.ToSlash(relPath)
+		relPath := filepath.ToSlash(relForDepth)
 		files = append(files, relPath)
 		totalSize += info.Size()
 		fileCount++
@@ -96,24 +116,24 @@ func (d *DiscoveryEngine) DiscoverFiles(basePath string, opts DiscoveryOptions) 
 }
 
 // matchesFilters checks if a file matches all the configured filters
-func (d *DiscoveryEngine) matchesFilters(path string, info os.FileInfo, opts DiscoveryOptions) bool {
+func (d *DiscoveryEngine) matchesFilters(absPath string, relPath string, info os.FileInfo, opts DiscoveryOptions) bool {
 	// Include patterns (must match at least one if specified)
 	if len(opts.IncludePatterns) > 0 {
-		if !d.matchesAnyPattern(path, opts.IncludePatterns) {
+		if !d.matchesAnyPattern(absPath, opts.IncludePatterns) && !d.matchesAnyPattern(relPath, opts.IncludePatterns) {
 			return false
 		}
 	}
 
 	// Exclude patterns (must not match any)
 	if len(opts.ExcludePatterns) > 0 {
-		if d.matchesAnyPattern(path, opts.ExcludePatterns) {
+		if d.matchesAnyPattern(absPath, opts.ExcludePatterns) || d.matchesAnyPattern(relPath, opts.ExcludePatterns) {
 			return false
 		}
 	}
 
 	// Skip patterns
 	if len(opts.SkipPatterns) > 0 {
-		if d.matchesAnyPattern(path, opts.SkipPatterns) {
+		if d.matchesAnyPattern(absPath, opts.SkipPatterns) || d.matchesAnyPattern(relPath, opts.SkipPatterns) {
 			return false
 		}
 	}
@@ -135,7 +155,7 @@ func (d *DiscoveryEngine) matchesFilters(path string, info os.FileInfo, opts Dis
 	}
 
 	// Hidden files filter
-	if !opts.IncludeHidden && d.isHiddenFile(path) {
+	if !opts.IncludeHidden && d.isHiddenFile(absPath) {
 		return false
 	}
 
@@ -168,6 +188,22 @@ func (d *DiscoveryEngine) isHiddenFile(path string) bool {
 		}
 	}
 	return false
+}
+
+func calculateDepth(relPath string, isDir bool) int {
+	if relPath == "" || relPath == "." {
+		return 0
+	}
+	normalized := filepath.ToSlash(relPath)
+	normalized = strings.Trim(normalized, "/")
+	if normalized == "" {
+		return 0
+	}
+	segments := strings.Split(normalized, "/")
+	if !isDir && len(segments) > 0 {
+		return len(segments) - 1
+	}
+	return len(segments)
 }
 
 // FindFilesByType finds files of specific types using common patterns
