@@ -16,7 +16,7 @@ func TestSave(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Mock the config.EnsureGoneatHome to return our temp dir
 	originalHome := os.Getenv("GONEAT_HOME")
@@ -92,7 +92,7 @@ func TestLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Mock the config.EnsureGoneatHome to return our temp dir
 	originalHome := os.Getenv("GONEAT_HOME")
@@ -173,7 +173,7 @@ func TestRemove(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Mock the config.EnsureGoneatHome to return our temp dir
 	originalHome := os.Getenv("GONEAT_HOME")
@@ -246,7 +246,7 @@ func TestList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Mock the config.EnsureGoneatHome to return our temp dir
 	originalHome := os.Getenv("GONEAT_HOME")
@@ -363,7 +363,7 @@ func TestMetadataPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Mock the config.EnsureGoneatHome to return our temp dir
 	originalHome := os.Getenv("GONEAT_HOME")

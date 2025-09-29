@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -91,6 +92,11 @@ var (
 	regMu          sync.RWMutex
 )
 
+// Validator wraps a compiled schema for repeated validation.
+type Validator struct {
+	schema *gojsonschema.Schema
+}
+
 func init() {
 	initRegistry()
 }
@@ -155,39 +161,106 @@ func compileSchemaBytes(schemaBytes []byte) (*gojsonschema.Schema, error) {
 	return sch, nil
 }
 
-// Validate validates data (interface{}) against the named schema (e.g., "goneat-config-v1.0.0").
-func Validate(data interface{}, schemaName string) (*Result, error) {
-	// Fast path: use compiled registry
+// NewValidatorFromBytes compiles schema bytes (JSON or YAML) into a reusable validator.
+func NewValidatorFromBytes(schemaBytes []byte) (*Validator, error) {
+	sch, err := compileSchemaBytes(schemaBytes)
+	if err != nil {
+		return nil, err
+	}
+	return &Validator{schema: sch}, nil
+}
+
+// NewValidatorFromFS loads a schema from the provided filesystem and path.
+func NewValidatorFromFS(fsys fs.FS, schemaPath string) (*Validator, error) {
+	data, err := fs.ReadFile(fsys, schemaPath)
+	if err != nil {
+		return nil, fmt.Errorf("read schema %s: %w", schemaPath, err)
+	}
+	return NewValidatorFromBytes(data)
+}
+
+// NewValidatorFromEmbeddedPath loads a schema from goneat's embedded schema assets.
+func NewValidatorFromEmbeddedPath(relPath string) (*Validator, error) {
+	data, ok := assets.GetSchema(relPath)
+	if !ok || len(data) == 0 {
+		return nil, fmt.Errorf("embedded schema not found: %s", relPath)
+	}
+	return NewValidatorFromBytes(data)
+}
+
+// GetEmbeddedValidator returns a validator for a named embedded schema (e.g., goneat-config-v1.0.0).
+func GetEmbeddedValidator(schemaName string) (*Validator, error) {
 	regMu.RLock()
-	sch, ok := schemaRegistry[schemaName]
-	regMu.RUnlock()
-	if !ok {
-		// Attempt to compile on-demand from known paths
-		regMu.RLock()
-		path, hasPath := schemaPaths[schemaName]
+	if sch, ok := schemaRegistry[schemaName]; ok {
 		regMu.RUnlock()
-		if !hasPath {
-			// As a last resort, attempt legacy mapping (to avoid breakage)
-			path = legacyMapSchemaNameToPath(schemaName)
-		}
-		if dataBytes, ok := assets.GetSchema(path); ok && len(dataBytes) > 0 {
-			var err error
-			sch, err = compileSchemaBytes(dataBytes)
-			if err != nil {
-				return nil, err
-			}
-			regMu.Lock()
-			schemaRegistry[schemaName] = sch
-			if _, exists := schemaPaths[schemaName]; !exists {
-				schemaPaths[schemaName] = path
-			}
-			regMu.Unlock()
-		} else {
-			return nil, fmt.Errorf("schema %s not found", schemaName)
-		}
+		return &Validator{schema: sch}, nil
+	}
+	path, hasPath := schemaPaths[schemaName]
+	regMu.RUnlock()
+
+	if !hasPath || path == "" {
+		path = legacyMapSchemaNameToPath(schemaName)
+	}
+	if path == "" {
+		return nil, fmt.Errorf("schema %s not found", schemaName)
 	}
 
-	dataJSON, _ := json.Marshal(data)
+	data, ok := assets.GetSchema(path)
+	if !ok || len(data) == 0 {
+		return nil, fmt.Errorf("schema %s not found", schemaName)
+	}
+
+	sch, err := compileSchemaBytes(data)
+	if err != nil {
+		return nil, err
+	}
+
+	regMu.Lock()
+	schemaRegistry[schemaName] = sch
+	if _, exists := schemaPaths[schemaName]; !exists {
+		schemaPaths[schemaName] = path
+	}
+	regMu.Unlock()
+
+	return &Validator{schema: sch}, nil
+}
+
+// NewValidatorFromMetaSchema returns a validator for a bundled JSON Schema meta-schema draft.
+func NewValidatorFromMetaSchema(draft string) (*Validator, error) {
+	bytes, ok := assets.GetJSONSchemaMeta(draft)
+	if !ok || len(bytes) == 0 {
+		return nil, fmt.Errorf("meta-schema for %s not available", draft)
+	}
+	return NewValidatorFromBytes(bytes)
+}
+
+// Validate applies the compiled schema to the provided data structure.
+func (v *Validator) Validate(data interface{}) (*Result, error) {
+	if v == nil || v.schema == nil {
+		return nil, fmt.Errorf("validator not initialised")
+	}
+	return validateWithCompiled(v.schema, data)
+}
+
+// ValidateBytes parses YAML/JSON bytes and validates them against the compiled schema.
+func (v *Validator) ValidateBytes(dataBytes []byte) (*Result, error) {
+	if v == nil || v.schema == nil {
+		return nil, fmt.Errorf("validator not initialised")
+	}
+	var data interface{}
+	if err := yaml.Unmarshal(dataBytes, &data); err != nil {
+		if err := json.Unmarshal(dataBytes, &data); err != nil {
+			return nil, fmt.Errorf("failed to parse data bytes (YAML/JSON): %w", err)
+		}
+	}
+	return validateWithCompiled(v.schema, data)
+}
+
+func validateWithCompiled(sch *gojsonschema.Schema, data interface{}) (*Result, error) {
+	dataJSON, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("encode data to JSON: %w", err)
+	}
 	docLoader := gojsonschema.NewBytesLoader(dataJSON)
 	result, err := sch.Validate(docLoader)
 	if err != nil {
@@ -209,64 +282,42 @@ func Validate(data interface{}, schemaName string) (*Result, error) {
 	return res, nil
 }
 
+// Validate validates data (interface{}) against the named schema (e.g., "goneat-config-v1.0.0").
+func Validate(data interface{}, schemaName string) (*Result, error) {
+	validator, err := GetEmbeddedValidator(schemaName)
+	if err != nil {
+		return nil, err
+	}
+	return validator.Validate(data)
+}
+
 // ValidateFromBytes validates data against schema bytes (JSON or YAML).
 func ValidateFromBytes(schemaBytes []byte, data interface{}) (*Result, error) {
-	var loader gojsonschema.JSONLoader
+	if err := ensureSupportedDraft(schemaBytes); err != nil {
+		return nil, err
+	}
+	validator, err := NewValidatorFromBytes(schemaBytes)
+	if err != nil {
+		return nil, err
+	}
+	return validator.Validate(data)
+}
 
-	// Try YAML first; if it parses, convert to JSON bytes for loader
-	var tmp any
-	if err := yaml.Unmarshal(schemaBytes, &tmp); err == nil {
-		// Check draft version from the parsed YAML/JSON
-		if schemaMap, ok := tmp.(map[string]interface{}); ok {
-			if v, ok := schemaMap["$schema"].(string); ok {
-				if !strings.Contains(v, "draft-07") && !strings.Contains(v, "2020-12") {
-					return nil, fmt.Errorf("unsupported $schema: only Draft-07 and Draft-2020-12 supported")
-				}
-			}
-		}
-		jb, jerr := json.Marshal(tmp)
-		if jerr != nil {
-			return nil, fmt.Errorf("failed to encode schema to JSON: %w", jerr)
-		}
-		// For YAML input, always use the marshaled JSON bytes
-		// For JSON input that was parsed as YAML (since JSON is valid YAML),
-		// the marshaled version should be identical to the original
-		loader = gojsonschema.NewBytesLoader(jb)
-	} else {
-		// JSON path - parse directly as JSON
-		var schemaDoc map[string]interface{}
+func ensureSupportedDraft(schemaBytes []byte) error {
+	var schemaDoc map[string]interface{}
+	if err := yaml.Unmarshal(schemaBytes, &schemaDoc); err != nil {
 		if err := json.Unmarshal(schemaBytes, &schemaDoc); err != nil {
-			return nil, fmt.Errorf("invalid schema format (must be valid YAML or JSON): %w", err)
+			return fmt.Errorf("invalid schema format (must be valid YAML or JSON): %w", err)
 		}
+	}
+	if schemaDoc != nil {
 		if v, ok := schemaDoc["$schema"].(string); ok {
 			if !strings.Contains(v, "draft-07") && !strings.Contains(v, "2020-12") {
-				return nil, fmt.Errorf("unsupported $schema: only Draft-07 and Draft-2020-12 supported")
+				return fmt.Errorf("unsupported $schema: only Draft-07 and Draft-2020-12 supported")
 			}
 		}
-		loader = gojsonschema.NewBytesLoader(schemaBytes)
 	}
-
-	dataJSON, _ := json.Marshal(data)
-	docLoader := gojsonschema.NewBytesLoader(dataJSON)
-	result, err := gojsonschema.Validate(loader, docLoader)
-	if err != nil {
-		return nil, fmt.Errorf("validation error: %w", err)
-	}
-
-	res := &Result{Valid: result.Valid()}
-	if !result.Valid() {
-		for _, verr := range result.Errors() {
-			field := verr.Field()
-			if field == "" {
-				field = "root"
-			}
-			res.Errors = append(res.Errors, ValidationError{
-				Path:    field,
-				Message: verr.Description(),
-			})
-		}
-	}
-	return res, nil
+	return nil
 }
 
 // ValidateDataFromBytes validates raw data bytes against schema bytes with optional behaviors.

@@ -1,273 +1,129 @@
 ---
 title: Schema Validation Library
-description: Generic JSON/YAML schema validation using gojsonschema.
+description: Reusable validators for JSON/YAML using goneat's embedded assets.
 ---
 
 # Schema Validation
 
-Goneat's `pkg/schema` provides a robust, generic schema validation system for JSON and YAML configurations. It uses the gojsonschema library under the hood but provides a clean, opinionated API that integrates well with hierarchical configuration systems.
+Goneat's `pkg/schema` package wraps [gojsonschema](https://github.com/xeipuuv/gojsonschema) to make JSON/YAML schema
+validation easy across CLI tools and Go applications. The library focuses on three scenarios:
 
-## Purpose
+1. **Embedded schemas** – validate data against the schemas shipped with goneat (for example `goneat-config-v1.0.0`).
+2. **One-off schemas** – compile a validator from in-memory bytes or `fs.FS` (handy with `go:embed`).
+3. **Meta validation** – lint schema files themselves against the Draft-07 or 2020‑12 meta-schemas.
 
-This library solves the common problem of validating complex configuration structures in Go applications. Instead of writing custom validation logic or using verbose third-party APIs, `pkg/schema` provides:
+The code below highlights the new validator API delivered in v0.2.9.
 
-- Simple validation API with clear error reporting
-- Support for both JSON and YAML schemas
-- Integration with goneat's config hierarchy system
-- Type-safe result handling
-
-## Key Features
-
-- **Generic validation**: Works with any JSON/YAML schema
-- **Detailed error reporting**: Clear paths to validation failures
-- **Performance optimized**: Compiles schemas once for repeated use
-- **Config integration**: Works seamlessly with `pkg/config`
-
-## Installation
-
-```bash
-go get github.com/fulmenhq/goneat/pkg/schema
-```
-
-## Basic Usage
-
-### Simple Validation
+## Embedded schema validation
 
 ```go
 package main
 
 import (
     "fmt"
+
     "github.com/fulmenhq/goneat/pkg/schema"
 )
 
 func main() {
-    validator, err := schema.NewValidator("config-schema.json")
+    validator, err := schema.GetEmbeddedValidator("goneat-config-v1.0.0")
     if err != nil {
         panic(err)
     }
 
-    config := map[string]interface{}{
-        "database": map[string]interface{}{
-            "host": "localhost",
-            "port": 5432,
-        },
-        "logging": map[string]interface{}{
-            "level": "info",
-        },
+    data := map[string]any{
+        "format": map[string]any{"go": map[string]any{"simplify": true}},
+        "security": map[string]any{"timeout": "5m"},
     }
 
-    if err := validator.Validate(config); err != nil {
-        fmt.Printf("Validation failed: %v\n", err)
-        return
+    result, err := validator.Validate(data)
+    if err != nil {
+        panic(err)
     }
-
-    fmt.Println("Configuration is valid!")
+    fmt.Printf("valid? %v\n", result.Valid)
 }
 ```
 
-### Advanced Usage with Custom Schemas
+## Compile from bytes or fs.FS
 
 ```go
 package main
 
 import (
-    "encoding/json"
-    "fmt"
+    "embed"
+    "log"
+
     "github.com/fulmenhq/goneat/pkg/schema"
 )
 
+//go:embed schemas/user-profile.json
+var embeddedSchemas embed.FS
+
 func main() {
-    // Define schema inline
-    schemaContent := []byte(`
-    {
-        "type": "object",
-        "properties": {
-            "name": {"type": "string", "minLength": 1},
-            "age": {"type": "integer", "minimum": 0, "maximum": 150},
-            "email": {"type": "string", "format": "email"}
-        },
-        "required": ["name", "email"],
-        "additionalProperties": false
-    }
-    `)
-
-    validator, err := schema.NewValidatorFromBytes(schemaContent, schema.JSON)
+    validator, err := schema.NewValidatorFromFS(embeddedSchemas, "schemas/user-profile.json")
     if err != nil {
-        panic(err)
+        log.Fatal(err)
     }
 
-    // Test valid data
-    validData := map[string]interface{}{
-        "name":  "John Doe",
-        "age":   30,
-        "email": "john@example.com",
+    payload := map[string]any{"name": "Ava", "age": 30}
+    result, err := validator.Validate(payload)
+    if err != nil {
+        log.Fatal(err)
     }
 
-    if err := validator.Validate(validData); err != nil {
-        fmt.Printf("Valid data failed: %v\n", err)
-    } else {
-        fmt.Println("Valid data passed!")
-    }
-
-    // Test invalid data
-    invalidData := map[string]interface{}{
-        "name":  "",
-        "email": "invalid-email",
-    }
-
-    if err := validator.Validate(invalidData); err != nil {
-        fmt.Printf("Invalid data correctly rejected: %v\n", err)
+    if !result.Valid {
+        log.Fatalf("invalid payload: %+v", result.Errors)
     }
 }
 ```
 
-## API Reference
+The helper also accepts raw bytes: `schema.NewValidatorFromBytes(schemaJSON)`.
 
-### schema.Validator
+## Meta validation for schema files
 
 ```go
-type Validator struct {
-    // Contains compiled schema and validation logic
+validator, err := schema.NewValidatorFromMetaSchema("draft-07")
+if err != nil {
+    panic(err)
 }
 
-func NewValidator(schemaPath string) (*Validator, error)
-func NewValidatorFromBytes(schemaBytes []byte, format SchemaFormat) (*Validator, error)
-func NewValidatorFromString(schemaStr string, format SchemaFormat) (*Validator, error)
-
-func (v *Validator) Validate(data interface{}) error
-func (v *Validator) ValidateWithContext(ctx context.Context, data interface{}) error
-func (v *Validator) Schema() *gojsonschema.Schema
+schemaBytes := os.ReadFile("./schemas/project.json")
+result, err := validator.ValidateBytes(schemaBytes)
+if err != nil {
+    panic(err)
+}
+if !result.Valid {
+    for _, e := range result.Errors {
+        log.Printf("schema issue: %s", e.Message)
+    }
+}
 ```
 
-### SchemaFormat
+This is the same logic the `goneat schema validate-schema` CLI command uses.
+
+## Working with results
+
+Every validation entry point returns a `*schema.Result`:
 
 ```go
-type SchemaFormat string
+type Result struct {
+    Valid  bool
+    Errors []schema.ValidationError
+}
 
-const (
-    JSON SchemaFormat = "json"
-    YAML SchemaFormat = "yaml"
-)
-```
-
-### Validation Errors
-
-The library returns detailed validation errors with context:
-
-```go
 type ValidationError struct {
-    FieldPath  string
-    Value      interface{}
-    Constraint string
-    Message    string
-}
-
-func (e *ValidationError) Error() string
-```
-
-## Integration with pkg/config
-
-The schema library integrates seamlessly with goneat's configuration system:
-
-```go
-package main
-
-import (
-    "context"
-    "fmt"
-    "github.com/fulmenhq/goneat/pkg/config"
-    "github.com/fulmenhq/goneat/pkg/schema"
-)
-
-func main() {
-    cfg, err := config.New(context.Background(), config.WithSchemaPath("config-schema.json"))
-    if err != nil {
-        panic(err)
-    }
-
-    // Configuration is automatically validated against the schema
-    if err := cfg.Validate(); err != nil {
-        fmt.Printf("Config validation failed: %v\n", err)
-        return
-    }
-
-    // Access validated configuration
-    dbHost := cfg.GetString("database.host")
-    fmt.Printf("Database host: %s\n", dbHost)
+    Path    string
+    Message string
+    Context schema.ValidationContext // optional
 }
 ```
 
-## Error Handling
+`Result.Valid` is `false` when one or more errors exist. Each error carries a JSON pointer-like `Path` and the human
+readable message supplied by gojsonschema.
 
-### Common Validation Errors
+## Related commands
 
-```go
-// Example validation error output
-if err := validator.Validate(invalidData); err != nil {
-    if validationErr, ok := err.(*schema.ValidationError); ok {
-        fmt.Printf("Validation failed at %s: %s (expected %s, got %v)\n",
-            validationErr.FieldPath,
-            validationErr.Message,
-            validationErr.Constraint,
-            validationErr.Value,
-        )
-    }
-}
-```
+- **CLI**: `goneat schema validate-schema` meta-validates schema files using these helpers.
+- **Assess category**: the `schema` assessment runner uses the same primitives to report issues during `goneat assess`.
 
-### Custom Validation Rules
-
-You can extend validation with custom rules:
-
-```go
-func validatePort(port int) error {
-    if port < 1 || port > 65535 {
-        return fmt.Errorf("port must be between 1 and 65535")
-    }
-    return nil
-}
-
-// Use in your schema validation pipeline
-```
-
-## Performance Considerations
-
-- **Schema compilation**: Compile schemas once and reuse the `Validator` instance
-- **Batch validation**: The library supports validating multiple documents efficiently
-- **Memory usage**: Schemas are compiled to efficient internal representations
-
-## Security Considerations
-
-- **Schema source validation**: Always validate schema sources to prevent injection attacks
-- **Input sanitization**: The library sanitizes validation inputs to prevent path traversal
-- **Resource limits**: Set appropriate limits on deeply nested structures to prevent DoS
-
-## Best Practices
-
-1. **Compile schemas at startup**: Don't recompile schemas for each validation
-2. **Use descriptive error messages**: Include context in your schema descriptions
-3. **Validate early**: Validate configurations during application startup
-4. **Provide fallback defaults**: Combine with `pkg/config` for graceful degradation
-5. **Log validation failures**: Use structured logging for monitoring configuration issues
-
-## Limitations
-
-- Currently supports JSON Schema Draft 7 (with plans for Draft 2020-12)
-- YAML support is experimental and may have edge cases
-- Custom format validators require additional setup
-
-## Future Plans
-
-- Support for JSON Schema Draft 2020-12 and later
-- Additional YAML schema features
-- Integration with OpenAPI schemas
-- Performance optimizations for large document validation
-
-## Related Libraries
-
-- [`pkg/config`](config.md) - Hierarchical configuration management
-- [`pkg/pathfinder`](pathfinder.md) - Safe file system traversal
-- [gojsonschema](https://github.com/xeipuuv/gojsonschema) - Underlying validation engine
-
-For more information, see the [GoDoc documentation](https://pkg.go.dev/github.com/fulmenhq/goneat/pkg/schema).
+Generated by Arch Eagle ([Codex CLI](https://github.com/openai/codex)) under supervision of [@3leapsdave](https://github.com/3leapsdave)

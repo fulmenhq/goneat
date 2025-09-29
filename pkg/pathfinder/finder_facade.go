@@ -245,7 +245,7 @@ func readSnippet(path string, limit int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	buf := make([]byte, limit)
 	n, err := io.ReadFull(file, buf)

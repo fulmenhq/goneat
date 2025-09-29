@@ -93,6 +93,10 @@ Common transform patterns:
 
 The CLI exposes these behaviors via `--flatten`, `--strip-prefix`, and `--logical-prefix` flags—refer to [`docs/user-guide/commands/pathfinder.md`](../../../user-guide/commands/pathfinder.md) for details.
 
+> 💡 **Workflow pairing**: See the schema discovery + validation walkthrough in
+> [`docs/user-guide/workflows/schema-discovery-validation.md`](../../../user-guide/workflows/schema-discovery-validation.md)
+> for an end-to-end example that chains `goneat pathfinder find --schemas` with `goneat schema validate-schema`.
+
 ## Streaming & Large Trees
 
 Use `FindStream` for large repositories or cloud buckets where buffering all results would be expensive.

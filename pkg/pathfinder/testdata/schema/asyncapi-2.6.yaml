@@ -1,0 +1,16 @@
+asyncapi: 2.6.0
+info:
+  title: Test AsyncAPI
+  version: 1.0.0
+channels:
+  user/signedup:
+    subscribe:
+      message:
+        payload:
+          type: object
+          properties:
+            user:
+              type: string
+            email:
+              type: string
+              format: email

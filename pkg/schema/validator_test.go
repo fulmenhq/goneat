@@ -59,6 +59,83 @@ security:
 	}
 }
 
+func TestGetEmbeddedValidator(t *testing.T) {
+	validator, err := GetEmbeddedValidator("goneat-config-v1.0.0")
+	if err != nil {
+		t.Fatalf("GetEmbeddedValidator error: %v", err)
+	}
+	data := map[string]any{
+		"format":   map[string]any{"go": map[string]any{"simplify": true}},
+		"security": map[string]any{"timeout": "5m"},
+	}
+	res, err := validator.Validate(data)
+	if err != nil {
+		t.Fatalf("validator.Validate error: %v", err)
+	}
+	if !res.Valid {
+		t.Fatalf("expected valid configuration, got errors: %+v", res.Errors)
+	}
+}
+
+func TestNewValidatorFromBytes(t *testing.T) {
+	schemaBytes := []byte(`{
+		"type": "object",
+		"properties": {
+			"name": {"type": "string"}
+		},
+		"required": ["name"]
+	}`)
+	validator, err := NewValidatorFromBytes(schemaBytes)
+	if err != nil {
+		t.Fatalf("NewValidatorFromBytes error: %v", err)
+	}
+	res, err := validator.Validate(map[string]any{"name": "test"})
+	if err != nil {
+		t.Fatalf("Validate error: %v", err)
+	}
+	if !res.Valid {
+		t.Fatalf("expected valid data, got %+v", res.Errors)
+	}
+	res, err = validator.Validate(map[string]any{})
+	if err != nil {
+		t.Fatalf("Validate error: %v", err)
+	}
+	if res.Valid {
+		t.Fatal("expected invalid result for missing name")
+	}
+}
+
+func TestNewValidatorFromMetaSchema(t *testing.T) {
+	validator, err := NewValidatorFromMetaSchema("draft-07")
+	if err != nil {
+		t.Fatalf("NewValidatorFromMetaSchema error: %v", err)
+	}
+	validSchema := []byte(`{
+		"$schema": "http://json-schema.org/draft-07/schema#",
+		"type": "object",
+		"properties": {"name": {"type": "string"}}
+	}`)
+	res, err := validator.ValidateBytes(validSchema)
+	if err != nil {
+		t.Fatalf("ValidateBytes error: %v", err)
+	}
+	if !res.Valid {
+		t.Fatalf("expected schema to be valid: %+v", res.Errors)
+	}
+	invalidSchema := []byte(`{
+		"$schema": "http://json-schema.org/draft-07/schema#",
+		"type": "object",
+		"properties": {"name": {"type": "not-real"}}
+	}`)
+	res, err = validator.ValidateBytes(invalidSchema)
+	if err != nil {
+		t.Fatalf("ValidateBytes error: %v", err)
+	}
+	if res.Valid {
+		t.Fatal("expected invalid draft-07 schema")
+	}
+}
+
 func TestNewSecurityContext(t *testing.T) {
 	ctx := NewSecurityContext()
 
