@@ -20,6 +20,7 @@ import (
 	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/fulmenhq/goneat/pkg/config"
 	"github.com/fulmenhq/goneat/pkg/exitcode"
+	formatpkg "github.com/fulmenhq/goneat/pkg/format"
 	"github.com/fulmenhq/goneat/pkg/format/finalizer"
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/fulmenhq/goneat/pkg/work"
@@ -84,6 +85,11 @@ func init() {
 
 	// Import alignment (Go) - opt-in
 	formatCmd.Flags().Bool("use-goimports", false, "Organize Go imports with goimports (after gofmt)")
+
+	// JSON prettification options
+	formatCmd.Flags().String("json-indent", "  ", "Indentation for JSON prettification (e.g., '  ' or '\t')")
+	formatCmd.Flags().Int("json-indent-count", 2, "Number of spaces for JSON indentation (1-10, 0 to skip prettification)")
+	formatCmd.Flags().Int("json-size-warning", 500, "Size threshold in MB for JSON file warnings (0 to disable)")
 }
 
 func RunFormat(cmd *cobra.Command, args []string) error {
@@ -127,6 +133,9 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 	textEncodingPolicy, _ := cmd.Flags().GetString("text-encoding-policy")
 	preserveMd, _ := cmd.Flags().GetBool("preserve-md-linebreaks")
 	useGoimports, _ := cmd.Flags().GetBool("use-goimports")
+	jsonIndent, _ := cmd.Flags().GetString("json-indent")
+	jsonIndentCount, _ := cmd.Flags().GetInt("json-indent-count")
+	jsonSizeWarningMB, _ := cmd.Flags().GetInt("json-size-warning")
 
 	// Validate flag combinations per Arch Eagle's precedence rules
 	if len(explicitFiles) > 0 {
@@ -285,13 +294,13 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 			EncodingPolicy:             textEncodingPolicy,
 		}
 
-		return executeSequentialWithOptions(filesToProcess, checkOnly || noOp, quiet, cfg, ignoreMissingTools, options, useGoimports, textNormalize)
+		return executeSequentialWithOptions(filesToProcess, checkOnly || noOp, quiet, cfg, ignoreMissingTools, options, useGoimports, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB)
 	}
 }
 
 // removed unused findSupportedFiles helper
 
-func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignoreMissingTools bool, options finalizer.NormalizationOptions, useGoimports bool, textNormalize bool) error {
+func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignoreMissingTools bool, options finalizer.NormalizationOptions, useGoimports bool, textNormalize bool, jsonIndent string, jsonIndentCount int, jsonSizeWarningMB int) error {
 	ext := filepath.Ext(file)
 
 	var err error
@@ -318,7 +327,7 @@ func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignore
 				break
 			}
 		}
-		err = formatJSONFile(file, checkOnly, cfg, options)
+		err = formatJSONFile(file, checkOnly, cfg, options, jsonIndent, jsonIndentCount, jsonSizeWarningMB)
 
 	case ".md":
 		if ignoreMissingTools {
@@ -613,7 +622,7 @@ func formatYAMLFile(file string, checkOnly bool, cfg *config.Config, options fin
 	return nil
 }
 
-func formatJSONFile(file string, checkOnly bool, cfg *config.Config, options finalizer.NormalizationOptions) error {
+func formatJSONFile(file string, checkOnly bool, cfg *config.Config, options finalizer.NormalizationOptions, jsonIndent string, jsonIndentCount int, jsonSizeWarningMB int) error {
 	// Validate file path to prevent path traversal
 	file = filepath.Clean(file)
 	if strings.Contains(file, "..") {
@@ -622,36 +631,63 @@ func formatJSONFile(file string, checkOnly bool, cfg *config.Config, options fin
 
 	jsonConfig := cfg.GetJSONConfig()
 
+	// Validate flags
+	if jsonIndent != "  " && jsonIndentCount != 2 {
+		return fmt.Errorf("cannot specify both --json-indent and --json-indent-count")
+	}
+	if jsonIndentCount < 0 || jsonIndentCount > 10 {
+		return fmt.Errorf("--json-indent-count must be between 0 and 10")
+	}
+
+	// Determine indent string
+	var indent string
+	if jsonIndentCount == 0 {
+		// Skip prettification
+		indent = ""
+	} else if jsonIndentCount != 2 {
+		// Use count to generate spaces
+		indent = strings.Repeat(" ", jsonIndentCount)
+	} else {
+		// Use provided string or default
+		indent = jsonIndent
+	}
+
 	// Read the original content
 	originalContent, err := os.ReadFile(file)
 	if err != nil {
 		return err
 	}
 
-	var output []byte
-	var cmdErr error
-
+	// Use built-in JSON prettification
+	var formatted string
 	if jsonConfig.Compact {
-		args := []string{"-c", "."}
-		cmd := exec.Command("jq", args...)
-		cmd.Stdin = strings.NewReader(string(originalContent))
-		output, cmdErr = cmd.Output()
-		if cmdErr != nil {
-			return fmt.Errorf("jq compact failed: %v", cmdErr)
+		// For compact mode, use minimal indent (empty string for jq-like compact)
+		output, changed, err := formatpkg.PrettifyJSON(originalContent, "", jsonSizeWarningMB)
+		if err != nil {
+			return fmt.Errorf("JSON prettification failed: %v", err)
 		}
+		if changed {
+			formatted = string(output)
+		} else {
+			formatted = string(originalContent)
+		}
+	} else if indent == "" {
+		// Skip prettification if indent-count is 0
+		formatted = string(originalContent)
 	} else {
-		// For pretty printing, use jq with indent to ensure formatting
-		args := []string{"--indent", "2", "."}
-		cmd := exec.Command("jq", args...)
-		cmd.Stdin = strings.NewReader(string(originalContent))
-		output, cmdErr = cmd.Output()
-		if cmdErr != nil {
-			return fmt.Errorf("jq format failed: %v", cmdErr)
+		// For pretty printing, use specified indent
+		output, changed, err := formatpkg.PrettifyJSON(originalContent, indent, jsonSizeWarningMB)
+		if err != nil {
+			return fmt.Errorf("JSON prettification failed: %v", err)
+		}
+		if changed {
+			formatted = string(output)
+		} else {
+			formatted = string(originalContent)
 		}
 	}
 
 	// Handle trailing newline
-	formatted := string(output)
 	if jsonConfig.TrailingNewline && !strings.HasSuffix(formatted, "\n") {
 		formatted += "\n"
 	} else if !jsonConfig.TrailingNewline && strings.HasSuffix(formatted, "\n") {
@@ -802,7 +838,7 @@ func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config, options
 }
 
 // executeSequential executes work items sequentially
-func executeSequentialWithOptions(files []string, checkOnly, quiet bool, cfg *config.Config, ignoreMissingTools bool, options finalizer.NormalizationOptions, useGoimports bool, textNormalize bool) error {
+func executeSequentialWithOptions(files []string, checkOnly, quiet bool, cfg *config.Config, ignoreMissingTools bool, options finalizer.NormalizationOptions, useGoimports bool, textNormalize bool, jsonIndent string, jsonIndentCount int, jsonSizeWarningMB int) error {
 	start := time.Now()
 	var formattedCount, unchangedCount, errorCount int
 	totalFiles := len(files)
@@ -813,7 +849,7 @@ func executeSequentialWithOptions(files []string, checkOnly, quiet bool, cfg *co
 	}
 
 	for i, file := range files {
-		if err := processFile(file, checkOnly, quiet, cfg, ignoreMissingTools, options, useGoimports, textNormalize); err != nil {
+		if err := processFile(file, checkOnly, quiet, cfg, ignoreMissingTools, options, useGoimports, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB); err != nil {
 			if err.Error() == "needs formatting" {
 				if checkOnly {
 					logger.Error(fmt.Sprintf("Failed to process %s", file), logger.Err(err))

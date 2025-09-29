@@ -364,6 +364,9 @@ func setupFormatCommandFlags(cmd *cobra.Command) {
 	// Additional flags used by new features
 	cmd.Flags().Bool("ignore-missing-tools", false, "Skip files requiring external formatters if tools are missing")
 	cmd.Flags().Bool("use-goimports", false, "Organize Go imports with goimports (after gofmt)")
+	cmd.Flags().String("json-indent", "  ", "Indentation for JSON prettification")
+	cmd.Flags().Int("json-indent-count", 2, "Number of spaces for JSON indentation")
+	cmd.Flags().Int("json-size-warning", 500, "Size threshold in MB for JSON file warnings")
 }
 
 // createTestFiles creates a set of test files for format command testing
@@ -393,3 +396,45 @@ func main(){
 // Note: Internal function tests have been removed to focus on public API testing
 // Internal functions should be tested through integration tests of the command interface
 // rather than direct unit tests to avoid coupling to implementation details
+
+// TestFormatCommand_JSONFormatting tests JSON formatting functionality
+func TestFormatCommand_JSONFormatting(t *testing.T) {
+	// Create a temporary directory with a JSON file
+	tempDir := t.TempDir()
+
+	// Create a minified JSON file
+	jsonFile := filepath.Join(tempDir, "test.json")
+	jsonContent := `{"key":"value","number":123}`
+	if err := os.WriteFile(jsonFile, []byte(jsonContent), 0644); err != nil {
+		t.Fatalf("Failed to create test JSON file: %v", err)
+	}
+
+	// Create a test command
+	cmd := &cobra.Command{}
+	setupFormatCommandFlags(cmd)
+	if err := cmd.Flags().Set("files", jsonFile); err != nil {
+		t.Fatalf("Failed to set files flag: %v", err)
+	}
+	if err := cmd.Flags().Set("json-indent", "  "); err != nil {
+		t.Fatalf("Failed to set json-indent flag: %v", err)
+	}
+
+	// Execute the command
+	err := RunFormat(cmd, []string{})
+
+	// Check for errors
+	if err != nil {
+		t.Fatalf("Format command for JSON failed: %v", err)
+	}
+
+	// Verify the file was formatted
+	formattedContent, err := os.ReadFile(jsonFile)
+	if err != nil {
+		t.Fatalf("Failed to read formatted JSON file: %v", err)
+	}
+
+	expectedContent := "{\n  \"key\": \"value\",\n  \"number\": 123\n}\n"
+	if string(formattedContent) != expectedContent {
+		t.Errorf("Expected formatted JSON %q, got %q", expectedContent, string(formattedContent))
+	}
+}
