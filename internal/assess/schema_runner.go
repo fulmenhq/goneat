@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 
 	"github.com/fulmenhq/goneat/internal/assets"
+	"github.com/fulmenhq/goneat/pkg/schema"
 	"github.com/fulmenhq/goneat/pkg/work"
 	"github.com/xeipuuv/gojsonschema"
 	"gopkg.in/yaml.v3"
@@ -53,6 +54,7 @@ func (r *SchemaAssessmentRunner) Assess(ctx context.Context, target string, conf
 			return &AssessmentResult{CommandName: r.commandName, Category: CategorySchema, Success: false, ExecutionTime: HumanReadableDuration(time.Since(start)), Error: ctx.Err().Error()}, nil
 		default:
 		}
+
 		// Syntax validation first
 		if strings.HasSuffix(strings.ToLower(f), ".json") {
 			if err := r.checkJSONSyntax(f); err != nil {
@@ -82,30 +84,55 @@ func (r *SchemaAssessmentRunner) Assess(ctx context.Context, target string, conf
 				continue
 			}
 		}
-		// Minimal JSON Schema structural validation for repo schema files (preview)
-		if r.isLikelyJSONSchema(f) {
+
+		// Enhanced schema validation logic
+		isSchema, draft, err := r.detectSchemaInfo(f)
+		if err != nil {
+			issues = append(issues, Issue{
+				File:          f,
+				Severity:      SeverityMedium,
+				Message:       fmt.Sprintf("Failed to analyze schema info: %v", err),
+				Category:      CategorySchema,
+				SubCategory:   "schema_analysis",
+				AutoFixable:   false,
+				EstimatedTime: HumanReadableDuration(1 * time.Minute),
+			})
+			continue
+		}
+
+		if isSchema {
+			// Check if draft is allowed by configuration
+			if !r.isDraftAllowed(draft, config) {
+				issues = append(issues, Issue{
+					File:          f,
+					Severity:      SeverityLow,
+					Message:       fmt.Sprintf("Schema draft '%s' not in allowed drafts list", draft),
+					Category:      CategorySchema,
+					SubCategory:   "draft_filter",
+					AutoFixable:   false,
+					EstimatedTime: HumanReadableDuration(1 * time.Minute),
+				})
+				continue
+			}
+
+			// Basic structural validation
 			if err := r.checkJSONSchemaStructure(f); err != nil {
 				issues = append(issues, Issue{
 					File:          f,
 					Severity:      SeverityHigh,
-					Message:       fmt.Sprintf("JSON Schema structural validation failed: %v", err),
+					Message:       fmt.Sprintf("Schema structural validation failed: %v", err),
 					Category:      CategorySchema,
-					SubCategory:   "jsonschema",
+					SubCategory:   "schema_structure",
 					AutoFixable:   false,
 					EstimatedTime: HumanReadableDuration(3 * time.Minute),
 				})
-			} else if config.SchemaEnableMeta {
-				if err := r.checkJSONSchemaWithMeta(f); err != nil {
-					issues = append(issues, Issue{
-						File:          f,
-						Severity:      SeverityHigh,
-						Message:       fmt.Sprintf("JSON Schema meta validation failed: %v", err),
-						Category:      CategorySchema,
-						SubCategory:   "jsonschema_meta",
-						AutoFixable:   false,
-						EstimatedTime: HumanReadableDuration(3 * time.Minute),
-					})
-				}
+				continue
+			}
+
+			// Enhanced meta-validation using pkg/schema
+			if config.SchemaEnableMeta {
+				metaIssues := r.validateSchemaMeta(f, draft)
+				issues = append(issues, metaIssues...)
 			}
 		}
 	}
@@ -128,6 +155,7 @@ func (r *SchemaAssessmentRunner) IsAvailable() bool { return true }
 
 func (r *SchemaAssessmentRunner) findCandidates(target string, config AssessmentConfig) ([]string, error) {
 	var files []string
+
 	// Helper to derive scope roots from include dirs and force-include anchors
 	deriveScopeRoots := func() []string {
 		var roots []string
@@ -193,7 +221,7 @@ func (r *SchemaAssessmentRunner) findCandidates(target string, config Assessment
 						}
 						low := strings.ToLower(path)
 						if strings.HasSuffix(low, ".yaml") || strings.HasSuffix(low, ".yml") || strings.HasSuffix(low, ".json") {
-							if !r.isExcluded(path, config) {
+							if !r.isExcluded(path, config) && r.isSchemaCandidate(path, config) {
 								files = append(files, path)
 							}
 						}
@@ -231,12 +259,9 @@ func (r *SchemaAssessmentRunner) findCandidates(target string, config Assessment
 				manifest, perr := planner.GenerateManifest()
 				if perr == nil {
 					for _, item := range manifest.WorkItems {
-						if !isUnderSchemas(item.Path) {
-							continue
-						}
 						low := strings.ToLower(item.Path)
 						if strings.HasSuffix(low, ".yaml") || strings.HasSuffix(low, ".yml") || strings.HasSuffix(low, ".json") {
-							if !r.isExcluded(item.Path, config) {
+							if !r.isExcluded(item.Path, config) && r.isSchemaCandidate(item.Path, config) {
 								files = append(files, item.Path)
 							}
 						}
@@ -247,7 +272,7 @@ func (r *SchemaAssessmentRunner) findCandidates(target string, config Assessment
 			// File path include
 			low := strings.ToLower(p)
 			if strings.HasSuffix(low, ".yaml") || strings.HasSuffix(low, ".yml") || strings.HasSuffix(low, ".json") {
-				if !r.isExcluded(p, config) {
+				if !r.isExcluded(p, config) && r.isSchemaCandidate(p, config) {
 					files = append(files, p)
 				}
 			}
@@ -277,12 +302,9 @@ func (r *SchemaAssessmentRunner) findCandidates(target string, config Assessment
 	}
 	for _, item := range manifest.WorkItems {
 		p := item.Path
-		if !isUnderSchemas(p) {
-			continue
-		}
 		low := strings.ToLower(p)
 		if strings.HasSuffix(low, ".yaml") || strings.HasSuffix(low, ".yml") || strings.HasSuffix(low, ".json") {
-			if !r.isExcluded(p, config) {
+			if !r.isExcluded(p, config) && r.isSchemaCandidate(p, config) {
 				files = append(files, p)
 			}
 		}
@@ -299,6 +321,124 @@ func (r *SchemaAssessmentRunner) isExcluded(path string, config AssessmentConfig
 	return false
 }
 
+// isSchemaCandidate determines if a file should be considered for schema validation
+// based on the discovery mode and configured patterns
+func (r *SchemaAssessmentRunner) isSchemaCandidate(path string, config AssessmentConfig) bool {
+	// Check custom patterns first if provided
+	if len(config.SchemaPatterns) > 0 {
+		for _, pattern := range config.SchemaPatterns {
+			if matched, _ := filepath.Match(pattern, filepath.Base(path)); matched {
+				return true
+			}
+		}
+		// If patterns are specified but none match, it's not a candidate
+		return false
+	}
+
+	// Determine discovery mode (default to "schemas-dir" for backward compatibility)
+	discoveryMode := config.SchemaDiscoveryMode
+	if discoveryMode == "" {
+		discoveryMode = "schemas-dir"
+	}
+
+	switch discoveryMode {
+	case "schemas-dir":
+		// Original behavior: only files under directories named "schemas"
+		return isUnderSchemas(path)
+	case "all":
+		// Enhanced behavior: check if file has $schema field
+		return r.hasSchemaField(path)
+	default:
+		// Unknown mode, fall back to schemas-dir
+		return isUnderSchemas(path)
+	}
+}
+
+// hasSchemaField checks if a JSON/YAML file contains a $schema field
+func (r *SchemaAssessmentRunner) hasSchemaField(path string) bool {
+	data, err := safeReadFile(path)
+	if err != nil {
+		return false
+	}
+
+	// Try to parse as YAML first, then JSON
+	var doc map[string]interface{}
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		// Try JSON if YAML fails
+		if err := json.Unmarshal(data, &doc); err != nil {
+			return false
+		}
+	}
+
+	// Check for $schema field
+	_, hasSchema := doc["$schema"]
+	return hasSchema
+}
+
+// extractDraftFromURL extracts the draft version from a $schema URL
+func (r *SchemaAssessmentRunner) extractDraftFromURL(schemaURL string) string {
+	// Common schema URL patterns:
+	// "https://json-schema.org/draft-07/schema" -> "draft-07"
+	// "https://json-schema.org/draft/2020-12/schema" -> "2020-12"
+	// "http://json-schema.org/draft-07/schema#" -> "draft-07"
+
+	if strings.Contains(schemaURL, "draft-07") {
+		return "draft-07"
+	}
+	if strings.Contains(schemaURL, "2020-12") {
+		return "2020-12"
+	}
+	if strings.Contains(schemaURL, "2019-09") {
+		return "2019-09"
+	}
+	if strings.Contains(schemaURL, "draft-04") {
+		return "draft-04"
+	}
+
+	// Default to 2020-12 if we can't determine
+	return "2020-12"
+}
+
+// detectSchemaInfo detects if a file is a schema and returns its draft version
+func (r *SchemaAssessmentRunner) detectSchemaInfo(path string) (isSchema bool, draft string, err error) {
+	data, err := safeReadFile(path)
+	if err != nil {
+		return false, "", err
+	}
+
+	// Try to parse as YAML first, then JSON
+	var doc map[string]interface{}
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		// Try JSON if YAML fails
+		if err := json.Unmarshal(data, &doc); err != nil {
+			return false, "", nil // Not a valid JSON/YAML file
+		}
+	}
+
+	// Check for $schema field
+	if schemaURL, ok := doc["$schema"].(string); ok {
+		draft := r.extractDraftFromURL(schemaURL)
+		return true, draft, nil
+	}
+
+	return false, "", nil
+}
+
+// isDraftAllowed checks if the detected draft is in the allowed list
+func (r *SchemaAssessmentRunner) isDraftAllowed(draft string, config AssessmentConfig) bool {
+	if len(config.SchemaDrafts) == 0 {
+		// No filter specified, allow all supported drafts
+		return draft == "draft-07" || draft == "2020-12" || draft == "2019-09"
+	}
+
+	for _, allowedDraft := range config.SchemaDrafts {
+		if draft == allowedDraft {
+			return true
+		}
+	}
+	return false
+}
+
 func isUnderSchemas(path string) bool {
 	parts := strings.Split(filepath.ToSlash(path), "/")
 	for _, seg := range parts {
@@ -307,6 +447,82 @@ func isUnderSchemas(path string) bool {
 		}
 	}
 	return false
+}
+
+// validateSchemaMeta performs meta-validation using the pkg/schema library
+func (r *SchemaAssessmentRunner) validateSchemaMeta(path string, draft string) []Issue {
+	var issues []Issue
+
+	// Use the enhanced pkg/schema library for validation
+	validator, err := schema.NewValidatorFromMetaSchema(draft)
+	if err != nil {
+		issues = append(issues, Issue{
+			File:          path,
+			Severity:      SeverityMedium,
+			Message:       fmt.Sprintf("Unsupported schema draft '%s': %v", draft, err),
+			Category:      CategorySchema,
+			SubCategory:   "meta_validation",
+			AutoFixable:   false,
+			EstimatedTime: HumanReadableDuration(1 * time.Minute),
+		})
+		return issues
+	}
+
+	// Read and validate the file
+	data, err := safeReadFile(path)
+	if err != nil {
+		issues = append(issues, Issue{
+			File:          path,
+			Severity:      SeverityHigh,
+			Message:       fmt.Sprintf("Failed to read schema file: %v", err),
+			Category:      CategorySchema,
+			SubCategory:   "meta_validation",
+			AutoFixable:   false,
+			EstimatedTime: HumanReadableDuration(1 * time.Minute),
+		})
+		return issues
+	}
+
+	// Validate using the pkg/schema library
+	result, err := validator.ValidateBytes(data)
+	if err != nil {
+		issues = append(issues, Issue{
+			File:          path,
+			Severity:      SeverityHigh,
+			Message:       fmt.Sprintf("Meta-validation error: %v", err),
+			Category:      CategorySchema,
+			SubCategory:   "meta_validation",
+			AutoFixable:   false,
+			EstimatedTime: HumanReadableDuration(3 * time.Minute),
+		})
+		return issues
+	}
+
+	// Process validation errors with enhanced reporting
+	if !result.Valid {
+		for _, verr := range result.Errors {
+			severity := SeverityMedium
+			// Categorize errors by severity
+			if strings.Contains(strings.ToLower(verr.Message), "required") {
+				severity = SeverityHigh
+			} else if strings.Contains(strings.ToLower(verr.Message), "additional") {
+				severity = SeverityLow
+			}
+
+			issues = append(issues, Issue{
+				File:          path,
+				Line:          verr.Context.LineNumber,
+				Severity:      severity,
+				Message:       fmt.Sprintf("Schema validation error at %s: %s", verr.Path, verr.Message),
+				Category:      CategorySchema,
+				SubCategory:   "meta_validation",
+				AutoFixable:   false,
+				EstimatedTime: HumanReadableDuration(2 * time.Minute),
+			})
+		}
+	}
+
+	return issues
 }
 
 func (r *SchemaAssessmentRunner) checkJSONSyntax(path string) error {
@@ -335,13 +551,6 @@ func (r *SchemaAssessmentRunner) checkYAMLSyntax(path string) error {
 		return err
 	}
 	return nil
-}
-
-// isLikelyJSONSchema detects if a file appears to be a JSON Schema document we maintain
-func (r *SchemaAssessmentRunner) isLikelyJSONSchema(path string) bool {
-	// Treat any file under a path segment named "schemas" as a schema candidate.
-	// This uses slash-normalized path checks to work cross-platform.
-	return isUnderSchemas(path)
 }
 
 // checkJSONSchemaStructure performs minimal structural checks for JSON Schema documents in YAML/JSON

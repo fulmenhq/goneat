@@ -68,7 +68,10 @@ type AssessmentConfig struct {
 	TrackSuppressions bool `json:"track_suppressions,omitempty"`
 
 	// Schema options (preview)
-	SchemaEnableMeta bool `json:"schema_enable_meta,omitempty"`
+	SchemaEnableMeta    bool     `json:"schema_enable_meta,omitempty"`    // Enable meta-schema validation
+	SchemaDrafts        []string `json:"schema_drafts,omitempty"`         // Filter by specific drafts (e.g., ["draft-07", "2020-12"])
+	SchemaPatterns      []string `json:"schema_patterns,omitempty"`       // Custom glob patterns for schema files
+	SchemaDiscoveryMode string   `json:"schema_discovery_mode,omitempty"` // Discovery mode: "schemas-dir" (default) or "all"
 
 	// Scoped discovery (limits traversal to include dirs and force-include anchors)
 	Scope bool `json:"scope,omitempty"`

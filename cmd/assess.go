@@ -58,6 +58,9 @@ var (
 	assessNoIgnore            bool
 	assessForceInclude        []string
 	assessSchemaEnableMeta    bool
+	assessSchemaDrafts        []string
+	assessSchemaPatterns      []string
+	assessSchemaDiscoveryMode string
 	assessScope               bool
 	assessHook                string
 	assessHookManifest        string
@@ -110,6 +113,9 @@ func setupAssessCommandFlags(cmd *cobra.Command) {
 	cmd.Flags().StringSliceVar(&assessForceInclude, "force-include", []string{}, "Force-include paths or globs even if ignored (repeatable). Examples: --force-include tests/fixtures/** --force-include \"schemas/**\"")
 	// Schema validation options
 	cmd.Flags().BoolVar(&assessSchemaEnableMeta, "schema-enable-meta", false, "Attempt meta-schema validation using embedded drafts (may require network for remote $refs)")
+	cmd.Flags().StringSliceVar(&assessSchemaDrafts, "schema-drafts", []string{}, "Filter by specific drafts (comma-separated, e.g., 'draft-07,2020-12')")
+	cmd.Flags().StringSliceVar(&assessSchemaPatterns, "schema-patterns", []string{}, "Custom glob patterns for schema files (repeatable)")
+	cmd.Flags().StringVar(&assessSchemaDiscoveryMode, "schema-discovery-mode", "schemas-dir", "Schema discovery mode: 'schemas-dir' (default, only /schemas/ dirs) or 'all' (any file with $schema)")
 	// Scoped discovery
 	cmd.Flags().BoolVar(&assessScope, "scope", false, "Limit traversal scope to include paths and force-include anchors")
 	// Lint controls
@@ -188,6 +194,9 @@ func runAssess(cmd *cobra.Command, args []string) error {
 	assessNoIgnore, _ = flags.GetBool("no-ignore")
 	assessForceInclude, _ = flags.GetStringSlice("force-include")
 	assessSchemaEnableMeta, _ = flags.GetBool("schema-enable-meta")
+	assessSchemaDrafts, _ = flags.GetStringSlice("schema-drafts")
+	assessSchemaPatterns, _ = flags.GetStringSlice("schema-patterns")
+	assessSchemaDiscoveryMode, _ = flags.GetString("schema-discovery-mode")
 	assessScope, _ = flags.GetBool("scope")
 	assessCISummary, _ = flags.GetBool("ci-summary")
 	assessProfile, _ = flags.GetString("profile")
@@ -256,23 +265,26 @@ func runAssess(cmd *cobra.Command, args []string) error {
 
 	// Create assessment configuration
 	config := assess.AssessmentConfig{
-		Mode:               mode,
-		Verbose:            assessVerbose,
-		Timeout:            assessTimeout,
-		IncludeFiles:       assessIncludeFiles,
-		ExcludeFiles:       assessExcludeFiles,
-		NoIgnore:           assessNoIgnore,
-		ForceInclude:       assessForceInclude,
-		SchemaEnableMeta:   assessSchemaEnableMeta,
-		Scope:              assessScope,
-		PackageMode:        assessPackageMode,
-		Extended:           assessExtended,
-		PriorityString:     assessPriority,
-		FailOnSeverity:     failOnSeverity,
-		Concurrency:        assessConcurrency,
-		ConcurrencyPercent: assessConcurrencyPercent,
-		TrackSuppressions:  assessTrackSuppressions,
-		LintNewFromRev:     strings.TrimSpace(assessLintNewFromRev),
+		Mode:                mode,
+		Verbose:             assessVerbose,
+		Timeout:             assessTimeout,
+		IncludeFiles:        assessIncludeFiles,
+		ExcludeFiles:        assessExcludeFiles,
+		NoIgnore:            assessNoIgnore,
+		ForceInclude:        assessForceInclude,
+		SchemaEnableMeta:    assessSchemaEnableMeta,
+		SchemaDrafts:        assessSchemaDrafts,
+		SchemaPatterns:      assessSchemaPatterns,
+		SchemaDiscoveryMode: assessSchemaDiscoveryMode,
+		Scope:               assessScope,
+		PackageMode:         assessPackageMode,
+		Extended:            assessExtended,
+		PriorityString:      assessPriority,
+		FailOnSeverity:      failOnSeverity,
+		Concurrency:         assessConcurrency,
+		ConcurrencyPercent:  assessConcurrencyPercent,
+		TrackSuppressions:   assessTrackSuppressions,
+		LintNewFromRev:      strings.TrimSpace(assessLintNewFromRev),
 	}
 
 	// Add positional args to IncludeFiles

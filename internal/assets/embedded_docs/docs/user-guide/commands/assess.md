@@ -227,6 +227,135 @@ Alternatively use the convenience command:
 goneat validate --include schemas/ --format json --output validate.json
 ```
 
+#### Schema Assessment in Git Hooks
+
+**Use Case 1: Meta-Schema Validation (Schema Files Themselves)**
+Validate that your schema files are well-formed JSON Schema documents:
+
+```bash
+# Hook for validating schema files against meta-schemas
+goneat assess --categories schema --schema-enable-meta \
+  --schema-discovery-mode all \
+  --hook pre-commit
+
+# Target specific schema directories
+goneat assess schemas/ --categories schema --schema-enable-meta
+```
+
+**Use Case 2: Data Validation (Config Files Against Schemas)**
+Validate that configuration files match their schemas:
+
+```bash
+# Validate config files against schemas (using goneat validate command)
+goneat validate --schema-file schemas/config.yaml config/app.yaml
+
+# Or use pathfinder + schema workflow for batch validation
+goneat pathfinder find --schemas --schema-id json-schema-2020-12 --output text \
+  | cut -d ' ' -f1 \
+  | xargs -r goneat schema validate-schema --schema-id json-schema-2020-12
+```
+
+#### Enhanced Schema Discovery
+
+With v0.2.10 enhancements, schema assessment now supports:
+
+```bash
+# Enhanced discovery - find any file with $schema field
+goneat assess --categories schema --schema-discovery-mode all
+
+# Filter by specific drafts
+goneat assess --categories schema --schema-drafts "draft-07,2020-12"
+
+# Custom patterns for schema files
+goneat assess --categories schema --schema-patterns "*.schema.yaml"
+```
+
+## Force-Include Override
+
+The `--force-include` flag allows you to assess files that would normally be ignored by `.goneatignore` or `.gitignore`. This is especially useful for testing, fixtures, and validating normally-excluded content.
+
+### Purpose
+
+- **Test Fixtures**: Validate test data and schema fixtures that are typically ignored
+- **Documentation Files**: Include vendor docs or generated files for specific assessments
+- **Configuration Templates**: Assess template files that might be in ignored directories
+- **Security Audits**: Include vendor dependencies for security scanning
+- **Schema Validation**: Validate schema files in test directories
+
+### Usage Patterns
+
+#### Single File Override
+```bash
+# Validate a specific ignored file
+goneat assess --categories schema \
+  --force-include 'tests/fixtures/schemas/bad/invalid-schema.json'
+```
+
+#### Directory Pattern Override
+```bash
+# Include all files in an ignored directory
+goneat assess --categories schema \
+  --force-include 'tests/fixtures/**' \
+  --schema-enable-meta
+```
+
+#### Multiple Pattern Override
+```bash
+# Include multiple ignored patterns
+goneat assess --categories schema \
+  --force-include 'tests/fixtures/**' \
+  --force-include 'vendor/schemas/**' \
+  --force-include 'docs/examples/**'
+```
+
+### Combined with Other Flags
+
+#### Scoped Assessment
+```bash
+# Targeted assessment with scope limiting
+goneat assess --scope --categories schema \
+  --include tests/fixtures/schemas/bad/ \
+  --force-include 'tests/fixtures/schemas/bad/**' \
+  --format json --output fixtures-report.json
+```
+
+#### Schema-Specific Patterns
+```bash
+# Force-include with schema filtering
+goneat assess --categories schema \
+  --force-include 'tests/fixtures/**' \
+  --schema-patterns "*.schema.yaml" \
+  --schema-discovery-mode all
+```
+
+### Best Practices
+
+1. **Quote Glob Patterns**: Always quote patterns to prevent shell expansion
+   ```bash
+   # Good
+   goneat assess --force-include 'tests/**/*.yaml'
+
+   # Bad (shell expands before goneat sees it)
+   goneat assess --force-include tests/**/*.yaml
+   ```
+
+2. **Use with Target Scope**: Combine with `--include` or target directories for efficiency
+   ```bash
+   # More efficient
+   goneat assess tests/fixtures --force-include 'tests/fixtures/**'
+
+   # Less efficient (scans entire repo)
+   goneat assess --force-include 'tests/fixtures/**'
+   ```
+
+3. **Multiple Patterns**: Use multiple `--force-include` flags for different patterns
+   ```bash
+   goneat assess \
+     --force-include 'tests/fixtures/**' \
+     --force-include 'docs/examples/**' \
+     --force-include 'vendor/important/**'
+   ```
+
 ### Ignore Overrides (DX)
 
 Run assess on paths normally ignored by `.goneatignore`:
