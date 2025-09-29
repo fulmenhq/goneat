@@ -1,0 +1,5 @@
+syntax = proto3
+
+message BrokenMessage {
+  string message = 1
+}

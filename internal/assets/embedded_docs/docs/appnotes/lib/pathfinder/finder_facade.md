@@ -137,6 +137,14 @@ Key behaviors:
 
 The facade intentionally keeps `PathResult.LoaderType` so you can identify the backing loader and downshift to low-level APIs when needed.
 
+## Schema Manifest & Overrides
+
+Schema detection pulls from the canonical manifest at `schemas/signatures/v1.0.0/schema-signatures.yaml`, embedded into the binary. The manifest entries mirror the `Signature` structs returned by `LoadManifest()` and are validated by `schema-signature-manifest.schema.yaml` (Draft 2020-12, expressed in YAML for maintainers to annotate).
+
+At runtime we merge overrides in this order: the embedded manifest, `$GONEAT_HOME/config/signatures.yaml`, then every YAML file under `$GONEAT_HOME/signatures/`. Later definitions replace earlier ones (last wins). This lets teams ship custom signature packs without recompiling goneat.
+
+Use `signature.LoadDefaultManifest()` to obtain the merged view, or pass your own `Manifest` to `signature.NewDetector` for bespoke pipelines.
+
 ## Guardian & Safety Considerations
 
 - **Constraints**: Provide a `FinderConfig.Constraint` (e.g., `NewRepositoryConstraint`) to enforce path boundaries. Guardian will reject results outside approved roots.

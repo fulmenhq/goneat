@@ -1,0 +1,105 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$title: Goneat Schema Signature Manifest
+$type: object
+$comment: |
+  Defines the structure for signature manifests consumed by the pathfinder schema discovery engine.
+type: object
+required: [version, signatures]
+properties:
+  version:
+    type: string
+    description: Version identifier for the manifest (e.g., v1.0.0)
+  signatures:
+    type: array
+    minItems: 1
+    items:
+      $ref: '#/$defs/signature'
+additionalProperties: false
+
+$defs:
+  signature:
+    type: object
+    required: [id, category, matchers]
+    properties:
+      id:
+        type: string
+        description: Unique identifier for the signature entry
+      category:
+        type: string
+        description: Functional grouping (json-schema, openapi, cue, etc.)
+      description:
+        type: string
+      confidence_threshold:
+        type: number
+        minimum: 0
+        maximum: 1
+        description: Minimum combined matcher weight required to claim a match (default 0.6)
+      aliases:
+        type: array
+        items:
+          type: string
+        uniqueItems: true
+      file_extensions:
+        type: array
+        items:
+          type: string
+          pattern: '^\.[A-Za-z0-9]+$'
+        uniqueItems: true
+      matchers:
+        type: array
+        minItems: 1
+        items:
+          $ref: '#/$defs/matcher'
+      metadata:
+        type: object
+        description: Optional metadata blob exposed to consumers
+        additionalProperties: true
+    additionalProperties: false
+
+  matcher:
+    type: object
+    required: [type]
+    properties:
+      type:
+        type: string
+        enum: [contains, regex, prefix, suffix]
+      value:
+        type: string
+        description: Literal value used by contains/prefix/suffix matchers
+      pattern:
+        type: string
+        description: Regular expression pattern (RE2 syntax)
+      weight:
+        type: number
+        minimum: 0
+        maximum: 1
+        default: 1
+      ignore_case:
+        type: boolean
+        default: false
+    additionalProperties: false
+    allOf:
+      - if:
+          properties:
+            type:
+              const: contains
+        then:
+          required: [value]
+      - if:
+          properties:
+            type:
+              const: prefix
+        then:
+          required: [value]
+      - if:
+          properties:
+            type:
+              const: suffix
+        then:
+          required: [value]
+      - if:
+          properties:
+            type:
+              const: regex
+        then:
+          required: [pattern]

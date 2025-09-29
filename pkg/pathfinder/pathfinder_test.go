@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -293,14 +294,19 @@ func TestSafeWalker_WalkDirectory(t *testing.T) {
 	validator.SetAllowSymlinks(true)
 	walker := NewSafeWalker(validator)
 
-	var foundFiles []string
+	var (
+		foundFiles []string
+		mu         sync.Mutex
+	)
 	walkFunc := func(path string, info FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		if !info.IsDir() {
 			relPath, _ := filepath.Rel(walkerTestDir, path)
+			mu.Lock()
 			foundFiles = append(foundFiles, relPath)
+			mu.Unlock()
 		}
 		return nil
 	}

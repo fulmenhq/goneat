@@ -1,0 +1,8 @@
+{
+  "type": "record",
+  "name": "Example",
+  "namespace": "fixtures.avro",
+  "fields": [
+    {"name": "id", "type": "string"}
+  ]
+}

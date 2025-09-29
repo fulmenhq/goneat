@@ -1,0 +1,202 @@
+version: v1
+signatures:
+  - id: json-schema-draft-04
+    category: json-schema
+    description: JSON Schema Draft-04 document
+    confidence_threshold: 0.6
+    aliases:
+      - draft-04
+      - http://json-schema.org/draft-04/schema#
+    file_extensions: [".json", ".yaml", ".yml"]
+    matchers:
+      - type: contains
+        value: "\"$schema\""
+        weight: 0.3
+      - type: contains
+        value: json-schema.org/draft-04
+        weight: 0.7
+    metadata:
+      draft: draft-04
+      docs: https://json-schema.org/specification-links.html#draft-4
+      validator: json-schema
+
+  - id: json-schema-draft-06
+    category: json-schema
+    description: JSON Schema Draft-06 document
+    confidence_threshold: 0.6
+    aliases:
+      - draft-06
+      - http://json-schema.org/draft-06/schema#
+    file_extensions: [".json", ".yaml", ".yml"]
+    matchers:
+      - type: contains
+        value: "\"$schema\""
+        weight: 0.3
+      - type: contains
+        value: json-schema.org/draft-06
+        weight: 0.7
+    metadata:
+      draft: draft-06
+      docs: https://json-schema.org/specification-links.html#draft-6
+      validator: json-schema
+
+  - id: json-schema-draft-07
+    category: json-schema
+    description: JSON Schema Draft-07 document
+    confidence_threshold: 0.6
+    aliases:
+      - draft-07
+      - http://json-schema.org/draft-07/schema#
+      - https://json-schema.org/draft-07/schema
+    file_extensions: [".json", ".yaml", ".yml"]
+    matchers:
+      - type: contains
+        value: "\"$schema\""
+        weight: 0.3
+      - type: contains
+        value: json-schema.org/draft-07
+        weight: 0.7
+    metadata:
+      draft: draft-07
+      docs: https://json-schema.org/draft-07/schema
+      validator: json-schema
+
+  - id: json-schema-2019-09
+    category: json-schema
+    description: JSON Schema Draft 2019-09 document
+    confidence_threshold: 0.6
+    aliases:
+      - 2019-09
+      - https://json-schema.org/draft/2019-09/schema
+    file_extensions: [".json", ".yaml", ".yml"]
+    matchers:
+      - type: contains
+        value: "\"$schema\""
+        weight: 0.3
+      - type: contains
+        value: json-schema.org/draft/2019-09
+        weight: 0.7
+    metadata:
+      draft: 2019-09
+      docs: https://json-schema.org/specification-links.html#draft-2019-09
+      validator: json-schema
+
+  - id: json-schema-2020-12
+    category: json-schema
+    description: JSON Schema Draft 2020-12 document
+    confidence_threshold: 0.6
+    aliases:
+      - 2020-12
+      - https://json-schema.org/draft/2020-12/schema
+    file_extensions: [".json", ".yaml", ".yml"]
+    matchers:
+      - type: contains
+        value: "\"$schema\""
+        weight: 0.3
+      - type: contains
+        value: json-schema.org/draft/2020-12
+        weight: 0.7
+    metadata:
+      draft: 2020-12
+      docs: https://json-schema.org/specification-links.html#draft-2020-12
+      validator: json-schema
+
+  - id: openapi-3
+    category: openapi
+    description: OpenAPI 3.x specification document
+    confidence_threshold: 0.7
+    aliases:
+      - openapi
+      - openapi-3.0
+      - openapi-3.1
+    file_extensions: [".json", ".yaml", ".yml"]
+    matchers:
+      - type: regex
+        pattern: '"openapi"\s*:\s*"3\\.[0-9]+\.[0-9]+"'
+        weight: 0.7
+      - type: regex
+        pattern: '^openapi\s*:\s*3\\.[0-9]+\.[0-9]+'
+        weight: 0.7
+    metadata:
+      default_version: 3.0
+      docs: https://spec.openapis.org/oas/v3.1.0
+      validator: openapi
+
+  - id: asyncapi-2
+    category: asyncapi
+    description: AsyncAPI 2.x specification document
+    confidence_threshold: 0.7
+    aliases:
+      - asyncapi
+    file_extensions: [".json", ".yaml", ".yml"]
+    matchers:
+      - type: regex
+        pattern: '"asyncapi"\s*:\s*"2\\.[0-9]+\.[0-9]+"'
+        weight: 0.7
+      - type: regex
+        pattern: '^asyncapi\s*:\s*2\\.[0-9]+\.[0-9]+'
+        weight: 0.7
+    metadata:
+      default_version: 2.6
+      docs: https://www.asyncapi.com/docs/reference/specification/v2.6.0
+      validator: asyncapi
+
+  - id: avro-schema
+    category: avro
+    description: Apache Avro schema file
+    confidence_threshold: 0.6
+    aliases:
+      - avro
+    file_extensions: [".avsc", ".json"]
+    matchers:
+      - type: contains
+        value: '"type":"record"'
+        weight: 0.4
+      - type: contains
+        value: '"namespace"'
+        weight: 0.3
+      - type: contains
+        value: '"fields"'
+        weight: 0.3
+    metadata:
+      docs: https://avro.apache.org/docs/current/specification/
+      validator: avro
+
+  - id: cue-module
+    category: cue
+    description: Cue module definition (module.cue)
+    confidence_threshold: 0.5
+    aliases:
+      - cue
+    file_extensions: [".cue"]
+    matchers:
+      - type: regex
+        pattern: '^module\s+"[^"]+"'
+        weight: 0.6
+      - type: contains
+        value: "module:"
+        weight: 0.4
+    metadata:
+      docs: https://cuelang.org/docs/references/spec/
+      validator: cue
+
+  - id: protobuf-schema
+    category: protobuf
+    description: Protocol Buffers schema (.proto)
+    confidence_threshold: 0.5
+    aliases:
+      - proto
+    file_extensions: [".proto"]
+    matchers:
+      - type: regex
+        pattern: "^syntax\\s*=\\s*[\"']proto[23][\"'](?:;)?"
+        weight: 0.6
+      - type: contains
+        value: 'message '
+        weight: 0.2
+      - type: contains
+        value: 'package '
+        weight: 0.2
+    metadata:
+      docs: https://protobuf.dev/programming-guides/proto3/
+      validator: protoc

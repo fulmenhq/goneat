@@ -1,0 +1,11 @@
+openapi: 3.0.3
+info:
+  title: Sample Ping API
+  version: "1.0.0"
+paths:
+  /ping:
+    get:
+      summary: Return a ping response
+      responses:
+        '200':
+          description: pong

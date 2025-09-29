@@ -51,6 +51,10 @@ func init() {
 	pathfinderFindCmd.Flags().String("logical-prefix", "", "Prepend prefix to logical path output")
 	pathfinderFindCmd.Flags().Bool("flatten", false, "Use base filename as logical path (overrides strip-prefix)")
 	pathfinderFindCmd.Flags().String("loader", "local", "Loader type to use (local, s3, gcs, etc.)")
+	pathfinderFindCmd.Flags().Bool("schemas", false, "Enable schema signature discovery mode")
+	pathfinderFindCmd.Flags().StringSlice("schema-id", nil, "Filter schema matches by signature id or alias")
+	pathfinderFindCmd.Flags().StringSlice("schema-category", nil, "Filter schema matches by category (e.g., json-schema, openapi)")
+	pathfinderFindCmd.Flags().Bool("schema-metadata", false, "Include signature metadata (match details, docs links)")
 }
 
 func runPathfinderFind(cmd *cobra.Command, _ []string) error {
@@ -68,8 +72,15 @@ func runPathfinderFind(cmd *cobra.Command, _ []string) error {
 	logicalPrefix, _ := cmd.Flags().GetString("logical-prefix")
 	flatten, _ := cmd.Flags().GetBool("flatten")
 	loaderType, _ := cmd.Flags().GetString("loader")
+	schemaMode, _ := cmd.Flags().GetBool("schemas")
+	schemaIDs, _ := cmd.Flags().GetStringSlice("schema-id")
+	schemaCategories, _ := cmd.Flags().GetStringSlice("schema-category")
+	schemaMetadata, _ := cmd.Flags().GetBool("schema-metadata")
 
 	output := strings.ToLower(outputFormat)
+	if schemaMode && output == "json" && !schemaMetadata {
+		schemaMetadata = true
+	}
 	if output != "json" && output != "text" {
 		return fmt.Errorf("unsupported output format: %s", outputFormat)
 	}
@@ -89,14 +100,18 @@ func runPathfinderFind(cmd *cobra.Command, _ []string) error {
 	})
 
 	query := pathfinder.FindQuery{
-		Root:           rootPath,
-		Include:        include,
-		Exclude:        exclude,
-		SkipDirs:       skipDirs,
-		MaxDepth:       maxDepth,
-		FollowSymlinks: followSymlinks,
-		Workers:        workers,
-		Context:        cmd.Context(),
+		Root:                  rootPath,
+		Include:               include,
+		Exclude:               exclude,
+		SkipDirs:              skipDirs,
+		MaxDepth:              maxDepth,
+		FollowSymlinks:        followSymlinks,
+		Workers:               workers,
+		Context:               cmd.Context(),
+		SchemaMode:            schemaMode,
+		SchemaIDs:             schemaIDs,
+		SchemaCategories:      schemaCategories,
+		IncludeSchemaMetadata: schemaMetadata,
 	}
 
 	query.Transform = buildTransform(stripPrefix, logicalPrefix, flatten)
@@ -149,11 +164,21 @@ func writeResultsText(cmd *cobra.Command, results []pathfinder.PathResult, showS
 }
 
 func writeSingleTextResult(cmd *cobra.Command, res pathfinder.PathResult, showSource bool) {
+	label := res.LogicalPath
+	if res.Metadata != nil {
+		if schemaMeta, ok := res.Metadata["schema"].(map[string]any); ok {
+			if id, ok := schemaMeta["id"].(string); ok && id != "" {
+				label = fmt.Sprintf("%s [schema:%s]", label, id)
+			} else if category, ok := schemaMeta["category"].(string); ok && category != "" {
+				label = fmt.Sprintf("%s [schema:%s]", label, category)
+			}
+		}
+	}
 	if showSource {
-		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s -> %s\n", res.LogicalPath, res.SourcePath)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s -> %s\n", label, res.SourcePath)
 		return
 	}
-	_, _ = fmt.Fprintln(cmd.OutOrStdout(), res.LogicalPath)
+	_, _ = fmt.Fprintln(cmd.OutOrStdout(), label)
 }
 
 func buildTransform(stripPrefix, logicalPrefix string, flatten bool) pathfinder.PathTransform {

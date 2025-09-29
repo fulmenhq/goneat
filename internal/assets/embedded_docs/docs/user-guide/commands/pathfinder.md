@@ -33,6 +33,7 @@ The top-level `pathfinder` command currently offers the `find` subcommand and wi
 
 - **Pattern-based discovery** with doublestar (`**/*.xml`) include/exclude filters
 - **Logical-path transforms** (flatten, strip prefix, prepend prefix) matching the Go facade
+- **Schema-aware discovery** with canonical signatures for JSON Schema, OpenAPI, AsyncAPI, Avro, Cue, etc.
 - **Streaming text output** for large directories and future cloud buckets
 - **Guardian-aware** enforcement via the underlying `PathFinder`
 - **Consistent JSON output** for scripting and automation
@@ -71,6 +72,36 @@ The top-level `pathfinder` command currently offers the `find` subcommand and wi
 | `--logical-prefix` | Prepend a prefix to logical paths (e.g., target bucket or tenant). |
 | `--flatten` | Set the logical path to the base filename, ignoring directories. Overrides `--strip-prefix`. |
 | `--loader` | Loader type (`local`, `s3`, `r2`, `gcs`, etc.). v0.2.9 ships `local`; cloud loaders arrive in v0.2.10. |
+| `--schemas` | Enable schema signature mode (filters results to recognised schemas). |
+| `--schema-id` | Restrict schema discovery to specific signature IDs or aliases. |
+| `--schema-category` | Restrict schema discovery to categories (e.g., `json-schema`, `openapi`, `avro`). |
+| `--schema-metadata` | Include full signature metadata (match diagnostics, docs links). Enabled automatically for JSON output. |
+
+## Schema Discovery Mode
+
+The signature manifest lives at `schemas/signatures/v1.0.0/schema-signatures.yaml` and ships inside the binary. It recognises JSON Schema drafts (04, 06, 07, 2019-09, 2020-12), OpenAPI 3.x, AsyncAPI 2.x, Avro, Cue modules, Protobuf schemas, and more.
+
+Teams can extend or override signatures by adding YAML manifests under:
+
+1. `$GONEAT_HOME/config/signatures.yaml`
+2. `$GONEAT_HOME/signatures/*.yaml`
+
+Files are merged in that order (last definition wins) so local packs can override embedded defaults without rebuilding goneat.
+
+```bash
+# Inventory every recognised schema with metadata in JSON form
+goneat pathfinder find --path ./schemas --schemas --output json
+
+# Restrict to JSON Schema drafts and emit annotated text output
+goneat pathfinder find --path ./schemas --schemas \
+  --schema-category json-schema --output text
+
+# Pipe schema candidates to validation
+goneat pathfinder find --schemas --schema-id json-schema-draft-07 \
+  | xargs -r goneat schema validate-schema --schema-id json-schema-draft-07
+```
+
+When schema mode is enabled, `PathResult.metadata.schema` includes the detected signature id, category, score, source (embedded or override), and optional docs links. Text output annotates the logical path (`schema.json [schema:json-schema-draft-07]`), while JSON output carries the full metadata for automation.
 
 ## Transform Recipes
 
@@ -135,7 +166,7 @@ Forthcoming cloud loaders will populate `metadata` with provider-specific fields
 
 ## Integration Tips
 
-- Combine `--output json` with `jq` for quick filtering.
+- Combine `--schemas --output json` with `jq` for schema inventory reports, or `--output json` for general discovery.
 - Pair with `goneat format` or copy jobs by reusing the logical path decisions, keeping flatten/strip rules synchronized.
 - For programmatic use, call the facade directly—see [`docs/appnotes/lib/pathfinder/finder_facade.md`](../../../appnotes/lib/pathfinder/finder_facade.md).
 

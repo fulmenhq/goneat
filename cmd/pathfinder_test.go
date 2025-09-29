@@ -14,7 +14,7 @@ type pathfinderResult struct {
 }
 
 func TestPathfinderFindJSON(t *testing.T) {
-	// Use .scratchpad directory to avoid symlink issues
+	// Use test_temp directory under repo root to avoid symlink issues
 	// Get repo root to create test directories in the right place
 	cwd, _ := os.Getwd()
 	repoRoot := cwd
@@ -25,7 +25,7 @@ func TestPathfinderFindJSON(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(cmdTestDir, "input"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(cmdTestDir) // cleanup
+	defer func() { _ = os.RemoveAll(cmdTestDir) }() // cleanup
 
 	mustWrite(t, filepath.Join(cmdTestDir, "input", "item.txt"))
 	mustWrite(t, filepath.Join(cmdTestDir, "input", "nested", "skip.log"))
@@ -61,7 +61,7 @@ func TestPathfinderFindTextFlatten(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(cmdTestDir, "stage", "alpha"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(cmdTestDir) // cleanup
+	defer func() { _ = os.RemoveAll(cmdTestDir) }() // cleanup
 
 	mustWrite(t, filepath.Join(cmdTestDir, "stage", "alpha", "delta.csv"))
 
@@ -86,7 +86,7 @@ func TestPathfinderFindMaxDepth(t *testing.T) {
 	if err := os.MkdirAll(tmp, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmp)
+	defer func() { _ = os.RemoveAll(tmp) }()
 
 	mustWrite(t, filepath.Join(tmp, "top.txt"))
 	mustWrite(t, filepath.Join(tmp, "nested", "deep.txt"))
@@ -115,5 +115,106 @@ func mustWrite(t *testing.T, path string) {
 	}
 	if err := os.WriteFile(path, []byte("content"), 0o644); err != nil {
 		t.Fatalf("failed writing file %s: %v", path, err)
+	}
+}
+
+func TestPathfinderFindSchemas(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("GONEAT_HOME", home)
+
+	cwd, _ := os.Getwd()
+	repoRoot := cwd
+	if root := findRepoRootFS(cwd); root != "" {
+		repoRoot = root
+	}
+	tempRoot := filepath.Join(repoRoot, "test_temp", "pathfinder-cli")
+	dataDir := filepath.Join(tempRoot, "schemas")
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		t.Fatalf("failed to create schema test dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tempRoot) }()
+
+	schemaPath := filepath.Join(dataDir, "draft7.json")
+	if err := os.WriteFile(schemaPath, []byte("{\"$schema\":\"https://json-schema.org/draft-07/schema#\"}"), 0o644); err != nil {
+		t.Fatalf("failed writing schema file: %v", err)
+	}
+	protoPath := filepath.Join(dataDir, "helloworld.proto")
+	protoContent := "syntax = \"proto3\";\n\npackage example.helloworld;\n\nmessage Ping { string name = 1; }\n"
+	if err := os.WriteFile(protoPath, []byte(protoContent), 0o644); err != nil {
+		t.Fatalf("failed writing proto file: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dataDir, "notes.txt"), []byte("not a schema"), 0o644); err != nil {
+		t.Fatalf("failed writing non-schema file: %v", err)
+	}
+
+	out, err := execRoot(t, []string{"pathfinder", "find", "--path", dataDir, "--include", "**/*.json", "--schemas", "--output", "json"})
+	if err != nil {
+		t.Fatalf("pathfinder find --schemas failed: %v\n%s", err, out)
+	}
+
+	var results []map[string]any
+	if err := json.Unmarshal([]byte(out), &results); err != nil {
+		t.Fatalf("invalid JSON output: %v\n%s", err, out)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 schema result, got %d (%s)", len(results), out)
+	}
+	metaJSON, ok := results[0]["metadata"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected metadata in result: %+v", results[0])
+	}
+	schemaMetaJSON, ok := metaJSON["schema"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected schema metadata, got %+v", metaJSON)
+	}
+	if id, _ := schemaMetaJSON["id"].(string); id != "json-schema-draft-07" {
+		t.Fatalf("unexpected schema id: %v", schemaMetaJSON["id"])
+	}
+
+	out, err = execRoot(t, []string{"pathfinder", "find", "--path", dataDir, "--include", "**/*.proto", "--schemas", "--schema-category", "protobuf", "--output", "json"})
+	if err != nil {
+		t.Fatalf("pathfinder find --schemas (protobuf) failed: %v\n%s", err, out)
+	}
+
+	results = nil
+	if err := json.Unmarshal([]byte(out), &results); err != nil {
+		t.Fatalf("invalid JSON output for protobuf scan: %v\n%s", err, out)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 protobuf result, got %d (%s)", len(results), out)
+	}
+	metaProtoCategory, ok := results[0]["metadata"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected metadata in protobuf result: %+v", results[0])
+	}
+	schemaMetaProtoCategory, ok := metaProtoCategory["schema"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected schema metadata in protobuf result, got %+v", metaProtoCategory)
+	}
+	if id, _ := schemaMetaProtoCategory["id"].(string); id != "protobuf-schema" {
+		t.Fatalf("unexpected protobuf schema id: %v", schemaMetaProtoCategory["id"])
+	}
+
+	out, err = execRoot(t, []string{"pathfinder", "find", "--path", dataDir, "--include", "**/*.proto", "--schemas", "--output", "json"})
+	if err != nil {
+		t.Fatalf("pathfinder find --schemas (include proto) failed: %v\n%s", err, out)
+	}
+	results = nil
+	if err := json.Unmarshal([]byte(out), &results); err != nil {
+		t.Fatalf("invalid JSON output for proto include scan: %v\n%s", err, out)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result when including proto, got %d (%s)", len(results), out)
+	}
+	metaProto, ok := results[0]["metadata"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected metadata in proto include result: %+v", results[0])
+	}
+	schemaMetaProto, ok := metaProto["schema"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected schema metadata in proto include result, got %+v", metaProto)
+	}
+	if id, _ := schemaMetaProto["id"].(string); id != "protobuf-schema" {
+		t.Fatalf("unexpected schema id for proto include: %v", schemaMetaProto["id"])
 	}
 }
