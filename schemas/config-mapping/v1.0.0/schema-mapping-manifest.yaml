@@ -1,0 +1,130 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://schemas.goneat.dev/schema-mapping-manifest/v1.0.0"
+title: "Config Schema Mapping Manifest"
+type: object
+additionalProperties: false
+required:
+  - version
+properties:
+  version:
+    type: string
+    const: "1.0.0"
+  config:
+    type: object
+    additionalProperties: false
+    properties:
+      inference_enabled:
+        type: boolean
+        default: true
+      fallback_to_content:
+        type: boolean
+        default: true
+      strict_mode:
+        type: boolean
+        default: false
+      cache_inferences:
+        type: boolean
+        default: true
+      respect_exclusions:
+        type: boolean
+        default: true
+      auto_suggest_exclusions:
+        type: boolean
+        default: false
+      min_confidence:
+        type: number
+        minimum: 0
+        maximum: 1
+      max_suggestions:
+        type: integer
+        minimum: 0
+  mappings:
+    type: array
+    items:
+      $ref: "#/definitions/mappingRule"
+  exclusions:
+    type: array
+    items:
+      $ref: "#/definitions/exclusionRule"
+  overrides:
+    type: array
+    items:
+      $ref: "#/definitions/overrideRule"
+definitions:
+  pattern:
+    type: string
+    description: "Glob pattern (doublestar syntax allowed)"
+  mappingRule:
+    type: object
+    additionalProperties: false
+    required:
+      - pattern
+    properties:
+      pattern:
+        $ref: "#/definitions/pattern"
+      schema_id:
+        type: string
+      inference_method:
+        type: string
+        enum: [content, meta-schema, none]
+      fallback_schema:
+        type: string
+      source:
+        type: string
+        enum: [embedded, external, local]
+      priority:
+        type: string
+        enum: [low, normal, high]
+      conditions:
+        type: array
+        items:
+          $ref: "#/definitions/condition"
+  condition:
+    type: object
+    additionalProperties: false
+    required:
+      - field
+    properties:
+      field:
+        type: string
+      exists:
+        type: boolean
+      equals:
+        type: [string, number, boolean]
+      schema_id:
+        type: string
+  exclusionRule:
+    type: object
+    additionalProperties: false
+    properties:
+      pattern:
+        $ref: "#/definitions/pattern"
+      content_pattern:
+        type: object
+        additionalProperties: false
+        properties:
+          field:
+            type: string
+          exists:
+            type: boolean
+          equals:
+            type: [string, number, boolean]
+      exclude_schema:
+        type: string
+      reason:
+        type: string
+      action:
+        type: string
+        enum: [skip, retry_inference]
+  overrideRule:
+    type: object
+    additionalProperties: false
+    required:
+      - schema_id
+    properties:
+      schema_id:
+        type: string
+      source:
+        type: string
+      path:
+        type: string

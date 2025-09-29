@@ -13,6 +13,7 @@ import (
 
 	"github.com/fulmenhq/goneat/internal/assets"
 	"github.com/fulmenhq/goneat/pkg/schema"
+	"github.com/fulmenhq/goneat/pkg/schema/mapping"
 	"github.com/fulmenhq/goneat/pkg/work"
 	"github.com/xeipuuv/gojsonschema"
 	"gopkg.in/yaml.v3"
@@ -28,6 +29,16 @@ type SchemaAssessmentRunner struct {
 	commandName string
 }
 
+type schemaMappingContext struct {
+	repoRoot     string
+	manifestPath string
+	loadResult   *mapping.LoadResult
+	resolver     *mapping.Resolver
+	threshold    float64
+	strict       bool
+	diagnostics  []mapping.Diagnostic
+}
+
 func NewSchemaAssessmentRunner() *SchemaAssessmentRunner {
 	return &SchemaAssessmentRunner{commandName: "schema"}
 }
@@ -35,9 +46,33 @@ func NewSchemaAssessmentRunner() *SchemaAssessmentRunner {
 func (r *SchemaAssessmentRunner) Assess(ctx context.Context, target string, config AssessmentConfig) (*AssessmentResult, error) {
 	start := time.Now()
 	var issues []Issue
+	metrics := make(map[string]interface{})
 
-	// Discover candidate files via include patterns or by extension (yaml/json) under target
-	candidates, err := r.findCandidates(target, config)
+	repoRoot := r.determineRepoRoot(target)
+
+	var mappingCtx *schemaMappingContext
+	if config.SchemaMapping.Enabled {
+		var err error
+		mappingCtx, err = r.prepareMappingContext(repoRoot, config)
+		if err != nil {
+			return &AssessmentResult{
+				CommandName:   r.commandName,
+				Category:      CategorySchema,
+				Success:       false,
+				ExecutionTime: HumanReadableDuration(time.Since(start)),
+				Error:         fmt.Sprintf("schema mapping initialisation failed: %v", err),
+			}, nil
+		}
+		if len(mappingCtx.diagnostics) > 0 {
+			diags := make([]string, 0, len(mappingCtx.diagnostics))
+			for _, d := range mappingCtx.diagnostics {
+				diags = append(diags, d.Message)
+			}
+			metrics["schema_mapping_diagnostics"] = diags
+		}
+	}
+
+	schemaCandidates, err := r.findCandidates(target, config)
 	if err != nil {
 		return &AssessmentResult{
 			CommandName:   r.commandName,
@@ -47,8 +82,11 @@ func (r *SchemaAssessmentRunner) Assess(ctx context.Context, target string, conf
 			Error:         fmt.Sprintf("discovery failed: %v", err),
 		}, nil
 	}
+	metrics["schema_candidate_files"] = len(schemaCandidates)
 
-	for _, f := range candidates {
+	schemaValidated := 0
+
+	for _, f := range schemaCandidates {
 		select {
 		case <-ctx.Done():
 			return &AssessmentResult{CommandName: r.commandName, Category: CategorySchema, Success: false, ExecutionTime: HumanReadableDuration(time.Since(start)), Error: ctx.Err().Error()}, nil
@@ -101,6 +139,7 @@ func (r *SchemaAssessmentRunner) Assess(ctx context.Context, target string, conf
 		}
 
 		if isSchema {
+			schemaValidated++
 			// Check if draft is allowed by configuration
 			if !r.isDraftAllowed(draft, config) {
 				issues = append(issues, Issue{
@@ -136,6 +175,32 @@ func (r *SchemaAssessmentRunner) Assess(ctx context.Context, target string, conf
 			}
 		}
 	}
+	metrics["schema_validated_files"] = schemaValidated
+
+	if mappingCtx != nil {
+		configCandidates, err := r.findConfigCandidates(target, config)
+		if err != nil {
+			return &AssessmentResult{
+				CommandName:   r.commandName,
+				Category:      CategorySchema,
+				Success:       false,
+				ExecutionTime: HumanReadableDuration(time.Since(start)),
+				Error:         fmt.Sprintf("config discovery failed: %v", err),
+			}, nil
+		}
+		metrics["schema_mapping_candidate_files"] = len(configCandidates)
+
+		mappingIssues, mappingMetrics := r.processConfigMappings(ctx, configCandidates, mappingCtx)
+		issues = append(issues, mappingIssues...)
+		for k, v := range mappingMetrics {
+			metrics[k] = v
+		}
+	}
+
+	var finalMetrics map[string]interface{}
+	if len(metrics) > 0 {
+		finalMetrics = metrics
+	}
 
 	return &AssessmentResult{
 		CommandName:   r.commandName,
@@ -143,6 +208,7 @@ func (r *SchemaAssessmentRunner) Assess(ctx context.Context, target string, conf
 		Success:       true,
 		ExecutionTime: HumanReadableDuration(time.Since(start)),
 		Issues:        issues,
+		Metrics:       finalMetrics,
 	}, nil
 }
 
@@ -154,7 +220,24 @@ func (r *SchemaAssessmentRunner) GetEstimatedTime(target string) time.Duration {
 func (r *SchemaAssessmentRunner) IsAvailable() bool { return true }
 
 func (r *SchemaAssessmentRunner) findCandidates(target string, config AssessmentConfig) ([]string, error) {
+	return r.findFilteredCandidates(target, config, func(path string) bool {
+		return r.isSchemaCandidate(path, config)
+	})
+}
+
+func (r *SchemaAssessmentRunner) findConfigCandidates(target string, config AssessmentConfig) ([]string, error) {
+	return r.findFilteredCandidates(target, config, nil)
+}
+
+func (r *SchemaAssessmentRunner) findFilteredCandidates(target string, config AssessmentConfig, candidateFn func(string) bool) ([]string, error) {
 	var files []string
+
+	matchesCandidate := func(path string) bool {
+		if candidateFn == nil {
+			return true
+		}
+		return candidateFn(path)
+	}
 
 	// Helper to derive scope roots from include dirs and force-include anchors
 	deriveScopeRoots := func() []string {
@@ -221,7 +304,7 @@ func (r *SchemaAssessmentRunner) findCandidates(target string, config Assessment
 						}
 						low := strings.ToLower(path)
 						if strings.HasSuffix(low, ".yaml") || strings.HasSuffix(low, ".yml") || strings.HasSuffix(low, ".json") {
-							if !r.isExcluded(path, config) && r.isSchemaCandidate(path, config) {
+							if !r.isExcluded(path, config) && matchesCandidate(path) {
 								files = append(files, path)
 							}
 						}
@@ -261,7 +344,7 @@ func (r *SchemaAssessmentRunner) findCandidates(target string, config Assessment
 					for _, item := range manifest.WorkItems {
 						low := strings.ToLower(item.Path)
 						if strings.HasSuffix(low, ".yaml") || strings.HasSuffix(low, ".yml") || strings.HasSuffix(low, ".json") {
-							if !r.isExcluded(item.Path, config) && r.isSchemaCandidate(item.Path, config) {
+							if !r.isExcluded(item.Path, config) && matchesCandidate(item.Path) {
 								files = append(files, item.Path)
 							}
 						}
@@ -272,7 +355,7 @@ func (r *SchemaAssessmentRunner) findCandidates(target string, config Assessment
 			// File path include
 			low := strings.ToLower(p)
 			if strings.HasSuffix(low, ".yaml") || strings.HasSuffix(low, ".yml") || strings.HasSuffix(low, ".json") {
-				if !r.isExcluded(p, config) && r.isSchemaCandidate(p, config) {
+				if !r.isExcluded(p, config) && matchesCandidate(p) {
 					files = append(files, p)
 				}
 			}
@@ -304,12 +387,244 @@ func (r *SchemaAssessmentRunner) findCandidates(target string, config Assessment
 		p := item.Path
 		low := strings.ToLower(p)
 		if strings.HasSuffix(low, ".yaml") || strings.HasSuffix(low, ".yml") || strings.HasSuffix(low, ".json") {
-			if !r.isExcluded(p, config) && r.isSchemaCandidate(p, config) {
+			if !r.isExcluded(p, config) && matchesCandidate(p) {
 				files = append(files, p)
 			}
 		}
 	}
 	return files, nil
+}
+
+func (r *SchemaAssessmentRunner) prepareMappingContext(repoRoot string, config AssessmentConfig) (*schemaMappingContext, error) {
+	mgr, err := mapping.NewManager()
+	if err != nil {
+		return nil, fmt.Errorf("initialise schema mapping manager: %w", err)
+	}
+	loadResult, err := mgr.Load(mapping.LoadOptions{
+		RepoRoot:     repoRoot,
+		ManifestPath: config.SchemaMapping.ManifestPath,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("load schema mapping manifest: %w", err)
+	}
+	resolver := mapping.NewResolver(loadResult.Effective)
+	manifestPath := loadResult.RepositoryPath
+	if manifestPath == "" {
+		manifestPath = filepath.Join(repoRoot, mapping.DefaultManifestRelativePath)
+	}
+	threshold := 0.0
+	if loadResult.Effective.Config.MinConfidence != nil {
+		threshold = *loadResult.Effective.Config.MinConfidence
+	}
+	if config.SchemaMapping.MinConfidence > 0 {
+		threshold = config.SchemaMapping.MinConfidence
+	}
+	strict := config.SchemaMapping.Strict
+	if !strict && loadResult.Effective.Config.StrictMode != nil {
+		strict = *loadResult.Effective.Config.StrictMode
+	}
+	return &schemaMappingContext{
+		repoRoot:     filepath.Clean(repoRoot),
+		manifestPath: manifestPath,
+		loadResult:   loadResult,
+		resolver:     resolver,
+		threshold:    threshold,
+		strict:       strict,
+		diagnostics:  loadResult.Diagnostics,
+	}, nil
+}
+
+func (r *SchemaAssessmentRunner) processConfigMappings(ctx context.Context, files []string, mappingCtx *schemaMappingContext) ([]Issue, map[string]interface{}) {
+	var issues []Issue
+	metrics := make(map[string]interface{})
+
+	seen := make(map[string]struct{})
+	validationSuccess := 0
+	validationFailures := 0
+	strictFailures := 0
+
+	for _, file := range files {
+		select {
+		case <-ctx.Done():
+			return issues, metrics
+		default:
+		}
+
+		abs := file
+		if !filepath.IsAbs(abs) {
+			abs = filepath.Join(mappingCtx.repoRoot, file)
+		}
+		abs = filepath.Clean(abs)
+		if _, ok := seen[abs]; ok {
+			continue
+		}
+		seen[abs] = struct{}{}
+
+		rel, err := filepath.Rel(mappingCtx.repoRoot, abs)
+		if err != nil {
+			rel = filepath.Base(abs)
+		}
+		rel = filepath.ToSlash(strings.TrimPrefix(rel, "./"))
+
+		resolution, ok := mappingCtx.resolver.Resolve(rel)
+		if ok && resolution.Excluded {
+			continue
+		}
+		if !ok || resolution.SchemaID == "" {
+			if mappingCtx.strict {
+				issues = append(issues, Issue{
+					File:          abs,
+					Severity:      SeverityMedium,
+					Message:       fmt.Sprintf("No schema mapping found for %s", rel),
+					Category:      CategorySchema,
+					SubCategory:   "schema_mapping_missing",
+					AutoFixable:   false,
+					EstimatedTime: HumanReadableDuration(1 * time.Minute),
+				})
+				strictFailures++
+			}
+			continue
+		}
+
+		if resolution.Confidence < mappingCtx.threshold {
+			if mappingCtx.strict {
+				issues = append(issues, Issue{
+					File:          abs,
+					Severity:      SeverityMedium,
+					Message:       fmt.Sprintf("Schema mapping confidence %.2f below threshold %.2f", resolution.Confidence, mappingCtx.threshold),
+					Category:      CategorySchema,
+					SubCategory:   "schema_mapping_confidence",
+					AutoFixable:   false,
+					EstimatedTime: HumanReadableDuration(1 * time.Minute),
+				})
+				strictFailures++
+			}
+			continue
+		}
+
+		configIssues := r.validateConfigAgainstSchema(abs, resolution.SchemaID)
+		if len(configIssues) == 0 {
+			validationSuccess++
+		} else {
+			validationFailures += len(configIssues)
+			issues = append(issues, configIssues...)
+		}
+	}
+
+	resMetrics := mappingCtx.resolver.Metrics()
+	metrics["schema_mapping_files_evaluated"] = resMetrics.FilesEvaluated
+	metrics["schema_mapping_mapped"] = resMetrics.Mapped
+	metrics["schema_mapping_unmapped"] = resMetrics.Unmapped
+	metrics["schema_mapping_exclusions"] = resMetrics.Excluded
+	metrics["schema_mapping_confidence_threshold"] = mappingCtx.threshold
+	metrics["schema_mapping_strict"] = mappingCtx.strict
+	metrics["schema_mapping_manifest_path"] = mappingCtx.manifestPath
+	metrics["schema_mapping_validation_success"] = validationSuccess
+	metrics["schema_mapping_validation_failures"] = validationFailures
+	metrics["schema_mapping_strict_failures"] = strictFailures
+	if resMetrics.FilesEvaluated > 0 {
+		den := float64(resMetrics.FilesEvaluated)
+		metrics["schema_mapping_detection_rate"] = float64(resMetrics.Mapped) / den
+		metrics["schema_mapping_unmapped_rate"] = float64(resMetrics.Unmapped) / den
+	}
+
+	return issues, metrics
+}
+
+func (r *SchemaAssessmentRunner) validateConfigAgainstSchema(path string, schemaID string) []Issue {
+	var issues []Issue
+	validator, err := schema.GetEmbeddedValidator(schemaID)
+	if err != nil {
+		issues = append(issues, Issue{
+			File:          path,
+			Severity:      SeverityHigh,
+			Message:       fmt.Sprintf("Schema %s not available: %v", schemaID, err),
+			Category:      CategorySchema,
+			SubCategory:   "schema_mapping_validator",
+			AutoFixable:   false,
+			EstimatedTime: HumanReadableDuration(2 * time.Minute),
+		})
+		return issues
+	}
+
+	data, err := safeReadFile(path)
+	if err != nil {
+		issues = append(issues, Issue{
+			File:          path,
+			Severity:      SeverityHigh,
+			Message:       fmt.Sprintf("Failed to read config for schema validation: %v", err),
+			Category:      CategorySchema,
+			SubCategory:   "schema_mapping_read",
+			AutoFixable:   false,
+			EstimatedTime: HumanReadableDuration(2 * time.Minute),
+		})
+		return issues
+	}
+
+	result, err := validator.ValidateBytes(data)
+	if err != nil {
+		issues = append(issues, Issue{
+			File:          path,
+			Severity:      SeverityHigh,
+			Message:       fmt.Sprintf("Schema validation error (%s): %v", schemaID, err),
+			Category:      CategorySchema,
+			SubCategory:   "schema_mapping_validation",
+			AutoFixable:   false,
+			EstimatedTime: HumanReadableDuration(3 * time.Minute),
+		})
+		return issues
+	}
+
+	if !result.Valid {
+		for _, verr := range result.Errors {
+			issues = append(issues, Issue{
+				File:          path,
+				Line:          verr.Context.LineNumber,
+				Severity:      SeverityHigh,
+				Message:       fmt.Sprintf("Schema mapping violation (%s): %s", schemaID, formatValidationMessage(verr)),
+				Category:      CategorySchema,
+				SubCategory:   "schema_mapping_validation",
+				AutoFixable:   false,
+				EstimatedTime: HumanReadableDuration(3 * time.Minute),
+			})
+		}
+	}
+	return issues
+}
+
+func formatValidationMessage(verr schema.ValidationError) string {
+	if verr.Path != "" {
+		return fmt.Sprintf("%s: %s", verr.Path, verr.Message)
+	}
+	return verr.Message
+}
+
+func (r *SchemaAssessmentRunner) determineRepoRoot(start string) string {
+	if start == "" {
+		start = "."
+	}
+	abs, err := filepath.Abs(start)
+	if err != nil {
+		if root := findRepoRoot(); root != "" {
+			return root
+		}
+		return "."
+	}
+	dir := abs
+	for {
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	if root := findRepoRoot(); root != "" {
+		return root
+	}
+	return abs
 }
 
 func (r *SchemaAssessmentRunner) isExcluded(path string, config AssessmentConfig) bool {

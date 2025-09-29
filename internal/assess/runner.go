@@ -39,6 +39,14 @@ const (
 	AssessmentModeFix   AssessmentMode = "fix"   // Report and fix issues
 )
 
+// SchemaMappingConfig configures config-to-schema mapping behavior for assessments.
+type SchemaMappingConfig struct {
+	Enabled       bool    `json:"enabled,omitempty"`
+	ManifestPath  string  `json:"manifest_path,omitempty"`
+	MinConfidence float64 `json:"min_confidence,omitempty"`
+	Strict        bool    `json:"strict,omitempty"`
+}
+
 // AssessmentConfig contains configuration for running assessments
 type AssessmentConfig struct {
 	Mode         AssessmentMode `json:"mode"`          // Operation mode
@@ -68,10 +76,11 @@ type AssessmentConfig struct {
 	TrackSuppressions bool `json:"track_suppressions,omitempty"`
 
 	// Schema options (preview)
-	SchemaEnableMeta    bool     `json:"schema_enable_meta,omitempty"`    // Enable meta-schema validation
-	SchemaDrafts        []string `json:"schema_drafts,omitempty"`         // Filter by specific drafts (e.g., ["draft-07", "2020-12"])
-	SchemaPatterns      []string `json:"schema_patterns,omitempty"`       // Custom glob patterns for schema files
-	SchemaDiscoveryMode string   `json:"schema_discovery_mode,omitempty"` // Discovery mode: "schemas-dir" (default) or "all"
+	SchemaEnableMeta    bool                `json:"schema_enable_meta,omitempty"`    // Enable meta-schema validation
+	SchemaDrafts        []string            `json:"schema_drafts,omitempty"`         // Filter by specific drafts (e.g., ["draft-07", "2020-12"])
+	SchemaPatterns      []string            `json:"schema_patterns,omitempty"`       // Custom glob patterns for schema files
+	SchemaDiscoveryMode string              `json:"schema_discovery_mode,omitempty"` // Discovery mode: "schemas-dir" (default) or "all"
+	SchemaMapping       SchemaMappingConfig `json:"schema_mapping,omitempty"`
 
 	// Scoped discovery (limits traversal to include dirs and force-include anchors)
 	Scope bool `json:"scope,omitempty"`
@@ -122,6 +131,7 @@ func DefaultAssessmentConfig() AssessmentConfig {
 		SecurityFixturePatterns: []string{"tests/fixtures/", "test-fixtures/"},
 		// Schema
 		SchemaEnableMeta: false,
+		SchemaMapping:    SchemaMappingConfig{},
 		// Scoped discovery default off
 		Scope: false,
 	}

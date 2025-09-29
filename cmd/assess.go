@@ -43,31 +43,35 @@ You can restrict the assessment to specific categories using the --categories fl
 }
 
 var (
-	assessFormat              string
-	assessMode                string
-	assessNoOp                bool
-	assessCheck               bool
-	assessFix                 bool
-	assessVerbose             bool
-	assessPriority            string
-	assessFailOn              string
-	assessTimeout             time.Duration
-	assessOutput              string
-	assessIncludeFiles        []string
-	assessExcludeFiles        []string
-	assessNoIgnore            bool
-	assessForceInclude        []string
-	assessSchemaEnableMeta    bool
-	assessSchemaDrafts        []string
-	assessSchemaPatterns      []string
-	assessSchemaDiscoveryMode string
-	assessScope               bool
-	assessHook                string
-	assessHookManifest        string
-	assessOpen                bool
-	assessBenchmark           bool
-	assessBenchmarkIterations int
-	assessBenchmarkOutput     string
+	assessFormat                     string
+	assessMode                       string
+	assessNoOp                       bool
+	assessCheck                      bool
+	assessFix                        bool
+	assessVerbose                    bool
+	assessPriority                   string
+	assessFailOn                     string
+	assessTimeout                    time.Duration
+	assessOutput                     string
+	assessIncludeFiles               []string
+	assessExcludeFiles               []string
+	assessNoIgnore                   bool
+	assessForceInclude               []string
+	assessSchemaEnableMeta           bool
+	assessSchemaDrafts               []string
+	assessSchemaPatterns             []string
+	assessSchemaDiscoveryMode        string
+	assessSchemaMappingEnable        bool
+	assessSchemaMappingManifest      string
+	assessSchemaMappingMinConfidence float64
+	assessSchemaMappingStrict        bool
+	assessScope                      bool
+	assessHook                       string
+	assessHookManifest               string
+	assessOpen                       bool
+	assessBenchmark                  bool
+	assessBenchmarkIterations        int
+	assessBenchmarkOutput            string
 	// Concurrency flags
 	assessConcurrency        int
 	assessConcurrencyPercent int
@@ -116,6 +120,10 @@ func setupAssessCommandFlags(cmd *cobra.Command) {
 	cmd.Flags().StringSliceVar(&assessSchemaDrafts, "schema-drafts", []string{}, "Filter by specific drafts (comma-separated, e.g., 'draft-07,2020-12')")
 	cmd.Flags().StringSliceVar(&assessSchemaPatterns, "schema-patterns", []string{}, "Custom glob patterns for schema files (repeatable)")
 	cmd.Flags().StringVar(&assessSchemaDiscoveryMode, "schema-discovery-mode", "schemas-dir", "Schema discovery mode: 'schemas-dir' (default, only /schemas/ dirs) or 'all' (any file with $schema)")
+	cmd.Flags().BoolVar(&assessSchemaMappingEnable, "schema-mapping", false, "Enable config-to-schema mapping for configuration files")
+	cmd.Flags().StringVar(&assessSchemaMappingManifest, "schema-mapping-manifest", "", "Override schema mapping manifest path (default: .goneat/schema-mappings.yaml)")
+	cmd.Flags().Float64Var(&assessSchemaMappingMinConfidence, "schema-mapping-min-confidence", 0, "Override minimum confidence threshold for schema mappings (0-1 range)")
+	cmd.Flags().BoolVar(&assessSchemaMappingStrict, "schema-mapping-strict", false, "Fail assessment when config files cannot be mapped to schemas")
 	// Scoped discovery
 	cmd.Flags().BoolVar(&assessScope, "scope", false, "Limit traversal scope to include paths and force-include anchors")
 	// Lint controls
@@ -197,6 +205,10 @@ func runAssess(cmd *cobra.Command, args []string) error {
 	assessSchemaDrafts, _ = flags.GetStringSlice("schema-drafts")
 	assessSchemaPatterns, _ = flags.GetStringSlice("schema-patterns")
 	assessSchemaDiscoveryMode, _ = flags.GetString("schema-discovery-mode")
+	assessSchemaMappingEnable, _ = flags.GetBool("schema-mapping")
+	assessSchemaMappingManifest, _ = flags.GetString("schema-mapping-manifest")
+	assessSchemaMappingMinConfidence, _ = flags.GetFloat64("schema-mapping-min-confidence")
+	assessSchemaMappingStrict, _ = flags.GetBool("schema-mapping-strict")
 	assessScope, _ = flags.GetBool("scope")
 	assessCISummary, _ = flags.GetBool("ci-summary")
 	assessProfile, _ = flags.GetString("profile")
@@ -276,15 +288,21 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		SchemaDrafts:        assessSchemaDrafts,
 		SchemaPatterns:      assessSchemaPatterns,
 		SchemaDiscoveryMode: assessSchemaDiscoveryMode,
-		Scope:               assessScope,
-		PackageMode:         assessPackageMode,
-		Extended:            assessExtended,
-		PriorityString:      assessPriority,
-		FailOnSeverity:      failOnSeverity,
-		Concurrency:         assessConcurrency,
-		ConcurrencyPercent:  assessConcurrencyPercent,
-		TrackSuppressions:   assessTrackSuppressions,
-		LintNewFromRev:      strings.TrimSpace(assessLintNewFromRev),
+		SchemaMapping: assess.SchemaMappingConfig{
+			Enabled:       assessSchemaMappingEnable,
+			ManifestPath:  strings.TrimSpace(assessSchemaMappingManifest),
+			MinConfidence: assessSchemaMappingMinConfidence,
+			Strict:        assessSchemaMappingStrict,
+		},
+		Scope:              assessScope,
+		PackageMode:        assessPackageMode,
+		Extended:           assessExtended,
+		PriorityString:     assessPriority,
+		FailOnSeverity:     failOnSeverity,
+		Concurrency:        assessConcurrency,
+		ConcurrencyPercent: assessConcurrencyPercent,
+		TrackSuppressions:  assessTrackSuppressions,
+		LintNewFromRev:     strings.TrimSpace(assessLintNewFromRev),
 	}
 
 	// Add positional args to IncludeFiles

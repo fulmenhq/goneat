@@ -270,6 +270,25 @@ goneat assess --categories schema --schema-drafts "draft-07,2020-12"
 goneat assess --categories schema --schema-patterns "*.schema.yaml"
 ```
 
+#### Intelligent Config Mapping (Preview)
+
+Enable automatic config-to-schema mapping for YAML/JSON configuration files:
+
+```bash
+goneat assess config/ \
+  --categories schema \
+  --schema-mapping \
+  --schema-mapping-strict \
+  --schema-mapping-min-confidence 0.8
+```
+
+- `--schema-mapping`: turn on intelligent mapping using built-in heuristics and `<repo>/.goneat/schema-mappings.yaml`.
+- `--schema-mapping-manifest <path>`: override the manifest location when working in mono-repos.
+- `--schema-mapping-min-confidence <0-1>`: require a minimum confidence score before validating a mapping.
+- `--schema-mapping-strict`: surface issues when mappings are missing or fall below the configured confidence threshold.
+
+When mapping is enabled, schema assessment metrics include detection rate, mapped/unmapped counts, exclusion counts, validation successes/failures, and the active confidence threshold so CI dashboards can trend accuracy over time.
+
 ## Force-Include Override
 
 The `--force-include` flag allows you to assess files that would normally be ignored by `.goneatignore` or `.gitignore`. This is especially useful for testing, fixtures, and validating normally-excluded content.
