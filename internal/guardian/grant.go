@@ -149,7 +149,7 @@ func consumeGrant(scope, operation string, ctx OperationContext) (bool, error) {
 }
 
 func loadGrant(path string) (*Grant, string, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- path from controlled guardian grants directory
 	if err != nil {
 		return nil, "", err
 	}

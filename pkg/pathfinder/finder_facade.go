@@ -241,7 +241,7 @@ func readSnippet(path string, limit int) ([]byte, error) {
 	if limit <= 0 {
 		limit = schemaPeekLimit
 	}
-	file, err := os.Open(path)
+	file, err := os.Open(path) // #nosec G304 -- path validated by finder discovery process
 	if err != nil {
 		return nil, err
 	}

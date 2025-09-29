@@ -108,7 +108,7 @@ func loadUserOverrides(schemaData []byte) error {
 	}
 
 	// Read user configuration
-	userData, err := os.ReadFile(userConfigPath)
+	userData, err := os.ReadFile(userConfigPath) // #nosec G304 -- path constructed from goneat home directory
 	if err != nil {
 		return fmt.Errorf("failed to read user terminal overrides: %w", err)
 	}

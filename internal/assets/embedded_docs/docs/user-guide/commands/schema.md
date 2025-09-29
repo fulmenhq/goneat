@@ -19,10 +19,10 @@ with `goneat pathfinder find --schemas` to discover candidate files first.
 
 ### Flags
 
-| Flag | Description |
-| ---- | ----------- |
+| Flag                 | Description                                                                                                                                     |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--schema-id string` | Signature id to validate against (e.g., `json-schema-draft-07`). Required for non-JSON Schema candidates until broader validator support lands. |
-| `--format string` | Output format: `text` (default) or `json`. |
+| `--format string`    | Output format: `text` (default) or `json`.                                                                                                      |
 
 ### Examples
 

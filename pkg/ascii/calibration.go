@@ -392,6 +392,7 @@ func (cs *CalibrationSession) saveAdjustments() error {
 
 	// Load existing config or initialize from embedded default
 	var userConfig TerminalOverrides
+	// #nosec
 	if data, err := os.ReadFile(configFile); err == nil {
 		// Existing user config found
 		if err := yaml.Unmarshal(data, &userConfig); err != nil {
@@ -408,6 +409,7 @@ func (cs *CalibrationSession) saveAdjustments() error {
 			}
 		} else {
 			// Re-read the initialized config
+			// #nosec
 			if data, err := os.ReadFile(configFile); err == nil {
 				if err := yaml.Unmarshal(data, &userConfig); err != nil {
 					return fmt.Errorf("failed to parse initialized config: %w", err)

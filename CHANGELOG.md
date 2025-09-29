@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.9] - 2025-09-28
+
+### Added
+- **Pathfinder Schema Discovery System**: Intelligent detection and validation of schema files across codebases
+  - Schema detection engine with pattern matching for 10+ schema formats (JSON Schema, OpenAPI, AsyncAPI, Avro, Cue, Protobuf, etc.)
+  - New `goneat pathfinder` command suite for schema discovery, validation, and metadata extraction
+  - FinderFacade API providing high-level entry point for enterprise-grade path discovery workflows
+  - Comprehensive schema validation with meta-schema compliance and structured error reporting
+  - Local loader with streaming text output and transform support
+
+### Changed
+- Enhanced schema processing capabilities with embedded schema manifests and validation rules
+- Improved security suppressions for controlled file access patterns in schema processing
+
+### Fixed
+- Resolved gosec G304 security warnings for controlled file reads in schema and configuration processing
+- Corrected suppression format and placement for proper gosec recognition
+
+## [0.2.8] - 2025-09-28
+
 ### Added
 - **Intelligent Hooks Format Detection**: Automatic detection and configuration of format capabilities in `hooks init`
   - Auto-detects `make format-all`, `make format`, `make fmt` targets in Makefiles

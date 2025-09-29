@@ -2,10 +2,14 @@
 
 This checklist ensures all requirements are met before releasing goneat to the Go package ecosystem.
 
-## Current Release Status: v0.2.7 (2025-09-20)
+## Current Release Status: v0.2.8 (2025-09-28)
 
-**✅ RELEASE COMPLETE**: v0.2.7 successfully tagged and pushed to GitHub.
+**✅ RELEASE COMPLETE**: v0.2.8 successfully tagged and pushed to GitHub.
 **✅ POST-RELEASE**: All quality gates passed, binaries built, licenses audited, consolidation completed.
+
+## Next Release Target: v0.2.9 (Pathfinder Schema Discovery)
+
+**🔄 IN PROGRESS**: Preparing v0.2.9 release with Pathfinder Schema Discovery system.
 
 ## Pre-Release Preparation
 
@@ -19,7 +23,7 @@ This checklist ensures all requirements are met before releasing goneat to the G
 
 ### Version Management ✅
 
-- [x] **Version Updated**: VERSION file contains v0.2.7
+- [x] **Version Updated**: VERSION file contains v0.2.8
 - [x] **Changelog Updated**: CHANGELOG.md reflects all changes
 - [x] **Go Module**: go.mod version is correct
 - [x] **Embedded Version**: Binary embeds correct version info
@@ -55,8 +59,8 @@ This checklist ensures all requirements are met before releasing goneat to the G
 ### Git Operations ✅
 
 - [x] **Version Commit**: Version update committed
-- [x] **Git Tag**: Annotated tag created (`git tag -a v0.2.7`)
-- [x] **Primary Push**: Pushed to GitHub (`git push origin v0.2.7`)
+- [x] **Git Tag**: Annotated tag created (`git tag -a v0.2.9`)
+- [x] **Primary Push**: Pushed to GitHub (`git push origin v0.2.9`)
 - [ ] **Backup Push**: Pushed to GitLab (if configured)
 
 ### RC Validation Gates ✅
@@ -67,20 +71,20 @@ This checklist ensures all requirements are met before releasing goneat to the G
 - [x] Pre-push gate passing (fail-on thresholds) after build-all
 - [ ] pkg.go.dev indexing verified for the tag
 - [x] README/CHANGELOG/RELEASE_NOTES updated for the RC
-- [x] Git tag created and pushed: v0.2.7
+- [x] Git tag created and pushed: v0.2.9
 
 ### GitHub Release ✅
 
 - [ ] **Release Created**: New release on GitHub
 - [ ] **Tag Selected**: Correct version tag
-- [ ] **Title Formatted**: "goneat v0.2.7"
+- [ ] **Title Formatted**: "goneat v0.2.9"
 - [ ] **Release Notes**: Comprehensive changelog
 - [ ] **Binaries Attached**: All platform binaries uploaded
 
 ### Go Module Verification ✅
 
-- [ ] **Module Accessible**: `go get github.com/fulmenhq/goneat@v0.2.7`
-- [ ] **Installation Works**: `go install github.com/fulmenhq/goneat@v0.2.7`
+- [ ] **Module Accessible**: `go get github.com/fulmenhq/goneat@v0.2.9`
+- [ ] **Installation Works**: `go install github.com/fulmenhq/goneat@v0.2.9`
 - [ ] **Binary Functional**: Installed binary works correctly
 
 ## Post-Release Validation
@@ -101,7 +105,7 @@ This checklist ensures all requirements are met before releasing goneat to the G
 
 ### Rollback Plan
 
-- [ ] **Tag Deletion**: `git tag -d v0.2.7 && git push origin :v0.2.7`
+- [ ] **Tag Deletion**: `git tag -d v0.2.9 && git push origin :v0.2.9`
 - [ ] **Release Deletion**: Delete GitHub release
 - [ ] **Version Revert**: Update VERSION to previous version
 - [ ] **Communication**: Notify users of rollback
@@ -167,7 +171,7 @@ This checklist ensures all requirements are met before releasing goneat to the G
 make test                    # Run all tests
 make build-all              # Build all platforms
 make fmt                    # Format code
-make version-set VERSION=v0.2.7  # Update version
+make version-set VERSION=v0.2.9  # Update version
 
 # RC validation (do not tag until all pass)
 make build-all              # Build platform binaries
@@ -176,7 +180,7 @@ make license-audit          # Should pass locally and in CI
 make pre-push               # Runs assess with build gate
 
 # Tag/push only after above succeed
-git tag -a v0.2.7 -m "release: v0.2.7" && git push origin v0.2.7
+git tag -a v0.2.9 -m "release: v0.2.9" && git push origin v0.2.9
 
 ## Commit Consolidation (Required before push)
 
@@ -216,7 +220,7 @@ Emergency recovery steps are documented in the SOP (reflog and backup branch res
 
 # Post-release validation
 
-go install github.com/fulmenhq/goneat@v0.2.7
+go install github.com/fulmenhq/goneat@v0.2.9
 goneat version # Verify installation
 
 ```

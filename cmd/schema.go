@@ -92,7 +92,7 @@ func runSchemaValidateSchema(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		schemaBytes, err := os.ReadFile(cleanPath)
+		schemaBytes, err := os.ReadFile(cleanPath) // #nosec G304 -- cleanPath sanitized with safeio.CleanUserPath
 		if err != nil {
 			failures++
 			results = append(results, schemaValidateResult{

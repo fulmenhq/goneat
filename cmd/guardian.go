@@ -283,7 +283,7 @@ func runGuardianApprove(cmd *cobra.Command, args []string) error {
 
 	// Approval granted, execute the command
 	logger.Info("Guardian approval granted, executing command", logger.String("command", strings.Join(cmdArgs, " ")))
-	ecmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+	ecmd := exec.Command(cmdArgs[0], cmdArgs[1:]...) // #nosec G204 -- intentional execution of user command after guardian approval
 	ecmd.Stdout = cmd.OutOrStdout()
 	ecmd.Stderr = cmd.ErrOrStderr()
 	ecmd.Stdin = cmd.InOrStdin()

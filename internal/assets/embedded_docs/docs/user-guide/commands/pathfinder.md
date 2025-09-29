@@ -5,15 +5,7 @@ author: "@arch-eagle"
 date: "2025-09-24"
 last_updated: "2025-09-24"
 status: "draft"
-tags:
-  [
-    "cli",
-    "pathfinder",
-    "discovery",
-    "facade",
-    "streaming",
-    "transforms",
-  ]
+tags: ["cli", "pathfinder", "discovery", "facade", "streaming", "transforms"]
 category: "user-guide"
 ---
 
@@ -56,25 +48,25 @@ The top-level `pathfinder` command currently offers the `find` subcommand and wi
 
 ## Flags
 
-| Flag | Description |
-|------|-------------|
-| `--path` | Root directory or loader source to search (default `.` for local loader). |
-| `--include` | One or more glob patterns to include (doublestar syntax). |
-| `--exclude` | Patterns to exclude from the result set. |
-| `--skip-dir` | Substrings; matching directories are skipped entirely. |
-| `--max-depth` | Maximum traversal depth (`-1` for unlimited). Depth counts directory segments beneath the root. |
-| `--follow-symlinks` | Follow symbolic links (default skips symlinks for safety). |
-| `--workers` | Worker hint for future parallel traversal (0 uses the facade default). |
-| `--stream` | Stream results as they are discovered (text output emits progressively; JSON currently buffers). |
-| `--output` | Output format: `json` (default) or `text`. |
-| `--show-source` | With `--output text`, append the underlying source path (`logical -> source`). |
-| `--strip-prefix` | Remove a leading prefix from logical paths (useful for flattening archives). |
-| `--logical-prefix` | Prepend a prefix to logical paths (e.g., target bucket or tenant). |
-| `--flatten` | Set the logical path to the base filename, ignoring directories. Overrides `--strip-prefix`. |
-| `--loader` | Loader type (`local`, `s3`, `r2`, `gcs`, etc.). v0.2.9 ships `local`; cloud loaders arrive in v0.2.10. |
-| `--schemas` | Enable schema signature mode (filters results to recognised schemas). |
-| `--schema-id` | Restrict schema discovery to specific signature IDs or aliases. |
-| `--schema-category` | Restrict schema discovery to categories (e.g., `json-schema`, `openapi`, `avro`). |
+| Flag                | Description                                                                                             |
+| ------------------- | ------------------------------------------------------------------------------------------------------- |
+| `--path`            | Root directory or loader source to search (default `.` for local loader).                               |
+| `--include`         | One or more glob patterns to include (doublestar syntax).                                               |
+| `--exclude`         | Patterns to exclude from the result set.                                                                |
+| `--skip-dir`        | Substrings; matching directories are skipped entirely.                                                  |
+| `--max-depth`       | Maximum traversal depth (`-1` for unlimited). Depth counts directory segments beneath the root.         |
+| `--follow-symlinks` | Follow symbolic links (default skips symlinks for safety).                                              |
+| `--workers`         | Worker hint for future parallel traversal (0 uses the facade default).                                  |
+| `--stream`          | Stream results as they are discovered (text output emits progressively; JSON currently buffers).        |
+| `--output`          | Output format: `json` (default) or `text`.                                                              |
+| `--show-source`     | With `--output text`, append the underlying source path (`logical -> source`).                          |
+| `--strip-prefix`    | Remove a leading prefix from logical paths (useful for flattening archives).                            |
+| `--logical-prefix`  | Prepend a prefix to logical paths (e.g., target bucket or tenant).                                      |
+| `--flatten`         | Set the logical path to the base filename, ignoring directories. Overrides `--strip-prefix`.            |
+| `--loader`          | Loader type (`local`, `s3`, `r2`, `gcs`, etc.). v0.2.9 ships `local`; cloud loaders arrive in v0.2.10.  |
+| `--schemas`         | Enable schema signature mode (filters results to recognised schemas).                                   |
+| `--schema-id`       | Restrict schema discovery to specific signature IDs or aliases.                                         |
+| `--schema-category` | Restrict schema discovery to categories (e.g., `json-schema`, `openapi`, `avro`).                       |
 | `--schema-metadata` | Include full signature metadata (match diagnostics, docs links). Enabled automatically for JSON output. |
 
 ## Schema Discovery Mode
@@ -172,10 +164,10 @@ Forthcoming cloud loaders will populate `metadata` with provider-specific fields
 
 ## Roadmap
 
-| Release | Planned Enhancements |
-|---------|----------------------|
-| v0.2.9  | Local loader, transforms, streaming text output *(delivered)* |
-| v0.2.10 | S3/R2/GCS loaders, credential selection, pagination-aware streaming |
+| Release | Planned Enhancements                                                  |
+| ------- | --------------------------------------------------------------------- |
+| v0.2.9  | Local loader, transforms, streaming text output _(delivered)_         |
+| v0.2.10 | S3/R2/GCS loaders, credential selection, pagination-aware streaming   |
 | v0.3.x  | Transfer planning (`copy`, `mirror`), audit reporting, cache controls |
 
 Stay tuned to guardian release notes for expanded enforcement messaging that will surface directly in CLI output.

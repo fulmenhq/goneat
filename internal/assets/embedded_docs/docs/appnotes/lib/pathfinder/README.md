@@ -5,10 +5,10 @@ This directory contains documentation for the Pathfinder library implementation 
 ## Document Map
 
 - [`finder_facade.md`](finder_facade.md) – Guide to the simplified `FinderFacade`, transforms, streaming, and worker coordination.
-- `audit-trail-usage.md` *(planned)* – Audit trail implementation guide.
-- `loader-patterns.md` *(planned)* – File loader patterns and best practices.
-- `security-considerations.md` *(planned)* – Security features and considerations.
-- `api-reference.md` *(planned)* – Complete API reference for the core interfaces.
+- `audit-trail-usage.md` _(planned)_ – Audit trail implementation guide.
+- `loader-patterns.md` _(planned)_ – File loader patterns and best practices.
+- `security-considerations.md` _(planned)_ – Security features and considerations.
+- `api-reference.md` _(planned)_ – Complete API reference for the core interfaces.
 
 Looking for the CLI instead of the Go library? See the user-facing command reference in [`docs/user-guide/commands/pathfinder.md`](../../../user-guide/commands/pathfinder.md).
 

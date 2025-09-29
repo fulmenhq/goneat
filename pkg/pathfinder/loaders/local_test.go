@@ -14,7 +14,7 @@ func TestNewLocalLoader(t *testing.T) {
 	if loader == nil {
 		t.Fatal("NewLocalLoader() returned nil")
 	}
-	if loader.rootPath != "" {
+	if loader != nil && loader.rootPath != "" {
 		t.Errorf("NewLocalLoader() rootPath = %q, want empty", loader.rootPath)
 	}
 	if loader.maxFileSize != 100*1024*1024 {
@@ -55,7 +55,7 @@ func TestLocalLoader_Validate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	tests := []struct {
 		name     string
@@ -89,7 +89,7 @@ func TestLocalLoader_Open(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	testFile := filepath.Join(tempDir, "test.txt")
 	testContent := "Hello, World!"
@@ -139,7 +139,7 @@ func TestLocalLoader_ListFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create test files and directories
 	_ = os.MkdirAll(filepath.Join(tempDir, "subdir"), 0755)
@@ -261,7 +261,7 @@ func TestValidateAndCleanPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	loader := NewLocalLoader(tempDir)
 
@@ -351,7 +351,7 @@ func TestNewFileInfo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	testFile := filepath.Join(tempDir, "test.txt")
 	content := "Hello, World!"

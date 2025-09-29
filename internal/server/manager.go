@@ -94,7 +94,7 @@ func Load(name string) (*Info, error) {
 		return nil, err
 	}
 
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) // #nosec G304 -- path constructed from goneat home directory
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, nil

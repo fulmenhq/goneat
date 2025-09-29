@@ -154,7 +154,7 @@ make build
 
 ## Status
 
-- Release: v0.2.8 (per `VERSION` file)
+- Release: v0.2.9 (per `VERSION` file)
 - Lifecycle Phase: GA (per `LIFECYCLE_PHASE` file)
 - Release Phase: Release (per `RELEASE_PHASE` file)
 - Repo Visibility: Public

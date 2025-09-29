@@ -2,59 +2,49 @@
 
 ## TL;DR
 
-- Guardian command suite (`check`, `approve`, `setup`) protects high-risk git operations with policy-driven approvals
-- Local browser approval server delivers branded, expiring approval flows with sudo-style execution
-- Pre-commit/pre-push hooks now guide operators to wrap blocked commands with `guardian approve`
-- Hooks system now auto-detects and configures format capabilities - no more manual hooks.yaml editing
-- Complete ASCII art toolkit handles Unicode width issues across different terminal emulators
-- New guardian command documentation covers CLI usage, hooks remediation, and approval UX
+- Pathfinder Schema Discovery enables intelligent detection and validation of schema files across your codebase
+- New `goneat pathfinder` command suite with schema discovery, validation, and metadata extraction
+- Support for 10+ schema types including JSON Schema, OpenAPI, AsyncAPI, Avro, Cue, and Protobuf
+- FinderFacade provides high-level API for enterprise-grade path discovery workflows
+- Enhanced schema validation with meta-schema compliance and structured error reporting
 
 ## What's New
 
-### Guardian Command Suite
-- Introduced `goneat guardian check`, `approve`, and `setup` commands for repository-scope approval enforcement
-- `guardian approve` now requires the protected git operation after `--`, ensuring the action runs atomically once approval completes
-- Rich terminal output highlights approval scope, project, reason, and expiry timing to aid maintainers
+### Pathfinder Schema Discovery System
 
-### Browser Approval Experience
-- Added a local guardian approval server with cryptographic nonces, auto-expiring sessions, and localhost binding
-- Terminal instructions respect branding settings and project context; the approval page now features project name as an H1 with optional custom messaging
-- Sessions honor the shorter of policy `expires` and `browser_approval.timeout_seconds`, returning a clear expiration error when unattended
+- **Schema Detection Engine**: Intelligent pattern matching for 10+ schema formats with contains/regex detection
+- **Pathfinder Command Suite**: New `goneat pathfinder` commands for schema discovery, validation, and metadata extraction
+- **FinderFacade API**: High-level entry point for path discovery that maintains enterprise-grade PathFinder interface while providing simpler API for common workflows
+- **Schema Validation**: Comprehensive validation with meta-schema compliance checking and structured error reporting
+- **Local Loader**: Production-ready local filesystem loader with streaming text output and transform support
 
-### Guardian Hook Integration
-- Updated generated hooks for Bash, PowerShell, and CMD to surface guardian context and instruct operators to re-run blocked commands via `guardian approve`
-- Removed guidance for not-yet-implemented grant workflows to keep remediation actionable today
-- Hooks auto-bootstrap guardian configuration when integration is detected, keeping security posture consistent across platforms
+### Schema Type Support
 
-### Intelligent Hooks Format Detection
-- `goneat hooks init` now automatically detects format capabilities in your project
-- Auto-configures hooks.yaml with format commands (priority 5) before assess commands (priority 10)
-- Supports detection of `make format-all`, `make format`, `make fmt`, npm format scripts, prettier, and Python formatters
-- Eliminates manual hooks.yaml editing while maintaining full user control over generated configuration
-- Projects with format capabilities get comprehensive formatting workflow automatically
+- **JSON Schema**: Draft 4, 6, 7, 2019-09, 2020-12 with meta-schema validation
+- **OpenAPI**: 2.0, 3.0.x, 3.1.x specification support
+- **AsyncAPI**: 2.x specification support
+- **Avro**: Schema validation and metadata extraction
+- **Cue**: Module and schema validation
+- **Protobuf**: .proto file detection and parsing
+- **Additional Formats**: GraphQL, RAML, XML Schema, YAML Schema
 
-### ASCII Art Terminal Calibration System
-- New `ascii` command suite: `box`, `stringinfo`, `calibrate`, `mark`, `analyze`, and `diag`
-- Terminal-specific width override system handles emoji variation selector rendering differences
-- Automated analysis detects alignment issues in ASCII art and generates correction commands
-- Support for Ghostty, iTerm2, Apple Terminal with extensible configuration system
-- Comprehensive test fixtures for emoji, symbols, and box drawing characters
-- User configuration via `$GONEAT_HOME/config/terminal-overrides.yaml` with embedded defaults
+### Enhanced CLI Experience
 
-### Enhanced Format Coverage
-- Added `format-config` and `format-all` Makefile targets for comprehensive project formatting
-- Configuration and schema files (config/, schemas/) now included in format workflow
-- Integrated format targets into git hooks workflow with proper priority ordering
+- **Schema Commands**: `goneat schema validate-schema` for standalone schema validation
+- **Pathfinder Flags**: `--schemas`, `--schema-id`, `--schema-category`, `--schema-metadata` for targeted discovery
+- **Structured Output**: JSON and markdown output formats for programmatic consumption
+- **Parallel Processing**: Optimized discovery with configurable worker pools
 
-### Documentation
-- Added `docs/user-guide/commands/guardian.md` covering guardian CLI usage, hook workflows, and troubleshooting tips
-- Expanded `docs/user-guide/commands/hooks.md` to describe the new guardian remediation pattern
-- Added comprehensive ASCII command documentation in `docs/user-guide/ascii.md`
-- Updated format workflow documentation with new Makefile targets
-- Added terminal calibration guides and troubleshooting tips
+### Documentation and Examples
+
+- **Pathfinder User Guide**: Comprehensive documentation for CLI usage and API integration
+- **Schema Library Notes**: Technical deep-dive on schema validation architecture
+- **FinderFacade Application Notes**: Enterprise integration patterns and examples
 
 ## What's Next
-- The guardian DevOps and SQL extensions (`guardian-devops-foundation`, `guardian-sql-proxy`) move to the v0.2.9 planning cycle while we finalise repository coverage in v0.2.8.
+
+- **v0.2.10**: Cloud storage loaders (S3, R2, GCS), advanced transforms, schema diffing
+- **v0.3.0**: Schema registry integration, automated schema evolution detection
 
 ---
 

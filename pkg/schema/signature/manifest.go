@@ -129,7 +129,7 @@ func loadUserManifests() ([]*Manifest, error) {
 }
 
 func loadManifestFromFile(path string) (*Manifest, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- path constructed from controlled goneat home directory
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, nil

@@ -231,10 +231,10 @@ goneat format --plan-only --group-by-size
 
 **Note**: The defaults for `--finalize-eof` and `--finalize-trim-trailing-spaces` are set to `true` to ensure consistency with `goneat assess --categories format` expectations.
 
-| Flag                              | Type    | Description                                                                         | Default | Example                            |
-| --------------------------------- | ------- | ----------------------------------------------------------------------------------- | ------- | ---------------------------------- |
-| `--finalize-eof`                  | boolean | Ensure single trailing newline                                                      | `true`  | `--finalize-eof`                   |
-| `--finalize-trim-trailing-spaces` | boolean | Remove trailing whitespace                                                          | `true`  | `--finalize-trim-trailing-spaces`  |
+| Flag                              | Type    | Description                                                                         | Default                            | Example                           |
+| --------------------------------- | ------- | ----------------------------------------------------------------------------------- | ---------------------------------- | --------------------------------- |
+| `--finalize-eof`                  | boolean | Ensure single trailing newline                                                      | `true`                             | `--finalize-eof`                  |
+| `--finalize-trim-trailing-spaces` | boolean | Remove trailing whitespace                                                          | `true`                             | `--finalize-trim-trailing-spaces` |
 | `--finalize-line-endings`         | string  | Normalize line endings                                                              | `--finalize-line-endings=lf`       |
 | `--finalize-remove-bom`           | boolean | Remove UTF-8/16/32 BOM                                                              | `--finalize-remove-bom`            |
 | `--text-normalize`                | boolean | Apply generic text normalization to any text file (unknown extensions included)     | `--text-normalize`                 |
@@ -874,6 +874,7 @@ format-config: build ## Format configuration and schema files
 ```
 
 **Key benefits:**
+
 - **Consistent defaults**: Uses goneat's assessment-aligned defaults (`--finalize-eof=true`, `--finalize-trim-trailing-spaces=true`)
 - **Graceful fallback**: Falls back to `go fmt` if goneat binary isn't available
 - **Comprehensive coverage**: Separate targets for code, docs, and config files

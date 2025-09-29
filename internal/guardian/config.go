@@ -94,7 +94,7 @@ func LoadConfig() (*ConfigRoot, error) {
 		return nil, err
 	}
 
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) // #nosec G304 -- path from EnsureConfig in guardian directory
 	if err != nil {
 		return nil, fmt.Errorf("failed to read guardian config: %w", err)
 	}
