@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/fulmenhq/goneat/internal/ops"
+	"github.com/fulmenhq/goneat/pkg/buildinfo"
 	"github.com/fulmenhq/goneat/pkg/exitcode"
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/spf13/cobra"
@@ -48,12 +49,8 @@ func init() {
 	rootCmd.PersistentFlags().Bool("no-color", false, "Disable colored output")
 	rootCmd.PersistentFlags().Bool("no-op", false, "Run tasks without making changes (assessment mode)")
 
-	// Wire Cobra's built-in --version using dynamically computed version string
-	ver := "unknown"
-	if v, _, err := getVersionFromSources(); err == nil && strings.TrimSpace(v) != "" {
-		ver = v
-	}
-	rootCmd.Version = ver
+	// Wire Cobra's built-in --version using goneat's binary version
+	rootCmd.Version = buildinfo.BinaryVersion
 	rootCmd.SetVersionTemplate("goneat {{.Version}}\n")
 
 	// Grouped help by command group (Neat → Workflow → Support)

@@ -290,6 +290,13 @@ func runBinaryVersion(cmd *cobra.Command, args []string, extended, jsonOutput, n
 			"arch":          runtime.GOARCH,
 		}
 		if extended {
+			// Add project version info
+			if projectVersion, source, err := getVersionFromSources(); err == nil {
+				versionInfo["project"] = map[string]any{
+					"version": projectVersion,
+					"source":  source,
+				}
+			}
 			// Add build details if available
 			if gitCommit, gitBranch, err := getGitCommitInfo(); err == nil && gitCommit != "" {
 				versionInfo["gitCommit"] = gitCommit[:8]
@@ -305,21 +312,20 @@ func runBinaryVersion(cmd *cobra.Command, args []string, extended, jsonOutput, n
 	}
 
 	if extended {
-		mv := buildinfo.ModuleVersion()
+		// Get project version for extended output
+		projectVersion, source, err := getVersionFromSources()
+		if err != nil {
+			projectVersion = "unknown"
+			source = "none"
+		}
+
 		_, _ = fmt.Fprintf(out, "goneat %s\n", buildinfo.BinaryVersion)
-		if mv != "" {
-			_, _ = fmt.Fprintf(out, "Module: %s\n", mv)
+		_, _ = fmt.Fprintf(out, "Module: %s", projectVersion)
+		if source != "" {
+			_, _ = fmt.Fprintf(out, " (%s)", source)
 		}
-		_, _ = fmt.Fprintf(out, "Build time: %s\n", "unknown") // To be enhanced with ldflags
-		if gitCommit, gitBranch, err := getGitCommitInfo(); err == nil && gitCommit != "" {
-			if len(gitCommit) >= 8 {
-				_, _ = fmt.Fprintf(out, "Git commit: %s\n", gitCommit[:8])
-			}
-			if gitBranch != "" {
-				_, _ = fmt.Fprintf(out, "Git branch: %s\n", gitBranch)
-			}
-		}
-		_, _ = fmt.Fprintf(out, "Go version: %s\n", runtime.Version())
+		_, _ = fmt.Fprintf(out, "\n")
+		_, _ = fmt.Fprintf(out, "Go: %s\n", runtime.Version())
 		_, _ = fmt.Fprintf(out, "Platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 	} else {
 		// Compact binary version output

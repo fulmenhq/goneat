@@ -48,7 +48,7 @@ help: ## Show this help message
 
 # Build targets
 build: embed-assets ## Build the binary
-	@echo "Building $(BINARY_NAME) v$(VERSION)..."
+	@echo "Building $(BINARY_NAME) $(VERSION)..."
 	@mkdir -p $(BUILD_DIR)
 	$(GOBUILD) $(BUILD_FLAGS) ./$(SRC_DIR)
 	@echo "✅ Build completed: $(BUILD_DIR)/$(BINARY_NAME)"
