@@ -5,7 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Unreleased] - 2025-09-30
+
+### Added
+
+- **JSON Prettification in Format Command**: Built-in JSON formatting using Go's `json.Indent` with configurable indentation options
+  - New flags: `--json-indent` (custom string), `--json-indent-count` (1-10 spaces, 0 to skip), `--json-size-warning` (MB threshold)
+  - Replaces external `jq` dependency for JSON formatting
+  - Supports compact mode and size-based warnings for large files
+
+- **XML Prettification in Format Command**: Built-in XML formatting using `etree` library with configurable indentation options
+  - New flags: `--xml-indent` (custom string), `--xml-indent-count` (1-10 spaces, 0 to skip), `--xml-size-warning` (MB threshold)
+  - Validates XML well-formedness before formatting
+  - Supports size-based warnings for large files
+
+### Fixed
+
+- **Guardian Approve Bug**: Fixed `runGuardianApprove` to always execute wrapped commands after policy checks, whether approval is required or not
+- **Guardian Error Messages**: Enhanced denial error handling with clear "❌ Guardian approval denied by user - operation cancelled" message and proper exit code (1) on denial
 
 ## [0.2.9] - 2025-09-28
 

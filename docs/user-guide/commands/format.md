@@ -274,6 +274,25 @@ goneat format --files my.json --json-indent-count 0
 goneat format --check --files my.json
 ```
 
+### XML Formatting Usage Examples
+
+```bash
+# Default prettification with 2 spaces and warnings for large files (>500MB)
+goneat format --files large.xml
+
+# Custom indent string (e.g., tabs) and size threshold
+goneat format --files my.xml --xml-indent "\t" --xml-size-warning 1000
+
+# Use 4 spaces for indentation
+goneat format --files my.xml --xml-indent-count 4
+
+# Skip XML prettification entirely
+goneat format --files my.xml --xml-indent-count 0
+
+# Check mode (no changes, but validates)
+goneat format --check --files my.xml
+```
+
 Notes:
 
 - When `--strategy parallel` is used, goimports is currently skipped with a warning. Use sequential strategy for import alignment until the parallel processor is extended.

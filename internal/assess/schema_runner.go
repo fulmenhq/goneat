@@ -11,15 +11,15 @@ import (
 	"bytes"
 	"encoding/json"
 
-	"github.com/fulmenhq/goneat/internal/assets"
 	"github.com/fulmenhq/goneat/pkg/schema"
 	"github.com/fulmenhq/goneat/pkg/schema/mapping"
 	"github.com/fulmenhq/goneat/pkg/work"
-	"github.com/xeipuuv/gojsonschema"
 	"gopkg.in/yaml.v3"
 )
 
 // isOfflineMode checks if offline schema validation is enabled via environment variable
+//
+//nolint:unused
 func isOfflineMode() bool {
 	return os.Getenv("GONEAT_OFFLINE_SCHEMA_VALIDATION") == "true"
 }
@@ -909,82 +909,7 @@ func (r *SchemaAssessmentRunner) checkJSONSchemaStructure(path string) error {
 	return nil
 }
 
-// checkJSONSchemaWithMeta attempts meta-schema validation via gojsonschema using embedded drafts.
-// Note: Remote references are disabled to ensure offline operation.
-func (r *SchemaAssessmentRunner) checkJSONSchemaWithMeta(path string) error {
-	data, err := safeReadFile(path) // #nosec G304 -- path cleaned and restricted to working directory
-	if err != nil {
-		return err
-	}
-	var doc interface{}
-	if yaml.Unmarshal(data, &doc) != nil {
-		var j interface{}
-		dec := jsonNewDecoder(bytesNewReader(data))
-		dec.UseNumber()
-		if err := dec.Decode(&j); err != nil {
-			return fmt.Errorf("unable to parse as YAML or JSON: %v", err)
-		}
-		doc = j
-	}
-
-	// Conditionally remove $schema field to prevent remote fetching in offline mode
-	if isOfflineMode() {
-		if m, ok := doc.(map[string]interface{}); ok {
-			delete(m, "$schema")
-		}
-	}
-
-	// Determine draft
-	draft := "2020-12"
-	if m, ok := doc.(map[string]interface{}); ok {
-		if v, ok := m["$schema"].(string); ok {
-			switch {
-			case strings.Contains(v, "draft-07"):
-				draft = "draft-07"
-			case strings.Contains(v, "2020-12"):
-				draft = "2020-12"
-			}
-		}
-	}
-	meta, ok := assets.GetJSONSchemaMeta(draft)
-	if !ok || len(meta) == 0 {
-		return fmt.Errorf("embedded meta-schema not available for %s", draft)
-	}
-
-	// Conditionally remove $schema from meta-schema in offline mode
-	if isOfflineMode() {
-		var metaDoc interface{}
-		if err := json.Unmarshal(meta, &metaDoc); err == nil {
-			if m, ok := metaDoc.(map[string]interface{}); ok {
-				delete(m, "$schema")
-				if newMeta, err := json.Marshal(metaDoc); err == nil {
-					meta = newMeta
-				}
-			}
-		}
-	}
-
-	jsonDoc, err := toCanonicalJSON(doc)
-	if err != nil {
-		return fmt.Errorf("json conversion failed: %v", err)
-	}
-	schemaLoader := gojsonschema.NewBytesLoader(meta)
-	docLoader := gojsonschema.NewBytesLoader(jsonDoc)
-	res, err := gojsonschema.Validate(schemaLoader, docLoader)
-	if err != nil {
-		return fmt.Errorf("meta-validation error: %v", err)
-	}
-	if !res.Valid() {
-		var b strings.Builder
-		for _, e := range res.Errors() {
-			b.WriteString(e.String())
-			b.WriteString("\n")
-		}
-		return fmt.Errorf("meta-schema validation failed:\n%s", b.String())
-	}
-	return nil
-}
-
+//nolint:unused
 func toCanonicalJSON(v interface{}) ([]byte, error) {
 	// Marshal through encoding/json for validation loader
 	// Ensure numbers are retained reasonably; here we allow defaults

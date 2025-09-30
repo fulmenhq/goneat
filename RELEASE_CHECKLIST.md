@@ -7,7 +7,7 @@ This checklist ensures all requirements are met before releasing goneat to the G
 **✅ RELEASE COMPLETE**: v0.2.8 successfully tagged and pushed to GitHub.
 **✅ POST-RELEASE**: All quality gates passed, binaries built, licenses audited, consolidation completed.
 
-## Next Release Target: v0.2.9 (Pathfinder Schema Discovery)
+## Next Release Target: [0.2.9] - 2025-09-28 (Pathfinder Schema Discovery)
 
 **🔄 IN PROGRESS**: Preparing v0.2.9 release with Pathfinder Schema Discovery system.
 

@@ -17,6 +17,10 @@ The `pkg/format` library provides reusable formatting utilities that can be used
 
 The `PrettifyJSON` function provides reliable, built-in JSON formatting using Go's standard library.
 
+## XML Prettification
+
+The `PrettifyXML` function provides XML formatting using the `etree` library for parsing and indentation.
+
 ### Function Signature
 
 ```go
@@ -99,6 +103,92 @@ if err != nil {
 }
 ```
 
+## XML Prettification
+
+The `PrettifyXML` function provides XML formatting using the `etree` library for parsing and indentation.
+
+### Function Signature
+
+```go
+func PrettifyXML(input []byte, indent string, sizeWarningMB int) ([]byte, bool, error)
+```
+
+### Parameters
+
+- `input`: The XML content as a byte slice
+- `indent`: The indentation string (e.g., " " for 2 spaces, "\t" for tabs, "" to skip prettification). Default: " " (2 spaces)
+- `sizeWarningMB`: Threshold in MB for warning on large files (0 to disable). Default: 500
+
+### Returns
+
+- `[]byte`: The prettified XML content
+- `bool`: Whether the content was changed
+- `error`: Any error encountered (e.g., invalid XML)
+
+### Usage Examples
+
+```go
+package main
+
+import (
+    "fmt"
+    "os"
+    formatpkg "github.com/fulmenhq/goneat/pkg/format"
+)
+
+func main() {
+    // Read XML file
+    content, err := os.ReadFile("data.xml")
+    if err != nil {
+        panic(err)
+    }
+
+    // Prettify with 2 spaces
+    output, changed, err := formatpkg.PrettifyXML(content, "  ", 500)
+    if err != nil {
+        panic(err)
+    }
+
+    if changed {
+        fmt.Println("XML was prettified")
+        os.WriteFile("data.xml", output, 0644)
+    } else {
+        fmt.Println("XML was already formatted")
+    }
+}
+```
+
+### Skip Prettification
+
+For no formatting:
+
+```go
+// Skip prettification
+output, changed, err := formatpkg.PrettifyXML(content, "", 500)
+```
+
+### Size Warnings
+
+The function automatically warns for large files:
+
+```go
+// Warns if file >500MB
+output, changed, err := formatpkg.PrettifyXML(content, "  ", 500)
+```
+
+### Error Handling
+
+```go
+output, changed, err := formatpkg.PrettifyXML(content, "  ", 500)
+if err != nil {
+    if strings.Contains(err.Error(), "XML is not well-formed") {
+        fmt.Println("File contains invalid XML")
+    } else {
+        fmt.Printf("Formatting failed: %v\n", err)
+    }
+}
+```
+
 ## Integration with Commands
 
 ### Using in Custom Commands
@@ -123,14 +213,23 @@ func formatCustomJSON(file string) error {
 ### CLI Flag Integration
 
 ```bash
-# Use with custom indent count
+# Use with custom indent count (JSON)
 goneat custom-command --json-indent-count 4
 
-# Skip prettification
+# Skip prettification (JSON)
 goneat custom-command --json-indent-count 0
 
-# Use custom indent string
+# Use custom indent string (JSON)
 goneat custom-command --json-indent "\t"
+
+# Use with custom indent count (XML)
+goneat format --files my.xml --xml-indent-count 4
+
+# Skip prettification (XML)
+goneat format --files my.xml --xml-indent-count 0
+
+# Use custom indent string (XML)
+goneat format --files my.xml --xml-indent "\t"
 ```
 
 ## Best Practices
@@ -139,17 +238,17 @@ goneat custom-command --json-indent "\t"
 
 - For very large files (>500MB), consider processing in chunks or warning users
 - Use compact mode (`""` indent) for storage efficiency
-- Validate JSON before calling to avoid unnecessary processing
+- Validate JSON/XML before calling to avoid unnecessary processing
 
 ### Error Handling
 
-- Always check for "invalid JSON" errors
+- Always check for "invalid JSON" or "XML is not well-formed" errors
 - Handle size warnings appropriately in your application
 - Consider fallback strategies for critical formatting operations
 
 ### Consistency
 
-- Use consistent indentation across your application
+- Use consistent indentation across your application (JSON and XML)
 - Align with project standards (e.g., 2 spaces for most projects)
 - Document your formatting choices in project guidelines
 

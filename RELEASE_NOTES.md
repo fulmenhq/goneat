@@ -18,6 +18,24 @@
 - **Schema Validation**: Comprehensive validation with meta-schema compliance checking and structured error reporting
 - **Local Loader**: Production-ready local filesystem loader with streaming text output and transform support
 
+### Format Command Enhancements
+
+- **JSON Prettification**: Added built-in JSON formatting using Go's `json.Indent` with configurable options
+  - Flags: `--json-indent` (custom string), `--json-indent-count` (1-10 spaces, 0 to skip), `--json-size-warning` (MB threshold)
+  - Replaces external `jq` dependency for reliable, cross-platform JSON formatting
+  - Supports compact mode and size-based warnings for large files
+
+- **XML Prettification**: Added built-in XML formatting using `etree` library with configurable options
+  - Flags: `--xml-indent` (custom string), `--xml-indent-count` (1-10 spaces, 0 to skip), `--xml-size-warning` (MB threshold)
+  - Validates XML well-formedness before formatting
+  - Supports size-based warnings for large files
+
+### Guardian Security Improvements
+
+- **Bug Fix**: Fixed `runGuardianApprove` to always execute wrapped commands after policy checks, whether approval is required or not
+- **Enhanced UX**: Improved denial error messages with clear "❌ Guardian approval denied by user - operation cancelled" feedback and proper exit code (1) on denial
+- **Documentation**: Clarified that guardian policies are user-level only with no current support for repository-specific policies
+
 ### Schema Type Support
 
 - **JSON Schema**: Draft 4, 6, 7, 2019-09, 2020-12 with meta-schema validation
@@ -43,8 +61,8 @@
 
 ## What's Next
 
-- **v0.2.10**: Cloud storage loaders (S3, R2, GCS), advanced transforms, schema diffing
-- **v0.3.0**: Schema registry integration, automated schema evolution detection
+- **[0.2.10]** - 2025-10-01: Cloud storage loaders (S3, R2, GCS), advanced transforms, schema diffing
+- **[0.3.0]** - 2025-11-01: Schema registry integration, automated schema evolution detection
 
 ---
 

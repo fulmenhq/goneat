@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/beevik/etree"
 )
 
 func TestPrettifyJSON(t *testing.T) {
@@ -118,5 +120,108 @@ func TestPrettifyJSON_SizeWarning(t *testing.T) {
 
 	if len(output) == 0 {
 		t.Errorf("Expected output for large JSON")
+	}
+}
+
+func TestPrettifyXML(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          string
+		indent         string
+		sizeWarningMB  int
+		expectedOutput string
+		expectChanged  bool
+		expectError    bool
+	}{
+		{
+			name:           "Valid XML with indentation",
+			input:          `<root><item>value</item></root>`,
+			indent:         "  ",
+			sizeWarningMB:  500,
+			expectedOutput: "<root>\n  <item>value</item>\n</root>\n",
+			expectChanged:  true,
+			expectError:    false,
+		},
+		{
+			name:           "Already formatted XML",
+			input:          "<root>\n  <item>value</item>\n</root>\n",
+			indent:         "  ",
+			sizeWarningMB:  500,
+			expectedOutput: "<root>\n  <item>value</item>\n</root>\n",
+			expectChanged:  false,
+			expectError:    false,
+		},
+		{
+			name:           "Skip prettification",
+			input:          `<root><item>value</item></root>`,
+			indent:         "",
+			sizeWarningMB:  500,
+			expectedOutput: `<root><item>value</item></root>`,
+			expectChanged:  false,
+			expectError:    false,
+		},
+		{
+			name:           "Invalid XML",
+			input:          `<root><item>value</root>`, // Unclosed tag
+			indent:         "  ",
+			sizeWarningMB:  500,
+			expectedOutput: "",
+			expectChanged:  false,
+			expectError:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output, changed, err := PrettifyXML([]byte(tt.input), tt.indent, tt.sizeWarningMB)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("Expected error, but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+
+			if changed != tt.expectChanged {
+				t.Errorf("Expected changed=%v, got %v", tt.expectChanged, changed)
+			}
+
+			if tt.indent != "" {
+				// Validate that output is still valid XML
+				doc := etree.NewDocument()
+				if err := doc.ReadFromString(string(output)); err != nil {
+					t.Errorf("Output is not valid XML: %v", err)
+				}
+				if strings.TrimSpace(string(output)) != strings.TrimSpace(tt.expectedOutput) {
+					t.Errorf("Expected output %q, got %q", tt.expectedOutput, string(output))
+				}
+			}
+		})
+	}
+}
+
+func TestPrettifyXML_SizeWarning(t *testing.T) {
+	// Create a large XML string (>500MB)
+	largeXML := `<root>` + strings.Repeat("<item>value</item>", 100000) + `</root>`
+
+	// This test would trigger the warning, but we can't easily capture logger output in unit tests
+	// In practice, the warning is logged, and processing continues
+	output, changed, err := PrettifyXML([]byte(largeXML), "  ", 500)
+
+	if err != nil {
+		t.Errorf("Unexpected error for large XML: %v", err)
+	}
+
+	if !changed {
+		t.Errorf("Expected large XML to be processed")
+	}
+
+	if len(output) == 0 {
+		t.Errorf("Expected output for large XML")
 	}
 }

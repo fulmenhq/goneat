@@ -270,7 +270,7 @@ var contentEmbedCmd = &cobra.Command{
 			result := embedReport{Target: group.target, Count: len(group.items), DryRun: contentDryRun, Diagnostics: diags}
 			if contentDryRun {
 				results = append(results, result)
-				if !(contentJSON || contentFormat == "json") {
+				if !contentJSON && contentFormat != "json" {
 					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "🔎 DRY-RUN: would embed %d asset(s) to %s\n", len(group.items), group.target)
 					if len(diags) > 0 {
 						for _, d := range diags {
@@ -286,7 +286,7 @@ var contentEmbedCmd = &cobra.Command{
 			}
 			total += len(group.items)
 			results = append(results, result)
-			if !(contentJSON || contentFormat == "json") {
+			if !contentJSON && contentFormat != "json" {
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "✅ Embedded %d asset(s) to %s\n", len(group.items), group.target)
 				if len(diags) > 0 {
 					for _, d := range diags {
@@ -362,7 +362,7 @@ var contentVerifyCmd = &cobra.Command{
 			}
 			diags := append([]string(nil), targetDiagnostics[group.target]...)
 			reports = append(reports, targetReport{Target: group.target, Missing: missing, Changed: changed, Extra: extra, Diagnostics: diags})
-			if len(diags) > 0 && !(contentJSON || contentFormat == "json") {
+			if len(diags) > 0 && !contentJSON && contentFormat != "json" {
 				for _, d := range diags {
 					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Diagnostic: %s\n", d)
 				}
@@ -591,7 +591,7 @@ var contentInitCmd = &cobra.Command{
 				return fmt.Errorf("output file already exists: %s (use --overwrite)", relativeToRepo(output))
 			}
 		}
-		if err := os.MkdirAll(filepath.Dir(output), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(output), 0o750); err != nil {
 			return err
 		}
 
@@ -602,7 +602,7 @@ var contentInitCmd = &cobra.Command{
 		if err := validateManifestBytes(manifestBytes, manifest.Version); err != nil {
 			return fmt.Errorf("generated manifest failed validation: %w", err)
 		}
-		if err := os.WriteFile(output, manifestBytes, 0o644); err != nil {
+		if err := os.WriteFile(output, manifestBytes, 0o600); err != nil {
 			return err
 		}
 
@@ -689,10 +689,10 @@ var contentMigrateManifestCmd = &cobra.Command{
 		} else if !filepath.IsAbs(outputPath) && repoRoot != "" {
 			outputPath = filepath.Join(repoRoot, outputPath)
 		}
-		if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(outputPath), 0o750); err != nil {
 			return err
 		}
-		if err := os.WriteFile(outputPath, marshaled, 0o644); err != nil {
+		if err := os.WriteFile(outputPath, marshaled, 0o600); err != nil {
 			return err
 		}
 
@@ -1279,8 +1279,8 @@ func verifyTarget(target string, items []contentItem) (missing []string, changed
 			return nil, nil, nil, err
 		}
 		// #nosec G304 -- paths validated to stay within repo
-		srcBytes, sErr := os.ReadFile(item.Path)
-		dstBytes, dErr := os.ReadFile(dst)
+		srcBytes, sErr := os.ReadFile(item.Path) // #nosec G304 -- paths validated to stay within repo
+		dstBytes, dErr := os.ReadFile(dst)       // #nosec G304 -- paths validated to stay within repo
 		if sErr != nil || dErr != nil || !bytes.Equal(srcBytes, dstBytes) || info.Mode()&0o777 != 0o640 {
 			changed = append(changed, rel)
 		}
@@ -1330,7 +1330,7 @@ func loadManifestBytes(manifestPath string, repoRoot string) (string, []byte, er
 	if err != nil {
 		return "", nil, err
 	}
-	data, err := os.ReadFile(abs)
+	data, err := os.ReadFile(abs) // #nosec G304 -- path sanitized by normalizeManifestPath
 	if err != nil {
 		return "", nil, err
 	}
@@ -1493,7 +1493,7 @@ func printPrettyItems(w io.Writer, items []contentItem) {
 }
 
 func copyFileMode(src, dst string, mode os.FileMode) error {
-	in, err := os.Open(src)
+	in, err := os.Open(src) // #nosec G304 -- path sanitized by ensureWithinRepo check before call
 	if err != nil {
 		return err
 	}

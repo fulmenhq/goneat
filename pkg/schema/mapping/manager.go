@@ -107,7 +107,7 @@ func (m *Manager) loadRepositoryManifest(opts LoadOptions) (*Manifest, string, [
 		return nil, "", nil, err
 	}
 
-	data, err := os.ReadFile(manifestPath)
+	data, err := os.ReadFile(manifestPath) // #nosec G304 -- path sanitized by ensureWithinRepo above
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, "", []Diagnostic{{

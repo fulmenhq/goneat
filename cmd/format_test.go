@@ -367,6 +367,9 @@ func setupFormatCommandFlags(cmd *cobra.Command) {
 	cmd.Flags().String("json-indent", "  ", "Indentation for JSON prettification")
 	cmd.Flags().Int("json-indent-count", 2, "Number of spaces for JSON indentation")
 	cmd.Flags().Int("json-size-warning", 500, "Size threshold in MB for JSON file warnings")
+	cmd.Flags().String("xml-indent", "  ", "Indentation for XML prettification")
+	cmd.Flags().Int("xml-indent-count", 2, "Number of spaces for XML indentation")
+	cmd.Flags().Int("xml-size-warning", 500, "Size threshold in MB for XML file warnings")
 }
 
 // createTestFiles creates a set of test files for format command testing
@@ -436,5 +439,47 @@ func TestFormatCommand_JSONFormatting(t *testing.T) {
 	expectedContent := "{\n  \"key\": \"value\",\n  \"number\": 123\n}\n"
 	if string(formattedContent) != expectedContent {
 		t.Errorf("Expected formatted JSON %q, got %q", expectedContent, string(formattedContent))
+	}
+}
+
+// TestFormatCommand_XMLFormatting tests XML formatting functionality
+func TestFormatCommand_XMLFormatting(t *testing.T) {
+	// Create a temporary directory with an XML file
+	tempDir := t.TempDir()
+
+	// Create a minified XML file
+	xmlFile := filepath.Join(tempDir, "test.xml")
+	xmlContent := `<root><item>value</item><item>another</item></root>`
+	if err := os.WriteFile(xmlFile, []byte(xmlContent), 0644); err != nil {
+		t.Fatalf("Failed to create test XML file: %v", err)
+	}
+
+	// Create a test command
+	cmd := &cobra.Command{}
+	setupFormatCommandFlags(cmd)
+	if err := cmd.Flags().Set("files", xmlFile); err != nil {
+		t.Fatalf("Failed to set files flag: %v", err)
+	}
+	if err := cmd.Flags().Set("xml-indent-count", "2"); err != nil {
+		t.Fatalf("Failed to set xml-indent-count flag: %v", err)
+	}
+
+	// Execute the command
+	err := RunFormat(cmd, []string{})
+
+	// Check for errors
+	if err != nil {
+		t.Fatalf("Format command for XML failed: %v", err)
+	}
+
+	// Verify the file was formatted
+	formattedContent, err := os.ReadFile(xmlFile)
+	if err != nil {
+		t.Fatalf("Failed to read formatted XML file: %v", err)
+	}
+
+	expectedContent := "<root>\n  <item>value</item>\n  <item>another</item>\n</root>\n"
+	if string(formattedContent) != expectedContent {
+		t.Errorf("Expected formatted XML %q, got %q", expectedContent, string(formattedContent))
 	}
 }

@@ -90,6 +90,11 @@ func init() {
 	formatCmd.Flags().String("json-indent", "  ", "Indentation for JSON prettification (e.g., '  ' or '\t')")
 	formatCmd.Flags().Int("json-indent-count", 2, "Number of spaces for JSON indentation (1-10, 0 to skip prettification)")
 	formatCmd.Flags().Int("json-size-warning", 500, "Size threshold in MB for JSON file warnings (0 to disable)")
+
+	// XML prettification options
+	formatCmd.Flags().String("xml-indent", "  ", "Indentation for XML prettification (e.g., '  ' or '\t')")
+	formatCmd.Flags().Int("xml-indent-count", 2, "Number of spaces for XML indentation (1-10, 0 to skip prettification)")
+	formatCmd.Flags().Int("xml-size-warning", 500, "Size threshold in MB for XML file warnings (0 to disable)")
 }
 
 func RunFormat(cmd *cobra.Command, args []string) error {
@@ -136,6 +141,9 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 	jsonIndent, _ := cmd.Flags().GetString("json-indent")
 	jsonIndentCount, _ := cmd.Flags().GetInt("json-indent-count")
 	jsonSizeWarningMB, _ := cmd.Flags().GetInt("json-size-warning")
+	xmlIndent, _ := cmd.Flags().GetString("xml-indent")
+	xmlIndentCount, _ := cmd.Flags().GetInt("xml-indent-count")
+	xmlSizeWarningMB, _ := cmd.Flags().GetInt("xml-size-warning")
 
 	// Validate flag combinations per Arch Eagle's precedence rules
 	if len(explicitFiles) > 0 {
@@ -294,13 +302,13 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 			EncodingPolicy:             textEncodingPolicy,
 		}
 
-		return executeSequentialWithOptions(filesToProcess, checkOnly || noOp, quiet, cfg, ignoreMissingTools, options, useGoimports, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB)
+		return executeSequentialWithOptions(filesToProcess, checkOnly || noOp, quiet, cfg, ignoreMissingTools, options, useGoimports, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB, xmlIndent, xmlIndentCount, xmlSizeWarningMB)
 	}
 }
 
 // removed unused findSupportedFiles helper
 
-func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignoreMissingTools bool, options finalizer.NormalizationOptions, useGoimports bool, textNormalize bool, jsonIndent string, jsonIndentCount int, jsonSizeWarningMB int) error {
+func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignoreMissingTools bool, options finalizer.NormalizationOptions, useGoimports bool, textNormalize bool, jsonIndent string, jsonIndentCount int, jsonSizeWarningMB int, xmlIndent string, xmlIndentCount int, xmlSizeWarningMB int) error {
 	ext := filepath.Ext(file)
 
 	var err error
@@ -329,6 +337,27 @@ func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignore
 		}
 		err = formatJSONFile(file, checkOnly, cfg, options, jsonIndent, jsonIndentCount, jsonSizeWarningMB)
 
+	case ".xml":
+		err = formatXMLFile(file, checkOnly, cfg, options, xmlIndent, xmlIndentCount, xmlSizeWarningMB)
+
+	default:
+		// Check if file is XML by content (starts with <?xml)
+		if isXMLFile(file) {
+			err = formatXMLFile(file, checkOnly, cfg, options, xmlIndent, xmlIndentCount, xmlSizeWarningMB)
+		} else {
+			// Non-primary types: apply finalizer to supported extensions or any text file when textNormalize is enabled
+			if options.EnsureEOF || options.TrimTrailingWhitespace || options.NormalizeLineEndings != "" || options.RemoveUTF8BOM || textNormalize {
+				if finalizer.IsSupportedExtension(ext) {
+					return applyFinalizer(file, checkOnly, options)
+				}
+				if textNormalize {
+					return applyFinalizer(file, checkOnly, options)
+				}
+			}
+			supportedExts := []string{".go", ".yaml", ".yml", ".json", ".xml", ".md", ".markdown"}
+			return fmt.Errorf("unsupported file type '%s' for file %s. Supported extensions: %v. Use --types flag to filter specific content types", ext, file, supportedExts)
+		}
+
 	case ".md":
 		if ignoreMissingTools {
 			if _, e := exec.LookPath("prettier"); e != nil {
@@ -337,19 +366,6 @@ func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignore
 			}
 		}
 		err = formatMarkdownFile(file, checkOnly, cfg, options)
-
-	default:
-		// Non-primary types: apply finalizer to supported extensions or any text file when textNormalize is enabled
-		if options.EnsureEOF || options.TrimTrailingWhitespace || options.NormalizeLineEndings != "" || options.RemoveUTF8BOM || textNormalize {
-			if finalizer.IsSupportedExtension(ext) {
-				return applyFinalizer(file, checkOnly, options)
-			}
-			if textNormalize {
-				return applyFinalizer(file, checkOnly, options)
-			}
-		}
-		supportedExts := []string{".go", ".yaml", ".yml", ".json", ".md", ".markdown"}
-		return fmt.Errorf("unsupported file type '%s' for file %s. Supported extensions: %v. Use --types flag to filter specific content types", ext, file, supportedExts)
 	}
 
 	// Apply finalizer after primary formatter (when enabled and extension supported)
@@ -723,6 +739,87 @@ func formatJSONFile(file string, checkOnly bool, cfg *config.Config, options fin
 	return os.WriteFile(file, []byte(formatted), 0600)
 }
 
+func formatXMLFile(file string, checkOnly bool, cfg *config.Config, options finalizer.NormalizationOptions, xmlIndent string, xmlIndentCount int, xmlSizeWarningMB int) error {
+	// Validate file path to prevent path traversal
+	file = filepath.Clean(file)
+	if strings.Contains(file, "..") {
+		return fmt.Errorf("invalid file path: contains path traversal")
+	}
+
+	// Validate flags
+	if xmlIndent != "  " && xmlIndentCount != 2 {
+		return fmt.Errorf("cannot specify both --xml-indent and --xml-indent-count")
+	}
+	if xmlIndentCount < 0 || xmlIndentCount > 10 {
+		return fmt.Errorf("--xml-indent-count must be between 0 and 10")
+	}
+
+	// Determine indent string
+	var indent string
+	if xmlIndentCount == 0 {
+		// Skip prettification
+		indent = ""
+	} else if xmlIndentCount != 2 {
+		// Use count to generate spaces
+		indent = strings.Repeat(" ", xmlIndentCount)
+	} else {
+		// Use provided string or default
+		indent = xmlIndent
+	}
+
+	// Read the original content
+	originalContent, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+
+	// Use built-in XML prettification
+	var formatted string
+	if indent == "" {
+		// Skip prettification if indent-count is 0
+		formatted = string(originalContent)
+	} else {
+		// For pretty printing, use specified indent
+		output, changed, err := formatpkg.PrettifyXML(originalContent, indent, xmlSizeWarningMB)
+		if err != nil {
+			return fmt.Errorf("XML prettification failed: %v", err)
+		}
+		if changed {
+			formatted = string(output)
+		} else {
+			formatted = string(originalContent)
+		}
+	}
+
+	// Apply finalizer options if requested (EOF, trailing whitespace, etc.)
+	if options.EnsureEOF || options.TrimTrailingWhitespace || options.NormalizeLineEndings != "" || options.RemoveUTF8BOM {
+		finalized, changed, err := finalizer.ComprehensiveFileNormalization([]byte(formatted), options)
+		if err != nil {
+			return fmt.Errorf("finalizer error: %v", err)
+		}
+		if changed {
+			formatted = string(finalized)
+		}
+	}
+
+	// Check if any formatting changed the content
+	contentChanged := !bytes.Equal(originalContent, []byte(formatted))
+
+	if !contentChanged {
+		if checkOnly {
+			return fmt.Errorf("already formatted")
+		}
+		return fmt.Errorf("already formatted") // Signal that no changes were made
+	}
+
+	if checkOnly {
+		return fmt.Errorf("needs formatting")
+	}
+
+	logger.Info(fmt.Sprintf("Applying XML formatting changes to %s", file))
+	return os.WriteFile(file, []byte(formatted), 0600)
+}
+
 func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config, options finalizer.NormalizationOptions) error {
 	// Validate file path to prevent path traversal
 	file = filepath.Clean(file)
@@ -838,7 +935,7 @@ func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config, options
 }
 
 // executeSequential executes work items sequentially
-func executeSequentialWithOptions(files []string, checkOnly, quiet bool, cfg *config.Config, ignoreMissingTools bool, options finalizer.NormalizationOptions, useGoimports bool, textNormalize bool, jsonIndent string, jsonIndentCount int, jsonSizeWarningMB int) error {
+func executeSequentialWithOptions(files []string, checkOnly, quiet bool, cfg *config.Config, ignoreMissingTools bool, options finalizer.NormalizationOptions, useGoimports bool, textNormalize bool, jsonIndent string, jsonIndentCount int, jsonSizeWarningMB int, xmlIndent string, xmlIndentCount int, xmlSizeWarningMB int) error {
 	start := time.Now()
 	var formattedCount, unchangedCount, errorCount int
 	totalFiles := len(files)
@@ -849,7 +946,7 @@ func executeSequentialWithOptions(files []string, checkOnly, quiet bool, cfg *co
 	}
 
 	for i, file := range files {
-		if err := processFile(file, checkOnly, quiet, cfg, ignoreMissingTools, options, useGoimports, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB); err != nil {
+		if err := processFile(file, checkOnly, quiet, cfg, ignoreMissingTools, options, useGoimports, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB, xmlIndent, xmlIndentCount, xmlSizeWarningMB); err != nil {
 			if err.Error() == "needs formatting" {
 				if checkOnly {
 					logger.Error(fmt.Sprintf("Failed to process %s", file), logger.Err(err))
@@ -1042,11 +1139,23 @@ func getContentTypeFromPath(path string) string {
 		return "yaml"
 	case ".json":
 		return "json"
+	case ".xml":
+		return "xml"
 	case ".md":
 		return "markdown"
 	default:
 		return "unknown"
 	}
+}
+
+// isXMLFile checks if a file is XML by reading the first few bytes
+func isXMLFile(file string) bool {
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return false
+	}
+	// Check if file starts with <?xml
+	return bytes.HasPrefix(data, []byte("<?xml"))
 }
 
 // getFileSize gets file size
