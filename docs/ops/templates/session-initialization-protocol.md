@@ -14,7 +14,7 @@
 
 - [ ] Read [AGENTS.md](AGENTS.md) - Complete agent guidelines
 - [ ] Read [MAINTAINERS.md](MAINTAINERS.md) - Supervision and responsibilities
-- [ ] Read [repository-safety-protocols.md](repository-safety-protocols.md) - Critical safety rules
+- [ ] Read [REPOSITORY_SAFETY_PROTOCOLS.md](REPOSITORY_SAFETY_PROTOCOLS.md) - Critical safety rules
 - [ ] Read [docs/standards/agentic-attribution.md](docs/standards/agentic-attribution.md) - Attribution standards
 - [ ] Read [docs/standards/go-coding-standards.md](docs/standards/go-coding-standards.md) - Coding standards
 

@@ -257,7 +257,7 @@ git commit && git push
 3. Document approval in commit/PR description
 4. Only then execute push with `--force-with-lease` if needed
 
-See [repository-safety-protocols.md](repository-safety-protocols.md) for full rules.
+See [REPOSITORY_SAFETY_PROTOCOLS.md](REPOSITORY_SAFETY_PROTOCOLS.md) for full rules.
 
 ### **🚨 CRITICAL OPERATIONS CHECKLIST**
 

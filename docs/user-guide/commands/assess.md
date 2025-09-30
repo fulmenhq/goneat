@@ -304,6 +304,7 @@ The `--force-include` flag allows you to assess files that would normally be ign
 ### Usage Patterns
 
 #### Single File Override
+
 ```bash
 # Validate a specific ignored file
 goneat assess --categories schema \
@@ -311,6 +312,7 @@ goneat assess --categories schema \
 ```
 
 #### Directory Pattern Override
+
 ```bash
 # Include all files in an ignored directory
 goneat assess --categories schema \
@@ -319,6 +321,7 @@ goneat assess --categories schema \
 ```
 
 #### Multiple Pattern Override
+
 ```bash
 # Include multiple ignored patterns
 goneat assess --categories schema \
@@ -330,6 +333,7 @@ goneat assess --categories schema \
 ### Combined with Other Flags
 
 #### Scoped Assessment
+
 ```bash
 # Targeted assessment with scope limiting
 goneat assess --scope --categories schema \
@@ -339,6 +343,7 @@ goneat assess --scope --categories schema \
 ```
 
 #### Schema-Specific Patterns
+
 ```bash
 # Force-include with schema filtering
 goneat assess --categories schema \
@@ -350,6 +355,7 @@ goneat assess --categories schema \
 ### Best Practices
 
 1. **Quote Glob Patterns**: Always quote patterns to prevent shell expansion
+
    ```bash
    # Good
    goneat assess --force-include 'tests/**/*.yaml'
@@ -359,6 +365,7 @@ goneat assess --categories schema \
    ```
 
 2. **Use with Target Scope**: Combine with `--include` or target directories for efficiency
+
    ```bash
    # More efficient
    goneat assess tests/fixtures --force-include 'tests/fixtures/**'

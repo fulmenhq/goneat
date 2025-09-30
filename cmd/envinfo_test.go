@@ -25,6 +25,30 @@ func execRoot(t *testing.T, args []string) (string, error) {
 	}
 	// Reset global assess flags to avoid cross-test bleed
 	assessMode, assessNoOp, assessCheck, assessFix = "check", false, false, false
+	contentRoot = "docs"
+	contentManifest = "docs/embed-manifest.yaml"
+	contentTarget = ""
+	contentJSON = false
+	contentFormat = "pretty"
+	contentPrintPaths = false
+	contentNoDelete = false
+	contentAllManifests = false
+	contentAssetTypeOverride = ""
+	contentContentTypesOverride = nil
+	contentExcludePatternsOverride = nil
+	contentManifestsValidate = false
+	contentMigrateOutput = ""
+	contentMigrateForce = false
+	contentDryRun = false
+	contentInitAssetType = ""
+	contentInitRoot = ""
+	contentInitTarget = ""
+	contentInitTopic = ""
+	contentInitOutput = ""
+	contentInitInclude = nil
+	contentInitExclude = nil
+	contentInitOverwrite = false
+	t.Setenv("GONEAT_OFFLINE_SCHEMA_VALIDATION", "true")
 	err := rootCmd.Execute()
 	return buf.String(), err
 }

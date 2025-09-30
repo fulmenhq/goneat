@@ -1,6 +1,7 @@
 package assets
 
 import (
+	"bytes"
 	"io/fs"
 	"testing"
 )
@@ -59,6 +60,26 @@ func TestGetJSONSchemaMeta(t *testing.T) {
 				t.Error("Returned empty data when ok=true")
 			}
 		})
+	}
+}
+
+func TestOfflineMetaSchemaEmbedding(t *testing.T) {
+	path := "embedded_schemas/schemas/meta/draft-2020-12/offline.schema.json"
+	data, ok := GetSchema(path)
+	if !ok {
+		t.Fatalf("offline meta-schema not embedded at %s", path)
+	}
+	if len(data) == 0 {
+		t.Fatalf("offline meta-schema %s is empty", path)
+	}
+
+	t.Setenv("GONEAT_OFFLINE_SCHEMA_VALIDATION", "true")
+	meta, ok := GetJSONSchemaMeta("2020-12")
+	if !ok {
+		t.Fatal("expected offline meta-schema lookup to succeed for draft 2020-12")
+	}
+	if !bytes.Equal(meta, data) {
+		t.Fatal("offline meta-schema returned by GetJSONSchemaMeta does not match embedded copy")
 	}
 }
 

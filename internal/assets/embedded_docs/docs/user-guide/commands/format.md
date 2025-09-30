@@ -247,6 +247,33 @@ goneat format --plan-only --group-by-size
 | ----------------- | ------- | ---------------------------------------------- | ----------------- |
 | `--use-goimports` | boolean | Organize Go imports with goimports after gofmt | `--use-goimports` |
 
+### JSON Formatting Flags
+
+| Flag                  | Type   | Description                                             | Default | Example                    |
+| --------------------- | ------ | ------------------------------------------------------- | ------- | -------------------------- |
+| `--json-indent`       | string | Indentation for JSON prettification                     | " "     | `--json-indent "\t"`       |
+| `--json-indent-count` | int    | Number of spaces for JSON indentation (1-10, 0 to skip) | 2       | `--json-indent-count 4`    |
+| `--json-size-warning` | int    | Size threshold in MB for JSON file warnings             | 500     | `--json-size-warning 1000` |
+
+### JSON Formatting Usage Examples
+
+```bash
+# Default prettification with 2 spaces and warnings for large files (>500MB)
+goneat format --files large.json
+
+# Custom indent string (e.g., tabs) and size threshold
+goneat format --files my.json --json-indent "\t" --json-size-warning 1000
+
+# Use 4 spaces for indentation
+goneat format --files my.json --json-indent-count 4
+
+# Skip JSON prettification entirely
+goneat format --files my.json --json-indent-count 0
+
+# Check mode (no changes, but validates)
+goneat format --check --files my.json
+```
+
 Notes:
 
 - When `--strategy parallel` is used, goimports is currently skipped with a warning. Use sequential strategy for import alignment until the parallel processor is extended.
@@ -280,7 +307,7 @@ Notes:
 | ------------ | ------------------ | --------------- | ------------------------------ |
 | **Go**       | `.go`              | gofmt/goimports | Standard Go formatting         |
 | **YAML**     | `.yaml`, `.yml`    | yamlfmt         | YAML structure formatting      |
-| **JSON**     | `.json`            | jq              | JSON formatting and validation |
+| **JSON**     | `.json`            | Built-in (Go)   | JSON formatting and validation |
 | **Markdown** | `.md`, `.markdown` | prettier        | Markdown formatting            |
 
 ### Extended File Operations
@@ -649,7 +676,7 @@ goneat format --plan-only --types go,yaml,json,markdown
 
 ```bash
 # Check tool availability
-which gofmt yamlfmt jq prettier
+which gofmt yamlfmt prettier
 
 # Skip missing tools
 goneat format --ignore-missing-tools

@@ -3,6 +3,7 @@ package assets
 import (
 	"embed"
 	"io/fs"
+	"os"
 )
 
 // Curated JSON Schema meta-schemas (embedded)
@@ -26,10 +27,16 @@ var Docs embed.FS
 var Config embed.FS
 
 func GetJSONSchemaMeta(draft string) ([]byte, bool) {
+	offline := os.Getenv("GONEAT_OFFLINE_SCHEMA_VALIDATION") == "true"
 	switch draft {
 	case "draft-07", "07", "7":
 		return JSONSchemaDraft07, len(JSONSchemaDraft07) > 0
 	case "2020-12", "2020", "202012":
+		if offline {
+			if data, ok := GetSchema("embedded_schemas/schemas/meta/draft-2020-12/offline.schema.json"); ok {
+				return data, true
+			}
+		}
 		return JSONSchemaDraft2020_12, len(JSONSchemaDraft2020_12) > 0
 	default:
 		// Unknown draft requested; do not fallback implicitly
