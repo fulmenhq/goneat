@@ -340,6 +340,15 @@ func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignore
 	case ".xml":
 		err = formatXMLFile(file, checkOnly, cfg, options, xmlIndent, xmlIndentCount, xmlSizeWarningMB)
 
+	case ".md":
+		if ignoreMissingTools {
+			if _, e := exec.LookPath("prettier"); e != nil {
+				logger.Warn("prettier not found; skipping Markdown formatting for this file")
+				break
+			}
+		}
+		err = formatMarkdownFile(file, checkOnly, cfg, options)
+
 	default:
 		// Check if file is XML by content (starts with <?xml)
 		if isXMLFile(file) {
@@ -357,15 +366,6 @@ func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignore
 			supportedExts := []string{".go", ".yaml", ".yml", ".json", ".xml", ".md", ".markdown"}
 			return fmt.Errorf("unsupported file type '%s' for file %s. Supported extensions: %v. Use --types flag to filter specific content types", ext, file, supportedExts)
 		}
-
-	case ".md":
-		if ignoreMissingTools {
-			if _, e := exec.LookPath("prettier"); e != nil {
-				logger.Warn("prettier not found; skipping Markdown formatting for this file")
-				break
-			}
-		}
-		err = formatMarkdownFile(file, checkOnly, cfg, options)
 	}
 
 	// Apply finalizer after primary formatter (when enabled and extension supported)
