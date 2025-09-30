@@ -40,6 +40,16 @@ goneat guardian setup
 - Ensures the guardian configuration file exists (usually `~/.goneat/guardian/config.yaml`).
 - Initializes default policy scopes, branding placeholders, and security settings.
 
+## Configuration Scope
+
+Guardian policies are **user-level only** and apply globally across all repositories on the machine. There is currently no support for repository-specific guardian policies.
+
+- **Configuration Location**: `~/.goneat/guardian/config.yaml` (user home directory)
+- **Scope**: Policies apply to all repositories where goneat is used
+- **Repository Control**: Repository maintainers can configure git hooks (`.goneat/hooks.yaml`) to call guardian for specific operations, but cannot define custom guardian policies for their repository
+
+This design ensures consistent security policies across all repositories while allowing per-repository hook customization for assessment workflows.
+
 ## Commands Pending Implementation
 
 The following subcommands are planned but currently return informative errors:

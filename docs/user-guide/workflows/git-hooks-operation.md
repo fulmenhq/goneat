@@ -89,7 +89,8 @@ goneat hooks init
 ├── hooks.yaml          # Configuration manifest
 └── hooks/              # Generated hook templates (created later)
     ├── pre-commit      # Template for pre-commit hook
-    └── pre-push        # Template for pre-push hook
+    ├── pre-push        # Template for pre-push hook
+    └── pre-reset       # Template for pre-reset hook (when --reset-guardian used)
 ```
 
 ### Step 2: Generate Hook Files
@@ -104,6 +105,14 @@ goneat hooks generate
 - Generates simple bash scripts for each hook type
 - Creates fallback logic for when goneat isn't available
 - Places generated files in `.goneat/hooks/` directory
+
+**Optional: Generate guardian-protected reset hook**
+
+```bash
+goneat hooks generate --reset-guardian
+```
+
+This adds a `pre-reset` hook that protects `git reset` operations on protected branches using guardian approval.
 
 **Generated hook example (simplified):**
 

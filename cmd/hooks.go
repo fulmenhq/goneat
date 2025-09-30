@@ -97,8 +97,9 @@ restoring any previously backed up hooks if they exist.`,
 }
 
 var (
-	removeNoRestore bool
-	hooksGuardian   bool
+	removeNoRestore  bool
+	hooksGuardian    bool
+	gitResetGuardian bool
 )
 
 // hooksUpgradeCmd represents the hooks upgrade command
@@ -151,15 +152,12 @@ func init() {
 	hooksConfigureCmd.Flags().String("pre-commit-apply-mode", "", "Apply mode for pre-commit: check (no changes) or fix (apply fixes and re-stage)")
 	hooksConfigureCmd.Flags().String("optimization-parallel", "", "Parallel execution mode: auto|max|sequential")
 	hooksConfigureCmd.Flags().Bool("install", false, "Install hooks after generation")
+	hooksConfigureCmd.Flags().Bool("git-reset-guardian", false, "Enable guardian protection for git reset operations on protected branches")
 	hooksGenerateCmd.Flags().BoolVar(&hooksGuardian, "with-guardian", false, "Include guardian security checks when generating hooks")
+	hooksGenerateCmd.Flags().BoolVar(&gitResetGuardian, "reset-guardian", false, "Generate guardian-protected reset hook for protected branches")
 
-	// Register subcommands
-	subcommands := []*cobra.Command{hooksInitCmd, hooksGenerateCmd, hooksInstallCmd, hooksValidateCmd, hooksRemoveCmd, hooksUpgradeCmd, hooksInspectCmd, hooksConfigureCmd}
-	for _, cmd := range subcommands {
-		if err := ops.RegisterCommand(fmt.Sprintf("hooks %s", cmd.Use), ops.GroupWorkflow, cmd, cmd.Short); err != nil {
-			panic(fmt.Sprintf("Failed to register hooks %s command: %v", cmd.Use, err))
-		}
-	}
+	// Subcommands are added to hooksCmd but not individually registered with ops
+	// as they inherit from the parent hooks command registration
 }
 
 // detectFormatCapabilities detects if the project has format capabilities
@@ -329,7 +327,7 @@ optimization:
 }
 
 func runHooksGenerate(cmd *cobra.Command, args []string) error {
-	fmt.Println("🔨 Generating hook files from manifest...")
+	fmt.Printf("🔨 Generating hook files from manifest... (gitResetGuardian=%v)\n", gitResetGuardian)
 
 	// Check if hooks.yaml exists
 	if _, err := os.Stat(".goneat/hooks.yaml"); os.IsNotExist(err) {
@@ -538,12 +536,40 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if withGuardian {
+	// Generate reset hook if guardian protection for reset is requested
+	resetGuardian, _ := cmd.Flags().GetBool("reset-guardian")
+	if resetGuardian {
+		// Create a custom reset hook that checks for protected branches
+		resetTemplate := fmt.Sprintf("templates/hooks/%s/pre-reset.%s.tmpl", shellType, extension)
+		resetHook := filepath.Join(hooksDir, "pre-reset")
+		dataReset := tplData{
+			Args:     []string{}, // No args needed for reset hook
+			Fallback: "",
+		}
+		dataReset.OptimizationSettings.OnlyChangedFiles = false
+		dataReset.OptimizationSettings.ContentSource = "working"
+
+		guardianReset, err := resolveGuardian("git", "reset")
+		if err != nil {
+			return fmt.Errorf("failed to resolve guardian policy for reset: %w", err)
+		}
+		dataReset.Guardian = guardianReset
+
+		if err := render(resetTemplate, resetHook, dataReset); err != nil {
+			return err
+		}
+		fmt.Printf("📁 Created: %s/pre-reset (with guardian protection for git reset)\n", hooksDir)
+	}
+
+	if withGuardian || resetGuardian {
 		fmt.Println("🛡️  Guardian integration enabled in generated hooks")
 	}
 	fmt.Println("✅ Hook files generated successfully!")
 	fmt.Printf("📁 Created: %s/pre-commit\n", hooksDir)
 	fmt.Printf("📁 Created: %s/pre-push\n", hooksDir)
+	if resetGuardian {
+		fmt.Printf("📁 Created: %s/pre-reset\n", hooksDir)
+	}
 	fmt.Println("📌 Next: Run 'goneat hooks install' to install hooks to .git/hooks")
 
 	return nil
@@ -616,7 +642,7 @@ func runHooksInstall(cmd *cobra.Command, args []string) error {
 		return false, nil
 	}
 
-	guardianActive, err := detectGuardian(filepath.Join(hooksDir, "pre-commit"), filepath.Join(hooksDir, "pre-push"))
+	guardianActive, err := detectGuardian(filepath.Join(hooksDir, "pre-commit"), filepath.Join(hooksDir, "pre-push"), filepath.Join(hooksDir, "pre-reset"))
 	if err != nil {
 		return fmt.Errorf("failed to inspect generated hooks for guardian integration: %w", err)
 	}
@@ -675,6 +701,34 @@ func runHooksInstall(cmd *cobra.Command, args []string) error {
 		}
 
 		fmt.Println("✅ Installed pre-push hook")
+		hooksInstalled++
+	}
+
+	// Install pre-reset hook
+	preResetSrc := filepath.Join(hooksDir, "pre-reset")
+	preResetDst := filepath.Join(gitHooksDir, "pre-reset")
+
+	if _, err := os.Stat(preResetSrc); err == nil {
+		// Backup existing hook if it exists
+		if _, err := os.Stat(preResetDst); err == nil {
+			backupPath := preResetDst + ".backup"
+			if err := os.Rename(preResetDst, backupPath); err != nil {
+				return fmt.Errorf("failed to backup existing pre-reset hook: %v", err)
+			}
+			fmt.Printf("📋 Backed up existing pre-reset hook to %s\n", backupPath)
+		}
+
+		// Copy new hook
+		if err := copyFile(preResetSrc, preResetDst); err != nil {
+			return fmt.Errorf("failed to install pre-reset hook: %v", err)
+		}
+
+		// Make executable - git hooks require execute permissions
+		if err := os.Chmod(preResetDst, 0700); err != nil { // #nosec G302 -- required exec perms for git hooks
+			return fmt.Errorf("failed to make pre-reset hook executable: %v", err)
+		}
+
+		fmt.Println("✅ Installed pre-reset hook")
 		hooksInstalled++
 	}
 

@@ -204,6 +204,14 @@ const defaultConfigYAML = `guardian:
           conditions:
             branches: ["main", "master", "release/*"]
             remote_patterns: ["origin", "upstream"]
+        reset:
+          enabled: true
+          method: "browser"
+          expires: "5m"
+          require_reason: true
+          risk: "high"
+          conditions:
+            branches: ["main", "master"]
   security:
     encryption:
       enabled: true
