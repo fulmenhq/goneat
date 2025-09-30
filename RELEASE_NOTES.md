@@ -2,53 +2,70 @@
 
 ## TL;DR
 
-- Pathfinder Schema Discovery enables intelligent detection and validation of schema files across your codebase
-- New `goneat pathfinder` command suite with schema discovery, validation, and metadata extraction
-- Support for 10+ schema types including JSON Schema, OpenAPI, AsyncAPI, Avro, Cue, and Protobuf
-- FinderFacade provides high-level API for enterprise-grade path discovery workflows
-- Enhanced schema validation with meta-schema compliance and structured error reporting
+- **goneat pathfinder**: Expanded schema discovery system with simplified FinderFacade API for enterprise-grade path discovery
+- **goneat format**: Added built-in XML and JSON prettification with configurable indentation and size warnings
+- **goneat content**: Enhanced embedding system supporting schemas, templates, and configuration files
+- **goneat hooks**: Added pre-reset hook support with guardian protection for reset operations
+- **ASCII Terminal Support**: New ASCII art calibration system for accurate boxes across multiple terminal types
+- **50% Test Coverage**: Comprehensive test coverage expansion with automated testing infrastructure
 
 ## What's New
 
-### Pathfinder Schema Discovery System
+### Pathfinder Schema Discovery (`goneat pathfinder`)
 
-- **Schema Detection Engine**: Intelligent pattern matching for 10+ schema formats with contains/regex detection
-- **Pathfinder Command Suite**: New `goneat pathfinder` commands for schema discovery, validation, and metadata extraction
-- **FinderFacade API**: High-level entry point for path discovery that maintains enterprise-grade PathFinder interface while providing simpler API for common workflows
+- **Expanded Schema Detection Engine**: Intelligent pattern matching for 10+ schema formats with enhanced discovery capabilities
+- **FinderFacade API**: High-level entry point for enterprise-grade path discovery workflows with simplified interface
 - **Schema Validation**: Comprehensive validation with meta-schema compliance checking and structured error reporting
-- **Local Loader**: Production-ready local filesystem loader with streaming text output and transform support
+- **Local Loader**: Production-ready filesystem loader with streaming text output and transform support
 
-### Format Command Enhancements
+### Format Command Enhancements (`goneat format`)
 
-- **JSON Prettification**: Added built-in JSON formatting using Go's `json.Indent` with configurable options
-  - Flags: `--json-indent` (custom string), `--json-indent-count` (1-10 spaces, 0 to skip), `--json-size-warning` (MB threshold)
+- **JSON Prettification**: Built-in JSON formatting using Go's `json.Indent` with configurable options
+  - New flags: `--json-indent` (custom string), `--json-indent-count` (1-10 spaces, 0 to skip), `--json-size-warning` (MB threshold)
   - Replaces external `jq` dependency for reliable, cross-platform JSON formatting
   - Supports compact mode and size-based warnings for large files
 
-- **XML Prettification**: Added built-in XML formatting using `etree` library with configurable options
-  - Flags: `--xml-indent` (custom string), `--xml-indent-count` (1-10 spaces, 0 to skip), `--xml-size-warning` (MB threshold)
+- **XML Prettification**: Built-in XML formatting using `etree` library with configurable options
+  - New flags: `--xml-indent` (custom string), `--xml-indent-count` (1-10 spaces, 0 to skip), `--xml-size-warning` (MB threshold)
   - Validates XML well-formedness before formatting
   - Supports size-based warnings for large files
 
-### Guardian Security Improvements
+### Content Management (`goneat content`)
 
-- **Bug Fix**: Fixed `runGuardianApprove` to always execute wrapped commands after policy checks, whether approval is required or not
-- **Enhanced UX**: Improved denial error messages with clear "❌ Guardian approval denied by user - operation cancelled" feedback and proper exit code (1) on denial
-- **Documentation**: Clarified that guardian policies are user-level only with no current support for repository-specific policies
+- **Enhanced Embedding System**: Support for embedding schemas, templates, and configuration files beyond just documentation
+- **Asset Synchronization**: Better SSOT (Single Source of Truth) management for all embedded assets
+- **Build Optimization**: Streamlined asset embedding process with verification and sync steps
 
-### Schema Type Support
+### Git Hooks (`goneat hooks`)
 
-- **JSON Schema**: Draft 4, 6, 7, 2019-09, 2020-12 with meta-schema validation
-- **OpenAPI**: 2.0, 3.0.x, 3.1.x specification support
-- **AsyncAPI**: 2.x specification support
-- **Avro**: Schema validation and metadata extraction
-- **Cue**: Module and schema validation
-- **Protobuf**: .proto file detection and parsing
-- **Additional Formats**: GraphQL, RAML, XML Schema, YAML Schema
+- **Pre-reset Hook Support**: New `pre-reset` hook with guardian protection for reset operations
+- **Guardian Integration**: Enhanced hook templates with automated guardian policy installation
+- **Template Corrections**: Fixed trailing newline issues in embedded hook templates
 
-### Enhanced CLI Experience
+### ASCII Terminal Calibration (`goneat ascii` command & `pkg/ascii` library)
 
-- **Schema Commands**: `goneat schema validate-schema` for standalone schema validation
+- **Terminal Catalog System**: Comprehensive ASCII art calibration for accurate boxes across multiple terminal types
+- **Display Functions**: Enhanced terminal display capabilities with proper box drawing characters
+- **Cross-Platform Support**: Terminal-aware rendering for consistent visual output
+- **ASCII Command**: New `goneat ascii` command for terminal calibration and display testing
+
+### Quality & Testing Infrastructure
+
+- **50% Test Coverage Achievement**: Comprehensive expansion across core packages:
+  - `pkg/format/finalizer`: 72.5% coverage (+25.3 points) with normalization utilities testing
+  - `pkg/ascii`: 31.9% coverage (+5.1 points) with terminal catalog and display function tests
+  - `cmd` package: 40.7% coverage restoration with guardian compatibility
+
+- **Automated Testing Infrastructure**:
+  - `GONEAT_GUARDIAN_AUTO_DENY` environment variable for CI/CD testing workflows
+  - Enhanced test fixtures and helper utilities for comprehensive validation
+  - Guardian approval testing with automated denial mechanisms
+
+### Code Quality Enhancements
+
+- **Linting Compliance**: Resolved golangci-lint ST1015 switch statement ordering issues
+- **Security Fixes**: Suppressed false positive G304 warnings in controlled file access patterns
+- **Build System**: Enhanced Makefile with testing environment variables and validation targets
 - **Pathfinder Flags**: `--schemas`, `--schema-id`, `--schema-category`, `--schema-metadata` for targeted discovery
 - **Structured Output**: JSON and markdown output formats for programmatic consumption
 - **Parallel Processing**: Optimized discovery with configurable worker pools

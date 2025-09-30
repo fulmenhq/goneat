@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **50% Test Coverage Achievement**: Comprehensive test coverage expansion reaching target threshold
+  - `pkg/format/finalizer`: 72.5% coverage with comprehensive normalization utilities testing
+  - `pkg/ascii`: 31.9% coverage with terminal catalog and display function tests
+  - `cmd` package: 40.7% coverage restoration with guardian compatibility fixes
+
+- **Automated Testing Infrastructure**:
+  - `GONEAT_GUARDIAN_AUTO_DENY` environment variable for CI/CD guardian testing
+  - Enhanced test fixtures and helper utilities for comprehensive validation
+  - Guardian approval testing with automated denial mechanisms
+
+- **Pre-reset Git Hook**: New `pre-reset` hook with guardian protection for reset operations
+- **Content Embedding Enhancements**: Improved documentation and schema embedding for offline operation
+
 - **JSON Prettification in Format Command**: Built-in JSON formatting using Go's `json.Indent` with configurable indentation options
   - New flags: `--json-indent` (custom string), `--json-indent-count` (1-10 spaces, 0 to skip), `--json-size-warning` (MB threshold)
   - Replaces external `jq` dependency for JSON formatting
@@ -21,8 +34,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Code Quality Issues**: Resolved golangci-lint ST1015 switch statement default case ordering
+- **Security Suppressions**: Added proper `#nosec` comments for controlled file access patterns
+- **Template Formatting**: Corrected trailing newline EOF enforcement in hook templates
 - **Guardian Approve Bug**: Fixed `runGuardianApprove` to always execute wrapped commands after policy checks, whether approval is required or not
 - **Guardian Error Messages**: Enhanced denial error handling with clear "❌ Guardian approval denied by user - operation cancelled" message and proper exit code (1) on denial
+
+### Changed
+
+- **Build System**: Enhanced Makefile with testing environment variables and validation targets
+- **Asset Management**: Improved SSOT synchronization for templates and schemas
 
 ## [0.2.9] - 2025-09-28
 

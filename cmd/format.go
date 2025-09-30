@@ -1150,6 +1150,7 @@ func getContentTypeFromPath(path string) string {
 
 // isXMLFile checks if a file is XML by reading the first few bytes
 func isXMLFile(file string) bool {
+	// #nosec G304 - file path comes from controlled sources (filesystem discovery or git operations)
 	data, err := os.ReadFile(file)
 	if err != nil {
 		return false
