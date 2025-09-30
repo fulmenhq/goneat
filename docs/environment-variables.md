@@ -34,6 +34,14 @@ This document defines all supported environment variables for goneat. Use this a
     - CI (PR/main): high (projects may choose medium)
     - Release gates: critical (vulns), high+ (code security in sensitive repos)
 
+## Guardian Command
+
+- GONEAT_GUARDIAN_AUTO_DENY: Auto-deny guardian approvals for testing/CI environments
+  - Values: any non-empty string enables
+  - Default: not set (interactive approval required)
+  - Used in: CI/CD pipelines and automated testing where human approval is unavailable
+  - Security: Never set in production environments
+
 ## Format Command
 
 - (Planned) GONEAT_FORMAT_FINALIZER: Toggle EOF/trailing-space finalizer (v0.1.3)

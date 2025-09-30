@@ -501,3 +501,106 @@ func TestLoggingEmojiWidths(t *testing.T) {
 		t.Logf("")
 	}
 }
+
+func TestBoxRaw(t *testing.T) {
+	tests := []struct {
+		name  string
+		lines []string
+		want  string
+	}{
+		{
+			name:  "empty lines",
+			lines: []string{},
+			want:  "",
+		},
+		{
+			name:  "single line",
+			lines: []string{"Hello"},
+			want:  "┌───────┐\n│ Hello │\n└───────┘\n",
+		},
+		{
+			name:  "multiple lines",
+			lines: []string{"Line 1", "Longer line here", "Short"},
+			want: "┌──────────────────┐\n" +
+				"│ Line 1           │\n" +
+				"│ Longer line here │\n" +
+				"│ Short            │\n" +
+				"└──────────────────┘\n",
+		},
+		{
+			name:  "emoji width",
+			lines: []string{"🚀 Rocket"},
+			want:  "┌───────────┐\n│ 🚀 Rocket │\n└───────────┘\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BoxRaw(tt.lines)
+			if result != tt.want {
+				t.Errorf("BoxRaw() = %q, want %q", result, tt.want)
+			}
+		})
+	}
+}
+
+func TestSubstringWithWidth(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		target int
+		want   string
+	}{
+		{
+			name:   "empty string",
+			input:  "",
+			target: 5,
+			want:   "",
+		},
+		{
+			name:   "zero target",
+			input:  "hello",
+			target: 0,
+			want:   "",
+		},
+		{
+			name:   "negative target",
+			input:  "hello",
+			target: -1,
+			want:   "",
+		},
+		{
+			name:   "exact fit",
+			input:  "hello",
+			target: 5,
+			want:   "hello",
+		},
+		{
+			name:   "partial fit",
+			input:  "hello world",
+			target: 5,
+			want:   "hello",
+		},
+		{
+			name:   "emoji partial",
+			input:  "🚀hello",
+			target: 3,
+			want:   "🚀h",
+		},
+		{
+			name:   "target larger than string",
+			input:  "hi",
+			target: 10,
+			want:   "hi",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := substringWithWidth(tt.input, tt.target)
+			if result != tt.want {
+				t.Errorf("substringWithWidth(%q, %d) = %q, want %q", tt.input, tt.target, result, tt.want)
+			}
+		})
+	}
+}

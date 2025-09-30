@@ -121,20 +121,20 @@ clean: ## Clean build artifacts and backup files
 # Test targets
 test: ## Run all tests
 	@echo "Running test suite..."
-	GONEAT_OFFLINE_SCHEMA_VALIDATION=true GONEAT_GUARDIAN_TEST_MODE=true $(GOTEST) ./... -v
+	GONEAT_OFFLINE_SCHEMA_VALIDATION=true GONEAT_GUARDIAN_TEST_MODE=true GONEAT_GUARDIAN_AUTO_DENY=true $(GOTEST) ./... -v
 
 test-unit: ## Run unit tests only
 	@echo "Running unit tests..."
-	GONEAT_OFFLINE_SCHEMA_VALIDATION=true GONEAT_GUARDIAN_TEST_MODE=true $(GOTEST) ./cmd/... ./internal/... -v
+	GONEAT_OFFLINE_SCHEMA_VALIDATION=true GONEAT_GUARDIAN_TEST_MODE=true GONEAT_GUARDIAN_AUTO_DENY=true $(GOTEST) ./cmd/... ./internal/... -v
 
 test-integration: ## Run integration tests only
 	@echo "Running integration tests..."
-	GONEAT_OFFLINE_SCHEMA_VALIDATION=true GONEAT_GUARDIAN_TEST_MODE=true $(GOTEST) ./tests/integration/... -v
+	GONEAT_OFFLINE_SCHEMA_VALIDATION=true GONEAT_GUARDIAN_TEST_MODE=true GONEAT_GUARDIAN_AUTO_DENY=true $(GOTEST) ./tests/integration/... -v
 
 test-coverage: ## Run tests with coverage
 	@echo "Running tests with coverage..."
 	@mkdir -p $(HOME)/.goneat/coverage
-	GONEAT_OFFLINE_SCHEMA_VALIDATION=true GONEAT_GUARDIAN_TEST_MODE=true $(GOTEST) ./... -coverprofile=$(HOME)/.goneat/coverage/coverage.out
+	GONEAT_OFFLINE_SCHEMA_VALIDATION=true GONEAT_GUARDIAN_TEST_MODE=true GONEAT_GUARDIAN_AUTO_DENY=true $(GOTEST) ./... -coverprofile=$(HOME)/.goneat/coverage/coverage.out
 	go tool cover -html=$(HOME)/.goneat/coverage/coverage.out -o $(HOME)/.goneat/coverage/coverage.html
 	@echo "Coverage report: $(HOME)/.goneat/coverage/coverage.html"
 	@echo "Coverage data: $(HOME)/.goneat/coverage/coverage.out"

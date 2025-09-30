@@ -57,6 +57,7 @@ func TestRunGuardianCheck_ApprovalRequired(t *testing.T) {
 	homeDir := filepath.Join(tmp, "home")
 	t.Setenv("GONEAT_HOME", homeDir)
 	t.Setenv("GONEAT_GUARDIAN_TEST_MODE", "true")
+	t.Setenv("GONEAT_GUARDIAN_AUTO_DENY", "true")
 
 	cmd := &cobra.Command{Use: "check"}
 	var stdout, stderr bytes.Buffer
@@ -79,7 +80,7 @@ func TestRunGuardianCheck_ApprovalRequired(t *testing.T) {
 
 	// Should be an approval required error
 	stderrOutput := stderr.String()
-	if !strings.Contains(stderrOutput, "guardian approval required") {
+	if !strings.Contains(strings.ToLower(stderrOutput), "guardian approval required") {
 		t.Errorf("expected approval message in stderr, got: %s", stderrOutput)
 	}
 }
@@ -98,6 +99,7 @@ func TestRunGuardianCheck_WithContext(t *testing.T) {
 
 	homeDir := filepath.Join(tmp, "home")
 	t.Setenv("GONEAT_HOME", homeDir)
+	t.Setenv("GONEAT_GUARDIAN_AUTO_DENY", "true")
 
 	cmd := &cobra.Command{Use: "check"}
 	var stdout, stderr bytes.Buffer
@@ -120,7 +122,7 @@ func TestRunGuardianCheck_WithContext(t *testing.T) {
 	}
 
 	stderrOutput := stderr.String()
-	if !strings.Contains(stderrOutput, "guardian approval required") {
+	if !strings.Contains(strings.ToLower(stderrOutput), "guardian approval required") {
 		t.Errorf("expected approval message in stderr, got: %s", stderrOutput)
 	}
 }

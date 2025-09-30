@@ -154,6 +154,13 @@ func runGuardianCheck(cmd *cobra.Command, args []string) error {
 		ProjectName: "", // Will be populated by StartBrowserApproval from git repo or config
 	}
 
+	// In test mode, auto-deny for testing
+	if os.Getenv("GONEAT_GUARDIAN_AUTO_DENY") != "" {
+		printErr(cmd.ErrOrStderr(), approvalMsg)
+		printErr(cmd.ErrOrStderr(), "❌ Approval failed: operation denied by user")
+		return err
+	}
+
 	server, serverErr := guardian.StartBrowserApproval(context.Background(), session)
 	if serverErr != nil {
 		printErrf(cmd.ErrOrStderr(), "Failed to start approval server: %v\n", serverErr)
