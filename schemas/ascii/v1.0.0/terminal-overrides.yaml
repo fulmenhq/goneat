@@ -67,7 +67,6 @@ required:
   - version
   - terminals
 additionalProperties: false
-
 examples:
   - version: "1.0.0"
     terminals:

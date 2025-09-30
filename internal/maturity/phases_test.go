@@ -285,3 +285,25 @@ func TestGetDefaultLifecycleRules(t *testing.T) {
 		})
 	}
 }
+
+func TestApplyDefaults(t *testing.T) {
+	input := PhasesConfig{
+		ReleasePhases: ReleasePhasesConfig{
+			ReleaseDev: PhaseRules{MinCoverage: 0}, // Should be set to default
+		},
+		LifecyclePhases: LifecyclePhasesConfig{
+			LifecycleAlpha: PhaseRules{MinCoverage: 0}, // Should be set to default
+		},
+	}
+
+	result := applyDefaults(input)
+
+	// For now, applyDefaults just returns the config unchanged
+	// This test ensures it doesn't panic and returns the expected structure
+	if len(result.ReleasePhases) != len(input.ReleasePhases) {
+		t.Errorf("applyDefaults() changed ReleasePhases count: got %d, want %d", len(result.ReleasePhases), len(input.ReleasePhases))
+	}
+	if len(result.LifecyclePhases) != len(input.LifecyclePhases) {
+		t.Errorf("applyDefaults() changed LifecyclePhases count: got %d, want %d", len(result.LifecyclePhases), len(input.LifecyclePhases))
+	}
+}

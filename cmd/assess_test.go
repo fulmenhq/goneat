@@ -561,3 +561,80 @@ func TestAssessCLI_JSONVsMarkdown_Contrast(t *testing.T) {
 		})
 	}
 }
+
+func TestCountIssuesBySeverity(t *testing.T) {
+	tests := []struct {
+		name     string
+		report   *assess.AssessmentReport
+		expected map[string]int
+	}{
+		{
+			name: "empty report",
+			report: &assess.AssessmentReport{
+				Categories: map[string]assess.CategoryResult{},
+			},
+			expected: map[string]int{"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0, "total": 0},
+		},
+		{
+			name: "single critical issue",
+			report: &assess.AssessmentReport{
+				Categories: map[string]assess.CategoryResult{
+					"security": {
+						Issues: []assess.Issue{
+							{Severity: assess.SeverityCritical, Message: "Critical issue"},
+						},
+					},
+				},
+			},
+			expected: map[string]int{"critical": 1, "high": 0, "medium": 0, "low": 0, "info": 0, "total": 1},
+		},
+		{
+			name: "mixed severities",
+			report: &assess.AssessmentReport{
+				Categories: map[string]assess.CategoryResult{
+					"format": {
+						Issues: []assess.Issue{
+							{Severity: assess.SeverityHigh, Message: "High issue"},
+							{Severity: assess.SeverityMedium, Message: "Medium issue"},
+						},
+					},
+					"lint": {
+						Issues: []assess.Issue{
+							{Severity: assess.SeverityLow, Message: "Low issue"},
+							{Severity: assess.SeverityInfo, Message: "Info issue"},
+						},
+					},
+				},
+			},
+			expected: map[string]int{"critical": 0, "high": 1, "medium": 1, "low": 1, "info": 1, "total": 4},
+		},
+		{
+			name: "multiple issues same severity",
+			report: &assess.AssessmentReport{
+				Categories: map[string]assess.CategoryResult{
+					"security": {
+						Issues: []assess.Issue{
+							{Severity: assess.SeverityHigh, Message: "High issue 1"},
+							{Severity: assess.SeverityHigh, Message: "High issue 2"},
+							{Severity: assess.SeverityHigh, Message: "High issue 3"},
+						},
+					},
+				},
+			},
+			expected: map[string]int{"critical": 0, "high": 3, "medium": 0, "low": 0, "info": 0, "total": 3},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := countIssuesBySeverity(tt.report)
+			for key, expectedValue := range tt.expected {
+				if actualValue, exists := result[key]; !exists {
+					t.Errorf("countIssuesBySeverity() missing key %q", key)
+				} else if actualValue != expectedValue {
+					t.Errorf("countIssuesBySeverity()[%q] = %d, want %d", key, actualValue, expectedValue)
+				}
+			}
+		})
+	}
+}

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.9] - 2025-09-28
 
 ### Added
+
 - **Pathfinder Schema Discovery System**: Intelligent detection and validation of schema files across codebases
   - Schema detection engine with pattern matching for 10+ schema formats (JSON Schema, OpenAPI, AsyncAPI, Avro, Cue, Protobuf, etc.)
   - New `goneat pathfinder` command suite for schema discovery, validation, and metadata extraction
@@ -18,16 +19,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Local loader with streaming text output and transform support
 
 ### Changed
+
 - Enhanced schema processing capabilities with embedded schema manifests and validation rules
 - Improved security suppressions for controlled file access patterns in schema processing
 
 ### Fixed
+
 - Resolved gosec G304 security warnings for controlled file reads in schema and configuration processing
 - Corrected suppression format and placement for proper gosec recognition
 
 ## [0.2.8] - 2025-09-28
 
 ### Added
+
 - **Intelligent Hooks Format Detection**: Automatic detection and configuration of format capabilities in `hooks init`
   - Auto-detects `make format-all`, `make format`, `make fmt` targets in Makefiles
   - Detects npm format scripts, prettier, and Python formatters (black, ruff)
@@ -45,13 +49,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New user guide for guardian workflows describing CLI usage, hook remediation, and browser approval UX
 
 ### Changed
+
 - `guardian approve` now requires the protected command to be supplied after `--`, executing it atomically once approval succeeds and surfacing precise expiry timing
 - Default guardian configuration defers project branding to the host repository, ensuring approval UX reflects the active project by default
 
 ### Fixed
+
 - Hook prompts no longer advertise unimplemented grant workflows and now align their remediation guidance with the enforced guardian CLI contract
 
 ### Notes
+
 - Additional guardian integrations (`guardian-devops-foundation`, `guardian-sql-proxy`) are re-scoped for v0.2.9 planning
 
 ## [0.2.7] - 2025-09-20
@@ -114,8 +121,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dates False Positives**: Resolved documentation date issues by implementing `docs/**` exclusion pattern
   - Reduced date assessment issues from 7 to 0 in the repository
   - Preserved AI safety features and critical file validation (CHANGELOG.md, RELEASE_NOTES.md)
-
-
 
 ## [v0.2.6] - 2025-09-15
 

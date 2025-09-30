@@ -264,6 +264,7 @@ See [REPOSITORY_SAFETY_PROTOCOLS.md](REPOSITORY_SAFETY_PROTOCOLS.md) for full ru
 **MANDATORY**: Before ANY repository operation, complete this checklist:
 
 #### **Pre-Operation Safety Check**
+
 - [ ] **Operation Type**: Is this local-only or remote-affecting?
 - [ ] **Safety Classification**: Level 1 (CATASTROPHIC), 2 (HIGH RISK), or 3 (MEDIUM RISK)?
 - [ ] **Explicit Approval**: Do I have per-incident human maintainer approval?
@@ -271,6 +272,7 @@ See [REPOSITORY_SAFETY_PROTOCOLS.md](REPOSITORY_SAFETY_PROTOCOLS.md) for full ru
 - [ ] **Repository Clean**: `git status` shows clean working tree?
 
 #### **Level 1 CATASTROPHIC Operations** (NEVER without approval)
+
 - [ ] History rewriting (`git reset --soft`, `git rebase`)
 - [ ] Tag creation/deletion
 - [ ] Remote push operations
@@ -278,12 +280,14 @@ See [REPOSITORY_SAFETY_PROTOCOLS.md](REPOSITORY_SAFETY_PROTOCOLS.md) for full ru
 - [ ] Repository consolidation operations
 
 #### **Level 2 HIGH RISK Operations** (Validate before execution)
+
 - [ ] Bulk file operations
 - [ ] Dependency modifications
 - [ ] Configuration changes affecting CI/CD
 - [ ] Large refactoring operations
 
 #### **Level 3 MEDIUM RISK Operations** (Proceed with caution)
+
 - [ ] Single file edits
 - [ ] Documentation updates
 - [ ] Test additions

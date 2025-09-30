@@ -251,12 +251,14 @@ goneat hooks install
 ```
 
 **Smart Detection:**
+
 - Auto-detects `make format-all`, `make format`, `make fmt` in Makefiles
 - Finds npm format scripts, prettier configs, Python formatters (black, ruff)
 - Configures format commands (priority 5) before assess commands (priority 10)
 - No manual editing required — get project-aware configuration automatically
 
 **Sensible defaults:**
+
 - Pre-commit: format + assess (fail-on critical)
 - Pre-push: format + assess with security + maturity + repo-status (fail-on high)
 - Optimizations: cache_results, parallel execution, change-aware scoping
@@ -264,12 +266,14 @@ goneat hooks install
 See [Release Quality Management](#release-quality-management) for details on maturity validation and dirty repository protection.
 
 **Update flow:**
+
 ```bash
 # Re-run init to pick up new format capabilities
 goneat hooks init --force && goneat hooks generate && goneat hooks install
 ```
 
 **Configuration:**
+
 - `GONEAT_HOOK_OUTPUT=concise|markdown|json|html` controls hook output
 - Fail thresholds configurable via `--fail-on`
 - Guardian integration available for security-conscious teams
@@ -291,6 +295,7 @@ goneat guardian approve git commit -- git commit -m "protected change"
 ```
 
 **Features:**
+
 - **Browser approval**: Local web server with project branding and expiring sessions
 - **Policy enforcement**: Repository-scope policies with branch-specific rules
 - **Hook integration**: Automatically blocks protected operations until approved
@@ -298,6 +303,7 @@ goneat guardian approve git commit -- git commit -m "protected change"
 - **Configurable security**: Risk levels, expiry times, and approval methods
 
 **Workflow:**
+
 1. Protected git operations (commit/push) are blocked by hooks
 2. Guardian prompts for approval via browser
 3. User approves in browser with project context
@@ -324,6 +330,7 @@ goneat ascii mark --wide "🎟️" "🛠️" --term-program iTerm.app
 ```
 
 **Features:**
+
 - **Terminal detection**: Auto-detects Ghostty, iTerm2, Apple Terminal, and more
 - **Width calibration**: Handles emoji variation selector rendering differences
 - **Automated analysis**: Detects misalignment and generates correction commands
@@ -331,6 +338,7 @@ goneat ascii mark --wide "🎟️" "🛠️" --term-program iTerm.app
 - **Configuration system**: User overrides via `$GONEAT_HOME/config/terminal-overrides.yaml`
 
 **Commands:**
+
 - `ascii box`: Render text in aligned boxes for testing
 - `ascii calibrate`: Interactive terminal width calibration
 - `ascii analyze`: Automated alignment analysis with correction generation

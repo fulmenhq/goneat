@@ -33,7 +33,6 @@ properties:
       integrations:
         $ref: "#/definitions/integrationSettings"
 required: [guardian]
-
 definitions:
   scopePolicy:
     type: object

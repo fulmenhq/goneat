@@ -15,7 +15,6 @@ properties:
     items:
       $ref: '#/$defs/signature'
 additionalProperties: false
-
 $defs:
   signature:
     type: object
@@ -55,7 +54,6 @@ $defs:
         description: Optional metadata blob exposed to consumers
         additionalProperties: true
     additionalProperties: false
-
   matcher:
     type: object
     required: [type]

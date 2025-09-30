@@ -28,19 +28,19 @@ func GetSchema(relPath string) ([]byte, bool) {
 func GetSchemaNames() []SchemaInfo {
 	// Directory-based versioned schemas (v1.0.0 is current version)
 	knownSchemas := map[string]string{
-		"goneat-config-v1.0.0":       "embedded_schemas/schemas/config/v1.0.0/goneat-config.yaml",
-		"dates-v1.0.0":               "embedded_schemas/schemas/config/v1.0.0/dates.yaml",
-		"lifecycle-phase-v1.0.0":     "embedded_schemas/schemas/config/v1.0.0/lifecycle-phase.json",
-		"release-phase-v1.0.0":       "embedded_schemas/schemas/config/v1.0.0/release-phase.json",
-		"security-policy-v1.0.0":     "embedded_schemas/schemas/config/v1.0.0/security-policy.yaml",
-		"suppression-report-v1.0.0":  "embedded_schemas/schemas/output/v1.0.0/suppression-report.yaml",
-		"hooks-manifest-v1.0.0":      "embedded_schemas/schemas/work/v1.0.0/hooks-manifest.yaml",
-		"work-manifest-v1.0.0":       "embedded_schemas/schemas/work/v1.0.0/work-manifest.yaml",
-		"docs-embed-manifest-v1.0.0": "embedded_schemas/schemas/content/v1.0.0/docs-embed-manifest.json",
-		"embed-manifest-v1.1.0":     "embedded_schemas/schemas/content/v1.1.0/embed-manifest.yaml",
-		"content-find-report-v1.0.0": "embedded_schemas/schemas/output/v1.0.0/content-find-report.json",
-		"tools-config-v1.0.0":        "embedded_schemas/schemas/tools/v1.0.0/tools-config.yaml",
-		"terminal-overrides-v1.0.0":  "embedded_schemas/schemas/ascii/v1.0.0/terminal-overrides.yaml",
+		"goneat-config-v1.0.0":           "embedded_schemas/schemas/config/v1.0.0/goneat-config.yaml",
+		"dates-v1.0.0":                   "embedded_schemas/schemas/config/v1.0.0/dates.yaml",
+		"lifecycle-phase-v1.0.0":         "embedded_schemas/schemas/config/v1.0.0/lifecycle-phase.json",
+		"release-phase-v1.0.0":           "embedded_schemas/schemas/config/v1.0.0/release-phase.json",
+		"security-policy-v1.0.0":         "embedded_schemas/schemas/config/v1.0.0/security-policy.yaml",
+		"suppression-report-v1.0.0":      "embedded_schemas/schemas/output/v1.0.0/suppression-report.yaml",
+		"hooks-manifest-v1.0.0":          "embedded_schemas/schemas/work/v1.0.0/hooks-manifest.yaml",
+		"work-manifest-v1.0.0":           "embedded_schemas/schemas/work/v1.0.0/work-manifest.yaml",
+		"docs-embed-manifest-v1.0.0":     "embedded_schemas/schemas/content/v1.0.0/docs-embed-manifest.json",
+		"embed-manifest-v1.1.0":          "embedded_schemas/schemas/content/v1.1.0/embed-manifest.yaml",
+		"content-find-report-v1.0.0":     "embedded_schemas/schemas/output/v1.0.0/content-find-report.json",
+		"tools-config-v1.0.0":            "embedded_schemas/schemas/tools/v1.0.0/tools-config.yaml",
+		"terminal-overrides-v1.0.0":      "embedded_schemas/schemas/ascii/v1.0.0/terminal-overrides.yaml",
 		"schema-mapping-manifest-v1.0.0": "embedded_schemas/schemas/config-mapping/v1.0.0/schema-mapping-manifest.yaml",
 	}
 
