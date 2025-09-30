@@ -24,8 +24,11 @@ GOMOD := $(GOCMD) mod
 GOFMT := $(GOCMD) fmt
 
 # Build flags
-# Embed binary version for `go install` builds as well
-LDFLAGS := -ldflags "-X 'github.com/fulmenhq/goneat/pkg/buildinfo.BinaryVersion=$(VERSION)'"
+# Embed binary version, build time, and git commit for `go install` builds as well
+LDFLAGS := -ldflags "\
+	-X 'github.com/fulmenhq/goneat/pkg/buildinfo.BinaryVersion=$(VERSION)' \
+	-X 'github.com/fulmenhq/goneat/pkg/buildinfo.BuildTime=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")' \
+	-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
 .PHONY: help build clean test fmt format-docs format-config format-all version-get version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease \

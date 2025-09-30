@@ -320,6 +320,12 @@ func runBinaryVersion(cmd *cobra.Command, args []string, extended, jsonOutput, n
 		}
 
 		_, _ = fmt.Fprintf(out, "goneat %s\n", buildinfo.BinaryVersion)
+		_, _ = fmt.Fprintf(out, "Build time: %s\n", buildinfo.BuildTime)
+		if commit := buildinfo.GitCommit; commit != "unknown" && len(commit) >= 8 {
+			_, _ = fmt.Fprintf(out, "Git commit: %s\n", commit[:8])
+		} else if commit != "unknown" {
+			_, _ = fmt.Fprintf(out, "Git commit: %s\n", commit)
+		}
 		_, _ = fmt.Fprintf(out, "Module: %s", projectVersion)
 		if source != "" {
 			_, _ = fmt.Fprintf(out, " (%s)", source)
