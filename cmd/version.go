@@ -389,12 +389,6 @@ func runVersionBump(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to write new version: %v", err)
 	}
 
-	// Create git tag for the new version
-	if err := createGitTag(newVersion, noOp); err != nil {
-		logger.Warn(fmt.Sprintf("Failed to create git tag: %v", err))
-		// Don't fail the command if git tagging fails
-	}
-
 	logger.Info(fmt.Sprintf("Bumped version from %s to %s", currentVersion, newVersion))
 	return nil
 }
@@ -427,12 +421,6 @@ func runVersionSet(cmd *cobra.Command, args []string) error {
 	err = writeVersionToFile("VERSION", newVersion)
 	if err != nil {
 		return fmt.Errorf("failed to write version: %v", err)
-	}
-
-	// Create git tag for the new version
-	if err := createGitTag(newVersion, noOp); err != nil {
-		logger.Warn(fmt.Sprintf("Failed to create git tag: %v", err))
-		// Don't fail the command if git tagging fails
 	}
 
 	logger.Info(fmt.Sprintf("Set version to %s", newVersion))
