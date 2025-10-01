@@ -82,6 +82,10 @@ if [ -n "$CURRENT_BRANCH" ]; then
   GUARDIAN_ARGS+=("--branch" "$CURRENT_BRANCH")
 fi
 
+# Note: pre-commit hook runs before commit message is available
+# Just pass generic commit indicator since message doesn't exist yet
+GUARDIAN_ARGS+=("--" "-m" "<pending commit message>")
+
 if ! "${GUARDIAN_ARGS[@]}"; then
   echo ""
   echo "❌ Operation blocked by guardian"

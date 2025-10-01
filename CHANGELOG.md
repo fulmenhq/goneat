@@ -5,7 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 2025-09-30
+## [Unreleased]
+
+## [0.2.11] - 2025-09-30
+
+### Fixed
+
+- **Guardian Approval UX Enhancement**: Improved guardian approval browser page to display command details
+  - `guardian approve` command now shows full command with all arguments (e.g., `goneat guardian approve system ls -- ls -la /tmp`)
+  - Pre-push hook displays remote and branch being pushed (e.g., `git push origin main`)
+  - Pre-commit and pre-reset hooks show generic placeholders due to Git not passing original command arguments to hook scripts
+  - Command details displayed in collapsible section on approval page
+  - For full command visibility with git operations, use `guardian approve` wrapper instead of relying on automatic hook triggers
+
+- **CI/CD Process Enhancement**: Added `make verify-embeds` to pre-push quality gates to prevent embedded asset drift
+  - Closes process hole that could allow releases with unsynced embedded assets
+  - Strengthens release validation with embed verification step
+
+## [0.2.10] - 2025-09-30
 
 ### Added
 

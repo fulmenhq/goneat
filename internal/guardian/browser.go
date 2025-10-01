@@ -42,6 +42,7 @@ type ApprovalSession struct {
 	Expires       time.Time
 	ProjectName   string
 	CustomMessage string
+	FullCommand   string
 }
 
 // BrowserServer manages the lifecycle of the guardian approval server.
@@ -331,6 +332,7 @@ func (b *BrowserServer) handleApproval(w http.ResponseWriter, r *http.Request) {
 			ExpiresIn:        formatTimeUntil(b.expires),
 			ExpiresInSeconds: int(time.Until(b.expires).Seconds()),
 			Timestamp:        b.session.RequestedAt.Format(time.RFC3339),
+			FullCommand:      b.session.FullCommand,
 		}
 
 		tmpl, err := tmplData.template()
@@ -415,6 +417,7 @@ type approvalPage struct {
 	ExpiresIn        string
 	ExpiresInSeconds int
 	Timestamp        string
+	FullCommand      string
 	compiled         *template.Template
 	compileMu        sync.Mutex
 }
@@ -473,11 +476,18 @@ func (a *approvalPage) template() (*template.Template, error) {
 
 	funcMap := template.FuncMap{
 		"title": cases.Title(language.English).String,
-		"substr": func(s string, start int) string {
-			if len(s) > start+8 {
-				return s[:start+8]
+		"substr": func(s string, start, length int) string {
+			if start < 0 {
+				start = 0
 			}
-			return s
+			if start >= len(s) {
+				return ""
+			}
+			end := start + length
+			if end > len(s) {
+				end = len(s)
+			}
+			return s[start:end]
 		},
 		"formatTimeUntil": func(t time.Time) string {
 			d := time.Until(t)

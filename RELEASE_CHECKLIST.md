@@ -2,14 +2,14 @@
 
 This checklist ensures all requirements are met before releasing goneat to the Go package ecosystem.
 
-## Current Release Status: v0.2.9 (2025-09-28)
+## Current Release Status: v0.2.10 (2025-09-30)
 
-**✅ RELEASE COMPLETE**: v0.2.9 successfully tagged and pushed to GitHub.
+**✅ RELEASE COMPLETE**: v0.2.10 successfully tagged and pushed to GitHub.
 **✅ POST-RELEASE**: All quality gates passed, binaries built, licenses audited.
 
-## Next Release Target: [0.2.10] - 2025-09-30 (Quality & Coverage Improvements)
+## Next Release Target: [0.2.11] - 2025-09-30 (Guardian UX & CI/CD Hardening)
 
-**🔄 IN PROGRESS**: Preparing v0.2.10 release with comprehensive test coverage expansion and quality improvements.
+**🔄 IN PROGRESS**: Preparing v0.2.11 release with guardian approval command visibility and embed verification enhancements.
 
 ## Pre-Release Preparation
 
@@ -20,10 +20,11 @@ This checklist ensures all requirements are met before releasing goneat to the G
 - [x] **Linting**: No linting issues (`golangci-lint run`)
 - [x] **Static Analysis**: No vet issues (`go vet ./...`)
 - [x] **Build Success**: Project builds without errors (`make build`)
+- [x] **Embedded Assets**: Assets in sync with SSOT (`make verify-embeds`)
 
 ### Version Management ✅
 
-- [x] **Version Updated**: VERSION file contains v0.2.10
+- [x] **Version Updated**: VERSION file contains v0.2.11
 - [x] **Changelog Updated**: CHANGELOG.md reflects all changes
 - [x] **Go Module**: go.mod version is correct
 - [x] **Embedded Version**: Binary embeds correct version info

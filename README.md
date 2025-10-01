@@ -19,7 +19,7 @@ We bring a smooth DX layer to the business of making neat code at scale. We wrap
 
 ```bash
 # macOS/Linux example - adjust for your platform and version
-curl -L -o goneat https://github.com/fulmenhq/goneat/releases/download/v0.2.8/goneat-darwin-arm64
+curl -L -o goneat https://github.com/fulmenhq/goneat/releases/download/v0.2.11/goneat-darwin-arm64
 chmod +x goneat
 sudo mv goneat /usr/local/bin/
 ```
@@ -154,7 +154,7 @@ make build
 
 ## Status
 
-- Release: v0.2.9 (per `VERSION` file)
+- Release: v0.2.11 (per `VERSION` file)
 - Lifecycle Phase: GA (per `LIFECYCLE_PHASE` file)
 - Release Phase: Release (per `RELEASE_PHASE` file)
 - Repo Visibility: Public

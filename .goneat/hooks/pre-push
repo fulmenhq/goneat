@@ -82,6 +82,13 @@ elif [ -n "$REMOTE_URL" ]; then
   GUARDIAN_ARGS+=("--remote" "$REMOTE_URL")
 fi
 
+# Pass push context for display
+if [ -n "$REMOTE_NAME" ] && [ -n "$CURRENT_BRANCH" ]; then
+  GUARDIAN_ARGS+=("--" "$REMOTE_NAME" "$CURRENT_BRANCH")
+else
+  GUARDIAN_ARGS+=("--" "<remote>" "<branch>")
+fi
+
 if ! "${GUARDIAN_ARGS[@]}"; then
   echo ""
   echo "❌ Operation blocked by guardian"

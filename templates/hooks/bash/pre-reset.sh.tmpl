@@ -75,6 +75,9 @@ if [ -n "$CURRENT_BRANCH" ]; then
   GUARDIAN_ARGS+=("--branch" "$CURRENT_BRANCH")
 fi
 
+# Pass generic reset context for display
+GUARDIAN_ARGS+=("--" "<reset arguments>")
+
 if ! "${GUARDIAN_ARGS[@]}"; then
   echo ""
   echo "❌ Git reset blocked by guardian"

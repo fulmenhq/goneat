@@ -84,6 +84,53 @@
             color: #a0aec0;
             font-size: 0.85em;
         }
+        .command-details {
+            background: #f7fafc;
+            border-radius: 8px;
+            margin: 15px 0;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+        }
+        .command-header {
+            padding: 12px 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            user-select: none;
+            background: #edf2f7;
+        }
+        .command-header:hover {
+            background: #e2e8f0;
+        }
+        .toggle-icon {
+            margin-right: 8px;
+            transition: transform 0.2s;
+            font-size: 0.8em;
+            color: #4a5568;
+        }
+        .command-preview {
+            margin-left: 8px;
+            color: #718096;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.85em;
+        }
+        .command-content {
+            display: none;
+            background: #ffffff;
+            border-top: 1px solid #e2e8f0;
+        }
+        .command-text {
+            margin: 0;
+            padding: 15px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.85em;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: #2d3748;
+            overflow-x: auto;
+            background: #f8f9fa;
+        }
     </style>
 </head>
 <body>
@@ -93,16 +140,29 @@
             <h1>{{.ProjectName}} - Guardian Approval Required</h1>
         </div>
 
-        <div class="context">
-            <strong>Operation:</strong> {{.Scope}}.{{.Operation}}<br>
-            <strong>Risk:</strong> {{.RiskLevel}}<br>
-            <strong>Requested:</strong> {{.Timestamp}}<br>
-            {{if .Reason}}<strong>Reason:</strong> {{.Reason}}<br>{{end}}
-            {{if .CustomMessage}}<strong>Message:</strong> {{.CustomMessage}}<br>{{end}}
-            <div class="machine-info">
-                <strong>From:</strong> {{.MachineName}} / {{.ProjectFolder}}
-            </div>
-        </div>
+         <div class="context">
+             <strong>Operation:</strong> {{.Scope}}.{{.Operation}}<br>
+             <strong>Risk:</strong> {{.RiskLevel}}<br>
+             <strong>Requested:</strong> {{.Timestamp}}<br>
+             {{if .Reason}}<strong>Reason:</strong> {{.Reason}}<br>{{end}}
+             {{if .CustomMessage}}<strong>Message:</strong> {{.CustomMessage}}<br>{{end}}
+             <div class="machine-info">
+                 <strong>From:</strong> {{.MachineName}} / {{.ProjectFolder}}
+             </div>
+         </div>
+
+         {{if .FullCommand}}
+         <div class="command-details">
+             <div class="command-header" onclick="toggleCommandDetails()">
+                 <span class="toggle-icon">▶</span>
+                 <strong>Command details:</strong>
+                 <span class="command-preview">{{substr .FullCommand 0 50}}...</span>
+             </div>
+             <div class="command-content" id="commandContent">
+                 <pre class="command-text">{{.FullCommand}}</pre>
+             </div>
+         </div>
+         {{end}}
 
         <div class="buttons">
             <button onclick="approve()" class="btn btn-approve">Approve</button>
@@ -168,6 +228,20 @@
                 }
             } catch (error) {
                 alert('Network error.');
+            }
+        }
+
+        function toggleCommandDetails() {
+            const content = document.getElementById('commandContent');
+            const icon = document.querySelector('.toggle-icon');
+            const isVisible = content.style.display !== 'none';
+
+            if (isVisible) {
+                content.style.display = 'none';
+                icon.textContent = '▶';
+            } else {
+                content.style.display = 'block';
+                icon.textContent = '▼';
             }
         }
     </script>

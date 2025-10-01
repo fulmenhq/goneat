@@ -45,9 +45,9 @@ out-of-band approval flows when required.`,
 }
 
 var guardianCheckCmd = &cobra.Command{
-	Use:   "check <scope> <operation>",
+	Use:   "check <scope> <operation> [command...]",
 	Short: "Evaluate guardian policy for an operation",
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.MinimumNArgs(2),
 	RunE:  runGuardianCheck,
 }
 
@@ -113,6 +113,7 @@ func runGuardianCheck(cmd *cobra.Command, args []string) error {
 
 	scope := strings.TrimSpace(args[0])
 	operation := strings.TrimSpace(args[1])
+	cmdArgs := args[2:]
 
 	ctx := guardian.OperationContext{
 		Branch: guardianBranch,
@@ -140,6 +141,29 @@ func runGuardianCheck(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Construct full command - use provided args if available, otherwise generic
+	var fullCommand string
+	if len(cmdArgs) > 0 {
+		// Include the actual command (scope + operation) with the arguments
+		switch scope {
+		case "git":
+			fullCommand = fmt.Sprintf("git %s %s", operation, strings.Join(cmdArgs, " "))
+		case "system":
+			fullCommand = fmt.Sprintf("%s %s", operation, strings.Join(cmdArgs, " "))
+		default:
+			fullCommand = fmt.Sprintf("%s.%s %s", scope, operation, strings.Join(cmdArgs, " "))
+		}
+	} else {
+		switch scope {
+		case "git":
+			fullCommand = fmt.Sprintf("git %s", operation)
+		case "system":
+			fullCommand = fmt.Sprintf("%s command", operation)
+		default:
+			fullCommand = fmt.Sprintf("%s.%s operation", scope, operation)
+		}
+	}
+
 	session := guardian.ApprovalSession{
 		Scope:     scope,
 		Operation: operation,
@@ -152,6 +176,7 @@ func runGuardianCheck(cmd *cobra.Command, args []string) error {
 		}(),
 		RequestedAt: time.Now().UTC(),
 		ProjectName: "", // Will be populated by StartBrowserApproval from git repo or config
+		FullCommand: fullCommand,
 	}
 
 	// In test mode, auto-deny for testing
@@ -234,6 +259,17 @@ func runGuardianApprove(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("guardian method %s not yet supported", policy.Method)
 		}
 
+		// Construct full command including the actual command itself
+		var fullCommand string
+		switch scope {
+		case "git":
+			fullCommand = fmt.Sprintf("git %s %s", operation, strings.Join(cmdArgs, " "))
+		case "system":
+			fullCommand = fmt.Sprintf("%s %s", operation, strings.Join(cmdArgs, " "))
+		default:
+			fullCommand = fmt.Sprintf("%s.%s %s", scope, operation, strings.Join(cmdArgs, " "))
+		}
+
 		session := guardian.ApprovalSession{
 			Scope:       scope,
 			Operation:   operation,
@@ -241,6 +277,7 @@ func runGuardianApprove(cmd *cobra.Command, args []string) error {
 			Reason:      guardianReason,
 			RequestedAt: time.Now().UTC(),
 			ProjectName: "", // Will be populated by StartBrowserApproval from git repo or config
+			FullCommand: fullCommand,
 		}
 
 		server, err := guardian.StartBrowserApproval(cmd.Context(), session)

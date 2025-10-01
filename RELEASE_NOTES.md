@@ -1,3 +1,52 @@
+# Goneat v0.2.11 — Guardian UX Enhancement & CI/CD Hardening (2025-09-30)
+
+## TL;DR
+
+- **Guardian Approval UX**: Fixed guardian approval browser page to display full command details with arguments
+- **CI/CD Quality Gates**: Added embed verification to pre-push validation to prevent asset drift
+- **Hook Enhancements**: All guardian-protected hooks now capture and pass command arguments for better visibility
+
+## What's New
+
+### Guardian Approval Command Visibility
+
+Enhanced the guardian approval workflow to provide command transparency:
+
+- **Full Command Display for Direct Usage**: When using `guardian approve` directly (e.g., `goneat guardian approve system ls -- ls -la /tmp`), the approval page shows the complete command with all arguments
+- **Pre-push Hook**: Displays remote name and branch being pushed (e.g., `git push origin main`)
+- **Git Hook Limitations**: Pre-commit and pre-reset hooks show generic placeholders (e.g., `git commit -m <pending commit message>`) because Git does not pass original command-line arguments to hook scripts
+- **Command Details Section**: Collapsible section on approval page displays available command information with proper formatting
+- **Best User Experience**: For full command visibility in git operations, wrap commands with `guardian approve` instead of relying on automatic hook triggers
+
+### CI/CD Process Hardening
+
+- **Embed Verification**: Added `make verify-embeds` to pre-push quality gates
+- **Asset Drift Prevention**: Ensures embedded templates, schemas, and config stay synchronized with source
+- **Release Validation**: Strengthens release process with automated embed consistency checks
+
+## Installation
+
+```bash
+# Go install
+go install github.com/fulmenhq/goneat@latest
+
+# From source
+git clone https://github.com/fulmenhq/goneat.git
+cd goneat
+make build
+```
+
+## Upgrade Notes
+
+After upgrading, regenerate your hooks to get the enhanced guardian command visibility:
+
+```bash
+goneat hooks generate --with-guardian
+goneat hooks install
+```
+
+---
+
 # Goneat v0.2.8 — Guardian Repository Protection & Format Intelligence (2025-09-27)
 
 ## TL;DR
