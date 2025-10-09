@@ -29,7 +29,7 @@ echo rc > RELEASE_PHASE
 2. Set version (SemVer; use prerelease for RCs)
 
 ```bash
-make version-set VERSION_SET=0.2.0-rc.1
+make version-set VERSION=0.2.0-rc.1
 ```
 
 3. Build + test + coverage (gates apply via phases)

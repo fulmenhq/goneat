@@ -129,7 +129,7 @@ Correct:
 
 ```bash
 git add <files>
-make pre-commit
+make precommit
 git commit -m "..."
 # approval required before push
 git push
@@ -161,8 +161,8 @@ git log --oneline -5  # Avoid in scripts/automation
 **MANDATORY PRE-COMMIT WORKFLOW**: All commits must pass quality checks before submission.
 
 ```bash
-# 1. ALWAYS run make pre-commit first (validates everything)
-make pre-commit
+# 1. ALWAYS run make precommit first (validates everything)
+make precommit
 
 # 2. Only commit if pre-commit passes completely
 git add <files>
@@ -174,7 +174,7 @@ git commit --no-verify -m "checkpoint: work in progress"  # Use sparingly
 
 **Why This Matters**:
 
-- `make pre-commit` includes ALL quality gates: formatting, linting, testing, documentation
+- `make precommit` includes ALL quality gates: formatting, linting, testing, documentation
 - Matches git pre-commit hooks exactly (prevents hook failures)
 - Catches formatting issues before they cause commit failures
 - Ensures consistent code quality across all contributors
@@ -195,11 +195,11 @@ git commit --no-verify -m "checkpoint: work in progress"  # Use sparingly
 
 ### 🛡️ Pre-Push Validation Before Consolidation
 
-**CRITICAL**: Always run `make pre-push` BEFORE any commit consolidation operations to minimize rework.
+**CRITICAL**: Always run `make prepush` BEFORE any commit consolidation operations to minimize rework.
 
 ```bash
 # MANDATORY: Run pre-push validation BEFORE consolidation
-make pre-push
+make prepush
 
 # Only proceed with consolidation if pre-push passes
 # If issues found, fix them before consolidation
@@ -233,7 +233,7 @@ All of these must pass before ANY commit:
 
 ```bash
 # Complete quality validation (required before commit)
-make pre-commit
+make precommit
 
 # Individual quality checks (for troubleshooting)
 make fmt                    # Format code and documents
@@ -391,7 +391,7 @@ The pre-commit hooks automatically run:
 
 When hooks fail but code is correct:
 
-1. **Verify manually**: `make pre-commit`
+1. **Verify manually**: `make precommit`
 2. **Check specific issue**: `make lint` or `make test`
 3. **Bypass if needed**: `git commit --no-verify`
 4. **Document in commit**: Explain why bypass was needed
@@ -413,7 +413,7 @@ When hooks fail but code is correct:
 - [ ] Existence checked and file read before any write/edit
 - [ ] Parent directory verified for any new files
 - [ ] Minimal-diff policy followed (no wholesale rewrites without approval)
-- [ ] Pre-commit quality gates passed: `make pre-commit`
+- [ ] Pre-commit quality gates passed: `make precommit`
 - [ ] Test coverage maintained or improved
 - [ ] No secrets or sensitive data included
 - [ ] Proper commit attribution format used

@@ -1,0 +1,10 @@
+# Goneat SSOT consumer local overrides
+#
+# Copy this file to .goneat/ssot-consumer.local.yaml to override paths or add custom sources.
+# This file is ignored by git.
+version: v1.1.0
+
+sources:
+  - name: crucible
+    # Override the location of the crucible repository for local development
+    localPath: ../crucible

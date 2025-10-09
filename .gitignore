@@ -11,6 +11,13 @@
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
+# Local override files (never commit)
+# Prevents accidental commits of developer-specific configurations
+*.local.yaml
+*.local.yml
+*.local.json
+
+
 # Coverage reports
 coverage.html
 coverage.out

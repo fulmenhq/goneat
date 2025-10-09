@@ -31,8 +31,7 @@ LDFLAGS := -ldflags "\
 	-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
-.PHONY: help build clean test fmt format-docs format-config format-all version-get version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease \
-	license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites
+.PHONY: help build clean test fmt format-docs format-config format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites sync-crucible sync-ssot verify-crucible bootstrap tools lint release-check release-prepare release-build check-all prepush precommit
 
 # Default target
 all: clean build fmt
@@ -76,11 +75,75 @@ sync-schemas: ## Fetch curated JSON Schema meta-schemas (network required)
 	@chmod +x scripts/sync-schemas.sh
 	@./scripts/sync-schemas.sh
 
-package: ## Package built binaries into archives + checksums
-	@echo "Packaging artifacts for v$(VERSION)..."
-	@chmod +x scripts/package-artifacts.sh
-	@./scripts/package-artifacts.sh
-	@echo "✅ Packaging completed (dist/release)"
+# Crucible SSOT sync (dogfooding goneat ssot command, following fuldx pattern)
+sync-crucible: build ## Sync documentation and schemas from crucible repository (SSOT)
+	@echo "🔄 Syncing Crucible Go assets..."
+	@$(BUILD_DIR)/$(BINARY_NAME) ssot sync
+
+sync-ssot: sync-crucible ## Alias for sync-crucible (clarity)
+
+verify-crucible: build ## Verify that crucible content is up-to-date
+	@echo "🔍 Verifying Crucible sync..."
+	@$(BUILD_DIR)/$(BINARY_NAME) ssot sync --dry-run >/dev/null 2>&1
+	@if git diff --exit-code docs/crucible-go schemas/crucible-go >/dev/null 2>&1; then \
+		echo "✅ Crucible content is up-to-date"; \
+	else \
+		echo "❌ Crucible content is stale - run 'make sync-crucible'"; \
+		exit 1; \
+	fi
+
+bootstrap: sync-ssot embed-assets ## Install external prerequisites listed in .goneat/tools.yaml (installers must use the tooling manifest schema)
+	@echo "✅ Bootstrap complete"
+
+tools: build ## Verify external tools are present; may be a no-op if none are required
+	@echo "🔧 Verifying external tools..."
+	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
+		$(BUILD_DIR)/$(BINARY_NAME) doctor tools --scope all; \
+		echo "✅ Tools verification completed"; \
+	else \
+		echo "❌ goneat binary not found, cannot verify tools"; \
+		exit 1; \
+	fi
+
+lint: build ## Run lint/format/style checks
+	@echo "🔍 Running lint checks..."
+	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
+		$(BUILD_DIR)/$(BINARY_NAME) assess --categories=lint; \
+		echo "✅ Lint checks completed"; \
+	else \
+		echo "❌ goneat binary not found, cannot run lint checks"; \
+		exit 1; \
+	fi
+
+release-check: build ## Run the release checklist validation (tests, lint, sync scripts)
+	@echo "🔍 Running release checklist validation..."
+	$(MAKE) test
+	$(MAKE) lint
+	$(MAKE) verify-crucible
+	$(MAKE) license-audit
+	@echo "✅ Release checklist validation passed"
+
+release-prepare: ## Sequence of commands to ready a release (sync, tests, version bump)
+	@echo "🚀 Preparing release..."
+	$(MAKE) sync-crucible
+	$(MAKE) test
+	$(MAKE) lint
+	@echo "✅ Release preparation complete"
+
+release-build: build-all package ## Build release artifacts (binaries + checksums) for distribution
+	@echo "📦 Release build completed"
+
+check-all: build ## Run all checks (lint, test, typecheck)
+	@echo "🔍 Running all checks..."
+	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
+		$(BUILD_DIR)/$(BINARY_NAME) assess; \
+		echo "✅ All checks completed"; \
+	else \
+		echo "❌ goneat binary not found, cannot run checks"; \
+		exit 1; \
+	fi
+
+
 
 # Release notes artifact from RELEASE_NOTES.md
 release-notes: ## Generate release notes artifact (dist/release/release-notes-v<version>.md)
@@ -240,7 +303,7 @@ license-audit: ## Audit dependencies for forbidden licenses; fail on detection
 update-licenses: license-inventory license-save ## Update license inventory and third-party texts
 
 # Hook targets (dogfooding)
-pre-commit: build test ## Run pre-commit checks using goneat (format + lint)
+precommit: build test ## Run pre-commit hooks (stub for now)
 	@echo "Running pre-commit checks with goneat..."
 	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
 		$(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-commit; \
@@ -250,7 +313,7 @@ pre-commit: build test ## Run pre-commit checks using goneat (format + lint)
 		exit 1; \
 	fi
 
-pre-push: build-all license-audit ## Run pre-push checks using goneat (format + lint + security + license audit)
+prepush: build-all license-audit ## Run pre-push hooks (stub for now)
 	@echo "Running pre-push checks with goneat..."
 	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
 		GONEAT_OFFLINE_SCHEMA_VALIDATION=false $(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-push; \
@@ -291,31 +354,31 @@ dev: prerequisites ## Set up development environment
 	@echo "✅ Development environment ready"
 
 # Version management targets
-version-get: ## Show current version
+version: ## Print current repository version from VERSION
 	@echo "Current version: $(VERSION)"
 
-version-bump-patch: ## Bump patch version (x.y.Z -> x.y.Z+1)
+version-bump-patch: ## Bump version according to strategy (SemVer or CalVer) and regenerate derived files
 	@echo "Bumping patch version using goneat version command..."
 	@./dist/goneat version bump patch
 	@echo "✅ Patch version bumped"
 
-version-bump-minor: ## Bump minor version (x.Y.z -> x.Y+1.0)
+version-bump-minor: ## Bump version according to strategy (SemVer or CalVer) and regenerate derived files
 	@echo "Bumping minor version using goneat version command..."
 	@./dist/goneat version bump minor
 	@echo "✅ Minor version bumped"
 
-version-bump-major: ## Bump major version (X.y.z -> X+1.0.0)
+version-bump-major: ## Bump version according to strategy (SemVer or CalVer) and regenerate derived files
 	@echo "Bumping major version using goneat version command..."
 	@./dist/goneat version bump major
 	@echo "✅ Major version bumped"
 
-version-set: ## Set specific version (usage: make version-set VERSION=x.y.z)
-	@if [ -z "$(VERSION_SET)" ]; then \
-		echo "❌ Usage: make version-set VERSION_SET=x.y.z"; \
+version-set: ## Update VERSION and any derived metadata (usage: make version-set VERSION=x.y.z)
+	@if [ -z "$(VERSION)" ]; then \
+		echo "❌ Usage: make version-set VERSION=x.y.z"; \
 		exit 1; \
 	fi
-	@echo "$(VERSION_SET)" > VERSION
-	@echo "✅ Version set to: $(VERSION_SET)"
+	@echo "$(VERSION)" > VERSION
+	@echo "✅ Version set to: $(VERSION)"
 
 version-set-prerelease: ## Set prerelease version (usage: make version-set-prerelease VERSION_SET=x.y.z-rc.N)
 	@if [ -z "$(VERSION_SET)" ]; then \

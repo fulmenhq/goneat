@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.fulmenhq.dev/crucible/observability/logging/logger-config-v1.0.0.json",
+  "title": "LoggerConfig",
+  "description": "Logger configuration for Fulmen libraries",
+  "type": "object",
+  "properties": {
+    "defaultLevel": {
+      "type": "string",
+      "enum": [
+        "TRACE",
+        "DEBUG",
+        "INFO",
+        "WARN",
+        "ERROR",
+        "FATAL",
+        "NONE"
+      ],
+      "default": "INFO",
+      "description": "Default minimum log level"
+    },
+    "service": {
+      "type": "string",
+      "description": "Service name (e.g., 'gofulmen', 'goneat')"
+    },
+    "environment": {
+      "type": "string",
+      "default": "development",
+      "description": "Deployment environment"
+    },
+    "sinks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sinkConfig"
+      },
+      "description": "Output sinks for log events"
+    },
+    "staticFields": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Static fields added to all log events"
+    },
+    "enableCaller": {
+      "type": "boolean",
+      "default": false,
+      "description": "Include caller information (file, line) in log events"
+    },
+    "enableStacktrace": {
+      "type": "boolean",
+      "default": false,
+      "description": "Include stack traces for ERROR and FATAL levels"
+    }
+  },
+  "required": [
+    "service"
+  ],
+  "$defs": {
+    "sinkConfig": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "console",
+            "file"
+          ],
+          "description": "Sink type"
+        },
+        "level": {
+          "type": "string",
+          "enum": [
+            "TRACE",
+            "DEBUG",
+            "INFO",
+            "WARN",
+            "ERROR",
+            "FATAL",
+            "NONE"
+          ],
+          "description": "Minimum level for this sink (overrides defaultLevel)"
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "json",
+            "text",
+            "console"
+          ],
+          "default": "json",
+          "description": "Output format"
+        },
+        "console": {
+          "$ref": "#/$defs/consoleSinkConfig"
+        },
+        "file": {
+          "$ref": "#/$defs/fileSinkConfig"
+        }
+      },
+      "required": [
+        "type"
+      ]
+    },
+    "consoleSinkConfig": {
+      "type": "object",
+      "properties": {
+        "stream": {
+          "type": "string",
+          "enum": [
+            "stderr"
+          ],
+          "default": "stderr",
+          "description": "Output stream (stdout MUST NOT be used for logs)"
+        },
+        "colorize": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable color output (only for format=console)"
+        }
+      }
+    },
+    "fileSinkConfig": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Log file path"
+        },
+        "maxSize": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum file size in MB before rotation"
+        },
+        "maxAge": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum age in days before deletion"
+        },
+        "maxBackups": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximum number of old log files to retain"
+        },
+        "compress": {
+          "type": "boolean",
+          "default": false,
+          "description": "Compress rotated files with gzip"
+        }
+      },
+      "required": [
+        "path"
+      ]
+    }
+  },
+  "examples": [
+    {
+      "defaultLevel": "INFO",
+      "service": "gofulmen",
+      "environment": "production",
+      "sinks": [
+        {
+          "type": "console",
+          "level": "INFO",
+          "format": "json",
+          "console": {
+            "stream": "stderr"
+          }
+        },
+        {
+          "type": "file",
+          "level": "DEBUG",
+          "format": "json",
+          "file": {
+            "path": "logs/gofulmen.log",
+            "maxSize": 100,
+            "maxAge": 7,
+            "maxBackups": 5,
+            "compress": true
+          }
+        }
+      ],
+      "staticFields": {
+        "version": "1.0.0",
+        "datacenter": "us-east-1"
+      },
+      "enableStacktrace": true
+    }
+  ]
+}

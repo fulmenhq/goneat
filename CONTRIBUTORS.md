@@ -26,7 +26,7 @@ Please check the current phase file for the active posture.
 
 ## Attribution and commit standards
 
-- Follow `docs/standards/agentic-attribution.md` for commit messages and co-authorship lines
+- Follow `docs/crucible-go/standards/agentic-attribution.md` for commit messages and co-authorship lines
 - Use conventional commits for clarity (e.g., `feat:`, `fix:`, `docs:`)
 
 We appreciate all forms of contribution: issues, documentation, testing, triage, and code.

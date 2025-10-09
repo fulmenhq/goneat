@@ -33,7 +33,7 @@ Artifacts are placed in `bin/` with names `goneat-<os>-<arch>`.
 2. Package artifacts and checksums
 
 ```bash
-make package
+make release-build
 ```
 
 Outputs archives and `SHA256SUMS` under `dist/release/`.

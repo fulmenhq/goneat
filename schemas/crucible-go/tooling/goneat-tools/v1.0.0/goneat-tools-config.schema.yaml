@@ -1,0 +1,146 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+type: object
+description: "Configuration for goneat doctor tools command - defines scopes and tool definitions"
+properties:
+  scopes:
+    type: object
+    description: "Tool scopes that group related tools together"
+    patternProperties:
+      "^[a-z][a-z0-9-]*$":
+        type: object
+        description: "A tool scope definition"
+        properties:
+          description:
+            type: string
+            description: "Human-readable description of what this scope covers"
+            minLength: 1
+            maxLength: 200
+          tools:
+            type: array
+            description: "List of tool names that belong to this scope"
+            items:
+              type: string
+              pattern: "^[a-z][a-z0-9-]*$"
+              description: "Tool name (must match a key in the tools section)"
+            minItems: 1
+            uniqueItems: true
+          replace:
+            type: boolean
+            description: "When true, replace built-in scope definition instead of extending"
+        required: ["description", "tools"]
+        additionalProperties: false
+    minProperties: 1
+    additionalProperties: false
+  tools:
+    type: object
+    description: "Tool definitions with detection and installation methods"
+    patternProperties:
+      "^[a-z][a-z0-9-]*$":
+        $ref: "#/$defs/tool"
+    minProperties: 1
+    additionalProperties: false
+$defs:
+  tool:
+    type: object
+    description: "Definition of a single tool with platform-specific installation methods"
+    properties:
+      name:
+        type: string
+        description: "Canonical name of the tool (should match the key)"
+        pattern: "^[a-z][a-z0-9-]*$"
+        minLength: 1
+        maxLength: 50
+      description:
+        type: string
+        description: "Human-readable description of the tool's purpose"
+        minLength: 1
+        maxLength: 200
+      kind:
+        type: string
+        description: "Type of tool installation method"
+        enum: ["go", "bundled-go", "system"]
+      detect_command:
+        type: string
+        description: "Command to detect if tool is installed (e.g., 'rg --version')"
+        minLength: 1
+        maxLength: 100
+      install_package:
+        type: string
+        description: "Go package path for 'go' kind tools (e.g., 'github.com/securego/gosec/v2/cmd/gosec@latest')"
+        pattern: "^[a-zA-Z0-9._/-]+@[a-zA-Z0-9._/-]+$"
+        minLength: 1
+        maxLength: 200
+      version_args:
+        type: array
+        description: "Arguments to get version information"
+        items:
+          type: string
+          minLength: 1
+          maxLength: 50
+        maxItems: 10
+      check_args:
+        type: array
+        description: "Arguments to check if tool works (usually help/usage)"
+        items:
+          type: string
+          minLength: 1
+          maxLength: 50
+        maxItems: 10
+      platforms:
+        type: array
+        description: "Supported platforms for system tools"
+        items:
+          type: string
+          enum: ["darwin", "linux", "windows", "*"]
+        minItems: 1
+        uniqueItems: true
+      install_commands:
+        type: object
+        description: "Installation commands keyed by platform or installer keyword (e.g., darwin, linux, mise, scoop)"
+        propertyNames:
+          pattern: "^[a-z][a-z0-9_-]*$"
+        additionalProperties:
+          type: string
+          minLength: 1
+          maxLength: 200
+        minProperties: 1
+      version_scheme:
+        type: string
+        description: "Version comparison scheme (semver-full, semver-compact, calver, lexical)"
+        enum: ["semver", "semver-full", "semver-compact", "calver", "lexical"]
+      minimum_version:
+        type: string
+        description: "Minimum supported version that must be present"
+        minLength: 1
+        maxLength: 50
+      recommended_version:
+        type: string
+        description: "Recommended version to target during upgrades"
+        minLength: 1
+        maxLength: 50
+      disallowed_versions:
+        type: array
+        description: "Explicit versions that should never be used"
+        items:
+          type: string
+          minLength: 1
+          maxLength: 50
+        uniqueItems: true
+        maxItems: 20
+      installer_priority:
+        type: object
+        description: "Preferred installer order per platform (keywords drawn from curated list: mise, brew, scoop, winget, pacman, apt-get, dnf, yum, go-install, manual)"
+        propertyNames:
+          pattern: "^(all|darwin|linux|windows)$"
+        additionalProperties:
+          type: array
+          items:
+            type: string
+            pattern: "^[a-z][a-z0-9_-]*$"
+          minItems: 1
+          maxItems: 10
+    required: ["name", "description", "kind", "detect_command"]
+    additionalProperties: false
+# Validation rules
+required: ["scopes", "tools"]
+additionalProperties: false

@@ -1,0 +1,66 @@
+# Fulmen repository category taxonomy (machine-readable source)
+version: "2025.10.2"
+categories:
+  - key: cli
+    summary: "Command-line utilities without long-lived servers"
+    primaryEntryPoints:
+      - "Executable binary (Cobra/Click/etc.)"
+      - "make targets"
+    typicalConsumers:
+      - "Developers"
+      - "CI/CD pipelines"
+    notes: "Outputs data to STDOUT, diagnostics to STDERR"
+  - key: workhorse
+    summary: "Hybrid CLI + HTTP runtime with optional gRPC interfaces"
+    primaryEntryPoints:
+      - "CLI subcommand: serve"
+      - "HTTP /health/* endpoints"
+      - "HTTP /metrics"
+    typicalConsumers:
+      - "Operations automation"
+      - "MCP servers"
+    notes: "Requires request correlation IDs and Prometheus metrics"
+  - key: service
+    summary: "Long-running HTTP/gRPC services without interactive CLI UX"
+    primaryEntryPoints:
+      - "HTTP API"
+      - "gRPC service"
+    typicalConsumers:
+      - "Backend microservices"
+      - "Internal APIs"
+    notes: "Must document authn/authz strategy and graceful shutdown"
+  - key: library
+    summary: "Importable language packages without executables"
+    primaryEntryPoints:
+      - "Package manager entry point"
+    typicalConsumers:
+      - "Other Fulmen repos"
+      - "External SDK users"
+    notes: "Follows semantic versioning for public API"
+  - key: pipeline
+    summary: "Batch or streaming data workloads orchestrated by schedulers"
+    primaryEntryPoints:
+      - "CLI driver"
+      - "Job scheduler integration"
+    typicalConsumers:
+      - "Data engineering teams"
+      - "ETL orchestrators"
+    notes: "Expose job duration/throughput metrics and dry-run modes"
+  - key: codex
+    summary: "Documentation or static site repositories published via CI"
+    primaryEntryPoints:
+      - "Static site generator"
+      - "Publishing pipeline"
+    typicalConsumers:
+      - "Fulmen developers"
+      - "External stakeholders"
+    notes: "Generated assets must trace back to committed source"
+  - key: sdk
+    summary: "Client SDKs targeting external services or APIs"
+    primaryEntryPoints:
+      - "Package manager entry point"
+      - "Language initialization scaffolds"
+    typicalConsumers:
+      - "External developers"
+      - "Partner integrations"
+    notes: "Ship compatibility matrix and error taxonomy"

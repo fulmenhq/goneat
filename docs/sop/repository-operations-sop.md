@@ -119,7 +119,7 @@ git add .gitignore
 
 ```bash
 # MANDATORY: Full pre-commit validation
-make pre-commit
+make precommit
 ```
 
 **Validation Includes:**
@@ -236,7 +236,7 @@ Will complete implementation and tests in next commit"
 
 ```bash
 # Confirm current version
-make version-get
+make version
 cat VERSION
 
 # Update version if needed (semantic versioning)
@@ -248,7 +248,7 @@ git add VERSION
 
 ```bash
 # MANDATORY: Full quality validation BEFORE commit consolidation
-make pre-push
+make prepush
 ```
 
 **Critical:** Run `pre-push` validation BEFORE any commit consolidation operations to minimize rework.
@@ -264,7 +264,7 @@ make pre-push
 git branch backup/pre-consolidation-$(date +%Y%m%d-%H%M%S)
 
 # 2. Run quality validation BEFORE consolidation
-make pre-push
+make prepush
 
 # 3. Soft reset to target commit
 git reset --soft <commit-hash>
@@ -282,7 +282,7 @@ git log --oneline -5
 git status
 
 # MANDATORY: Final pre-push check after consolidation
-make pre-push
+make prepush
 ```
 
 **⚠️ Important**: Always follow the [Git Commit Consolidation SOP](git-commit-consolidation-sop.md) for complete procedures including backup strategies, commit message standards, and recovery options.
@@ -346,7 +346,7 @@ Goneat includes git hooks for automated quality validation:
 #### Pre-Push Hook
 
 - **Location**: `.git/hooks/pre-push`
-- **Purpose**: Runs `make pre-push` before allowing pushes
+- **Purpose**: Runs `make prepush` before allowing pushes
 - **Validation**: Full test suite, security scans, production-ready coverage
 - **Bypass**: Use `git push --no-verify` (requires supervisor approval per SOP)
 - **Guardian**: Executes guardian checks/approvals when enabled. Remote enforcement (v0.2.9) will backstop hooks on the server side.
@@ -370,7 +370,7 @@ For simple changes that don't require consolidation:
 
 ```bash
 # 1. Pre-push validation FIRST
-make pre-push
+make prepush
 
 # 2. Stage and commit
 git add .
@@ -405,7 +405,7 @@ make fmt-docs                     # Documentation formatting
 
 **Purpose:** Commit readiness validation **Time:** ~30 seconds **Coverage:** 10% minimum
 
-### make pre-push (Production Ready)
+### make prepush (Production Ready)
 
 ```bash
 # Components:
@@ -500,8 +500,8 @@ git rebase --abort
 | ------------------------- | ----------------------------- | ----- | -------- | -------- |
 | `make help`               | Show available commands       | <1s   | -        | -        |
 | `make check-all`          | Development quality checks    | ~5s   | -        | Basic    |
-| `make pre-commit`         | Commit validation             | ~30s  | 10%+     | Basic    |
-| `make pre-push`           | Push validation               | ~2min | 70%+     | Full     |
+| `make precommit`         | Commit validation             | ~30s  | 10%+     | Basic    |
+| `make prepush`           | Push validation               | ~2min | 70%+     | Full     |
 | `make test`               | Full test suite with coverage | ~45s  | 70%      | -        |
 | `make build`              | Build binary                  | ~5s   | -        | -        |
 | `make security-scan`      | Full security analysis        | ~30s  | -        | Full     |

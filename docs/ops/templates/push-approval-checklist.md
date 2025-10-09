@@ -14,15 +14,15 @@
 
 ### Quality Gates ✅
 
-- [ ] `make pre-commit` passes completely
-- [ ] `make pre-push` passes completely
+- [ ] `make precommit` passes completely
+- [ ] `make prepush` passes completely
 - [ ] All tests pass with required coverage
 - [ ] No linting errors
 - [ ] Format tool works on its own codebase (dogfooding)
 
 ### Content Validation ✅
 
-- [ ] Commits follow attribution standards ([docs/standards/agentic-attribution.md](docs/standards/agentic-attribution.md))
+- [ ] Commits follow attribution standards ([docs/crucible-go/standards/agentic-attribution.md](docs/crucible-go/standards/agentic-attribution.md))
 - [ ] No secrets or sensitive data in commits
 - [ ] Proper commit messages with 🎯 Changes section
 - [ ] All referenced documentation has been read and understood

@@ -66,7 +66,8 @@
 ### Operational Guidelines
 
 - **Session Initialization Protocol**: 🚨 MANDATORY for every work session - [docs/ops/templates/session-initialization-protocol.md](docs/ops/templates/session-initialization-protocol.md)
-- **Attribution**: Include `Co-Authored-By` only for material contributors, per [docs/standards/agentic-attribution.md](docs/standards/agentic-attribution.md).
+- **Repository Operations**: 🚨 MANDATORY before commits/pushes - Follow precommit and prepush checklists in [docs/crucible-go/sop/repository-operations-sop.md](docs/crucible-go/sop/repository-operations-sop.md)
+- **Attribution**: Include `Co-Authored-By` only for material contributors, per [docs/crucible-go/standards/agentic-attribution.md](docs/crucible-go/standards/agentic-attribution.md).
 - **Agent Emails**: Use `noreply@3leaps.net` for 3leaps agents (e.g., `Co-Authored-By: Code Scout <noreply@3leaps.net>`).
 - **Supervision**: All contributions require human maintainer approval
 - **Push Authorization**: 🚨 NEVER push without explicit per-incident human approval
@@ -169,7 +170,7 @@ prettier --write .                  # ❌ Use goneat format instead
 
 ##### Go Code Quality Standards
 
-**DO**: Follow STDOUT hygiene and logging standards (see [docs/standards/go-coding-standards.md](docs/standards/go-coding-standards.md))
+**DO**: Follow STDOUT hygiene and logging standards (see [docs/crucible-go/standards/coding/README.md](docs/crucible-go/standards/coding/README.md) and [docs/crucible-go/standards/coding/go.md](docs/crucible-go/standards/coding/go.md))
 
 ```go
 logger.Debug("repo-status: detected files")   # ✅ Use logger for debug output
@@ -193,7 +194,7 @@ log.Printf("Status: %v", status)             # ❌ Use logger.Info instead
 
 ```bash
 make test           # ✅ Run all tests
-make pre-push       # ✅ Full pre-push validation
+make prepush       # ✅ Full pre-push validation
 make license-audit  # ✅ License compliance check
 ```
 
@@ -257,7 +258,7 @@ git commit && git push
 3. Document approval in commit/PR description
 4. Only then execute push with `--force-with-lease` if needed
 
-See [REPOSITORY_SAFETY_PROTOCOLS.md](REPOSITORY_SAFETY_PROTOCOLS.md) for full rules.
+See [REPOSITORY_SAFETY_PROTOCOLS.md](REPOSITORY_SAFETY_PROTOCOLS.md) for full rules and [docs/crucible-go/sop/repository-operations-sop.md](docs/crucible-go/sop/repository-operations-sop.md) for precommit/prepush checklists.
 
 ### **🚨 CRITICAL OPERATIONS CHECKLIST**
 
@@ -297,7 +298,7 @@ See [REPOSITORY_SAFETY_PROTOCOLS.md](REPOSITORY_SAFETY_PROTOCOLS.md) for full ru
 
 ### Attribution Standards
 
-**All agent contributions MUST follow the detailed attribution format specified in [docs/standards/agentic-attribution.md](docs/standards/agentic-attribution.md)**
+**All agent contributions MUST follow the detailed attribution format specified in [docs/crucible-go/standards/agentic-attribution.md](docs/crucible-go/standards/agentic-attribution.md)**
 
 #### Required Attribution Elements
 

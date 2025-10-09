@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **SSOT Synchronization System**: New comprehensive Single Source of Truth synchronization capability
+  - Introduced `pkg/ssot` library for programmatic SSOT operations with full API documentation at `docs/appnotes/lib/ssot.md`
+  - Added `goneat ssot` command suite for synchronizing documentation, schemas, and assets from upstream repositories
+  - Integrated Fulmen ecosystem [crucible](https://github.com/fulmenhq/crucible) standards system into goneat for seamless standards compliance
+  - Enabled general SSOT sync capability for documentation and information architecture repositories
+  - Schema-backed configuration with `.goneat/ssot-consumer.yaml` and local overrides support
+  - Environment variable overrides for CI/CD and development workflows
+
+### Fixed
+
+- **SSOT Double-Nesting Issue**: Resolved directory double-nesting in asset synchronization
+  - Root cause: Glob patterns included directory prefixes without proper base path handling
+  - Solution: Added `source_path` field to `Asset` type and improved `syncAsset()` function with `effectiveBasePath` calculation
+  - Simplified glob patterns in `.goneat/ssot-consumer.yaml` to eliminate directory duplication
+
+- **Makefile Fulmen Ecosystem Standards Compliance**: Complete alignment with `docs/crucible-go/standards/makefile-standard.md`
+  - Added missing required targets: `tools`, `lint`, `release-check`, `release-prepare`, `check-all`
+  - Renamed targets using hyphens (e.g., `version-set`) due to Make colon limitations
+  - Updated `bootstrap` target to run `sync-ssot` first for proper initialization order
+  - Removed backward compatibility aliases for strict standards compliance
+
 ## [0.2.11] - 2025-09-30
 
 ### Fixed

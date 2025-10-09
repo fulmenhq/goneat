@@ -7,11 +7,12 @@
   "enum": [
     "dev",
     "rc",
+    "preview",
     "ga"
   ],
   "examples": [
     "rc",
     "ga"
   ],
-  "$comment": "Intended to drive CI thresholds and publishing behavior."
+  "$comment": "Intended to drive CI thresholds and publishing behavior (when combined with lifecycle phase)."
 }

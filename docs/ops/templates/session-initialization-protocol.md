@@ -15,8 +15,8 @@
 - [ ] Read [AGENTS.md](AGENTS.md) - Complete agent guidelines
 - [ ] Read [MAINTAINERS.md](MAINTAINERS.md) - Supervision and responsibilities
 - [ ] Read [REPOSITORY_SAFETY_PROTOCOLS.md](REPOSITORY_SAFETY_PROTOCOLS.md) - Critical safety rules
-- [ ] Read [docs/standards/agentic-attribution.md](docs/standards/agentic-attribution.md) - Attribution standards
-- [ ] Read [docs/standards/go-coding-standards.md](docs/standards/go-coding-standards.md) - Coding standards
+- [ ] Read [docs/crucible-go/standards/agentic-attribution.md](docs/crucible-go/standards/agentic-attribution.md) - Attribution standards
+- [ ] Read [docs/crucible-go/standards/coding/go.md](docs/crucible-go/standards/coding/go.md) - Coding standards
 
 ### 3. Context Assessment
 

@@ -18,8 +18,8 @@ Agent Work → Pre-Push Validation → Guardian Approval → Human Review → Au
 
 ```bash
 # Quality Gates (MANDATORY)
-make pre-commit          # All quality checks pass
-make pre-push           # Additional validation
+make precommit          # All quality checks pass
+make prepush           # Additional validation
 make test-coverage-check # Coverage requirements met
 
 # Content Validation
@@ -43,8 +43,8 @@ Target: [origin/main]
 Changes: [Brief summary of what will be pushed]
 
 Pre-Push Validation Complete:
-✅ make pre-commit passed
-✅ make pre-push passed
+✅ make precommit passed
+✅ make prepush passed
 ✅ Coverage requirements met
 ✅ Attribution standards followed
 ✅ No sensitive data detected

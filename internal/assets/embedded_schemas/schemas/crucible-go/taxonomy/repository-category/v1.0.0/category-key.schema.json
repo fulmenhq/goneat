@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.fulmenhq.dev/taxonomy/repository-category/v1.0.0/category-key.schema.json",
+  "title": "Fulmen Repository Category Key",
+  "description": "Enum of canonical Fulmen repository category identifiers",
+  "type": "string",
+  "enum": [
+    "cli",
+    "workhorse",
+    "service",
+    "library",
+    "pipeline",
+    "codex",
+    "sdk"
+  ],
+  "examples": [
+    "workhorse"
+  ]
+}

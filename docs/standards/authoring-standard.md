@@ -157,7 +157,7 @@ gofmt -s -w .
 
 ```bash
 # Run all quality checks
-make pre-commit
+make precommit
 
 # Individual checks
 make fmt          # Format code and docs

@@ -175,10 +175,9 @@ make fmt                    # Format code
 make version-set VERSION=v0.2.9  # Update version
 
 # RC validation (do not tag until all pass)
-make build-all              # Build platform binaries
-scripts/package-artifacts.sh  # Create archives + checksums
+make build-all              # Build all platforms
 make license-audit          # Should pass locally and in CI
-make pre-push               # Runs assess with build gate
+make prepush               # Runs assess with build gate
 
 # Tag/push only after above succeed
 git tag -a v0.2.9 -m "release: v0.2.9" && git push origin v0.2.9
