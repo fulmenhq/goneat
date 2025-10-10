@@ -75,7 +75,7 @@ func (c *GoClient) GetMetadata(name, version string) (*Metadata, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch module info: %w", err)
 	}
-	defer proxyResp.Body.Close()
+	defer func() { _ = proxyResp.Body.Close() }()
 
 	var moduleInfo struct {
 		Version string    `json:"Version"`

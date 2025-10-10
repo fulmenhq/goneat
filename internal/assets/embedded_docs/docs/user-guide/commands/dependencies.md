@@ -9,6 +9,7 @@ goneat dependencies [flags] [target]
 ```
 
 **Arguments:**
+
 - `target`: Directory to analyze (default: current directory)
 
 ## Features
@@ -22,6 +23,7 @@ goneat dependencies --licenses .
 ```
 
 **Capabilities:**
+
 - Automatic license type detection
 - Forbidden license enforcement (GPL, AGPL, etc.)
 - Multi-language support via language-specific analyzers
@@ -36,6 +38,7 @@ goneat dependencies --cooling .
 ```
 
 **Capabilities:**
+
 - Minimum package age enforcement (e.g., 7 days)
 - Download threshold validation
 - Exception patterns for trusted packages
@@ -50,6 +53,7 @@ goneat dependencies --sbom --sbom-format cyclonedx
 ```
 
 **Formats:**
+
 - CycloneDX (default)
 - SPDX
 
@@ -98,19 +102,19 @@ licenses:
 # Supply chain security (cooling policy)
 cooling:
   enabled: true
-  min_age_days: 7           # Minimum package age in days
-  min_downloads: 100        # Minimum total downloads
-  min_downloads_recent: 10  # Minimum recent downloads
-  alert_only: false         # Fail build or alert only
-  grace_period_days: 3      # Grace period for new packages
-  exceptions:               # Trusted packages
+  min_age_days: 7 # Minimum package age in days
+  min_downloads: 100 # Minimum total downloads
+  min_downloads_recent: 10 # Minimum recent downloads
+  alert_only: false # Fail build or alert only
+  grace_period_days: 3 # Grace period for new packages
+  exceptions: # Trusted packages
     - pattern: "github.com/myorg/*"
       reason: "Internal packages"
 
 # Policy engine configuration
 policy_engine:
-  type: embedded             # or "server" for remote OPA
-  url: ""                    # OPA server URL (if type=server)
+  type: embedded # or "server" for remote OPA
+  url: "" # OPA server URL (if type=server)
 
 # Language-specific settings (optional)
 languages:
@@ -133,6 +137,7 @@ goneat dependencies --licenses .
 ```
 
 **Output:**
+
 ```json
 {
   "Dependencies": [
@@ -179,6 +184,7 @@ goneat dependencies --licenses --fail-on any .
 ```
 
 **Exit codes:**
+
 - `0`: Analysis passed
 - `1`: Analysis failed based on `--fail-on` threshold
 
@@ -186,14 +192,14 @@ goneat dependencies --licenses --fail-on any .
 
 ### Supported Languages
 
-| Language   | Detection               | Status          |
-|------------|-------------------------|-----------------|
-| Go         | `go.mod`                | ✅ Wave 1       |
-| JavaScript | `package.json`          | ✅ Wave 2 Phase 1 |
-| TypeScript | `package.json`          | ✅ Wave 2 Phase 1 |
+| Language   | Detection                            | Status            |
+| ---------- | ------------------------------------ | ----------------- |
+| Go         | `go.mod`                             | ✅ Wave 1         |
+| JavaScript | `package.json`                       | ✅ Wave 2 Phase 1 |
+| TypeScript | `package.json`                       | ✅ Wave 2 Phase 1 |
 | Python     | `pyproject.toml`, `requirements.txt` | ✅ Wave 2 Phase 1 |
-| Rust       | `Cargo.toml`            | ✅ Wave 2 Phase 1 |
-| C#         | `*.csproj`              | ✅ Wave 2 Phase 1 |
+| Rust       | `Cargo.toml`                         | ✅ Wave 2 Phase 1 |
+| C#         | `*.csproj`                           | ✅ Wave 2 Phase 1 |
 
 ### Language Auto-Detection
 
@@ -203,6 +209,7 @@ goneat dependencies --licenses .
 ```
 
 **Detection order:**
+
 1. Explicit config in `.goneat/dependencies.yaml`
 2. Auto-detection from manifest files
 
@@ -221,6 +228,7 @@ pre-commit:
 ### CI/CD Pipeline
 
 **GitHub Actions:**
+
 ```yaml
 - name: Dependency Analysis
   run: |
@@ -230,6 +238,7 @@ pre-commit:
 ```
 
 **GitLab CI:**
+
 ```yaml
 dependencies:
   script:
@@ -251,6 +260,7 @@ If registry APIs fail (rate limits, network issues), goneat uses conservative fa
 ```
 
 **Conservative behavior:**
+
 - Assumes package is 365 days old (passes cooling policy)
 - Marks dependency with `age_unknown=true`
 - Records error in `registry_error` metadata field
@@ -262,6 +272,7 @@ Error: no supported language detected
 ```
 
 **Solutions:**
+
 1. Add explicit language config in `.goneat/dependencies.yaml`
 2. Ensure manifest file exists (`go.mod`, `package.json`, etc.)
 3. Check supported languages table above
@@ -273,6 +284,7 @@ Error: no supported language detected
 ```
 
 **Solutions:**
+
 1. Verify `.goneat/dependencies.yaml` exists
 2. Validate YAML syntax
 3. Check file permissions
@@ -282,12 +294,14 @@ Error: no supported language detected
 ### Caching
 
 Registry metadata is cached for 24 hours per package:
+
 - **First run**: ~2 seconds per 100 dependencies
 - **Cached runs**: ~50ms per 100 dependencies
 
 ### Concurrent Analysis
 
 Dependency analysis runs concurrently when possible:
+
 - Registry API calls: parallel with connection pooling
 - License detection: parallel per package
 - Policy evaluation: batch processing

@@ -109,7 +109,7 @@ func syncAsset(source Source, asset Asset, basePath string, opts SyncOptions, re
 	}
 
 	// Create destination directory
-	if err := os.MkdirAll(destRoot, 0755); err != nil {
+	if err := os.MkdirAll(destRoot, 0750); err != nil {
 		return fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
@@ -154,7 +154,7 @@ func syncAsset(source Source, asset Asset, basePath string, opts SyncOptions, re
 			dstPath := filepath.Join(destRoot, relPath)
 
 			// Create parent directory
-			if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(dstPath), 0750); err != nil {
 				return fmt.Errorf("failed to create directory for %s: %w", dstPath, err)
 			}
 
@@ -182,7 +182,7 @@ func createSymlinkAsset(asset Asset, destPath, basePath string, opts SyncOptions
 	}
 
 	// Ensure parent directory exists
-	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(destPath), 0750); err != nil {
 		return fmt.Errorf("failed to create parent directory for symlink: %w", err)
 	}
 
@@ -211,7 +211,7 @@ func createSymlinkAsset(asset Asset, destPath, basePath string, opts SyncOptions
 // copyFile copies a single file from src to dst
 func copyFile(src, dst string) error {
 	// Open source file
-	srcFile, err := os.Open(src)
+	srcFile, err := os.Open(src) // #nosec G304 - caller validates paths
 	if err != nil {
 		return fmt.Errorf("failed to open source file: %w", err)
 	}
@@ -228,7 +228,7 @@ func copyFile(src, dst string) error {
 	}
 
 	// Create destination file
-	dstFile, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, srcInfo.Mode())
+	dstFile, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, srcInfo.Mode()) // #nosec G304 - caller validates paths
 	if err != nil {
 		return fmt.Errorf("failed to create destination file: %w", err)
 	}

@@ -70,7 +70,7 @@ func (c *NuGetClient) GetMetadata(name, version string) (*Metadata, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch package metadata: %w", err)
 	}
-	defer pkgResp.Body.Close()
+	defer func() { _ = pkgResp.Body.Close() }()
 
 	if pkgResp.StatusCode != 200 {
 		return nil, fmt.Errorf("NuGet registry returned status %d", pkgResp.StatusCode)
@@ -129,7 +129,7 @@ func (c *NuGetClient) discoverServiceIndex() error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("service index returned status %d", resp.StatusCode)

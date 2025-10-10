@@ -134,31 +134,31 @@ func (a *GoAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisCon
 					}
 				}
 
-			// Check cooling policy using proper checker
-			if coolCfg, err := policy.ParseCoolingConfig(policyConfig); err == nil && coolCfg != nil && coolCfg.Enabled {
-				coolingChecker := cooling.NewChecker(*coolCfg)
+				// Check cooling policy using proper checker
+				if coolCfg, err := policy.ParseCoolingConfig(policyConfig); err == nil && coolCfg != nil && coolCfg.Enabled {
+					coolingChecker := cooling.NewChecker(*coolCfg)
 
-				for i := range deps {
-					dep := &deps[i]
-					coolingResult, err := coolingChecker.Check(dep)
-					if err != nil {
-						// Log error but continue
-						continue
-					}
+					for i := range deps {
+						dep := &deps[i]
+						coolingResult, err := coolingChecker.Check(dep)
+						if err != nil {
+							// Log error but continue
+							continue
+						}
 
-					if !coolingResult.Passed {
-						for _, violation := range coolingResult.Violations {
-							issues = append(issues, Issue{
-								Type:       string(violation.Type),
-								Severity:   string(violation.Severity),
-								Message:    violation.Message,
-								Dependency: dep,
-							})
-							passed = false
+						if !coolingResult.Passed {
+							for _, violation := range coolingResult.Violations {
+								issues = append(issues, Issue{
+									Type:       string(violation.Type),
+									Severity:   string(violation.Severity),
+									Message:    violation.Message,
+									Dependency: dep,
+								})
+								passed = false
+							}
 						}
 					}
 				}
-			}
 			}
 		}
 

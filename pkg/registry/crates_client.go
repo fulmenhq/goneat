@@ -66,7 +66,7 @@ func (c *CratesClient) GetMetadata(name, version string) (*Metadata, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch crate metadata: %w", err)
 	}
-	defer crateResp.Body.Close()
+	defer func() { _ = crateResp.Body.Close() }()
 
 	if crateResp.StatusCode != 200 {
 		return nil, fmt.Errorf("crates.io registry returned status %d", crateResp.StatusCode)

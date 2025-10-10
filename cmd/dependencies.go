@@ -109,7 +109,7 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return fmt.Errorf("failed to marshal result: %w", err)
 			}
-			if err := os.WriteFile(output, data, 0644); err != nil {
+			if err := os.WriteFile(output, data, 0600); err != nil {
 				return fmt.Errorf("failed to write output file: %w", err)
 			}
 		} else {

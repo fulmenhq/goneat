@@ -60,7 +60,7 @@ func (c *NPMClient) GetMetadata(name, version string) (*Metadata, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch package metadata: %w", err)
 	}
-	defer pkgResp.Body.Close()
+	defer func() { _ = pkgResp.Body.Close() }()
 
 	if pkgResp.StatusCode != 200 {
 		return nil, fmt.Errorf("npm registry returned status %d", pkgResp.StatusCode)

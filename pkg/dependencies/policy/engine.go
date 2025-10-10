@@ -72,7 +72,7 @@ func (e *OPAEngine) LoadPolicy(source string) error {
 		return fmt.Errorf("policy file not accessible: %w", err)
 	}
 
-	data, err := os.ReadFile(absPath)
+	data, err := os.ReadFile(absPath) // #nosec G304 - path validated above
 	if err != nil {
 		return fmt.Errorf("failed to read policy file: %w", err)
 	}

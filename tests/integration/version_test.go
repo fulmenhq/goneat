@@ -582,9 +582,9 @@ func TestVersionCommand_Learning_OptimizationSuggestions(t *testing.T) {
 	// Note: Git commit info is only available when built with ldflags,
 	// so we only check for fields that are always present
 	expectedFields := []string{
-		"Build time:",  // Always present (shows "unknown" when built without ldflags)
-		"Platform:",    // Always present (from runtime.GOOS/GOARCH)
-		"Go:",          // Always present (from runtime.Version())
+		"Build time:", // Always present (shows "unknown" when built without ldflags)
+		"Platform:",   // Always present (from runtime.GOOS/GOARCH)
+		"Go:",         // Always present (from runtime.Version())
 	}
 
 	for _, field := range expectedFields {

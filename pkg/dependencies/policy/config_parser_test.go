@@ -7,12 +7,12 @@ import (
 func TestParseCoolingConfig_Enabled(t *testing.T) {
 	policyData := map[string]interface{}{
 		"cooling": map[string]interface{}{
-			"enabled":                true,
-			"min_age_days":           14,
-			"min_downloads":          500,
-			"min_downloads_recent":   50,
-			"alert_only":             true,
-			"grace_period_days":      7,
+			"enabled":              true,
+			"min_age_days":         14,
+			"min_downloads":        500,
+			"min_downloads_recent": 50,
+			"alert_only":           true,
+			"grace_period_days":    7,
 		},
 	}
 

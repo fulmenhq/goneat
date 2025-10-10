@@ -4,67 +4,114 @@
   "title": "Goneat Dependency Policy Configuration",
   "type": "object",
   "properties": {
-    "version": { "const": "v1" },
+    "version": {
+      "const": "v1"
+    },
     "licenses": {
       "type": "object",
       "properties": {
         "forbidden": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "allowed": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
     "cooling": {
       "type": "object",
       "properties": {
-        "enabled": { "type": "boolean" },
-        "min_age_days": { "type": "integer", "minimum": 0 },
-        "min_downloads": { "type": "integer", "minimum": 0 },
-        "min_downloads_recent": { "type": "integer", "minimum": 0 },
+        "enabled": {
+          "type": "boolean"
+        },
+        "min_age_days": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "min_downloads": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "min_downloads_recent": {
+          "type": "integer",
+          "minimum": 0
+        },
         "exceptions": {
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "pattern": { "type": "string" },
-              "reason": { "type": "string" },
-              "until": { "type": "string", "format": "date" },
-              "approved_by": { "type": "string" }
+              "pattern": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "until": {
+                "type": "string",
+                "format": "date"
+              },
+              "approved_by": {
+                "type": "string"
+              }
             }
           }
         },
-        "alert_only": { "type": "boolean" },
-        "grace_period_days": { "type": "integer", "minimum": 0 }
+        "alert_only": {
+          "type": "boolean"
+        },
+        "grace_period_days": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "policy_engine": {
       "type": "object",
       "properties": {
-        "type": { "enum": ["embedded", "remote"] },
+        "type": {
+          "enum": [
+            "embedded",
+            "remote"
+          ]
+        },
         "remote": {
           "type": "object",
           "properties": {
-            "url": { "type": "string", "format": "uri" },
+            "url": {
+              "type": "string",
+              "format": "uri"
+            },
             "auth": {
               "type": "object",
               "properties": {
-                "type": { "type": "string" },
-                "token_env": { "type": "string" }
+                "type": {
+                  "type": "string"
+                },
+                "token_env": {
+                  "type": "string"
+                }
               }
             }
           }
         },
         "rego_files": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         }
       }
     }
   },
-  "required": ["version"],
+  "required": [
+    "version"
+  ],
   "additionalProperties": false
 }

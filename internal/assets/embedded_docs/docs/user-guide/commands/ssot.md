@@ -29,11 +29,11 @@ goneat ssot sync [flags]
 
 ### Flags
 
-| Flag | Description |
-|------|-------------|
-| `--local-path string` | Local path to source repository (overrides config) |
-| `--dry-run` | Show what would be synced without performing sync |
-| `--verbose` | Show verbose output including file-level operations |
+| Flag                  | Description                                         |
+| --------------------- | --------------------------------------------------- |
+| `--local-path string` | Local path to source repository (overrides config)  |
+| `--dry-run`           | Show what would be synced without performing sync   |
+| `--verbose`           | Show verbose output including file-level operations |
 
 ### Examples
 
@@ -59,6 +59,7 @@ The `ssot sync` command reads configuration from:
 - **`.goneat/ssot-consumer.local.yaml`** - Local overrides (gitignored, for development)
 
 Configuration priority (highest to lowest):
+
 1. Command-line flags (`--local-path`)
 2. Environment variables (`GONEAT_SSOT_CONSUMER_<SOURCE>_LOCAL_PATH`)
 3. `.goneat/ssot-consumer.local.yaml` (local overrides)
@@ -78,10 +79,10 @@ sources:
     sync_path_base: lang/go
     assets:
       - type: doc
-        paths: ['docs/**/*']
+        paths: ["docs/**/*"]
         subdir: docs/crucible-go
       - type: schema
-        paths: ['schemas/**/*']
+        paths: ["schemas/**/*"]
         subdir: schemas/crucible-go
 ```
 
@@ -147,8 +148,8 @@ name: SSOT Sync Check
 on:
   pull_request:
     paths:
-      - 'docs/crucible-go/**'
-      - 'schemas/crucible-go/**'
+      - "docs/crucible-go/**"
+      - "schemas/crucible-go/**"
 
 jobs:
   check-sync:
@@ -183,15 +184,18 @@ jobs:
 ### Troubleshooting
 
 **Configuration not found**:
+
 - Ensure `.goneat/ssot-consumer.yaml` exists and is valid
 - Check that the file follows the expected schema
 
 **Source not found**:
+
 - Verify source repository exists at configured path
 - For local development, ensure `localPath` points to correct directory
 - Check environment variable overrides if using CI/CD
 
 **Sync fails**:
+
 - Run with `--verbose` flag for detailed file operation logs
 - Use `--dry-run` to preview changes without modifying files
 - Check file permissions and repository access
