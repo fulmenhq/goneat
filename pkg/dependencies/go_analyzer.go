@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/fulmenhq/goneat/pkg/config"
+	"github.com/fulmenhq/goneat/pkg/cooling"
 	"github.com/fulmenhq/goneat/pkg/dependencies/policy"
 	"github.com/fulmenhq/goneat/pkg/registry"
 	"github.com/google/go-licenses/licenses"
@@ -133,31 +134,31 @@ func (a *GoAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisCon
 					}
 				}
 
-				// Check cooling policy
-				if cooling, ok := policyConfig["cooling"].(map[string]interface{}); ok {
-					if enabled, ok := cooling["enabled"].(bool); ok && enabled {
-						minAgeDays := 7 // default
-						if minAge, ok := cooling["min_age_days"].(int); ok {
-							minAgeDays = minAge
-						}
+			// Check cooling policy using proper checker
+			if coolCfg, err := policy.ParseCoolingConfig(policyConfig); err == nil && coolCfg != nil && coolCfg.Enabled {
+				coolingChecker := cooling.NewChecker(*coolCfg)
 
-						for i := range deps {
-							dep := &deps[i]
-							if ageDays, ok := dep.Metadata["age_days"].(int); ok {
-								if ageDays < minAgeDays {
-									issues = append(issues, Issue{
-										Type:     "cooling",
-										Severity: "high",
-										Message: fmt.Sprintf("Package %s (%s) violates cooling policy: %d days old < minimum %d",
-											dep.Name, dep.Version, ageDays, minAgeDays),
-										Dependency: dep,
-									})
-									passed = false
-								}
-							}
+				for i := range deps {
+					dep := &deps[i]
+					coolingResult, err := coolingChecker.Check(dep)
+					if err != nil {
+						// Log error but continue
+						continue
+					}
+
+					if !coolingResult.Passed {
+						for _, violation := range coolingResult.Violations {
+							issues = append(issues, Issue{
+								Type:       string(violation.Type),
+								Severity:   string(violation.Severity),
+								Message:    violation.Message,
+								Dependency: dep,
+							})
+							passed = false
 						}
 					}
 				}
+			}
 			}
 		}
 

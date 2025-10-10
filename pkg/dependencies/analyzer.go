@@ -5,32 +5,22 @@ import (
 	"time"
 
 	"github.com/fulmenhq/goneat/pkg/config"
+	"github.com/fulmenhq/goneat/pkg/dependencies/types"
 )
 
-// Language represents a programming language
-type Language string
+// Re-export types for backward compatibility
+type Language = types.Language
+type Module = types.Module
+type License = types.License
+type Dependency = types.Dependency
 
 const (
-	LanguageGo         Language = "go"
-	LanguageTypeScript Language = "typescript"
-	LanguagePython     Language = "python"
-	LanguageRust       Language = "rust"
-	LanguageCSharp     Language = "csharp"
+	LanguageGo         = types.LanguageGo
+	LanguageTypeScript = types.LanguageTypeScript
+	LanguagePython     = types.LanguagePython
+	LanguageRust       = types.LanguageRust
+	LanguageCSharp     = types.LanguageCSharp
 )
-
-// Module represents a dependency module
-type Module struct {
-	Name     string
-	Version  string
-	Language Language
-}
-
-// License represents a software license
-type License struct {
-	Name string
-	URL  string
-	Type string // e.g., MIT, Apache-2.0
-}
 
 // Policy represents a policy for dependency analysis
 type Policy struct {
@@ -70,13 +60,6 @@ type AnalysisResult struct {
 	Issues       []Issue
 	Passed       bool
 	Duration     time.Duration
-}
-
-// Dependency represents an analyzed dependency
-type Dependency struct {
-	Module
-	License  *License
-	Metadata map[string]interface{}
 }
 
 // Issue represents an analysis issue
