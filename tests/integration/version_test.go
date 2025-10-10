@@ -578,21 +578,18 @@ func TestVersionCommand_Learning_OptimizationSuggestions(t *testing.T) {
 
 	output := result.Output
 
-	// Should show extended information
+	// Should show extended information that's always present
+	// Note: Git commit info is only available when built with ldflags,
+	// so we only check for fields that are always present
 	expectedFields := []string{
-		"Build time:",
-		"Git commit:",
-		"Platform:",
+		"Build time:",  // Always present (shows "unknown" when built without ldflags)
+		"Platform:",    // Always present (from runtime.GOOS/GOARCH)
+		"Go:",          // Always present (from runtime.Version())
 	}
 
 	for _, field := range expectedFields {
 		if !strings.Contains(output, field) {
 			t.Errorf("Expected extended output to contain '%s', got: %s", field, output)
 		}
-	}
-
-	// Should show git information
-	if !strings.Contains(output, "Git commit:") {
-		t.Errorf("Expected git commit information, got: %s", output)
 	}
 }

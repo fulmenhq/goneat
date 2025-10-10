@@ -34,10 +34,11 @@ const (
 	CategoryManagement    CommandCategory = "management"    // project setup, coordination
 
 	// GroupNeat Categories
-	CategoryFormatting CommandCategory = "formatting" // format, code style consistency
-	CategoryAnalysis   CommandCategory = "analysis"   // lint, vet, static analysis
-	CategoryAssessment CommandCategory = "assessment" // assess, multi-operation inspection
-	CategoryValidation CommandCategory = "validation" // check operations, compliance
+	CategoryFormatting   CommandCategory = "formatting"   // format, code style consistency
+	CategoryAnalysis     CommandCategory = "analysis"     // lint, vet, static analysis
+	CategoryAssessment   CommandCategory = "assessment"   // assess, multi-operation inspection
+	CategoryValidation   CommandCategory = "validation"   // check operations, compliance
+	CategoryDependencies CommandCategory = "dependencies" // dependency management
 )
 
 // CommandCapabilities defines what a command can do

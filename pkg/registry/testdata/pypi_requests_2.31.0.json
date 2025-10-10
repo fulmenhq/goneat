@@ -1,0 +1,16 @@
+{
+  "info": {
+    "author": "Kenneth Reitz",
+    "name": "requests",
+    "version": "2.31.0"
+  },
+  "releases": {
+    "2.31.0": [
+      {
+        "filename": "requests-2.31.0-py3-none-any.whl",
+        "upload_time": "2023-05-22T13:30:00",
+        "packagetype": "bdist_wheel"
+      }
+    ]
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://goneat.dev/schemas/dependencies/v1.0.0/dependency-policy.schema.json",
+  "title": "Goneat Dependency Policy Configuration",
+  "type": "object",
+  "properties": {
+    "version": { "const": "v1" },
+    "licenses": {
+      "type": "object",
+      "properties": {
+        "forbidden": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "allowed": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "cooling": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "min_age_days": { "type": "integer", "minimum": 0 },
+        "min_downloads": { "type": "integer", "minimum": 0 },
+        "min_downloads_recent": { "type": "integer", "minimum": 0 },
+        "exceptions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pattern": { "type": "string" },
+              "reason": { "type": "string" },
+              "until": { "type": "string", "format": "date" },
+              "approved_by": { "type": "string" }
+            }
+          }
+        },
+        "alert_only": { "type": "boolean" },
+        "grace_period_days": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "policy_engine": {
+      "type": "object",
+      "properties": {
+        "type": { "enum": ["embedded", "remote"] },
+        "remote": {
+          "type": "object",
+          "properties": {
+            "url": { "type": "string", "format": "uri" },
+            "auth": {
+              "type": "object",
+              "properties": {
+                "type": { "type": "string" },
+                "token_env": { "type": "string" }
+              }
+            }
+          }
+        },
+        "rego_files": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  },
+  "required": ["version"],
+  "additionalProperties": false
+}

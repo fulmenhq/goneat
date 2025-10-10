@@ -16,9 +16,10 @@ import (
 
 // Config holds all configuration for goneat
 type Config struct {
-	Format   FormatConfig   `mapstructure:"format"`
-	Security SecurityConfig `mapstructure:"security"`
-	Schema   SchemaConfig   `mapstructure:"schema"`
+	Format       FormatConfig       `mapstructure:"format"`
+	Security     SecurityConfig     `mapstructure:"security"`
+	Schema       SchemaConfig       `mapstructure:"schema"`
+	Dependencies DependenciesConfig `mapstructure:"dependencies"`
 }
 
 // FormatConfig holds formatting configuration
@@ -102,6 +103,25 @@ var defaultConfig = Config{
 			JSONSchema: JSONSchemaOptions{Offline: true},
 		},
 	},
+	Dependencies: DependenciesConfig{
+		PolicyPath: ".goneat/dependencies.yaml",
+		Engine: PolicyEngineConfig{
+			Type: "embedded",
+		},
+		Cooling: CoolingConfig{
+			Enabled:            true,
+			MinAgeDays:         7,
+			MinDownloads:       100,
+			MinDownloadsRecent: 10,
+			AlertOnly:          false,
+			GracePeriodDays:    3,
+		},
+		SBOM: SBOMConfig{
+			Format: "cyclonedx",
+			Enrich: false,
+		},
+		AutoDetect: true,
+	},
 }
 
 // LoadConfig loads configuration from various sources
@@ -143,6 +163,19 @@ func LoadConfig() (*Config, error) {
 	v.SetDefault("schema.auto_detect", defaultConfig.Schema.AutoDetect)
 	v.SetDefault("schema.patterns", defaultConfig.Schema.Patterns)
 	v.SetDefault("schema.types.jsonschema.offline", defaultConfig.Schema.Types.JSONSchema.Offline)
+
+	// Dependencies defaults
+	v.SetDefault("dependencies.policy_path", defaultConfig.Dependencies.PolicyPath)
+	v.SetDefault("dependencies.engine.type", defaultConfig.Dependencies.Engine.Type)
+	v.SetDefault("dependencies.cooling.enabled", defaultConfig.Dependencies.Cooling.Enabled)
+	v.SetDefault("dependencies.cooling.min_age_days", defaultConfig.Dependencies.Cooling.MinAgeDays)
+	v.SetDefault("dependencies.cooling.min_downloads", defaultConfig.Dependencies.Cooling.MinDownloads)
+	v.SetDefault("dependencies.cooling.min_downloads_recent", defaultConfig.Dependencies.Cooling.MinDownloadsRecent)
+	v.SetDefault("dependencies.cooling.alert_only", defaultConfig.Dependencies.Cooling.AlertOnly)
+	v.SetDefault("dependencies.cooling.grace_period_days", defaultConfig.Dependencies.Cooling.GracePeriodDays)
+	v.SetDefault("dependencies.sbom.format", defaultConfig.Dependencies.SBOM.Format)
+	v.SetDefault("dependencies.sbom.enrich", defaultConfig.Dependencies.SBOM.Enrich)
+	v.SetDefault("dependencies.auto_detect", defaultConfig.Dependencies.AutoDetect)
 
 	// Configuration file search paths
 	v.SetConfigName("goneat")
@@ -251,6 +284,7 @@ func LoadProjectConfig() (*Config, error) {
 	globalConfig.Format = projectConfig.Format
 	globalConfig.Security = projectConfig.Security
 	globalConfig.Schema = projectConfig.Schema
+	globalConfig.Dependencies = projectConfig.Dependencies
 
 	return globalConfig, nil
 }
@@ -311,6 +345,58 @@ type SchemaConfig struct {
 	Types      SchemaTypes `mapstructure:"types"`
 }
 
+type DependenciesConfig struct {
+	PolicyPath string             `mapstructure:"policy_path"`
+	Engine     PolicyEngineConfig `mapstructure:"engine"`
+	Cooling    CoolingConfig      `mapstructure:"cooling"`
+	SBOM       SBOMConfig         `mapstructure:"sbom"`
+	Languages  []LanguageConfig   `mapstructure:"languages"`
+	AutoDetect bool               `mapstructure:"auto_detect"`
+}
+
+type PolicyEngineConfig struct {
+	Type      string       `mapstructure:"type"` // "embedded", "remote"
+	Remote    RemoteConfig `mapstructure:"remote"`
+	RegoFiles []string     `mapstructure:"rego_files"`
+}
+
+type RemoteConfig struct {
+	URL  string     `mapstructure:"url"`
+	Auth AuthConfig `mapstructure:"auth"`
+}
+
+type AuthConfig struct {
+	Type     string `mapstructure:"type"`
+	TokenEnv string `mapstructure:"token_env"`
+}
+
+type CoolingConfig struct {
+	Enabled            bool               `mapstructure:"enabled"`
+	MinAgeDays         int                `mapstructure:"min_age_days"`
+	MinDownloads       int                `mapstructure:"min_downloads"`
+	MinDownloadsRecent int                `mapstructure:"min_downloads_recent"`
+	Exceptions         []CoolingException `mapstructure:"exceptions"`
+	AlertOnly          bool               `mapstructure:"alert_only"`
+	GracePeriodDays    int                `mapstructure:"grace_period_days"`
+}
+
+type CoolingException struct {
+	Pattern    string `mapstructure:"pattern"`
+	Reason     string `mapstructure:"reason"`
+	Until      string `mapstructure:"until"`
+	ApprovedBy string `mapstructure:"approved_by"`
+}
+
+type SBOMConfig struct {
+	Format string `mapstructure:"format"`
+	Enrich bool   `mapstructure:"enrich"`
+}
+
+type LanguageConfig struct {
+	Language string   `mapstructure:"language"`
+	Paths    []string `mapstructure:"paths"`
+}
+
 type SchemaTypes struct {
 	JSONSchema JSONSchemaOptions `mapstructure:"jsonschema"`
 }
@@ -321,6 +407,9 @@ type JSONSchemaOptions struct {
 
 // GetSchemaConfig returns schema configuration (preview)
 func (c *Config) GetSchemaConfig() SchemaConfig { return c.Schema }
+
+// GetDependenciesConfig returns dependencies configuration
+func (c *Config) GetDependenciesConfig() DependenciesConfig { return c.Dependencies }
 
 // parseDurationDefault is a helper to create default duration values from string literal
 func parseDurationDefault(s string) time.Duration {
