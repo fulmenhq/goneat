@@ -182,17 +182,38 @@ clean: ## Clean build artifacts and backup files
 	@echo "✅ Clean completed"
 
 # Test targets
-test: ## Run all tests
-	@echo "Running test suite..."
-	GONEAT_OFFLINE_SCHEMA_VALIDATION=true GONEAT_GUARDIAN_TEST_MODE=true GONEAT_GUARDIAN_AUTO_DENY=true $(GOTEST) ./... -v
+test: test-unit test-integration-cooling-synthetic ## Run all tests (unit + Tier 1 integration)
+	@echo "✅ Test suite completed"
 
 test-unit: ## Run unit tests only
 	@echo "Running unit tests..."
-	GONEAT_OFFLINE_SCHEMA_VALIDATION=true GONEAT_GUARDIAN_TEST_MODE=true GONEAT_GUARDIAN_AUTO_DENY=true $(GOTEST) ./cmd/... ./internal/... -v
+	GONEAT_OFFLINE_SCHEMA_VALIDATION=true GONEAT_GUARDIAN_TEST_MODE=true GONEAT_GUARDIAN_AUTO_DENY=true $(GOTEST) ./... -v
 
 test-integration: ## Run integration tests only
 	@echo "Running integration tests..."
 	GONEAT_OFFLINE_SCHEMA_VALIDATION=true GONEAT_GUARDIAN_TEST_MODE=true GONEAT_GUARDIAN_AUTO_DENY=true $(GOTEST) ./tests/integration/... -v
+
+test-integration-cooling-synthetic: ## Run cooling policy integration test (synthetic fixture only, CI-friendly)
+	@echo "Running cooling policy integration test (synthetic fixture)..."
+	$(GOTEST) ./pkg/dependencies/... -tags=integration -run TestCoolingPolicy_Synthetic -v -timeout=5m
+
+test-integration-cooling: ## Run cooling policy integration tests (requires GONEAT_COOLING_TEST_ROOT or repos in ~/dev/playground)
+	@echo "Running cooling policy integration tests..."
+	@echo "⚠️  This requires test repositories. Set GONEAT_COOLING_TEST_ROOT or clone repos to ~/dev/playground"
+	@echo "📚 See docs/appnotes/lib/dependencies/TEST_EXECUTION_GUIDE.md for setup instructions"
+	$(GOTEST) ./pkg/dependencies/... -tags=integration -v -timeout=15m
+
+test-integration-cooling-quick: ## Quick cooling policy test (Hugo baseline only)
+	@echo "Running quick cooling policy test (Hugo baseline)..."
+	@echo "⚠️  This requires Hugo repository. Set GONEAT_COOLING_TEST_ROOT or clone to ~/dev/playground"
+	$(GOTEST) ./pkg/dependencies/... -tags=integration -run TestCoolingPolicy_Hugo_Baseline -v -timeout=5m
+
+test-integration-extended: ## Run extended integration tests (Tier 1 + Tier 2 + Tier 3, comprehensive)
+	@echo "Running extended integration tests (all tiers)..."
+	@echo "⚠️  This requires test repositories. Set GONEAT_COOLING_TEST_ROOT or clone repos to ~/dev/playground"
+	@$(MAKE) test-integration-cooling-synthetic
+	@$(MAKE) test-integration-cooling-quick
+	@$(MAKE) test-integration-cooling
 
 test-coverage: ## Run tests with coverage
 	@echo "Running tests with coverage..."

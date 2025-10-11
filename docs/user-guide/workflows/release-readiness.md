@@ -37,6 +37,9 @@ goneat maturity validate --level warn
 
 # Full assess with maturity
 goneat assess --categories maturity,lint,format
+
+# Run tests (includes Tier 1 integration)
+make test
 ```
 
 **Hooks**:
@@ -67,6 +70,29 @@ goneat repository policy validate --level error
 
 # Assess full repo
 goneat assess --categories maturity,security,tools --json > readiness.json
+
+# Integration testing (quick validation)
+export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground
+make test-integration-cooling-quick  # Tier 2: ~8s, Hugo baseline
+```
+
+**Integration Testing**:
+
+Quick validation recommended for RC:
+```bash
+# Set test repo location
+export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground
+
+# Run Tier 2 quick test (Hugo baseline)
+make test-integration-cooling-quick
+
+# Expected: < 15s, < 10% violations
+```
+
+**Expected Results**:
+- Hugo baseline: ~8s (warm cache)
+- Violations: < 10% (1-2 expected)
+- All registry calls cached on second run
 ```
 
 **Hooks**:
@@ -114,6 +140,30 @@ goneat repository policy validate --level error
 
 # Full release assess
 goneat assess --categories all --output json > release-report.json
+
+# Integration testing (comprehensive for major releases)
+export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground
+make test-integration-extended  # All 3 tiers, ~2 minutes
+```
+
+**Integration Testing**:
+
+Comprehensive validation for major releases (v0.3.0+):
+```bash
+# Set test repo location
+export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground
+
+# Run all 3 tiers
+make test-integration-extended
+
+# Document results
+cat /tmp/goneat-phase4-full-suite.log > dist/release/integration-test-results.log
+```
+
+**Expected Results**:
+- Tier 1: PASS (< 10s)
+- Tier 2: PASS (~8s warm)
+- Tier 3: 6/8 PASS (2 known non-blocking failures)
 ```
 
 **Hooks**:

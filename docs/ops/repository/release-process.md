@@ -38,6 +38,27 @@ make version-set VERSION=0.2.0-rc.1
 make test-coverage && make coverage-check
 ```
 
+3a. Integration testing (based on release type)
+
+**Standard Releases** (patch/minor):
+```bash
+# Tier 1 already runs in make test
+make test  # Includes synthetic integration test
+
+# Tier 2 recommended before tagging
+export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground
+make test-integration-cooling-quick  # ~8s, Hugo baseline
+```
+
+**Major Releases** (v0.3.0, v1.0.0):
+```bash
+# Run comprehensive integration suite
+export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground
+make test-integration-extended  # All 3 tiers, ~2 minutes
+```
+
+See [Integration Test Protocol](../../.plans/active/v0.3.0/wave-2-phase-4-INTEGRATION-TEST-PROTOCOL.md) for details.
+
 4. Build artifacts
 
 ```bash

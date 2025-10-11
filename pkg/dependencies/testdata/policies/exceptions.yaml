@@ -1,0 +1,42 @@
+# Exception Pattern Testing Policy
+# Scenario 3: Verify glob and prefix pattern matching
+version: v1
+
+licenses:
+  forbidden:
+    - GPL-3.0
+    - AGPL-3.0
+
+cooling:
+  enabled: true
+  min_age_days: 1000  # Extremely strict to force exceptions
+  min_downloads: 10000000
+  alert_only: false
+
+  exceptions:
+    # Traefik organization packages
+    - pattern: "github.com/traefik/*"
+      reason: "Traefik organization packages - trusted maintainer"
+      approved_by: "security-team"
+
+    # Old Traefik org name
+    - pattern: "github.com/containous/*"
+      reason: "Containous (old Traefik org) - trusted maintainer"
+      approved_by: "security-team"
+
+    # Go extended standard library
+    - pattern: "golang.org/x/*"
+      reason: "Go extended standard library - official Google packages"
+      approved_by: "architecture-team"
+
+    # Trusted Go community maintainers
+    - pattern: "github.com/spf13/*"
+      reason: "Steve Francia - core Go team, trusted community member"
+      approved_by: "architecture-team"
+
+    - pattern: "github.com/stretchr/*"
+      reason: "Stretchr - widely used testing libraries"
+      approved_by: "qa-team"
+
+policy_engine:
+  type: embedded

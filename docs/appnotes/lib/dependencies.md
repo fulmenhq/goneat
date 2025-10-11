@@ -2,9 +2,10 @@
 title: "Dependencies Package"
 description: "Dependency analysis, license compliance, and supply chain security"
 library: "pkg/dependencies"
-status: "Wave 2 Phase 1 Complete"
+status: "Wave 2 Phase 4 Complete - Moved to dependencies/ folder"
 version: "v0.3.0"
 last_updated: "2025-10-10"
+redirect_to: "dependencies/README.md"
 tags:
   - "dependencies"
   - "licenses"
@@ -14,6 +15,31 @@ tags:
 ---
 
 # Dependencies Package
+
+**⚠️ Documentation Moved**: This documentation has been refactored into a folder structure for better organization.
+
+**New Location**: [`dependencies/README.md`](dependencies/README.md)
+
+## Quick Links
+
+- **📖 Overview & Getting Started** → [`dependencies/README.md`](dependencies/README.md)
+- **🧪 Testing Guide** → [`dependencies/testing.md`](dependencies/testing.md)
+- **🚀 Quick Test Execution** → [`dependencies/TEST_EXECUTION_GUIDE.md`](dependencies/TEST_EXECUTION_GUIDE.md)
+- **📚 API Reference** → [`dependencies/api-reference.md`](dependencies/api-reference.md) _(coming soon)_
+- **🛡️ Cooling Policy Details** → [`dependencies/cooling-policy.md`](dependencies/cooling-policy.md) _(coming soon)_
+
+## Why the Change?
+
+Following the pattern established by the [`pathfinder/`](pathfinder/README.md) documentation, we've restructured the dependencies documentation into:
+
+- **Focused documents** - Each topic in its own file
+- **Better navigation** - README with document map
+- **Comprehensive testing docs** - Dedicated testing guide per Arch Eagle's feedback
+- **Easier maintenance** - Changes isolated to specific areas
+
+---
+
+# Dependencies Package (Legacy Content Below)
 
 ## Purpose
 

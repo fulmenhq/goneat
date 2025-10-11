@@ -1,0 +1,19 @@
+# Strict Cooling Policy - High Thresholds to Trigger Violations
+# Scenario 2: Stress test to verify violation detection
+version: v1
+
+licenses:
+  forbidden:
+    - GPL-3.0
+    - AGPL-3.0
+
+cooling:
+  enabled: true
+  min_age_days: 365          # 1 year minimum (very strict)
+  min_downloads: 1000000     # 1M downloads required
+  min_downloads_recent: 100000  # 100K recent downloads
+  alert_only: false
+  grace_period_days: 0
+
+policy_engine:
+  type: embedded

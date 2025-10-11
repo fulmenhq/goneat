@@ -1,0 +1,43 @@
+# Time-Limited Exception Testing Policy
+# Scenario 4: Verify exception expiration logic
+version: v1
+
+licenses:
+  forbidden:
+    - GPL-3.0
+    - AGPL-3.0
+
+cooling:
+  enabled: true
+  min_age_days: 14           # 2 weeks minimum
+  min_downloads: 1000
+  min_downloads_recent: 100
+  alert_only: false
+
+  exceptions:
+    # Expired exception (should NOT apply)
+    - pattern: "github.com/test/expired"
+      until: "2020-01-01"
+      reason: "Test expired exception - should not match anything"
+      approved_by: "test-team"
+
+    # Valid long-term exception
+    - pattern: "github.com/open-policy-agent/*"
+      until: "2030-12-31"
+      reason: "OPA organization packages - long-term trust"
+      approved_by: "security-team"
+
+    # Valid exception for spf13 packages
+    - pattern: "github.com/spf13/*"
+      until: "2027-01-01"
+      reason: "Core Go maintainer packages"
+      approved_by: "architecture-team"
+
+    # Recently expired (edge case)
+    - pattern: "github.com/recently-expired/*"
+      until: "2024-01-01"
+      reason: "Test recently expired exception"
+      approved_by: "test-team"
+
+policy_engine:
+  type: embedded

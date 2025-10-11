@@ -15,12 +15,48 @@ This checklist ensures all requirements are met before releasing goneat to the G
 
 ### Code Quality ✅
 
-- [x] **Tests Passing**: All tests pass (`make test`)
+- [x] **Tests Passing**: All tests pass (`make test` - includes Tier 1 integration)
 - [x] **Code Formatting**: Code properly formatted (`make fmt`)
 - [x] **Linting**: No linting issues (`golangci-lint run`)
 - [x] **Static Analysis**: No vet issues (`go vet ./...`)
 - [x] **Build Success**: Project builds without errors (`make build`)
 - [x] **Embedded Assets**: Assets in sync with SSOT (`make verify-embeds`)
+
+### Integration Tests (Three-Tier Strategy)
+
+**Tier 1 (Mandatory - Always Run)**:
+- [x] **Synthetic Fixture Test**: `make test` (includes `test-integration-cooling-synthetic`)
+  - Time: < 10s
+  - Dependencies: None (CI-friendly)
+  - When: Every commit, pre-commit, pre-push
+
+**Tier 2 (Recommended - Pre-Release)**:
+- [ ] **Quick Validation**: `make test-integration-cooling-quick` (Hugo baseline)
+  - Time: ~8s (warm cache), ~38s (cold cache)
+  - Dependencies: Hugo repository (set `GONEAT_COOLING_TEST_ROOT`)
+  - When: Before tagging release
+  - Target: < 15s warm, < 10% violations
+
+**Tier 3 (Optional - Major Releases)**:
+- [ ] **Full Suite**: `make test-integration-cooling` (all 8 scenarios)
+  - Time: ~113s (1.9 minutes)
+  - Dependencies: Hugo, OPA, Traefik, Mattermost repos
+  - When: Major version releases (v0.3.0, v1.0.0, etc.)
+  - Expected: 6/8 passing (2 known non-blocking failures)
+
+**Extended Testing** (Non-Standard):
+- [ ] **All Tiers**: `make test-integration-extended` (comprehensive)
+  - Runs: Tier 1 + Tier 2 + Tier 3 sequentially
+  - When: Final validation before major release
+
+**Setup**:
+```bash
+# For Tier 2/3, set test repo location
+export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground
+# Or clone repos to ~/dev/playground/
+```
+
+See: [Integration Test Protocol](.plans/active/v0.3.0/wave-2-phase-4-INTEGRATION-TEST-PROTOCOL.md)
 
 ### Version Management ✅
 
@@ -167,20 +203,43 @@ This checklist ensures all requirements are met before releasing goneat to the G
 
 ## Release Command Sequence
 
+### Standard Release (Patch/Minor)
+
 ````bash
 # Pre-release preparation
-make test                    # Run all tests
-make build-all              # Build all platforms
-make fmt                    # Format code
-make version-set VERSION=v0.2.9  # Update version
+make test                              # Run all tests (unit + Tier 1 integration)
+make build-all                         # Build all platforms
+make fmt                               # Format code
+make version-set VERSION=v0.2.9        # Update version
+
+# Pre-release validation (recommended)
+export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground
+make test-integration-cooling-quick    # Tier 2: Quick Hugo test (~8s)
 
 # RC validation (do not tag until all pass)
-make build-all              # Build all platforms
-make license-audit          # Should pass locally and in CI
-make prepush               # Runs assess with build gate
+make build-all                         # Build all platforms
+make license-audit                     # Should pass locally and in CI
+make prepush                           # Runs assess with build gate
 
 # Tag/push only after above succeed
 git tag -a v0.2.9 -m "release: v0.2.9" && git push origin v0.2.9
+````
+
+### Major Release (v0.3.0, v1.0.0)
+
+````bash
+# All standard steps above, PLUS:
+
+# Comprehensive integration testing (before tagging)
+export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground
+make test-integration-extended         # All 3 tiers (~2 minutes)
+
+# Document results
+cat /tmp/goneat-phase4-full-suite.log > dist/release/integration-test-results.log
+
+# Tag only after all tiers pass
+git tag -a v0.3.0 -m "release: v0.3.0" && git push origin v0.3.0
+````
 
 ## Commit Consolidation (Required before push)
 

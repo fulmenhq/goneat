@@ -1,0 +1,19 @@
+# Baseline Cooling Policy - Reasonable Defaults
+# Scenario 1: Happy path with real Go projects
+version: v1
+
+licenses:
+  forbidden:
+    - GPL-3.0
+    - AGPL-3.0
+
+cooling:
+  enabled: true
+  min_age_days: 7           # 1 week minimum
+  min_downloads: 100        # Minimal popularity threshold
+  min_downloads_recent: 10  # Recent activity indicator
+  alert_only: false
+  grace_period_days: 3
+
+policy_engine:
+  type: embedded

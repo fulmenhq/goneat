@@ -1,0 +1,14 @@
+# Disabled Cooling Policy - Control Test
+# Scenario: Verify that disabled cooling passes all packages
+version: v1
+
+licenses:
+  forbidden:
+    - GPL-3.0
+    - AGPL-3.0
+
+cooling:
+  enabled: false  # Cooling disabled - should pass all packages
+
+policy_engine:
+  type: embedded

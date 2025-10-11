@@ -26,10 +26,14 @@ Release checklists **must** include the following blocks:
 
 1. **Metadata** – version, target date, release captain (fill in when copy is made).
 2. **Pre-Release Validation** – formatting, tests, schema sync, docs, changelog, version alignment.
-3. **Packaging & Distribution** – language-specific publish steps, package builds, CI verification.
-4. **Tagging & Announcement** – git tag/push, release notes, documentation updates.
-5. **Post-Release Validation** – module install checks, downstream sync confirmations, monitoring follow-up.
-6. **Rollback Plan** – commands and comms channel to revert quickly if needed.
+3. **Integration Testing** (if applicable) – multi-tier test strategy:
+   - Tier 1: Mandatory synthetic tests (CI-friendly, < 10s)
+   - Tier 2: Quick validation with real dependencies (pre-release, ~8s)
+   - Tier 3: Full suite (major releases only, ~2 min)
+4. **Packaging & Distribution** – language-specific publish steps, package builds, CI verification.
+5. **Tagging & Announcement** – git tag/push, release notes, documentation updates.
+6. **Post-Release Validation** – module install checks, downstream sync confirmations, monitoring follow-up.
+7. **Rollback Plan** – commands and comms channel to revert quickly if needed.
 
 Projects can append repository-specific gates (e.g., cross-platform binary builds for `goneat`).
 
@@ -39,6 +43,21 @@ Projects can append repository-specific gates (e.g., cross-platform binary build
 2. **Fill in metadata** (version/date/captain) and check boxes as tasks complete.
 3. **Link back** to the issue/PR from release notes for audit trail.
 4. **Close or archive** the filled-in checklist after the release.
+
+### Integration Test Tiers
+
+For projects with integration tests:
+- **Always run Tier 1** (included in `make test`, < 10s, no dependencies)
+- **Run Tier 2 before releases** (quick validation, ~8s with test repos)
+- **Run Tier 3 for major releases** (comprehensive, ~2 min, all scenarios)
+
+Environment setup:
+```bash
+export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground
+# Or clone test repos to ~/dev/playground/
+```
+
+See project-specific integration test protocol for details.
 
 ## Crucible-Specific Notes
 
