@@ -52,6 +52,36 @@ func init() {
 	dependenciesCmd.Flags().String("fail-on", "critical", "Fail on severity (critical, high, medium, low)")
 }
 
+func shouldFailDependencies(result *dependencies.AnalysisResult, failOn string) bool {
+	if !result.Passed && failOn == "any" {
+		return true
+	}
+
+	// Map severity levels to numeric values for comparison
+	severityLevels := map[string]int{
+		"critical": 4,
+		"high":     3,
+		"medium":   2,
+		"low":      1,
+	}
+
+	threshold, ok := severityLevels[failOn]
+	if !ok {
+		// Invalid threshold, treat as "any"
+		return !result.Passed
+	}
+
+	// Check if any issues meet or exceed the threshold
+	for _, issue := range result.Issues {
+		issueLevel, exists := severityLevels[issue.Severity]
+		if exists && issueLevel >= threshold {
+			return true
+		}
+	}
+
+	return false
+}
+
 func runDependencies(cmd *cobra.Command, args []string) error {
 	licensesFlag, _ := cmd.Flags().GetBool("licenses")
 	coolingFlag, _ := cmd.Flags().GetBool("cooling")
@@ -128,7 +158,7 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 		}
 
 		failOn, _ := cmd.Flags().GetString("fail-on")
-		if !result.Passed && failOn == "any" {
+		if shouldFailDependencies(result, failOn) {
 			return errors.New("analysis failed")
 		}
 	} else if sbomFlag {

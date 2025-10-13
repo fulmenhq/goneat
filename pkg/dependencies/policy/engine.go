@@ -124,10 +124,18 @@ func transpileYAMLToRego(yamlData []byte) string {
 			buf.WriteString("[dep.module.name, dep.module.version, dep.metadata.age_days])\n")
 			buf.WriteString("}\n\n")
 
-			// Helper function for exceptions
-			buf.WriteString("is_cooling_exception(name) if {\n")
-			buf.WriteString("  false  # TODO: implement exception logic\n")
-			buf.WriteString("}\n\n")
+			// Helper function for exceptions with glob pattern matching
+			if exceptions, ok := cooling["exceptions"].([]interface{}); ok && len(exceptions) > 0 {
+				buf.WriteString("is_cooling_exception(name) if {\n")
+				buf.WriteString("  exception := input.policy.cooling.exceptions[_]\n")
+				buf.WriteString("  glob.match(exception.pattern, [], name)\n")
+				buf.WriteString("}\n\n")
+			} else {
+				// No exceptions defined
+				buf.WriteString("is_cooling_exception(name) if {\n")
+				buf.WriteString("  false\n")
+				buf.WriteString("}\n\n")
+			}
 		}
 	}
 

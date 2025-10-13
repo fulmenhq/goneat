@@ -38,7 +38,28 @@ func (a *GoAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisCon
 		return nil, err
 	}
 
-	// Run license check
+	// Run license check - must change to target directory for go-licenses to work properly
+	// Save current directory to restore later
+	originalDir, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	// Convert target to absolute path
+	absTarget, err := filepath.Abs(target)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve target path: %w", err)
+	}
+
+	// Change to target directory
+	if err := os.Chdir(absTarget); err != nil {
+		return nil, fmt.Errorf("failed to change to target directory: %w", err)
+	}
+	defer func() {
+		_ = os.Chdir(originalDir) // Restore original directory
+	}()
+
+	// Run license check for the target module (transitives included by go-licenses)
 	libraries, err := licenses.Libraries(ctx, classifier, false, nil, ".")
 	if err != nil {
 		return nil, err
@@ -89,6 +110,7 @@ func (a *GoAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisCon
 				dep.Metadata["age_days"] = ageDays
 				dep.Metadata["publish_date"] = metadata.PublishDate
 				dep.Metadata["total_downloads"] = metadata.TotalDownloads
+				dep.Metadata["recent_downloads"] = metadata.RecentDownloads
 			} else {
 				// Fallback if registry fails - mark as unknown
 				dep.Metadata["age_days"] = 365 // Conservative fallback (assume old)
@@ -96,8 +118,9 @@ func (a *GoAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisCon
 				dep.Metadata["age_unknown"] = true
 			}
 		} else {
-			// No version means local package
+			// No version means local package - skip cooling checks
 			dep.Metadata["age_days"] = 0
+			dep.Metadata["is_local"] = true
 		}
 
 		deps = append(deps, dep)
@@ -148,10 +171,15 @@ func (a *GoAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisCon
 
 						if !coolingResult.Passed {
 							for _, violation := range coolingResult.Violations {
+								message := violation.Message
+								if violation.Type != "" {
+									message = fmt.Sprintf("[%s] %s", violation.Type, violation.Message)
+								}
+
 								issues = append(issues, Issue{
-									Type:       string(violation.Type),
+									Type:       "cooling",
 									Severity:   string(violation.Severity),
-									Message:    violation.Message,
+									Message:    message,
 									Dependency: dep,
 								})
 								passed = false

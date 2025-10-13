@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 )
@@ -54,8 +55,9 @@ func (c *NPMClient) GetMetadata(name, version string) (*Metadata, error) {
 		return entry.meta, nil
 	}
 
-	// Fetch package metadata
-	pkgURL := fmt.Sprintf("%s/%s", c.baseURL, name)
+	// Fetch package metadata - URL escape the package name for scoped packages
+	escapedName := url.PathEscape(name)
+	pkgURL := fmt.Sprintf("%s/%s", c.baseURL, escapedName)
 	pkgResp, err := c.fetcher.Get(pkgURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch package metadata: %w", err)
@@ -86,10 +88,11 @@ func (c *NPMClient) GetMetadata(name, version string) (*Metadata, error) {
 		return nil, fmt.Errorf("failed to parse publish date: %w", err)
 	}
 
-	// Fetch download stats
+	// Fetch download stats - URL escape the package name for scoped packages
 	lastMonth := time.Now().AddDate(0, -1, 0).Format("2006-01-02")
 	today := time.Now().Format("2006-01-02")
-	downloadsURL := fmt.Sprintf("%s/last-month/%s", c.downloadsURL, name)
+	escapedNameDownloads := url.PathEscape(name)
+	downloadsURL := fmt.Sprintf("%s/last-month/%s", c.downloadsURL, escapedNameDownloads)
 
 	totalDownloads := 0
 	recentDownloads := 0

@@ -60,6 +60,11 @@ func (c *Checker) Check(dep *types.Dependency) (*CheckResult, error) {
 		return &CheckResult{Passed: true}, nil
 	}
 
+	// Skip local modules (no published version)
+	if isLocal, ok := dep.Metadata["is_local"].(bool); ok && isLocal {
+		return &CheckResult{Passed: true}, nil
+	}
+
 	// Check if exception applies
 	if c.isException(dep.Name) {
 		return &CheckResult{
@@ -116,9 +121,29 @@ func (c *Checker) Check(dep *types.Dependency) (*CheckResult, error) {
 		}
 	}
 
+	// Check if we're in grace period
+	inGracePeriod := false
+	if c.config.GracePeriodDays > 0 && len(violations) > 0 {
+		// Check if publish date is within grace period
+		if publishDate, ok := dep.Metadata["publish_date"].(time.Time); ok {
+			gracePeriodEnd := publishDate.AddDate(0, 0, c.config.MinAgeDays+c.config.GracePeriodDays)
+			if time.Now().Before(gracePeriodEnd) {
+				inGracePeriod = true
+			}
+		}
+	}
+
+	// Determine if check passes
+	passed := len(violations) == 0
+	if !passed && (c.config.AlertOnly || inGracePeriod) {
+		// Alert-only mode or grace period - don't fail the check
+		passed = true
+	}
+
 	result := &CheckResult{
-		Passed:     len(violations) == 0,
-		Violations: violations,
+		Passed:        passed,
+		Violations:    violations,
+		InGracePeriod: inGracePeriod,
 	}
 
 	return result, nil
