@@ -75,13 +75,13 @@ func TestCLIIntegration_CoolingPolicy(t *testing.T) {
 		t.Skip("goneat binary not found, run 'make build' first")
 	}
 
-	// Create temporary policy file with aggressive cooling policy
+	// Create temporary policy file with cooling policy that will trigger violations
 	tmpDir := t.TempDir()
 	policyPath := filepath.Join(tmpDir, "cooling-strict.yaml")
 	policyContent := `version: v1
 cooling:
   enabled: true
-  min_age_days: 1000  # Very aggressive to trigger violations
+  min_age_days: 500  # 500 days - should trigger violations for deps < 500 days
 `
 	if err := os.WriteFile(policyPath, []byte(policyContent), 0644); err != nil {
 		t.Fatalf("Failed to create policy file: %v", err)
@@ -105,13 +105,13 @@ cooling:
 
 	// Verify that Passed is false (packages are too young)
 	if result.Passed {
-		t.Error("Expected Passed=false with 1000-day cooling policy")
+		t.Error("Expected Passed=false with 500-day cooling policy")
 	}
 
 	// Verify we have cooling issues
 	coolingIssues := 0
 	for _, issue := range result.Issues {
-		if issue.Type == "cooling" {
+		if issue.Type == "age_violation" || issue.Type == "download_violation" {
 			coolingIssues++
 		}
 	}

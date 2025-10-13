@@ -177,7 +177,7 @@ func (a *GoAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisCon
 								}
 
 								issues = append(issues, Issue{
-									Type:       "cooling",
+									Type:       string(violation.Type),
 									Severity:   string(violation.Severity),
 									Message:    message,
 									Dependency: dep,
