@@ -40,6 +40,29 @@ type Tool struct {
 	MinimumVersion     string              `yaml:"minimum_version,omitempty" json:"minimum_version,omitempty"`
 	RecommendedVersion string              `yaml:"recommended_version,omitempty" json:"recommended_version,omitempty"`
 	DisallowedVersions []string            `yaml:"disallowed_versions,omitempty" json:"disallowed_versions,omitempty"`
+	Artifacts          *ArtifactManifest   `yaml:"artifacts,omitempty" json:"artifacts,omitempty"`
+}
+
+// ArtifactManifest defines trusted artifacts with SHA256 verification for supply-chain integrity.
+type ArtifactManifest struct {
+	DefaultVersion string                      `yaml:"default_version" json:"default_version"`
+	Versions       map[string]VersionArtifacts `yaml:"versions" json:"versions"`
+}
+
+// VersionArtifacts holds platform-specific artifacts for a single version.
+type VersionArtifacts struct {
+	DarwinAMD64  *Artifact `yaml:"darwin_amd64,omitempty" json:"darwin_amd64,omitempty"`
+	DarwinARM64  *Artifact `yaml:"darwin_arm64,omitempty" json:"darwin_arm64,omitempty"`
+	LinuxAMD64   *Artifact `yaml:"linux_amd64,omitempty" json:"linux_amd64,omitempty"`
+	LinuxARM64   *Artifact `yaml:"linux_arm64,omitempty" json:"linux_arm64,omitempty"`
+	WindowsAMD64 *Artifact `yaml:"windows_amd64,omitempty" json:"windows_amd64,omitempty"`
+}
+
+// Artifact represents a single downloadable artifact with integrity verification.
+type Artifact struct {
+	URL         string `yaml:"url" json:"url"`
+	SHA256      string `yaml:"sha256" json:"sha256"`
+	ExtractPath string `yaml:"extract_path,omitempty" json:"extract_path,omitempty"`
 }
 
 // ParseConfig parses YAML bytes into a Config structure.

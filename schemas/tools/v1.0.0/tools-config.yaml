@@ -102,7 +102,7 @@ $defs:
         additionalProperties:
           type: string
           minLength: 1
-          maxLength: 200
+          maxLength: 2000
         minProperties: 1
       version_scheme:
         type: string
@@ -139,7 +139,63 @@ $defs:
             pattern: "^[a-z][a-z0-9_-]*$"
           minItems: 1
           maxItems: 10
+      artifacts:
+        type: object
+        description: "Trusted artifact manifest for supply-chain integrity (download URLs with SHA256 verification)"
+        properties:
+          default_version:
+            type: string
+            description: "Default version to install when user doesn't specify --version"
+            pattern: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+            minLength: 5
+            maxLength: 20
+          versions:
+            type: object
+            description: "Map of version numbers to platform-specific artifacts"
+            patternProperties:
+              "^[0-9]+\\.[0-9]+\\.[0-9]+$":
+                $ref: "#/$defs/versionArtifacts"
+            minProperties: 1
+        required: ["default_version", "versions"]
+        additionalProperties: false
     required: ["name", "description", "kind", "detect_command"]
+    additionalProperties: false
+  versionArtifacts:
+    type: object
+    description: "Platform-specific artifacts for a single version"
+    properties:
+      darwin_amd64:
+        $ref: "#/$defs/artifact"
+      darwin_arm64:
+        $ref: "#/$defs/artifact"
+      linux_amd64:
+        $ref: "#/$defs/artifact"
+      linux_arm64:
+        $ref: "#/$defs/artifact"
+      windows_amd64:
+        $ref: "#/$defs/artifact"
+    minProperties: 1
+    additionalProperties: false
+  artifact:
+    type: object
+    description: "Single artifact with URL and integrity hash"
+    properties:
+      url:
+        type: string
+        description: "Download URL for the artifact"
+        pattern: "^https://"
+        minLength: 10
+        maxLength: 500
+      sha256:
+        type: string
+        description: "SHA256 checksum for integrity verification"
+        pattern: "^[a-f0-9]{64}$"
+      extract_path:
+        type: string
+        description: "Optional path within archive to extract (default: tool name)"
+        minLength: 1
+        maxLength: 200
+    required: ["url", "sha256"]
     additionalProperties: false
 # Validation rules
 required: ["scopes", "tools"]

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/tools"
 	"github.com/fulmenhq/goneat/pkg/versioning"
 )
 
@@ -28,6 +29,7 @@ type Tool struct {
 	InstallCommands   map[string]string        // installer commands keyed by platform/installer keyword
 	InstallerPriority map[string][]string      // preferred installer order per platform
 	DetectCommand     string                   // raw detect command from configuration
+	Artifacts         *tools.ArtifactManifest  // artifact-based installation with SHA256 verification
 }
 
 // InstallMethod represents a platform-specific installation method
@@ -476,7 +478,52 @@ func InstallTool(t Tool) Status {
 	}
 }
 
+func installArtifactTool(t Tool) Status {
+	toolConfig := tools.Tool{
+		Name:      t.Name,
+		Artifacts: t.Artifacts,
+	}
+
+	opts := tools.InstallOptions{
+		Version: "",
+		Force:   false,
+	}
+
+	result, err := tools.InstallArtifact(toolConfig, opts)
+	if err != nil {
+		return Status{
+			Name:      t.Name,
+			Present:   false,
+			Installed: false,
+			Error:     fmt.Errorf("artifact installation failed: %w", err),
+			Instructions: fmt.Sprintf("Failed to install %s via artifacts. Error: %v\n"+
+				"Try installing manually or check network connectivity.", t.Name, err),
+		}
+	}
+
+	binaryPath, err := tools.FindToolBinary(t.Name)
+	if err != nil {
+		logger.Warn(fmt.Sprintf("artifact installed but binary not found: %v", err))
+	} else {
+		logger.Info(fmt.Sprintf("artifact installed successfully: %s", binaryPath))
+	}
+
+	status := Status{
+		Name:      t.Name,
+		Present:   true,
+		Installed: true,
+		Version:   result.Version,
+	}
+
+	applyVersionPolicy(t, &status)
+	return status
+}
+
 func installSystemTool(t Tool) Status {
+	if t.Artifacts != nil {
+		return installArtifactTool(t)
+	}
+
 	platform := getCurrentPlatform()
 	attempts := buildInstallerAttempts(t, platform)
 	status := Status{Name: t.Name}

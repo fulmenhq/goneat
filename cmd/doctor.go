@@ -550,6 +550,10 @@ func convertToolConfigToTool(toolConfig intdoctor.ToolConfig) (intdoctor.Tool, e
 		}
 	}
 
+	if toolConfig.Artifacts != nil {
+		tool.Artifacts = toolConfig.Artifacts
+	}
+
 	return tool, nil
 }
 

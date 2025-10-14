@@ -14,6 +14,7 @@ import (
 	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/fulmenhq/goneat/pkg/config"
 	"github.com/fulmenhq/goneat/pkg/dependencies"
+	"github.com/fulmenhq/goneat/pkg/sbom"
 	"github.com/spf13/cobra"
 )
 
@@ -45,8 +46,10 @@ func init() {
 	dependenciesCmd.Flags().String("output", "", "Output file (default: stdout)")
 
 	// SBOM-specific
-	dependenciesCmd.Flags().String("sbom-format", "cyclonedx", "SBOM format (cyclonedx, spdx)")
-	dependenciesCmd.Flags().Bool("sbom-enrich", false, "Enrich SBOM with vulnerability data")
+	dependenciesCmd.Flags().String("sbom-format", "cyclonedx-json", "SBOM format (cyclonedx-json)")
+	dependenciesCmd.Flags().String("sbom-output", "", "SBOM output file path (default: sbom/goneat-<timestamp>.cdx.json)")
+	dependenciesCmd.Flags().Bool("sbom-stdout", false, "Output SBOM to stdout instead of file")
+	dependenciesCmd.Flags().String("sbom-platform", "", "Target platform for SBOM (e.g., linux/amd64)")
 
 	// Failure controls
 	dependenciesCmd.Flags().String("fail-on", "critical", "Fail on severity (critical, high, medium, low)")
@@ -87,7 +90,17 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 	coolingFlag, _ := cmd.Flags().GetBool("cooling")
 	sbomFlag, _ := cmd.Flags().GetBool("sbom")
 
-	if licensesFlag || coolingFlag {
+	runAnalysis := licensesFlag || coolingFlag
+	runSBOM := sbomFlag
+
+	if !runAnalysis && !runSBOM {
+		if err := cmd.Help(); err != nil {
+			return fmt.Errorf("failed to show help: %w", err)
+		}
+		return nil
+	}
+
+	if runAnalysis {
 		// Determine target directory (default to current directory)
 		target := "."
 		if len(args) > 0 {
@@ -161,13 +174,46 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 		if shouldFailDependencies(result, failOn) {
 			return errors.New("analysis failed")
 		}
-	} else if sbomFlag {
-		return fmt.Errorf("sbom not implemented in Wave 1")
-	} else {
-		if err := cmd.Help(); err != nil {
-			return fmt.Errorf("failed to show help: %w", err)
+	}
+
+	if runSBOM {
+		target := "."
+		if len(args) > 0 {
+			target = args[0]
 		}
-		return nil
+
+		invoker, err := sbom.NewSyftInvoker()
+		if err != nil {
+			return fmt.Errorf("failed to initialize SBOM generator: %w", err)
+		}
+
+		sbomFormat, _ := cmd.Flags().GetString("sbom-format")
+		sbomOutput, _ := cmd.Flags().GetString("sbom-output")
+		sbomStdout, _ := cmd.Flags().GetBool("sbom-stdout")
+		sbomPlatform, _ := cmd.Flags().GetString("sbom-platform")
+
+		sbomConfig := sbom.Config{
+			TargetPath: target,
+			OutputPath: sbomOutput,
+			Format:     sbomFormat,
+			Stdout:     sbomStdout,
+			Platform:   sbomPlatform,
+		}
+
+		result, err := invoker.Generate(context.Background(), sbomConfig)
+		if err != nil {
+			return fmt.Errorf("SBOM generation failed: %w", err)
+		}
+
+		if sbomStdout {
+			fmt.Println(string(result.SBOMContent))
+		} else {
+			fmt.Printf("✅ SBOM generated: %s\n", result.OutputPath)
+			fmt.Printf("   Format: %s\n", result.Format)
+			fmt.Printf("   Packages: %d\n", result.PackageCount)
+			fmt.Printf("   Tool Version: %s\n", result.ToolVersion)
+			fmt.Printf("   Duration: %v\n", result.Duration)
+		}
 	}
 
 	return nil
