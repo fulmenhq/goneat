@@ -41,6 +41,7 @@ make test-coverage && make coverage-check
 3a. Integration testing (based on release type)
 
 **Standard Releases** (patch/minor):
+
 ```bash
 # Tier 1 already runs in make test
 make test  # Includes synthetic integration test
@@ -51,6 +52,7 @@ make test-integration-cooling-quick  # ~8s, Hugo baseline
 ```
 
 **Major Releases** (v0.3.0, v1.0.0):
+
 ```bash
 # Run comprehensive integration suite
 export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground

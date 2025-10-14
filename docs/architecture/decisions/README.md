@@ -20,11 +20,13 @@ adr-XXXX-title-as-slug.md
 ```
 
 Where:
+
 - `XXXX` is a sequential 4-digit number (0001, 0002, etc.)
 - `title-as-slug` is a brief, hyphenated description
 - `.md` is the markdown file extension
 
 **Examples:**
+
 - `adr-0001-opa-v1-rego-v1-migration.md`
 - `adr-0002-mockable-http-transport.md`
 - `adr-0003-embedded-vs-external-policy-engine.md`
@@ -35,8 +37,8 @@ See [`adr-template.md`](adr-template.md) for the standard template.
 
 ## Active ADRs
 
-| Number | Title | Status | Date | Tags |
-|--------|-------|--------|------|------|
+| Number                                       | Title                               | Status   | Date       | Tags                            |
+| -------------------------------------------- | ----------------------------------- | -------- | ---------- | ------------------------------- |
 | [0001](adr-0001-opa-v1-rego-v1-migration.md) | OPA v1 and Rego v1 Syntax Migration | Approved | 2025-10-10 | policy, opa, rego, dependencies |
 
 ## ADR Statuses
@@ -50,6 +52,7 @@ See [`adr-template.md`](adr-template.md) for the standard template.
 ## Creating a New ADR
 
 1. **Copy the template:**
+
    ```bash
    cp docs/architecture/decisions/adr-template.md \
       docs/architecture/decisions/adr-XXXX-your-title.md
@@ -96,6 +99,7 @@ ADRs are tagged by category for easy filtering:
 ### When to Write an ADR
 
 Write an ADR when:
+
 - Making a significant architectural choice
 - Choosing between multiple viable alternatives
 - Making a decision that's hard to reverse
@@ -105,6 +109,7 @@ Write an ADR when:
 ### When NOT to Write an ADR
 
 Don't write an ADR for:
+
 - Routine implementation details
 - Obvious choices with no alternatives
 - Temporary or experimental decisions

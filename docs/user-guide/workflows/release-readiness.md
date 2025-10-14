@@ -79,6 +79,7 @@ make test-integration-cooling-quick  # Tier 2: ~8s, Hugo baseline
 **Integration Testing**:
 
 Quick validation recommended for RC:
+
 ```bash
 # Set test repo location
 export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground
@@ -90,10 +91,12 @@ make test-integration-cooling-quick
 ```
 
 **Expected Results**:
+
 - Hugo baseline: ~8s (warm cache)
 - Violations: < 10% (1-2 expected)
 - All registry calls cached on second run
-```
+
+````
 
 **Hooks**:
 
@@ -120,7 +123,7 @@ jobs:
       - run: goneat repository phase set --release rc --lifecycle beta
       - run: goneat maturity release-check --phase rc --strict --json | jq '.ready'
       - run: if [ "$(goneat assess --categories maturity --json | jq '.issues | length')" -gt 0 ]; then exit 1; fi
-```
+````
 
 ### 3. Production Release (Release/GA)
 
@@ -149,6 +152,7 @@ make test-integration-extended  # All 3 tiers, ~2 minutes
 **Integration Testing**:
 
 Comprehensive validation for major releases (v0.3.0+):
+
 ```bash
 # Set test repo location
 export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground
@@ -161,9 +165,11 @@ cat /tmp/goneat-phase4-full-suite.log > dist/release/integration-test-results.lo
 ```
 
 **Expected Results**:
+
 - Tier 1: PASS (< 10s)
 - Tier 2: PASS (~8s warm)
 - Tier 3: 6/8 PASS (2 known non-blocking failures)
+
 ```
 
 **Hooks**:
@@ -188,14 +194,19 @@ cat /tmp/goneat-phase4-full-suite.log > dist/release/integration-test-results.lo
 **Commands**:
 
 ```
+
 # Hotfix mode
+
 goneat repository phase set --release hotfix --lifecycle maintenance
 
 # Check
+
 goneat maturity release-check --phase hotfix
 
 # Assess focused
+
 goneat assess --categories maturity,security
+
 ```
 
 **Integration**: Similar to RC but 80% coverage; allow limited dirty git.
@@ -214,3 +225,4 @@ goneat assess --categories maturity,security
 - **Error Levels**: Set "skip" for non-critical in dev.
 
 For command details, see [Repository Commands](../commands/repository.md) and [Maturity Commands](../commands/maturity.md). For standards, [Validation Policies](../standards/validation-policies.md).
+```

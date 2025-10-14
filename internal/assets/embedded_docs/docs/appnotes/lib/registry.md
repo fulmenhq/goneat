@@ -171,6 +171,7 @@ type GoClient struct {
 ```
 
 **API Endpoints**:
+
 - Module info: `https://proxy.golang.org/{module}/@v/{version}.info`
 
 **Note**: Go proxy doesn't provide download stats; uses conservative defaults (1000/100).
@@ -191,6 +192,7 @@ type NPMClient struct {
 ```
 
 **API Endpoints**:
+
 - Package metadata: `https://registry.npmjs.org/{package}`
 - Downloads: `https://api.npmjs.org/downloads/point/last-month/{package}`
 
@@ -209,6 +211,7 @@ type PyPIClient struct {
 ```
 
 **API Endpoints**:
+
 - Package metadata: `https://pypi.org/pypi/{package}/{version}/json`
 
 **Note**: PyPI no longer provides download stats via JSON API; uses conservative defaults.
@@ -228,9 +231,11 @@ type CratesClient struct {
 ```
 
 **API Endpoints**:
+
 - Crate metadata: `https://crates.io/api/v1/crates/{name}`
 
 **Special Requirements**:
+
 - Must include `User-Agent` header: `goneat/0.3.0 (https://github.com/fulmenhq/goneat)`
 
 ### NuGet Client
@@ -249,10 +254,12 @@ type NuGetClient struct {
 ```
 
 **API Endpoints**:
+
 - Service index: `https://api.nuget.org/v3/index.json`
 - Package metadata: `{PackageBaseAddress}/{id}/index.json`
 
 **Special Behavior**:
+
 - Discovers `PackageBaseAddress` from service index on first request
 - Caches service index URL for subsequent requests
 
@@ -544,6 +551,7 @@ c.mu.RUnlock()
 ### Cache Hit Rate
 
 With 24-hour TTL and typical project analysis:
+
 - **First run**: 0% cache hits, ~2s per 100 dependencies
 - **Subsequent runs**: ~95% cache hits, ~50ms per 100 dependencies
 

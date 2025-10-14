@@ -29,6 +29,7 @@ The goneat dependencies package uses the Open Policy Agent (OPA) for policy-base
 2. **Rego v0 syntax**: Rules without `if` and `contains` keywords
 
 This created several issues:
+
 - Deprecation warnings in static analysis (staticcheck SA1019)
 - Missing access to OPA v1 features and optimizations
 - Technical debt accumulating in policy engine code
@@ -69,6 +70,7 @@ deny contains msg if {
 ```
 
 **Key Changes:**
+
 1. Partial set rules require `contains` keyword
 2. All rules require explicit `if` keyword before body
 3. Function definitions require `if` keyword
@@ -105,6 +107,7 @@ deny contains msg if {
    - Going forward with modern syntax aligns with OPA direction
 
 2. **More Explicit**
+
    ```rego
    # v0: Ambiguous partial set rule
    deny[msg] { ... }
@@ -203,6 +206,7 @@ $ staticcheck ./pkg/dependencies/...
 **Approach**: Use v0.x imports and set `rego.v0Compatible()` flag
 
 **Rejected because:**
+
 - Still using deprecated import path
 - Requires maintenance of compatibility mode
 - Doesn't solve underlying technical debt
@@ -213,6 +217,7 @@ $ staticcheck ./pkg/dependencies/...
 **Approach**: Import `github.com/open-policy-agent/opa/v1/rego` but keep v0 syntax
 
 **Rejected because:**
+
 - Requires explicit v0 compatibility flag in every evaluation
 - OPA v1 defaults to v1 syntax for good reason
 - Mixing import versions and syntax versions is confusing
@@ -223,6 +228,7 @@ $ staticcheck ./pkg/dependencies/...
 **Approach**: Use external OPA server instead of embedded evaluation
 
 **Rejected because:**
+
 - Adds infrastructure dependency (OPA server)
 - Increases latency (network calls)
 - Complicates deployment (need to manage OPA server)
@@ -277,6 +283,7 @@ When we support custom Rego files (Wave 3+), users will need to:
 2. Migrate existing v0 policies using OPA's migration guide
 
 **Example migration:**
+
 ```rego
 # Old v0 syntax
 deny[msg] {

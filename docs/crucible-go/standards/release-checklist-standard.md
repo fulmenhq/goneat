@@ -47,11 +47,13 @@ Projects can append repository-specific gates (e.g., cross-platform binary build
 ### Integration Test Tiers
 
 For projects with integration tests:
+
 - **Always run Tier 1** (included in `make test`, < 10s, no dependencies)
 - **Run Tier 2 before releases** (quick validation, ~8s with test repos)
 - **Run Tier 3 for major releases** (comprehensive, ~2 min, all scenarios)
 
 Environment setup:
+
 ```bash
 export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground
 # Or clone test repos to ~/dev/playground/

@@ -17,6 +17,7 @@ Goneat uses a **three-tier integration testing approach** that balances comprehe
 - **Tier 3**: Comprehensive multi-project suite (optional, major releases)
 
 This tiered approach ensures:
+
 - ✅ Fast feedback for developers (Tier 1 < 10s)
 - ✅ No setup barriers for new contributors (Tier 1 has zero dependencies)
 - ✅ Real-world validation when needed (Tiers 2/3 available on-demand)
@@ -26,11 +27,12 @@ This tiered approach ensures:
 
 This document currently covers the following integration test suites. Each section follows the three-tier structure (synthetic → quick → comprehensive) and documents setup requirements, expected results, and troubleshooting.
 
-| Test Suite | Code Coverage | External Assets | Test Method | Purpose |
-|------------|---------------|-----------------|-------------|---------|
+| Test Suite                                                                | Code Coverage                                                                     | External Assets                                      | Test Method                                    | Purpose                                                                                             |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | [Dependency Cooling Policy](#dependency-cooling-policy-integration-tests) | `pkg/dependencies/`<br>`pkg/cooling/`<br>`pkg/registry/`<br>`cmd/dependencies.go` | Hugo, OPA, Traefik, Mattermost repos (Tier 2/3 only) | Analyze real Go projects with cooling policies | Validate dependency age detection, registry integration, policy enforcement, and license compliance |
 
 **Coming Soon**:
+
 - Schema Validation Suite (validate schemas against real config files)
 - Format Command Suite (format large multi-language codebases)
 - Hook Execution Suite (pre-commit/pre-push hook integration)
@@ -39,12 +41,14 @@ This document currently covers the following integration test suites. Each secti
 ### Dependency Cooling Policy Integration Tests
 
 **Code Coverage**:
+
 - `pkg/dependencies/` - Dependency analysis and detection
 - `pkg/cooling/` - Cooling policy checker
 - `pkg/registry/` - Multi-language registry clients
 - `cmd/dependencies.go` - CLI command integration
 
 **Documentation**:
+
 - Integration Test Protocol: `../../.plans/active/v0.3.0/wave-2-phase-4-INTEGRATION-TEST-PROTOCOL.md`
 - Test Execution Guide: `../appnotes/lib/dependencies/TEST_EXECUTION_GUIDE.md`
 - Release Process: `../ops/repository/release-process.md`
@@ -56,6 +60,7 @@ This document currently covers the following integration test suites. Each secti
 **Setup Required**: None - fixture included in repo at `tests/fixtures/dependencies/synthetic-go-project/`
 
 **How to run**:
+
 ```bash
 # Runs automatically with standard test suite
 make test
@@ -69,6 +74,7 @@ make test-integration-cooling-synthetic
 **Dependencies**: None (always works)
 
 **What's validated**:
+
 - Cooling policy configuration parsing
 - Age-based violation detection
 - Registry client integration (mocked responses)
@@ -76,6 +82,7 @@ make test-integration-cooling-synthetic
 - Basic license detection
 
 **Test files**:
+
 - `pkg/dependencies/integration_test.go` - Test scenarios
 - `pkg/dependencies/integration_bench_test.go` - Performance benchmarks
 - `pkg/dependencies/testdata/` - Test policy configurations
@@ -90,6 +97,7 @@ make test-integration-cooling-synthetic
 **How to set up** (one-time):
 
 1. **Clone the test repository**:
+
 ```bash
 # Create a directory for test repos (any location works)
 mkdir -p ~/dev/playground
@@ -100,6 +108,7 @@ git clone --depth=1 https://github.com/gohugoio/hugo
 ```
 
 2. **Tell goneat where to find it**:
+
 ```bash
 # Add to your shell profile (~/.zshrc, ~/.bashrc, etc.)
 export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground
@@ -111,12 +120,14 @@ export GONEAT_COOLING_TEST_ROOT=/path/to/wherever/you/put/repos
 **Important**: Point to the **parent directory** containing the repos, not the repos themselves.
 
 Expected structure:
+
 ```
 $GONEAT_COOLING_TEST_ROOT/
 └── hugo/           ← the repo, with go.mod at root
 ```
 
 **How to run**:
+
 ```bash
 # After setup above
 make test-integration-cooling-quick
@@ -127,6 +138,7 @@ make test-integration-cooling-quick
 **Target**: < 15s warm, < 10% violations
 
 **What's validated**:
+
 - Real go.mod parsing with ~80 dependencies
 - Registry API calls to pkg.go.dev (cached after first run)
 - License detection on real packages
@@ -135,6 +147,7 @@ make test-integration-cooling-quick
 
 **What if I don't set this up?**
 Tests skip gracefully with a message:
+
 ```
 Test repository not configured. Set GONEAT_COOLING_TEST_ROOT or clone repos to ~/dev/playground
 ```
@@ -146,6 +159,7 @@ Test repository not configured. Set GONEAT_COOLING_TEST_ROOT or clone repos to ~
 **Setup Required**: Clone 4 test repositories
 
 **How to set up** (one-time):
+
 ```bash
 # In your test repos directory
 cd ~/dev/playground  # Or wherever you chose
@@ -163,6 +177,7 @@ git clone --depth=1 https://github.com/mattermost/mattermost-server
 **Time to Clone**: ~2-5 minutes (network dependent)
 
 **How to run**:
+
 ```bash
 # Run full suite (8 test scenarios)
 make test-integration-cooling
@@ -176,6 +191,7 @@ make test-integration-extended
 **Expected**: 6/8 tests passing (2 known non-blocking failures)
 
 **What's validated**:
+
 - Hugo baseline (80 deps, permissive policy)
 - Mattermost strict policy (skip, known repo structure issue)
 - Traefik with exceptions (98 issues, 0 false positives)
@@ -186,6 +202,7 @@ make test-integration-extended
 - Cooling checker integration (synthetic package validation)
 
 **Known Issues** (non-blocking):
+
 1. **Mattermost test fails**: Repo has `go.mod` in `/server` subdirectory, not root
    - Status: Documented, not blocking
    - Fix: Update test to use `/server` path
@@ -198,17 +215,20 @@ make test-integration-extended
 #### Dependencies and Coupling
 
 **Tier 1 (Zero External Coupling)**:
+
 - Synthetic fixture in our repo
 - No external dependencies
 - Breaks only if we break it
 
 **Tier 2 (Low External Coupling)**:
+
 - Hugo repository structure (expects `go.mod` at root)
 - Hugo dependency stability (assumes < 50% churn)
 - pkg.go.dev API stability (has SLA)
 - **Risk**: Low - Hugo is stable, changes slowly
 
 **Tier 3 (Medium External Coupling)**:
+
 - 4 external repositories (Hugo, OPA, Traefik, Mattermost)
 - Multiple registry APIs (npm, PyPI, crates.io for future)
 - Network availability for registry lookups (cached after first run)
@@ -225,6 +245,7 @@ make test-integration-extended
 #### Graceful Degradation
 
 All Tier 2/3 tests check for:
+
 - `GONEAT_COOLING_TEST_ROOT` environment variable set?
 - Test repository exists at expected path?
 - Repository has expected structure (go.mod location)?
@@ -233,15 +254,15 @@ If any check fails → **test skips with informative message**, doesn't fail CI/
 
 #### Documentation Quick Reference
 
-| I want to... | Read this... | Location |
-|--------------|--------------|----------|
-| Run tests quickly | README or Makefile | `../../README.md` |
-| Understand the tiers | This doc | You're here! |
-| Set up test repos | TEST_EXECUTION_GUIDE | `../appnotes/lib/dependencies/TEST_EXECUTION_GUIDE.md` |
-| Understand decisions | Integration Test Protocol | `../../.plans/active/v0.3.0/wave-2-phase-4-INTEGRATION-TEST-PROTOCOL.md` |
-| Debug test failures | Integration Test Protocol (section 7) | Same as above |
-| Know when to run tests | RELEASE_CHECKLIST | `../../RELEASE_CHECKLIST.md` |
-| Understand release flow | Release Process | `../ops/repository/release-process.md` |
+| I want to...            | Read this...                          | Location                                                                 |
+| ----------------------- | ------------------------------------- | ------------------------------------------------------------------------ |
+| Run tests quickly       | README or Makefile                    | `../../README.md`                                                        |
+| Understand the tiers    | This doc                              | You're here!                                                             |
+| Set up test repos       | TEST_EXECUTION_GUIDE                  | `../appnotes/lib/dependencies/TEST_EXECUTION_GUIDE.md`                   |
+| Understand decisions    | Integration Test Protocol             | `../../.plans/active/v0.3.0/wave-2-phase-4-INTEGRATION-TEST-PROTOCOL.md` |
+| Debug test failures     | Integration Test Protocol (section 7) | Same as above                                                            |
+| Know when to run tests  | RELEASE_CHECKLIST                     | `../../RELEASE_CHECKLIST.md`                                             |
+| Understand release flow | Release Process                       | `../ops/repository/release-process.md`                                   |
 
 #### Workflow Examples
 
@@ -318,6 +339,7 @@ make test-integration-extended
 **Symptom**: Tier 2/3 tests skip with message about GONEAT_COOLING_TEST_ROOT.
 
 **Solution**:
+
 1. Set environment variable: `export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground`
 2. Clone required repos to that location (see setup sections above)
 3. Restart your shell or `source ~/.zshrc`
@@ -325,6 +347,7 @@ make test-integration-extended
 ##### "Hugo test suddenly failing"
 
 **Possible Causes**:
+
 1. Hugo changed their dependency count significantly
    - Check Hugo repo's recent commits
    - Update expected violation threshold if legitimate change
@@ -340,6 +363,7 @@ make test-integration-extended
 **Symptom**: Tests fail with 429 or rate limit errors.
 
 **Solution**:
+
 1. Wait 1 hour for rate limit to reset
 2. Registry responses are cached, so subsequent runs use cache
 3. If persistent, check if registry has updated rate limits
@@ -349,6 +373,7 @@ make test-integration-extended
 **Symptom**: Test results inconsistent, registry data seems old.
 
 **Solution**:
+
 1. Registry cache location: `~/.goneat/cache/registry/` (check if exists)
 2. Clear cache: `rm -rf ~/.goneat/cache/registry/`
 3. Re-run test (will fetch fresh data)
@@ -368,22 +393,26 @@ make test-integration-extended
 #### Performance Expectations
 
 ##### Tier 1: Synthetic
+
 - **Target**: < 10s
 - **Current**: ~8s
 - **Status**: ✅ Meeting target
 
 ##### Tier 2: Hugo
+
 - **Target**: < 15s (warm cache)
 - **Current**: ~8s (warm), ~38s (cold)
 - **Status**: ✅ Meeting target (warm)
 - **Note**: First run always slower (~38s) due to registry lookups
 
 ##### Tier 3: Full Suite
+
 - **Target**: < 5 minutes
 - **Current**: ~113s (~1.9 minutes)
 - **Status**: ✅ Exceeding target
 
 **Cache Behavior**:
+
 - First run: Cold cache, makes real registry API calls (~38s for Hugo)
 - Second run: Warm cache, uses cached responses (~8s for Hugo)
 - **Speedup**: 4-5x improvement with cache

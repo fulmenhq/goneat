@@ -500,8 +500,8 @@ git rebase --abort
 | ------------------------- | ----------------------------- | ----- | -------- | -------- |
 | `make help`               | Show available commands       | <1s   | -        | -        |
 | `make check-all`          | Development quality checks    | ~5s   | -        | Basic    |
-| `make precommit`         | Commit validation             | ~30s  | 10%+     | Basic    |
-| `make prepush`           | Push validation               | ~2min | 70%+     | Full     |
+| `make precommit`          | Commit validation             | ~30s  | 10%+     | Basic    |
+| `make prepush`            | Push validation               | ~2min | 70%+     | Full     |
 | `make test`               | Full test suite with coverage | ~45s  | 70%      | -        |
 | `make build`              | Build binary                  | ~5s   | -        | -        |
 | `make security-scan`      | Full security analysis        | ~30s  | -        | Full     |

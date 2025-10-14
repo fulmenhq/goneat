@@ -91,9 +91,9 @@ licenses:
 
 cooling:
   enabled: true
-  min_age_days: 7           # 1 week minimum
-  min_downloads: 100        # Minimal popularity
-  min_downloads_recent: 10  # Recent activity
+  min_age_days: 7 # 1 week minimum
+  min_downloads: 100 # Minimal popularity
+  min_downloads_recent: 10 # Recent activity
 
   exceptions:
     - pattern: "golang.org/x/*"

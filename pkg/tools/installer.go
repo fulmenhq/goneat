@@ -214,7 +214,11 @@ func downloadArtifact(toolName, version string, artifact *Artifact) (string, err
 	if err != nil {
 		return "", fmt.Errorf("failed to download: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Debug("failed to close response body", logger.Err(err))
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("download failed with status: %s", resp.Status)
@@ -225,15 +229,23 @@ func downloadArtifact(toolName, version string, artifact *Artifact) (string, err
 	if err != nil {
 		return "", fmt.Errorf("failed to create file: %w", err)
 	}
-	defer out.Close()
+	defer func() {
+		if err := out.Close(); err != nil {
+			logger.Debug("failed to close output file", logger.Err(err))
+		}
+	}()
 
 	if _, err := io.Copy(out, resp.Body); err != nil {
-		os.Remove(tmpFile)
+		if removeErr := os.Remove(tmpFile); removeErr != nil {
+			logger.Debug("failed to remove temp file after copy error", logger.Err(removeErr))
+		}
 		return "", fmt.Errorf("failed to write file: %w", err)
 	}
 
 	if err := os.Rename(tmpFile, downloadPath); err != nil {
-		os.Remove(tmpFile)
+		if removeErr := os.Remove(tmpFile); removeErr != nil {
+			logger.Debug("failed to remove temp file after rename error", logger.Err(removeErr))
+		}
 		return "", fmt.Errorf("failed to move file: %w", err)
 	}
 
@@ -247,7 +259,11 @@ func verifyChecksum(filePath, expectedSHA256 string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			logger.Debug("failed to close file", logger.Err(err))
+		}
+	}()
 
 	hash := sha256.New()
 	if _, err := io.Copy(hash, file); err != nil {
@@ -283,13 +299,21 @@ func extractTarGz(archivePath, targetPath, toolName, extractPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open archive: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			logger.Debug("failed to close archive file", logger.Err(err))
+		}
+	}()
 
 	gzr, err := gzip.NewReader(file)
 	if err != nil {
 		return fmt.Errorf("failed to create gzip reader: %w", err)
 	}
-	defer gzr.Close()
+	defer func() {
+		if err := gzr.Close(); err != nil {
+			logger.Debug("failed to close gzip reader", logger.Err(err))
+		}
+	}()
 
 	tr := tar.NewReader(gzr)
 
@@ -312,7 +336,11 @@ func extractTarGz(archivePath, targetPath, toolName, extractPath string) error {
 			if err != nil {
 				return fmt.Errorf("failed to create output file: %w", err)
 			}
-			defer out.Close()
+			defer func() {
+				if err := out.Close(); err != nil {
+					logger.Debug("failed to close output file", logger.Err(err))
+				}
+			}()
 
 			if _, err := io.Copy(out, tr); err != nil {
 				return fmt.Errorf("failed to extract file: %w", err)
@@ -330,7 +358,11 @@ func extractZip(archivePath, targetPath, toolName, extractPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open zip: %w", err)
 	}
-	defer r.Close()
+	defer func() {
+		if err := r.Close(); err != nil {
+			logger.Debug("failed to close zip reader", logger.Err(err))
+		}
+	}()
 
 	binaryName := toolName
 	if runtime.GOOS == "windows" {
@@ -346,13 +378,21 @@ func extractZip(archivePath, targetPath, toolName, extractPath string) error {
 			if err != nil {
 				return fmt.Errorf("failed to open file in zip: %w", err)
 			}
-			defer rc.Close()
+			defer func() {
+				if err := rc.Close(); err != nil {
+					logger.Debug("failed to close zip file reader", logger.Err(err))
+				}
+			}()
 
 			out, err := os.Create(targetPath)
 			if err != nil {
 				return fmt.Errorf("failed to create output file: %w", err)
 			}
-			defer out.Close()
+			defer func() {
+				if err := out.Close(); err != nil {
+					logger.Debug("failed to close output file", logger.Err(err))
+				}
+			}()
 
 			if _, err := io.Copy(out, rc); err != nil {
 				return fmt.Errorf("failed to extract file: %w", err)

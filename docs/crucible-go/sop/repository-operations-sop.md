@@ -73,13 +73,13 @@ This SOP defines the operational guidelines, safety protocols, and guardrails fo
 
 ### Common Pre-Operation Mistakes to Avoid
 
-| Mistake | Impact | Prevention |
-|---------|--------|------------|
+| Mistake                                      | Impact                                             | Prevention                                                                   |
+| -------------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------- |
 | Committing with unstaged files (no approval) | Incomplete changes committed, confusion in history | Always check `git status` before commit; obtain approval for partial commits |
-| Pushing with dirty working tree | Local changes not in remote, desync risk | Run `git status` before push; ensure clean state |
-| Skipping quality gates | Broken code in main branch, failing CI | Always run `make check-all` or `make prepush` |
-| Not verifying operation results | Failed operations go unnoticed, compounding issues | Always check return codes and run `git status` after operations |
-| Committing without format/sync | Format churn in subsequent builds | Ensure `make build` includes sync + format steps |
+| Pushing with dirty working tree              | Local changes not in remote, desync risk           | Run `git status` before push; ensure clean state                             |
+| Skipping quality gates                       | Broken code in main branch, failing CI             | Always run `make check-all` or `make prepush`                                |
+| Not verifying operation results              | Failed operations go unnoticed, compounding issues | Always check return codes and run `git status` after operations              |
+| Committing without format/sync               | Format churn in subsequent builds                  | Ensure `make build` includes sync + format steps                             |
 
 ## Required Commands & Tools
 

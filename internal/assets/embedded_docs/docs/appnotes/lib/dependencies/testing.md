@@ -26,12 +26,14 @@ go test ./pkg/dependencies/... -short -v
 ```
 
 **Characteristics:**
+
 - No network calls (use mocked HTTP via `MockHTTPFetcher`)
 - JSON fixtures in `testdata/` directories
 - Fast execution (< 50ms per test)
 - Run on every commit in CI/CD
 
 **Example:**
+
 ```go
 func TestGoAnalyzer_Basic(t *testing.T) {
     analyzer := NewGoAnalyzer()
@@ -53,12 +55,14 @@ go test ./pkg/dependencies/... -tags=integration -timeout=10m
 ```
 
 **Characteristics:**
+
 - Real network calls to registry APIs
 - Real Go projects from `~/dev/playground`
 - Slower execution (2-30s per test depending on repo size)
 - Run nightly or pre-release in CI/CD
 
 **Example:**
+
 ```go
 //go:build integration
 // +build integration
@@ -84,6 +88,7 @@ go test ./pkg/dependencies/... -tags=integration -bench=. -benchmem | tee baseli
 ```
 
 **Example Output:**
+
 ```
 BenchmarkCoolingPolicy_Hugo-8           1    8234567890 ns/op    5242880 B/op    98765 allocs/op
 BenchmarkCoolingPolicy_Mattermost-8     1   25678901234 ns/op   15728640 B/op   234567 allocs/op
@@ -102,6 +107,7 @@ BenchmarkCoolingPolicy_Mattermost-8     1   25678901234 ns/op   15728640 B/op   
 **Policy**: `testdata/policies/baseline.yaml` (7 days, 100 downloads, 10 recent)
 
 **Expected Results:**
+
 - Analysis completes successfully
 - Most dependencies pass (Hugo uses stable, mature packages)
 - < 10% violation rate
@@ -109,6 +115,7 @@ BenchmarkCoolingPolicy_Mattermost-8     1   25678901234 ns/op   15728640 B/op   
 - Performance: < 15s for ~80 dependencies
 
 **Run:**
+
 ```bash
 go test ./pkg/dependencies/... -tags=integration -run TestCoolingPolicy_Hugo_Baseline -v
 ```
@@ -126,12 +133,14 @@ go test ./pkg/dependencies/... -tags=integration -run TestCoolingPolicy_Hugo_Bas
 **Policy**: `testdata/policies/strict.yaml` (365 days, 1M downloads, 100K recent)
 
 **Expected Results:**
+
 - Many violations triggered (>25% of packages)
 - Each violation has clear message with actual vs. expected values
 - Dependencies with real registry data show age/download violations
 - Dependencies without registry data (local, vendored) handled gracefully
 
 **Run:**
+
 ```bash
 go test ./pkg/dependencies/... -tags=integration -run TestCoolingPolicy_Mattermost_Strict -v
 ```
@@ -149,12 +158,14 @@ go test ./pkg/dependencies/... -tags=integration -run TestCoolingPolicy_Mattermo
 **Policy**: `testdata/policies/exceptions.yaml` (extremely strict with exceptions)
 
 **Exception Patterns Tested:**
+
 - `github.com/traefik/*` - Organization packages
 - `github.com/containous/*` - Old organization name
 - `golang.org/x/*` - Go extended standard library
 - `github.com/spf13/*` - Trusted maintainer
 
 **Expected Results:**
+
 - Zero false positives on exempted patterns
 - Traefik's own packages exempted
 - Go extended libs exempted
@@ -162,6 +173,7 @@ go test ./pkg/dependencies/... -tags=integration -run TestCoolingPolicy_Mattermo
 - Other packages trigger violations
 
 **Run:**
+
 ```bash
 go test ./pkg/dependencies/... -tags=integration -run TestCoolingPolicy_Traefik_Exceptions -v
 ```
@@ -179,17 +191,20 @@ go test ./pkg/dependencies/... -tags=integration -run TestCoolingPolicy_Traefik_
 **Policy**: `testdata/policies/time-limited.yaml` (14 days with time-limited exceptions)
 
 **Time-Limited Exceptions Tested:**
+
 - Expired: `until: "2020-01-01"` (should NOT apply)
 - Valid: `until: "2030-12-31"` (should apply)
 - Edge case: `until: "2024-01-01"` (recently expired)
 
 **Expected Results:**
+
 - OPA org packages exempted (valid until 2030)
 - spf13 packages exempted (valid until 2027)
 - Expired exceptions don't prevent violations
 - Zero violations for currently-valid exception patterns
 
 **Run:**
+
 ```bash
 go test ./pkg/dependencies/... -tags=integration -run TestCoolingPolicy_OPA_TimeLimited -v
 ```
@@ -207,6 +222,7 @@ go test ./pkg/dependencies/... -tags=integration -run TestCoolingPolicy_OPA_Time
 **Policy**: `testdata/policies/baseline.yaml`
 
 **Expected Results:**
+
 - Analysis doesn't crash on registry errors
 - Conservative fallback: `age_days: 365` for failed lookups
 - `age_unknown: true` flag set
@@ -214,6 +230,7 @@ go test ./pkg/dependencies/... -tags=integration -run TestCoolingPolicy_OPA_Time
 - Packages with registry errors pass cooling policy (conservative)
 
 **Run:**
+
 ```bash
 go test ./pkg/dependencies/... -tags=integration -run TestCoolingPolicy_RegistryFailure_Graceful -v
 ```
@@ -231,6 +248,7 @@ go test ./pkg/dependencies/... -tags=integration -run TestCoolingPolicy_Registry
 **Policy**: `testdata/policies/baseline.yaml`
 
 **Cache Timing Instrumentation:**
+
 ```go
 type CacheTiming struct {
     ColdHits int           // Dependencies found on first run
@@ -241,17 +259,20 @@ type CacheTiming struct {
 ```
 
 **Expected Results:**
+
 - Warm cache faster than cold (speedup >= 1.5x)
 - Same dependency count on both runs
 - Registry calls cached (HTTP requests avoided on second run)
 - Cache hit rate near 100% on second run
 
 **Run:**
+
 ```bash
 go test ./pkg/dependencies/... -tags=integration -run TestCoolingPolicy_CachePerformance -v
 ```
 
 **Example Output:**
+
 ```
 Cache speedup: 3.24x (cold=8.5s, warm=2.6s)
 Dependencies: 82
@@ -269,10 +290,12 @@ PASS
 **Policy**: `testdata/policies/disabled.yaml` (cooling enabled: false)
 
 **Expected Results:**
+
 - Zero cooling violations
 - All packages pass regardless of age/downloads
 
 **Run:**
+
 ```bash
 go test ./pkg/dependencies/... -tags=integration -run TestCoolingPolicy_Disabled -v
 ```
@@ -297,6 +320,7 @@ go test ./pkg/dependencies/... -tags=integration -bench=BenchmarkCoolingPolicy_ 
 ```
 
 **Expected Performance Targets:**
+
 - Small repo (< 50 deps): < 5s
 - Medium repo (50-100 deps): < 10s
 - Large repo (100-200 deps): < 20s
@@ -395,6 +419,7 @@ export GONEAT_COOLING_TEST_ROOT=/path/to/test/repos
 ```
 
 **Behavior**:
+
 - If `GONEAT_COOLING_TEST_ROOT` is set, tests look for repos there
 - If not set, tests default to `~/dev/playground`
 - If repos are not found, tests **skip gracefully** (no failures)
@@ -419,6 +444,7 @@ git clone https://github.com/envoyproxy/envoy.git
 ### Future Wave 3 (Multi-Language)
 
 **TypeScript/JavaScript:**
+
 ```bash
 git clone https://github.com/microsoft/vscode.git
 git clone https://github.com/grafana/grafana.git
@@ -426,6 +452,7 @@ git clone https://github.com/vercel/next.js.git
 ```
 
 **Python:**
+
 ```bash
 git clone https://github.com/pallets/flask.git
 git clone https://github.com/django/django.git
@@ -433,6 +460,7 @@ git clone https://github.com/psf/requests.git
 ```
 
 **Rust:**
+
 ```bash
 git clone https://github.com/rust-lang/cargo.git
 git clone https://github.com/BurntSushi/ripgrep.git
@@ -440,6 +468,7 @@ git clone https://github.com/tokio-rs/tokio.git
 ```
 
 **C#/.NET:**
+
 ```bash
 git clone https://github.com/dotnet/runtime.git
 git clone https://github.com/dotnet/aspnetcore.git
@@ -481,24 +510,24 @@ jobs:
 **For nightly/release testing** with real repositories:
 
 ```yaml
-  integration-full:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
+integration-full:
+  runs-on: ubuntu-latest
+  if: github.event_name == 'schedule' || github.ref == 'refs/heads/main'
+  steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v4
 
-      - name: Clone test repositories
-        run: |
-          mkdir -p /tmp/test-repos
-          cd /tmp/test-repos
-          git clone --depth=1 https://github.com/gohugoio/hugo.git
-          git clone --depth=1 https://github.com/open-policy-agent/opa.git
+    - name: Clone test repositories
+      run: |
+        mkdir -p /tmp/test-repos
+        cd /tmp/test-repos
+        git clone --depth=1 https://github.com/gohugoio/hugo.git
+        git clone --depth=1 https://github.com/open-policy-agent/opa.git
 
-      - name: Run full integration tests
-        env:
-          GONEAT_COOLING_TEST_ROOT: /tmp/test-repos
-        run: make test-integration-cooling
+    - name: Run full integration tests
+      env:
+        GONEAT_COOLING_TEST_ROOT: /tmp/test-repos
+      run: make test-integration-cooling
 ```
 
 ### Makefile Targets
@@ -531,6 +560,7 @@ bench:
 ```
 
 **Usage**:
+
 ```bash
 # CI/CD (always works)
 make test-integration-cooling-synthetic
@@ -571,6 +601,7 @@ make test-integration-cooling-quick
 **Error**: `Test repository not found: hugo (please clone it to ~/dev/playground)`
 
 **Solution**:
+
 ```bash
 cd ~/dev/playground
 git clone https://github.com/gohugoio/hugo.git
@@ -581,6 +612,7 @@ git clone https://github.com/gohugoio/hugo.git
 **Error**: `context deadline exceeded` or `network timeout`
 
 **Solution**: Increase timeout or skip integration tests:
+
 ```bash
 # Increase timeout
 go test ./pkg/dependencies/... -tags=integration -timeout=30m
@@ -594,6 +626,7 @@ go test ./pkg/dependencies/... -short
 **Symptom**: Warm cache not faster than cold cache
 
 **Debug**:
+
 ```go
 // Add logging to registry client GetMetadata
 log.Printf("Cache key: %s, cached: %t", key, ok && time.Now().Before(entry.expiry))
@@ -604,6 +637,7 @@ log.Printf("Cache key: %s, cached: %t", key, ok && time.Now().Before(entry.expir
 **Symptom**: Exempted packages still flagged
 
 **Debug**: Check pattern matching:
+
 ```go
 // In cooling/checker.go
 log.Printf("Testing pattern '%s' against package '%s': %t", pattern, pkgName, matched)

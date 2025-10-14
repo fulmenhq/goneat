@@ -44,20 +44,52 @@ goneat dependencies --cooling .
 - Exception patterns for trusted packages
 - Conservative fallback when registry APIs fail
 
-### SBOM Generation (Wave 2 Phase 4)
+### SBOM Generation (Wave 3 ✅)
 
 Generate Software Bill of Materials for compliance and security:
 
 ```bash
-goneat dependencies --sbom --sbom-format cyclonedx
+# Generate SBOM with default settings
+goneat dependencies --sbom .
+
+# Specify output location
+goneat dependencies --sbom --sbom-output sbom/myapp.cdx.json .
+
+# Output to stdout for piping
+goneat dependencies --sbom --sbom-stdout . > sbom.json
+
+# Specify target platform for container images
+goneat dependencies --sbom --sbom-platform linux/amd64 .
 ```
 
-**Formats:**
+**Features:**
 
-- CycloneDX (default)
-- SPDX
+- **Format**: CycloneDX JSON (industry standard)
+- **Tool**: Syft (Anchore) with SHA256-verified installation
+- **Metadata**: Package counts, tool version, generation timestamp
+- **Platform Support**: Cross-platform with managed binary installation
+- **Supply-Chain Security**: Artifact-based installation with cryptographic verification
 
-**Note:** SBOM generation is planned for Wave 2 Phase 4.
+**Installation:**
+
+Syft is required for SBOM generation. Goneat will prompt to install if missing:
+
+```bash
+# Install Syft via goneat (recommended)
+goneat doctor tools --scope sbom --install --yes
+
+# Verify installation
+syft version
+```
+
+**Combining with Other Checks:**
+
+SBOM generation can be combined with license and cooling checks:
+
+```bash
+# Run all dependency checks together
+goneat dependencies --licenses --cooling --sbom .
+```
 
 ## Flags
 
@@ -78,12 +110,43 @@ goneat dependencies --sbom --sbom-format cyclonedx
 
 ### SBOM Options
 
-- `--sbom-format string`: SBOM format (cyclonedx, spdx) (default: "cyclonedx")
-- `--sbom-enrich`: Enrich SBOM with vulnerability data (default: false)
+- `--sbom-format string`: SBOM format (cyclonedx-json) (default: "cyclonedx-json")
+- `--sbom-output string`: Output file path (default: "sbom/goneat-<timestamp>.cdx.json")
+- `--sbom-stdout`: Output SBOM to stdout instead of file (default: false)
+- `--sbom-platform string`: Target platform for SBOM (e.g., linux/amd64)
 
 ### Failure Control
 
 - `--fail-on string`: Fail on severity (critical, high, medium, low, any) (default: "critical")
+
+**Applies to**: License compliance and cooling policy checks. SBOM generation failures are treated independently and will terminate the command if Syft cannot be invoked or produces invalid output.
+
+**Severity Mapping**:
+
+| Severity   | License Issues     | Cooling Issues  | Exit Code                 |
+| ---------- | ------------------ | --------------- | ------------------------- |
+| `critical` | Forbidden licenses | N/A             | 1                         |
+| `high`     | Missing licenses   | Age < threshold | 1                         |
+| `medium`   | Warnings           | N/A             | 1 (if `--fail-on medium`) |
+| `low`      | Informational      | N/A             | 1 (if `--fail-on low`)    |
+
+**SBOM Generation Failures**:
+
+SBOM generation has its own failure modes independent of `--fail-on`:
+
+- **Tool Missing**: Exit code 1 with installation instructions
+- **Invalid Output**: Exit code 1 with Syft error details
+- **Network Failure** (during artifact install): Exit code 1 with retry guidance
+
+**Example**:
+
+```bash
+# Fail on any license issue, but only warn on cooling
+goneat dependencies --licenses --cooling --fail-on high .
+
+# Generate SBOM alongside checks (SBOM failure is independent)
+goneat dependencies --licenses --sbom --fail-on critical .
+```
 
 ## Configuration File
 

@@ -65,10 +65,12 @@ Why did we make this decision?
 **Approach**: [Brief description]
 
 **Pros**:
+
 - Advantage 1
 - Advantage 2
 
 **Cons**:
+
 - Disadvantage 1
 - Disadvantage 2
 
@@ -79,10 +81,12 @@ Why did we make this decision?
 **Approach**: [Brief description]
 
 **Pros**:
+
 - Advantage 1
 - Advantage 2
 
 **Cons**:
+
 - Disadvantage 1
 - Disadvantage 2
 
