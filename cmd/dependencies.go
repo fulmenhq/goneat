@@ -213,6 +213,9 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 			fmt.Printf("   Packages: %d\n", result.PackageCount)
 			fmt.Printf("   Tool Version: %s\n", result.ToolVersion)
 			fmt.Printf("   Duration: %v\n", result.Duration)
+			if result.DependencyGraph != nil {
+				fmt.Printf("   Dependency Nodes: %d (roots: %d)\n", len(result.DependencyGraph.Nodes), len(result.DependencyGraph.Roots))
+			}
 		}
 	}
 

@@ -22,13 +22,14 @@ type Config struct {
 }
 
 type Result struct {
-	OutputPath   string
-	Format       string
-	GeneratedAt  time.Time
-	ToolVersion  string
-	Duration     time.Duration
-	PackageCount int
-	SBOMContent  json.RawMessage
+	OutputPath      string
+	Format          string
+	GeneratedAt     time.Time
+	ToolVersion     string
+	Duration        time.Duration
+	PackageCount    int
+	SBOMContent     json.RawMessage
+	DependencyGraph *DependencyGraph
 }
 
 type Metadata struct {
@@ -38,14 +39,31 @@ type Metadata struct {
 	Target      string `json:"target"`
 }
 
+type DependencyGraph struct {
+	Nodes map[string]*DependencyNode
+	Roots []string
+}
+
+type DependencyNode struct {
+	Ref          string
+	Name         string
+	Version      string
+	Type         string
+	PURL         string
+	Dependencies []string
+}
+
 type SyftInvoker struct {
 	syftPath string
 }
 
 func NewSyftInvoker() (*SyftInvoker, error) {
-	syftPath, err := tools.FindToolBinary("syft")
+	syftPath, err := tools.ResolveBinary("syft", tools.ResolveOptions{
+		EnvOverride: "GONEAT_TOOL_SYFT",
+		AllowPath:   true,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("syft binary not found: %w (install with: goneat doctor tools --scope sbom --install)", err)
+		return nil, fmt.Errorf("syft binary not found: %w", err)
 	}
 
 	return &SyftInvoker{
@@ -164,14 +182,20 @@ func (s *SyftInvoker) Generate(ctx context.Context, config Config) (*Result, err
 		packageCount = 0
 	}
 
+	dependencyGraph, err := extractDependencyGraph(sbomContent, config.Format)
+	if err != nil {
+		logger.Warn("sbom: failed to extract dependency graph", logger.String("error", err.Error()))
+	}
+
 	result := &Result{
-		OutputPath:   outputPath,
-		Format:       config.Format,
-		GeneratedAt:  startTime,
-		ToolVersion:  toolVersion,
-		Duration:     duration,
-		PackageCount: packageCount,
-		SBOMContent:  sbomContent,
+		OutputPath:      outputPath,
+		Format:          config.Format,
+		GeneratedAt:     startTime,
+		ToolVersion:     toolVersion,
+		Duration:        duration,
+		PackageCount:    packageCount,
+		SBOMContent:     sbomContent,
+		DependencyGraph: dependencyGraph,
 	}
 
 	logger.Info("sbom: generation complete", logger.String("output", outputPath), logger.Int("packages", packageCount), logger.String("duration", duration.String()))
@@ -193,4 +217,79 @@ func extractPackageCount(content json.RawMessage, format string) (int, error) {
 	}
 
 	return len(cdx.Components), nil
+}
+
+func extractDependencyGraph(content json.RawMessage, format string) (*DependencyGraph, error) {
+	if len(content) == 0 {
+		return nil, nil
+	}
+
+	if format != "cyclonedx-json" {
+		return nil, fmt.Errorf("unsupported format for dependency graph: %s", format)
+	}
+
+	var cdx struct {
+		Components []struct {
+			BomRef  string `json:"bom-ref"`
+			Name    string `json:"name"`
+			Version string `json:"version"`
+			Type    string `json:"type"`
+			PURL    string `json:"purl"`
+		} `json:"components"`
+		Dependencies []struct {
+			Ref       string   `json:"ref"`
+			DependsOn []string `json:"dependsOn"`
+		} `json:"dependencies"`
+	}
+
+	if err := json.Unmarshal(content, &cdx); err != nil {
+		return nil, fmt.Errorf("failed to parse CycloneDX SBOM for dependency graph: %w", err)
+	}
+
+	if len(cdx.Components) == 0 {
+		return nil, nil
+	}
+
+	graph := &DependencyGraph{
+		Nodes: make(map[string]*DependencyNode, len(cdx.Components)),
+	}
+
+	for _, component := range cdx.Components {
+		ref := component.BomRef
+		if ref == "" {
+			ref = fmt.Sprintf("%s@%s", component.Name, component.Version)
+		}
+
+		graph.Nodes[ref] = &DependencyNode{
+			Ref:     ref,
+			Name:    component.Name,
+			Version: component.Version,
+			Type:    component.Type,
+			PURL:    component.PURL,
+		}
+	}
+
+	candidateRoots := make(map[string]struct{}, len(graph.Nodes))
+	for ref := range graph.Nodes {
+		candidateRoots[ref] = struct{}{}
+	}
+
+	for _, dependency := range cdx.Dependencies {
+		node, ok := graph.Nodes[dependency.Ref]
+		if !ok {
+			continue
+		}
+
+		node.Dependencies = append(node.Dependencies, dependency.DependsOn...)
+
+		for _, child := range dependency.DependsOn {
+			delete(candidateRoots, child)
+		}
+	}
+
+	for ref := range candidateRoots {
+		graph.Roots = append(graph.Roots, ref)
+	}
+
+	return graph, nil
 }

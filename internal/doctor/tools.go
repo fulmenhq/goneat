@@ -2,6 +2,7 @@ package doctor
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -289,11 +290,34 @@ func GetToolByName(name string) (Tool, bool) {
 }
 
 func CheckTool(t Tool) Status {
-	if _, err := exec.LookPath(t.Name); err == nil {
-		// Tool found in PATH - try to detect version
-		version := detectVersion(t)
+	if t.Artifacts != nil {
+		path, err := resolveToolPath(t.Name)
+		if err == nil {
+			version := detectVersionWithPath(t, path)
+			status := Status{
+				Name:         t.Name,
+				Present:      true,
+				Version:      version,
+				Instructions: fmt.Sprintf("Managed binary: %s", path),
+			}
+			applyVersionPolicy(t, &status)
+			if pathBinary, pathErr := exec.LookPath(t.Name); pathErr == nil && pathBinary != path {
+				logger.Warn(fmt.Sprintf("%s also found in PATH at %s - managed binary at %s will be preferred", t.Name, pathBinary, path))
+			}
+			return status
+		}
+		if errors.Is(err, os.ErrNotExist) {
+			return Status{
+				Name:         t.Name,
+				Present:      false,
+				Instructions: installInstruction(t),
+			}
+		}
+		logger.Warn(fmt.Sprintf("resolver error for %s: %v", t.Name, err))
+	}
 
-		// If version detection failed but we have DetectCommand, try that
+	if _, err := exec.LookPath(t.Name); err == nil {
+		version := detectVersion(t)
 		if version == "" && t.DetectCommand != "" {
 			parts := strings.Fields(t.DetectCommand)
 			if len(parts) > 0 {
@@ -302,7 +326,6 @@ func CheckTool(t Tool) Status {
 				}
 			}
 		}
-
 		status := Status{
 			Name:    t.Name,
 			Present: true,
@@ -458,6 +481,9 @@ func ValidateFoundationTools() []string {
 func InstallTool(t Tool) Status {
 	switch t.Kind {
 	case "system":
+		if t.Artifacts != nil {
+			return installArtifactTool(t)
+		}
 		return installSystemTool(t)
 	case "go":
 		return installGoTool(t)
@@ -489,7 +515,7 @@ func installArtifactTool(t Tool) Status {
 		Force:   false,
 	}
 
-	result, err := tools.InstallArtifact(toolConfig, opts)
+	_, err := tools.InstallArtifact(toolConfig, opts)
 	if err != nil {
 		return Status{
 			Name:      t.Name,
@@ -501,18 +527,26 @@ func installArtifactTool(t Tool) Status {
 		}
 	}
 
-	binaryPath, err := tools.FindToolBinary(t.Name)
-	if err != nil {
-		logger.Warn(fmt.Sprintf("artifact installed but binary not found: %v", err))
+	path, resolveErr := resolveToolPath(t.Name)
+	if resolveErr != nil {
+		logger.Warn(fmt.Sprintf("artifact installed but resolver failed: %v", resolveErr))
 	} else {
-		logger.Info(fmt.Sprintf("artifact installed successfully: %s", binaryPath))
+		logger.Info(fmt.Sprintf("artifact installed successfully: %s", path))
+	}
+
+	version := ""
+	if resolveErr == nil {
+		version = detectVersionWithPath(t, path)
 	}
 
 	status := Status{
 		Name:      t.Name,
-		Present:   true,
+		Present:   resolveErr == nil,
 		Installed: true,
-		Version:   result.Version,
+		Version:   version,
+	}
+	if resolveErr == nil {
+		status.Instructions = fmt.Sprintf("Managed binary: %s", path)
 	}
 
 	applyVersionPolicy(t, &status)
@@ -582,6 +616,42 @@ func installSystemTool(t Tool) Status {
 		status.Error = fmt.Errorf("no available installer succeeded for %s", t.Name)
 	}
 	return status
+}
+
+func resolveToolPath(toolName string) (string, error) {
+	return tools.ResolveBinary(toolName, tools.ResolveOptions{
+		EnvOverride: getEnvOverrideForTool(toolName),
+		AllowPath:   true,
+	})
+}
+
+func getEnvOverrideForTool(toolName string) string {
+	switch toolName {
+	case "syft":
+		return "GONEAT_TOOL_SYFT"
+	default:
+		return ""
+	}
+}
+
+func detectVersionWithPath(t Tool, binaryPath string) string {
+	if binaryPath == "" {
+		return ""
+	}
+	if len(t.VersionArgs) > 0 {
+		if output, ok := tryCommand(binaryPath, t.VersionArgs...); ok {
+			return sanitizeVersion(output)
+		}
+	}
+	if t.DetectCommand != "" {
+		parts := strings.Fields(t.DetectCommand)
+		if len(parts) > 0 {
+			if output, ok := tryCommand(binaryPath, parts[1:]...); ok {
+				return sanitizeVersion(output)
+			}
+		}
+	}
+	return ""
 }
 
 func installGoTool(t Tool) Status {
