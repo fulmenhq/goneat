@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bmatcuk/doublestar/v4"
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/pathfinder"
 	git "github.com/go-git/go-git/v5"
 )
 
@@ -67,6 +67,7 @@ func (r *Registry) List() []PackageManager {
 type Propagator struct {
 	registry *Registry
 	policy   *PolicyLoader
+	engine   *pathfinder.DiscoveryEngine
 }
 
 // Note: Uses pkg/logger for logging operations
@@ -108,9 +109,15 @@ type FileChange struct {
 
 // NewPropagator creates a new version propagator
 func NewPropagator(registry *Registry) *Propagator {
+	// Initialize pathfinder components for pattern matching (dogfooding our own library)
+	validator := pathfinder.NewSafetyValidator()
+	validator.SetAllowSymlinks(true)
+	engine := pathfinder.NewDiscoveryEngine(validator)
+
 	return &Propagator{
 		registry: registry,
 		policy:   NewPolicyLoader(),
+		engine:   engine,
 	}
 }
 
@@ -260,42 +267,16 @@ func (p *Propagator) filterFilesByPolicy(files []string, managerName string, pol
 	files = p.applyWorkspaceStrategy(files, policy.Propagation.Workspace)
 
 	for _, file := range files {
-		included := false
-
 		// Normalize file path to use forward slashes for consistent matching
 		normalizedFile := filepath.ToSlash(file)
 
-		// Check include patterns
-		for _, pattern := range includePatterns {
-			// For simple filenames (no path separators), match against basename
-			if !strings.Contains(pattern, "/") && !strings.Contains(pattern, "**/") {
-				if matched, _ := doublestar.Match(pattern, filepath.Base(normalizedFile)); matched {
-					included = true
-					break
-				}
-			}
-			// For patterns with path separators or globstars, match against full path
-			if matched, _ := doublestar.Match(pattern, normalizedFile); matched {
-				included = true
-				break
-			}
-		}
+		// Check include patterns using pathfinder (dogfooding with proper normalization)
+		included := len(includePatterns) == 0 || p.engine.MatchesAnyPattern(normalizedFile, includePatterns)
 
 		// Check exclude patterns
-		if included {
-			for _, pattern := range excludePatterns {
-				// For simple filenames, match against basename
-				if !strings.Contains(pattern, "/") && !strings.Contains(pattern, "**/") {
-					if matched, _ := doublestar.Match(pattern, filepath.Base(normalizedFile)); matched {
-						included = false
-						break
-					}
-				}
-				// For patterns with path separators or globstars, match against full path
-				if matched, _ := doublestar.Match(pattern, normalizedFile); matched {
-					included = false
-					break
-				}
+		if included && len(excludePatterns) > 0 {
+			if p.engine.MatchesAnyPattern(normalizedFile, excludePatterns) {
+				included = false
 			}
 		}
 
@@ -321,11 +302,9 @@ func (p *Propagator) applyWorkspaceStrategy(files []string, workspace WorkspaceC
 		filtered := make([]string, 0)
 		for _, file := range files {
 			normalizedFile := filepath.ToSlash(file)
-			for _, pattern := range workspace.Allowlist {
-				if matched, _ := doublestar.Match(pattern, normalizedFile); matched {
-					filtered = append(filtered, file)
-					break
-				}
+			// Use pathfinder engine for consistent pattern matching
+			if p.engine.MatchesAnyPattern(normalizedFile, workspace.Allowlist) {
+				filtered = append(filtered, file)
 			}
 		}
 		return filtered
@@ -337,14 +316,8 @@ func (p *Propagator) applyWorkspaceStrategy(files []string, workspace WorkspaceC
 		filtered := make([]string, 0)
 		for _, file := range files {
 			normalizedFile := filepath.ToSlash(file)
-			excluded := false
-			for _, pattern := range workspace.Blocklist {
-				if matched, _ := doublestar.Match(pattern, normalizedFile); matched {
-					excluded = true
-					break
-				}
-			}
-			if !excluded {
+			// Use pathfinder engine for consistent pattern matching
+			if !p.engine.MatchesAnyPattern(normalizedFile, workspace.Blocklist) {
 				filtered = append(filtered, file)
 			}
 		}

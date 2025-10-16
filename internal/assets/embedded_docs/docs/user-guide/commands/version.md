@@ -277,15 +277,15 @@ Propagates the VERSION file content to package manager files (package.json, pypr
 - **Multi-format support**: Updates package.json, pyproject.toml, and go.mod files
 - **Workspace aware**: Handles monorepos with selective propagation
 - **Policy driven**: Configurable via `.goneat/version-policy.yaml`
-- **Safe operations**: Backup creation, dry-run mode, atomic updates
+- **Safe operations**: Policy-controlled backups, dry-run mode, atomic updates
 
 **Options:**
 - `--dry-run`: Preview changes without making them
-- `--force`: Overwrite files without confirmation
 - `--target strings`: Specific files or package managers to target
 - `--exclude strings`: Files to exclude from propagation
-- `--backup`: Create backup files before changes
 - `--validate-only`: Only validate current version consistency
+
+**Note**: Backup behavior is controlled via the policy file (`propagation.defaults.backup` section), not CLI flags. See Policy Configuration below.
 
 **Examples:**
 
@@ -293,7 +293,7 @@ Propagates the VERSION file content to package manager files (package.json, pypr
 # Preview propagation changes
 goneat version propagate --dry-run
 
-# Propagate to all detected files
+# Propagate to all detected files (backups controlled by policy)
 goneat version propagate
 
 # Target specific package managers
@@ -302,8 +302,8 @@ goneat version propagate --target package.json --target pyproject.toml
 # Validate without changes
 goneat version propagate --validate-only
 
-# Propagate with backups
-goneat version propagate --backup
+# Exclude specific paths
+goneat version propagate --exclude "**/legacy/**"
 ```
 
 **Policy Configuration:**

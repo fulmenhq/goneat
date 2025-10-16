@@ -119,21 +119,21 @@ func (d *DiscoveryEngine) DiscoverFiles(basePath string, opts DiscoveryOptions) 
 func (d *DiscoveryEngine) matchesFilters(absPath string, relPath string, info os.FileInfo, opts DiscoveryOptions) bool {
 	// Include patterns (must match at least one if specified)
 	if len(opts.IncludePatterns) > 0 {
-		if !d.matchesAnyPattern(absPath, opts.IncludePatterns) && !d.matchesAnyPattern(relPath, opts.IncludePatterns) {
+		if !d.MatchesAnyPattern(absPath, opts.IncludePatterns) && !d.MatchesAnyPattern(relPath, opts.IncludePatterns) {
 			return false
 		}
 	}
 
 	// Exclude patterns (must not match any)
 	if len(opts.ExcludePatterns) > 0 {
-		if d.matchesAnyPattern(absPath, opts.ExcludePatterns) || d.matchesAnyPattern(relPath, opts.ExcludePatterns) {
+		if d.MatchesAnyPattern(absPath, opts.ExcludePatterns) || d.MatchesAnyPattern(relPath, opts.ExcludePatterns) {
 			return false
 		}
 	}
 
 	// Skip patterns
 	if len(opts.SkipPatterns) > 0 {
-		if d.matchesAnyPattern(absPath, opts.SkipPatterns) || d.matchesAnyPattern(relPath, opts.SkipPatterns) {
+		if d.MatchesAnyPattern(absPath, opts.SkipPatterns) || d.MatchesAnyPattern(relPath, opts.SkipPatterns) {
 			return false
 		}
 	}
@@ -162,8 +162,9 @@ func (d *DiscoveryEngine) matchesFilters(absPath string, relPath string, info os
 	return true
 }
 
-// matchesAnyPattern checks if path matches any of the given patterns
-func (d *DiscoveryEngine) matchesAnyPattern(path string, patterns []string) bool {
+// MatchesAnyPattern checks if path matches any of the given patterns
+// This uses cross-platform pattern normalization to handle ./ and .\ prefixes correctly
+func (d *DiscoveryEngine) MatchesAnyPattern(path string, patterns []string) bool {
 	for _, pattern := range patterns {
 		// Check if original pattern started with ./ or .\ (indicates "root only" intent)
 		isRootOnly := strings.HasPrefix(pattern, "./") || strings.HasPrefix(pattern, ".\\")
