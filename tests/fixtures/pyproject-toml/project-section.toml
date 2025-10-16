@@ -1,0 +1,23 @@
+[project]
+name = "test-package"
+version = "1.2.3"
+description = "Test package with comments"
+
+# This is a comment that should be preserved
+authors = [
+    {name = "Test Author", email = "test@example.com"},
+]
+
+[project.optional-dependencies]
+# Optional dependencies comment
+test = ["pytest>=6.0", "coverage"]
+dev = ["black", "isort"]
+
+[tool.black]
+# Black configuration
+line-length = 88
+target-version = ['py38']
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.3leaps.net/goneat/config/release-phase-v1.0.0.json",
+  "title": "Release Phase",
+  "description": "Release cadence phase for distribution pipelines and policy gating.",
+  "type": "string",
+  "enum": [
+    "dev",
+    "rc",
+    "ga"
+  ],
+  "examples": [
+    "rc",
+    "ga"
+  ],
+  "$comment": "Intended to drive CI thresholds and publishing behavior."
+}

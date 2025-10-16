@@ -1,0 +1,42 @@
+# Version SSOT Propagation Policy
+# This file controls how goneat propagates version changes from VERSION to package manager files
+
+version:
+  scheme: semver          # semver | calver
+  allow_extended: true    # enables prerelease/build metadata (e.g., v1.2.3-rc.1)
+
+propagation:
+  defaults:
+    include: ["package.json", "pyproject.toml"]  # Default package managers to include
+    exclude: ["**/node_modules/**", "docs/**"]  # Patterns to exclude
+    backup:
+      enabled: true        # Create backup files before changes
+      retention: 5         # Number of backup files to keep
+
+  workspace:
+    strategy: single-version  # single-version | opt-in | opt-out
+
+  # Target-specific overrides (optional)
+  # targets:
+  #   package.json:
+  #     include: ["./package.json", "apps/*/package.json", "packages/*/package.json"]
+  #     exclude: ["packages/legacy-*"]
+  #
+  #   pyproject.toml:
+  #     include: ["services/*/pyproject.toml"]
+  #     mode: poetry       # project | poetry | workspace
+  #
+  #   go.mod:
+  #     validate_only: true   # explicit to avoid accidental write attempts
+
+# rules:  # Content validation rules (Phase 3a)
+#   allowed_channels: ["stable", "beta"]
+#   forbid_prerelease_on_default_branch: true
+
+guards:  # Execution preconditions
+  required_branches: ["main", "release/*"]  # Optional: restrict to specific branches
+  disallow_dirty_worktree: true             # Prevent propagation with uncommitted changes
+
+# metadata:  # Optional: organizational tracking
+#   team: "platform"
+#   last_reviewed: "2025-01-15"

@@ -1,0 +1,345 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://schemas.goneat.dev/config/v1.0.0
+$version: 1.0.0
+title: Goneat Configuration Schema
+description: Configuration schema for Goneat, the unified Go-based formatting and validation tool
+type: object
+properties:
+  format:
+    type: object
+    description: Formatting configuration for different file types
+    properties:
+      go:
+        type: object
+        description: Go code formatting options
+        properties:
+          simplify:
+            type: boolean
+            description: Enable code simplification using gofmt's -s flag
+            default: true
+            examples:
+              - true
+              - false
+        additionalProperties: false
+        required: []
+      yaml:
+        type: object
+        description: YAML formatting options
+        properties:
+          indent:
+            type: integer
+            description: Number of spaces for indentation
+            minimum: 2
+            maximum: 8
+            default: 2
+            examples:
+              - 2
+              - 4
+          line_length:
+            type: integer
+            description: Maximum line length before wrapping
+            minimum: 60
+            maximum: 200
+            default: 80
+            examples:
+              - 80
+              - 120
+          quote_style:
+            type: string
+            description: Quote style for strings
+            enum:
+              - single
+              - double
+            default: double
+            examples:
+              - double
+              - single
+          trailing_newline:
+            type: boolean
+            description: Add trailing newline at end of file
+            default: true
+            examples:
+              - true
+              - false
+        additionalProperties: false
+        required: []
+      json:
+        type: object
+        description: JSON formatting options
+        properties:
+          indent:
+            type: string
+            description: Indentation string (spaces or tab)
+            pattern: '^(\\s+|\\t)$'
+            default: "  "
+            examples:
+              - "  "
+              - "    "
+              - "\t"
+          compact:
+            type: boolean
+            description: Output compact JSON instead of pretty-printed
+            default: false
+            examples:
+              - false
+              - true
+          sort_keys:
+            type: boolean
+            description: Sort object keys alphabetically
+            default: false
+            examples:
+              - false
+              - true
+          trailing_newline:
+            type: boolean
+            description: Add trailing newline at end of file
+            default: true
+            examples:
+              - true
+              - false
+        additionalProperties: false
+        required: []
+      markdown:
+        type: object
+        description: Markdown formatting options
+        properties:
+          line_length:
+            type: integer
+            description: Maximum line length before wrapping
+            minimum: 60
+            maximum: 200
+            default: 80
+            examples:
+              - 80
+              - 120
+          trailing_spaces:
+            type: boolean
+            description: Remove trailing spaces from lines
+            default: false
+            examples:
+              - false
+              - true
+          reference_style:
+            type: string
+            description: Style for link references
+            enum:
+              - collapsed
+              - full
+              - shortcut
+            default: collapsed
+            examples:
+              - collapsed
+              - full
+          code_block_style:
+            type: string
+            description: Style for code blocks
+            enum:
+              - fenced
+              - indented
+            default: fenced
+            examples:
+              - fenced
+              - indented
+        additionalProperties: false
+        required: []
+    additionalProperties: false
+    required: []
+  security:
+    type: object
+    description: Security scanning configuration
+    properties:
+      timeout:
+        type: string
+        description: Global timeout for security scanning (Go duration)
+        default: "5m"
+      concurrency:
+        type: integer
+        description: Explicit worker count for sharded scanners
+        minimum: 0
+        default: 0
+      concurrency_percent:
+        type: integer
+        description: Percent of CPU cores to use when concurrency is 0
+        minimum: 1
+        maximum: 100
+        default: 50
+      enable:
+        type: object
+        description: Enable dimensions
+        properties:
+          code:
+            type: boolean
+            default: true
+          vuln:
+            type: boolean
+            default: true
+          secrets:
+            type: boolean
+            default: false
+        additionalProperties: false
+      tools:
+        type: array
+        description: Tools to run (names)
+        items:
+          type: string
+      tool_timeouts:
+        type: object
+        description: Per-tool timeouts (Go duration)
+        properties:
+          gosec:
+            type: string
+            default: "0s"
+          govulncheck:
+            type: string
+            default: "0s"
+        additionalProperties: false
+      track_suppressions:
+        type: boolean
+        description: Track and summarize inline security suppressions
+        default: false
+      fail_on:
+        type: string
+        description: Fail threshold for security command
+        enum: [critical, high, medium, low, info]
+        default: high
+    additionalProperties: false
+    required: []
+  version:
+    type: object
+    description: Version management configuration
+    properties:
+      method:
+        type: string
+        description: Version scheme to use
+        enum:
+          - semver
+          - calver
+          - custom
+        default: semver
+        examples:
+          - semver
+          - calver
+          - custom
+      sources:
+        type: array
+        description: Version sources in priority order
+        items:
+          type: object
+          properties:
+            type:
+              type: string
+              description: Type of version source
+              enum:
+                - go_mod
+                - version_file
+                - git_tags
+                - version_const
+                - package_json
+              examples:
+                - go_mod
+                - version_file
+                - git_tags
+            path:
+              type: string
+              description: Path to the version source file
+              examples:
+                - go.mod
+                - VERSION
+                - version.go
+                - package.json
+            pattern:
+              type: string
+              description: Pattern for extracting version (for git_tags, version_const)
+              examples:
+                - "v*"
+                - "const Version = \"(.*)\""
+            priority:
+              type: integer
+              description: Priority order (lower number = higher priority)
+              minimum: 1
+              default: 1
+              examples:
+                - 1
+                - 2
+          required:
+            - type
+          additionalProperties: false
+      bump_rules:
+        type: object
+        description: Rules for version bumping by scheme
+        properties:
+          semver:
+            type: object
+            description: Semantic versioning bump rules
+            properties:
+              patch:
+                type: string
+                description: What constitutes a patch bump
+                enum:
+                  - micro
+                  - patch
+                default: micro
+              minor:
+                type: string
+                description: What constitutes a minor bump
+                enum:
+                  - minor
+                  - patch
+                default: minor
+              major:
+                type: string
+                description: What constitutes a major bump
+                enum:
+                  - major
+                  - minor
+                default: major
+            additionalProperties: false
+          calver:
+            type: object
+            description: Calendar versioning bump rules
+            properties:
+              patch:
+                type: string
+                description: What constitutes a patch bump
+                enum:
+                  - micro
+                  - day
+                  - month
+                  - year
+                default: micro
+              minor:
+                type: string
+                description: What constitutes a minor bump
+                enum:
+                  - day
+                  - month
+                  - year
+                default: month
+              major:
+                type: string
+                description: What constitutes a major bump
+                enum:
+                  - month
+                  - year
+                default: year
+            additionalProperties: false
+        additionalProperties: false
+      custom:
+        type: object
+        description: Custom version scheme configuration
+        properties:
+          pattern:
+            type: string
+            description: Regex pattern for version validation and parsing
+            examples:
+              - "^(\\d+)\\.(\\d+)\\.(\\d+)$"
+              - "^(\\d{4})\\.(\\d{2})\\.(\\d{2})$"
+          bump_logic:
+            type: object
+            description: Custom bump logic (to be implemented)
+            additionalProperties: true
+        additionalProperties: false
+    additionalProperties: false
+    required: []
+additionalProperties: false
+required: []

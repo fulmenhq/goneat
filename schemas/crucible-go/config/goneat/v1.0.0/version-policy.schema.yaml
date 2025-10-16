@@ -1,0 +1,205 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://schemas.fulmenhq.dev/config/goneat/version-policy-v1.0.0.schema.json
+$version: 1.0.0
+title: Goneat Version Policy Schema
+description: |
+  Defines the configuration surface for goneat's version single-source-of-truth (SSOT)
+  propagation feature. The policy controls how VERSION propagates to downstream package
+  manager manifests, optional validation/guard rails, and workspace specific overrides.
+type: object
+$defs:
+  targetKey:
+    type: string
+    pattern: "^[A-Za-z0-9._/\\-]+$"
+    description: >
+      Handler identifiers or explicit manifest paths. Current handlers use the manifest filename (`package.json`, `pyproject.toml`, `go.mod`). Nested paths (e.g., `apps/foo/package.json`) are permitted for fine-grained overrides.
+
+  globList:
+    type: array
+    description: List of file or directory globs evaluated relative to the repository root.
+    items:
+      type: string
+      minLength: 1
+  booleanDefaultTrue:
+    type: boolean
+    default: true
+  booleanDefaultFalse:
+    type: boolean
+    default: false
+properties:
+  version:
+    type: object
+    description: Version scheme configuration.
+    properties:
+      scheme:
+        type: string
+        description: Versioning scheme used by the repository.
+        enum: [semver, calver]
+        default: semver
+      allow_extended:
+        type: boolean
+        description: >
+          Allow prerelease identifiers and build metadata. For calver, this typically controls suffix usage (e.g., ".beta.1").
+
+        default: true
+      channel:
+        type: string
+        description: Optional release channel name used when computing prerelease identifiers.
+        pattern: "^[a-z0-9.-]+$"
+    required: [scheme]
+    additionalProperties: false
+  propagation:
+    type: object
+    description: Primary propagation rules that determine which manifests goneat mutates.
+    properties:
+      defaults:
+        type: object
+        description: Default include/exclude rules applied to all handlers unless overridden.
+        properties:
+          include:
+            $ref: "#/$defs/globList"
+            description: >
+              Globs or handler identifiers (manifest filenames) to include when propagating. Known handler identifiers: `package.json`, `pyproject.toml`, `go.mod`. Globs are resolved relative to the repository root.
+
+            default: ["package.json", "pyproject.toml"]
+          exclude:
+            $ref: "#/$defs/globList"
+            description: >
+              Globs to exclude from propagation (applied after include resolution).
+
+            default: ["**/node_modules/**", "docs/**"]
+          backup:
+            type: object
+            description: >
+              Backup/rollback behaviour applied globally (per-target overrides may be introduced in future schema revisions).
+
+            properties:
+              enabled:
+                $ref: "#/$defs/booleanDefaultTrue"
+                description: Create `.bak` files before mutating manifests.
+              retention:
+                type: integer
+                minimum: 0
+                description: >
+                  Number of previous backups to keep per manifest (0 disables retention pruning).
+
+            additionalProperties: false
+        additionalProperties: false
+      targets:
+        type: object
+        description: Overrides for specific package manager handlers.
+        propertyNames:
+          $ref: "#/$defs/targetKey"
+        additionalProperties:
+          type: object
+          properties:
+            include:
+              $ref: "#/$defs/globList"
+              description: Handler specific include overrides.
+            exclude:
+              $ref: "#/$defs/globList"
+              description: Handler specific exclusion overrides.
+            mode:
+              type: string
+              description: Optional handler mode (e.g., poetry flavour for pyproject.toml).
+              enum: [project, poetry, workspace]
+            validate_only:
+              $ref: "#/$defs/booleanDefaultFalse"
+              description: >
+                When true, goneat validates the manifest version but does not rewrite the file.
+
+          additionalProperties: false
+      workspace:
+        type: object
+        description: Controls behaviour in monorepo/workspace layouts.
+        properties:
+          strategy:
+            type: string
+            description: |
+              Strategy for handling nested packages.
+              - `single-version`: All manifests inherit the root VERSION (default behaviour).
+              - `opt-in`: Only paths listed in `allowlist` may maintain independent versions.
+              - `opt-out`: All detected manifests propagate unless explicitly listed in `blocklist`.
+            enum: [single-version, opt-in, opt-out]
+            default: single-version
+          allowlist:
+            $ref: "#/$defs/globList"
+            description: Globs that may maintain independent VERSION files when using opt-in strategy.
+          blocklist:
+            $ref: "#/$defs/globList"
+            description: Globs excluded from propagation when using opt-out strategy.
+        additionalProperties: false
+    required: [defaults]
+    additionalProperties: false
+  rules:
+    type: object
+    description: >
+      Additional content validation guard rails. All fields are optional and may be adopted incrementally as the CLI gains support (targeted for Phase 3a in the goneat roadmap).
+
+    properties:
+      require_release_tag:
+        $ref: "#/$defs/booleanDefaultFalse"
+        description: Require the VERSION to correspond to an annotated git tag before propagation.
+      allowed_channels:
+        type: array
+        description: >
+          Restrict prerelease channel names to an allow list. Empty list or omission means all channels allowed.
+
+        items:
+          type: string
+          pattern: "^[a-z0-9.-]+$"
+      forbid_prerelease_on_default_branch:
+        $ref: "#/$defs/booleanDefaultFalse"
+        description: Prevent prerelease propagation when on the configured default branch.
+      max_prerelease_length:
+        type: integer
+        minimum: 0
+        description: Maximum character length allowed for prerelease identifiers.
+    additionalProperties: false
+  guards:
+    type: object
+    description: >
+      Execution preconditions that must pass before propagation runs (as distinct from content-focused `rules`).
+
+    properties:
+      required_branches:
+        type: array
+        description: Branch names or globs that are permitted to run propagation.
+        items:
+          type: string
+          minLength: 1
+      disallow_dirty_worktree:
+        $ref: "#/$defs/booleanDefaultTrue"
+        description: Fail propagation if the git worktree has uncommitted changes.
+    additionalProperties: false
+  metadata:
+    type: object
+    description: Arbitrary metadata for organisational tracking (ignored by goneat).
+    additionalProperties: true
+required: [version, propagation]
+additionalProperties: false
+examples:
+  - |
+    version:
+      scheme: semver
+      allow_extended: true
+    propagation:
+      defaults:
+        include: ["package.json", "pyproject.toml"]
+        exclude: ["docs/**"]
+        backup:
+          enabled: true
+          retention: 5
+      targets:
+        package.json:
+          include: ["package.json", "apps/*/package.json"]
+        pyproject.toml:
+          mode: poetry
+        go.mod:
+          validate_only: true
+    rules:
+      allowed_channels: ["stable", "beta"]
+      forbid_prerelease_on_default_branch: true
+    guards:
+      required_branches: ["main", "release/*"]
+      disallow_dirty_worktree: true
