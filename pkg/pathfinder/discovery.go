@@ -165,15 +165,37 @@ func (d *DiscoveryEngine) matchesFilters(absPath string, relPath string, info os
 // matchesAnyPattern checks if path matches any of the given patterns
 func (d *DiscoveryEngine) matchesAnyPattern(path string, patterns []string) bool {
 	for _, pattern := range patterns {
+		// Check if original pattern started with ./ or .\ (indicates "root only" intent)
+		isRootOnly := strings.HasPrefix(pattern, "./") || strings.HasPrefix(pattern, ".\\")
+
+		// Normalize pattern to handle cross-platform path conventions:
+		// Step 1: Convert all backslashes to forward slashes (Windows -> Unix style)
+		//   This handles both ".\file" (Windows) and "./file" (Unix) consistently
+		normalizedPattern := strings.ReplaceAll(pattern, "\\", "/")
+
+		// Step 2: Use filepath.Clean to remove redundant separators and resolve . and ..
+		//   filepath.Clean("./pyproject.toml") -> "pyproject.toml"
+		//   filepath.Clean("apps/../pyproject.toml") -> "pyproject.toml"
+		//   filepath.Clean(".//foo") -> "foo"
+		normalizedPattern = filepath.Clean(normalizedPattern)
+
+		// Step 3: Convert to forward slashes for consistent glob matching
+		//   (doublestar uses Unix-style paths regardless of OS)
+		normalizedPattern = filepath.ToSlash(normalizedPattern)
+
 		// Use doublestar for glob pattern matching
-		if matched, err := doublestar.Match(pattern, path); err == nil && matched {
+		if matched, err := doublestar.Match(normalizedPattern, path); err == nil && matched {
 			return true
 		}
 
 		// Also try with just the filename for simple patterns
-		filename := filepath.Base(path)
-		if matched, err := doublestar.Match(pattern, filename); err == nil && matched {
-			return true
+		// BUT: if the original pattern started with ./ or .\, don't do basename matching
+		// because that indicates the user wants to match the root file only
+		if !isRootOnly && !strings.Contains(normalizedPattern, "/") {
+			filename := filepath.Base(path)
+			if matched, err := doublestar.Match(normalizedPattern, filename); err == nil && matched {
+				return true
+			}
 		}
 	}
 	return false

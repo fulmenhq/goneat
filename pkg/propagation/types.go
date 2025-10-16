@@ -429,7 +429,7 @@ func (p *Propagator) Propagate(ctx context.Context, version string, opts Propaga
 		logger.Debug("Files detected and filtered",
 			logger.String("manager", manager.Name()),
 			logger.Int("detected", len(files)),
-			logger.Int("filtered", len(filteredFiles)))
+			logger.Int("included", len(filteredFiles)))
 
 		// Check if this manager has validate_only set in policy
 		managerValidateOnly := false

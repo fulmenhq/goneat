@@ -416,3 +416,259 @@ func BenchmarkAuditLogger_LogOperation(b *testing.B) {
 		_ = logger.LogOperation(record)
 	}
 }
+
+// TestDiscoveryEngine_PatternNormalization tests that pattern matching handles
+// various path conventions correctly across platforms (Unix/Windows)
+func TestDiscoveryEngine_PatternNormalization(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pattern_test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create test files
+	testFiles := map[string]string{
+		"pyproject.toml":           "root file",
+		"package.json":             "root package",
+		"apps/web/package.json":    "web package",
+		"apps/api/package.json":    "api package",
+		"services/auth/go.mod":     "auth module",
+		"node_modules/foo/test.js": "should be excluded",
+		"docs/README.md":           "docs",
+	}
+
+	for relPath, content := range testFiles {
+		fullPath := filepath.Join(tmpDir, filepath.FromSlash(relPath))
+		dir := filepath.Dir(fullPath)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	validator := NewSafetyValidator()
+	validator.SetAllowSymlinks(true)
+	engine := NewDiscoveryEngine(validator)
+
+	tests := []struct {
+		name            string
+		includePatterns []string
+		excludePatterns []string
+		wantFiles       []string
+		wantExcluded    []string
+	}{
+		{
+			name:            "Unix-style ./ prefix for root file",
+			includePatterns: []string{"./pyproject.toml"},
+			excludePatterns: []string{},
+			wantFiles:       []string{"pyproject.toml"},
+			wantExcluded:    []string{"package.json", "apps/web/package.json"},
+		},
+		{
+			name:            "Windows-style .\\ prefix for root file (simulated)",
+			includePatterns: []string{".\\pyproject.toml"}, // Windows convention
+			excludePatterns: []string{},
+			wantFiles:       []string{"pyproject.toml"},
+			wantExcluded:    []string{"package.json"},
+		},
+		{
+			name:            "Simple filename matches across directories",
+			includePatterns: []string{"package.json"},
+			excludePatterns: []string{"**/node_modules/**"},
+			wantFiles:       []string{"package.json", "apps/web/package.json", "apps/api/package.json"},
+			wantExcluded:    []string{"node_modules/foo/test.js"},
+		},
+		{
+			name:            "Glob pattern with ** for deep matching",
+			includePatterns: []string{"apps/**/package.json"},
+			excludePatterns: []string{},
+			wantFiles:       []string{"apps/web/package.json", "apps/api/package.json"},
+			wantExcluded:    []string{"package.json"}, // Root should be excluded
+		},
+		{
+			name:            "Redundant separators in patterns",
+			includePatterns: []string{"./apps//web//package.json"}, // Extra slashes
+			excludePatterns: []string{},
+			wantFiles:       []string{"apps/web/package.json"},
+			wantExcluded:    []string{"apps/api/package.json"},
+		},
+		{
+			name:            "Multiple file types with exclusions",
+			includePatterns: []string{"*.toml", "*.json"},
+			excludePatterns: []string{"**/node_modules/**", "**/apps/**"},
+			wantFiles:       []string{"pyproject.toml", "package.json"},
+			wantExcluded:    []string{"apps/web/package.json", "node_modules/foo/test.js"},
+		},
+		{
+			name:            "Parent directory reference in pattern (..)",
+			includePatterns: []string{"apps/../pyproject.toml"}, // Resolves to pyproject.toml
+			excludePatterns: []string{},
+			wantFiles:       []string{"pyproject.toml"},
+			wantExcluded:    []string{"package.json"},
+		},
+		{
+			name:            "Exclude with ./ prefix",
+			includePatterns: []string{"*.json"},
+			excludePatterns: []string{"./package.json"}, // Exclude root only
+			wantFiles:       []string{"apps/web/package.json", "apps/api/package.json"},
+			wantExcluded:    []string{"package.json"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := DiscoveryOptions{
+				IncludePatterns: tt.includePatterns,
+				ExcludePatterns: tt.excludePatterns,
+			}
+
+			files, err := engine.DiscoverFiles(tmpDir, opts)
+			if err != nil {
+				t.Fatalf("DiscoverFiles() error = %v", err)
+			}
+
+			// Normalize file paths for comparison (use forward slashes)
+			normalizedFiles := make([]string, len(files))
+			for i, f := range files {
+				normalizedFiles[i] = filepath.ToSlash(f)
+			}
+
+			// Check that all wanted files are present
+			for _, want := range tt.wantFiles {
+				found := false
+				for _, got := range normalizedFiles {
+					if got == want {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("Expected file %q not found in results: %v", want, normalizedFiles)
+				}
+			}
+
+			// Check that excluded files are NOT present
+			for _, excluded := range tt.wantExcluded {
+				for _, got := range normalizedFiles {
+					if got == excluded {
+						t.Errorf("File %q should have been excluded but was found in results", excluded)
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestDiscoveryEngine_CrossPlatformPatterns tests pattern matching edge cases
+// that might behave differently on Unix vs Windows
+func TestDiscoveryEngine_CrossPlatformPatterns(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "crossplatform_test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create a simple test file
+	testFile := filepath.Join(tmpDir, "test.txt")
+	if err := os.WriteFile(testFile, []byte("content"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	validator := NewSafetyValidator()
+	validator.SetAllowSymlinks(true)
+	engine := NewDiscoveryEngine(validator)
+
+	// Test various pattern representations that should all match the same file
+	patterns := []string{
+		"test.txt",           // Simple filename
+		"./test.txt",         // Unix current directory
+		".\\test.txt",        // Windows current directory
+		"./././test.txt",     // Multiple current directory refs
+		".//test.txt",        // Redundant separator (Unix)
+		".\\\\test.txt",      // Redundant separator (Windows)
+		"foo/../test.txt",    // Parent directory reference
+		"./foo/../test.txt",  // Combined
+	}
+
+	for _, pattern := range patterns {
+		t.Run(fmt.Sprintf("pattern=%q", pattern), func(t *testing.T) {
+			opts := DiscoveryOptions{
+				IncludePatterns: []string{pattern},
+			}
+
+			files, err := engine.DiscoverFiles(tmpDir, opts)
+			if err != nil {
+				t.Fatalf("DiscoverFiles() error = %v", err)
+			}
+
+			if len(files) != 1 {
+				t.Errorf("Expected 1 file for pattern %q, got %d files: %v", pattern, len(files), files)
+			}
+
+			if len(files) > 0 && filepath.ToSlash(files[0]) != "test.txt" {
+				t.Errorf("Expected file %q for pattern %q, got %q", "test.txt", pattern, files[0])
+			}
+		})
+	}
+}
+
+// TestDiscoveryEngine_PyFulmenRegressionCase tests the exact scenario reported by PyFulmen team
+// where "./pyproject.toml" pattern failed to match "pyproject.toml" file
+func TestDiscoveryEngine_PyFulmenRegressionCase(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pyfulmen_regression")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Simulate PyFulmen's exact setup
+	pyprojectPath := filepath.Join(tmpDir, "pyproject.toml")
+	content := `[project]
+name = "pyfulmen"
+version = "0.1.2"
+`
+	if err := os.WriteFile(pyprojectPath, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create subdirectories that should be excluded
+	for _, dir := range []string{"tests", "docs", ".venv"} {
+		if err := os.MkdirAll(filepath.Join(tmpDir, dir), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	validator := NewSafetyValidator()
+	validator.SetAllowSymlinks(true)
+	engine := NewDiscoveryEngine(validator)
+
+	// This is the exact pattern PyFulmen team used in their policy file
+	opts := DiscoveryOptions{
+		IncludePatterns: []string{"./pyproject.toml"}, // Root pyproject.toml only
+		ExcludePatterns: []string{
+			"**/node_modules/**",
+			"docs/**",
+			"tests/**",
+			".venv/**",
+		},
+	}
+
+	files, err := engine.DiscoverFiles(tmpDir, opts)
+	if err != nil {
+		t.Fatalf("DiscoverFiles() error = %v", err)
+	}
+
+	// Should find exactly 1 file
+	if len(files) != 1 {
+		t.Fatalf("Expected 1 file, got %d files: %v", len(files), files)
+	}
+
+	// Should be pyproject.toml
+	if filepath.ToSlash(files[0]) != "pyproject.toml" {
+		t.Errorf("Expected 'pyproject.toml', got %q", files[0])
+	}
+
+	t.Logf("✅ Regression test passed: './pyproject.toml' pattern correctly matched 'pyproject.toml' file")
+}
