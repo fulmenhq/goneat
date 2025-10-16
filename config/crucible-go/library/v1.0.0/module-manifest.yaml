@@ -79,6 +79,17 @@ modules:
         target: 95
       - language: typescript
         target: 90
+  - id: foundry-patterns
+    tier: core
+    requirement: mandatory
+    description: Shared pattern catalog (regex/glob/literal) exposed via language helpers.
+    coverage:
+      - language: go
+        target: 90
+      - language: python
+        target: 90
+      - language: typescript
+        target: 85
   - id: cloud-storage
     tier: extension
     requirement: optional
@@ -97,12 +108,14 @@ languageOverrides:
       - config-path-api
       - schema-validation
       - crucible-shim
+      - foundry-patterns
     notes: "rsfulmen planned post-logging stabilization; extensions deferred."
   - language: csharp
     planned:
       - config-path-api
       - schema-validation
       - crucible-shim
+      - foundry-patterns
     unsupported:
       - ascii-helpers
     notes: "Console helpers rely on ANSI assumptions not yet mapped for Windows terminals."

@@ -265,6 +265,173 @@ goneat version check-consistency
 
 Checks that version information is consistent across all configured sources in the host project.
 
+### `version propagate` - Synchronize Version to Package Managers
+
+```bash
+goneat version propagate [OPTIONS]
+```
+
+Propagates the VERSION file content to package manager files (package.json, pyproject.toml, go.mod) according to policy configuration. This ensures the VERSION file remains the single source of truth while automatically synchronizing version information across your project.
+
+**Key Features:**
+- **Multi-format support**: Updates package.json, pyproject.toml, and go.mod files
+- **Workspace aware**: Handles monorepos with selective propagation
+- **Policy driven**: Configurable via `.goneat/version-policy.yaml`
+- **Safe operations**: Backup creation, dry-run mode, atomic updates
+
+**Options:**
+- `--dry-run`: Preview changes without making them
+- `--force`: Overwrite files without confirmation
+- `--target strings`: Specific files or package managers to target
+- `--exclude strings`: Files to exclude from propagation
+- `--backup`: Create backup files before changes
+- `--validate-only`: Only validate current version consistency
+
+**Examples:**
+
+```bash
+# Preview propagation changes
+goneat version propagate --dry-run
+
+# Propagate to all detected files
+goneat version propagate
+
+# Target specific package managers
+goneat version propagate --target package.json --target pyproject.toml
+
+# Validate without changes
+goneat version propagate --validate-only
+
+# Propagate with backups
+goneat version propagate --backup
+```
+
+**Policy Configuration:**
+
+Version propagation behavior is controlled by `.goneat/version-policy.yaml`. This file defines which package manager files to update, workspace handling, and safety guards.
+
+#### Quick Start Configuration
+
+```yaml
+$schema: https://schemas.fulmenhq.dev/config/goneat/version-policy-v1.0.0.schema.json
+version:
+  scheme: semver          # semver | calver
+  allow_extended: true    # enables prerelease/build metadata
+
+propagation:
+  defaults:
+    include: ["package.json", "pyproject.toml"]
+    exclude: ["**/node_modules/**", "docs/**"]
+    backup:
+      enabled: true
+      retention: 5
+
+  workspace:
+    strategy: single-version  # single-version | opt-in | opt-out
+
+guards:
+  required_branches: ["main", "release/*"]
+  disallow_dirty_worktree: true
+```
+
+#### Advanced Monorepo Configuration
+
+```yaml
+$schema: https://schemas.fulmenhq.dev/config/goneat/version-policy-v1.0.0.schema.json
+version:
+  scheme: semver
+  allow_extended: true
+
+propagation:
+  defaults:
+    include: ["package.json", "pyproject.toml"]
+    exclude: ["**/node_modules/**", "docs/**"]
+    backup:
+      enabled: true
+      retention: 5
+
+  workspace:
+    strategy: opt-out  # Allow independent versioning by default
+
+  targets:
+    # JavaScript/TypeScript packages
+    package.json:
+      include: ["./package.json", "apps/*/package.json", "packages/*/package.json"]
+      exclude: ["packages/legacy-*"]  # Legacy packages don't get updates
+
+    # Python services
+    pyproject.toml:
+      include: ["services/*/pyproject.toml"]
+      mode: project  # Use [project] section (default)
+
+    # Go modules (validation only)
+    go.mod:
+      validate_only: true
+
+guards:
+  required_branches: ["main", "develop", "release/*"]
+  disallow_dirty_worktree: true
+```
+
+#### Generating Policy Files
+
+Generate a complete policy file with all options and comments:
+
+```bash
+goneat version propagate --generate-policy
+```
+
+This creates `.goneat/version-policy.yaml` with comprehensive examples and documentation.
+
+#### Configuration Reference
+
+**Version Section:**
+- `scheme`: `semver` (default) or `calver` - versioning scheme used
+- `allow_extended`: `true` (default) - allow prerelease and build metadata
+- `channel`: Optional release channel name
+
+**Propagation Section:**
+- `defaults.include`: Default package managers to include
+- `defaults.exclude`: Glob patterns to exclude
+- `defaults.backup.enabled`: Create backup files before changes
+- `defaults.backup.retention`: Number of backup files to keep
+- `workspace.strategy`: How to handle monorepos
+- `targets`: Package-manager specific overrides
+
+**Guards Section:**
+- `required_branches`: Branch patterns where propagation is allowed
+- `disallow_dirty_worktree`: Prevent propagation with uncommitted changes
+
+#### Workspace Strategies
+
+| Strategy | Description | Use Case |
+|----------|-------------|----------|
+| `single-version` | All packages use root VERSION | Simple monorepos, unified releases |
+| `opt-in` | Only explicitly configured packages | Selective independent versioning |
+| `opt-out` | All except excluded packages | Most packages version independently |
+
+#### Package Manager Support
+
+| Language | File | Update Mode | Notes |
+|----------|------|-------------|-------|
+| JavaScript/TypeScript | `package.json` | Full update | Supports npm/yarn workspaces |
+| Python | `pyproject.toml` | Full update | `[project]` or `[tool.poetry]` sections |
+| Go | `go.mod` | Validate only | Checks module name consistency |
+
+#### Schema and Examples
+
+- **Complete Schema**: [Version Policy Schema](../../../schemas/crucible-go/config/goneat/v1.0.0/version-policy.schema.yaml)
+- **Schema Documentation**: Full field descriptions, validation rules, and examples
+- **Generated Template**: Run `goneat version propagate --generate-policy` for a complete example
+
+#### Safety Features
+
+- **Branch Guards**: Prevent accidental propagation on feature branches
+- **Worktree Validation**: Ensure clean git state before changes
+- **Backup Creation**: Automatic `.bak` files with configurable retention
+- **Dry-run Mode**: Preview all changes before execution
+- **Atomic Operations**: All-or-nothing updates with rollback on failure
+
 ## Flags Reference
 
 | Flag         | Shorthand | Description                                         | Default |

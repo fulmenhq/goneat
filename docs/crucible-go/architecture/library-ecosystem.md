@@ -113,4 +113,6 @@ To keep imports clear:
 - [Makefile Standard](../standards/makefile-standard.md)
 - [Fulmen Config Path Standard](../standards/config/fulmen-config-paths.md)
 - [Fulmen Helper Library Standard](fulmen-helper-library-standard.md)
+- [Fulmen Ecosystem Guide](fulmen-ecosystem-guide.md)
+- [Fulmen Technical Manifesto](fulmen-technical-manifesto.md)
 - [Observability Standards](../standards/observability/README.md)

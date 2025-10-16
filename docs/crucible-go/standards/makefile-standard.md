@@ -3,7 +3,7 @@ title: "FulmenHQ Makefile Standard"
 description: "Baseline make targets every Fulmen repository must implement"
 author: "Codex Assistant"
 date: "2025-10-02"
-last_updated: "2025-10-06"
+last_updated: "2025-10-10"
 status: "approved"
 tags: ["standards", "build", "cicd", "make"]
 ---
@@ -23,6 +23,7 @@ A shared `Makefile` gives Fulmen automation a consistent entry point across lang
 - **Makefile as Standard Interface**: The Makefile provides the canonical entry point for all standard operations (bootstrap, lint, test, build, etc.).
 - **Package.json Scripts**: Optional for local development convenience, but **must not** duplicate or override Makefile logic. If present, package.json scripts should delegate to Makefile targets (e.g., `"test": "make test"`).
 - **No Direct Dependencies in Scripts**: Package.json scripts cannot express dependencies directly. For full compliance, rely on Makefile for dependency management.
+- **SSOT Consumers**: Repositories that receive synchronized assets (docs, schemas, configs) from Crucible or other SSOT sources MUST expose `make sync` so CI pipelines and agents can refresh upstream artifacts consistently.
 
 ### Language-Specific Notes
 
@@ -42,6 +43,7 @@ Every repository **MUST** implement the following make targets:
 | `make help`                             | List available targets with short descriptions.                                                                  |
 | `make bootstrap`                        | Install external prerequisites listed in `.goneat/tools.yaml` (installers must use the tooling manifest schema). |
 | `make tools`                            | Verify external tools are present; may be a no-op if none are required.                                          |
+| `make sync`                             | For repositories that consume SSOT artifacts, run the canonical sync pipeline (e.g., `goneat ssot sync`).        |
 | `make lint`                             | Run lint/format/style checks.                                                                                    |
 | `make test`                             | Execute the full test suite.                                                                                     |
 | `make build`                            | Produce distributable artifacts/binaries for current platform.                                                   |
@@ -77,6 +79,12 @@ Repositories may add additional targets (e.g., `make docs`, `make package`). Req
   	@grep -E '^\.PHONY: [a-zA-Z_-]+ ##' Makefile | sed -e 's/\.PHONY: //' -e 's/ ##/\t/'
   ```
 - Document deviations or extensions in `CONTRIBUTING.md`.
+
+### SSOT Sync Hooks
+
+- Any repository designated as an SSOT consumer MUST implement `make sync` so downstream tooling can refresh Crucible assets consistently. The target should invoke the canonical sync tool (`goneat ssot sync` in current libraries such as `pyfulmen`) and may wrap additional validation.
+- Repositories MAY add post-sync helper targets (for example, `make sync-foundry-assets` in `pyfulmen`) to copy artifacts or trigger language-specific regeneration. Document these hooks alongside the primary target (see `pyfulmen/docs/development/foundry-asset-sync.md` for the reference implementation).
+- The required `make sync` target should remain idempotent and safe to run in CI; auxiliary hooks can depend on it or be chained via `make sync && make sync-foundry-assets`.
 
 ### Multi-Platform Build Example
 

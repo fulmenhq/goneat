@@ -93,6 +93,8 @@ go build -o goneat .  # ❌ Creates binary in repo root - MISSING EMBEDS
 
 **⚠️ CRITICAL**: Always use `make build` instead of `go build` - the Makefile includes embed generation that is required for the application to function properly. Direct `go build` commands will create incomplete binaries.
 
+**🚨 CRITICAL**: NEVER edit `internal/assets/embedded*` files directly. Use `make embed-assets` to sync content from source directories (`docs/`, `schemas/`, `templates/`, `config/`) to embedded assets. Manual edits to embedded files will be overwritten and break the dual-homing SSOT system.
+
 #### Planning and Documentation
 
 **DO**: Use `.plans/` directory for planning documents (gitignored)
@@ -215,13 +217,41 @@ make embed-assets   # ✅ Embed docs and schemas
 make verify-embeds  # ✅ Verify embeds are correct
 ```
 
-**DO NOT**: Manually manage embedded assets
+**DO NOT**: Manually manage embedded assets (see 🚨 CRITICAL rule above)
 
 ```bash
 # ❌ Don't manually copy files to internal/assets/
-# ❌ Don't edit embedded content directly
+# ❌ Don't edit embedded content directly - use make embed-assets
 # ❌ Don't commit without verifying embeds
 ```
+
+##### Library Usage & Dogfooding
+
+**DO**: Always use goneat's own libraries and tools wherever possible to validate functionality and promote DRY principles
+
+```go
+// ✅ Use goneat's schema package for validation
+validator, err := schema.GetEmbeddedValidator("version-policy-v1.0.0")
+result, err := validator.ValidateBytes(data)
+
+// ✅ Use goneat's logger package for structured logging
+logger.Info("Assessment completed", logger.Int("issues", count))
+
+// ✅ Use goneat's pathfinder for file operations
+finder, err := pathfinder.NewFinder(rootPath)
+matches, err := finder.Find(pattern)
+```
+
+**DO NOT**: Implement custom functionality when goneat already provides equivalent libraries
+
+```go
+// ❌ Don't implement custom JSON schema validation
+// ❌ Don't use external logging libraries
+// ❌ Don't implement custom file finding logic
+// Use goneat's schema, logger, and pathfinder packages instead
+```
+
+**Critical**: As a DX tool, goneat must dogfood its own libraries to ensure they work correctly and to avoid code duplication. Always check existing goneat packages first before implementing new functionality.
 
 ### Git Operation Safety
 

@@ -20,6 +20,8 @@ import (
 	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/fulmenhq/goneat/pkg/buildinfo"
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/propagation"
+	"github.com/fulmenhq/goneat/pkg/propagation/managers"
 	"github.com/fulmenhq/goneat/pkg/versioning"
 	"github.com/spf13/cobra"
 )
@@ -48,17 +50,28 @@ func init() {
 		panic(fmt.Sprintf("Failed to register version command: %v", err))
 	}
 
-	versionCmd.Flags().BoolP("project", "p", false, "Show host project version information")
-	versionCmd.Flags().Bool("extended", false, "Show detailed build and git information")
-	versionCmd.Flags().Bool("json", false, "Output version information in JSON format")
-	versionCmd.Flags().Bool("no-op", false, "Run in assessment mode without making changes")
-
 	// Add subcommands
 	versionCmd.AddCommand(versionInitCmd)
 	versionCmd.AddCommand(versionBumpCmd)
 	versionCmd.AddCommand(versionSetCmd)
 	versionCmd.AddCommand(versionValidateCmd)
 	versionCmd.AddCommand(versionCheckConsistencyCmd)
+	versionCmd.AddCommand(versionPropagateCmd)
+
+	// Add propagate command flags
+	versionPropagateCmd.Flags().Bool("dry-run", false, "Preview changes without making them")
+	versionPropagateCmd.Flags().Bool("validate-only", false, "Only validate current version consistency")
+	versionPropagateCmd.Flags().StringSlice("target", []string{}, "Specific files or package managers to target")
+	versionPropagateCmd.Flags().StringSlice("exclude", []string{}, "Files to exclude from propagation")
+	versionPropagateCmd.Flags().Bool("backup", false, "Create backup files before changes")
+	versionPropagateCmd.Flags().Bool("generate-policy", false, "Generate a sample version policy file")
+	versionPropagateCmd.Flags().String("policy", "", "Path to version policy file (default: .goneat/version-policy.yaml)")
+
+	// Add root version command flags
+	versionCmd.Flags().Bool("project", false, "Show project version information")
+	versionCmd.Flags().Bool("extended", false, "Show extended version information")
+	versionCmd.Flags().Bool("json", false, "Output in JSON format")
+	versionCmd.Flags().Bool("no-op", false, "Run in no-op mode")
 
 	// Init command flags
 	versionInitCmd.Flags().Bool("dry-run", false, "Preview setup without making changes")
@@ -509,6 +522,98 @@ func runVersionCheckConsistency(cmd *cobra.Command, _ []string) error {
 	_, _ = fmt.Fprintf(out, "Version: %s ✓\n", version)
 
 	logger.Info("Version consistency check completed")
+	return nil
+}
+
+// versionPropagateCmd represents the version propagate command
+var versionPropagateCmd = &cobra.Command{
+	Use:   "propagate",
+	Short: "Propagate version to package manager files",
+	Long: `Propagate the version from VERSION file to configured package manager files.
+
+This command automatically updates version fields in package.json, pyproject.toml, and other
+supported package manager files according to the version policy.
+
+Examples:
+  goneat version propagate                    # Propagate to all detected files
+  goneat version propagate --dry-run          # Preview changes without applying
+  goneat version propagate --validate-only    # Check consistency without changes
+  goneat version propagate --generate-policy  # Generate sample policy file`,
+	RunE: runVersionPropagate,
+}
+
+func runVersionPropagate(cmd *cobra.Command, _ []string) error {
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
+	validateOnly, _ := cmd.Flags().GetBool("validate-only")
+	targets, _ := cmd.Flags().GetStringSlice("target")
+	exclude, _ := cmd.Flags().GetStringSlice("exclude")
+	backup, _ := cmd.Flags().GetBool("backup")
+	generatePolicy, _ := cmd.Flags().GetBool("generate-policy")
+	policyPath, _ := cmd.Flags().GetString("policy")
+
+	// Handle policy generation
+	if generatePolicy {
+		loader := &propagation.PolicyLoader{}
+		policyFilePath := ".goneat/version-policy.yaml"
+		if policyPath != "" {
+			policyFilePath = policyPath
+		}
+		if err := loader.GeneratePolicyFile(policyFilePath); err != nil {
+			return fmt.Errorf("failed to generate policy file: %w", err)
+		}
+		logger.Info("Generated sample policy file", logger.String("path", policyFilePath))
+		return nil
+	}
+
+	// Get current version
+	version, _, err := getVersionFromSources()
+	if err != nil {
+		return fmt.Errorf("failed to get current version: %w", err)
+	}
+
+	// Create registry and register managers
+	registry := propagation.NewRegistry()
+	registry.Register(managers.NewJavaScriptManager())
+	registry.Register(managers.NewPythonManager())
+	registry.Register(managers.NewGoManager())
+
+	// Create propagator
+	propagator := propagation.NewPropagator(registry)
+
+	// Prepare options
+	opts := propagation.PropagateOptions{
+		DryRun:       dryRun,
+		Targets:      targets,
+		Exclude:      exclude,
+		Backup:       backup,
+		ValidateOnly: validateOnly,
+		PolicyPath:   policyPath,
+	}
+
+	// Execute propagation
+	result, err := propagator.Propagate(cmd.Context(), version, opts)
+	if err != nil {
+		return fmt.Errorf("propagation failed: %w", err)
+	}
+
+	// Report results
+	out := cmd.OutOrStdout()
+	if dryRun {
+		_, _ = fmt.Fprintf(out, "DRY RUN - Would process %d files\n", result.Processed)
+	} else if validateOnly {
+		_, _ = fmt.Fprintf(out, "Validation completed - %d files checked\n", result.Processed)
+	} else {
+		_, _ = fmt.Fprintf(out, "Propagation completed - %d files updated\n", result.Processed)
+	}
+
+	if len(result.Errors) > 0 {
+		_, _ = fmt.Fprintf(out, "Errors encountered:\n")
+		for _, err := range result.Errors {
+			_, _ = fmt.Fprintf(out, "  • %s: %s\n", err.File, err.Message)
+		}
+		return fmt.Errorf("propagation completed with %d errors", len(result.Errors))
+	}
+
 	return nil
 }
 

@@ -44,8 +44,10 @@ dist/
 build/
 tmp/
 bin/
+# Exclude goneat binary (but allow schema directories with "goneat" in path)
 goneat
 ./goneat
+!schemas/**/goneat/
 
 # Go cache directory
 .gocache/

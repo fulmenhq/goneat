@@ -253,6 +253,14 @@ const greeting = `Hello, ${name}!`;
 const apiUrl = `https://api.example.com/users/${userId}`;
 ```
 
+### 3.5 Schema-Driven Configuration Hydration
+
+- Centralize logger configuration mapping inside a pure helper (for example, `normalizeLoggerConfig(raw: unknown): LoggerConfig`) that converts schema-authored camelCase keys into idiomatic TypeScript casing, coerces enum values, and flattens nested objects such as `middleware[].config` before constructing typed instances.
+- Load and enforce policy files inside the helper. Honour `enforceStrictMode` by throwing when a policy denies a configuration—do not leave permissive placeholders or allow silent fallbacks.
+- Add unit tests that exercise every field, including optional numbers/booleans, throttle metadata, middleware ordering, and sink-specific options. Ensure zero/empty values survive serialization and round-trip through JSON.
+- Validate normalized configs and emitted events against the Crucible schemas (`logger-config.schema.json`, `log-event.schema.json`) during tests using AJV (or equivalent). Treat schema validation failures as hard test failures.
+- Keep the helper deterministic so fixtures shared across languages produce identical results.
+
 ---
 
 ## 4. Error Handling
@@ -379,6 +387,13 @@ describe("feature", () => {
   });
 });
 ```
+
+### 5.5 Schema Contract Fixtures & Golden Events
+
+- Store canonical fixtures in `test/fixtures/logging/` covering every supported profile, sink type, and middleware combination. Tag fixtures with the Crucible schema version they target.
+- Require tests to load each fixture through `normalizeLoggerConfig`, instantiate middleware via the registry, emit sample events, and validate both the hydrated config and output JSON against the schemas. Snapshot or approval tests SHOULD guard against behavioural drift.
+- Exercise policy enforcement permutations (allow/deny, missing policy, strict mode) with table-driven unit tests so regressions fail fast.
+- Coordinate fixture updates with other language foundations to keep the cross-language parity checklist accurate.
 
 ---
 

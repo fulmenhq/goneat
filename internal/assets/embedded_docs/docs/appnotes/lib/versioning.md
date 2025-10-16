@@ -17,17 +17,182 @@ Semantic versioning is essential for reliable software distribution, but Go's st
 - **Range specifications**: Support for version ranges and constraints
 - **Goneat-specific extensions**: Release phase integration and validation
 - **Integration utilities**: Works with build info, git tags, and package managers
+- **Version propagation**: Automatic synchronization from VERSION file to package manager manifests
+
+## Version Propagation
+
+Goneat's version propagation feature ensures the `VERSION` file remains the single source of truth while automatically synchronizing version information across package manager files. This eliminates version drift and manual synchronization overhead.
+
+### Key Capabilities
+
+- **Multi-format support**: Propagates to `package.json`, `pyproject.toml`, and `go.mod` files
+- **Workspace awareness**: Handles monorepo structures with selective propagation
+- **Policy-driven control**: Configurable via `.goneat/version-policy.yaml`
+- **Safety features**: Backup creation, dry-run mode, and atomic operations
+- **Guard rails**: Branch restrictions, worktree validation, and execution preconditions
+
+### Policy Configuration
+
+Version propagation is controlled by a declarative policy file located at `.goneat/version-policy.yaml`. This file defines which package manager files should be updated, workspace handling strategies, and safety guards.
+
+#### Basic Configuration
+
+```yaml
+$schema: https://schemas.fulmenhq.dev/config/goneat/version-policy-v1.0.0.schema.json
+version:
+  scheme: semver          # semver | calver - versioning scheme used
+  allow_extended: true    # enables prerelease/build metadata
+
+propagation:
+  defaults:
+    include: ["package.json", "pyproject.toml"]  # Default package managers
+    exclude: ["**/node_modules/**", "docs/**"]  # Patterns to exclude
+    backup:
+      enabled: true        # Create backup files before changes
+      retention: 5         # Number of backup files to keep
+
+  workspace:
+    strategy: single-version  # single-version | opt-in | opt-out
+
+guards:
+  required_branches: ["main", "release/*"]  # Optional branch restrictions
+  disallow_dirty_worktree: true             # Prevent propagation with uncommitted changes
+```
+
+#### Advanced Configuration
+
+```yaml
+$schema: https://schemas.fulmenhq.dev/config/goneat/version-policy-v1.0.0.schema.json
+version:
+  scheme: semver
+  allow_extended: true
+  channel: stable          # Optional release channel
+
+propagation:
+  defaults:
+    include: ["package.json", "pyproject.toml"]
+    exclude: ["**/node_modules/**", "docs/**"]
+    backup:
+      enabled: true
+      retention: 5
+
+  workspace:
+    strategy: single-version
+
+  # Target-specific overrides
+  targets:
+    package.json:
+      include: ["./package.json", "apps/*/package.json", "packages/*/package.json"]
+      exclude: ["packages/legacy-*"]  # Override defaults for specific targets
+    pyproject.toml:
+      include: ["services/*/pyproject.toml"]
+      mode: poetry       # project | poetry - which section to update
+    go.mod:
+      validate_only: true   # Go modules are validation-only
+
+guards:
+  required_branches: ["main", "release/*"]
+  disallow_dirty_worktree: true
+```
+
+#### Schema Reference
+
+- **Full Schema**: [Version Policy Schema](../../schemas/crucible-go/config/goneat/v1.0.0/version-policy.schema.yaml)
+- **Schema Documentation**: See the schema file for complete field descriptions and validation rules
+
+#### Generating Policy Files
+
+You can generate a sample policy file with comments using:
+
+```bash
+goneat version propagate --generate-policy
+```
+
+This creates `.goneat/version-policy.yaml` with all available options commented out.
+
+#### Workspace Strategies
+
+- **`single-version`** (default): All packages in the workspace use the root VERSION file
+- **`opt-in`**: Only explicitly configured packages get independent versions
+- **`opt-out`**: All packages propagate except those explicitly excluded
+
+#### Package Manager Support
+
+| Manager | File | Update Support | Notes |
+|---------|------|----------------|-------|
+| JavaScript/TypeScript | `package.json` | ✅ Full | Supports workspaces via `workspaces` field |
+| Python | `pyproject.toml` | ✅ Full | Supports both `[project]` and `[tool.poetry]` sections |
+| Go | `go.mod` | ❌ Validation only | Checks module name consistency, no updates |
+
+#### Safety Guards
+
+- **Branch Restrictions**: Prevent accidental propagation on feature branches
+- **Worktree Validation**: Ensure clean git state before propagation
+- **Backup Creation**: Automatic backup files with configurable retention
+- **Dry-run Mode**: Preview changes without making them
+
+### Usage Examples
+
+```go
+import (
+    "github.com/fulmenhq/goneat/pkg/propagation"
+    "github.com/fulmenhq/goneat/pkg/propagation/managers"
+    "github.com/fulmenhq/goneat/pkg/versioning"
+)
+
+func propagateVersion(ctx context.Context, newVersion string) error {
+    // Parse and validate the new version
+    ver, err := versioning.Parse(newVersion)
+    if err != nil {
+        return fmt.Errorf("invalid version: %w", err)
+    }
+
+    // Create propagator with registry
+    registry := propagation.NewRegistry()
+    registry.Register(managers.NewJavaScriptManager())
+    registry.Register(managers.NewPythonManager())
+    registry.Register(managers.NewGoManager())
+
+    propagator := propagation.NewPropagator(registry)
+
+    // Propagate version with dry-run first
+    result, err := propagator.Propagate(ctx, ver.String(), propagation.PropagateOptions{
+        DryRun: true,
+    })
+    if err != nil {
+        return fmt.Errorf("dry-run failed: %w", err)
+    }
+
+    if len(result.Errors) > 0 {
+        return fmt.Errorf("validation errors found: %v", result.Errors)
+    }
+
+    // Apply changes
+    result, err = propagator.Propagate(ctx, ver.String(), propagation.PropagateOptions{
+        Backup: true,
+    })
+    if err != nil {
+        return fmt.Errorf("propagation failed: %w", err)
+    }
+
+    fmt.Printf("Successfully propagated version to %d files\n", result.Processed)
+    return nil
+}
+```
+
+See the [Version Propagation Architecture](https://github.com/fulmenhq/goneat/blob/main/.plans/active/v0.3.0/version-ssot-propagation.md) document for detailed implementation information.
 
 ## Key Features
 
 - **SemVer 2.0.0 compliant**: Full specification support including edge cases
-- **Pre-release handling**: `1.0.0-alpha`, `1.0.0-rc.1+build.123`
+- **Pre-release handling**: `1.0.0-alpha`, `1.0.0-rc.1`
 - **Build metadata**: `1.0.0+sha.abc123` for reproducible builds
 - **Range support**: `^1.0.0`, `~>2.3.0`, `>=1.0.0 <2.0.0`
 - **Validation**: Strict and lenient parsing modes
 - **Sorting and comparison**: Natural version ordering
 - **Phase integration**: Goneat release phase validation (dev, rc, release)
 - **Git integration**: Tag parsing and validation
+- **Version propagation**: Automatic synchronization to package manager files (package.json, pyproject.toml, go.mod)
 
 ## Installation
 

@@ -75,5 +75,5 @@ payload schemas, and error handling conventions to ensure cross-language consist
 ## Related Documents
 
 - `docs/standards/repository-structure/README.md`
-- `docs/standards/library/ssot-sync.md`
+- `docs/standards/library/modules/ssot-sync.md`
 - `docs/standards/observability/logging.md`

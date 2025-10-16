@@ -204,6 +204,14 @@ func GenerateReport() (*Report, error) {
 }
 ```
 
+### 3.4 Schema-Driven Configuration Hydration
+
+- Funnel all schema-authored logger configuration through a dedicated normalizer (for example, `NormalizeLoggerConfig(raw map[string]any) (Config, error)`) that uppercases profile identifiers, converts camelCase keys to struct fields, and flattens nested maps such as `middleware[].config` into strongly typed options.
+- Enforce policy files inside the normalizer: resolve the configured search order, merge overrides, and reject configurations immediately when `enforceStrictMode` is enabled. Production code MUST NOT ship with placeholder policy loaders.
+- Cover the normalizer with table-driven tests that assert every field round-trips correctly, including zero values, enum casing, middleware ordering, throttle metadata, and sink-specific options.
+- Validate hydrated configs and emitted events against the Crucible schemas (`logger-config`, `log-event`) during tests using `gojsonschema` (or equivalent). Treat schema validation failures as build breakers.
+- Keep normalization logic deterministic and side-effect free so other language foundations can mirror the behaviour.
+
 ---
 
 ## 4. Concurrency and Performance
@@ -314,6 +322,13 @@ func setupTestData(t *testing.T, state string) string {
     return testDir
 }
 ```
+
+### 5.4 Schema Contract Fixtures & Golden Events
+
+- Maintain shared fixtures under `internal/logger/testdata/` (or similar) that include schema-valid configurations for each profile, sink type, and middleware chain. Commit these fixtures and reference their Crucible schema version.
+- Wire CI tests that load every fixture through the normalizer, instantiate middleware via the registry, emit a sample event, and validate both config and output JSON against the schemas. Snapshot the resulting payloads so regressions surface immediately.
+- Exercise policy enforcement with table-driven tests that cover allow/deny cases, missing policies, and strict-mode failures.
+- Coordinate fixture updates with other language foundations to keep cross-language parity auditable.
 
 ---
 

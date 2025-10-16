@@ -16,13 +16,17 @@ expectations, and references to machine-readable schemas.
 
 ## Structure
 
-- `config-path-api.md` – Platform-aware configuration path discovery helpers.
-- `three-layer-config.md` – Layered configuration loading with runtime overrides.
-- `schema-validation.md` – Schema lookup, validation, and error handling helpers.
-- `crucible-shim.md` – Asset accessors for embedded Crucible content.
-- `fuldx-bootstrap.md` – FulDX bootstrap workflow for installing tooling manifests.
-- `ssot-sync.md` – SSOT synchronization workflow using FulDX consumer manifests.
+- `modules/`
+  - `config-path-api.md` – Platform-aware configuration path discovery helpers.
+  - `three-layer-config.md` – Layered configuration loading with runtime overrides.
+  - `schema-validation.md` – Schema lookup, validation, and error handling helpers.
+  - `crucible-shim.md` – Asset accessors for embedded Crucible content.
+  - `fuldx-bootstrap.md` – FulDX bootstrap workflow for installing tooling manifests.
+  - `ssot-sync.md` – SSOT synchronization workflow using FulDX consumer manifests.
 - `extensions/` – Optional modules (cloud storage, pathfinder, ascii helpers, …).
+- `foundry/`
+  - `README.md` – Shared pattern/catalog data (regex/glob, HTTP statuses, country codes, MIME types).
+  - `interfaces.md` – Required helper interfaces (pattern accessors, MIME detection, etc.).
 
 > Observability logging remains under `docs/standards/observability/`. Module specs reference that standard to
 > avoid duplicating cross-cutting requirements.

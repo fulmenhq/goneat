@@ -15,6 +15,7 @@
         "fuldx-bootstrap",
         "ssot-sync",
         "observability-logging",
+        "foundry-patterns",
         "cloud-storage",
         "pathfinder",
         "ascii-helpers"

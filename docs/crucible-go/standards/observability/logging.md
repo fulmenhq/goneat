@@ -3,7 +3,7 @@ title: "Fulmen Logging Standard"
 description: "Cross-language logging requirements within the observability program"
 author: "Codex Assistant"
 date: "2025-10-02"
-last_updated: "2025-10-09"
+last_updated: "2025-10-10"
 status: "draft"
 tags: ["observability", "logging", "telemetry"]
 ---
@@ -47,6 +47,82 @@ All log events MUST emit JSON with the following shape (additional fields allowe
 | `redactionFlags` | array   | ⚠️       | Redaction indicators emitted by middleware (e.g., `["pii"]`).                              |
 
 JSON output MUST be newline-delimited when written to files/streams.
+
+## Progressive Profiles
+
+Fulmen helper libraries expose a progressive configuration surface defined by `schemas/observability/logging/v1.0.0/logger-config.schema.json`. The `profile` field selects the appropriate complexity for the application:
+
+| Profile        | Typical Use Cases                                    | Features Enabled                                                    | Required Configuration                                                   |
+| -------------- | ---------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| **SIMPLE**     | CLI tooling, scripts, local experiments              | Console output only, minimal configuration                          | `service` (all other fields optional)                                    |
+| **STRUCTURED** | API services, background jobs, dev/staging workloads | Structured sinks, static fields, correlation IDs                    | `service`, `sinks`                                                       |
+| **ENTERPRISE** | Workhorse services, production environments          | Multiple sinks, middleware pipeline, throttling, policy enforcement | `service`, `sinks`, `middleware` (optionally `throttling`, `policyFile`) |
+| **CUSTOM**     | Specialized logging adapters or legacy integrations  | Full control via `customConfig` payload                             | `service`, `customConfig`                                                |
+
+Profiles build upon each other; moving from SIMPLE to ENTERPRISE adds capabilities without breaking compatibility.
+
+### Configuration Examples
+
+```yaml
+# SIMPLE profile (defaults are enough for CLI tooling)
+profile: SIMPLE
+service: mycli
+defaultLevel: INFO
+
+# STRUCTURED profile (service with console and file sinks)
+profile: STRUCTURED
+service: api-gateway
+sinks:
+  - type: console
+    format: json
+  - type: file
+    path: logs/gateway.log
+
+# ENTERPRISE profile with policy enforcement
+profile: ENTERPRISE
+service: datawhirl
+policyFile: /org/logging-policy.yaml
+sinks:
+  - type: console
+    format: json
+  - type: rolling-file
+    path: logs/datawhirl.log
+middleware:
+  - name: redact-secrets
+  - name: correlation
+throttling:
+  enabled: true
+  maxRate: 1000
+  burstSize: 100
+```
+
+### Policy Enforcement
+
+Organizations MAY provide a YAML policy file (validated by `schemas/observability/logging/v1.0.0/logging-policy.schema.json`) to enforce governance rules:
+
+```yaml
+allowedProfiles: [SIMPLE, STRUCTURED, ENTERPRISE]
+requiredProfiles:
+  workhorse: [ENTERPRISE]
+environmentRules:
+  production: [STRUCTURED, ENTERPRISE]
+profileRequirements:
+  ENTERPRISE:
+    requiredFeatures: [correlation, middleware, throttling]
+auditSettings:
+  logPolicyViolations: true
+  enforceStrictMode: false
+```
+
+Policy files are resolved in the following order:
+
+1. `.goneat/logging-policy.yaml` (repository-local development)
+2. `/etc/fulmen/logging-policy.yaml` (system-wide default)
+3. `/org/logging-policy.yaml` (organization-managed baseline)
+
+Libraries MUST validate logger configuration against the policy (when present) during initialization. Violations MUST be logged and, when `enforceStrictMode` is true, MUST prevent the logger from starting.
+
+> Goneat tooling can generate starter policy files via `goneat bootstrap --generate-policy`.
 
 ### Correlation & Context Propagation
 
@@ -150,15 +226,38 @@ Language packages MUST expose:
 
 ## Cross-Language Implementation
 
-| Language   | Baseline Library                             | Notes                                                                                      |
-| ---------- | -------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Go         | `uber-go/zap`                                | Use zapcore for custom levels, middleware, throttling. Provide wrapper in gofulmen.        |
-| TypeScript | `pino`                                       | Use transports for async writes, `pino-std-serializers` for error handling, redact plugin. |
-| Rust       | `tracing` + `tracing-subscriber`             | Provide helper crate translating config to subscriber layers.                              |
-| Python     | `structlog` (over stdlib logging)            | Use processor chains for middleware; offer optional stdlib adapter.                        |
-| C#         | `Serilog` via `Microsoft.Extensions.Logging` | Provide configuration mapping and middleware via enrichers/filters.                        |
+| Language   | Baseline Library                             | Notes                                                                                 |
+| ---------- | -------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Go         | `uber-go/zap`                                | Struct-embedded implementation honouring progressive profiles and policy enforcement. |
+| TypeScript | `pino`                                       | Discriminated unions map profiles to configuration shapes; transports handle sinks.   |
+| Rust       | `tracing` + `tracing-subscriber`             | Profile-to-layer conversion with policy enforcement via tower middleware.             |
+| Python     | `structlog` (over stdlib logging)            | Delegation pattern switches implementations per profile; policies validated on init.  |
+| C#         | `Serilog` via `Microsoft.Extensions.Logging` | Config binding enforces profiles; enrichers and filters model middleware/throttling.  |
 
 Each package must be installable standalone (e.g., `fulmen-logging` on PyPI) but can be bundled in a future "observability" meta-package.
+
+### Progressive Logging Playbook
+
+| Profile    | Default Sinks                                   | Required Middleware                                             | Notes                                                                                   |
+| ---------- | ----------------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| SIMPLE     | `console` (stderr JSON)                         | `annotate-trace` (optional), `throttle` (optional)              | Zero-config path for tooling; inherits defaults from schema.                            |
+| STRUCTURED | `console` + optional `file`                     | `annotate-trace`, `throttle`, `correlation-context`             | Targets long-running CLIs and services needing durable logs.                            |
+| ENTERPRISE | `console`, `file`, optional external transports | `annotate-trace`, `throttle`, `correlation-context`, `redact-*` | MUST honour `policyFile` and throttle limits; supports per-sink middleware ordering.    |
+| CUSTOM     | Author-defined                                  | Author-defined                                                  | Reserved for advanced scenarios; still must validate against schema + policy contracts. |
+
+Implementations MUST document how these defaults materialize (zap cores, pino transports, structlog processors, etc.) so auditors can trace configuration to runtime behaviour.
+
+### Schema Field Naming & Hydration
+
+- Schemas publish keys in camelCase; languages MUST map them to idiomatic naming (`snake_case` for Python, exported struct fields for Go, lowerCamelCase properties for TypeScript). A single normalization layer per language performs this conversion, applies defaults, and flattens nested values such as `middleware[].config`.
+- Middleware registries accept `(name, config, order, enabled)` and return typed components. Avoid ad-hoc `map[string]any`/`Record<string, unknown>` mutations after normalization.
+- Policy files integrate with normalization. Implementations MUST fail fast when `enforceStrictMode` denies a configuration; placeholder loaders are prohibited.
+
+### Shared Fixtures & Golden Events
+
+- Maintain canonical fixtures (for example, `tests/fixtures/logging/simple.yaml`, `enterprise-event.json`) in every language repository. Fixtures reference the Crucible schema version they target.
+- CI MUST load each fixture through the normalization layer, instantiate middleware, emit representative events, and validate both hydrated configs and emitted JSON against `logger-config` and `log-event` schemas. Snapshot/approval tests SHOULD guard against regression.
+- Coordinate fixture updates across languages (tracked in `.plans/active/.../progressive-logger-crosslang.md` or successor planning docs) so parity gaps stay visible.
 
 ## Packaging & Distribution
 

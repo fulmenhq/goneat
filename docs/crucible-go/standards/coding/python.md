@@ -643,6 +643,14 @@ if is_error(result):
     logger.error("Process failed: %s", result)  # result is Exception type here
 ```
 
+### 3.5 Schema-Driven Configuration Hydration
+
+- Provide a single normalization layer (for example, `normalize_logger_config(data: Mapping[str, Any]) -> LoggerConfig`) that converts schema-authored camelCase keys to snake_case attributes, applies defaults, and flattens nested dictionaries such as `middleware[].config` into typed constructor kwargs. Avoid sprinkling ad-hoc `dict` mutations across the codebase.
+- Treat policy enforcement as part of the hydration pipeline: resolve policy files, merge overrides, and fail fast when `enforceStrictMode` blocks a configuration. Do not leave `_load_policy`-style stubs in production code.
+- Cover the mapper with exhaustive unit tests that assert every field, enum, and optional value round-trips correctly (including zero/empty values). Tests MUST verify alpha/numeric code normalization, throttle settings, middleware ordering, and boolean flags.
+- Validate hydrated configs and emitted log events against the canonical schemas (for example, `schemas/observability/logging/v1.0.0/logger-config.schema.json` and `log-event.schema.json`) as part of the test suite. Prefer using shared fixtures to guarantee parity across languages.
+- Keep the mapper pure and deterministic so other languages can port identical behaviour; document its contract in module docstrings and architecture notes.
+
 ---
 
 ## 5. Error Handling
@@ -747,6 +755,13 @@ def test_processor_handles_empty_input():
     result = process([])
     assert result.success is True
 ```
+
+### 5.4 Schema Contract Fixtures & Golden Events
+
+- Maintain canonical fixtures under `tests/fixtures/logging/` (or equivalent) that represent every supported profile, sink, and middleware combination. These fixtures MUST conform to the Crucible schemas and be versioned alongside the library.
+- Require CI to load each fixture through the normalization layer, emit sample log events, and validate both the hydrated configuration and output JSON against the schemas. Use snapshot tests to detect behavioural drift.
+- Add table-driven tests that cover policy enforcement scenarios (`allow`, `deny`, strict mode) so regressions surface immediately when contracts change.
+- Share fixtures and helpers across language foundations whenever possible so cross-language parity stays visible during audits.
 
 ---
 
