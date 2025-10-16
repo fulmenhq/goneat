@@ -157,11 +157,20 @@ make test
 cp .goneat/tools.local.yaml.example .goneat/tools.local.yaml
 
 # Edit to point to local goneat build if necessary
-# source: /path/to/goneat/dist/goneat
+# source: ../goneat/dist/goneat
 
-# Bootstrap uses local override
+# Bootstrap uses local override (creates symlink)
 make bootstrap
 ```
+
+**Important**: The `type: link` installation method MUST create symbolic links, not copies. This ensures that `bin/goneat` automatically tracks the latest build from `../goneat/dist/goneat` without requiring `make bootstrap-force` after every rebuild.
+
+**Bootstrap Script Requirements for `type: link`:**
+
+- Use `os.symlink()` (Python), `ln -s` (shell), or equivalent
+- Remove existing file/symlink before creating new symlink
+- Verify source exists and is a file before linking
+- Output should indicate symlink creation: `🔗 Creating symlink to <path>`
 
 ### Safety: Preventing Local Path Leaks
 
@@ -179,7 +188,10 @@ make bootstrap
   - Schema validation wrappers.
   - Logging severity/middleware mapping.
   - Foundry catalog helpers normalizing alpha-2/alpha-3/numeric country codes with case-insensitive lookups backed by precomputed secondary indexes.
-  - Bootstrap script functionality (both local and production paths).
+  - Bootstrap script functionality:
+    - `type: link` creates symlinks (not copies) for local development
+    - `type: download` fetches and verifies checksums for production
+    - Symlinks automatically track source updates without re-bootstrap
 
 ## Documentation Requirements
 
@@ -441,6 +453,18 @@ lint:           # Lint/style checks
 
 - **Issue**: Ops/ADR info lost in commits.
 - **Solution**: Maintain `ops/` directory with ADRs, runbooks, bootstrap strategy.
+
+### Pitfall 6: Bootstrap Script Copying Instead of Symlinking
+
+- **Issue**: Bootstrap script copies tools instead of symlinking when using `type: link`, causing stale binaries that don't reflect rebuilds.
+- **Symptom**: After rebuilding goneat locally, `bin/goneat --version` shows old version. Must re-run `make bootstrap` or `make bootstrap-force` after every rebuild.
+- **Solution**: Implement proper symlink creation:
+  - Python: Use `os.symlink(src, dest)` instead of `shutil.copy()`
+  - Shell: Use `ln -s "$source" "$dest"` instead of `cp`
+  - Verify existing file/link is removed before creating symlink
+  - Check source exists before creating symlink
+- **Verification**: `ls -la bin/goneat` should show symlink arrow `bin/goneat -> ../goneat/dist/goneat`
+- **Test**: After creating symlink, rebuild goneat in source location - `bin/goneat --version` should immediately reflect new version without re-bootstrap
 
 ## References
 
