@@ -171,13 +171,21 @@ func (sw *StagingWorkspace) copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer srcFile.Close()
+	defer func() {
+		if err := srcFile.Close(); err != nil {
+			logger.Debug("Failed to close source file", logger.String("file", src), logger.String("error", err.Error()))
+		}
+	}()
 
 	dstFile, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
-	defer dstFile.Close()
+	defer func() {
+		if err := dstFile.Close(); err != nil {
+			logger.Debug("Failed to close destination file", logger.String("file", dst), logger.String("error", err.Error()))
+		}
+	}()
 
 	_, err = io.Copy(dstFile, srcFile)
 	if err != nil {
@@ -219,12 +227,11 @@ func (sw *StagingWorkspace) cleanupOldBackups(changes []FileChange, retention in
 
 // rollbackChanges restores files from backups
 func (sw *StagingWorkspace) rollbackChanges(backups map[string]string) {
-
 	for original, backup := range backups {
 		if err := sw.copyFile(backup, original); err != nil {
-
+			logger.Error("Failed to rollback file", logger.String("file", original), logger.String("backup", backup), logger.String("error", err.Error()))
 		} else {
-
+			logger.Info("Successfully rolled back file", logger.String("file", original), logger.String("backup", backup))
 		}
 	}
 }
