@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://goneat.dev/schemas/dependencies/v1.0.0/dependency-analysis.schema.json",
+  "title": "Goneat Dependency Analysis Result",
+  "type": "object",
+  "required": ["version", "metadata", "summary", "dependencies", "issues"],
+  "properties": {
+    "version": {
+      "const": "v1",
+      "description": "Schema version"
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["generated_at", "target", "language", "duration_ms"],
+      "properties": {
+        "generated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "RFC3339 timestamp of analysis"
+        },
+        "target": {
+          "type": "string",
+          "description": "Target directory analyzed"
+        },
+        "language": {
+          "type": "string",
+          "enum": ["go", "typescript", "python", "rust", "csharp"],
+          "description": "Primary language detected"
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Analysis duration in milliseconds"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["dependency_count", "license_violations", "cooling_violations", "passed"],
+      "properties": {
+        "dependency_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total dependencies analyzed"
+        },
+        "license_violations": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of license policy violations"
+        },
+        "cooling_violations": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of cooling policy violations"
+        },
+        "passed": {
+          "type": "boolean",
+          "description": "Overall pass/fail status"
+        }
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "version", "language"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Dependency package name"
+          },
+          "version": {
+            "type": "string",
+            "description": "Dependency version"
+          },
+          "language": {
+            "type": "string",
+            "description": "Dependency language"
+          },
+          "license": {
+            "type": ["object", "null"],
+            "properties": {
+              "name": {"type": "string"},
+              "url": {"type": "string", "format": "uri"},
+              "type": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "severity", "message"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["license", "cooling", "vulnerability"],
+            "description": "Issue type"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["info", "low", "medium", "high", "critical"],
+            "description": "Issue severity level (Crucible canonical: info=0, low=1, medium=2, high=3, critical=4)"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable issue description"
+          },
+          "dependency": {
+            "type": "object",
+            "description": "Reference to affected dependency"
+          }
+        }
+      }
+    },
+    "sbom_metadata": {
+      "type": ["object", "null"],
+      "description": "SBOM artifact metadata if available",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to SBOM file"
+        },
+        "format": {
+          "type": "string",
+          "enum": ["cyclonedx-json", "spdx-json"],
+          "description": "SBOM format"
+        },
+        "tool_version": {
+          "type": "string",
+          "description": "SBOM generator tool version"
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "SBOM generation timestamp"
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

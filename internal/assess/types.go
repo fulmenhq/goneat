@@ -93,6 +93,7 @@ const (
 	CategoryTools          AssessmentCategory = "tools"
 	CategoryMaturity       AssessmentCategory = "maturity"
 	CategoryRepoStatus     AssessmentCategory = "repo-status"
+	CategoryDependencies   AssessmentCategory = "dependencies"
 )
 
 // IssueSeverity represents the severity level of an assessment issue

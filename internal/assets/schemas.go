@@ -43,6 +43,7 @@ func GetSchemaNames() []SchemaInfo {
 		"terminal-overrides-v1.0.0":      "embedded_schemas/schemas/ascii/v1.0.0/terminal-overrides.yaml",
 		"schema-mapping-manifest-v1.0.0": "embedded_schemas/schemas/config-mapping/v1.0.0/schema-mapping-manifest.yaml",
 		"version-policy-v1.0.0":          "embedded_schemas/schemas/crucible-go/config/goneat/v1.0.0/version-policy.schema.yaml",
+		"dependency-analysis-v1.0.0":     "embedded_schemas/schemas/dependencies/v1.0.0/dependency-analysis.schema.json",
 	}
 
 	var infos []SchemaInfo

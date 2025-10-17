@@ -13,12 +13,13 @@ import (
 var DefaultPriorities = map[AssessmentCategory]int{
 	CategoryFormat:         1, // Quick wins, often auto-fixable
 	CategoryTools:          1, // Critical for CI/CD, must run early
+	CategoryDates:          1, // Quick validation, prevents embarrassing mistakes
 	CategorySecurity:       2, // Critical issues, block progress
+	CategorySchema:         2, // Semantics correctness; near-security priority
+	CategoryDependencies:   2, // High priority (supply-chain risk)
 	CategoryStaticAnalysis: 3, // Code correctness, potential bugs
 	CategoryLint:           4, // Code quality, variable effort
 	CategoryPerformance:    5, // Optimization, may be deferred
-	CategorySchema:         2, // Semantics correctness; near-security priority
-	CategoryDates:          1, // Quick validation, prevents embarrassing mistakes
 }
 
 // PriorityManager handles category prioritization and ordering

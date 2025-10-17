@@ -10,7 +10,7 @@ import (
 
 func TestPropagation_BasicPackageJson(t *testing.T) {
 	// Test basic propagation to package.json
-	env := CreateVersionFileFixture(t, "1.2.3")
+	env := CreateGitRepoFixture(t, "1.2.3")
 	defer env.Cleanup()
 
 	// Create package.json
@@ -18,6 +18,10 @@ func TestPropagation_BasicPackageJson(t *testing.T) {
   "name": "test-package",
   "version": "0.1.0"
 }`)
+
+	// Commit the package.json to avoid dirty worktree guard check
+	env.GitAdd("package.json")
+	env.GitCommit("Add package.json")
 
 	// Run propagation
 	result := env.RunVersionCommand("propagate")
@@ -34,7 +38,7 @@ func TestPropagation_BasicPackageJson(t *testing.T) {
 
 func TestPropagation_BasicPyprojectToml(t *testing.T) {
 	// Test basic propagation to pyproject.toml
-	env := CreateVersionFileFixture(t, "2.0.0")
+	env := CreateGitRepoFixture(t, "2.0.0")
 	defer env.Cleanup()
 
 	// Create pyproject.toml
@@ -42,6 +46,10 @@ func TestPropagation_BasicPyprojectToml(t *testing.T) {
 name = "test-package"
 version = "0.1.0"
 `)
+
+	// Commit the pyproject.toml to avoid dirty worktree guard check
+	env.GitAdd("pyproject.toml")
+	env.GitCommit("Add pyproject.toml")
 
 	// Run propagation
 	result := env.RunVersionCommand("propagate")
@@ -58,7 +66,7 @@ version = "0.1.0"
 
 func TestPropagation_DryRun(t *testing.T) {
 	// Test propagation dry-run mode
-	env := CreateVersionFileFixture(t, "1.5.0")
+	env := CreateGitRepoFixture(t, "1.5.0")
 	defer env.Cleanup()
 
 	// Create package.json
@@ -66,6 +74,10 @@ func TestPropagation_DryRun(t *testing.T) {
   "name": "test-package",
   "version": "0.1.0"
 }`)
+
+	// Commit the package.json to avoid dirty worktree guard check
+	env.GitAdd("package.json")
+	env.GitCommit("Add package.json")
 
 	// Run propagation with dry-run
 	result := env.RunVersionCommand("propagate", "--dry-run")
@@ -82,7 +94,7 @@ func TestPropagation_DryRun(t *testing.T) {
 
 func TestPropagation_ValidateOnly(t *testing.T) {
 	// Test propagation validate-only mode
-	env := CreateVersionFileFixture(t, "1.2.3")
+	env := CreateGitRepoFixture(t, "1.2.3")
 	defer env.Cleanup()
 
 	// Create package.json with matching version
@@ -90,6 +102,10 @@ func TestPropagation_ValidateOnly(t *testing.T) {
   "name": "test-package",
   "version": "1.2.3"
 }`)
+
+	// Commit the package.json to avoid dirty worktree guard check
+	env.GitAdd("package.json")
+	env.GitCommit("Add package.json")
 
 	// Run propagation with validate-only
 	result := env.RunVersionCommand("propagate", "--validate-only")
@@ -105,7 +121,7 @@ func TestPropagation_ValidateOnly(t *testing.T) {
 
 func TestPropagation_ValidateOnlyMismatch(t *testing.T) {
 	// Test propagation validate-only with version mismatch
-	env := CreateVersionFileFixture(t, "1.2.3")
+	env := CreateGitRepoFixture(t, "1.2.3")
 	defer env.Cleanup()
 
 	// Create package.json with different version
@@ -113,6 +129,10 @@ func TestPropagation_ValidateOnlyMismatch(t *testing.T) {
   "name": "test-package",
   "version": "0.1.0"
 }`)
+
+	// Commit the package.json to avoid dirty worktree guard check
+	env.GitAdd("package.json")
+	env.GitCommit("Add package.json")
 
 	// Run propagation with validate-only
 	result := env.RunVersionCommand("propagate", "--validate-only")
