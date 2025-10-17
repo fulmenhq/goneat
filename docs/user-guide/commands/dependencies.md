@@ -193,6 +193,42 @@ See [Dependency Policy Configuration](../../configuration/dependency-policy.md) 
 
 ## Examples
 
+### Try It Yourself (goneat Repository)
+
+If you've cloned goneat, you can explore dependencies features hands-on:
+
+```bash
+cd /path/to/goneat
+
+# 1. Generate SBOM (creates sbom/goneat-<timestamp>.cdx.json)
+goneat dependencies sbom
+
+# 2. View SBOM summary
+cat sbom/goneat-latest.cdx.json | jq '{
+  format: .bomFormat,
+  spec: .specVersion,
+  component: .metadata.component.name,
+  dependencies: (.components | length)
+}'
+
+# 3. Check license compliance
+goneat dependencies check --licenses
+
+# 4. Run full dependencies assessment
+goneat assess --categories dependencies --verbose
+
+# 5. Compare standalone vs assessment output
+goneat dependencies check --licenses --format json > standalone.json
+goneat assess --categories dependencies --format json > assessment.json
+diff <(jq '.Dependencies' standalone.json) <(jq '.categories.dependencies' assessment.json)
+```
+
+**Expected Results:**
+- SBOM with ~150+ Go dependencies
+- All dependencies pass license checks (MIT, Apache-2.0, BSD)
+- Cooling policy validates package ages
+- Assessment includes SBOM metadata
+
 ### Basic License Check
 
 ```bash
@@ -311,6 +347,76 @@ dependencies:
       dependency_scanning: dependency-report.json
 ```
 
+## Assessment Integration (Wave 4 ✅)
+
+The dependencies command integrates with `goneat assess` to provide unified dependency validation alongside other code quality checks:
+
+```bash
+# Run dependencies as part of comprehensive assessment
+goneat assess --categories dependencies
+
+# Combined security and supply-chain validation
+goneat assess --categories security,dependencies --fail-on high
+
+# Full pre-push assessment including dependencies
+goneat assess --categories format,lint,security,dependencies --fail-on high
+```
+
+### Assessment vs Standalone Command
+
+| Feature | `goneat dependencies` | `goneat assess --categories dependencies` |
+|---------|----------------------|------------------------------------------|
+| **Purpose** | Detailed dependency analysis | Integrated assessment workflow |
+| **Output** | JSON report with full details | Unified assessment report (markdown/JSON/HTML) |
+| **Use Case** | Deep dependency investigation | Pre-commit/pre-push gating |
+| **Metrics** | Comprehensive dependency info | Issue counts, severity summary, SBOM metadata |
+| **Integration** | Standalone tool | Part of comprehensive assessment |
+| **Hook Usage** | Manual hook configuration | Automatic via assess hook profiles |
+
+### Assessment Output
+
+When run via `goneat assess`, dependencies appears as a standard assessment category:
+
+```markdown
+### ✅ Dependencies Issues (Priority: 2)
+
+**Status:** 0 issues found
+**Estimated Time:** 0 seconds
+**Parallelizable:** No
+
+**Metrics:**
+- Dependency count: 142
+- License violations: 0
+- Cooling violations: 0
+- Analysis passed: true
+- SBOM metadata: available (sbom/goneat-latest.cdx.json)
+```
+
+### Hook Integration with Assess
+
+Pre-push hooks automatically include dependencies when using assess:
+
+```yaml
+# .goneat/hooks.yaml
+version: v1
+hooks:
+  pre-push:
+    - command: assess
+      args:
+        - --categories
+        - format,lint,security,dependencies
+        - --fail-on
+        - high
+```
+
+This replaces manual dependency hook configuration and provides:
+- Unified reporting across all validation categories
+- Consistent severity handling
+- Integrated SBOM metadata in assessment reports
+- Better CI/CD pipeline integration
+
+See [Dependency Gating Workflow](../workflows/dependency-gating.md) for complete integration patterns.
+
 ## Troubleshooting
 
 ### Registry API Failures
@@ -371,6 +477,8 @@ Dependency analysis runs concurrently when possible:
 
 ## See Also
 
+- [Assess Command](assess.md) - Comprehensive assessment including dependencies category
+- [Dependency Gating Workflow](../workflows/dependency-gating.md) - Hook and CI integration patterns
 - [Dependencies Package Documentation](../../appnotes/lib/dependencies.md) - Internal architecture
 - [Registry Package Documentation](../../appnotes/lib/registry.md) - Registry client details
 - [Dependency Policy Configuration](../../configuration/dependency-policy.md) - Policy schema

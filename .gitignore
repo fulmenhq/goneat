@@ -49,6 +49,9 @@ goneat
 ./goneat
 !schemas/**/goneat/
 
+# Generated SBOM files (created by goneat dependencies sbom)
+sbom/
+
 # Go cache directory
 .gocache/
 

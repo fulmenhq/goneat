@@ -19,7 +19,7 @@ hooks:
       priority: 7
       timeout: "30s"
     - command: "assess"
-      args: ["--check", "--categories", "format,lint,security,dates,tools,maturity,repo-status", "--fail-on", "high"]
+      args: ["--check", "--categories", "format,lint,security,dependencies,dates,tools,maturity,repo-status", "--fail-on", "high"]
       priority: 10
       timeout: "2m"
 optimization:
