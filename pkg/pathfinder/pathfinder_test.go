@@ -582,14 +582,14 @@ func TestDiscoveryEngine_CrossPlatformPatterns(t *testing.T) {
 
 	// Test various pattern representations that should all match the same file
 	patterns := []string{
-		"test.txt",           // Simple filename
-		"./test.txt",         // Unix current directory
-		".\\test.txt",        // Windows current directory
-		"./././test.txt",     // Multiple current directory refs
-		".//test.txt",        // Redundant separator (Unix)
-		".\\\\test.txt",      // Redundant separator (Windows)
-		"foo/../test.txt",    // Parent directory reference
-		"./foo/../test.txt",  // Combined
+		"test.txt",          // Simple filename
+		"./test.txt",        // Unix current directory
+		".\\test.txt",       // Windows current directory
+		"./././test.txt",    // Multiple current directory refs
+		".//test.txt",       // Redundant separator (Unix)
+		".\\\\test.txt",     // Redundant separator (Windows)
+		"foo/../test.txt",   // Parent directory reference
+		"./foo/../test.txt", // Combined
 	}
 
 	for _, pattern := range patterns {
