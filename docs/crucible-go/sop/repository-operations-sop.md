@@ -26,9 +26,9 @@ This SOP defines the operational guidelines, safety protocols, and guardrails fo
 
 | Operation                              | Risk                          | Protocol                                                                                                    |
 | -------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Editing schemas/docs/templates in root | Breaking downstream consumers | Update root, run `bun run sync:to-lang`, verify tests, and ensure `make release:check` passes before merge. |
-| Version bumps                          | Package/version drift         | Use `bun run version:update` or `make version:set`. Never edit `VERSION` manually.                          |
-| Publishing Go/npm packages             | Releasing stale assets        | Confirm release checklist complete, run `make release:prepare`, obtain human approval, then tag/publish.    |
+| Editing schemas/docs/templates in root | Breaking downstream consumers | Update root, run `bun run sync:to-lang`, verify tests, and ensure `make release-check` passes before merge. |
+| Version bumps                          | Package/version drift         | Use `bun run version:update` or `make version-set`. Never edit `VERSION` manually.                          |
+| Publishing Go/npm packages             | Releasing stale assets        | Confirm release checklist complete, run `make release-prepare`, obtain human approval, then tag/publish.    |
 | Deleting schemas or standards          | Downstream breakage           | Requires issue + maintainer review. Provide migration plan and version bump.                                |
 | Modifying CI workflows                 | Broken automation             | Review with @3leapsdave. Test in branch before merging.                                                     |
 
@@ -83,7 +83,7 @@ This SOP defines the operational guidelines, safety protocols, and guardrails fo
 
 ## Required Commands & Tools
 
-- `make bootstrap`, `make lint`, `make test`, `make release:check`
+- `make bootstrap`, `make lint`, `make test`, `make release-check`
 - `bun run sync:to-lang`
 - `bun run scripts/update-version.ts`
 - `bun run scripts/crucible-pull.ts --validate` (for pull-script verification)

@@ -18,9 +18,9 @@ Define the minimum automation contract for all Fulmen repositories so that share
 
 1. **Makefile Compliance**
    - Implement the targets defined in the [Makefile Standard](../standards/makefile-standard.md).
-   - Pipelines SHOULD call `make lint`, `make test`, and `make release:check`.
+   - Pipelines SHOULD call `make lint`, `make test`, and `make release-check`.
 2. **Release Checklist Integration**
-   - `make release:check` must cover or call every gate in `RELEASE_CHECKLIST.md`.
+   - `make release-check` must cover or call every gate in `RELEASE_CHECKLIST.md`.
 3. **Version Synchronization**
    - Use the standard scripts (`bun run version:update`, etc.) so `VERSION`, language packages, and metadata stay aligned.
 4. **Schema/Docs Sync** (for SSOT repos like Crucible)
@@ -35,15 +35,15 @@ Define the minimum automation contract for all Fulmen repositories so that share
 3. `make fmt` (optional in CI, but run locally)
 4. `make test`
 5. `make build`
-6. `make release:check`
+6. `make release-check`
 
 ## Standard Validation Hooks
 
 Repositories SHOULD expose the following commands so CI can hook in easily:
 
 - `make ci` – Runs bootstrap, lint, test, build.
-- `make ci:quick` – Minimal smoke tests for PRs.
-- `make ci:full` – Full release validation (includes `release:check`).
+- `make ci-quick` – Minimal smoke tests for PRs.
+- `make ci-full` – Full release validation (includes `release-check`).
 - `make tools` – Lightweight verification of external dependencies (optional in fast paths).
 
 ## DevSecOps Expectations

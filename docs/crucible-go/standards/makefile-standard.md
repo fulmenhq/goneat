@@ -51,10 +51,10 @@ Every repository **MUST** implement the following make targets:
 | `make clean`                            | Remove build artifacts, caches, temp files.                                                                      |
 | `make fmt`                              | Apply formatting (language-specific).                                                                            |
 | `make version`                          | Print current repository version from `VERSION`.                                                                 |
-| `make version:set VERSION=x`            | Update `VERSION` and any derived metadata. Must call repo-appropriate scripts (e.g., `bun run version:update`).  |
-| `make version:bump-{major,minor,patch}` | Bump version according to strategy (SemVer or CalVer) and regenerate derived files.                              |
-| `make release:check`                    | Run the release checklist validation (tests, lint, sync scripts).                                                |
-| `make release:prepare`                  | Sequence of commands to ready a release (sync, tests, version bump).                                             |
+| `make version-set VERSION=x`            | Update `VERSION` and any derived metadata. Must call repo-appropriate scripts (e.g., `bun run version:update`).  |
+| `make version-bump-{major,minor,patch}` | Bump version according to strategy (SemVer or CalVer) and regenerate derived files.                              |
+| `make release-check`                    | Run the release checklist validation (tests, lint, sync scripts).                                                |
+| `make release-prepare`                  | Sequence of commands to ready a release (sync, tests, version bump).                                             |
 | `make release-build`                    | Build release artifacts (binaries + checksums) for distribution.                                                 |
 | `make prepush`                          | Run pre-push hooks (stub for now).                                                                               |
 | `make precommit`                        | Run pre-commit hooks (stub for now).                                                                             |
@@ -68,7 +68,7 @@ Repositories may add additional targets (e.g., `make docs`, `make package`). Req
 
 - Use phony targets (`.PHONY`) for commands that do not produce physical files.
 - Keep commands quiet when appropriate (prefix with `@`) but print meaningful status lines.
-- `make version:set` should delegate to the language-appropriate script (e.g., `bun run version:update` in Crucible) so wrappers stay synced.
+- `make version-set` should delegate to the language-appropriate script (e.g., `bun run version:update` in Crucible) so wrappers stay synced.
 - `make bootstrap`/`make tools` should call a script that reads `.goneat/tools.yaml` (validated against `schemas/tooling/external-tools/v1.0.0/external-tools-manifest.schema.yaml`).
 - For `make build-all`, implement cross-compilation for common platforms (Linux amd64/arm64, macOS amd64/arm64, Windows amd64). Output binaries to `dist/` directory and generate `SHA256SUMS.txt` with checksums for all artifacts.
 - `make release-build` should depend on `build-all` and may include additional packaging steps.
@@ -115,9 +115,9 @@ build-all: ## Build multi-platform binaries and generate checksums
 
 ## Verification
 
-- CI pipelines should call `make lint`, `make test`, and `make release:check`.
+- CI pipelines should call `make lint`, `make test`, and `make release-check`.
 - For repositories producing binaries, CI should also call `make build-all` to verify cross-compilation works.
-- `make release:check` must cover all items in `RELEASE_CHECKLIST.md` (or invoke a script that does).
+- `make release-check` must cover all items in `RELEASE_CHECKLIST.md` (or invoke a script that does).
 - Release workflows should use `make release-build` to produce distributable artifacts with checksums.
 
 ## Relationship to Other Standards

@@ -198,9 +198,8 @@ properties:
         description: Track and summarize inline security suppressions
         default: false
       fail_on:
-        type: string
+        $ref: ../../assessment/v1.0.0/severity-definitions.schema.json#/$defs/severityName
         description: Fail threshold for security command
-        enum: [critical, high, medium, low, info]
         default: high
     additionalProperties: false
     required: []

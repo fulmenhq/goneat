@@ -37,8 +37,7 @@ properties:
                   type: array
                   description: Severity levels that require reasons
                   items:
-                    type: string
-                    enum: [critical, high, medium, low, info]
+                    $ref: ../../assessment/v1.0.0/severity-definitions.schema.json#/$defs/severityName
                 tools:
                   type: array
                   description: Specific tools that require reasons
@@ -62,8 +61,7 @@ properties:
                   type: array
                   description: Severity levels requiring approval
                   items:
-                    type: string
-                    enum: [critical, high, medium, low, info]
+                    $ref: ../../assessment/v1.0.0/severity-definitions.schema.json#/$defs/severityName
                 rules:
                   type: array
                   description: Specific rule IDs requiring approval
@@ -96,9 +94,8 @@ properties:
         description: Security enforcement rules
         properties:
           fail_on:
-            type: string
+            $ref: ../../assessment/v1.0.0/severity-definitions.schema.json#/$defs/severityName
             description: Default failure threshold
-            enum: [critical, high, medium, low, info]
             default: high
           by_environment:
             type: object
@@ -107,8 +104,7 @@ properties:
               type: object
               properties:
                 fail_on:
-                  type: string
-                  enum: [critical, high, medium, low, info]
+                  $ref: ../../assessment/v1.0.0/severity-definitions.schema.json#/$defs/severityName
                 max_suppressions:
                   type: integer
                   minimum: 0
