@@ -148,7 +148,7 @@ func (r *DependenciesRunner) convertToAssessmentIssues(result *dependencies.Anal
 			Message:       depIssue.Message,
 			Category:      CategoryDependencies,
 			SubCategory:   depIssue.Type, // "license", "cooling"
-			AutoFixable:   false,          // Dependency issues require manual intervention
+			AutoFixable:   false,         // Dependency issues require manual intervention
 			EstimatedTime: r.estimateRemediationTime(depIssue.Type),
 		}
 		issues = append(issues, issue)

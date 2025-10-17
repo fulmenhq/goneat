@@ -37,7 +37,10 @@ You can restrict the assessment to specific categories using the --categories fl
   goneat assess --staged-only                      # Assess only staged files
   goneat assess --output report.html --format html # Output to HTML file
   goneat assess --fail-on high                     # Exit with error on high-severity issues
-  goneat assess --priority "security=1,format=2"  # Custom priorities`,
+  goneat assess --priority "security=1,format=2"  # Custom priorities
+  goneat assess --categories dependencies          # Check dependency licenses and cooling policy
+  goneat assess --categories format,lint,dependencies # Multiple categories including dependencies
+  goneat assess --categories dependencies --fail-on high # Fail on high-severity dependency issues`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runAssess,
 }
@@ -809,7 +812,7 @@ func getDefaultHookConfig(hookType string) *HookConfig {
 	case "pre-push":
 		return &HookConfig{
 			// Align with documented defaults: include maturity and repo-status
-			Categories: []string{"format", "lint", "security", "dates", "tools", "maturity", "repo-status"},
+			Categories: []string{"format", "lint", "security", "dependencies", "dates", "tools", "maturity", "repo-status"},
 			FailOn:     "high",
 		}
 	default:
