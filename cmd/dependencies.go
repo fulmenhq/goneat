@@ -184,7 +184,10 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 
 		invoker, err := sbom.NewSyftInvoker()
 		if err != nil {
-			return fmt.Errorf("failed to initialize SBOM generator: %w", err)
+			return fmt.Errorf("failed to initialize SBOM generator: %w\n\n"+
+				"To install syft, run:\n"+
+				"  goneat doctor tools --scope sbom --install --yes\n\n"+
+				"Or install syft manually from: https://github.com/anchore/syft#installation", err)
 		}
 
 		sbomFormat, _ := cmd.Flags().GetString("sbom-format")

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/fulmenhq/goneat/pkg/logger"
@@ -82,13 +83,23 @@ func (s *SyftInvoker) GetVersion(ctx context.Context) (string, error) {
 		Version string `json:"version"`
 	}
 	if err := json.Unmarshal(output, &versionData); err != nil {
-		logger.Debug("sbom: failed to parse version JSON, using text output")
+		logger.Debug("sbom: failed to parse version JSON, trying text parsing")
 		cmd := exec.CommandContext(ctx, s.syftPath, "version")
 		textOutput, err := cmd.Output()
 		if err != nil {
 			return "", fmt.Errorf("failed to get syft version: %w", err)
 		}
-		return string(textOutput), nil
+		// Parse multiline version output (e.g., "Application:   syft\nVersion:       1.33.0\n...")
+		lines := strings.Split(string(textOutput), "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "Version:") {
+				version := strings.TrimSpace(strings.TrimPrefix(line, "Version:"))
+				if version != "" {
+					return version, nil
+				}
+			}
+		}
+		return strings.TrimSpace(string(textOutput)), nil
 	}
 
 	return versionData.Version, nil
@@ -120,21 +131,9 @@ func (s *SyftInvoker) Generate(ctx context.Context, config Config) (*Result, err
 		toolVersion = "unknown"
 	}
 
-	args := []string{
-		"packages",
-		targetPath,
-		"--scope", "all-layers",
-		"--output", config.Format,
-	}
-
-	if config.Platform != "" {
-		args = append(args, "--platform", config.Platform)
-	}
-
+	// Determine output path first
 	var outputPath string
-	if config.Stdout {
-		args = append(args, "--file", "-")
-	} else {
+	if !config.Stdout {
 		if config.OutputPath == "" {
 			timestamp := time.Now().Format("20060102-150405")
 			outputPath = filepath.Join("sbom", fmt.Sprintf("goneat-%s.cdx.json", timestamp))
@@ -146,8 +145,24 @@ func (s *SyftInvoker) Generate(ctx context.Context, config Config) (*Result, err
 		if err := os.MkdirAll(outputDir, 0o750); err != nil {
 			return nil, fmt.Errorf("failed to create output directory: %w", err)
 		}
+	}
 
-		args = append(args, "--file", outputPath)
+	// Use modern syft scan command with new output syntax
+	args := []string{
+		"scan",
+		targetPath,
+		"--scope", "all-layers",
+	}
+
+	if config.Platform != "" {
+		args = append(args, "--platform", config.Platform)
+	}
+
+	// Use new --output FORMAT=PATH syntax (or FORMAT for stdout)
+	if config.Stdout {
+		args = append(args, "--output", config.Format)
+	} else {
+		args = append(args, "--output", fmt.Sprintf("%s=%s", config.Format, outputPath))
 	}
 
 	logger.Debug("sbom: invoking syft", logger.String("path", s.syftPath), logger.String("target", targetPath), logger.String("output", outputPath))

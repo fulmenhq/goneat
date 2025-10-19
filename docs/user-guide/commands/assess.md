@@ -5,7 +5,8 @@ author: "@forge-neat"
 date: "2025-08-28"
 last_updated: "2025-10-17"
 status: "approved"
-tags: ["cli", "assessment", "validation", "reporting", "commands", "dependencies"]
+tags:
+  ["cli", "assessment", "validation", "reporting", "commands", "dependencies"]
 category: "user-guide"
 ---
 

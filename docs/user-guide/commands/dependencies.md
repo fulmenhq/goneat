@@ -49,7 +49,7 @@ goneat dependencies --cooling .
 Generate Software Bill of Materials for compliance and security:
 
 ```bash
-# Generate SBOM with default settings
+# Generate SBOM with default settings (outputs to sbom/ directory)
 goneat dependencies --sbom .
 
 # Specify output location
@@ -61,6 +61,12 @@ goneat dependencies --sbom --sbom-stdout . > sbom.json
 # Specify target platform for container images
 goneat dependencies --sbom --sbom-platform linux/amd64 .
 ```
+
+**Output Directory:**
+
+- Default output: `sbom/goneat-<timestamp>.cdx.json` in the current project root
+- The `sbom/` directory is automatically created if it doesn't exist
+- **Important:** Add `sbom/` to your `.gitignore` to prevent committing generated SBOMs
 
 **Features:**
 
@@ -224,6 +230,7 @@ diff <(jq '.Dependencies' standalone.json) <(jq '.categories.dependencies' asses
 ```
 
 **Expected Results:**
+
 - SBOM with ~150+ Go dependencies
 - All dependencies pass license checks (MIT, Apache-2.0, BSD)
 - Cooling policy validates package ages
@@ -364,14 +371,14 @@ goneat assess --categories format,lint,security,dependencies --fail-on high
 
 ### Assessment vs Standalone Command
 
-| Feature | `goneat dependencies` | `goneat assess --categories dependencies` |
-|---------|----------------------|------------------------------------------|
-| **Purpose** | Detailed dependency analysis | Integrated assessment workflow |
-| **Output** | JSON report with full details | Unified assessment report (markdown/JSON/HTML) |
-| **Use Case** | Deep dependency investigation | Pre-commit/pre-push gating |
-| **Metrics** | Comprehensive dependency info | Issue counts, severity summary, SBOM metadata |
-| **Integration** | Standalone tool | Part of comprehensive assessment |
-| **Hook Usage** | Manual hook configuration | Automatic via assess hook profiles |
+| Feature         | `goneat dependencies`         | `goneat assess --categories dependencies`      |
+| --------------- | ----------------------------- | ---------------------------------------------- |
+| **Purpose**     | Detailed dependency analysis  | Integrated assessment workflow                 |
+| **Output**      | JSON report with full details | Unified assessment report (markdown/JSON/HTML) |
+| **Use Case**    | Deep dependency investigation | Pre-commit/pre-push gating                     |
+| **Metrics**     | Comprehensive dependency info | Issue counts, severity summary, SBOM metadata  |
+| **Integration** | Standalone tool               | Part of comprehensive assessment               |
+| **Hook Usage**  | Manual hook configuration     | Automatic via assess hook profiles             |
 
 ### Assessment Output
 
@@ -385,6 +392,7 @@ When run via `goneat assess`, dependencies appears as a standard assessment cate
 **Parallelizable:** No
 
 **Metrics:**
+
 - Dependency count: 142
 - License violations: 0
 - Cooling violations: 0
@@ -410,6 +418,7 @@ hooks:
 ```
 
 This replaces manual dependency hook configuration and provides:
+
 - Unified reporting across all validation categories
 - Consistent severity handling
 - Integrated SBOM metadata in assessment reports

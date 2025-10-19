@@ -40,23 +40,23 @@ Version propagation is controlled by a declarative policy file located at `.gone
 ```yaml
 $schema: https://schemas.fulmenhq.dev/config/goneat/version-policy-v1.0.0.schema.json
 version:
-  scheme: semver          # semver | calver - versioning scheme used
-  allow_extended: true    # enables prerelease/build metadata
+  scheme: semver # semver | calver - versioning scheme used
+  allow_extended: true # enables prerelease/build metadata
 
 propagation:
   defaults:
-    include: ["package.json", "pyproject.toml"]  # Default package managers
-    exclude: ["**/node_modules/**", "docs/**"]  # Patterns to exclude
+    include: ["package.json", "pyproject.toml"] # Default package managers
+    exclude: ["**/node_modules/**", "docs/**"] # Patterns to exclude
     backup:
-      enabled: true        # Create backup files before changes
-      retention: 5         # Number of backup files to keep
+      enabled: true # Create backup files before changes
+      retention: 5 # Number of backup files to keep
 
   workspace:
-    strategy: single-version  # single-version | opt-in | opt-out
+    strategy: single-version # single-version | opt-in | opt-out
 
 guards:
-  required_branches: ["main", "release/*"]  # Optional branch restrictions
-  disallow_dirty_worktree: true             # Prevent propagation with uncommitted changes
+  required_branches: ["main", "release/*"] # Optional branch restrictions
+  disallow_dirty_worktree: true # Prevent propagation with uncommitted changes
 ```
 
 #### Advanced Configuration
@@ -66,7 +66,7 @@ $schema: https://schemas.fulmenhq.dev/config/goneat/version-policy-v1.0.0.schema
 version:
   scheme: semver
   allow_extended: true
-  channel: stable          # Optional release channel
+  channel: stable # Optional release channel
 
 propagation:
   defaults:
@@ -82,13 +82,14 @@ propagation:
   # Target-specific overrides
   targets:
     package.json:
-      include: ["./package.json", "apps/*/package.json", "packages/*/package.json"]
-      exclude: ["packages/legacy-*"]  # Override defaults for specific targets
+      include:
+        ["./package.json", "apps/*/package.json", "packages/*/package.json"]
+      exclude: ["packages/legacy-*"] # Override defaults for specific targets
     pyproject.toml:
       include: ["services/*/pyproject.toml"]
-      mode: poetry       # project | poetry - which section to update
+      mode: poetry # project | poetry - which section to update
     go.mod:
-      validate_only: true   # Go modules are validation-only
+      validate_only: true # Go modules are validation-only
 
 guards:
   required_branches: ["main", "release/*"]
@@ -118,11 +119,11 @@ This creates `.goneat/version-policy.yaml` with all available options commented 
 
 #### Package Manager Support
 
-| Manager | File | Update Support | Notes |
-|---------|------|----------------|-------|
-| JavaScript/TypeScript | `package.json` | ✅ Full | Supports workspaces via `workspaces` field |
-| Python | `pyproject.toml` | ✅ Full | Supports both `[project]` and `[tool.poetry]` sections |
-| Go | `go.mod` | ❌ Validation only | Checks module name consistency, no updates |
+| Manager               | File             | Update Support     | Notes                                                  |
+| --------------------- | ---------------- | ------------------ | ------------------------------------------------------ |
+| JavaScript/TypeScript | `package.json`   | ✅ Full            | Supports workspaces via `workspaces` field             |
+| Python                | `pyproject.toml` | ✅ Full            | Supports both `[project]` and `[tool.poetry]` sections |
+| Go                    | `go.mod`         | ❌ Validation only | Checks module name consistency, no updates             |
 
 #### Safety Guards
 

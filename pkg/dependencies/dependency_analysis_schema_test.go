@@ -12,8 +12,14 @@ import (
 
 func TestDependencyAnalysisSchema(t *testing.T) {
 	// Enable offline mode to prevent URL fetching
-	os.Setenv("GONEAT_OFFLINE_SCHEMA_VALIDATION", "true")
-	defer os.Unsetenv("GONEAT_OFFLINE_SCHEMA_VALIDATION")
+	if err := os.Setenv("GONEAT_OFFLINE_SCHEMA_VALIDATION", "true"); err != nil {
+		t.Fatalf("Failed to set environment variable: %v", err)
+	}
+	defer func() {
+		if err := os.Unsetenv("GONEAT_OFFLINE_SCHEMA_VALIDATION"); err != nil {
+			t.Logf("Warning: failed to unset environment variable: %v", err)
+		}
+	}()
 
 	// Get embedded validator for our schema using direct path approach
 	validator, err := schema.NewValidatorFromEmbeddedPath("embedded_schemas/schemas/dependencies/v1.0.0/dependency-analysis.schema.json")

@@ -41,6 +41,8 @@ Dependency analysis has different network requirements depending on the validati
 
 This guide provides strategies for both **offline** (pre-commit) and **online** (pre-push/CI) workflows.
 
+**SBOM Output Directory:** By default, SBOMs are generated in the `sbom/` directory at the project root. Make sure to add `sbom/` to your `.gitignore` to prevent committing generated artifacts.
+
 ## Quick Start
 
 ### Try It Yourself (goneat Repository)
@@ -67,6 +69,7 @@ cat sbom/goneat-latest.cdx.json | jq '.metadata, .components | length'
 ```
 
 **What you'll see:**
+
 - ~150+ Go dependencies analyzed
 - License compliance checked (MIT, Apache-2.0, BSD licenses are allowed)
 - Cooling policy validated (packages must be >7 days old)
@@ -100,6 +103,7 @@ The dependencies assessment provides structured output:
 **Parallelizable:** No
 
 **Metrics:**
+
 - Dependency count: 142
 - License violations: 0
 - Cooling violations: 0
@@ -144,6 +148,7 @@ optimization:
 ```
 
 **Benefits:**
+
 - ✅ Fast local commits (no network delay)
 - ✅ Comprehensive pre-push gating
 - ✅ Cooling policy validated before push
@@ -169,7 +174,7 @@ hooks:
     - command: dependencies
       args:
         - check
-        - --license-only  # Offline license validation
+        - --license-only # Offline license validation
         - --fail-on
         - high
       fallback: fail
@@ -178,13 +183,14 @@ hooks:
     - command: assess
       args:
         - --categories
-        - dependencies  # Full validation including cooling
+        - dependencies # Full validation including cooling
         - --fail-on
         - high
       fallback: fail
 ```
 
 **Benefits:**
+
 - ✅ Early license violation detection
 - ✅ No network requirement for commits
 - ✅ Full policy enforcement before push
@@ -247,7 +253,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: "1.23"
 
       - name: Install goneat
         run: |
@@ -401,6 +407,7 @@ Here's what a goneat-generated SBOM looks like (truncated for readability):
 ### SBOM + Assessment Integration
 
 When you run `goneat assess --categories dependencies`, the assessment automatically:
+
 - Looks for existing SBOM files (in `sbom/goneat-latest.cdx.json`)
 - Includes SBOM metadata in the assessment report
 - Reports if SBOM is missing or needs regeneration
@@ -454,9 +461,9 @@ licenses:
 # Cooling policy (prevent newly published packages)
 cooling:
   enabled: true
-  min_age_days: 14  # Package must be at least 2 weeks old
+  min_age_days: 14 # Package must be at least 2 weeks old
   exceptions:
-    - github.com/your-org/*  # Trust your organization
+    - github.com/your-org/* # Trust your organization
 
 # SBOM settings
 sbom:
@@ -557,7 +564,7 @@ hooks:
     - command: dependencies
       args:
         - check
-        - --license-only  # Skip cooling (network-dependent)
+        - --license-only # Skip cooling (network-dependent)
         - --fail-on
         - high
 ```
@@ -569,6 +576,7 @@ hooks:
 **Solutions:**
 
 1. **Enable caching:**
+
    ```bash
    # Caching is enabled by default
    # Check cache location:
@@ -576,6 +584,7 @@ hooks:
    ```
 
 2. **Skip unchanged dependencies:**
+
    ```bash
    # Use assessment caching in hooks.yaml
    optimization:

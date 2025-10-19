@@ -3,9 +3,9 @@ title: "Assess Command Reference"
 description: "Complete reference for the goneat assess command - comprehensive codebase assessment and workflow planning"
 author: "@forge-neat"
 date: "2025-08-28"
-last_updated: "2025-08-28"
+last_updated: "2025-10-17"
 status: "approved"
-tags: ["cli", "assessment", "validation", "reporting", "commands"]
+tags: ["cli", "assessment", "validation", "reporting", "commands", "dependencies"]
 category: "user-guide"
 ---
 
@@ -193,6 +193,30 @@ Goneat assess supports multiple validation categories:
 - **Tools:** gosec, custom security scanners
 - **Typical Issues:** SQL injection, hardcoded secrets, unsafe operations
 - **Auto-fixable:** No (requires manual review)
+
+### Dependencies (`dependencies`)
+
+- **Purpose:** Supply-chain security and license compliance
+- **Tools:** License analyzer, cooling policy validator, SBOM generator
+- **Typical Issues:** Forbidden licenses, newly published packages (cooling violations), missing SBOM
+- **Auto-fixable:** No (requires policy review and dependency updates)
+- **Network:** May require network access for cooling policy (package registry queries)
+- **Priority:** 2 (aligned with security)
+
+Run dependencies assessment:
+
+```bash
+# Full dependencies assessment
+goneat assess --categories dependencies
+
+# Dependencies with other security checks
+goneat assess --categories security,dependencies --fail-on high
+
+# Offline mode (license-only, no cooling checks)
+goneat dependencies check --license-only
+```
+
+See [Dependency Gating Workflow](../workflows/dependency-gating.md) for complete integration patterns.
 
 ### Static Analysis (`static-analysis`)
 
@@ -565,6 +589,12 @@ goneat assess --categories lint --lint-new-from-rev HEAD~ --format concise
 
 # Security-focused assessment
 goneat assess --categories security --fail-on high
+
+# Dependencies assessment (supply-chain security)
+goneat assess --categories dependencies --verbose
+
+# Comprehensive security (vulnerabilities + dependencies)
+goneat assess --categories security,dependencies --fail-on high
 ```
 
 ### CI/CD Integration
@@ -1000,7 +1030,8 @@ goneat assess --format executive-summary --output summary.md
 The assess command is designed for extensibility:
 
 - **Extended Output (`--extended`):** Enhanced output format with detailed workplan information including file discovery details, category planning, and execution transparency for debugging and automation ✅ **Available**
-- **Additional categories:** Testing, documentation, dependencies
+- **Dependencies Category:** Supply-chain security and license compliance validation ✅ **Available** (see [Dependency Gating Workflow](../workflows/dependency-gating.md))
+- **Additional categories:** Testing, documentation coverage
 - **Custom tools:** Plugin system for proprietary validators
 - **Machine learning:** Intelligent prioritization based on codebase patterns
 - **Distributed execution:** Cluster support for large monorepos
