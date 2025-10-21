@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Dummy tool for testing installation
+echo "dummy-tool version 1.0.0"

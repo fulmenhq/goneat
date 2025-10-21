@@ -1,0 +1,2 @@
+15f41bd50c00f8404e339785ecb5073d4789434140b8a9bb6a3b6e8bdb5c260f  artifacts/valid-tool-1.0.0-darwin-amd64.tar.gz
+978a87eb9de2a69174a3115fa51c1aff65eed820ce99a4995620f227a679a1fb  artifacts/valid-tool-1.0.0-windows-amd64.zip

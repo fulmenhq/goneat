@@ -294,6 +294,25 @@ func extractArtifact(archivePath, targetPath, toolName, extractPath string) erro
 	return fmt.Errorf("unsupported archive format: %s", archivePath)
 }
 
+// validateArchivePath validates that a path from an archive doesn't contain
+// path traversal attempts (e.g., ../../../etc/passwd)
+func validateArchivePath(archivePath string) error {
+	// Clean the path to normalize it
+	cleaned := filepath.Clean(archivePath)
+
+	// Check for path traversal attempts
+	if strings.Contains(cleaned, "..") {
+		return fmt.Errorf("path traversal detected: %s", archivePath)
+	}
+
+	// Additional check: ensure the path doesn't start with / or drive letter (absolute path)
+	if filepath.IsAbs(cleaned) {
+		return fmt.Errorf("absolute path not allowed in archive: %s", archivePath)
+	}
+
+	return nil
+}
+
 func extractTarGz(archivePath, targetPath, toolName, extractPath string) error {
 	file, err := os.Open(archivePath)
 	if err != nil {
@@ -329,6 +348,11 @@ func extractTarGz(archivePath, targetPath, toolName, extractPath string) error {
 		}
 		if err != nil {
 			return fmt.Errorf("failed to read tar: %w", err)
+		}
+
+		// Security: Validate path to prevent traversal attacks
+		if err := validateArchivePath(header.Name); err != nil {
+			return fmt.Errorf("invalid path in archive: %w", err)
 		}
 
 		if filepath.Base(header.Name) == binaryName || strings.HasSuffix(header.Name, "/"+binaryName) {
@@ -373,6 +397,11 @@ func extractZip(archivePath, targetPath, toolName, extractPath string) error {
 	}
 
 	for _, f := range r.File {
+		// Security: Validate path to prevent traversal attacks
+		if err := validateArchivePath(f.Name); err != nil {
+			return fmt.Errorf("invalid path in archive: %w", err)
+		}
+
 		if filepath.Base(f.Name) == binaryName || strings.HasSuffix(f.Name, "/"+binaryName) {
 			rc, err := f.Open()
 			if err != nil {
