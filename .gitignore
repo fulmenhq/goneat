@@ -50,7 +50,8 @@ goneat
 !schemas/**/goneat/
 
 # Generated SBOM files (created by goneat dependencies sbom)
-sbom/
+# Note: Leading slash means only root-level sbom/ is ignored, allowing pkg/sbom/ to be tracked
+/sbom/
 
 # Go cache directory
 .gocache/
