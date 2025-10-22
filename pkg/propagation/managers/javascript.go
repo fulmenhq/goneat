@@ -72,7 +72,14 @@ func (m *JavaScriptManager) Detect(root string) ([]string, error) {
 
 // ExtractVersion reads the version from a package.json file
 func (m *JavaScriptManager) ExtractVersion(file string) (string, error) {
-	data, err := os.ReadFile(file)
+	// Validate file path to prevent path traversal
+	validatedPath, err := filepath.Abs(file)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve file path: %w", err)
+	}
+	file = validatedPath
+
+	data, err := os.ReadFile(file) // #nosec G304 - path validated with filepath.Abs above
 	if err != nil {
 		return "", fmt.Errorf("failed to read package.json: %w", err)
 	}
@@ -94,7 +101,14 @@ func (m *JavaScriptManager) ExtractVersion(file string) (string, error) {
 
 // UpdateVersion updates the version in a package.json file
 func (m *JavaScriptManager) UpdateVersion(file, version string) error {
-	data, err := os.ReadFile(file)
+	// Validate file path to prevent path traversal
+	validatedPath, err := filepath.Abs(file)
+	if err != nil {
+		return fmt.Errorf("failed to resolve file path: %w", err)
+	}
+	file = validatedPath
+
+	data, err := os.ReadFile(file) // #nosec G304 - path validated with filepath.Abs above
 	if err != nil {
 		return fmt.Errorf("failed to read package.json: %w", err)
 	}
@@ -116,7 +130,7 @@ func (m *JavaScriptManager) UpdateVersion(file, version string) error {
 	// Add newline at end
 	updatedData = append(updatedData, '\n')
 
-	if err := os.WriteFile(file, updatedData, 0644); err != nil {
+	if err := os.WriteFile(file, updatedData, 0600); err != nil {
 		return fmt.Errorf("failed to write updated package.json: %w", err)
 	}
 

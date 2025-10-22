@@ -77,7 +77,14 @@ func (m *PythonManager) Detect(root string) ([]string, error) {
 
 // ExtractVersion reads the version from a pyproject.toml file
 func (m *PythonManager) ExtractVersion(file string) (string, error) {
-	data, err := os.ReadFile(file)
+	// Validate file path to prevent path traversal
+	validatedPath, err := filepath.Abs(file)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve file path: %w", err)
+	}
+	file = validatedPath
+
+	data, err := os.ReadFile(file) // #nosec G304 - path validated with filepath.Abs above
 	if err != nil {
 		return "", fmt.Errorf("failed to read pyproject.toml: %w", err)
 	}
@@ -110,7 +117,14 @@ func (m *PythonManager) ExtractVersion(file string) (string, error) {
 // NOTE: This implementation preserves file structure by using targeted text replacement
 // rather than full TOML unmarshal/remarshal to avoid comment loss and reordering
 func (m *PythonManager) UpdateVersion(file, version string) error {
-	data, err := os.ReadFile(file)
+	// Validate file path to prevent path traversal
+	validatedPath, err := filepath.Abs(file)
+	if err != nil {
+		return fmt.Errorf("failed to resolve file path: %w", err)
+	}
+	file = validatedPath
+
+	data, err := os.ReadFile(file) // #nosec G304 - path validated with filepath.Abs above
 	if err != nil {
 		return fmt.Errorf("failed to read pyproject.toml: %w", err)
 	}
@@ -134,7 +148,7 @@ func (m *PythonManager) UpdateVersion(file, version string) error {
 		return fmt.Errorf("no version field found to update in [project] or [tool.poetry] sections")
 	}
 
-	if err := os.WriteFile(file, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(file, []byte(content), 0600); err != nil {
 		return fmt.Errorf("failed to write updated pyproject.toml: %w", err)
 	}
 

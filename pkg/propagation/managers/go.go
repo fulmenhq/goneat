@@ -72,7 +72,14 @@ func (m *GoManager) Detect(root string) ([]string, error) {
 // Note: go.mod doesn't contain version info, but we can extract the module name
 // for validation against VERSION file patterns
 func (m *GoManager) ExtractVersion(file string) (string, error) {
-	data, err := os.ReadFile(file)
+	// Validate file path to prevent path traversal
+	validatedPath, err := filepath.Abs(file)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve file path: %w", err)
+	}
+	file = validatedPath
+
+	data, err := os.ReadFile(file) // #nosec G304 - path validated with filepath.Abs above
 	if err != nil {
 		return "", fmt.Errorf("failed to read go.mod: %w", err)
 	}

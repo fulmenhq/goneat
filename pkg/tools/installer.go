@@ -22,7 +22,11 @@ import (
 
 const (
 	downloadTimeout = 5 * time.Minute
+	maxExtractSize  = 500 * 1024 * 1024 // 500MB limit to prevent decompression bombs
 )
+
+// ErrArchiveTooLarge is returned when an archive contains a file larger than the maximum allowed size
+var ErrArchiveTooLarge = fmt.Errorf("archive contains file larger than maximum allowed size (%d MB)", maxExtractSize/1024/1024)
 
 type InstallOptions struct {
 	Version  string
@@ -140,7 +144,7 @@ func InstallArtifact(tool Tool, opts InstallOptions) (*InstallResult, error) {
 		return nil, fmt.Errorf("failed to extract artifact: %w", err)
 	}
 
-	if err := os.Chmod(installedPath, 0o755); err != nil {
+	if err := os.Chmod(installedPath, 0o755); err != nil { // #nosec G302 - Binary executable requires execute permission
 		return nil, fmt.Errorf("failed to make binary executable: %w", err)
 	}
 
@@ -225,7 +229,7 @@ func downloadArtifact(toolName, version string, artifact *Artifact) (string, err
 	}
 
 	tmpFile := downloadPath + ".tmp"
-	out, err := os.Create(tmpFile)
+	out, err := os.Create(tmpFile) // #nosec G304 - downloadPath constructed from controlled cache directory
 	if err != nil {
 		return "", fmt.Errorf("failed to create file: %w", err)
 	}
@@ -255,7 +259,7 @@ func downloadArtifact(toolName, version string, artifact *Artifact) (string, err
 }
 
 func verifyChecksum(filePath, expectedSHA256 string) error {
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) // #nosec G304 - filePath from controlled download path
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
@@ -314,7 +318,7 @@ func validateArchivePath(archivePath string) error {
 }
 
 func extractTarGz(archivePath, targetPath, toolName, extractPath string) error {
-	file, err := os.Open(archivePath)
+	file, err := os.Open(archivePath) // #nosec G304 - archivePath from controlled download path
 	if err != nil {
 		return fmt.Errorf("failed to open archive: %w", err)
 	}
@@ -356,7 +360,7 @@ func extractTarGz(archivePath, targetPath, toolName, extractPath string) error {
 		}
 
 		if filepath.Base(header.Name) == binaryName || strings.HasSuffix(header.Name, "/"+binaryName) {
-			out, err := os.Create(targetPath)
+			out, err := os.Create(targetPath) // #nosec G304 - targetPath constructed from controlled paths
 			if err != nil {
 				return fmt.Errorf("failed to create output file: %w", err)
 			}
@@ -366,8 +370,15 @@ func extractTarGz(archivePath, targetPath, toolName, extractPath string) error {
 				}
 			}()
 
-			if _, err := io.Copy(out, tr); err != nil {
+			// Prevent decompression bomb attacks by limiting extract size
+			limitedReader := &io.LimitedReader{R: tr, N: maxExtractSize}
+			if _, err := io.Copy(out, limitedReader); err != nil {
 				return fmt.Errorf("failed to extract file: %w", err)
+			}
+
+			// Check if the extraction was truncated due to size limit
+			if limitedReader.N == 0 {
+				return fmt.Errorf("failed to extract %s: %w", binaryName, ErrArchiveTooLarge)
 			}
 
 			return nil
@@ -413,7 +424,7 @@ func extractZip(archivePath, targetPath, toolName, extractPath string) error {
 				}
 			}()
 
-			out, err := os.Create(targetPath)
+			out, err := os.Create(targetPath) // #nosec G304 - targetPath constructed from controlled paths
 			if err != nil {
 				return fmt.Errorf("failed to create output file: %w", err)
 			}
@@ -423,8 +434,15 @@ func extractZip(archivePath, targetPath, toolName, extractPath string) error {
 				}
 			}()
 
-			if _, err := io.Copy(out, rc); err != nil {
+			// Prevent decompression bomb attacks by limiting extract size
+			limitedReader := &io.LimitedReader{R: rc, N: maxExtractSize}
+			if _, err := io.Copy(out, limitedReader); err != nil {
 				return fmt.Errorf("failed to extract file: %w", err)
+			}
+
+			// Check if the extraction was truncated due to size limit
+			if limitedReader.N == 0 {
+				return fmt.Errorf("failed to extract %s: %w", binaryName, ErrArchiveTooLarge)
 			}
 
 			return nil

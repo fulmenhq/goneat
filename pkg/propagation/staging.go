@@ -27,7 +27,7 @@ func NewStagingWorkspace() (*StagingWorkspace, error) {
 	timestamp := time.Now().Format("20060102-150405")
 	baseDir := filepath.Join(goneatHome, "work", "version-propagate", timestamp)
 
-	if err := os.MkdirAll(baseDir, 0755); err != nil {
+	if err := os.MkdirAll(baseDir, 0750); err != nil {
 		return nil, fmt.Errorf("failed to create staging directory %s: %w", baseDir, err)
 	}
 
@@ -53,7 +53,7 @@ func (sw *StagingWorkspace) StageFile(srcPath string) (string, error) {
 	stagePath := filepath.Join(sw.baseDir, relPath)
 	stageDir := filepath.Dir(stagePath)
 
-	if err := os.MkdirAll(stageDir, 0755); err != nil {
+	if err := os.MkdirAll(stageDir, 0750); err != nil {
 		return "", fmt.Errorf("failed to create staging directory %s: %w", stageDir, err)
 	}
 
@@ -156,7 +156,7 @@ func (sw *StagingWorkspace) createBackup(filePath string) (string, error) {
 // atomicReplace atomically replaces the original file with the staged version
 func (sw *StagingWorkspace) atomicReplace(originalPath, stagePath string) error {
 	// Read staged content
-	content, err := os.ReadFile(stagePath)
+	content, err := os.ReadFile(stagePath) // #nosec G304 - stagePath constructed from controlled staging directory
 	if err != nil {
 		return fmt.Errorf("failed to read staged file: %w", err)
 	}
@@ -167,7 +167,7 @@ func (sw *StagingWorkspace) atomicReplace(originalPath, stagePath string) error 
 
 // copyFile copies a file from src to dst
 func (sw *StagingWorkspace) copyFile(src, dst string) error {
-	srcFile, err := os.Open(src)
+	srcFile, err := os.Open(src) // #nosec G304 - paths constructed from controlled staging directory
 	if err != nil {
 		return err
 	}
@@ -177,7 +177,7 @@ func (sw *StagingWorkspace) copyFile(src, dst string) error {
 		}
 	}()
 
-	dstFile, err := os.Create(dst)
+	dstFile, err := os.Create(dst) // #nosec G304 - paths constructed from controlled staging directory
 	if err != nil {
 		return err
 	}

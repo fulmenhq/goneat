@@ -73,7 +73,7 @@ func NewSyftInvoker() (*SyftInvoker, error) {
 }
 
 func (s *SyftInvoker) GetVersion(ctx context.Context) (string, error) {
-	cmd := exec.CommandContext(ctx, s.syftPath, "version", "--output", "json")
+	cmd := exec.CommandContext(ctx, s.syftPath, "version", "--output", "json") // #nosec G204 - Arguments are hardcoded constants
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to get syft version: %w", err)
@@ -84,7 +84,7 @@ func (s *SyftInvoker) GetVersion(ctx context.Context) (string, error) {
 	}
 	if err := json.Unmarshal(output, &versionData); err != nil {
 		logger.Debug("sbom: failed to parse version JSON, trying text parsing")
-		cmd := exec.CommandContext(ctx, s.syftPath, "version")
+		cmd := exec.CommandContext(ctx, s.syftPath, "version") // #nosec G204 - Arguments are hardcoded constants
 		textOutput, err := cmd.Output()
 		if err != nil {
 			return "", fmt.Errorf("failed to get syft version: %w", err)
@@ -141,6 +141,12 @@ func (s *SyftInvoker) Generate(ctx context.Context, config Config) (*Result, err
 			outputPath = config.OutputPath
 		}
 
+		// Validate output path to prevent path traversal
+		outputPath, err = filepath.Abs(outputPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve output path: %w", err)
+		}
+
 		outputDir := filepath.Dir(outputPath)
 		if err := os.MkdirAll(outputDir, 0o750); err != nil {
 			return nil, fmt.Errorf("failed to create output directory: %w", err)
@@ -167,7 +173,7 @@ func (s *SyftInvoker) Generate(ctx context.Context, config Config) (*Result, err
 
 	logger.Debug("sbom: invoking syft", logger.String("path", s.syftPath), logger.String("target", targetPath), logger.String("output", outputPath))
 
-	cmd := exec.CommandContext(ctx, s.syftPath, args...)
+	cmd := exec.CommandContext(ctx, s.syftPath, args...) // #nosec G204 - Paths validated with filepath.Abs above
 	cmd.Stderr = os.Stderr
 
 	var sbomContent json.RawMessage

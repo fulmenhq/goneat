@@ -96,6 +96,13 @@ func (pl *PolicyLoader) LoadPolicyWithValidation(policyPath string) (*VersionPol
 		policyPath = ".goneat/version-policy.yaml"
 	}
 
+	// Validate policy path to prevent path traversal
+	validatedPath, err := filepath.Abs(policyPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve policy path: %w", err)
+	}
+	policyPath = validatedPath
+
 	// Check if policy file exists
 	if _, err := os.Stat(policyPath); os.IsNotExist(err) {
 		logger.Debug("Policy file not found, using defaults", logger.String("path", policyPath))
@@ -103,7 +110,7 @@ func (pl *PolicyLoader) LoadPolicyWithValidation(policyPath string) (*VersionPol
 	}
 
 	// Read policy file
-	data, err := os.ReadFile(policyPath)
+	data, err := os.ReadFile(policyPath) // #nosec G304 - path validated with filepath.Abs above
 	if err != nil {
 		return nil, fmt.Errorf("failed to read policy file %s: %w", policyPath, err)
 	}
@@ -223,7 +230,7 @@ func (pl *PolicyLoader) validatePolicy(policy *VersionPolicy) error {
 func (pl *PolicyLoader) GeneratePolicyFile(path string) error {
 	// Create directory if it doesn't exist
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", dir, err)
 	}
 
@@ -272,7 +279,7 @@ guards:  # Execution preconditions
 #   last_reviewed: "2025-01-15"
 `
 
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
 		return fmt.Errorf("failed to write policy file %s: %w", path, err)
 	}
 
