@@ -27,6 +27,32 @@ The tools library addresses common challenges in development environment managem
 - **Detection Logic**: Flexible command-based tool detection
 - **Error Handling**: Comprehensive error reporting and recovery
 
+## Security Features
+
+### Archive Size Limits
+
+To prevent decompression bomb attacks, goneat enforces a maximum extraction size limit during tool installation:
+
+- **Maximum Archive Size**: 500 MB per extracted file
+- **Error Handling**: Files exceeding this limit trigger `ErrArchiveTooLarge` with a clear error message
+- **Implementation**: Uses `io.LimitedReader` with explicit size checking to prevent silent truncation
+
+```go
+const maxExtractSize = 500 * 1024 * 1024 // 500MB limit
+
+// During extraction:
+limitedReader := &io.LimitedReader{R: archiveReader, N: maxExtractSize}
+if _, err := io.Copy(out, limitedReader); err != nil {
+    return fmt.Errorf("failed to extract file: %w", err)
+}
+// Check if extraction was truncated
+if limitedReader.N == 0 {
+    return fmt.Errorf("failed to extract %s: %w", filename, ErrArchiveTooLarge)
+}
+```
+
+This protection applies to both tar.gz and zip archives downloaded during tool installation.
+
 ## Installation
 
 ```bash

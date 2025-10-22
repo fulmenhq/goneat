@@ -24,6 +24,7 @@ cooling:
   min_downloads_recent: 10     # Minimum recent downloads threshold
   alert_only: false            # Fail build on violations (false) or warn only (true)
   grace_period_days: 3         # Grace period for initial publication
+  # Network access is required for cooling checks; run in pre-push/CI workflows.
   # Trust exceptions for internal/known packages:
   # exceptions:
   #   - pattern: "github.com/myorg/*"
@@ -42,6 +43,7 @@ policy_engine:
 #   output_dir: sbom
 #   format: cyclonedx-json
 #   include_dev_dependencies: false
+#   # Security: extraction is capped at 500 MB per file (ErrArchiveTooLarge).
 
 # Assessment Integration Notes:
 # - Use 'goneat assess --categories dependencies' for unified workflow

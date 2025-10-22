@@ -1,3 +1,15 @@
+---
+title: "Dependencies Command"
+description: "Reference for goneat dependencies – license compliance, cooling policy, and SBOM generation tooling"
+author: "@arch-eagle"
+date: "2025-09-30"
+last_updated: "2025-10-22"
+status: "approved"
+tags:
+  ["cli", "dependencies", "security", "supply-chain", "sbom", "licenses"]
+category: "user-guide"
+---
+
 # Dependencies Command
 
 The `dependencies` command analyzes project dependencies for license compliance, supply chain security (cooling policy), and SBOM generation. It supports multiple languages including Go, TypeScript/JavaScript, Python, Rust, and C#.
@@ -96,6 +108,35 @@ SBOM generation can be combined with license and cooling checks:
 # Run all dependency checks together
 goneat dependencies --licenses --cooling --sbom .
 ```
+
+## Assessment Integration
+
+The standalone command shares its engine with `goneat assess --categories dependencies`. Use assess when you need unified
+reporting, severity gating, or JSON output that conforms to
+`schemas/dependencies/v1.0.0/dependency-analysis.schema.json`.
+
+```bash
+# Run dependencies via assess (recommended for hooks/CI)
+goneat assess --categories dependencies --fail-on high
+
+# Combine with security checks and emit structured JSON
+goneat assess --categories security,dependencies --format json --output deps-report.json
+```
+
+Assessment mode automatically enriches the report with:
+
+- License and cooling policy findings mapped to Crucible severities
+- Dependency metrics (counts, policy status)
+- SBOM metadata (latest file path, tool version, generation timestamp) if an SBOM exists
+
+For workflow guidance see [Dependency Gating Workflow](../workflows/dependency-gating.md).
+
+## Security Considerations
+
+- SBOM archives are extracted with a 500 MB safety limit. Files exceeding the limit cause extraction to fail with
+  `ErrArchiveTooLarge` to prevent decompression bombs.
+- Generated policy and manifest files are written with `0600` permissions to keep credentials and policy data private.
+- Syft invocations use sanitized arguments and validated output paths to avoid command injection and path traversal.
 
 ## Flags
 
@@ -207,7 +248,7 @@ If you've cloned goneat, you can explore dependencies features hands-on:
 cd /path/to/goneat
 
 # 1. Generate SBOM (creates sbom/goneat-<timestamp>.cdx.json)
-goneat dependencies sbom
+goneat dependencies --sbom
 
 # 2. View SBOM summary
 cat sbom/goneat-latest.cdx.json | jq '{
@@ -218,13 +259,13 @@ cat sbom/goneat-latest.cdx.json | jq '{
 }'
 
 # 3. Check license compliance
-goneat dependencies check --licenses
+goneat dependencies --licenses
 
 # 4. Run full dependencies assessment
 goneat assess --categories dependencies --verbose
 
 # 5. Compare standalone vs assessment output
-goneat dependencies check --licenses --format json > standalone.json
+goneat dependencies --licenses --format json > standalone.json
 goneat assess --categories dependencies --format json > assessment.json
 diff <(jq '.Dependencies' standalone.json) <(jq '.categories.dependencies' assessment.json)
 ```

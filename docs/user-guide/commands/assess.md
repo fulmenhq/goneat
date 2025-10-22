@@ -3,7 +3,7 @@ title: "Assess Command Reference"
 description: "Complete reference for the goneat assess command - comprehensive codebase assessment and workflow planning"
 author: "@forge-neat"
 date: "2025-08-28"
-last_updated: "2025-10-17"
+last_updated: "2025-10-22"
 status: "approved"
 tags:
   ["cli", "assessment", "validation", "reporting", "commands", "dependencies"]
@@ -214,10 +214,16 @@ goneat assess --categories dependencies
 goneat assess --categories security,dependencies --fail-on high
 
 # Offline mode (license-only, no cooling checks)
-goneat dependencies check --license-only
+goneat dependencies --licenses
 ```
 
 See [Dependency Gating Workflow](../workflows/dependency-gating.md) for complete integration patterns.
+
+**Assessment Output:** Dependency assessment emits structured JSON that conforms to
+`schemas/dependencies/v1.0.0/dependency-analysis.schema.json`. Metrics include package
+counts, cooling violations, license policy results, and SBOM metadata (path, tool
+version, generation timestamp) when a recent SBOM is present. Use these fields to
+power dashboards or CI quality gates.
 
 ### Static Analysis (`static-analysis`)
 

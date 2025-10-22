@@ -3,7 +3,7 @@ title: "Dependency Gating Workflow Guide"
 description: "Workflow strategies for dependency license and cooling policy validation in pre-commit, pre-push, and CI/CD environments"
 author: "@code-scout"
 date: "2025-10-17"
-last_updated: "2025-10-17"
+last_updated: "2025-10-22"
 status: "approved"
 tags:
   [
@@ -174,7 +174,7 @@ hooks:
     - command: dependencies
       args:
         - check
-        - --license-only # Offline license validation
+        - --licenses # Offline license validation
         - --fail-on
         - high
       fallback: fail
@@ -564,7 +564,7 @@ hooks:
     - command: dependencies
       args:
         - check
-        - --license-only # Skip cooling (network-dependent)
+        - --licenses # Skip cooling (network-dependent)
         - --fail-on
         - high
 ```
