@@ -274,12 +274,14 @@ goneat version propagate [OPTIONS]
 Propagates the VERSION file content to package manager files (package.json, pyproject.toml, go.mod) according to policy configuration. This ensures the VERSION file remains the single source of truth while automatically synchronizing version information across your project.
 
 **Key Features:**
+
 - **Multi-format support**: Updates package.json, pyproject.toml, and go.mod files
 - **Workspace aware**: Handles monorepos with selective propagation
 - **Policy driven**: Configurable via `.goneat/version-policy.yaml`
 - **Safe operations**: Policy-controlled backups, dry-run mode, atomic updates
 
 **Options:**
+
 - `--dry-run`: Preview changes without making them
 - `--target strings`: Specific files or package managers to target
 - `--exclude strings`: Files to exclude from propagation
@@ -315,8 +317,8 @@ Version propagation behavior is controlled by `.goneat/version-policy.yaml`. Thi
 ```yaml
 $schema: https://schemas.fulmenhq.dev/config/goneat/version-policy-v1.0.0.schema.json
 version:
-  scheme: semver          # semver | calver
-  allow_extended: true    # enables prerelease/build metadata
+  scheme: semver # semver | calver
+  allow_extended: true # enables prerelease/build metadata
 
 propagation:
   defaults:
@@ -327,7 +329,7 @@ propagation:
       retention: 5
 
   workspace:
-    strategy: single-version  # single-version | opt-in | opt-out
+    strategy: single-version # single-version | opt-in | opt-out
 
 guards:
   required_branches: ["main", "release/*"]
@@ -351,18 +353,19 @@ propagation:
       retention: 5
 
   workspace:
-    strategy: opt-out  # Allow independent versioning by default
+    strategy: opt-out # Allow independent versioning by default
 
   targets:
     # JavaScript/TypeScript packages
     package.json:
-      include: ["./package.json", "apps/*/package.json", "packages/*/package.json"]
-      exclude: ["packages/legacy-*"]  # Legacy packages don't get updates
+      include:
+        ["./package.json", "apps/*/package.json", "packages/*/package.json"]
+      exclude: ["packages/legacy-*"] # Legacy packages don't get updates
 
     # Python services
     pyproject.toml:
       include: ["services/*/pyproject.toml"]
-      mode: project  # Use [project] section (default)
+      mode: project # Use [project] section (default)
 
     # Go modules (validation only)
     go.mod:
@@ -386,11 +389,13 @@ This creates `.goneat/version-policy.yaml` with comprehensive examples and docum
 #### Configuration Reference
 
 **Version Section:**
+
 - `scheme`: `semver` (default) or `calver` - versioning scheme used
 - `allow_extended`: `true` (default) - allow prerelease and build metadata
 - `channel`: Optional release channel name
 
 **Propagation Section:**
+
 - `defaults.include`: Default package managers to include
 - `defaults.exclude`: Glob patterns to exclude
 - `defaults.backup.enabled`: Create backup files before changes
@@ -399,24 +404,25 @@ This creates `.goneat/version-policy.yaml` with comprehensive examples and docum
 - `targets`: Package-manager specific overrides
 
 **Guards Section:**
+
 - `required_branches`: Branch patterns where propagation is allowed
 - `disallow_dirty_worktree`: Prevent propagation with uncommitted changes
 
 #### Workspace Strategies
 
-| Strategy | Description | Use Case |
-|----------|-------------|----------|
-| `single-version` | All packages use root VERSION | Simple monorepos, unified releases |
-| `opt-in` | Only explicitly configured packages | Selective independent versioning |
-| `opt-out` | All except excluded packages | Most packages version independently |
+| Strategy         | Description                         | Use Case                            |
+| ---------------- | ----------------------------------- | ----------------------------------- |
+| `single-version` | All packages use root VERSION       | Simple monorepos, unified releases  |
+| `opt-in`         | Only explicitly configured packages | Selective independent versioning    |
+| `opt-out`        | All except excluded packages        | Most packages version independently |
 
 #### Package Manager Support
 
-| Language | File | Update Mode | Notes |
-|----------|------|-------------|-------|
-| JavaScript/TypeScript | `package.json` | Full update | Supports npm/yarn workspaces |
-| Python | `pyproject.toml` | Full update | `[project]` or `[tool.poetry]` sections |
-| Go | `go.mod` | Validate only | Checks module name consistency |
+| Language              | File             | Update Mode   | Notes                                   |
+| --------------------- | ---------------- | ------------- | --------------------------------------- |
+| JavaScript/TypeScript | `package.json`   | Full update   | Supports npm/yarn workspaces            |
+| Python                | `pyproject.toml` | Full update   | `[project]` or `[tool.poetry]` sections |
+| Go                    | `go.mod`         | Validate only | Checks module name consistency          |
 
 #### Schema and Examples
 
