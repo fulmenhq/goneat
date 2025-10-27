@@ -5,6 +5,10 @@ hooks:
       args: ["format-all"]
       priority: 5
       timeout: "60s"
+    - command: "dependencies"
+      args: ["--licenses", "--fail-on", "high"]
+      priority: 8
+      timeout: "30s"
     - command: "assess"
       args: ["--categories", "format,lint,dates,tools", "--fail-on", "high"]
       priority: 10
@@ -14,9 +18,13 @@ hooks:
       args: ["format-all"]
       priority: 5
       timeout: "60s"
+    - command: "dependencies"
+      args: ["--licenses", "--cooling", "--fail-on", "high"]
+      priority: 7
+      timeout: "45s"
     - command: "make"
       args: ["verify-embeds"]
-      priority: 7
+      priority: 8
       timeout: "30s"
     - command: "assess"
       args: ["--categories", "format,lint,security,dependencies,dates,tools,maturity,repo-status", "--fail-on", "high"]

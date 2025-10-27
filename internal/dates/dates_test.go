@@ -13,121 +13,6 @@ import (
 	"time"
 )
 
-func TestDatesConfig(t *testing.T) {
-	tests := []struct {
-		name    string
-		config  DatesConfig
-		wantErr bool
-		errMsg  string
-	}{
-		{
-			name: "valid config",
-			config: DatesConfig{
-				Enabled: true,
-				Files: Files{
-					Include:          []string{"CHANGELOG.md", "docs/"},
-					TextExtensions:   []string{".md", ".txt"},
-					MaxFileSizeBytes: 4194304,
-				},
-				DatePatterns: []DatePattern{
-					{Regex: `(\d{4})-(\d{2})-(\d{2})`, Order: "YMD"},
-				},
-				Rules: Rules{
-					FutureDates: FutureDates{
-						Enabled:  true,
-						MaxSkew:  "0h",
-						Severity: "error",
-						AutoFix:  false,
-					},
-					StaleEntries: StaleEntries{
-						Enabled:  true,
-						WarnDays: 180,
-						Severity: "warning",
-					},
-				},
-				Output: Output{
-					FailOn: "error",
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "invalid severity",
-			config: DatesConfig{
-				Enabled: true,
-				Files: Files{
-					Include: []string{"CHANGELOG.md"},
-				},
-				DatePatterns: []DatePattern{
-					{Regex: `(\d{4})-(\d{2})-(\d{2})`, Order: "YMD"},
-				},
-				Rules: Rules{
-					FutureDates: FutureDates{
-						Severity: "invalid",
-					},
-				},
-			},
-			wantErr: true,
-			errMsg:  "invalid future_dates severity",
-		},
-		{
-			name: "invalid max_skew",
-			config: DatesConfig{
-				Enabled: true,
-				Files: Files{
-					Include: []string{"CHANGELOG.md"},
-				},
-				DatePatterns: []DatePattern{
-					{Regex: `(\d{4})-(\d{2})-(\d{2})`, Order: "YMD"},
-				},
-				Rules: Rules{
-					FutureDates: FutureDates{
-						MaxSkew: "invalid",
-					},
-				},
-			},
-			wantErr: true,
-			errMsg:  "max_skew duration",
-		},
-		{
-			name: "invalid date pattern - no capture groups",
-			config: DatesConfig{
-				Enabled: true,
-				Files: Files{
-					Include: []string{"CHANGELOG.md"},
-				},
-				DatePatterns: []DatePattern{
-					{Regex: `\d{4}-\d{2}-\d{2}`}, // No capture groups
-				},
-			},
-			wantErr: true,
-			errMsg:  "3 capture groups",
-		},
-		{
-			name: "empty include pattern",
-			config: DatesConfig{
-				Enabled: true,
-				Files: Files{
-					Include: []string{""},
-				},
-				DatePatterns: []DatePattern{
-					{Regex: `(\d{4})-(\d{2})-(\d{2})`, Order: "YMD"},
-				},
-			},
-			wantErr: true,
-			errMsg:  "include glob",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Schema validation now happens in LoadDatesConfig
-			// This test is no longer needed as we've moved to schema-based validation
-			t.Skip("ValidateDatesConfig removed - now using schema validation in LoadDatesConfig")
-		})
-	}
-}
-
 func TestDefaultDatesConfig(t *testing.T) {
 	config := DefaultDatesConfig()
 
@@ -560,13 +445,14 @@ func TestIsMonotonicDescending(t *testing.T) {
 	}
 }
 
-// TestExtractHeadingDatesFromRealChangelog tests with actual CHANGELOG content
-func TestExtractHeadingDatesFromRealChangelog(t *testing.T) {
-	// Read the actual CHANGELOG.md file
-	content, err := os.ReadFile("../../CHANGELOG.md")
+// TestExtractHeadingDatesFromFixture tests date extraction from changelog entries using test fixtures.
+// This ensures the extractChangelogEntries function correctly parses H2 headings with dates.
+func TestExtractHeadingDatesFromFixture(t *testing.T) {
+	// Use a fixture instead of the real CHANGELOG.md for reliable testing
+	fixturePath := "../../tests/fixtures/dates/valid_monotonic_changelog.md"
+	content, err := os.ReadFile(fixturePath)
 	if err != nil {
-		t.Skipf("Could not read CHANGELOG.md: %v", err)
-		return
+		t.Fatalf("Could not read fixture file: %v", err)
 	}
 
 	entries := extractChangelogEntries(string(content), time.UTC)
@@ -579,32 +465,39 @@ func TestExtractHeadingDatesFromRealChangelog(t *testing.T) {
 		}
 	}
 
-	t.Logf("Found %d dates in CHANGELOG.md", len(dates))
-	for i, date := range dates {
-		if i < len(headers) {
-			t.Logf("Date %d: %s (from: %s)", i, date.Format("2006-01-02"), headers[i])
+	// Should extract 4 dates from the fixture
+	if len(dates) != 4 {
+		t.Errorf("Expected 4 dates, got %d", len(dates))
+	}
+
+	// Check that dates are in descending order
+	expectedDates := []string{"2025-03-15", "2025-02-28", "2025-01-10", "2024-12-05"}
+	for i, expected := range expectedDates {
+		if i < len(dates) {
+			actual := dates[i].Format("2006-01-02")
+			if actual != expected {
+				t.Errorf("Date %d: expected %s, got %s", i, expected, actual)
+			}
 		}
 	}
 
 	// Test monotonic order detection
 	if len(dates) > 1 {
 		isMonotonic := isMonotonicDescending(dates)
-		t.Logf("Dates are monotonic descending: %v", isMonotonic)
-
-		// The real CHANGELOG should be in proper monotonic order
 		if !isMonotonic {
-			t.Error("Expected the real CHANGELOG.md to have dates in monotonic descending order")
+			t.Error("Expected fixture dates to be in monotonic descending order")
 		}
 	}
 }
 
-// TestDatesValidationWithRealChangelog tests the full dates validation process
-func TestDatesValidationWithRealChangelog(t *testing.T) {
-	// Read the actual CHANGELOG.md file
-	content, err := os.ReadFile("../../CHANGELOG.md")
+// TestDatesValidationWithFixture tests file path matching and monotonic order validation using fixtures.
+// Verifies that the MonotonicOrder.Files patterns work correctly and changelog parsing is reliable.
+func TestDatesValidationWithFixture(t *testing.T) {
+	// Use fixture instead of real CHANGELOG.md for reliable testing
+	fixturePath := "../../tests/fixtures/dates/valid_monotonic_changelog.md"
+	content, err := os.ReadFile(fixturePath)
 	if err != nil {
-		t.Skipf("Could not read CHANGELOG.md: %v", err)
-		return
+		t.Fatalf("Could not read fixture file: %v", err)
 	}
 
 	// Create a dates runner with the default config
@@ -614,18 +507,36 @@ func TestDatesValidationWithRealChangelog(t *testing.T) {
 	rel := "CHANGELOG.md"
 	cfg := runner.config
 
-	t.Logf("Testing file path matching for: %s", rel)
-	t.Logf("MonotonicOrder.Files: %v", cfg.Rules.MonotonicOrder.Files)
-
 	// Test matchesAny function
 	matches := matchesAny(rel, cfg.Rules.MonotonicOrder.Files)
-	t.Logf("matchesAny result: %v", matches)
-
 	if !matches {
 		t.Error("File path matching failed - CHANGELOG.md should match the pattern")
 	}
 
-	// Test the monotonic order detection directly
+	// Test various file patterns against MonotonicOrder.Files patterns
+	testCases := []struct {
+		file     string
+		expected bool
+	}{
+		{"CHANGELOG.md", true},
+		{"changelog.md", true},
+		{"CHANGELOG.txt", false}, // .txt doesn't match .md pattern
+		{"HISTORY.md", true},
+		{"NEWS.md", true},
+		{"README.md", false},
+		{"VERSION", false}, // VERSION doesn't match the changelog patterns
+		{"some/deep/path/CHANGELOG.md", true},
+		{"some/deep/path/changelog.md", true},
+	}
+
+	for _, tc := range testCases {
+		result := matchesAny(tc.file, cfg.Rules.MonotonicOrder.Files)
+		if result != tc.expected {
+			t.Errorf("matchesAny(%q, monotonicFiles) = %v, expected %v", tc.file, result, tc.expected)
+		}
+	}
+
+	// Test the monotonic order detection directly with fixture
 	entries := extractChangelogEntries(string(content), time.UTC)
 	var hd []time.Time
 	for _, entry := range entries {
@@ -633,26 +544,22 @@ func TestDatesValidationWithRealChangelog(t *testing.T) {
 			hd = append(hd, *entry.Date)
 		}
 	}
-	t.Logf("Extracted %d dates from CHANGELOG.md", len(hd))
+
+	// Should extract 4 dates from the fixture
+	if len(hd) != 4 {
+		t.Errorf("Expected 4 dates from fixture, got %d", len(hd))
+	}
 
 	if len(hd) > 1 {
 		isMonotonic := isMonotonicDescending(hd)
-		t.Logf("Dates are monotonic descending: %v", isMonotonic)
-
-		// The real CHANGELOG should be in proper monotonic order
 		if !isMonotonic {
-			t.Error("Expected the real CHANGELOG.md to have dates in monotonic descending order")
+			t.Error("Expected fixture dates to be in monotonic descending order")
 		}
 	}
 }
 
-// TestDatesRunnerAssessWithChangelog tests the full Assess method
-func TestDatesRunnerAssessWithChangelog(t *testing.T) {
-	// Skip this test as the real CHANGELOG doesn't have monotonic issues anymore
-	t.Skip("Skipping test that expects monotonic issues in real CHANGELOG")
-}
-
-// TestFileDiscovery tests what files are being discovered
+// TestFileDiscovery tests the file discovery logic for dates validation.
+// Ensures that include/exclude patterns work correctly and irrelevant directories are skipped.
 func TestFileDiscovery(t *testing.T) {
 	// Create a dates runner
 	runner := NewDatesRunner()
@@ -671,6 +578,10 @@ func TestFileDiscovery(t *testing.T) {
 			return nil
 		}
 		if d.IsDir() {
+			// Skip irrelevant directories to avoid excessive logging
+			if d.Name() == ".gocache" || d.Name() == "node_modules" || d.Name() == ".git" {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		rel, _ := filepath.Rel(target, path)
@@ -681,16 +592,13 @@ func TestFileDiscovery(t *testing.T) {
 			return nil
 		}
 		if !matchInclude(rel, cfg.Files.Include) {
-			t.Logf("File %s did not match include patterns", rel)
 			return nil
 		}
 		if matchExclude(rel, cfg.Files.Exclude) {
-			t.Logf("File %s matched exclude patterns", rel)
 			return nil
 		}
 
 		files = append(files, rel)
-		t.Logf("Included file: %s", rel)
 		return nil
 	})
 
@@ -708,12 +616,6 @@ func TestFileDiscovery(t *testing.T) {
 	if !foundChangelog {
 		t.Error("CHANGELOG.md was not found in file discovery")
 	}
-}
-
-// TestDatesRunnerAssessWithDebug tests the full Assess method with debug output
-func TestDatesRunnerAssessWithDebug(t *testing.T) {
-	// Skip this test as the real CHANGELOG doesn't have monotonic issues anymore
-	t.Skip("Skipping test that expects issues in real CHANGELOG")
 }
 
 // Helper

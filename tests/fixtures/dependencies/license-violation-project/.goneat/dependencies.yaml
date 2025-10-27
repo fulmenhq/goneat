@@ -1,0 +1,21 @@
+version: v1
+
+# Strict license policy for testing - only BSD-3-Clause allowed
+# This intentionally excludes Apache-2.0 to create a violation
+licenses:
+  forbidden:
+    - GPL-3.0
+    - AGPL-3.0
+    - LGPL-3.0
+    - Apache-2.0      # This will cause github.com/apache/thrift to fail
+    - MIT             # Also forbidden for strict testing
+  allowed:
+    - BSD-3-Clause    # Only this license is allowed
+
+# Disable cooling policy for license-focused testing
+cooling:
+  enabled: false
+
+# Assessment Integration Notes:
+# This policy is designed to fail license checks for testing purposes
+# The github.com/apache/thrift dependency has Apache-2.0 license
