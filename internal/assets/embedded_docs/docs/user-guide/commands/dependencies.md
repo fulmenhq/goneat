@@ -5,8 +5,7 @@ author: "@arch-eagle"
 date: "2025-09-30"
 last_updated: "2025-10-22"
 status: "approved"
-tags:
-  ["cli", "dependencies", "security", "supply-chain", "sbom", "licenses"]
+tags: ["cli", "dependencies", "security", "supply-chain", "sbom", "licenses"]
 category: "user-guide"
 ---
 

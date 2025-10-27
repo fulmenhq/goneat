@@ -7,28 +7,179 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+### v0.3.0 - Dependency Protection (Release Candidate)
 
-- **SSOT Synchronization System**: New comprehensive Single Source of Truth synchronization capability
-  - Introduced `pkg/ssot` library for programmatic SSOT operations with full API documentation at `docs/appnotes/lib/ssot.md`
-  - Added `goneat ssot` command suite for synchronizing documentation, schemas, and assets from upstream repositories
-  - Integrated Fulmen ecosystem [crucible](https://github.com/fulmenhq/crucible) standards system into goneat for seamless standards compliance
-  - Enabled general SSOT sync capability for documentation and information architecture repositories
-  - Schema-backed configuration with `.goneat/ssot-consumer.yaml` and local overrides support
-  - Environment variable overrides for CI/CD and development workflows
+#### Added
 
-### Fixed
+- **Dependency Protection System**: Comprehensive supply chain security and license compliance
+  - New `goneat dependencies` command for license compliance, package cooling policy, and SBOM generation
+  - Multi-language analyzer framework with Go analyzer (TypeScript, Python, Rust, C# stubs for future expansion)
+  - Integration with `goneat assess --categories dependencies` for unified workflow
+  - Git hook integration with network-aware pre-push recommendations
 
-- **SSOT Double-Nesting Issue**: Resolved directory double-nesting in asset synchronization
-  - Root cause: Glob patterns included directory prefixes without proper base path handling
-  - Solution: Added `source_path` field to `Asset` type and improved `syncAsset()` function with `effectiveBasePath` calculation
-  - Simplified glob patterns in `.goneat/ssot-consumer.yaml` to eliminate directory duplication
+- **License Compliance Engine**: Policy-driven license detection and enforcement
+  - Go dependency license detection using go-licenses wrapper with 95%+ accuracy
+  - Forbidden license blocking (GPL-3.0, AGPL-3.0 by default)
+  - OPA (Open Policy Agent) integration for policy-as-code evaluation
+  - YAML policy configuration with Rego policy support
+  - Multi-language analyzer interface for extensibility
 
-- **Makefile Fulmen Ecosystem Standards Compliance**: Complete alignment with `docs/crucible-go/standards/makefile-standard.md`
-  - Added missing required targets: `tools`, `lint`, `release-check`, `release-prepare`, `check-all`
-  - Renamed targets using hyphens (e.g., `version-set`) due to Make colon limitations
-  - Updated `bootstrap` target to run `sync-ssot` first for proper initialization order
-  - Removed backward compatibility aliases for strict standards compliance
+- **Package Cooling Policy**: Supply chain attack mitigation
+  - Configurable minimum package age threshold (default: 7 days)
+  - Download count thresholds (total and recent)
+  - Grace period support for initial publication
+  - Pattern-based and explicit package exceptions
+  - Registry API integration (npm, PyPI, crates.io, NuGet, Go modules)
+  - Dev vs production dependency distinction
+
+- **SBOM Generation**: Software Bill of Materials compliance artifacts
+  - CycloneDX 1.5 format support via managed Syft integration
+  - Standalone artifact generation mode (`--sbom` flag)
+  - Assessment integration for automated SBOM metadata inclusion
+  - Managed tool installation with SHA256 verification
+  - Doctor integration (`goneat doctor tools --scope sbom --install`)
+  - Dependency graph construction with transitive relationships
+
+- **Registry Client Library**: Reusable package registry API clients (`pkg/registry/`)
+  - npm registry client with caching and rate limiting
+  - PyPI API client for Python packages
+  - crates.io client for Rust dependencies
+  - NuGet API v3 client for .NET packages
+  - Go modules proxy client
+  - Mockable HTTP transport for testing
+  - 24-hour TTL caching layer
+
+- **Assessment Category Integration**: Dependencies as first-class assessment category
+  - `CategoryDependencies` registered in assessment engine
+  - Priority level 2 (high priority for supply-chain risk)
+  - Network-aware execution (CanRunInParallel: false)
+  - Unified reporting with other assessment categories
+  - Hook integration with pre-push recommendations
+
+- **Version Propagation System**: Single source of truth for version management
+  - Automated VERSION file propagation to package.json, pyproject.toml, etc.
+  - `goneat version propagate` command for cross-language version sync
+  - Staging workspace pattern for safe multi-file updates
+  - Pathfinder integration for reliable file pattern matching
+
+- **Security Hardening**: Comprehensive security enhancements
+  - Decompression bomb protection with 500MB extraction limit
+  - Path traversal prevention in archive extraction
+  - Input sanitization for git references and file paths
+  - Command injection vulnerability fixes (G204 audit resolution)
+  - Managed tool resolver with artifact verification
+
+- **SSOT Synchronization System**: Single Source of Truth sync capability
+  - `pkg/ssot` library for programmatic SSOT operations
+  - `goneat ssot` command suite for documentation/schema synchronization
+  - Crucible standards integration for ecosystem compliance
+  - Schema-backed configuration (`.goneat/ssot-consumer.yaml`)
+  - Environment variable overrides for CI/CD workflows
+
+- **Linting Infrastructure Enhancements**: Quality assurance improvements
+  - Added `.goneatignore` pattern support to lint runner for test fixture exclusion
+  - Enhanced lint assessment to respect ignore patterns and prevent false positives
+  - Improved test suite reliability with proper error handling for environment operations
+  - Cleaned up dates test suite by removing skipped tests and using proper fixtures
+  - Fixed unchecked error returns in test files across multiple packages
+
+- **Documentation & Workflow Guides**:
+  - `docs/appnotes/license-policy-hooks.md`: Hook integration guide
+  - `docs/user-guide/workflows/dependency-gating.md`: Dependency protection workflow
+  - `.goneat/dependencies.yaml`: Reference configuration with inline comments
+  - Wave 4 SBOM documentation with try-it-yourself examples
+  - Integration test protocol documentation
+
+#### Fixed
+
+- **Security Vulnerabilities**: Comprehensive security audit remediation
+  - Fixed 6 critical issues in cooling policy implementation
+  - Path traversal protection in archive extraction
+  - Command injection prevention in subprocess calls
+  - File permission handling improvements
+  - Input validation for all user-supplied paths
+
+- **Syft Integration DX**: Improved developer experience
+  - Modern API usage with better error messages
+  - Clear artifact installation feedback
+  - Binary verification with SHA256 checksums
+  - Fallback to system Syft when available
+
+- **Cross-Platform Path Handling**: Normalized path patterns
+  - Consistent glob matching across Windows/Unix
+  - Pathfinder integration for reliable pattern resolution
+  - Staging workspace path normalization
+
+- **SSOT Double-Nesting Issue**: Resolved directory structure in sync
+  - Added `source_path` field to Asset type
+  - Improved base path calculation in syncAsset()
+  - Simplified glob patterns to eliminate duplication
+
+- **Makefile Standards Compliance**: Full alignment with crucible-go standards
+  - Added required targets: `tools`, `lint`, `release-check`, `release-prepare`, `check-all`
+  - Hyphenated target names per Make conventions
+  - Proper bootstrap initialization order
+
+- **Version Management**: Removed automatic git tag creation
+  - Version bump commands no longer auto-tag
+  - Requires explicit tag creation for release control
+  - Follows repository safety protocols
+
+- **Test Infrastructure**: Comprehensive test coverage improvements
+  - Three-tier integration test protocol (synthetic, quick, full)
+  - Tier 1 (synthetic) mandatory in CI/CD
+  - Tier 2 (Hugo baseline) for pre-release validation
+  - Tier 3 (full suite) for major releases
+  - Pathfinder test suite validation complete
+
+#### Changed
+
+- **Assessment Workflow**: Dependencies integrated as core category
+  - Available in all assessment modes
+  - Network-aware execution planning
+  - Parallel execution disabled for registry API calls
+
+- **Hook Configuration**: Enhanced with dependency gating
+  - Pre-push hooks now include dependencies category
+  - Network-aware hook execution guidance
+  - Sample configurations for different workflows
+
+- **Configuration System**: Dependencies config block added
+  - Viper defaults registered for all dependency settings
+  - Cooling policy thresholds configurable
+  - SBOM format and enrichment options
+  - Policy engine type selection (embedded/remote)
+
+#### Performance
+
+- **Registry API Caching**: 24-hour TTL for package metadata
+  - Reduces network calls for repeated checks
+  - Configurable cache directory
+  - Cache invalidation support
+
+- **Incremental Analysis**: Optimized for large repositories
+  - < 5s for typical projects (100 deps)
+  - < 60s for large monorepos (1000+ deps)
+  - < 2s for cached/incremental analysis
+
+#### Testing
+
+- **Integration Test Protocol**: Three-tier testing strategy
+  - Tier 1: Synthetic fixtures (< 10s, CI-mandatory)
+  - Tier 2: Hugo baseline (~8s warm, pre-release)
+  - Tier 3: Full suite (~2 min, major releases)
+  - Comprehensive cooling policy test coverage
+  - SBOM generation validation tests
+
+#### Documentation
+
+- **Wave 0-4 Documentation**: Complete implementation guides
+  - SSOT sync setup and workflow
+  - License compliance policy configuration
+  - Cooling policy best practices
+  - SBOM generation and artifact management
+  - Assessment integration patterns
+  - Hook configuration examples
 
 ## [0.2.11] - 2025-09-30
 

@@ -1,3 +1,436 @@
+# Goneat v0.3.0 — Dependency Protection (Release Candidate)
+
+## TL;DR
+
+- **Dependency Protection System**: Comprehensive license compliance, package cooling policy, and SBOM generation
+- **Supply Chain Security**: Configurable package age thresholds to prevent supply chain attacks
+- **License Compliance**: Policy-driven license detection with OPA integration for Go dependencies
+- **SBOM Generation**: CycloneDX 1.5 artifacts via managed Syft integration
+- **Assessment Integration**: Dependencies as first-class category in `goneat assess` workflow
+- **Version Propagation**: Automated VERSION sync across package managers
+
+## What's New
+
+### Dependency Protection System (`goneat dependencies`)
+
+The flagship feature of v0.3.0 introduces comprehensive dependency protection capabilities:
+
+```bash
+# License compliance check
+goneat dependencies --licenses
+
+# Package cooling policy enforcement
+goneat dependencies --cooling
+
+# SBOM artifact generation
+goneat dependencies --sbom
+
+# Combined analysis
+goneat dependencies --licenses --cooling --sbom --fail-on=high
+
+# Assessment integration
+goneat assess --categories dependencies
+```
+
+**Key Features**:
+- Multi-language analyzer framework (Go production-ready, others extensible)
+- OPA policy engine for policy-as-code evaluation
+- Network-aware execution with registry API integration
+- Git hook integration with pre-push recommendations
+
+### License Compliance Engine
+
+Policy-driven license detection and enforcement:
+
+**Configuration** (`.goneat/dependencies.yaml`):
+```yaml
+version: v1
+
+licenses:
+  forbidden:
+    - GPL-3.0
+    - AGPL-3.0
+```
+
+**Capabilities**:
+- Go dependency license detection (95%+ accuracy via go-licenses)
+- Forbidden license blocking with clear violation reporting
+- OPA integration for advanced policy evaluation
+- YAML-to-Rego policy transpilation
+- Multi-language analyzer interface for future expansion
+
+### Package Cooling Policy
+
+Mitigate supply chain attacks by enforcing minimum package age:
+
+**Configuration**:
+```yaml
+cooling:
+  enabled: true
+  min_age_days: 7              # Minimum package age before adoption
+  min_downloads: 100           # Minimum total downloads
+  min_downloads_recent: 10     # Minimum recent downloads (30 days)
+  alert_only: false            # Fail build on violations
+  grace_period_days: 3         # Grace period for new packages
+  
+  exceptions:
+    - pattern: "github.com/myorg/*"
+      reason: "Internal packages are pre-vetted"
+```
+
+**Registry Integration**:
+- npm registry API client
+- PyPI package metadata
+- crates.io for Rust dependencies
+- NuGet API v3 for .NET
+- Go modules proxy
+- 24-hour caching layer
+
+**Threat Protection**:
+- Blocks newly published packages (configurable threshold)
+- Download count validation
+- Exception management for trusted sources
+- Grace period for gradual adoption
+
+### SBOM Generation
+
+Generate Software Bill of Materials for compliance:
+
+```bash
+# Generate SBOM artifact
+goneat dependencies --sbom --sbom-format cyclonedx-json
+
+# Specify output location
+goneat dependencies --sbom --sbom-output sbom/app-1.0.0.cdx.json
+
+# With assessment integration (metadata included)
+goneat assess --categories dependencies
+```
+
+**Features**:
+- CycloneDX 1.5 format via managed Syft
+- Automatic tool installation with SHA256 verification
+- Doctor integration: `goneat doctor tools --scope sbom --install`
+- Dependency graph with transitive relationships
+- NTIA minimum elements compliance
+
+### Assessment Integration
+
+Dependencies as a first-class assessment category:
+
+```bash
+# Run dependency assessment
+goneat assess --categories dependencies
+
+# Combined with other categories
+goneat assess --categories format,lint,dependencies --fail-on high
+```
+
+**Integration Points**:
+- CategoryDependencies registered in assessment engine
+- Priority level 2 (high risk for supply chain)
+- Network-aware execution planning
+- Unified reporting with other categories
+- Hook integration with pre-push recommendations
+
+### Version Propagation System
+
+Automated VERSION file propagation across package managers:
+
+```bash
+# Propagate version from VERSION to package.json, pyproject.toml, etc.
+goneat version propagate
+
+# Check what would be updated
+goneat version propagate --dry-run
+```
+
+**Features**:
+- Single source of truth (VERSION file)
+- Cross-language package manager support
+- Staging workspace for safe multi-file updates
+- Pathfinder integration for pattern matching
+
+### Registry Client Library (`pkg/registry/`)
+
+Reusable package registry API clients:
+
+**Supported Registries**:
+- npm (registry.npmjs.org)
+- PyPI (pypi.org JSON API)
+- crates.io (crates.io API)
+- NuGet (nuget.org API v3)
+- Go modules (pkg.go.dev + proxy.golang.org)
+
+**Features**:
+- Mockable HTTP transport for testing
+- Rate limiting and retry logic
+- 24-hour TTL caching
+- Configurable timeouts
+
+### Security Hardening
+
+Comprehensive security audit remediation:
+
+**Critical Fixes**:
+- Decompression bomb protection (500MB extraction limit)
+- Path traversal prevention in archive extraction
+- Command injection vulnerability fixes (G204 audit)
+- Input sanitization for git references
+- Managed tool resolver with artifact verification
+
+**Security Validations**:
+- Zero command injection vulnerabilities (gosec G204)
+- Path cleaning in all file operations
+- Archive extraction size limits
+- Tool artifact SHA256 verification
+
+## Configuration
+
+### Dependencies Policy File (`.goneat/dependencies.yaml`)
+
+Complete reference configuration:
+
+```yaml
+version: v1
+
+# License Compliance Policy
+licenses:
+  forbidden:
+    - GPL-3.0
+    - AGPL-3.0
+  # Optional: explicit allow list
+  # allowed:
+  #   - MIT
+  #   - Apache-2.0
+  #   - BSD-3-Clause
+
+# Supply Chain Security (Cooling Policy)
+cooling:
+  enabled: true
+  min_age_days: 7
+  min_downloads: 100
+  min_downloads_recent: 10
+  alert_only: false
+  grace_period_days: 3
+  
+  exceptions:
+    - pattern: "github.com/myorg/*"
+      reason: "Internal packages"
+
+# Policy Engine Configuration
+policy_engine:
+  type: embedded    # Use embedded OPA engine (recommended)
+  # Optional remote OPA server
+  # type: server
+  # url: "http://opa-server:8181"
+
+# SBOM Configuration
+sbom:
+  format: cyclonedx-json
+  include_dev_dependencies: false
+```
+
+### Hook Integration (`.goneat/hooks.yaml`)
+
+Network-aware hook configuration:
+
+```yaml
+hooks:
+  pre-commit:  # Fast, offline-capable
+    - command: assess
+      args: ["--categories", "format,lint"]
+  
+  pre-push:  # Network-dependent checks
+    - command: assess
+      args: ["--categories", "dependencies", "--fail-on", "high"]
+```
+
+## Performance
+
+### Optimizations
+
+**Registry API Caching**:
+- 24-hour TTL for package metadata
+- Reduces network calls for repeated checks
+- Configurable cache directory
+
+**Analysis Speed**:
+- < 5s for typical projects (100 dependencies)
+- < 60s for large monorepos (1000+ dependencies)
+- < 2s for cached/incremental analysis
+
+## Quality Assurance
+
+### Linting Infrastructure Enhancements
+
+**Enhanced Test Suite Reliability**:
+- Added `.goneatignore` pattern support to lint runner for automatic test fixture exclusion
+- Improved lint assessment accuracy by respecting ignore patterns and preventing false positives
+- Fixed unchecked error returns in test files across multiple packages (environment variables, file operations)
+- Cleaned up dates test suite by removing skipped tests and implementing proper test fixtures
+- Achieved 0 lint issues and 100% health score across codebase
+
+### Three-Tier Integration Test Protocol
+
+**Tier 1 - Synthetic Fixtures** (CI Mandatory):
+- Time: < 10s
+- Dependencies: None
+- When: Every commit, pre-commit, pre-push
+- Command: `make test` (includes Tier 1)
+
+**Tier 2 - Quick Validation** (Pre-Release):
+- Time: ~8s warm cache, ~38s cold
+- Dependencies: Hugo repository
+- When: Before tagging release
+- Command: `make test-integration-cooling-quick`
+- Setup: `export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground`
+
+**Tier 3 - Full Suite** (Major Releases):
+- Time: ~2 minutes
+- Dependencies: Hugo, OPA, Traefik, Mattermost repos
+- When: Major versions (v0.3.0, v1.0.0, etc.)
+- Command: `make test-integration-cooling`
+- Expected: 6/8 passing (2 known non-blocking failures)
+
+## Documentation
+
+### New Guides
+
+**Dependency Protection**:
+- `docs/user-guide/workflows/dependency-gating.md`: Complete workflow guide
+- `docs/appnotes/license-policy-hooks.md`: Hook integration patterns
+- `.goneat/dependencies.yaml`: Reference configuration
+
+**SBOM Generation**:
+- Wave 4 SBOM documentation with examples
+- Try-it-yourself guides for CycloneDX generation
+- Doctor tool integration guide
+
+**Integration Testing**:
+- `.plans/active/v0.3.0/wave-2-phase-4-INTEGRATION-TEST-PROTOCOL.md`
+
+## Breaking Changes
+
+None. All new features are additive and backward compatible.
+
+## Upgrade Notes
+
+After upgrading to v0.3.0:
+
+1. **Configure dependency protection** (optional):
+   ```bash
+   # Copy reference configuration
+   cp .goneat/dependencies.yaml.example .goneat/dependencies.yaml
+   
+   # Edit policy to match your requirements
+   # Customize forbidden licenses and cooling thresholds
+   ```
+
+2. **Update hooks** to include dependency checks:
+   ```bash
+   # Edit .goneat/hooks.yaml to add dependencies category
+   # Regenerate hooks
+   goneat hooks generate --with-guardian
+   goneat hooks install
+   ```
+
+3. **Test SBOM generation**:
+   ```bash
+   # Install Syft if needed
+   goneat doctor tools --scope sbom --install
+   
+   # Generate SBOM
+   goneat dependencies --sbom
+   ```
+
+4. **Try assessment integration**:
+   ```bash
+   # Run dependency assessment
+   goneat assess --categories dependencies
+   
+   # Combined workflow
+   goneat assess --categories format,lint,dependencies
+   ```
+
+## Known Limitations
+
+### Multi-Language Analyzers
+
+**v0.3.0 Scope**:
+- ✅ Go: Full production implementation (95%+ accuracy)
+- ✅ Framework: Extensible multi-language analyzer interface
+- ⏭️ TypeScript/Python/Rust/C#: Stub implementations (future expansion)
+
+**Rationale**:
+- Go-first approach delivers immediate value
+- Framework architecture proven and extensible
+- Avoids shipping untested multi-language features
+- Clear upgrade path for v0.3.1+ language support
+
+## Installation
+
+```bash
+# Go install (after release)
+go install github.com/fulmenhq/goneat@v0.3.0
+
+# From source
+git clone https://github.com/fulmenhq/goneat.git
+cd goneat
+git checkout v0.3.0
+make build
+```
+
+## What's Next (v0.3.1+)
+
+Planned enhancements for future releases:
+
+**Multi-Language License Detection**:
+- TypeScript/JavaScript analyzer (npm packages)
+- Python analyzer (PyPI packages)
+- Rust analyzer (crates.io)
+- C# analyzer (NuGet packages)
+
+**SBOM Enhancements**:
+- SPDX format support
+- Vulnerability enrichment (OSV database)
+- VEX (Vulnerability Exploitability eXchange) support
+- Provenance data inclusion
+
+**Advanced Features**:
+- Typosquatting detection
+- Malicious package heuristics
+- Dependency update suggestions
+- License compatibility analysis
+
+## Contributors
+
+### AI Agent Attribution
+
+This release was developed collaboratively by the 3leaps AI agent team under human supervision:
+
+- **🦅 Arch Eagle**: Enterprise architecture, security compliance, policy engine design
+- **🔍 Code Scout**: Feature implementation, assessment integration, testing infrastructure
+- **🛠️ Forge Neat**: CI/CD hardening, quality gates, release preparation
+
+**Supervised by**: @3leapsdave
+
+### Human Oversight
+
+All contributions reviewed, approved, and committed by:
+- Dave Thompson (@3leapsdave) - Project Lead & Primary Maintainer
+
+## Links
+
+- **Repository**: https://github.com/fulmenhq/goneat
+- **Documentation**: https://github.com/fulmenhq/goneat/tree/main/docs
+- **Issues**: https://github.com/fulmenhq/goneat/issues
+- **Crucible Standards**: https://github.com/fulmenhq/crucible
+
+---
+
+# Previous Releases
+
 # Goneat v0.2.11 — Guardian UX Enhancement & CI/CD Hardening (2025-09-30)
 
 ## TL;DR
@@ -98,141 +531,26 @@ goneat hooks install
 - **Cross-Platform Support**: Terminal-aware rendering for consistent visual output
 - **ASCII Command**: New `goneat ascii` command for terminal calibration and display testing
 
-### Quality & Testing Infrastructure
+### Testing Infrastructure
 
-- **50% Test Coverage Achievement**: Comprehensive expansion across core packages:
-  - `pkg/format/finalizer`: 72.5% coverage (+25.3 points) with normalization utilities testing
-  - `pkg/ascii`: 31.9% coverage (+5.1 points) with terminal catalog and display function tests
-  - `cmd` package: 40.7% coverage restoration with guardian compatibility
+- **50% Test Coverage Achievement**: Comprehensive test expansion across packages
+  - `pkg/format/finalizer`: 72.5% coverage with normalization utilities
+  - `pkg/ascii`: 31.9% coverage with terminal display tests
+  - `cmd` package: 40.7% coverage with guardian compatibility
 
-- **Automated Testing Infrastructure**:
-  - `GONEAT_GUARDIAN_AUTO_DENY` environment variable for CI/CD testing workflows
-  - Enhanced test fixtures and helper utilities for comprehensive validation
+- **Automated Testing**:
+  - `GONEAT_GUARDIAN_AUTO_DENY` environment variable for CI/CD
+  - Enhanced test fixtures and helper utilities
   - Guardian approval testing with automated denial mechanisms
 
-### Code Quality Enhancements
+## Bug Fixes
 
-- **Linting Compliance**: Resolved golangci-lint ST1015 switch statement ordering issues
-- **Security Fixes**: Suppressed false positive G304 warnings in controlled file access patterns
-- **Build System**: Enhanced Makefile with testing environment variables and validation targets
-- **Pathfinder Flags**: `--schemas`, `--schema-id`, `--schema-category`, `--schema-metadata` for targeted discovery
-- **Structured Output**: JSON and markdown output formats for programmatic consumption
-- **Parallel Processing**: Optimized discovery with configurable worker pools
-
-### Documentation and Examples
-
-- **Pathfinder User Guide**: Comprehensive documentation for CLI usage and API integration
-- **Schema Library Notes**: Technical deep-dive on schema validation architecture
-- **FinderFacade Application Notes**: Enterprise integration patterns and examples
-
-## What's Next
-
-- **[0.2.10]** - 2025-10-01: Cloud storage loaders (S3, R2, GCS), advanced transforms, schema diffing
-- **[0.3.0]** - 2025-11-01: Schema registry integration, automated schema evolution detection
-
----
-
-# Goneat v0.2.7 — Version Policy Enforcement (2025-09-20)
-
-## TL;DR
-
-- **Version Policy Enforcement**: Comprehensive tool version management with minimum/recommended version checking
-- **Enhanced Tool Assessment**: Both `assess` and `doctor` commands now detect version policy violations
-- **Cross-Platform Version Detection**: Improved version parsing for Go, Node.js, and system tools
-- **Schema Validation Fixes**: Corrected YAML syntax errors in configuration schemas
-- **Documentation Updates**: Enhanced command documentation with version policy capabilities
-
-## What's New
-
-### Version Policy Enforcement
-
-Implemented comprehensive version policy enforcement for development tools:
-
-- **Configuration**: Added `minimum_version`, `recommended_version`, and `version_scheme` fields to `.goneat/tools.yaml`
-- **Detection**: Enhanced version parsing using `DetectCommand` for accurate version extraction
-- **Enforcement**: Both assessment and doctor commands check version compliance
-- **Severity Levels**: Minimum violations = high severity (blocking), recommended = medium severity (warnings)
-- **Schemes**: Support for `semver` (semantic versioning) and `lexical` (string comparison) schemes
-
-### Tool Assessment Improvements
-
-Enhanced tool checking capabilities across the entire toolchain:
-
-- **Version Detection**: Fixed version detection logic in `CheckTool` function
-- **Policy Violations**: Clear reporting of version policy violations with actionable guidance
-- **Cross-Platform**: Improved version detection for tools on macOS, Linux, and Windows
-- **Real-World Demo**: Successfully demonstrated golangci-lint v1.64.8 → v2.4.0 upgrade enforcement
-
-### Schema Validation Fixes
-
-Corrected YAML syntax errors in configuration schemas:
-
-- Fixed indentation issues in `schemas/config/v1.0.0/dates.yaml`
-- Resolved `cross_file_consistency` and `monotonic_order` property alignments
-- Improved schema validation reliability
+- **Guardian Approve Bug**: Fixed `runGuardianApprove` to always execute wrapped commands after policy checks
+- **Guardian Error Messages**: Enhanced denial error handling with clear messages and proper exit codes
+- **Code Quality**: Resolved golangci-lint ST1015 switch statement issues
+- **Security Suppressions**: Added proper `#nosec` comments for controlled file access patterns
+- **Template Formatting**: Corrected trailing newline EOF enforcement in hook templates
 
 ## Installation
 
-```bash
-# Go install
-go install github.com/fulmenhq/goneat@latest
-
-# Or download from releases
-curl -L -o goneat https://github.com/fulmenhq/goneat/releases/download/v0.2.7/goneat-darwin-arm64
-chmod +x goneat
-```
-
-## Migration Guide
-
-### For Existing Tool Configurations
-
-Add version policies to your `.goneat/tools.yaml`:
-
-```yaml
-tools:
-  golangci:
-    name: "golangci-lint"
-    description: "Fast linters Runner for Go"
-    kind: "system"
-    detect_command: "golangci-lint --version"
-    version_scheme: "semver"
-    minimum_version: "2.0.0"
-    recommended_version: "2.4.0"
-    platforms: ["linux", "darwin", "windows"]
-    install_commands:
-      linux: "go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest"
-      darwin: "go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest"
-      windows: "go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest"
-```
-
-### For CI/CD Pipelines
-
-Include version policy checking in your assessment commands:
-
-```bash
-# Check tools with version policies
-goneat assess --categories tools
-
-# Doctor command with version checking
-goneat doctor tools --scope foundation
-```
-
-## Quality Metrics
-
-- **Version Detection**: 100% accuracy for configured tools
-- **Policy Enforcement**: Correct severity levels and reporting
-- **Schema Validation**: Reduced errors from 4 to 2 issues
-- **Cross-Platform**: Consistent behavior across macOS, Linux, Windows
-- **Backward Compatibility**: 100% (no breaking changes)
-
-## Links
-
-- Changelog: [CHANGELOG.md](CHANGELOG.md)
-- Tool Configuration: [docs/user-guide/commands/doctor.md](docs/user-guide/commands/doctor.md)
-- Version Policy Guide: [docs/appnotes/intelligent-tool-installation.md](docs/appnotes/intelligent-tool-installation.md)
-
----
-
-**Generated by Forge Neat ([OpenCode](https://opencode.ai/)) under supervision of [@3leapsdave](https://github.com/3leapsdave)**
-
-**Co-Authored-By: Forge Neat <noreply@3leaps.net>**
+See v0.2.11 installation instructions above.
