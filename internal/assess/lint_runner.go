@@ -4,6 +4,7 @@ Copyright © 2025 3 Leaps <info@3leaps.net>
 package assess
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -128,6 +129,9 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 			Error:         fmt.Sprintf("failed to find Go files: %v", err),
 		}, nil
 	}
+
+	// Filter out files that match .goneatignore patterns
+	goFiles = r.filterFilesRespectingIgnores(goFiles, target)
 
 	if len(goFiles) == 0 {
 		logger.Info("No Go files found for lint assessment")
@@ -880,7 +884,86 @@ func (r *LintAssessmentRunner) estimateLintFixTime(linterName, message string) t
 	}
 }
 
+// filterFilesRespectingIgnores filters files to respect .goneatignore patterns
+func (r *LintAssessmentRunner) filterFilesRespectingIgnores(files []string, target string) []string {
+	if len(files) == 0 {
+		return files
+	}
+
+	var filtered []string
+	for _, file := range files {
+		if !r.matchesGoneatIgnore(file, target) {
+			filtered = append(filtered, file)
+		}
+	}
+	return filtered
+}
+
+// matchesGoneatIgnore checks if a file path matches .goneatignore patterns
+func (r *LintAssessmentRunner) matchesGoneatIgnore(filePath, target string) bool {
+	// Check if we're processing test fixture files
+	if strings.Contains(filePath, "fixtures/") {
+		// This is a test fixture - it should be ignored
+		return true
+	}
+
+	// Check repo-level .goneatignore
+	repoIgnorePath := filepath.Join(target, ".goneatignore")
+	if r.matchesIgnoreFile(filePath, repoIgnorePath) {
+		return true
+	}
+
+	// Check user-level .goneatignore
+	if homeDir, err := os.UserHomeDir(); err == nil {
+		userIgnorePath := filepath.Join(homeDir, ".goneatignore")
+		if r.matchesIgnoreFile(filePath, userIgnorePath) {
+			return true
+		}
+		// Also check ~/.goneat/.goneatignore
+		userGoneatIgnorePath := filepath.Join(homeDir, ".goneat", ".goneatignore")
+		if r.matchesIgnoreFile(filePath, userGoneatIgnorePath) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// matchesIgnoreFile checks if a path matches patterns in an ignore file
+func (r *LintAssessmentRunner) matchesIgnoreFile(filePath, ignoreFilePath string) bool {
+	// #nosec G304 -- ignoreFilePath is constructed from controlled paths (target + ".goneatignore", etc.)
+	file, err := os.Open(ignoreFilePath)
+	if err != nil {
+		return false // Ignore file doesn't exist, no matches
+	}
+	defer func() {
+		_ = file.Close() // Ignore close error as we're only reading
+	}()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		// Skip empty lines and comments
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		// Check if the file path matches this pattern
+		if matched, _ := filepath.Match(line, filePath); matched {
+			return true
+		}
+		// Also check if the pattern matches when treating it as a path prefix
+		if strings.HasSuffix(line, "/") && strings.HasPrefix(filePath, strings.TrimSuffix(line, "/")+"/") {
+			return true
+		}
+	}
+	return false
+}
+
 // init registers the lint assessment runner
 func init() {
-	RegisterAssessmentRunner(CategoryLint, NewLintAssessmentRunner())
+	RegisterAssessmentRunner(CategoryLint, &LintAssessmentRunner{
+		commandName: "golangci-lint",
+		toolName:    "golangci-lint",
+		config:      DefaultLintConfig(),
+	})
 }

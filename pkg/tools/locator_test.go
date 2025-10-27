@@ -13,14 +13,14 @@ func TestResolveBinary(t *testing.T) {
 	originalGoneatHome := os.Getenv("GONEAT_HOME")
 	defer func() {
 		if originalGoneatHome != "" {
-			os.Setenv("GONEAT_HOME", originalGoneatHome)
+			_ = os.Setenv("GONEAT_HOME", originalGoneatHome) // Ignore error in test cleanup
 		} else {
-			os.Unsetenv("GONEAT_HOME")
+			_ = os.Unsetenv("GONEAT_HOME") // Ignore error in test cleanup
 		}
 	}()
 
 	// Set GONEAT_HOME to our temp directory
-	os.Setenv("GONEAT_HOME", tempDir)
+	_ = os.Setenv("GONEAT_HOME", tempDir) // Ignore error in test setup
 
 	// Create managed bin directory structure
 	binDir := filepath.Join(tempDir, "tools", "bin")
@@ -72,8 +72,8 @@ func TestResolveBinary(t *testing.T) {
 					fakeBinaryContent = "echo override syft"
 					overridePath += ".exe"
 				}
-				os.WriteFile(overridePath, []byte(fakeBinaryContent), 0750)
-				os.Setenv("TEST_SYFT_PATH", overridePath)
+				_ = os.WriteFile(overridePath, []byte(fakeBinaryContent), 0750) // Ignore error in test setup
+				_ = os.Setenv("TEST_SYFT_PATH", overridePath)                   // Ignore error in test setup
 			},
 			expectError:    false,
 			expectedInPath: "/tmp/test-syft-override",
@@ -115,7 +115,7 @@ func TestResolveBinary(t *testing.T) {
 				AllowPath:   true,
 			},
 			envSetup: func() {
-				os.Setenv("TEST_SYFT_PATH", "/nonexistent/path")
+				_ = os.Setenv("TEST_SYFT_PATH", "/nonexistent/path") // Ignore error in test setup
 			},
 			expectError:    false,
 			expectedInPath: syftBinaryPath, // Should fall back to managed
@@ -126,7 +126,7 @@ func TestResolveBinary(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clean up env
 			if tt.opts.EnvOverride != "" {
-				os.Unsetenv(tt.opts.EnvOverride)
+				_ = os.Unsetenv(tt.opts.EnvOverride) // Ignore error in test cleanup
 			}
 
 			// Setup environment
@@ -159,12 +159,12 @@ func TestResolveBinary_ErrorMessages(t *testing.T) {
 	originalGoneatHome := os.Getenv("GONEAT_HOME")
 	defer func() {
 		if originalGoneatHome != "" {
-			os.Setenv("GONEAT_HOME", originalGoneatHome)
+			_ = os.Setenv("GONEAT_HOME", originalGoneatHome) // Ignore error in test cleanup
 		} else {
-			os.Unsetenv("GONEAT_HOME")
+			_ = os.Unsetenv("GONEAT_HOME") // Ignore error in test cleanup
 		}
 	}()
-	os.Setenv("GONEAT_HOME", tempDir)
+	_ = os.Setenv("GONEAT_HOME", tempDir) // Ignore error in test setup
 
 	tests := []struct {
 		name            string

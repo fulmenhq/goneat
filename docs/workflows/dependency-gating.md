@@ -5,8 +5,7 @@ author: "@arch-eagle"
 date: "2025-10-22"
 last_updated: "2025-10-22"
 status: "draft"
-tags:
-  ["workflow", "dependencies", "security", "sbom"]
+tags: ["workflow", "dependencies", "security", "sbom"]
 category: "workflows"
 ---
 

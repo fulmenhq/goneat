@@ -424,7 +424,9 @@ func TestDiscoveryEngine_PatternNormalization(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		_ = os.RemoveAll(tmpDir) // Ignore cleanup errors in tests
+	}()
 
 	// Create test files
 	testFiles := map[string]string{
@@ -568,7 +570,9 @@ func TestDiscoveryEngine_CrossPlatformPatterns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		_ = os.RemoveAll(tmpDir) // Ignore cleanup errors in tests
+	}()
 
 	// Create a simple test file
 	testFile := filepath.Join(tmpDir, "test.txt")
@@ -621,7 +625,9 @@ func TestDiscoveryEngine_PyFulmenRegressionCase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		_ = os.RemoveAll(tmpDir) // Ignore cleanup errors in tests
+	}()
 
 	// Simulate PyFulmen's exact setup
 	pyprojectPath := filepath.Join(tmpDir, "pyproject.toml")

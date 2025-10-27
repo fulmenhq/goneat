@@ -23,8 +23,8 @@ version: v1
 
 licenses:
   forbidden:
-    - GPL-3.0      # Strong copyleft
-    - AGPL-3.0     # Network copyleft
+    - GPL-3.0 # Strong copyleft
+    - AGPL-3.0 # Network copyleft
   # Optional: explicit allowlist
   # allowed:
   #   - MIT
@@ -76,7 +76,13 @@ hooks:
       priority: 7
       timeout: "45s"
     - command: "assess"
-      args: ["--categories", "format,lint,security,dependencies,dates,tools,maturity,repo-status", "--fail-on", "high"]
+      args:
+        [
+          "--categories",
+          "format,lint,security,dependencies,dates,tools,maturity,repo-status",
+          "--fail-on",
+          "high",
+        ]
       priority: 10
       timeout: "2m"
 ```
@@ -135,6 +141,7 @@ git reset HEAD go.mod
 ### Common Issues
 
 **Hook fails with "goneat not found"**
+
 ```bash
 # Ensure goneat is in PATH or use full path
 export PATH="$HOME/go/bin:$PATH"
@@ -142,6 +149,7 @@ goneat hooks install
 ```
 
 **License check fails unexpectedly**
+
 ```bash
 # Check your policy file
 goneat dependencies --licenses --format json | jq .
@@ -151,6 +159,7 @@ goneat validate .goneat/dependencies.yaml
 ```
 
 **Network access required for cooling policy**
+
 ```bash
 # Pre-push hooks may fail in CI without network
 # Consider separate CI-only license checks
@@ -240,13 +249,13 @@ licenses:
     - GPL-3.0
     - AGPL-3.0
     - LGPL-3.0
-    - MS-PL        # Microsoft Permissive License
+    - MS-PL # Microsoft Permissive License
   allowed:
     - MIT
     - Apache-2.0
     - BSD-3-Clause
     - ISC
-    - EPL-2.0      # Eclipse Public License 2.0
+    - EPL-2.0 # Eclipse Public License 2.0
 ```
 
 ## Performance Considerations
@@ -288,7 +297,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v4
         with:
-          go-version: '1.21'
+          go-version: "1.21"
       - run: go install github.com/fulmenhq/goneat@latest
       - run: goneat dependencies --licenses --cooling --fail-on high
 ```

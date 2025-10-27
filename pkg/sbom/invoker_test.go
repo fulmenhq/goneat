@@ -202,19 +202,19 @@ func TestSyftInvoker_ResolveBinaryIntegration(t *testing.T) {
 	originalSyftEnv := os.Getenv("GONEAT_TOOL_SYFT")
 	defer func() {
 		if originalGoneatHome != "" {
-			os.Setenv("GONEAT_HOME", originalGoneatHome)
+			_ = os.Setenv("GONEAT_HOME", originalGoneatHome) // Ignore error in test cleanup
 		} else {
-			os.Unsetenv("GONEAT_HOME")
+			_ = os.Unsetenv("GONEAT_HOME") // Ignore error in test cleanup
 		}
 		if originalSyftEnv != "" {
-			os.Setenv("GONEAT_TOOL_SYFT", originalSyftEnv)
+			_ = os.Setenv("GONEAT_TOOL_SYFT", originalSyftEnv) // Ignore error in test cleanup
 		} else {
-			os.Unsetenv("GONEAT_TOOL_SYFT")
+			_ = os.Unsetenv("GONEAT_TOOL_SYFT") // Ignore error in test cleanup
 		}
 	}()
 
 	// Set GONEAT_HOME to our temp directory
-	os.Setenv("GONEAT_HOME", tempDir)
+	_ = os.Setenv("GONEAT_HOME", tempDir) // Ignore error in test setup
 
 	// Create managed bin directory structure
 	binDir := filepath.Join(tempDir, "tools", "bin")
@@ -285,7 +285,7 @@ echo '{"bomFormat": "CycloneDX", "components": [{"name": "custom", "version": "1
 	if err := os.WriteFile(customPath, []byte(customContent), 0o755); err != nil {
 		t.Fatalf("Failed to create custom syft: %v", err)
 	}
-	os.Setenv("GONEAT_TOOL_SYFT", customPath)
+	_ = os.Setenv("GONEAT_TOOL_SYFT", customPath) // Ignore error in test setup
 
 	// Create new invoker - should use env override
 	invoker2, err := NewSyftInvoker()

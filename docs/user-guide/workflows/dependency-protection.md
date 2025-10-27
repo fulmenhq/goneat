@@ -43,6 +43,7 @@ goneat dependencies --licenses --format=json --output=.scratchpad/dependencies/l
 ```
 
 **Sample Output:**
+
 ```json
 {
   "Dependencies": [
@@ -83,11 +84,13 @@ goneat dependencies --cooling --policy=.goneat/dependencies-strict.yaml --output
 **How Cooling Metadata Works:**
 
 The cooling checker queries package registries to determine:
+
 - **Package Age**: Days since first publication
 - **Download Metrics**: Total and recent download counts
 - **Registry Data**: Real-time freshness from official sources
 
 Example cooling violation:
+
 ```json
 {
   "type": "cooling",
@@ -118,6 +121,7 @@ goneat dependencies --sbom --sbom-stdout | jq '.components | length'
 ```
 
 **SBOM Structure:**
+
 ```json
 {
   "$schema": "http://cyclonedx.org/schema/bom-1.6.schema.json",
@@ -125,11 +129,13 @@ goneat dependencies --sbom --sbom-stdout | jq '.components | length'
   "specVersion": "1.6",
   "metadata": {
     "timestamp": "2025-10-22T18:12:43-04:00",
-    "tools": [{
-      "vendor": "anchore",
-      "name": "syft",
-      "version": "1.33.0"
-    }],
+    "tools": [
+      {
+        "vendor": "anchore",
+        "name": "syft",
+        "version": "1.33.0"
+      }
+    ],
     "component": {
       "type": "application",
       "name": "your-project"
@@ -141,7 +147,7 @@ goneat dependencies --sbom --sbom-stdout | jq '.components | length'
       "type": "library",
       "name": "github.com/spf13/cobra",
       "version": "v1.8.0",
-      "licenses": [{"license": {"id": "Apache-2.0"}}],
+      "licenses": [{ "license": { "id": "Apache-2.0" } }],
       "purl": "pkg:golang/github.com/spf13/cobra@v1.8.0"
     }
   ]
@@ -161,6 +167,7 @@ goneat assess --categories=dependencies --json --output=.scratchpad/dependencies
 ```
 
 **Assessment Output:**
+
 ```json
 {
   "command_name": "dependencies",
@@ -187,6 +194,7 @@ goneat dependencies --licenses --format=json | jq '.Dependencies[] | select(.Nam
 ```
 
 **Transitive Analysis Results:**
+
 ```json
 {
   "Name": "github.com/spf13/cobra",
@@ -210,6 +218,7 @@ goneat dependencies --licenses --format=json | jq '.Dependencies[] | select(.Nam
 ```
 
 The analysis shows:
+
 - **Direct vs Transitive**: Clear distinction between direct and transitive dependencies
 - **Package Groups**: Multiple packages from the same module
 - **License Inheritance**: License applies to entire module
@@ -317,7 +326,12 @@ hooks:
     - command: assess
       args: ["--categories", "dependencies", "--fail-on", "high"]
     - command: dependencies
-      args: ["--sbom", "--sbom-output", ".scratchpad/sbom/goneat-$(date +%Y%m%d).cdx.json"]
+      args:
+        [
+          "--sbom",
+          "--sbom-output",
+          ".scratchpad/sbom/goneat-$(date +%Y%m%d).cdx.json",
+        ]
 ```
 
 ## CI/CD Integration
@@ -336,7 +350,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: "1.21"
 
       - name: Install goneat
         run: go install github.com/fulmenhq/goneat@latest
@@ -369,15 +383,18 @@ jobs:
 ### Common Issues
 
 **"No Go files found"**
+
 - Ensure you're in a Go project directory with `go.mod`
 - For other languages, full support coming in v0.3.1+
 
 **Registry API timeouts**
+
 - Cooling checks require network access
 - Use `--no-op` flag for offline mode
 - Configure longer timeouts if needed
 
 **SBOM generation fails**
+
 - Ensure Syft tool is available (`goneat doctor tools --scope sbom`)
 - Check file permissions for output directory
 
@@ -410,6 +427,7 @@ goneat dependencies --licenses --cooling --sbom --fail-on=critical
 ### Integration with Security Tools
 
 The structured JSON output integrates with:
+
 - **SIEM Systems**: Security information and event management
 - **Vulnerability Scanners**: SBOM-based vulnerability detection
 - **Compliance Dashboards**: License and security metrics

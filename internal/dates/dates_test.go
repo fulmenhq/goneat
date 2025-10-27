@@ -457,11 +457,9 @@ func TestExtractHeadingDatesFromFixture(t *testing.T) {
 
 	entries := extractChangelogEntries(string(content), time.UTC)
 	var dates []time.Time
-	var headers []string
 	for _, entry := range entries {
 		if entry.Date != nil {
 			dates = append(dates, *entry.Date)
-			headers = append(headers, entry.Line)
 		}
 	}
 
