@@ -35,6 +35,7 @@ Language bindings MUST provide the following surface (idiomatic naming allowed):
 | `GetFulmenConfigDir()`      | string/path | Base directory for Fulmen config (`~/.config/fulmen`).     |
 | `GetFulmenDataDir()`        | string/path | Base directory for Fulmen data (`~/.local/share/fulmen`).  |
 | `GetFulmenCacheDir()`       | string/path | Base directory for Fulmen cache (`~/.cache/fulmen`).       |
+| `GetOrgConfigDir()`         | string/path | Organization-level config directory (`/opt/fulmen`).       |
 | `GetAppConfigDir(app)`      | string/path | App-specific config directory under vendor namespace.      |
 | `GetAppDataDir(app)`        | string/path | App-specific data directory.                               |
 | `GetAppCacheDir(app)`       | string/path | App-specific cache directory.                              |
@@ -58,8 +59,8 @@ Fulmen-specific directories append `/fulmen` to the base path. Application-scope
 ## Overrides
 
 Honor environment variables defined in the config path standard (e.g., `FULMEN_CONFIG_HOME`,
-`FULMEN_DATA_HOME`, `FULMEN_CACHE_HOME`). Helpers MUST validate overrides to prevent traversal outside the
-user’s home directory unless explicitly allowed via documented configuration flags.
+`FULMEN_DATA_HOME`, `FULMEN_CACHE_HOME`, `FULMEN_ORG_PATH`). Helpers MUST validate overrides to prevent traversal outside the
+user's home directory unless explicitly allowed via documented configuration flags. `FULMEN_ORG_PATH` defaults to `/opt/fulmen` when unset.
 
 ## Language Implementation Notes
 

@@ -48,6 +48,8 @@ All log events MUST emit JSON with the following shape (additional fields allowe
 
 JSON output MUST be newline-delimited when written to files/streams.
 
+> **Error Integration**: Structured errors emitted via the error-handling module reuse the Pathfinder envelope and may populate `severity`, `severityLevel`, `correlationId`, and `traceId`. When logging those errors, prefer the numeric `severityLevel` for comparisons and carry through `correlationId` so telemetry remains linkable.
+
 ## Progressive Profiles
 
 Fulmen helper libraries expose a progressive configuration surface defined by `schemas/observability/logging/v1.0.0/logger-config.schema.json`. The `profile` field selects the appropriate complexity for the application:
@@ -116,9 +118,9 @@ auditSettings:
 
 Policy files are resolved in the following order:
 
-1. `.goneat/logging-policy.yaml` (repository-local development)
+1. `.fulmen/logging-policy.yaml` (repository-local development)
 2. `/etc/fulmen/logging-policy.yaml` (system-wide default)
-3. `/org/logging-policy.yaml` (organization-managed baseline)
+3. `$FULMEN_ORG_PATH/logging-policy.yaml` (organization-managed baseline, default `/opt/fulmen/`)
 
 Libraries MUST validate logger configuration against the policy (when present) during initialization. Violations MUST be logged and, when `enforceStrictMode` is true, MUST prevent the logger from starting.
 

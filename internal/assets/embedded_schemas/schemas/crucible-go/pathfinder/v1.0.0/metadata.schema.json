@@ -29,7 +29,20 @@
     },
     "checksum": {
       "type": "string",
-      "description": "File checksum/hash"
+      "description": "File checksum in format 'algorithm:hex' (e.g., 'xxh3-128:abc123...'). Generated using FulHash when calculateChecksums enabled.",
+      "pattern": "^(xxh3-128|sha256):[a-f0-9]+$"
+    },
+    "checksumAlgorithm": {
+      "type": "string",
+      "description": "Algorithm used for checksum calculation",
+      "enum": [
+        "xxh3-128",
+        "sha256"
+      ]
+    },
+    "checksumError": {
+      "type": "string",
+      "description": "Error message if checksum calculation failed (e.g., permission denied)"
     },
     "tags": {
       "type": "array",

@@ -77,10 +77,75 @@ Applies to language-specific Fulmen helper libraries (gofulmen, tsfulmen, pyfulm
    - Optional but recommended: integrate with language-native validation libraries.
    - Refer to the [Schema Validation Helper Standard](../standards/library/modules/schema-validation.md).
 
-7. **Observability Integration**
-   - Consume logging schemas/defaults from `config/observability/logging/`.
-   - Map shared severity enum and throttling settings to language-specific logging implementation.
-   - Refer to the [Fulmen Logging Standard](../standards/observability/logging.md).
+7. **Docscribe Module**
+   - Provide APIs for accessing Crucible documentation assets, including frontmatter extraction and clean content reads.
+   - Integrate with Crucible Shim for asset discovery and Schema Validation for config processing.
+   - Refer to the [Docscribe Module Standard](../standards/library/modules/docscribe.md).
+
+8. **Error Handling Propagation**
+   - Implement the canonical error contract as a schema-backed data model per [ADR-0006](decisions/ADR-0006-error-data-models.md).
+   - Expose helpers (`wrap`, `validate`, `exitWithError`) that operate on the shared data shape, allowing language-native wrappers as optional extras.
+   - Refer to the [Error Handling & Propagation Standard](../standards/library/modules/error-handling-propagation.md).
+
+9. **Telemetry & Metrics Export**
+   - Provide counter, gauge, and histogram helpers aligned with the metrics taxonomy.
+   - Use the default millisecond histogram buckets defined in [ADR-0007](decisions/ADR-0007-telemetry-default-histogram-buckets.md) unless overridden explicitly.
+   - Refer to the [Telemetry & Metrics Standard](../standards/library/modules/telemetry-metrics.md).
+
+## Ecosystem Tool Integration
+
+Helper libraries serve as the primary access point for Crucible assets in the broader Fulmen ecosystem. Tools and applications MUST access Crucible indirectly through helper libraries to ensure version alignment and consistent APIs.
+
+### Tool Integration Pattern
+
+1. **Depend on Helper Library**: Tools declare dependency on appropriate helper library (pyfulmen, gofulmen, tsfulmen)
+2. **Use Shim APIs**: Access Crucible assets through library-provided APIs (see API Surface Requirements)
+3. **Delegate Bootstrap**: Helper library handles goneat installation and SSOT sync
+4. **Version Reporting**: Tools can report embedded Crucible version for compatibility
+
+### Asset Discovery & Access
+
+Tools discover and access Crucible content through standardized shim APIs:
+
+**Finding Content:**
+
+```python
+# List available categories and assets
+categories = crucible.list_categories()  # ['docs', 'schemas', 'config']
+docs = crucible.list_assets('docs')      # Asset metadata array
+
+# Search by pattern
+logging_docs = [asset for asset in docs if 'logging' in asset.id]
+```
+
+**Accessing Content:**
+
+```python
+# Direct content access
+doc_content = crucible.get_documentation('standards/observability/logging')
+schema = crucible.load_schema('observability', 'logging', 'v1.0.0', 'logger-config')
+
+# Streaming for large content
+with crucible.open_asset('docs/architecture/fulmen-technical-manifesto.md') as stream:
+    for chunk in stream:
+        process(chunk)
+```
+
+**Error Handling:**
+
+```python
+try:
+    doc = crucible.get_documentation('standards/observability/missing-doc')
+except AssetNotFoundError as e:
+    print(f"Suggestions: {e.suggestions}")  # Helpful suggestions provided
+```
+
+### Prohibited Patterns
+
+- Direct imports of Crucible assets
+- Custom SSOT sync configurations in tools
+- Version pinning that bypasses helper library coordination
+- Manual file system access to embedded assets
 
 ## Optional (Recommended) Capabilities
 
@@ -193,13 +258,89 @@ make bootstrap
     - `type: download` fetches and verifies checksums for production
     - Symlinks automatically track source updates without re-bootstrap
 
+## Module Implementation Guidelines
+
+When implementing a new module or capability that requires telemetry, follow this checklist to ensure proper taxonomy coordination:
+
+### Telemetry-Enabled Module Checklist
+
+**Before Implementation**:
+
+1. **Draft Metrics List**
+   - Identify all metrics your module will emit
+   - Follow naming conventions: `module_operation_unit` (e.g., `pathfinder_find_ms`, `config_load_errors`)
+   - Use standard units: `count`, `ms`, `bytes`, `percent`
+   - Use semantic suffixes: `_ms` (duration), `_errors` (failures), `_warnings` (non-fatal), `_count` (totals)
+
+2. **Submit Taxonomy Update Request**
+   - Create memo in Crucible's `.plans/active/libraries/` directory
+   - Format: `YYYYMMDD-<module>-metrics-request.md`
+   - Include:
+     - List of proposed metrics with names, units, descriptions
+     - Business justification for each metric
+     - Module context (core vs extension)
+     - Impact on other language libraries
+
+3. **Await Crucible Approval**
+   - Schema Cartographer reviews request
+   - All library teams provide feedback (24-48 hour window)
+   - Metrics added to `config/taxonomy/metrics.yaml`
+   - Crucible syncs to all lang wrappers
+
+4. **Sync Updated Taxonomy**
+   - Pull latest Crucible: `make sync` (or `goneat ssot sync`)
+   - Verify new metrics appear in `docs/crucible-<lang>/config/taxonomy/metrics.yaml`
+
+5. **Implement Module**
+   - Use approved metric names (exact match required)
+   - Emit metrics via library's telemetry module
+   - Schema validation will pass on first try
+
+6. **Validate**
+   - Verify schema validation passes for emitted metrics
+   - Test metric recording and export
+   - Document metrics in module's API reference
+
+**Why This Matters**:
+
+- **Cross-library consistency**: All libraries use same metric names
+- **Schema validation**: Metrics taxonomy is SSOT, schema references it via `$ref`
+- **Prevents rework**: Pre-approval avoids failed validation during implementation
+- **Historical tracking**: Memos provide audit trail for metric additions
+
+**Example Workflow**:
+
+```
+1. GoFulmen plans Pathfinder module with 4 metrics
+2. Creates .plans/active/libraries/20251024-pathfinder-metrics-request.md
+3. Schema Cartographer reviews, gets team feedback
+4. Crucible updated with new metrics (30 min)
+5. GoFulmen syncs Crucible, sees new metrics in taxonomy
+6. GoFulmen implements, schema validation passes ✅
+```
+
+**Common Mistakes to Avoid**:
+
+- ❌ Implementing first, requesting taxonomy update after (causes validation failures)
+- ❌ Using custom metric names not in taxonomy (schema rejects them)
+- ❌ Assuming pyfulmen/tsfulmen metrics will work for gofulmen (taxonomy may be stale)
+- ✅ Following this checklist ensures smooth implementation
+
+**Reference**: See `.plans/active/libraries/20251024-telemetry-schema-fix.md` for real-world example of this process.
+
 ## Documentation Requirements
 
 - README with installation, quick start, links to Crucible standards, **and a prominent link to the overview document described below.**
+- **Crucible Version Section**: README MUST include a dedicated section (e.g., "Crucible Version") explaining how to determine the embedded Crucible version. This section MUST:
+  1. Show code example using the Crucible Shim API (e.g., `crucible.get_version()`, `crucible.Version()`, or equivalent)
+  2. Explain the metadata fields: `version` (CalVer), `commit`, `dirty` flag, `syncedAt`, `syncMethod`
+  3. Link to `.crucible/metadata.yaml` location for manual inspection
+  4. Note that `dirty: true` indicates sync from uncommitted changes (development workflow)
 - Goneat bootstrap notes (or reference this standard / `docs/guides/bootstrap-goneat.md`).
 - Bootstrap strategy documentation (e.g., `docs/BOOTSTRAP-STRATEGY.md`).
 - API reference comments/docstrings per language norms.
 - Notes on dependency flow (SSOT → foundation → consumer) to prevent circular imports.
+- **Crucible Overview**: Every library's overview document MUST include a "Crucible Overview" section explaining (1) what Crucible is, (2) why the shim/docscribe module matters, and (3) where to learn more. This gives downstream users essential context without spawning additional top-level documentation.
 - Architecture overview stored at `docs/<lang>fulmen_overview.md` (for example, `docs/pyfulmen_overview.md`). Use the following template to ensure consistency:
 
   ```markdown
@@ -209,12 +350,29 @@ make bootstrap
 
   - Brief summary of the foundation library and supported environments.
 
+  ## Crucible Overview
+
+  **What is Crucible?**
+
+  Crucible is the FulmenHQ single source of truth (SSOT) for schemas, standards, and configuration templates. It ensures consistent APIs, documentation structures, and behavioral contracts across all language foundations (gofulmen, pyfulmen, tsfulmen, etc.).
+
+  **Why the Shim & Docscribe Module?**
+
+  Rather than copying Crucible assets into every project, helper libraries provide idiomatic access through shim APIs. This keeps your application lightweight, versioned correctly, and aligned with ecosystem-wide standards. The docscribe module lets you discover, parse, and validate Crucible content programmatically without manual file management.
+
+  **Where to Learn More:**
+
+  - [Crucible Repository](https://github.com/fulmenhq/crucible) - SSOT schemas, docs, and configs
+  - [Fulmen Technical Manifesto](../crucible-<lang>/architecture/fulmen-technical-manifesto.md) - Philosophy and design principles
+  - [SSOT Sync Standard](../crucible-<lang>/standards/library/modules/ssot-sync.md) - How libraries stay synchronized
+
   ## Module Catalog
 
-  | Module          | Tier | Summary                                  | Spec Link                                                       |
-  | --------------- | ---- | ---------------------------------------- | --------------------------------------------------------------- |
-  | config-path-api | Core | Platform-aware config/data/cache helpers | [config-path-api](standards/library/modules/config-path-api.md) |
-  | ...             | ...  | ...                                      | ...                                                             |
+  | Module          | Tier | Summary                                                                                 | Spec Link                                                       |
+  | --------------- | ---- | --------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+  | config-path-api | Core | Platform-aware config/data/cache helpers                                                | [config-path-api](standards/library/modules/config-path-api.md) |
+  | docscribe       | Core | Access and processing of Crucible documentation assets including frontmatter extraction | [docscribe](standards/library/modules/docscribe.md)             |
+  | ...             | ...  | ...                                                                                     | ...                                                             |
 
   ## Observability & Logging Integration
 
@@ -232,6 +390,11 @@ make bootstrap
 
   - Bullet list of planned enhancements or known limitations.
   ```
+
+- **Asset Catalog**: Document available Crucible assets with examples of shim API usage
+- **Integration Examples**: Code samples showing common tool integration patterns (see Ecosystem Tool Integration section)
+- **Version Compatibility**: Guidance on handling Crucible version changes
+- **Docscribe Integration**: Demonstrate how the standalone `docscribe` module is used alongside crucible-shim for frontmatter parsing, header extraction, and outline generation.
 
 - Development operations documentation located under `docs/development/`. Every library MUST provide:
 

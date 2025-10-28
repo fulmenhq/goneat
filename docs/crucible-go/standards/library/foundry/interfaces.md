@@ -3,9 +3,9 @@ title: "Foundry Interfaces"
 description: "Required helper interfaces for consuming Foundry catalogs"
 author: "Schema Cartographer"
 date: "2025-10-09"
-last_updated: "2025-10-09"
-status: "draft"
-tags: ["standards", "library", "foundry", "interfaces", "2025.10.2"]
+last_updated: "2025-10-25"
+status: "stable"
+tags: ["standards", "library", "foundry", "interfaces", "2025.10.3"]
 ---
 
 # Foundry Interfaces

@@ -12,10 +12,7 @@ tags: ["fulmen", "architecture", "manifesto", "2025.10.2"]
 
 ## Why This Manifesto Exists
 
-Fulmen’s promise is simple: **start fast, thrive on scale**. The manifesto explains
-the engineering commitments that make that promise real across templates, libraries,
-tooling, and supporting services. It distills the practices refined across the past
-eight months as we moved from “template-only” experiments to a disciplined ecosystem.
+Fulmen’s promise: **Thrive on Scale**—start fast with systems engineered for enterprise reliability and growth. This manifesto codifies our commitments across the evolved ecosystem: from CRDL-optimized forges to Crucible SSOT, language foundations, tools like goneat/brooklyn-mcp, and AI-human collaboration (via MAINTAINERS.md roles). Refined over eight months from template frustration to a flywheel preventing repeated pains (e.g., logging, schemas), it guides building without silos.
 
 ## Core Beliefs
 
@@ -45,13 +42,10 @@ eight months as we moved from “template-only” experiments to a disciplined e
 - Default dashboards and log schemas live in Crucible. Forges wire those defaults on
   day zero.
 
-### 5. AI + Human Collaboration Elevates Quality
+### 5. Collaborative Human-AI Stewardship
 
-- AI co-maintainers (Schema Cartographer, Pipeline Architect, etc.) operate under the
-  same standards as humans: planning, guardian approvals, change audits, and human
-  supervision.
-- Documentation (this manifesto, ecosystem guide, SOPs) empowers AI agents to move fast
-  without bypassing safety.
+- AI agents (e.g., Schema Cartographer for standards, Pipeline Architect for workflows) partner with human roles (dev, devsecops, docs, architects per MAINTAINERS.md) under unified protocols: planning in .plans/, guardian approvals, audits, and supervision.
+- Rich SSOT docs (manifesto, guides, SOPs) enable AI to accelerate maintenance while upholding safety—e.g., refusing malicious code, enforcing quality gates—fostering a model where humans innovate and AI ensures consistency at scale.
 
 ## Architecture Tenets
 

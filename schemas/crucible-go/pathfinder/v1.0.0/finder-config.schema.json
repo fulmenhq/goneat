@@ -35,6 +35,28 @@
         "cloud"
       ],
       "default": "local"
+    },
+    "calculateChecksums": {
+      "type": "boolean",
+      "description": "Enable checksum calculation for discovered files using FulHash",
+      "default": false
+    },
+    "checksumAlgorithm": {
+      "type": "string",
+      "description": "Hash algorithm to use when calculateChecksums is enabled",
+      "enum": [
+        "xxh3-128",
+        "sha256"
+      ],
+      "default": "xxh3-128"
+    },
+    "checksumEncoding": {
+      "type": "string",
+      "description": "Encoding format for checksum output",
+      "enum": [
+        "hex"
+      ],
+      "default": "hex"
     }
   },
   "$defs": {

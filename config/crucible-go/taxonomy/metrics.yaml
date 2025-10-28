@@ -1,0 +1,115 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://schemas.fulmenhq.dev/config/taxonomy/metrics-v1.0.0.schema.json
+title: Fulmen Metrics Taxonomy
+description: Canonical registry of metric identifiers and default units used by Fulmen helper libraries.
+type: object
+$defs:
+  metricName:
+    type: string
+    enum:
+      - schema_validations
+      - schema_validation_errors
+      - config_load_ms
+      - config_load_errors
+      - pathfinder_find_ms
+      - pathfinder_validation_errors
+      - pathfinder_security_warnings
+      - foundry_lookup_count
+      - logging_emit_count
+      - logging_emit_latency_ms
+      - goneat_command_duration_ms
+  metricUnit:
+    type: string
+    enum:
+      - count
+      - ms
+      - bytes
+      - percent
+properties:
+  version:
+    type: string
+    description: Taxonomy version (CalVer).
+    pattern: "^\\d{4}\\.\\d{2}\\.\\d+$"
+  defaults:
+    type: object
+    description: Default configuration applied across metrics.
+    properties:
+      histogram_buckets:
+        type: object
+        description: Default histogram bucket boundaries grouped by metric suffix or unit.
+        properties:
+          ms_metrics:
+            type: array
+            description: Default millisecond buckets used when metric name ends with `_ms`.
+            items:
+              type: number
+        additionalProperties: false
+    additionalProperties: false
+  metrics:
+    type: array
+    description: Canonical metric entries.
+    items:
+      type: object
+      properties:
+        name:
+          $ref: "#/$defs/metricName"
+        unit:
+          $ref: "#/$defs/metricUnit"
+        description:
+          type: string
+      required:
+        - name
+        - unit
+      additionalProperties: false
+    minItems: 1
+required:
+  - version
+  - metrics
+additionalProperties: false
+version: "2025.10.3"
+defaults:
+  histogram_buckets:
+    ms_metrics:
+      - 1
+      - 5
+      - 10
+      - 50
+      - 100
+      - 500
+      - 1000
+      - 5000
+      - 10000
+metrics:
+  - name: schema_validations
+    unit: count
+    description: Total schema validation attempts.
+  - name: schema_validation_errors
+    unit: count
+    description: Failed schema validation attempts.
+  - name: config_load_ms
+    unit: ms
+    description: Duration of configuration load operations.
+  - name: config_load_errors
+    unit: count
+    description: Failed configuration load attempts.
+  - name: pathfinder_find_ms
+    unit: ms
+    description: Duration of pathfinder file discovery operations.
+  - name: pathfinder_validation_errors
+    unit: count
+    description: Failed pathfinder validation attempts.
+  - name: pathfinder_security_warnings
+    unit: count
+    description: Pathfinder security warnings (e.g., path traversal attempts).
+  - name: foundry_lookup_count
+    unit: count
+    description: Number of catalog lookups performed.
+  - name: logging_emit_count
+    unit: count
+    description: Total structured log events emitted.
+  - name: logging_emit_latency_ms
+    unit: ms
+    description: Time spent emitting structured log events.
+  - name: goneat_command_duration_ms
+    unit: ms
+    description: Duration of goneat command execution (instrumentation helper).

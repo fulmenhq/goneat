@@ -16,9 +16,12 @@
         "ssot-sync",
         "observability-logging",
         "foundry-patterns",
+        "docscribe",
         "cloud-storage",
+        "error-handling-propagation",
         "pathfinder",
-        "ascii-helpers"
+        "ascii-helpers",
+        "telemetry-metrics"
       ]
     },
     "language": {
@@ -102,9 +105,7 @@
           },
           "unsupported": {
             "type": "array",
-            "items": {
-              "$ref": "#/$defs/moduleId"
-            }
+            "items": {}
           },
           "planned": {
             "type": "array",
