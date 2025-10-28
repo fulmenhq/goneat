@@ -109,6 +109,29 @@ Verify install:
 goneat version
 ```
 
+## Bootstrap as a Local Tool
+
+For projects that want to manage goneat as a **repository-local tool** (keeping the binary in `./bin/goneat` within your project), you can use the bootstrap pattern with `.goneat/tools.yaml`:
+
+**Quick Summary**:
+1. Create `.goneat/tools.yaml` describing goneat as a tool dependency
+2. Run `bun run scripts/bootstrap-tools.ts` (or equivalent) to download/install
+3. Use `./bin/goneat` for project-specific tooling
+4. Override with `.goneat/tools.local.yaml` for local development
+
+**Full Guide**: See [Bootstrap Goneat Guide](docs/crucible-go/guides/bootstrap-goneat.md) for:
+- Complete `.goneat/tools.yaml` manifest format
+- Checksum verification setup
+- Local override pattern with `tools.local.yaml`
+- Integration with Makefiles and CI/CD
+- Post-install validation checklist
+
+This pattern is especially useful for:
+- **Monorepos** where different projects use different goneat versions
+- **CI/CD pipelines** that need reproducible, pinned tooling
+- **Teams** that want to version-control their exact tool versions
+- **Offline environments** where package managers aren't available
+
 ## Developer Quick Start
 
 **For contributors and those building from source:**
