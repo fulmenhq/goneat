@@ -118,6 +118,15 @@ fi
 
 echo "✅ Guardian approval satisfied"
 
+# Verify crucible sources are clean before pushing
+if [ -f "$REPO_ROOT/scripts/verify-crucible-clean.sh" ]; then
+  if ! "$REPO_ROOT/scripts/verify-crucible-clean.sh"; then
+    echo ""
+    echo "❌ Pre-push validation failed: Crucible sources are dirty"
+    exit 1
+  fi
+fi
+
 # Use goneat's orchestrated assessment (manifest-driven)
 "$GONEAT_BIN" assess --hook pre-push --hook-manifest "$REPO_ROOT/.goneat/hooks.yaml" --staged-only --package-mode --categories format,lint,security,dependencies,dates,tools,maturity,repo-status --fail-on high
 

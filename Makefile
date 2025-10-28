@@ -31,7 +31,7 @@ LDFLAGS := -ldflags "\
 	-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
-.PHONY: help build clean test fmt format-docs format-config format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites sync-crucible sync-ssot verify-crucible bootstrap tools lint release-check release-prepare release-build check-all prepush precommit
+.PHONY: help build clean test fmt format-docs format-config format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites sync-crucible sync-ssot verify-crucible verify-crucible-clean bootstrap tools lint release-check release-prepare release-build check-all prepush precommit
 
 # Default target
 all: clean build fmt
@@ -93,6 +93,10 @@ verify-crucible: build ## Verify that crucible content is up-to-date
 		echo "❌ Crucible content is stale - run 'make sync-crucible'"; \
 		exit 1; \
 	fi
+
+verify-crucible-clean: ## Verify crucible sources are clean (no uncommitted changes)
+	@chmod +x scripts/verify-crucible-clean.sh
+	@./scripts/verify-crucible-clean.sh
 
 bootstrap: sync-ssot embed-assets ## Install external prerequisites listed in .goneat/tools.yaml (installers must use the tooling manifest schema)
 	@echo "✅ Bootstrap complete"
@@ -336,7 +340,7 @@ precommit: build test ## Run pre-commit hooks (stub for now)
 		exit 1; \
 	fi
 
-prepush: build-all license-audit ## Run pre-push hooks (stub for now)
+prepush: build-all license-audit verify-crucible-clean ## Run pre-push hooks (stub for now)
 	@echo "Running pre-push checks with goneat..."
 	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
 		GONEAT_OFFLINE_SCHEMA_VALIDATION=false $(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-push; \
