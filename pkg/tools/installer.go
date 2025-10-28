@@ -144,7 +144,8 @@ func InstallArtifact(tool Tool, opts InstallOptions) (*InstallResult, error) {
 		return nil, fmt.Errorf("failed to extract artifact: %w", err)
 	}
 
-	if err := os.Chmod(installedPath, 0o755); err != nil { // #nosec G302 - Binary executable requires execute permission
+	// #nosec G302 -- Binary executable requires 0755 permission for execution
+	if err := os.Chmod(installedPath, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to make binary executable: %w", err)
 	}
 

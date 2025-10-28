@@ -106,6 +106,7 @@ func detectVersion(sourcePath string, versionFile string) (version string, sourc
 	}
 
 	versionPath := filepath.Join(sourcePath, versionFile)
+	// #nosec G304 -- versionPath is constructed from sourcePath (validated mirror config) and versionFile (config or default "VERSION")
 	data, err := os.ReadFile(versionPath)
 	if err != nil {
 		if os.IsNotExist(err) {

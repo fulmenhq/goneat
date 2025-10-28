@@ -188,6 +188,7 @@ func (s *SyftInvoker) Generate(ctx context.Context, config Config) (*Result, err
 			return nil, fmt.Errorf("syft execution failed: %w", err)
 		}
 
+		// #nosec G304 -- outputPath is validated with filepath.Abs above (line 145) and controlled by config
 		content, err := os.ReadFile(outputPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read generated SBOM: %w", err)
