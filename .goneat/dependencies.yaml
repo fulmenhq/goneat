@@ -1,51 +1,253 @@
+# ============================================================================
+# Goneat Dependency Protection Configuration
+# ============================================================================
+# This file configures license compliance, package cooling (supply chain
+# security), and SBOM generation for your project.
+#
+# Quick Start:
+#   1. Review and customize the forbidden licenses below
+#   2. Enable cooling policy (already enabled by default)
+#   3. Add exceptions for trusted packages (your organization, etc.)
+#   4. Test: goneat dependencies --licenses --cooling
+#   5. Add to hooks: see docs/user-guide/workflows/dependency-gating.md
+#
+# Documentation:
+#   - Overview: docs/guides/dependency-protection-overview.md
+#   - Cooling Policy: docs/guides/package-cooling-policy.md
+#   - Full Reference: docs/user-guide/commands/dependencies.md
+#
+# ============================================================================
+
 version: v1
 
-# License Compliance Policy
-# Enforced by: goneat dependencies --licenses
-#             goneat assess --categories dependencies
+# ============================================================================
+# LICENSE COMPLIANCE POLICY
+# ============================================================================
+# Automatically detect and enforce license policies across dependencies.
+# Works OFFLINE - uses local go.mod/package.json/etc.
+#
+# Commands:
+#   goneat dependencies --licenses
+#   goneat assess --categories dependencies
+#
 licenses:
+  # Forbidden licenses (build fails if detected)
   forbidden:
-    - GPL-3.0      # Strong copyleft
-    - AGPL-3.0     # Network copyleft
-  # Optionally add allowed licenses for explicit whitelisting:
+    - GPL-3.0      # Strong copyleft - requires derivative works to be GPL
+    - AGPL-3.0     # Network copyleft - triggers on network use
+    # - LGPL-3.0   # Uncomment if you want to forbid LGPL too
+    # - MPL-2.0    # Mozilla Public License (weak copyleft)
+  
+  # Optional: Explicitly allow only these licenses (stricter)
+  # If uncommented, ONLY these licenses are allowed, all others forbidden:
   # allowed:
   #   - MIT
   #   - Apache-2.0
   #   - BSD-3-Clause
-
-# Supply Chain Security (Cooling Policy)
-# Prevents adoption of newly published packages
-# Enforced by: goneat dependencies --cooling
-#             goneat assess --categories dependencies
-cooling:
-  enabled: true
-  min_age_days: 7              # Minimum package age before adoption
-  min_downloads: 100           # Minimum total downloads threshold
-  min_downloads_recent: 10     # Minimum recent downloads threshold
-  alert_only: false            # Fail build on violations (false) or warn only (true)
-  grace_period_days: 3         # Grace period for initial publication
-  # Network access is required for cooling checks; run in pre-push/CI workflows.
-  # Trust exceptions for internal/known packages:
+  #   - BSD-2-Clause
+  #   - ISC
+  
+  # Optional: License-specific exceptions
+  # Use sparingly - document approval and reason:
   # exceptions:
-  #   - pattern: "github.com/myorg/*"
-  #     reason: "Internal packages"
+  #   - package: "github.com/example/special-pkg"
+  #     license: "GPL-3.0"
+  #     reason: "Legal team approved after review"
+  #     approved_by: "@legal-team"
+  #     approved_date: "2025-10-28"
+  #     ticket: "LEGAL-1234"
 
-# Policy Engine Configuration
+# ============================================================================
+# PACKAGE COOLING POLICY (Supply Chain Security)
+# ============================================================================
+# Enforces a waiting period before adopting newly published packages.
+# Protects against supply chain attacks (compromised maintainer accounts,
+# malicious code injection, typosquatting).
+#
+# ⚠️  REQUIRES NETWORK ACCESS - queries package registries
+#
+# Best Practices:
+#   - Use in pre-push hooks (not pre-commit - too slow)
+#   - Use in CI/CD pipelines
+#   - Start with alert_only=true, then enforce after team buy-in
+#
+# Commands:
+#   goneat dependencies --cooling
+#   goneat assess --categories dependencies
+#
+cooling:
+  # Enable/disable cooling policy globally
+  enabled: true
+  
+  # ---- Core Thresholds ----
+  
+  # Minimum package age (days since publication)
+  # Recommendation: 7 days (80% of attacks detected within this window)
+  # Conservative: 14 days (95% detection)
+  # Ultra-secure: 30 days (for critical infrastructure)
+  min_age_days: 7
+  
+  # Minimum total downloads (lifetime)
+  # Ensures package has some adoption/vetting
+  # Recommendation: 100 (reasonable baseline)
+  # Permissive: 50 (allows earlier adoption)
+  # Conservative: 1000 (only established packages)
+  min_downloads: 100
+  
+  # Minimum downloads in last 30 days
+  # Ensures package is actively maintained
+  # Recommendation: 10 (some ongoing use)
+  # Stricter: 100 (actively used packages only)
+  min_downloads_recent: 10
+  
+  # ---- Enforcement Mode ----
+  
+  # alert_only: false means FAIL BUILD on violations
+  # alert_only: true means WARN ONLY (good for gradual rollout)
+  alert_only: false
+  
+  # Grace period (days) to fix violations without blocking
+  # Useful during initial rollout or when addressing existing violations
+  # Recommendation: 3 days (standard grace period)
+  # Extended: 7 days (large teams with many dependencies)
+  grace_period_days: 3
+  
+  # ---- Trusted Package Exceptions ----
+  
+  # Allow specific packages to bypass cooling period
+  # ⚠️  USE SPARINGLY - each exception reduces security effectiveness
+  #
+  # Exception patterns use glob syntax:
+  #   - github.com/myorg/*        matches all packages in your org
+  #   - */cobra                   matches any package named "cobra"
+  #   - github.com/spf13/*        matches all packages by spf13
+  #
+  exceptions:
+    # Example: Trust your organization's internal packages
+    - pattern: "github.com/fulmenhq/*"
+      reason: "Internal FulmenHQ packages are pre-vetted"
+      approved_by: "@3leapsdave"
+      approved_date: "2025-10-28"
+    
+    # Example: Trust established maintainer
+    # - pattern: "github.com/spf13/*"
+    #   reason: "spf13 is trusted maintainer (cobra, viper, etc.)"
+    #   approved_by: "@tech-lead"
+    #   approved_date: "2025-10-28"
+    
+    # Example: Temporary exception with expiration
+    # - module: "github.com/example/urgent-fix"
+    #   until: "2025-12-31"
+    #   reason: "Emergency security fix required immediately"
+    #   approved_by: "@cto"
+    #   ticket: "SEC-1234"
+  
+  # ---- Development vs Production (Optional) ----
+  
+  # Different policies for dev dependencies (test frameworks, build tools)
+  # vs production dependencies (runtime requirements)
+  #
+  # Uncomment to enable:
+  # production:
+  #   min_age_days: 14           # Stricter for production
+  #   min_downloads: 1000
+  # development:
+  #   min_age_days: 3            # More lenient for dev tools
+  #   min_downloads: 50
+
+# ============================================================================
+# POLICY ENGINE CONFIGURATION
+# ============================================================================
+# goneat uses embedded OPA (Open Policy Agent) for policy evaluation.
+# Advanced: Can connect to remote OPA server for centralized policies.
+#
 policy_engine:
-  type: embedded    # Use embedded OPA engine (recommended)
-  # type: server    # For remote OPA server
-  # url: "http://opa-server:8181"
+  # Type: "embedded" (recommended) or "server" (advanced)
+  type: embedded
+  
+  # Remote OPA server (only if type: server)
+  # remote:
+  #   url: "https://opa.example.com"
+  #   auth:
+  #     type: "bearer"           # or "basic", "mtls"
+  #     token_env: "OPA_TOKEN"   # Environment variable with token
+  
+  # Local Rego policy files (advanced - custom OPA policies)
+  # rego_files:
+  #   - ".goneat/policies/custom-licenses.rego"
+  #   - ".goneat/policies/custom-cooling.rego"
 
-# SBOM Configuration (optional)
-# Generated by: goneat dependencies --sbom
-#              goneat assess reports include SBOM metadata if available
+# ============================================================================
+# SBOM CONFIGURATION (Software Bill of Materials)
+# ============================================================================
+# Generate SBOMs for compliance, security auditing, and transparency.
+# Works OFFLINE - uses local dependency graph.
+#
+# Commands:
+#   goneat dependencies --sbom
+#   goneat dependencies --sbom --sbom-output custom/path.json
+#
+# ⚠️  IMPORTANT: Add 'sbom/' to .gitignore to prevent committing SBOMs
+#
 # sbom:
+#   # Output directory for generated SBOMs
+#   # Default: sbom/ in project root
 #   output_dir: sbom
+#   
+#   # SBOM format (currently only CycloneDX supported)
+#   # Future: spdx, syft-json
 #   format: cyclonedx-json
+#   
+#   # Include development dependencies in SBOM
+#   # true: Include test frameworks, build tools, etc.
+#   # false: Production dependencies only (recommended)
 #   include_dev_dependencies: false
-#   # Security: extraction is capped at 500 MB per file (ErrArchiveTooLarge).
+#   
+#   # Security note:
+#   # SBOM extraction is capped at 500 MB per file to prevent
+#   # decompression bombs (ErrArchiveTooLarge).
 
-# Assessment Integration Notes:
-# - Use 'goneat assess --categories dependencies' for unified workflow
-# - SBOM metadata automatically included in assessment reports
-# - See docs/user-guide/workflows/dependency-gating.md for patterns
+# ============================================================================
+# ASSESSMENT INTEGRATION
+# ============================================================================
+# The 'goneat assess --categories dependencies' command uses this config
+# and provides unified reporting with other quality categories.
+#
+# Hook Integration Examples:
+#
+# Pre-commit (fast, offline):
+#   - command: dependencies
+#     args: ["--licenses", "--fail-on", "high"]
+#
+# Pre-push (comprehensive, online):
+#   - command: dependencies
+#     args: ["--licenses", "--cooling", "--fail-on", "high"]
+#
+# CI/CD (full validation):
+#   - command: assess
+#     args: ["--categories", "dependencies", "--format", "json"]
+#
+# For complete workflow patterns, see:
+#   docs/user-guide/workflows/dependency-gating.md
+#
+# ============================================================================
+
+# ============================================================================
+# QUICK TROUBLESHOOTING
+# ============================================================================
+#
+# Problem: "All packages fail cooling policy"
+# Solution: Check network access to package registries, verify system clock
+#
+# Problem: "Cooling checks timeout"
+# Solution: Increase timeout in hooks.yaml, configure proxy if behind firewall
+#
+# Problem: "Package blocked but it's actually old"
+# Solution: Clear cache: rm -rf ~/.goneat/cache/registry/
+#
+# Problem: "Development is too slow"
+# Solution: Move cooling checks to pre-push only, keep pre-commit fast
+#
+# Full troubleshooting guide: docs/troubleshooting/dependencies.md
+#
+# ============================================================================

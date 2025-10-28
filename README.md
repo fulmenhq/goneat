@@ -163,8 +163,59 @@ make build
 
 Note: This is alpha software in RC release phase. See `docs/standards/lifecycle-release-phase-standard.md` for phase definitions and operational details on coverage gates, contribution posture, and user guidance.
 
+## 🛡️ **NEW in v0.3.0: Dependency Protection** 🛡️
+
+Protect your software supply chain with comprehensive dependency security and compliance features:
+
+### Supply Chain Security (Package Cooling)
+
+Automatically block newly published packages to prevent supply chain attacks. Enforces a configurable waiting period (default: 7 days) before adopting new dependencies.
+
+```bash
+# Enable cooling policy
+goneat dependencies --cooling --fail-on high
+```
+
+**Why it matters:** 80% of supply chain attacks are detected within 7 days. Recent attacks like ua-parser-js (8M+ weekly downloads) and event-stream show why waiting matters.
+
+### License Compliance
+
+Automatically detect and enforce license policies across your entire dependency tree:
+
+```bash
+# Enforce license policy
+goneat dependencies --licenses --fail-on high
+```
+
+Configure forbidden licenses (GPL, AGPL) and trusted sources in `.goneat/dependencies.yaml`.
+
+### SBOM Generation
+
+Generate Software Bill of Materials for regulatory compliance and security auditing:
+
+```bash
+# Generate SBOM in CycloneDX format
+goneat dependencies --sbom
+```
+
+**Quick Start:**
+
+1. Create `.goneat/dependencies.yaml` (see template in repo)
+2. Run: `goneat dependencies --licenses --cooling`
+3. Add to hooks: `goneat hooks install`
+
+**Documentation:**
+
+- **[Dependency Protection Overview](docs/guides/dependency-protection-overview.md)** - Complete feature guide
+- **[Package Cooling Policy](docs/guides/package-cooling-policy.md)** - Supply chain security explained
+- **[SBOM Workflow](docs/guides/sbom-workflow.md)** - SBOM lifecycle and best practices
+- **[Troubleshooting](docs/troubleshooting/dependencies.md)** - Common issues and solutions
+
+---
+
 ## Highlights
 
+- **Dependency Protection (NEW v0.3.0)**: Supply chain security with package cooling, license compliance, and SBOM generation ([see above](#-new-in-v030-dependency-protection-))
 - **Multi-function text formatter**: handles Go code files, markdown, YAML, JSON with a general text mode for EOF and whitespace trimming at EOL
 - **Intelligent hooks**: auto-detects format capabilities, one manifest, one command, instant DX ([see below](#intelligent-hooks))
 - **Guardian security**: approval workflows for protected git operations with browser-based authentication ([see below](#guardian-security))
@@ -475,9 +526,10 @@ Benefits:
 
 ### Neat Commands (Core Functionality)
 
-- `goneat assess`: Orchestrated assessment engine (format, lint, security, static analysis, schema, date-validation, maturity, repo-status) with user-configurable assessment categories ([docs](docs/user-guide/commands/assess.md))
+- `goneat assess`: Orchestrated assessment engine (format, lint, security, dependencies, static analysis, schema, date-validation, maturity, repo-status) with user-configurable assessment categories ([docs](docs/user-guide/commands/assess.md))
 - `goneat ascii`: ASCII art and Unicode terminal calibration toolkit with box rendering, width analysis, and terminal-specific corrections ([docs](docs/user-guide/ascii.md))
 - `goneat dates`: Validate and fix date consistency across your codebase ([docs](docs/user-guide/commands/dates.md))
+- `goneat dependencies`: **NEW v0.3.0** - License compliance, package cooling (supply chain security), and SBOM generation ([docs](docs/user-guide/commands/dependencies.md) | [overview](docs/guides/dependency-protection-overview.md))
 - `goneat format`: Multi-format formatting with finalizer stage (EOF/trailing spaces, line-endings, BOM) ([docs](docs/user-guide/commands/format.md))
 - `goneat guardian`: Security approval workflows for protected git operations with browser-based authentication ([docs](docs/user-guide/commands/guardian.md))
 - `goneat security`: Security scanning (gosec, govulncheck), sharded + parallel ([docs](docs/user-guide/commands/security.md))

@@ -8,7 +8,10 @@ topics:
       - user-guide/tutorials/**/*.md
       - user-guide/workflows/assess-code.md
       - user-guide/workflows/dependency-protection.md
+      - user-guide/workflows/dependency-gating.md
       - configuration/feature-gates.md
       - appnotes/**/*.md
+      - guides/**/*.md
+      - troubleshooting/**/*.md
     exclude:
       - user-guide/commands/experimental/**
