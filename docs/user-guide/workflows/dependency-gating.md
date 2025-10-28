@@ -361,7 +361,7 @@ Here's what a goneat-generated SBOM looks like (truncated for readability):
     "component": {
       "type": "application",
       "name": "goneat",
-      "version": "v0.3.0-dev"
+      "version": "v0.3.0"
     }
   },
   "components": [

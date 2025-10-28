@@ -5,9 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0] - 2025-10-28
 
-### v0.3.0 - Dependency Protection (Release Candidate)
+### v0.3.0 - Dependency Protection
 
 #### Added
 
@@ -91,11 +91,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed unchecked error returns in test files across multiple packages
 
 - **Documentation & Workflow Guides**:
-  - `docs/appnotes/license-policy-hooks.md`: Hook integration guide
-  - `docs/user-guide/workflows/dependency-gating.md`: Dependency protection workflow
-  - `.goneat/dependencies.yaml`: Reference configuration with inline comments
-  - Wave 4 SBOM documentation with try-it-yourself examples
-  - Integration test protocol documentation
+  - **Comprehensive User Documentation** (1,700+ lines):
+    - `docs/guides/dependency-protection-overview.md`: Complete feature overview with quick start (397 lines)
+    - `docs/guides/package-cooling-policy.md`: Supply chain security deep dive with threat model (600 lines)
+    - `docs/troubleshooting/dependencies.md`: Comprehensive troubleshooting for all common issues (665 lines)
+  - **Dogfooding & Reference Implementation**:
+    - `docs/appnotes/dogfooding-dependency-protection.md`: How goneat uses its own features (410 lines)
+    - Demonstrates real-world configuration with actual license counts and policy decisions
+    - Documents operational patterns and lessons learned
+  - **Enhanced Configuration**:
+    - `.goneat/dependencies.yaml`: Production-ready configuration with 200+ lines of inline documentation
+    - Strict allowlist approach (MIT, Apache-2.0, BSD, ISC, 0BSD, Unlicense)
+    - MPL-2.0 added to forbidden list (copyleft concerns)
+    - FulmenHQ package exception with proper attribution
+  - **Integration Guides**:
+    - `docs/appnotes/license-policy-hooks.md`: Hook integration guide
+    - `docs/user-guide/workflows/dependency-gating.md`: Dependency protection workflow
+    - Wave 4 SBOM documentation with try-it-yourself examples
+  - **Test & Quality Documentation**:
+    - Integration test protocol documentation (Three-Tier strategy)
+    - `docs/embed-manifest.yaml`: Updated to include guides and troubleshooting
+  - **README Updates**:
+    - Prominent v0.3.0 dependency protection feature section
+    - Mermaid diagrams for workflows and decision trees
+    - Cross-linked documentation navigation
 
 #### Fixed
 

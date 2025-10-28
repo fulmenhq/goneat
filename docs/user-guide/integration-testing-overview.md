@@ -6,7 +6,7 @@ This guide explains how goneat's integration tests work, particularly when testi
 
 **Target Audience**: Contributors, maintainers, and anyone working on features that require integration testing.
 
-**Last Updated**: 2025-10-11 (v0.3.0-dev)
+**Last Updated**: 2025-10-28 (v0.3.0)
 
 ## Testing Strategy Overview
 

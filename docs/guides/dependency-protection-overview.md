@@ -301,6 +301,7 @@ goneat dependencies --licenses --cooling --fail-on high
 ### Getting Started
 - **[This Overview](dependency-protection-overview.md)** - Start here
 - **[Package Cooling Policy](package-cooling-policy.md)** - Supply chain security deep dive
+- **[License Compliance Reporting](license-compliance-reporting.md)** - How to prove compliance to stakeholders
 - **[SBOM Workflow Guide](sbom-workflow.md)** - SBOM lifecycle and best practices
 
 ### Reference

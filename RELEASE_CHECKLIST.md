@@ -2,14 +2,14 @@
 
 This checklist ensures all requirements are met before releasing goneat to the Go package ecosystem.
 
-## Current Release Status: v0.2.10 (2025-09-30)
+## Current Release Status: v0.2.11 (2025-09-30)
 
-**✅ RELEASE COMPLETE**: v0.2.10 successfully tagged and pushed to GitHub.
+**✅ RELEASE COMPLETE**: v0.2.11 successfully tagged and pushed to GitHub.
 **✅ POST-RELEASE**: All quality gates passed, binaries built, licenses audited.
 
-## Next Release Target: [0.2.11] - 2025-09-30 (Guardian UX & CI/CD Hardening)
+## Next Release Target: [0.3.0] - 2025-10-28 (Dependency Protection)
 
-**🔄 IN PROGRESS**: Preparing v0.2.11 release with guardian approval command visibility and embed verification enhancements.
+**🔄 IN PROGRESS**: Preparing v0.3.0 release with dependency protection features (license compliance, package cooling policy, SBOM generation) and comprehensive documentation.
 
 ## Pre-Release Preparation
 
@@ -95,6 +95,25 @@ See: [Integration Test Protocol](.plans/active/v0.3.0/wave-2-phase-4-INTEGRATION
 - [x] **Inventory Updated**: `make license-inventory` refreshes `docs/licenses/inventory.csv`
 - [x] **License Texts Saved**: `make license-save` updates `docs/licenses/third-party/`
 - [x] **Inventory MD Reviewed**: Update `docs/licenses/inventory.md` if dependencies changed materially
+
+### Dependency Protection (v0.3.0+) 🆕
+
+- [ ] **Dogfooding Validation**: goneat uses its own dependency protection features
+  - [ ] `.goneat/dependencies.yaml` configured with production policy
+  - [ ] License compliance check passes: `goneat dependencies --licenses`
+  - [ ] Cooling policy check passes: `goneat dependencies --cooling`
+  - [ ] SBOM generation works: `goneat dependencies --sbom`
+  - [ ] Zero license violations in production dependencies
+  - [ ] Zero cooling policy violations
+- [ ] **Documentation Complete**: All dependency protection docs reviewed
+  - [ ] `docs/guides/dependency-protection-overview.md` current
+  - [ ] `docs/guides/package-cooling-policy.md` accurate
+  - [ ] `docs/troubleshooting/dependencies.md` comprehensive
+  - [ ] `docs/appnotes/dogfooding-dependency-protection.md` reflects actual config
+- [ ] **SSOT Provenance**: Crucible sync metadata is current
+  - [ ] `.goneat/ssot/provenance.json` exists with valid schema
+  - [ ] `.crucible/metadata/metadata.yaml` tracks correct version
+  - [ ] Provenance includes commit SHA and version
 
 ## Release Execution
 

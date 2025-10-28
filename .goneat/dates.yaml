@@ -24,6 +24,10 @@ files:
     - "**/dist/**"
     - "**/build/**"
     - "**/.scratchpad/**"
+    # Exclude comprehensive release documentation (not traditional changelog format)
+    - "RELEASE_NOTES.md"
+    - "RELEASE_CHECKLIST.md"
+    - "docs/releases/**"
   text_extensions:
     - ".md"
     - ".txt"
