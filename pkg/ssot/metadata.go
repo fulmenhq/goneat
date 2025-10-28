@@ -199,7 +199,7 @@ func buildProvenance(sources []SourceMetadata) *Provenance {
 		Schema: SchemaDescriptor{
 			Name:    "goneat.ssot.provenance",
 			Version: "v1",
-			URL:     "https://github.com/fulmenhq/goneat/schemas/ssot/provenance.v1.json",
+			URL:     "https://github.com/fulmenhq/crucible/schemas/content/ssot-provenance/v1.0.0/ssot-provenance.schema.json",
 		},
 		GeneratedAt: time.Now().UTC(),
 		Sources:     sources,
