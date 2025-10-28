@@ -18,11 +18,11 @@ The canonical list of forge categories and statuses is maintained in the [Reposi
 
 ## Scope
 
-Applies to Workhorse-specific forge templates (e.g., `forge-workhorse-pecan`, future variants like `forge-workhorse-oak`). Excludes other categories (e.g., `cli` for interactive tools, `library` for reusable code). Forges are not SSOT repos or full applications but starters that integrate Fulmen ecosystem components (Crucible via helpers, goneat optional) to accelerate development while enforcing standards.
+Applies to Workhorse-specific forge templates (e.g., `forge-workhorse-groningen`, `forge-workhorse-percheron`). Workhorse forges use horse breed names (e.g., groningen, percheron, clydesdale) as distinctive identifiers, with binaries named using the breed name only (not `workhorse-{breed}`). Excludes other categories (e.g., `cli` for interactive tools, `library` for reusable code). Forges are not SSOT repos or full applications but starters that integrate Fulmen ecosystem components (Crucible via helpers, goneat optional) to accelerate development while enforcing standards.
 
 Core philosophy: Ship "batteries-included" templates that handle 80% of boilerplate (logging, config, telemetry, bootstrap) so users focus on business logic. No "useful" functionality (e.g., no domain-specific code); just scalable foundations.
 
-**CDRL Guide**: Users follow Clone → Degit → Refit → Launch; see `docs/development/fulmen_cdrl_guide.md` for details.
+**CDRL Guide**: Users follow Clone → Degit → Refit → Launch; see `docs/development/fulmen_cdrl_guide.md` for details. During refit, users rename the breed identifier (e.g., `groningen` → `myapi`) throughout the codebase.
 
 Implementers MUST comply with ecosystem standards in Crucible's `docs/standards/` (e.g., coding conventions, API patterns, repository structure) to ensure consistency.
 
@@ -72,10 +72,10 @@ Implementers MUST comply with ecosystem standards in Crucible's `docs/standards/
    - Refer to [Config Path API](docs/standards/library/modules/config-path-api.md) and [Three-Layer Config](docs/standards/library/modules/three-layer-config.md).
 
 7. **Env Var & .env Support**
-   - Use a required env var prefix based on app name (e.g., `{APP_NAME}_` where APP*NAME is uppercase kebab-case from CDRL refit, default `WORKHORSE_PECAN*`).
-   - Include `.env.example` with standard vars (e.g., `{APP_NAME}_PORT=8080`, `{APP_NAME}_LOG_LEVEL=info`, `{APP_NAME}_CONFIG_PATH=./config/app.yaml`); gitcommitted, user copies to `.env` (gitignored).
+   - Use a required env var prefix based on breed name (e.g., `{BREED_NAME}_` where BREED*NAME is uppercase, default `GRONINGEN*` for groningen breed).
+   - Include `.env.example` with standard vars (e.g., `GRONINGEN_PORT=8080`, `GRONINGEN_LOG_LEVEL=info`, `GRONINGEN_CONFIG_PATH=./config/groningen.yaml`); gitcommitted, user copies to `.env` (gitignored).
    - Load .env via three-layer (Layer 2: from app config dir; parse with helper or lang-native like python-dotenv).
-   - In fulmen*cdrl_guide.md, instruct users to rename prefix (e.g., change `WORKHORSE_PECAN*`to`MY*APP*` in code/.env.example).
+   - In fulmen*cdrl_guide.md, instruct users to rename prefix (e.g., change `GRONINGEN*`to`MYAPI\_` in code/.env.example).
    - Validate prefix in CLI (`--env-prefix` flag optional); env vars override config (Layer 3).
    - Standard vars: Port, log level, metrics port, health port, config path; extend for app-specific.
    - Refer to Three-Layer Config for integration.
@@ -97,8 +97,8 @@ Implementers MUST comply with ecosystem standards in Crucible's `docs/standards/
 
 10. **CLI Surface for Server Invocation**
     - Provide a standard CLI wrapper (e.g., via cobra/click/argparse) for backend server:
-      - `workhorse-pecan serve [flags]`: Starts server.
-      - Standard flags: `--config <path>` (Three-Layer), `--port <int>`, `--log-level <str>` (trace/debug/info/warn/error), `--metrics-port <int>`, `--health-port <int>`, `--env-prefix <str>` (default from app name), `--version` (print and exit), `--help`.
+      - `{breed-name} serve [flags]`: Starts server (e.g., `groningen serve`, `percheron serve`).
+      - Standard flags: `--config <path>` (Three-Layer), `--port <int>`, `--log-level <str>` (trace/debug/info/warn/error), `--metrics-port <int>`, `--health-port <int>`, `--env-prefix <str>` (default from breed name), `--version` (print and exit), `--help`.
       - Subcommands:
         - `serve` (default): Starts server.
         - `version` / `version --extended`: Basic version; extended shows full info (app version, SSOT/Crucible versions from helper, build date, git commit).
@@ -106,6 +106,7 @@ Implementers MUST comply with ecosystem standards in Crucible's `docs/standards/
         - `doctor`: Runs checks/scaffolding (health self-test, config validation, missing deps, suggest fixes; e.g., "Missing .env? Copy .env.example").
         - `health`: Self-check (mirrors /health endpoint).
       - Defaults from Crucible configs via helper; env var overrides (e.g., `PORT=8080`); load .env via three-layer.
+    - Binary name MUST follow the Binary Naming Convention (breed name only, see dedicated section).
     - Integrate with helper library for config/logging/SSOT info.
     - Refer to [Repository Structure: Workhorse](docs/standards/repository-structure/typescript/workhorse.md) for patterns; see goneat CLI for version/envinfo/doctor examples.
 
@@ -138,9 +139,10 @@ To refactor existing tools like sumpter (Go CLI for data extraction/inspection) 
 
 - **Helper Integration**: Add gofulmen dep; replace direct schemas/docs with Crucible Shim (e.g., load extract schemas via `crucible.LoadSchema("extract", "v0.1.0", "record-match")`); use three-layer for config (embed defaults, user .yaml, env).
 - **Remove Direct SSOT**: Eliminate goneat SSOT sync; embed via gofulmen (internal/assets now from helper).
+- **Binary Naming**: Rename to breed name only (e.g., if refactoring as `forge-workhorse-sumpter`, binary becomes `sumpter`, not `workhorse-sumpter`).
 - **Standardize CLI**: Sumpter already has version/envinfo/doctor—extend version --extended for SSOT/build info; add serve subcommand for backend mode (e.g., API for extract/validate).
 - **Add Endpoints**: Implement /health, /version, /metrics; /extract (POST for recipes) using gRPC/HTTP patterns.
-- **Env/ .env**: Adopt {APP*NAME}* prefix (e.g., SUMPTER\_); add .env.example with DSN/log-level.
+- **Env/ .env**: Adopt breed name prefix (e.g., `SUMPTER_`); add .env.example with DSN/log-level.
 - **Runtime**: Add graceful shutdown (context in main); pprof on /debug; migration if DB (sumpter has none, but future-proof).
 - **UX**: Config enable_ui for /ui (e.g., inspect results dashboard).
 - **Makefile**: Ensure compliance (bootstrap installs gofulmen, no sync).
@@ -178,10 +180,10 @@ This refactoring reduces boilerplate, aligns with ecosystem, adds server capabil
 
 ## Directory Structure
 
-Workhorse forges MUST follow this skeleton for consistency (Python example; adapt for Go/TS):
+Workhorse forges MUST follow this skeleton for consistency (Python example with `groningen` breed; adapt for Go/TS):
 
 ```
-forge-workhorse-pecan/
+forge-workhorse-groningen/
 ├── .goneat/                          # Optional DX tooling only
 │   ├── tools.yaml                    # Linting/validation (no SSOT)
 │   └── tools.local.yaml.example      # Local template
@@ -190,26 +192,58 @@ forge-workhorse-pecan/
 │       ├── ci.yaml
 │       └── release.yaml
 ├── src/
-│   └── workhorse_pecan/              # Main entrypoint (CLI + server)
+│   └── groningen/                    # Main entrypoint (CLI + server) - breed name only
 │       ├── __init__.py
 │       ├── main.py                   # CLI surface: serve, version, health, envinfo, doctor
 │       └── internal/                 # App logic (server handlers, config loaders)
 ├── config/
-│   └── workhorse-pecan.yaml          # App-specific defaults (Layer 2/3; Layer 1 via helper)
+│   └── groningen.yaml                # App-specific defaults (Layer 2/3; Layer 1 via helper)
 ├── docs/
 │   ├── README.md                     # Forge overview
 │   ├── DEVELOPMENT.md                # Local setup, contribution
 │   └── development/
 │       └── fulmen_cdrl_guide.md      # CDRL instructions for users (naming/root conventions)
-├── pyproject.toml                    # Deps: pyfulmen (mandatory), etc.
-├── .env.example                      # Standard env vars (committed)
+├── pyproject.toml                    # Deps: pyfulmen (mandatory), binary: groningen
+├── .env.example                      # Standard env vars (committed): GRONINGEN_PORT, etc.
 ├── Makefile                          # Standard targets (bootstrap, run, build, test)
 └── .gitignore                        # Ignore .env, builds, local configs
 ```
 
-- **Primary Entry**: `src/<app>/main.py` launches the workhorse.
+- **Primary Entry**: `src/{breed-name}/main.py` launches the workhorse (breed name only, no `workhorse_` prefix).
 - **No Direct Synced Assets**: All Crucible/SSOT via helper library shims; no `docs/crucible-*`, `config/crucible-*`, or SSOT folders.
 - **No Domain Code**: Placeholders (e.g., echo server in internal/server.py) to demonstrate; users refit via CDRL.
+
+## Binary Naming Convention
+
+Workhorse forges MUST follow this naming pattern to support clean CDRL refit workflows:
+
+**Rule**: The binary name MUST be the distinctive identifier (e.g., the horse breed name like `groningen`, `percheron`, `clydesdale`), excluding the `workhorse` category prefix.
+
+**Rationale**:
+
+- Templates should model final usage patterns. During CDRL refit, users rename binaries to their application name (e.g., `myapi`, `analytics-engine`), not `workhorse-myapi`.
+- The repository name provides full context (`forge-workhorse-{breed}`), while the binary name serves as a placeholder for the user's final application identity.
+- This separation ensures the refit process is straightforward: users replace the breed name with their app name in a single refactoring pass.
+
+**Examples**:
+
+| Repository Name             | Binary Name           | After User Refit   | Status              |
+| --------------------------- | --------------------- | ------------------ | ------------------- |
+| `forge-workhorse-groningen` | `groningen`           | `analytics-engine` | ✅                  |
+| `forge-workhorse-percheron` | `percheron`           | `data-processor`   | ✅                  |
+| `forge-workhorse-groningen` | `workhorse-groningen` | N/A                | ❌ Redundant prefix |
+
+**Implementation Notes**:
+
+- **CLI Entry Point**: Name the main executable/entry point using only the breed name (e.g., `groningen serve`, not `workhorse-groningen serve`).
+- **Module/Package Names**: Follow language conventions while maintaining the breed identifier:
+  - **Go**: Package `main`, binary output `groningen` (via `go build -o groningen`)
+  - **Python**: Package `groningen` (not `workhorse_groningen`), entry point via `pyproject.toml`: `groningen = "groningen.main:cli"`
+  - **TypeScript**: Package name can be `@forge/workhorse-groningen` for npm scope, but binary via `package.json` scripts should be `groningen`
+- **Environment Variables**: Use breed name as prefix (e.g., `GRONINGEN_PORT`, `GRONINGEN_LOG_LEVEL`). Users update this during refit (e.g., to `MYAPI_PORT`).
+- **Config Files**: Name using breed (e.g., `config/groningen.yaml`). CDRL guide instructs users to rename.
+
+**Cross-Language Consistency**: All language implementations of a given workhorse breed MUST use identical binary names to maintain ecosystem coherence.
 
 ## Bootstrap Strategy
 
@@ -273,9 +307,10 @@ Adapt helper library template:
 ## References
 
 - [Fulmen Helper Library Standard](fulmen-helper-library-standard.md)
-- [Repository Category Taxonomy](schemas/taxonomy/repository-category/v1.0.0/README.md)
+- [Repository Category Taxonomy](../../schemas/taxonomy/repository-category/v1.0.0/README.md)
 - [Technical Manifesto](fulmen-technical-manifesto.md)
-- Prototype: forge-cli-pecan
+- [Binary Naming Convention](#binary-naming-convention) (this document)
+- Prototype: forge-workhorse-groningen (Go), forge-workhorse-groningen-py (Python)
 
 ## Changelog
 

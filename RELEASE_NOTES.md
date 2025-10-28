@@ -1,3 +1,177 @@
+# Goneat v0.3.2 — Version Conflict Management
+
+**Release Date**: 2025-10-28
+**Status**: Release
+
+## TL;DR
+
+- **Version Conflict Detection**: New `goneat doctor versions` command to detect and manage multiple goneat installations
+- **Automatic Conflict Resolution**: Purge stale global installations or update to latest with single command
+- **Developer Experience**: Solves common version conflict issues when using multiple repositories
+
+## What's New
+
+### Version Conflict Detection and Management
+
+Users working with multiple repositories may encounter version conflicts when goneat is installed both globally (`go install`) and locally (project bootstrap). This release introduces comprehensive version management capabilities to detect and resolve these conflicts.
+
+**New Command**: `goneat doctor versions`
+
+```bash
+# Detect all goneat installations and identify conflicts
+goneat doctor versions
+
+# Remove stale global installation
+goneat doctor versions --purge --yes
+
+# Update global installation to latest
+goneat doctor versions --update --yes
+
+# JSON output for automation
+goneat doctor versions --json
+```
+
+**Detection Coverage**:
+
+- **Global installations**: GOPATH/bin (from `go install`)
+- **Project-local**: ./bin/goneat (bootstrap pattern)
+- **Development builds**: ./dist/goneat
+- **PATH scanning**: All directories in system PATH
+
+**What It Does**:
+
+1. **Scans** your system for all goneat binaries
+2. **Compares** versions and identifies the currently running binary
+3. **Reports** version conflicts with clear visual indicators
+4. **Recommends** solutions based on conflict type
+5. **Resolves** conflicts automatically with `--purge` or `--update` flags
+
+**Example Output**:
+
+```
+Goneat Version Analysis
+=======================
+
+Current running version: v0.3.2
+Current binary path: /Users/you/project/dist/goneat
+
+Detected installations:
+   v0.2.11      | global | /Users/you/go/bin/goneat
+▶️ v0.3.2       | development | /Users/you/project/dist/goneat
+
+⚠️  Warning: 1 version conflict(s) detected
+
+Recommendations:
+1. Remove stale global installation:
+   goneat doctor versions --purge --yes
+
+2. Or update global installation to latest:
+   goneat doctor versions --update --yes
+
+3. Or use project-local installations (recommended):
+   - Bootstrap to ./bin/goneat per project
+   - See: goneat docs show user-guide/bootstrap
+```
+
+### Problem Solved
+
+**Scenario**: Developer has multiple repositories on their machine:
+- Repository A uses goneat v0.3.0 (bootstrapped to ./bin/goneat)
+- Repository B just added goneat v0.3.2
+- Developer previously ran `go install goneat@v0.2.11` (now in ~/go/bin)
+
+**Before v0.3.2**:
+- Commands might use the wrong version depending on PATH order
+- Hooks might call stale global version
+- Difficult to diagnose which version is running where
+- Manual removal required understanding of GOPATH/bin location
+
+**After v0.3.2**:
+- Single command shows all installations and conflicts
+- One-line fix to purge stale versions
+- Clear recommendations for resolution strategy
+- JSON output for CI/CD integration
+
+### Use Cases
+
+1. **Multi-Repository Development**: Detect when different repos use different versions
+2. **Onboarding**: New team members can quickly identify and fix version mismatches
+3. **CI/CD**: Validate no stale installations in build environments
+4. **Troubleshooting**: Diagnose unexpected behavior due to version conflicts
+
+### SSOT Dirty Detection Fix
+
+Fixed a false positive bug in SSOT provenance dirty state detection that caused crucible repositories to incorrectly show as "dirty" when files matched only global gitignore patterns.
+
+**The Bug**:
+- go-git's `Status().IsClean()` includes ALL untracked files, even those matched by global gitignore (`~/.config/git/ignore`)
+- This differs from git CLI behavior, which only checks repository `.gitignore`
+- **Example**: `.claude/settings.local.json` in global gitignore but not repo `.gitignore` triggered false positive
+
+**The Fix**:
+- Now filters untracked files through repository `.gitignore` patterns only
+- Repository `.gitignore` is the source of truth (matches CI/CD behavior)
+- Includes `.git/info/exclude` for repository-local excludes
+- Verified with 3-pass testing demonstrating correct behavior
+
+**Impact**:
+- ✅ **Team Consistency**: All developers see the same dirty state
+- ✅ **CI/CD Alignment**: Local detection matches CI/CD behavior
+- ✅ **Prepush Validation**: Correctly blocks only real uncommitted changes
+- ✅ **Developer Experience**: Add common patterns (`.claude/`, `.vscode/`) to repo `.gitignore` for proper ignore behavior
+
+**Design Decision**: See [ADR-0002](docs/architecture/decisions/adr-0002-ssot-dirty-detection.md) for detailed rationale on why repository `.gitignore` is the correct source of truth over global gitignore.
+
+**Before Fix**:
+```bash
+$ cd crucible && git status
+working tree clean  # Git CLI says clean
+
+$ cd ../goneat && make sync-ssot
+crucible: dirty (false positive from .claude/settings.local.json)
+```
+
+**After Fix**:
+```bash
+$ cd crucible && git status
+working tree clean
+
+$ cd ../goneat && make sync-ssot
+crucible: clean ✅ (correctly ignores files in repo .gitignore)
+```
+
+## Installation
+
+```bash
+# Go install (recommended)
+go install github.com/fulmenhq/goneat@v0.3.2
+
+# From source
+git clone https://github.com/fulmenhq/goneat.git
+cd goneat
+git checkout v0.3.2
+make build
+```
+
+## Upgrade Notes
+
+No configuration changes required. Upgrade to v0.3.2 and run `goneat doctor versions` to audit your installations:
+
+```bash
+# Upgrade
+go install github.com/fulmenhq/goneat@v0.3.2
+
+# Audit your installations
+goneat doctor versions
+
+# Clean up if conflicts detected
+goneat doctor versions --purge --yes
+```
+
+**Recommended Practice**: After upgrading, run `goneat doctor versions` to ensure clean state across all your development environments.
+
+---
+
 # Goneat v0.3.1 — Build System Fix
 
 **Release Date**: 2025-10-28

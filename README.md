@@ -20,7 +20,7 @@ We bring a smooth DX layer to the business of making neat code at scale. We wrap
 ```bash
 # macOS/Linux example - adjust for your platform and latest version
 # Check https://github.com/fulmenhq/goneat/releases for the latest release
-curl -L -o goneat https://github.com/fulmenhq/goneat/releases/download/v0.3.1/goneat-darwin-arm64
+curl -L -o goneat https://github.com/fulmenhq/goneat/releases/download/v0.3.2/goneat-darwin-arm64
 chmod +x goneat
 sudo mv goneat /usr/local/bin/
 ```
@@ -93,7 +93,7 @@ go install github.com/fulmenhq/goneat@latest
 
   ```bash
   brew install --formula \
-    https://raw.githubusercontent.com/fulmenhq/goneat/v0.3.1/packaging/homebrew/goneat.rb
+    https://raw.githubusercontent.com/fulmenhq/goneat/v0.3.2/packaging/homebrew/goneat.rb
   ```
 
 - Scoop (rc.8+):
@@ -178,7 +178,7 @@ make build
 
 ## Status
 
-- Release: v0.3.1 (per `VERSION` file)
+- Release: v0.3.2 (per `VERSION` file)
 - Lifecycle Phase: GA (per `LIFECYCLE_PHASE` file)
 - Release Phase: Release (per `RELEASE_PHASE` file)
 - Repo Visibility: Public

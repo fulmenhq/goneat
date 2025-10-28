@@ -11,6 +11,7 @@ import (
 
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"gopkg.in/yaml.v3"
 )
 
@@ -91,9 +92,45 @@ func introspectRepository(sourcePath string) (commit string, ref string, dirty b
 		return commit, ref, true, "status-error", repoRoot, nil
 	}
 
-	if !status.IsClean() {
-		dirty = true
-		reason = "worktree-dirty"
+	// Check if worktree has uncommitted changes
+	// go-git's Status() includes ALL untracked files (even gitignored ones)
+	// We need to filter out gitignored files to match git's behavior
+
+	// Check for uncommitted changes, respecting repository .gitignore
+	// Design decision: We only check repository .gitignore, not global gitignore
+	// Rationale documented in docs/architecture/decisions/0002-ssot-dirty-detection.md
+
+	// Load gitignore patterns from repository
+	patterns, err := gitignore.ReadPatterns(worktree.Filesystem, nil)
+	if err != nil {
+		logger.Debug(fmt.Sprintf("failed to read gitignore patterns: %v", err))
+		patterns = []gitignore.Pattern{} // Continue with empty patterns if read fails
+	}
+	// Include external excludes (e.g., .git/info/exclude)
+	patterns = append(patterns, worktree.Excludes...)
+	matcher := gitignore.NewMatcher(patterns)
+
+	for path, fileStatus := range status {
+		// Handle untracked files - check if they're in repository .gitignore
+		if fileStatus.Worktree == git.Untracked {
+			pathParts := strings.Split(filepath.ToSlash(path), "/")
+			isIgnored := matcher.Match(pathParts, false)
+			if isIgnored {
+				// File is in repository .gitignore, skip it
+				continue
+			}
+			// File is untracked and NOT in repository .gitignore - repo is dirty
+			dirty = true
+			reason = "worktree-dirty"
+			break
+		}
+
+		// For tracked files, any modification or staging means dirty
+		if fileStatus.Staging != git.Unmodified || fileStatus.Worktree != git.Unmodified {
+			dirty = true
+			reason = "worktree-dirty"
+			break
+		}
 	}
 
 	return commit, ref, dirty, reason, repoRoot, nil

@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2025-10-28
+
+### Added
+
+- **Version Conflict Detection and Management**: New `goneat doctor versions` command
+  - Detects all goneat installations on the system (global, project-local, development, PATH)
+  - Identifies version conflicts between multiple installations
+  - Provides clear recommendations for resolving conflicts
+  - `--purge` flag to remove stale global installations from GOPATH/bin
+  - `--update` flag to update global installation to latest version
+  - `--yes` flag for non-interactive automation in CI/CD workflows
+  - Supports `--json` output for programmatic consumption
+  - Addresses common version conflict scenarios when users have multiple repositories using different goneat versions
+  - Enables safer use of global `go install` alongside project-local bootstrap patterns
+
+### Fixed
+
+- **SSOT Dirty Detection**: Corrected dirty state detection to respect repository `.gitignore` only
+  - Fixed false positive bug where go-git's `Status().IsClean()` included files matched by global gitignore
+  - Now filters untracked files through repository `.gitignore` patterns (not global `~/.config/git/ignore`)
+  - Ensures team consistency: repository `.gitignore` is the source of truth
+  - Aligns with CI/CD behavior which does not use global gitignore
+  - Verified with 3-pass testing demonstrating correct behavior
+  - See [ADR-0002](docs/architecture/decisions/adr-0002-ssot-dirty-detection.md) for design rationale
+  - **Impact**: Prepush validation now correctly distinguishes between truly dirty state and files ignored by personal config
+  - **Developer Experience**: Developers with global gitignore patterns will see correct dirty state after adding common patterns to repo `.gitignore`
+
 ## [0.3.1] - 2025-10-28
 
 ### Fixed
