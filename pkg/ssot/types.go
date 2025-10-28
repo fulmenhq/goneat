@@ -3,22 +3,24 @@ package ssot
 // SyncConfig represents the complete sync consumer configuration
 // This follows the crucible sync-consumer pattern from sync-consumers-guide.md
 type SyncConfig struct {
-	Version  string   `yaml:"version"`
-	Sources  []Source `yaml:"sources"`
-	Strategy Strategy `yaml:"strategy"`
-	isLocal  bool     // Internal flag to track if local override was loaded
+	Version    string           `yaml:"version"`
+	Sources    []Source         `yaml:"sources"`
+	Strategy   Strategy         `yaml:"strategy"`
+	Provenance ProvenanceConfig `yaml:"provenance,omitempty"`
+	isLocal    bool             // Internal flag to track if local override was loaded
 }
 
 // Source defines a sync source (e.g., crucible repository)
 type Source struct {
-	Name         string   `yaml:"name"`           // Source name (e.g., "crucible")
-	Repo         string   `yaml:"repo"`           // GitHub repo (e.g., "fulmenhq/crucible")
-	Ref          string   `yaml:"ref"`            // Git ref/branch/tag (e.g., "main")
-	LocalPath    string   `yaml:"localPath"`      // Local filesystem path (overrides repo, for dev)
-	SyncPathBase string   `yaml:"sync_path_base"` // Subpath within repo (e.g., "lang/go")
-	Assets       []Asset  `yaml:"assets"`         // Assets to sync
-	Keys         []string `yaml:"keys"`           // Optional catalog keys
-	Output       string   `yaml:"output"`         // Optional destination root
+	Name         string               `yaml:"name"`               // Source name (e.g., "crucible")
+	Repo         string               `yaml:"repo"`               // GitHub repo (e.g., "fulmenhq/crucible")
+	Ref          string               `yaml:"ref"`                // Git ref/branch/tag (e.g., "main")
+	LocalPath    string               `yaml:"localPath"`          // Local filesystem path (overrides repo, for dev)
+	SyncPathBase string               `yaml:"sync_path_base"`     // Subpath within repo (e.g., "lang/go")
+	Assets       []Asset              `yaml:"assets"`             // Assets to sync
+	Keys         []string             `yaml:"keys"`               // Optional catalog keys
+	Output       string               `yaml:"output"`             // Optional destination root
+	Metadata     SourceMetadataConfig `yaml:"metadata,omitempty"` // Metadata generation config (v0.3.0+)
 }
 
 // Asset defines what files to sync and where
@@ -48,10 +50,11 @@ type SyncOptions struct {
 
 // SyncResult contains the results of a sync operation
 type SyncResult struct {
-	Sources      []string // Successfully synced source names
-	FilesCopied  int      // Number of files copied
-	FilesRemoved int      // Number of files removed
-	Errors       []error  // Any non-fatal errors encountered
+	Sources      []string    // Successfully synced source names
+	FilesCopied  int         // Number of files copied
+	FilesRemoved int         // Number of files removed
+	Errors       []error     // Any non-fatal errors encountered
+	Metadata     *Provenance // Captured provenance metadata (v0.3.0+)
 }
 
 // ResolvedSource contains the resolved path to a source

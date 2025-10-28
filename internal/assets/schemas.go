@@ -44,6 +44,9 @@ func GetSchemaNames() []SchemaInfo {
 		"schema-mapping-manifest-v1.0.0": "embedded_schemas/schemas/config-mapping/v1.0.0/schema-mapping-manifest.yaml",
 		"version-policy-v1.0.0":          "embedded_schemas/schemas/crucible-go/config/goneat/v1.0.0/version-policy.schema.yaml",
 		"dependency-analysis-v1.0.0":     "embedded_schemas/schemas/dependencies/v1.0.0/dependency-analysis.schema.json",
+		"ssot-provenance-v1":             "embedded_schemas/schemas/ssot/provenance.v1.json",
+		"ssot-source-metadata-v1":        "embedded_schemas/schemas/ssot/source-metadata.v1.json",
+		"json-schema-2020-12":            "embedded_schemas/schemas/meta/draft-2020-12/schema.json",
 	}
 
 	var infos []SchemaInfo

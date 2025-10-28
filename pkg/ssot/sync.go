@@ -39,6 +39,61 @@ func PerformSync(opts SyncOptions) (*SyncResult, error) {
 		return result, fmt.Errorf("all sources failed to sync")
 	}
 
+	// Write provenance metadata if any sources succeeded
+	if len(result.Sources) > 0 && result.Metadata != nil {
+		provConfig := config.Provenance
+
+		// Default: provenance enabled unless explicitly disabled (nil = enabled)
+		enabled := true
+		if provConfig.Enabled != nil && !*provConfig.Enabled {
+			enabled = false
+		}
+
+		if enabled {
+			// Build final provenance
+			provenance := buildProvenance(result.Metadata.Sources)
+
+			// Write aggregate
+			outputPath := provConfig.OutputPath
+			if outputPath == "" {
+				outputPath = ".goneat/ssot/provenance.json"
+			}
+			if err := writeAggregateProvenance(provenance, outputPath, opts.DryRun); err != nil {
+				logger.Error(fmt.Sprintf("Failed to write provenance: %v", err))
+			}
+
+			// Write per-source mirrors if enabled (default: true when nil)
+			mirrorPerSource := true
+			if provConfig.MirrorPerSource != nil && !*provConfig.MirrorPerSource {
+				mirrorPerSource = false
+			}
+
+			if mirrorPerSource {
+				format := provConfig.PerSourceFormat
+				if format == "" {
+					format = "yaml"
+				}
+				// Find original source config for per-source overrides
+				sourceConfigMap := make(map[string]Source)
+				for _, src := range config.Sources {
+					sourceConfigMap[src.Name] = src
+				}
+
+				for _, source := range provenance.Sources {
+					sourceCopy := source // Create copy for pointer
+					// Get per-source config for overrides
+					var sourceConfig *Source
+					if cfg, ok := sourceConfigMap[source.Name]; ok {
+						sourceConfig = &cfg
+					}
+					if err := writePerSourceMirror(&sourceCopy, format, sourceConfig, opts.DryRun); err != nil {
+						logger.Error(fmt.Sprintf("Failed to write source mirror for %s: %v", source.Name, err))
+					}
+				}
+			}
+		}
+	}
+
 	return result, nil
 }
 
@@ -54,12 +109,32 @@ func syncSource(source Source, opts SyncOptions, result *SyncResult) error {
 		logger.Info(fmt.Sprintf("Syncing source: %s from %s", source.Name, resolved.Path))
 	}
 
+	// Track outputs for metadata
+	outputs := make(map[string]string)
+
 	// Process each asset
 	for _, asset := range source.Assets {
+		destRoot := asset.Subdir
+		if source.Output != "" {
+			destRoot = filepath.Join(source.Output, asset.Subdir)
+		}
+		outputs[asset.Type] = destRoot
+
 		if err := syncAsset(source, asset, resolved.Path, opts, result); err != nil {
 			result.Errors = append(result.Errors, fmt.Errorf("asset %s/%s: %w", source.Name, asset.Type, err))
 			continue
 		}
+	}
+
+	// Capture metadata for this source
+	metadata, err := captureSourceMetadata(source, *resolved, outputs)
+	if err != nil {
+		logger.Debug(fmt.Sprintf("Failed to capture metadata for %s: %v", source.Name, err))
+	} else {
+		if result.Metadata == nil {
+			result.Metadata = &Provenance{Sources: []SourceMetadata{}}
+		}
+		result.Metadata.Sources = append(result.Metadata.Sources, *metadata)
 	}
 
 	return nil

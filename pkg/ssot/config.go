@@ -117,9 +117,10 @@ func loadConfigFile(path string, validate bool) (*SyncConfig, error) {
 // Local config values take precedence over production config
 func mergeConfigs(prod, local *SyncConfig) *SyncConfig {
 	merged := &SyncConfig{
-		Version:  prod.Version,
-		Sources:  make([]Source, 0, len(prod.Sources)),
-		Strategy: prod.Strategy,
+		Version:    prod.Version,
+		Sources:    make([]Source, 0, len(prod.Sources)),
+		Strategy:   prod.Strategy,
+		Provenance: prod.Provenance, // Start with production provenance config
 	}
 
 	// Override version if local specifies it
@@ -178,6 +179,20 @@ func mergeConfigs(prod, local *SyncConfig) *SyncConfig {
 	if len(local.Sources) > 0 {
 		merged.Strategy.PruneStale = local.Strategy.PruneStale
 		merged.Strategy.VerifyChecksums = local.Strategy.VerifyChecksums
+	}
+
+	// Merge provenance config (local overrides if present)
+	if local.Provenance.Enabled != nil {
+		merged.Provenance.Enabled = local.Provenance.Enabled
+	}
+	if local.Provenance.OutputPath != "" {
+		merged.Provenance.OutputPath = local.Provenance.OutputPath
+	}
+	if local.Provenance.MirrorPerSource != nil {
+		merged.Provenance.MirrorPerSource = local.Provenance.MirrorPerSource
+	}
+	if local.Provenance.PerSourceFormat != "" {
+		merged.Provenance.PerSourceFormat = local.Provenance.PerSourceFormat
 	}
 
 	return merged

@@ -33,6 +33,7 @@ goneat assess --categories dependencies
 ```
 
 **Key Features**:
+
 - Multi-language analyzer framework (Go production-ready, others extensible)
 - OPA policy engine for policy-as-code evaluation
 - Network-aware execution with registry API integration
@@ -43,6 +44,7 @@ goneat assess --categories dependencies
 Policy-driven license detection and enforcement:
 
 **Configuration** (`.goneat/dependencies.yaml`):
+
 ```yaml
 version: v1
 
@@ -53,6 +55,7 @@ licenses:
 ```
 
 **Capabilities**:
+
 - Go dependency license detection (95%+ accuracy via go-licenses)
 - Forbidden license blocking with clear violation reporting
 - OPA integration for advanced policy evaluation
@@ -64,21 +67,23 @@ licenses:
 Mitigate supply chain attacks by enforcing minimum package age:
 
 **Configuration**:
+
 ```yaml
 cooling:
   enabled: true
-  min_age_days: 7              # Minimum package age before adoption
-  min_downloads: 100           # Minimum total downloads
-  min_downloads_recent: 10     # Minimum recent downloads (30 days)
-  alert_only: false            # Fail build on violations
-  grace_period_days: 3         # Grace period for new packages
-  
+  min_age_days: 7 # Minimum package age before adoption
+  min_downloads: 100 # Minimum total downloads
+  min_downloads_recent: 10 # Minimum recent downloads (30 days)
+  alert_only: false # Fail build on violations
+  grace_period_days: 3 # Grace period for new packages
+
   exceptions:
     - pattern: "github.com/myorg/*"
       reason: "Internal packages are pre-vetted"
 ```
 
 **Registry Integration**:
+
 - npm registry API client
 - PyPI package metadata
 - crates.io for Rust dependencies
@@ -87,6 +92,7 @@ cooling:
 - 24-hour caching layer
 
 **Threat Protection**:
+
 - Blocks newly published packages (configurable threshold)
 - Download count validation
 - Exception management for trusted sources
@@ -108,6 +114,7 @@ goneat assess --categories dependencies
 ```
 
 **Features**:
+
 - CycloneDX 1.5 format via managed Syft
 - Automatic tool installation with SHA256 verification
 - Doctor integration: `goneat doctor tools --scope sbom --install`
@@ -127,6 +134,7 @@ goneat assess --categories format,lint,dependencies --fail-on high
 ```
 
 **Integration Points**:
+
 - CategoryDependencies registered in assessment engine
 - Priority level 2 (high risk for supply chain)
 - Network-aware execution planning
@@ -146,16 +154,65 @@ goneat version propagate --dry-run
 ```
 
 **Features**:
+
 - Single source of truth (VERSION file)
 - Cross-language package manager support
 - Staging workspace for safe multi-file updates
 - Pathfinder integration for pattern matching
+
+### SSOT Provenance Metadata
+
+Automatic audit trail generation for SSOT sync operations:
+
+```bash
+# Sync with automatic metadata capture
+goneat ssot sync
+
+# Metadata artifacts generated:
+# - .goneat/ssot/provenance.json (aggregate)
+# - .crucible/metadata/metadata.yaml (per-source mirror)
+```
+
+**Features**:
+
+- Git introspection: commit SHA, dirty state detection
+- Version detection from VERSION file
+- Outputs mapping (asset type → destination path)
+- CI enforcement support for clean sources
+- Configurable mirrors and output paths
+
+**Example Provenance**:
+
+```json
+{
+  "schema": { "name": "goneat.ssot.provenance", "version": "v1" },
+  "generated_at": "2025-10-27T18:00:00Z",
+  "sources": [
+    {
+      "name": "crucible",
+      "method": "local_path",
+      "commit": "b64d22a0f0f94e4f1f128172c04fd166cf255056",
+      "dirty": false,
+      "version": "2025.10.2",
+      "outputs": { "docs": "docs/crucible-go" }
+    }
+  ]
+}
+```
+
+**CI Enforcement**:
+
+```bash
+# Check for dirty sources
+jq '.sources[] | select(.dirty == true)' .goneat/ssot/provenance.json
+```
 
 ### Registry Client Library (`pkg/registry/`)
 
 Reusable package registry API clients:
 
 **Supported Registries**:
+
 - npm (registry.npmjs.org)
 - PyPI (pypi.org JSON API)
 - crates.io (crates.io API)
@@ -163,6 +220,7 @@ Reusable package registry API clients:
 - Go modules (pkg.go.dev + proxy.golang.org)
 
 **Features**:
+
 - Mockable HTTP transport for testing
 - Rate limiting and retry logic
 - 24-hour TTL caching
@@ -173,6 +231,7 @@ Reusable package registry API clients:
 Comprehensive security audit remediation:
 
 **Critical Fixes**:
+
 - Decompression bomb protection (500MB extraction limit)
 - Path traversal prevention in archive extraction
 - Command injection vulnerability fixes (G204 audit)
@@ -180,6 +239,7 @@ Comprehensive security audit remediation:
 - Managed tool resolver with artifact verification
 
 **Security Validations**:
+
 - Zero command injection vulnerabilities (gosec G204)
 - Path cleaning in all file operations
 - Archive extraction size limits
@@ -213,14 +273,14 @@ cooling:
   min_downloads_recent: 10
   alert_only: false
   grace_period_days: 3
-  
+
   exceptions:
     - pattern: "github.com/myorg/*"
       reason: "Internal packages"
 
 # Policy Engine Configuration
 policy_engine:
-  type: embedded    # Use embedded OPA engine (recommended)
+  type: embedded # Use embedded OPA engine (recommended)
   # Optional remote OPA server
   # type: server
   # url: "http://opa-server:8181"
@@ -237,11 +297,11 @@ Network-aware hook configuration:
 
 ```yaml
 hooks:
-  pre-commit:  # Fast, offline-capable
+  pre-commit: # Fast, offline-capable
     - command: assess
       args: ["--categories", "format,lint"]
-  
-  pre-push:  # Network-dependent checks
+
+  pre-push: # Network-dependent checks
     - command: assess
       args: ["--categories", "dependencies", "--fail-on", "high"]
 ```
@@ -251,11 +311,13 @@ hooks:
 ### Optimizations
 
 **Registry API Caching**:
+
 - 24-hour TTL for package metadata
 - Reduces network calls for repeated checks
 - Configurable cache directory
 
 **Analysis Speed**:
+
 - < 5s for typical projects (100 dependencies)
 - < 60s for large monorepos (1000+ dependencies)
 - < 2s for cached/incremental analysis
@@ -265,6 +327,7 @@ hooks:
 ### Linting Infrastructure Enhancements
 
 **Enhanced Test Suite Reliability**:
+
 - Added `.goneatignore` pattern support to lint runner for automatic test fixture exclusion
 - Improved lint assessment accuracy by respecting ignore patterns and preventing false positives
 - Fixed unchecked error returns in test files across multiple packages (environment variables, file operations)
@@ -274,12 +337,14 @@ hooks:
 ### Three-Tier Integration Test Protocol
 
 **Tier 1 - Synthetic Fixtures** (CI Mandatory):
+
 - Time: < 10s
 - Dependencies: None
 - When: Every commit, pre-commit, pre-push
 - Command: `make test` (includes Tier 1)
 
 **Tier 2 - Quick Validation** (Pre-Release):
+
 - Time: ~8s warm cache, ~38s cold
 - Dependencies: Hugo repository
 - When: Before tagging release
@@ -287,6 +352,7 @@ hooks:
 - Setup: `export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground`
 
 **Tier 3 - Full Suite** (Major Releases):
+
 - Time: ~2 minutes
 - Dependencies: Hugo, OPA, Traefik, Mattermost repos
 - When: Major versions (v0.3.0, v1.0.0, etc.)
@@ -298,16 +364,19 @@ hooks:
 ### New Guides
 
 **Dependency Protection**:
+
 - `docs/user-guide/workflows/dependency-gating.md`: Complete workflow guide
 - `docs/appnotes/license-policy-hooks.md`: Hook integration patterns
 - `.goneat/dependencies.yaml`: Reference configuration
 
 **SBOM Generation**:
+
 - Wave 4 SBOM documentation with examples
 - Try-it-yourself guides for CycloneDX generation
 - Doctor tool integration guide
 
 **Integration Testing**:
+
 - `.plans/active/v0.3.0/wave-2-phase-4-INTEGRATION-TEST-PROTOCOL.md`
 
 ## Breaking Changes
@@ -319,15 +388,17 @@ None. All new features are additive and backward compatible.
 After upgrading to v0.3.0:
 
 1. **Configure dependency protection** (optional):
+
    ```bash
    # Copy reference configuration
    cp .goneat/dependencies.yaml.example .goneat/dependencies.yaml
-   
+
    # Edit policy to match your requirements
    # Customize forbidden licenses and cooling thresholds
    ```
 
 2. **Update hooks** to include dependency checks:
+
    ```bash
    # Edit .goneat/hooks.yaml to add dependencies category
    # Regenerate hooks
@@ -336,19 +407,21 @@ After upgrading to v0.3.0:
    ```
 
 3. **Test SBOM generation**:
+
    ```bash
    # Install Syft if needed
    goneat doctor tools --scope sbom --install
-   
+
    # Generate SBOM
    goneat dependencies --sbom
    ```
 
 4. **Try assessment integration**:
+
    ```bash
    # Run dependency assessment
    goneat assess --categories dependencies
-   
+
    # Combined workflow
    goneat assess --categories format,lint,dependencies
    ```
@@ -358,11 +431,13 @@ After upgrading to v0.3.0:
 ### Multi-Language Analyzers
 
 **v0.3.0 Scope**:
+
 - ✅ Go: Full production implementation (95%+ accuracy)
 - ✅ Framework: Extensible multi-language analyzer interface
 - ⏭️ TypeScript/Python/Rust/C#: Stub implementations (future expansion)
 
 **Rationale**:
+
 - Go-first approach delivers immediate value
 - Framework architecture proven and extensible
 - Avoids shipping untested multi-language features
@@ -386,18 +461,21 @@ make build
 Planned enhancements for future releases:
 
 **Multi-Language License Detection**:
+
 - TypeScript/JavaScript analyzer (npm packages)
 - Python analyzer (PyPI packages)
 - Rust analyzer (crates.io)
 - C# analyzer (NuGet packages)
 
 **SBOM Enhancements**:
+
 - SPDX format support
 - Vulnerability enrichment (OSV database)
 - VEX (Vulnerability Exploitability eXchange) support
 - Provenance data inclusion
 
 **Advanced Features**:
+
 - Typosquatting detection
 - Malicious package heuristics
 - Dependency update suggestions
@@ -418,6 +496,7 @@ This release was developed collaboratively by the 3leaps AI agent team under hum
 ### Human Oversight
 
 All contributions reviewed, approved, and committed by:
+
 - Dave Thompson (@3leapsdave) - Project Lead & Primary Maintainer
 
 ## Links

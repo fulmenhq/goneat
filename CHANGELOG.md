@@ -75,6 +75,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Crucible standards integration for ecosystem compliance
   - Schema-backed configuration (`.goneat/ssot-consumer.yaml`)
   - Environment variable overrides for CI/CD workflows
+  - **Provenance Metadata Generation** (v0.3.0): Automatic capture of source commit, version, dirty state
+    - Aggregate provenance manifest (`.goneat/ssot/provenance.json`)
+    - Per-source YAML mirrors (`.{slug}/metadata/metadata.yaml`)
+    - Git introspection via go-git for commit SHA and dirty detection
+    - Version file detection (configurable, defaults to `VERSION`)
+    - CI enforcement support for clean source validation
+    - Schemas: `provenance.v1.json` and `source-metadata.v1.json`
 
 - **Linting Infrastructure Enhancements**: Quality assurance improvements
   - Added `.goneatignore` pattern support to lint runner for test fixture exclusion

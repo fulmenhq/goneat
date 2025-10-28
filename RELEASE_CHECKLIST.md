@@ -25,12 +25,14 @@ This checklist ensures all requirements are met before releasing goneat to the G
 ### Integration Tests (Three-Tier Strategy)
 
 **Tier 1 (Mandatory - Always Run)**:
+
 - [x] **Synthetic Fixture Test**: `make test` (includes `test-integration-cooling-synthetic`)
   - Time: < 10s
   - Dependencies: None (CI-friendly)
   - When: Every commit, pre-commit, pre-push
 
 **Tier 2 (Recommended - Pre-Release)**:
+
 - [ ] **Quick Validation**: `make test-integration-cooling-quick` (Hugo baseline)
   - Time: ~8s (warm cache), ~38s (cold cache)
   - Dependencies: Hugo repository (set `GONEAT_COOLING_TEST_ROOT`)
@@ -38,6 +40,7 @@ This checklist ensures all requirements are met before releasing goneat to the G
   - Target: < 15s warm, < 10% violations
 
 **Tier 3 (Optional - Major Releases)**:
+
 - [ ] **Full Suite**: `make test-integration-cooling` (all 8 scenarios)
   - Time: ~113s (1.9 minutes)
   - Dependencies: Hugo, OPA, Traefik, Mattermost repos
@@ -45,11 +48,13 @@ This checklist ensures all requirements are met before releasing goneat to the G
   - Expected: 6/8 passing (2 known non-blocking failures)
 
 **Extended Testing** (Non-Standard):
+
 - [ ] **All Tiers**: `make test-integration-extended` (comprehensive)
   - Runs: Tier 1 + Tier 2 + Tier 3 sequentially
   - When: Final validation before major release
 
 **Setup**:
+
 ```bash
 # For Tier 2/3, set test repo location
 export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground
@@ -205,7 +210,7 @@ See: [Integration Test Protocol](.plans/active/v0.3.0/wave-2-phase-4-INTEGRATION
 
 ### Standard Release (Patch/Minor)
 
-````bash
+```bash
 # Pre-release preparation
 make test                              # Run all tests (unit + Tier 1 integration)
 make build-all                         # Build all platforms
@@ -223,11 +228,11 @@ make prepush                           # Runs assess with build gate
 
 # Tag/push only after above succeed
 git tag -a v0.2.9 -m "release: v0.2.9" && git push origin v0.2.9
-````
+```
 
 ### Major Release (v0.3.0, v1.0.0)
 
-````bash
+```bash
 # All standard steps above, PLUS:
 
 # Comprehensive integration testing (before tagging)
@@ -239,7 +244,7 @@ cat /tmp/goneat-phase4-full-suite.log > dist/release/integration-test-results.lo
 
 # Tag only after all tiers pass
 git tag -a v0.3.0 -m "release: v0.3.0" && git push origin v0.3.0
-````
+```
 
 ## Commit Consolidation (Required before push)
 
@@ -273,7 +278,7 @@ git reset --soft "$LAST_PUSHED"
 # 3) Create consolidated commit (run gates first; see SOP)
 git add -A
 git commit -m "<consolidated message with attribution>"
-````
+```
 
 Emergency recovery steps are documented in the SOP (reflog and backup branch restore).
 

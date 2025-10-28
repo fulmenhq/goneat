@@ -14,6 +14,7 @@ Goneat ships with a first-class SSOT (Single Source of Truth) synchronization wo
 - **Local Overrides**: Developers can point to a sibling checkout (e.g., `../crucible`) without touching the checked-in manifest.
 - **Environment Overrides**: Set `GONEAT_SSOT_CONSUMER_<SOURCE>_LOCAL_PATH` to override source paths in CI, ephemeral environments, or alternate directory layouts.
 - **Schema Backed**: Configuration is validated against `schemas/config/sync-consumer-config.yaml`, ensuring consistency across the ecosystem.
+- **Provenance Metadata** (v0.3.0+): Automatic generation of provenance metadata capturing source commit, version, and dirty state for audit trails and CI enforcement.
 
 ## Configuration Files
 
@@ -141,3 +142,172 @@ func syncAssets() {
 ```
 
 The library performs the same validation and merge steps as the CLI.
+
+## Provenance Metadata (v0.3.0+)
+
+Starting in v0.3.0, `goneat ssot sync` automatically generates provenance metadata capturing where synced assets originated. This enables audit trails, CI enforcement of clean syncs, and tracking of source versions.
+
+### Metadata Artifacts
+
+**Aggregate Provenance** (`.goneat/ssot/provenance.json`):
+
+- Single JSON file containing metadata for all synced sources
+- Includes commit SHAs, dirty state, version information, and asset outputs
+- Schema: `schemas/ssot/provenance.v1.json`
+
+**Per-Source Mirrors** (`.{slug}/metadata/metadata.yaml`):
+
+- Individual YAML files for each source (e.g., `.crucible/metadata/metadata.yaml`)
+- Compatible with existing helper library consumers
+- Schema: `schemas/ssot/source-metadata.v1.json`
+
+### Configuration
+
+Provenance generation is enabled by default. Configure in `.goneat/ssot-consumer.yaml`:
+
+```yaml
+version: v1.1.0
+
+provenance:
+  enabled: true # default
+  output: .goneat/ssot/provenance.json # default
+  mirror_per_source: true # default - create per-source YAML mirrors
+  per_source_format: yaml # default (yaml or json)
+
+sources:
+  - name: crucible
+    repo: fulmenhq/crucible
+    ref: main
+    # ... asset definitions ...
+```
+
+### Example Provenance Output
+
+**Aggregate** (`.goneat/ssot/provenance.json`):
+
+```json
+{
+  "schema": {
+    "name": "goneat.ssot.provenance",
+    "version": "v1",
+    "url": "https://github.com/fulmenhq/goneat/schemas/ssot/provenance.v1.json"
+  },
+  "generated_at": "2025-10-27T18:00:00Z",
+  "sources": [
+    {
+      "name": "crucible",
+      "slug": "crucible",
+      "method": "local_path",
+      "repo_url": "https://github.com/fulmenhq/crucible",
+      "local_path": "../crucible",
+      "ref": "main",
+      "commit": "b64d22a0f0f94e4f1f128172c04fd166cf255056",
+      "dirty": false,
+      "version": "2025.10.2",
+      "version_source": "VERSION",
+      "outputs": {
+        "docs": "docs/crucible-go",
+        "schemas": "schemas/crucible-go"
+      }
+    }
+  ]
+}
+```
+
+**Per-Source Mirror** (`.crucible/metadata/metadata.yaml`):
+
+```yaml
+schema:
+  name: goneat.ssot.source-metadata
+  version: v1
+  url: https://github.com/fulmenhq/goneat/schemas/ssot/source-metadata.v1.json
+generated_at: "2025-10-27T18:00:00Z"
+name: crucible
+slug: crucible
+method: local_path
+repo_url: https://github.com/fulmenhq/crucible
+local_path: ../crucible
+ref: main
+commit: b64d22a0f0f94e4f1f128172c04fd166cf255056
+dirty: false
+version: 2025.10.2
+version_source: VERSION
+outputs:
+  docs: docs/crucible-go
+  schemas: schemas/crucible-go
+```
+
+### Metadata Fields
+
+| Field            | Description                                                   |
+| ---------------- | ------------------------------------------------------------- |
+| `name`           | Source name from manifest                                     |
+| `slug`           | URL-safe slug (lowercase, hyphens)                            |
+| `method`         | Sync method: `local_path`, `git_ref`, `git_tag`, or `archive` |
+| `repo_url`       | Repository URL (https://github.com/org/repo)                  |
+| `local_path`     | Local filesystem path used                                    |
+| `ref`            | Git branch/tag                                                |
+| `commit`         | Full 40-character Git commit SHA                              |
+| `dirty`          | Whether source had uncommitted changes                        |
+| `dirty_reason`   | Reason for dirty state: `worktree-dirty`, `non-git`, etc.     |
+| `version`        | Version detected from VERSION file                            |
+| `version_source` | Source of version: filename or `not-found`                    |
+| `outputs`        | Map of asset type to destination path                         |
+
+### Programmatic Access
+
+```go
+import "github.com/fulmenhq/goneat/pkg/ssot"
+
+func checkSyncProvenance() error {
+    result, err := ssot.PerformSync(ssot.SyncOptions{Config: cfg})
+    if err != nil {
+        return err
+    }
+
+    // Access metadata
+    if result.Metadata != nil {
+        for _, source := range result.Metadata.Sources {
+            if source.Dirty {
+                log.Printf("Warning: %s synced from dirty source: %s",
+                    source.Name, source.DirtyReason)
+            }
+        }
+    }
+
+    return nil
+}
+```
+
+### CI Enforcement
+
+Use provenance metadata to enforce clean syncs in CI:
+
+```bash
+#!/bin/bash
+# Check if any synced sources were dirty
+if [ -f .goneat/ssot/provenance.json ]; then
+    dirty=$(jq '.sources[] | select(.dirty == true) | .name' .goneat/ssot/provenance.json)
+    if [ -n "$dirty" ]; then
+        echo "Error: Synced from dirty sources: $dirty"
+        exit 1
+    fi
+fi
+```
+
+### Disabling Provenance
+
+To disable provenance generation:
+
+```yaml
+provenance:
+  enabled: false
+```
+
+Or disable per-source mirrors only:
+
+```yaml
+provenance:
+  enabled: true
+  mirror_per_source: false # Only write aggregate manifest
+```
