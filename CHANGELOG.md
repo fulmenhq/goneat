@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2025-10-28
+
+### Fixed
+
+- **Build System Chicken-and-Egg Dependency**: Resolved circular dependency in embed-assets workflow
+  - Changed `scripts/embed-assets.sh` to use `go run .` instead of requiring prebuilt `dist/goneat` binary
+  - Changed `scripts/verify-embeds.sh` to use `go run .` for verification without build dependency
+  - Added explanatory notes in Makefile documenting the `go run` approach
+  - Fixes issue where `make build` depends on `embed-assets`, but embed-assets was trying to use `dist/goneat` (which doesn't exist until after build completes)
+  - Enables fresh checkouts to run `make build` without manual intervention
+
 ## [0.3.0] - 2025-10-28
 
 ### v0.3.0 - Dependency Protection

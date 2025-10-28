@@ -1,7 +1,59 @@
+# Goneat v0.3.1 — Build System Fix
+
+**Release Date**: 2025-10-28
+**Status**: Release
+
+## TL;DR
+
+- **Build System Fix**: Resolved chicken-and-egg dependency preventing fresh checkouts from building
+- **Fast Follow**: Critical bug fix for v0.3.0 embed-assets workflow
+
+## What's Fixed
+
+### Build System Chicken-and-Egg Dependency
+
+**Problem**: v0.3.0 introduced a circular dependency that prevented fresh repository checkouts from building:
+
+1. `make build` requires `embed-assets` target to run first
+2. `embed-assets.sh` script was trying to use `dist/goneat` binary
+3. But `dist/goneat` doesn't exist until after build completes
+4. Result: Fresh checkouts couldn't complete `make build` without manual intervention
+
+**Solution**: Changed embed and verify scripts to use `go run .` instead of requiring the prebuilt binary:
+
+- `scripts/embed-assets.sh`: Now uses `go run . content embed` instead of `dist/goneat content embed`
+- `scripts/verify-embeds.sh`: Now uses `go run . content verify` instead of `dist/goneat content verify`
+- Added explanatory notes in Makefile documenting the approach
+
+**Impact**: Fresh checkouts can now run `make build` successfully without any manual steps.
+
+## Installation
+
+```bash
+# Go install
+go install github.com/fulmenhq/goneat@v0.3.1
+
+# From source
+git clone https://github.com/fulmenhq/goneat.git
+cd goneat
+git checkout v0.3.1
+make build  # Now works on fresh checkouts!
+```
+
+## Upgrade Notes
+
+No configuration changes required. Simply upgrade to v0.3.1 to get the build system fix:
+
+```bash
+go install github.com/fulmenhq/goneat@v0.3.1
+```
+
+---
+
 # Goneat v0.3.0 — Dependency Protection
 
-**Release Date**: 2025-10-28  
-**Status**: Release Candidate
+**Release Date**: 2025-10-28
+**Status**: Release
 
 ## TL;DR
 

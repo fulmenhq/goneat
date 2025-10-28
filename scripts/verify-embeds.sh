@@ -34,19 +34,14 @@ check_dir() {
 check_dir "$SSOT_TEMPLATES" "$EMBED_TEMPLATES" templates
 check_dir "$SSOT_SCHEMAS"   "$EMBED_SCHEMAS"   schemas
 
-# Verify curated docs mirror using CLI if available
-CLI_BIN="$ROOT_DIR/dist/goneat"
+# Verify curated docs mirror using go run (avoids chicken-and-egg dependency)
 SSOT_DOCS="$ROOT_DIR/docs"
 EMBED_DOCS="$ROOT_DIR/internal/assets/embedded_docs/docs"
-if [ -x "$CLI_BIN" ]; then
-  if [ -d "$SSOT_DOCS" ]; then
-    echo "🔎 Verifying curated docs mirror via content verify..."
-    if ! "$CLI_BIN" content verify --manifest "$SSOT_DOCS/embed-manifest.yaml" --root "$SSOT_DOCS" --target "$EMBED_DOCS" --json >/dev/null; then
-      fail=1
-    fi
+if [ -d "$SSOT_DOCS" ]; then
+  echo "🔎 Verifying curated docs mirror via content verify..."
+  if ! (cd "$ROOT_DIR" && go run . content verify --manifest "$SSOT_DOCS/embed-manifest.yaml" --root "$SSOT_DOCS" --target "$EMBED_DOCS" --json >/dev/null); then
+    fail=1
   fi
-else
-  echo "ℹ️  dist/goneat not found; skipping docs verification"
 fi
 
 if [ "$fail" -ne 0 ]; then

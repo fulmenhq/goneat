@@ -4,11 +4,11 @@
 
 ## Why This Guide Exists
 
-Your CTO asks: *"Are you sure we don't have any GPL packages?"*
+Your CTO asks: _"Are you sure we don't have any GPL packages?"_
 
-Your legal team needs: *"Provide a complete license audit for Q4 compliance review."*
+Your legal team needs: _"Provide a complete license audit for Q4 compliance review."_
 
-Your security team requires: *"Document all open source dependencies before deployment."*
+Your security team requires: _"Document all open source dependencies before deployment."_
 
 **This guide shows you how to generate professional compliance reports using goneat.**
 
@@ -45,6 +45,7 @@ goneat dependencies --licenses --format json --output compliance-report.json
 ```
 
 **What this does:**
+
 - Scans all dependencies for license information
 - Checks package cooling policy (supply chain security)
 - Generates SBOM (Software Bill of Materials)
@@ -240,6 +241,7 @@ tar -czf q4-2025-compliance.tar.gz \
 ```
 
 **Files to provide**:
+
 - SBOM in CycloneDX format (industry standard)
 - License analysis JSON (machine-readable)
 - Human-readable summary
@@ -427,6 +429,7 @@ pre-push:
 ```
 
 Any GPL/AGPL/MPL dependency will:
+
 1. Be detected automatically
 2. Fail the build
 3. Block the push
@@ -455,7 +458,7 @@ goneat dependencies --sbom
 
 # The SBOM includes relationship graph showing:
 # - Direct dependencies
-# - Transitive dependencies  
+# - Transitive dependencies
 # - Dependency chains
 ```
 
@@ -468,18 +471,21 @@ All dependencies analyzed, not just direct imports.
 Use this checklist when preparing compliance reports:
 
 **Analysis Phase:**
+
 - [ ] Run `goneat dependencies --licenses`
 - [ ] Run `goneat dependencies --cooling` (if required)
 - [ ] Generate SBOM: `goneat dependencies --sbom`
 - [ ] Save JSON output: `--format json --output report.json`
 
 **Verification Phase:**
+
 - [ ] Check for forbidden licenses: `grep -i "gpl\|agpl\|mpl"`
 - [ ] Verify zero violations: Check `"Passed": true` in JSON
 - [ ] Cross-check with go-licenses (optional but recommended)
 - [ ] Review policy file: `.goneat/dependencies.yaml`
 
 **Documentation Phase:**
+
 - [ ] Create executive summary (compliance status)
 - [ ] Include license breakdown table
 - [ ] Document forbidden license check results
@@ -488,6 +494,7 @@ Use this checklist when preparing compliance reports:
 - [ ] Add reproducibility commands
 
 **Delivery Phase:**
+
 - [ ] Sign and date the report
 - [ ] Include tool version: `goneat version`
 - [ ] Provide verification instructions
@@ -506,23 +513,23 @@ name: Compliance Report
 
 on:
   schedule:
-    - cron: '0 0 1 * *'  # Monthly on 1st
-  workflow_dispatch:      # Manual trigger
+    - cron: "0 0 1 * *" # Monthly on 1st
+  workflow_dispatch: # Manual trigger
 
 jobs:
   compliance:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install goneat
         run: go install github.com/fulmenhq/goneat@latest
-      
+
       - name: Run compliance check
         run: |
           goneat dependencies --licenses --format json --output compliance.json
           goneat dependencies --sbom --sbom-output sbom.json
-      
+
       - name: Check for violations
         run: |
           VIOLATIONS=$(jq '.Dependencies[] | select(.License.Type | test("GPL|AGPL|MPL"; "i"))' compliance.json | wc -l)
@@ -531,7 +538,7 @@ jobs:
             exit 1
           fi
           echo "✅ No forbidden licenses found"
-      
+
       - name: Upload compliance artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -586,7 +593,7 @@ licenses:
 ```yaml
 # .goneat/dependencies.yaml
 licenses:
-  allowed:  # Explicit allowlist
+  allowed: # Explicit allowlist
     - MIT
     - Apache-2.0
     - BSD-3-Clause
@@ -603,7 +610,7 @@ licenses:
     - GPL-3.0
     - AGPL-3.0
     - MPL-2.0
-    - LGPL-3.0  # Even LGPL forbidden
+    - LGPL-3.0 # Even LGPL forbidden
   allowed:
     - MIT
     - Apache-2.0
@@ -618,12 +625,14 @@ Adjust your policy to match your organization's risk tolerance.
 ## Getting Help
 
 ### Documentation
+
 - [Dependency Protection Overview](dependency-protection-overview.md) - Complete feature guide
 - [Package Cooling Policy](package-cooling-policy.md) - Supply chain security
 - [Dependencies Command Reference](../user-guide/commands/dependencies.md) - CLI documentation
 - [Troubleshooting](../troubleshooting/dependencies.md) - Common issues
 
 ### Support
+
 - **Issues**: https://github.com/fulmenhq/goneat/issues
 - **Discussions**: https://github.com/fulmenhq/goneat/discussions
 - **Enterprise**: support@3leaps.net

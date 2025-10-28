@@ -60,10 +60,12 @@ embed-assets: ## Sync templates/ and schemas/ into embedded assets (SSOT -> inte
 	@chmod +x scripts/embed-assets.sh
 	@./scripts/embed-assets.sh
 	@echo "✅ Assets embedded"
+	@echo "ℹ️  Note: Uses 'go run' to invoke content embed without requiring prebuilt binary"
 
 verify-embeds: ## Verify embedded mirrors match SSOT (fails on drift)
 	@chmod +x scripts/verify-embeds.sh
 	@./scripts/verify-embeds.sh
+	@echo "ℹ️  Note: Uses 'go run' to verify content without chicken-and-egg dependency"
 
 # Cross-platform build targets
 build-all: ## Build for all supported platforms

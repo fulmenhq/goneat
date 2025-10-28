@@ -16,11 +16,13 @@ Goneat v0.3.0 introduces comprehensive dependency protection capabilities that h
 ### The Supply Chain Attack Problem
 
 In recent years, package registries have been targeted by attackers who:
+
 - Hijack popular package names after developers abandon them
 - Publish malicious packages with names similar to popular ones (typosquatting)
 - Compromise maintainer accounts and inject malicious code into trusted packages
 
 **Real-world examples:**
+
 - **ua-parser-js** (2021): 8+ million weekly downloads, compromised to install cryptominers
 - **node-ipc** (2022): Maintainer added malicious code targeting Russian/Belarusian users
 - **event-stream** (2018): Bitcoin wallet stealing code injected into popular npm package
@@ -28,16 +30,19 @@ In recent years, package registries have been targeted by attackers who:
 ### Package Cooling Policy - Your Defense
 
 **Package Cooling** enforces a waiting period before adopting newly published packages. This simple rule prevents:
+
 - **Zero-day supply chain attacks**: Most attacks are detected within days
 - **Account takeovers**: Community reports compromised packages quickly
 - **Typosquatting**: Malicious packages are usually caught and removed fast
 
 **How it works:**
+
 ```
 Package Published → [Cooling Period: 7 days] → Safe to Use
 ```
 
 During the cooling period:
+
 - Community reviews the code
 - Security researchers analyze it
 - Package registries may detect and remove malicious packages
@@ -53,8 +58,8 @@ Automatically detect and enforce license policies across your dependencies:
 # .goneat/dependencies.yaml
 licenses:
   forbidden:
-    - GPL-3.0      # Strong copyleft
-    - AGPL-3.0     # Network copyleft
+    - GPL-3.0 # Strong copyleft
+    - AGPL-3.0 # Network copyleft
   allowed:
     - MIT
     - Apache-2.0
@@ -62,6 +67,7 @@ licenses:
 ```
 
 **Use cases:**
+
 - Enterprise legal compliance
 - Open source vs proprietary restrictions
 - Preventing viral licenses in commercial software
@@ -76,14 +82,15 @@ Enforce minimum package maturity before adoption:
 # .goneat/dependencies.yaml
 cooling:
   enabled: true
-  min_age_days: 7              # Minimum package age
-  min_downloads: 100           # Minimum total downloads
+  min_age_days: 7 # Minimum package age
+  min_downloads: 100 # Minimum total downloads
   exceptions:
-    - pattern: "github.com/myorg/*"  # Trust internal packages
+    - pattern: "github.com/myorg/*" # Trust internal packages
       reason: "Internal packages are pre-vetted"
 ```
 
 **Use cases:**
+
 - Supply chain attack mitigation
 - Corporate security policies
 - Risk reduction for critical infrastructure
@@ -102,6 +109,7 @@ goneat dependencies --sbom
 ```
 
 **Use cases:**
+
 - Regulatory compliance (Executive Order 14028)
 - Vulnerability management
 - License auditing
@@ -153,13 +161,14 @@ hooks:
   pre-commit:
     - command: dependencies
       args: ["--licenses", "--fail-on", "high"]
-      
+
   pre-push:
     - command: dependencies
       args: ["--licenses", "--cooling", "--fail-on", "high"]
 ```
 
 Install hooks:
+
 ```bash
 goneat hooks install
 ```
@@ -170,13 +179,14 @@ goneat hooks install
 
 **Critical to understand:**
 
-| Feature | Network Required | Best Hook Stage |
-|---------|------------------|-----------------|
-| License Compliance | ❌ No (offline) | pre-commit ✅ |
-| Cooling Policy | ✅ Yes (registry APIs) | pre-push ✅ |
-| SBOM Generation | ❌ No (offline) | CI/release ✅ |
+| Feature            | Network Required       | Best Hook Stage |
+| ------------------ | ---------------------- | --------------- |
+| License Compliance | ❌ No (offline)        | pre-commit ✅   |
+| Cooling Policy     | ✅ Yes (registry APIs) | pre-push ✅     |
+| SBOM Generation    | ❌ No (offline)        | CI/release ✅   |
 
 **Why this matters:**
+
 - Pre-commit hooks should be fast and work offline → Use license checks only
 - Pre-push hooks can use network → Add cooling policy
 - CI pipelines have network → Run full checks + generate SBOMs
@@ -195,6 +205,7 @@ goneat dependencies --licenses --cooling --sbom --fail-on high
 ```
 
 **Best for:**
+
 - CI/CD pipelines
 - Manual investigation
 - Detailed reporting
@@ -209,6 +220,7 @@ goneat assess --categories format,lint,security,dependencies --fail-on high
 ```
 
 **Best for:**
+
 - Git hooks
 - Pre-commit/pre-push checks
 - Unified quality gates
@@ -220,12 +232,12 @@ graph TD
     A[Need Dependency Validation?] --> B{Use Case?}
     B -->|Detailed Analysis| C[goneat dependencies]
     B -->|Unified Quality Gate| D[goneat assess]
-    
+
     C --> E{What Checks?}
     E -->|License Only| F[--licenses]
     E -->|Cooling Only| G[--cooling]
     E -->|Full Check| H[--licenses --cooling --sbom]
-    
+
     D --> I{Hook Stage?}
     I -->|Pre-commit| J[Fast categories only]
     I -->|Pre-push| K[Include dependencies category]
@@ -243,16 +255,17 @@ graph TD
 ```yaml
 # .goneat/hooks.yaml
 hooks:
-  pre-commit:  # Fast, offline
+  pre-commit: # Fast, offline
     - command: dependencies
       args: ["--licenses", "--fail-on", "high"]
-  
-  pre-push:  # Comprehensive, online
+
+  pre-push: # Comprehensive, online
     - command: assess
       args: ["--categories", "dependencies", "--fail-on", "high"]
 ```
 
 **Benefits:**
+
 - Fast commits (license checks only, offline)
 - Comprehensive pre-push validation (includes cooling)
 - Catches issues before code review
@@ -266,13 +279,14 @@ hooks:
 - name: Dependency Security Check
   run: |
     goneat dependencies --licenses --cooling --fail-on high
-    
+
 - name: Generate SBOM
   run: |
     goneat dependencies --sbom --sbom-output sbom/release.cdx.json
 ```
 
 **Benefits:**
+
 - No local hook overhead
 - Consistent CI enforcement
 - SBOM artifacts for releases
@@ -290,6 +304,7 @@ goneat dependencies --licenses --cooling --fail-on high
 ```
 
 **Benefits:**
+
 - Developers see issues without blocking commits
 - Strict enforcement at push time
 - Good for gradual adoption
@@ -299,17 +314,20 @@ goneat dependencies --licenses --cooling --fail-on high
 ## Documentation Navigation
 
 ### Getting Started
+
 - **[This Overview](dependency-protection-overview.md)** - Start here
 - **[Package Cooling Policy](package-cooling-policy.md)** - Supply chain security deep dive
 - **[License Compliance Reporting](license-compliance-reporting.md)** - How to prove compliance to stakeholders
 - **[SBOM Workflow Guide](sbom-workflow.md)** - SBOM lifecycle and best practices
 
 ### Reference
+
 - **[Dependencies Command](../user-guide/commands/dependencies.md)** - Complete CLI reference
 - **[Dependency Gating Workflow](../user-guide/workflows/dependency-gating.md)** - Integration patterns
 - **[License Policy Hooks](../appnotes/license-policy-hooks.md)** - Hook configuration guide
 
 ### Support
+
 - **[Troubleshooting](../troubleshooting/dependencies.md)** - Common issues and solutions
 - **[Configuration Reference](../configuration/dependency-policy.md)** - Policy schema documentation
 
@@ -320,6 +338,7 @@ goneat dependencies --licenses --cooling --fail-on high
 The time between when a package is published and when it's considered safe to use. Default: 7 days.
 
 **Why 7 days?**
+
 - Most supply chain attacks are detected within 3-5 days
 - Community has time to review and report issues
 - Security researchers can analyze new packages

@@ -33,11 +33,13 @@ goneat dependencies --licenses --format json | jq '.policy_loaded'
 ### Issue: "License not detected" for known package
 
 **Symptoms:**
+
 ```
 WARN: License not detected for github.com/example/pkg
 ```
 
 **Causes:**
+
 1. Package doesn't have LICENSE file
 2. License file has non-standard name
 3. go-licenses cannot parse the license
@@ -67,6 +69,7 @@ EOF
 ### Issue: False positive - package has acceptable license
 
 **Symptoms:**
+
 ```
 ERROR: Package github.com/spf13/cobra uses forbidden license: Apache-2.0
 ```
@@ -81,13 +84,14 @@ licenses:
   # Remove Apache-2.0 from forbidden list, or:
   allowed:
     - MIT
-    - Apache-2.0  # Add to allowed list
+    - Apache-2.0 # Add to allowed list
     - BSD-3-Clause
 ```
 
 ### Issue: "go-licenses not found"
 
 **Symptoms:**
+
 ```
 ERROR: go-licenses binary not found
 ERROR: Install with: go install github.com/google/go-licenses@latest
@@ -118,6 +122,7 @@ go-licenses version
 ### Issue: All packages fail cooling policy
 
 **Symptoms:**
+
 ```
 ERROR: Package github.com/spf13/cobra v1.8.0: 0 days old (< 7 days)
 ERROR: Package gopkg.in/yaml.v3 v3.0.1: 0 days old (< 7 days)
@@ -125,6 +130,7 @@ ERROR: All 50 dependencies fail cooling policy
 ```
 
 **Causes:**
+
 1. Registry API returning invalid data
 2. Network blocking registry access
 3. System clock is wrong
@@ -159,6 +165,7 @@ cooling:
 ### Issue: Network timeout waiting for registry
 
 **Symptoms:**
+
 ```
 ERROR: Registry API timeout for package github.com/example/pkg after 30s
 ERROR: Cooling policy check failed
@@ -166,6 +173,7 @@ EXIT CODE: 1
 ```
 
 **Causes:**
+
 1. Network latency to package registry
 2. Firewall blocking registry access
 3. Registry temporarily down
@@ -203,17 +211,20 @@ cooling:
 ### Issue: Package blocked but manual check shows it's old
 
 **Symptoms:**
+
 ```
 ERROR: Package github.com/well-known/lib v2.0.0: 2 days old (< 7 days)
 ```
 
 But when you check:
+
 ```bash
 curl https://proxy.golang.org/github.com/well-known/lib/@v/v2.0.0.info
 # Returns: {"Time":"2024-06-15T10:00:00Z"}  # Months ago!
 ```
 
 **Causes:**
+
 1. Stale cache with wrong metadata
 2. Registry API caching issue
 3. Version re-published with new timestamp
@@ -243,6 +254,7 @@ cooling:
 ### Issue: "Conservative fallback" warnings in logs
 
 **Symptoms:**
+
 ```
 WARN: Registry API failed for package X: rate limit exceeded
 INFO: Using conservative fallback: assuming package age = 365 days
@@ -252,6 +264,7 @@ INFO: Package marked with age_unknown=true
 **Explanation:** Not an error! This is expected behavior when registry APIs fail.
 
 **What happens:**
+
 - goneat assumes package is 365 days old (passes cooling)
 - Build continues successfully
 - Dependency is flagged for manual review in report
@@ -277,6 +290,7 @@ curl -I https://registry.npmjs.org/
 ### Issue: Rate limit errors from package registry
 
 **Symptoms:**
+
 ```
 ERROR: npm registry rate limit exceeded: 429 Too Many Requests
 ERROR: Retry after: 60 seconds
@@ -310,6 +324,7 @@ npm login
 ### Issue: "syft not found"
 
 **Symptoms:**
+
 ```
 ERROR: syft binary not found
 ERROR: SBOM generation requires Syft
@@ -337,12 +352,14 @@ goneat dependencies --sbom  # Should work now
 ### Issue: SBOM generation fails with "invalid output"
 
 **Symptoms:**
+
 ```
 ERROR: Syft produced invalid CycloneDX output
 ERROR: Failed to parse SBOM: unexpected JSON structure
 ```
 
 **Causes:**
+
 1. Syft version too old or too new
 2. Corrupted syft installation
 3. Project structure confusing syft
@@ -371,6 +388,7 @@ goneat dependencies --sbom --sbom-output /tmp/test.json
 ### Issue: SBOM file not found by assessment
 
 **Symptoms:**
+
 ```
 INFO: SBOM metadata: not_generated
 INFO: Run 'goneat dependencies --sbom' to generate SBOM
@@ -404,6 +422,7 @@ goneat assess --categories dependencies
 ### Issue: Policy file not found or not loaded
 
 **Symptoms:**
+
 ```
 WARN: Policy file not found: .goneat/dependencies.yaml
 INFO: Using default policy
@@ -440,6 +459,7 @@ chmod 644 .goneat/dependencies.yaml
 ### Issue: Invalid YAML syntax in config
 
 **Symptoms:**
+
 ```
 ERROR: Failed to parse policy file: yaml: line 15: mapping values are not allowed in this context
 ```
@@ -470,6 +490,7 @@ mv .goneat/dependencies.yaml .goneat/dependencies.yaml.backup
 ### Issue: Pre-commit hook hangs waiting for network
 
 **Symptoms:**
+
 - `git commit` takes 30+ seconds
 - Hook shows "waiting for registry response..."
 
@@ -500,6 +521,7 @@ hooks:
 ### Issue: Hook fails but manual command succeeds
 
 **Symptoms:**
+
 ```
 # This works:
 $ goneat dependencies --licenses --cooling
@@ -511,6 +533,7 @@ $ git push
 ```
 
 **Causes:**
+
 1. Different working directory in hook
 2. Environment variables not set in hook context
 3. PATH not including goneat binary
@@ -543,6 +566,7 @@ which goneat >&2
 ### Issue: Dependency checks are very slow
 
 **Symptoms:**
+
 - Cooling checks take > 30 seconds
 - Hooks timeout frequently
 
@@ -649,14 +673,14 @@ goneat assess --categories dependencies
 
 ### Common Fixes
 
-| Problem | Quick Fix |
-|---------|-----------|
-| All packages fail cooling | Clear cache: `rm -rf ~/.goneat/cache/registry/` |
-| Network timeout | Increase timeout in hooks.yaml |
-| syft not found | `goneat doctor tools --scope sbom --install --yes` |
-| Hook hangs | Move cooling to pre-push only |
-| Config errors | Validate: `goneat validate .goneat/dependencies.yaml` |
-| Rate limits | Wait 60s and retry, or configure mirrors |
+| Problem                   | Quick Fix                                             |
+| ------------------------- | ----------------------------------------------------- |
+| All packages fail cooling | Clear cache: `rm -rf ~/.goneat/cache/registry/`       |
+| Network timeout           | Increase timeout in hooks.yaml                        |
+| syft not found            | `goneat doctor tools --scope sbom --install --yes`    |
+| Hook hangs                | Move cooling to pre-push only                         |
+| Config errors             | Validate: `goneat validate .goneat/dependencies.yaml` |
+| Rate limits               | Wait 60s and retry, or configure mirrors              |
 
 ---
 
