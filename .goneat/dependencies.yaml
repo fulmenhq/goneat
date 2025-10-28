@@ -35,17 +35,19 @@ licenses:
   forbidden:
     - GPL-3.0      # Strong copyleft - requires derivative works to be GPL
     - AGPL-3.0     # Network copyleft - triggers on network use
+    - MPL-2.0      # Mozilla Public License - weak copyleft with patent concerns
     # - LGPL-3.0   # Uncomment if you want to forbid LGPL too
-    # - MPL-2.0    # Mozilla Public License (weak copyleft)
   
-  # Optional: Explicitly allow only these licenses (stricter)
-  # If uncommented, ONLY these licenses are allowed, all others forbidden:
-  # allowed:
-  #   - MIT
-  #   - Apache-2.0
-  #   - BSD-3-Clause
-  #   - BSD-2-Clause
-  #   - ISC
+  # Explicitly allow only safe, permissive licenses (stricter approach)
+  # ONLY these licenses are allowed, all others are forbidden:
+  allowed:
+    - MIT
+    - Apache-2.0
+    - BSD-3-Clause
+    - BSD-2-Clause
+    - ISC
+    - 0BSD
+    - Unlicense
   
   # Optional: License-specific exceptions
   # Use sparingly - document approval and reason:
@@ -123,9 +125,9 @@ cooling:
   #   - github.com/spf13/*        matches all packages by spf13
   #
   exceptions:
-    # Example: Trust your organization's internal packages
+    # Trust FulmenHQ organization's internal packages
     - pattern: "github.com/fulmenhq/*"
-      reason: "Internal FulmenHQ packages are pre-vetted"
+      reason: "Internal FulmenHQ packages are pre-vetted by maintainers"
       approved_by: "@3leapsdave"
       approved_date: "2025-10-28"
     
