@@ -2,7 +2,7 @@
 
 [![Release](https://img.shields.io/github/v/release/fulmenhq/goneat?display_name=tag&sort=semver&logo=github)](https://github.com/fulmenhq/goneat/releases)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/3leaps/goneat)](go.mod)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/fulmenhq/goneat)](go.mod)
 
 All about smoothly delivering neat code at scale
 
@@ -18,8 +18,9 @@ We bring a smooth DX layer to the business of making neat code at scale. We wrap
 - Extract and add to PATH, or:
 
 ```bash
-# macOS/Linux example - adjust for your platform and version
-curl -L -o goneat https://github.com/fulmenhq/goneat/releases/download/v0.2.11/goneat-darwin-arm64
+# macOS/Linux example - adjust for your platform and latest version
+# Check https://github.com/fulmenhq/goneat/releases for the latest release
+curl -L -o goneat https://github.com/fulmenhq/goneat/releases/download/v0.3.1/goneat-darwin-arm64
 chmod +x goneat
 sudo mv goneat /usr/local/bin/
 ```
@@ -92,7 +93,7 @@ go install github.com/fulmenhq/goneat@latest
 
   ```bash
   brew install --formula \
-    https://raw.githubusercontent.com/fulmenhq/goneat/v0.2.3/packaging/homebrew/goneat.rb
+    https://raw.githubusercontent.com/fulmenhq/goneat/v0.3.1/packaging/homebrew/goneat.rb
   ```
 
 - Scoop (rc.8+):
@@ -154,7 +155,7 @@ make build
 
 ## Status
 
-- Release: v0.2.11 (per `VERSION` file)
+- Release: v0.3.1 (per `VERSION` file)
 - Lifecycle Phase: GA (per `LIFECYCLE_PHASE` file)
 - Release Phase: Release (per `RELEASE_PHASE` file)
 - Repo Visibility: Public
