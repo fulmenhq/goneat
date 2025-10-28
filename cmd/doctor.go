@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -16,6 +17,7 @@ import (
 
 	intdoctor "github.com/fulmenhq/goneat/internal/doctor"
 	"github.com/fulmenhq/goneat/internal/ops"
+	"github.com/fulmenhq/goneat/pkg/buildinfo"
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/spf13/cobra"
 )
@@ -57,6 +59,28 @@ var doctorEnvCmd = &cobra.Command{
 	RunE:  runDoctorEnv,
 }
 
+var doctorVersionsCmd = &cobra.Command{
+	Use:   "versions",
+	Short: "Detect and manage multiple goneat installations",
+	Long: `Detect all goneat installations on the system and help manage version conflicts.
+
+This command scans your system for goneat binaries in:
+- GOPATH/bin (global go install location)
+- Project-local ./bin/goneat (bootstrap pattern)
+- Project-local ./dist/goneat (development build)
+- All directories in PATH
+
+It reports version conflicts and offers to:
+- Purge stale global installations
+- Update global installation to latest version`,
+	RunE: runDoctorVersions,
+}
+
+var (
+	flagDoctorVersionsPurge  bool
+	flagDoctorVersionsUpdate bool
+)
+
 var (
 	flagDoctorInstall           bool
 	flagDoctorAll               bool
@@ -85,6 +109,7 @@ func init() {
 	// Subcommands
 	doctorCmd.AddCommand(doctorToolsCmd)
 	doctorCmd.AddCommand(doctorEnvCmd)
+	doctorCmd.AddCommand(doctorVersionsCmd)
 
 	// Flags for tools subcommand
 	doctorToolsCmd.Flags().BoolVar(&flagDoctorInstall, "install", false, "Install missing tools (non-interactive with --yes)")
@@ -99,6 +124,11 @@ func init() {
 	doctorToolsCmd.Flags().BoolVar(&flagDoctorListScopes, "list-scopes", false, "List available scopes and exit")
 	doctorToolsCmd.Flags().BoolVar(&flagDoctorValidateConfig, "validate-config", false, "Validate configuration file and exit")
 	doctorToolsCmd.Flags().BoolVar(&flagDoctorDryRun, "dry-run", false, "Show what would be installed without installing")
+
+	// Flags for versions subcommand
+	doctorVersionsCmd.Flags().BoolVar(&flagDoctorVersionsPurge, "purge", false, "Remove stale global installation from GOPATH/bin")
+	doctorVersionsCmd.Flags().BoolVar(&flagDoctorVersionsUpdate, "update", false, "Update global installation to latest version")
+	doctorVersionsCmd.Flags().BoolVar(&flagDoctorYes, "yes", false, "Assume 'yes' for prompts (non-interactive)")
 }
 
 func runDoctorTools(cmd *cobra.Command, _ []string) error {
@@ -762,4 +792,272 @@ func getInstallCommand(tool intdoctor.Tool) string {
 	}
 
 	return "Manual installation required"
+}
+
+// GoneatInstallation represents a detected goneat installation
+type GoneatInstallation struct {
+	Path    string
+	Version string
+	Type    string // "global", "project-local", "development", "path"
+	Current bool   // whether this is the currently running binary
+}
+
+// runDoctorVersions detects and manages multiple goneat installations
+func runDoctorVersions(cmd *cobra.Command, _ []string) error {
+	out := cmd.OutOrStdout()
+	jsonOut, _ := cmd.Flags().GetBool("json")
+
+	// Detect all goneat installations
+	installations, err := detectGoneatInstallations()
+	if err != nil {
+		return fmt.Errorf("failed to detect goneat installations: %w", err)
+	}
+
+	// Get current running version
+	currentExePath, _ := os.Executable()
+	currentVersion := buildinfo.BinaryVersion
+
+	// Mark current installation
+	for i := range installations {
+		if installations[i].Path == currentExePath {
+			installations[i].Current = true
+		}
+	}
+
+	// JSON output
+	if jsonOut {
+		payload := map[string]interface{}{
+			"current_version": currentVersion,
+			"current_path":    currentExePath,
+			"installations":   installations,
+			"conflict_count":  countVersionConflicts(installations, currentVersion),
+		}
+		data, _ := json.MarshalIndent(payload, "", "  ")
+		fmt.Fprintln(out, string(data)) //nolint:errcheck // CLI output errors are typically ignored
+		return nil
+	}
+
+	// Human-readable output
+	fmt.Fprintln(out, "Goneat Version Analysis")                        //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintln(out, "=======================")                        //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintf(out, "\nCurrent running version: %s\n", currentVersion) //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintf(out, "Current binary path: %s\n\n", currentExePath)     //nolint:errcheck // CLI output errors are typically ignored
+
+	if len(installations) == 0 {
+		fmt.Fprintln(out, "No goneat installations detected on system") //nolint:errcheck // CLI output errors are typically ignored
+		return nil
+	}
+
+	fmt.Fprintln(out, "Detected installations:") //nolint:errcheck // CLI output errors are typically ignored
+	conflicts := []GoneatInstallation{}
+	for _, inst := range installations {
+		marker := "  "
+		if inst.Current {
+			marker = "▶️"
+		}
+		fmt.Fprintf(out, "%s %-12s | %s | %s\n", marker, inst.Version, inst.Type, inst.Path) //nolint:errcheck // CLI output errors are typically ignored
+
+		// Track conflicts (different versions than current)
+		if inst.Version != currentVersion && inst.Version != "unknown" {
+			conflicts = append(conflicts, inst)
+		}
+	}
+
+	// Handle conflicts
+	if len(conflicts) > 0 {
+		fmt.Fprintf(out, "\n⚠️  Warning: %d version conflict(s) detected\n", len(conflicts)) //nolint:errcheck // CLI output errors are typically ignored
+
+		// Check if there's a global installation conflict
+		globalConflict := false
+		var globalPath string
+		for _, inst := range conflicts {
+			if inst.Type == "global" {
+				globalConflict = true
+				globalPath = inst.Path
+				break
+			}
+		}
+
+		if globalConflict {
+			fmt.Fprintln(out, "\nRecommendations:")                                     //nolint:errcheck // CLI output errors are typically ignored
+			fmt.Fprintln(out, "1. Remove stale global installation:")                   //nolint:errcheck // CLI output errors are typically ignored
+			fmt.Fprintf(out, "   goneat doctor versions --purge --yes\n")               //nolint:errcheck // CLI output errors are typically ignored
+			fmt.Fprintln(out, "\n2. Or update global installation to latest:")          //nolint:errcheck // CLI output errors are typically ignored
+			fmt.Fprintf(out, "   goneat doctor versions --update --yes\n")              //nolint:errcheck // CLI output errors are typically ignored
+			fmt.Fprintln(out, "\n3. Or use project-local installations (recommended):") //nolint:errcheck // CLI output errors are typically ignored
+			fmt.Fprintln(out, "   - Bootstrap to ./bin/goneat per project")             //nolint:errcheck // CLI output errors are typically ignored
+			fmt.Fprintln(out, "   - See: goneat docs show user-guide/bootstrap")        //nolint:errcheck // CLI output errors are typically ignored
+
+			// Handle --purge flag
+			if flagDoctorVersionsPurge {
+				if !flagDoctorYes {
+					if !promptYes(cmd, fmt.Sprintf("\nRemove %s? [y/N] ", globalPath)) {
+						fmt.Fprintln(out, "Cancelled") //nolint:errcheck // CLI output errors are typically ignored
+						return nil
+					}
+				}
+				if err := os.Remove(globalPath); err != nil {
+					return fmt.Errorf("failed to remove %s: %w", globalPath, err)
+				}
+				fmt.Fprintf(out, "✅ Removed: %s\n", globalPath) //nolint:errcheck // CLI output errors are typically ignored
+				return nil
+			}
+
+			// Handle --update flag
+			if flagDoctorVersionsUpdate {
+				if !flagDoctorYes {
+					if !promptYes(cmd, "\nUpdate global installation with 'go install github.com/fulmenhq/goneat@latest'? [y/N] ") {
+						fmt.Fprintln(out, "Cancelled") //nolint:errcheck // CLI output errors are typically ignored
+						return nil
+					}
+				}
+				updateCmd := exec.Command("go", "install", "github.com/fulmenhq/goneat@latest")
+				updateCmd.Stdout = out
+				updateCmd.Stderr = cmd.ErrOrStderr()
+				if err := updateCmd.Run(); err != nil {
+					return fmt.Errorf("failed to update: %w", err)
+				}
+				fmt.Fprintln(out, "✅ Global installation updated to latest") //nolint:errcheck // CLI output errors are typically ignored
+				return nil
+			}
+		}
+	} else {
+		fmt.Fprintln(out, "\n✅ No version conflicts detected") //nolint:errcheck // CLI output errors are typically ignored
+	}
+
+	return nil
+}
+
+// detectGoneatInstallations scans the system for goneat binaries
+func detectGoneatInstallations() ([]GoneatInstallation, error) {
+	var installations []GoneatInstallation
+	seen := make(map[string]bool) // Deduplicate by path
+
+	// 1. Check GOPATH/bin (global go install location)
+	goBinPath := getGoBinPath()
+	if goBinPath != "" {
+		globalPath := filepath.Join(goBinPath, "goneat")
+		if runtime.GOOS == "windows" {
+			globalPath += ".exe"
+		}
+		if version, found := getGoneatVersion(globalPath); found {
+			installations = append(installations, GoneatInstallation{
+				Path:    globalPath,
+				Version: version,
+				Type:    "global",
+			})
+			seen[globalPath] = true
+		}
+	}
+
+	// 2. Check project-local ./bin/goneat
+	localBinPath := filepath.Join(".", "bin", "goneat")
+	if runtime.GOOS == "windows" {
+		localBinPath += ".exe"
+	}
+	if absPath, err := filepath.Abs(localBinPath); err == nil {
+		if !seen[absPath] {
+			if version, found := getGoneatVersion(absPath); found {
+				installations = append(installations, GoneatInstallation{
+					Path:    absPath,
+					Version: version,
+					Type:    "project-local",
+				})
+				seen[absPath] = true
+			}
+		}
+	}
+
+	// 3. Check project-local ./dist/goneat (development build)
+	distPath := filepath.Join(".", "dist", "goneat")
+	if runtime.GOOS == "windows" {
+		distPath += ".exe"
+	}
+	if absPath, err := filepath.Abs(distPath); err == nil {
+		if !seen[absPath] {
+			if version, found := getGoneatVersion(absPath); found {
+				installations = append(installations, GoneatInstallation{
+					Path:    absPath,
+					Version: version,
+					Type:    "development",
+				})
+				seen[absPath] = true
+			}
+		}
+	}
+
+	// 4. Scan PATH for goneat binaries
+	pathDirs := strings.Split(os.Getenv("PATH"), string(os.PathListSeparator))
+	for _, dir := range pathDirs {
+		if dir == "" {
+			continue
+		}
+		pathGoneat := filepath.Join(dir, "goneat")
+		if runtime.GOOS == "windows" {
+			pathGoneat += ".exe"
+		}
+		if absPath, err := filepath.Abs(pathGoneat); err == nil {
+			if !seen[absPath] {
+				if version, found := getGoneatVersion(absPath); found {
+					installations = append(installations, GoneatInstallation{
+						Path:    absPath,
+						Version: version,
+						Type:    "path",
+					})
+					seen[absPath] = true
+				}
+			}
+		}
+	}
+
+	return installations, nil
+}
+
+// getGoneatVersion gets the version from a goneat binary
+func getGoneatVersion(path string) (string, bool) {
+	// Check if file exists and is executable
+	if info, err := os.Stat(path); err != nil || info.IsDir() {
+		return "", false
+	}
+
+	// Try to run `goneat version`
+	cmd := exec.Command(path, "version")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = nil // Suppress errors
+
+	if err := cmd.Run(); err != nil {
+		return "unknown", true // Exists but can't get version
+	}
+
+	// Parse version from output (first line, first word after "goneat")
+	output := strings.TrimSpace(out.String())
+	lines := strings.Split(output, "\n")
+	if len(lines) == 0 {
+		return "unknown", true
+	}
+
+	firstLine := lines[0]
+	// Expected format: "goneat v0.3.1" or "goneat dev" or just "v0.3.1"
+	parts := strings.Fields(firstLine)
+	if len(parts) == 0 {
+		return "unknown", true
+	}
+
+	// Return the version (could be "v0.3.1", "dev", etc.)
+	if len(parts) >= 2 && strings.HasPrefix(parts[0], "goneat") {
+		return parts[1], true
+	}
+	return parts[0], true
+}
+
+// countVersionConflicts counts installations with different versions
+func countVersionConflicts(installations []GoneatInstallation, currentVersion string) int {
+	conflicts := 0
+	for _, inst := range installations {
+		if inst.Version != currentVersion && inst.Version != "unknown" {
+			conflicts++
+		}
+	}
+	return conflicts
 }
