@@ -12,20 +12,32 @@ We bring a smooth DX layer to the business of making neat code at scale. We wrap
 
 1. **Install goneat**:
 
-**Option A: Download binary** (recommended for most users)
-
-- Visit [Releases](https://github.com/fulmenhq/goneat/releases) and download for your platform
-- Extract and add to PATH, or:
+**macOS/Linux (Homebrew)** - Recommended
 
 ```bash
-# macOS/Linux example - adjust for your platform and latest version
-# Check https://github.com/fulmenhq/goneat/releases for the latest release
-curl -L -o goneat https://github.com/fulmenhq/goneat/releases/download/v0.3.3/goneat-darwin-arm64
-chmod +x goneat
+brew install fulmenhq/tap/goneat
+```
+
+To upgrade later:
+```bash
+brew upgrade goneat
+```
+
+**Manual Installation**
+
+Download the latest release from [GitHub Releases](https://github.com/fulmenhq/goneat/releases):
+
+- macOS: `goneat_v{VERSION}_darwin_{amd64|arm64}.tar.gz`
+- Linux: `goneat_v{VERSION}_linux_{amd64|arm64}.tar.gz`
+- Windows: `goneat_v{VERSION}_windows_amd64.zip`
+
+Extract and move to your PATH:
+```bash
+tar -xzf goneat_v*.tar.gz
 sudo mv goneat /usr/local/bin/
 ```
 
-**Option B: Go install**
+**Go Install** (for Go developers)
 
 ```bash
 go install github.com/fulmenhq/goneat@latest
