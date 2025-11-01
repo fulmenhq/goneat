@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2025-10-28
+
+### Added
+
+- **Cryptographic Release Signing Infrastructure**: Establishes mandatory PGP/GPG signing for all release artifacts
+  - Updated GitHub Actions release workflow with GPG tooling prerequisites (gnupg2)
+  - Created comprehensive release signing documentation (`docs/security/release-signing.md`)
+  - Documented manual signing workflow with YubiKey-backed subkey
+  - Updated release checklist with cryptographic signing steps and verification gates
+  - Prepared CI for future automated signing (tooling installed, signing deferred to post-v0.3.3)
+  - **Key Management**: FulmenHQ release signing key with offline primary and hardware-backed manual subkey
+  - **User Verification**: Complete instructions for verifying artifact authenticity
+  - **Maintainer Workflow**: Step-by-step signing process with local verification gates
+  - **Security**: Establishes supply chain integrity foundation for Homebrew/Scoop distribution
+
+**Note**: v0.3.3 introduces signing infrastructure and documentation. Actual artifact signing will begin with the first signed release using the manual workflow. CI automation is staged for future milestones.
+
 ## [0.3.2] - 2025-10-28
 
 ### Added

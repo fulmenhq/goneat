@@ -134,13 +134,34 @@ See: [Integration Test Protocol](.plans/active/v0.3.0/wave-2-phase-4-INTEGRATION
 - [x] README/CHANGELOG/RELEASE_NOTES updated for the RC
 - [x] Git tag created and pushed: v0.2.9
 
+### Cryptographic Signing (v0.3.3+) 🆕
+
+- [ ] **Prerequisites Verified**: YubiKey connected and GPG configured
+  - [ ] `gpg --card-status` shows signing subkey
+  - [ ] `gpg --list-secret-keys security@fulmenhq.dev` accessible
+- [ ] **Checksums Generated**: SHA256SUMS file created for all artifacts
+  - [ ] `cd dist/release && sha256sum *.tar.gz *.zip > SHA256SUMS`
+- [ ] **Artifacts Signed**: All release artifacts have detached signatures
+  - [ ] Each `.tar.gz` has corresponding `.tar.gz.asc`
+  - [ ] Each `.zip` has corresponding `.zip.asc`
+  - [ ] `SHA256SUMS` has `SHA256SUMS.asc`
+- [ ] **Signatures Verified Locally**: Test verification before upload
+  - [ ] `gpg --verify *.asc` passes for all artifacts
+  - [ ] No "BAD signature" errors
+- [ ] **Public Key Published**: FulmenHQ public key available
+  - [ ] `fulmenhq-release-signing-key.asc` in release assets
+
+**See**: `docs/security/release-signing.md` for detailed signing workflow
+
 ### GitHub Release ✅
 
 - [ ] **Release Created**: New release on GitHub
 - [ ] **Tag Selected**: Correct version tag
 - [ ] **Title Formatted**: "goneat v0.2.9"
-- [ ] **Release Notes**: Comprehensive changelog
+- [ ] **Release Notes**: Comprehensive changelog (include signing verification instructions)
 - [ ] **Binaries Attached**: All platform binaries uploaded
+- [ ] **Signatures Attached**: All `.asc` files and `SHA256SUMS` uploaded
+- [ ] **Public Key Attached**: `fulmenhq-release-signing-key.asc` uploaded (first release)
 
 ### Go Module Verification ✅
 

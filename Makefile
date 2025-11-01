@@ -136,6 +136,11 @@ release-prepare: ## Sequence of commands to ready a release (sync, tests, versio
 	$(MAKE) lint
 	@echo "✅ Release preparation complete"
 
+package: ## Package binaries into distribution archives (dist/release/*.tar.gz, *.zip, SHA256SUMS)
+	@echo "📦 Packaging release artifacts..."
+	@./scripts/package-artifacts.sh
+	@echo "✅ Release artifacts packaged in dist/release/"
+
 release-build: build-all package ## Build release artifacts (binaries + checksums) for distribution
 	@echo "📦 Release build completed"
 

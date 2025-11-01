@@ -17,6 +17,13 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.25.x'
+      - name: Install signing prerequisites
+        run: |
+          # Install GPG for future signing automation
+          # Note: Actual signing is manual for v0.3.3; this prepares CI for future automation
+          sudo apt-get update
+          sudo apt-get install -y gnupg2
+          gpg --version
       - name: Show version
         run: |
           echo "Tag: $GITHUB_REF_NAME"

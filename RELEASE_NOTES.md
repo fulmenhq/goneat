@@ -1,3 +1,133 @@
+# Goneat v0.3.3 — Cryptographic Release Signing
+
+**Release Date**: 2025-10-28
+**Status**: Release
+
+## TL;DR
+
+- **Release Signing Infrastructure**: Mandatory PGP/GPG signing for all release artifacts
+- **Supply Chain Security**: Cryptographic verification establishes artifact authenticity
+- **Homebrew/Scoop Ready**: Signing infrastructure prerequisite for package manager distribution
+
+## What's New
+
+### Cryptographic Release Signing Infrastructure
+
+Goneat v0.3.3 establishes the foundation for cryptographically signed releases, ensuring users can verify the authenticity and integrity of all release artifacts. This is a critical prerequisite for distribution through package managers like Homebrew and Scoop.
+
+**Key Components**:
+
+1. **FulmenHQ Release Signing Key**: Official PGP keypair with hardware-backed signing subkey
+2. **Manual Signing Workflow**: Documented process for maintainers using YubiKey
+3. **User Verification**: Complete instructions for verifying artifact signatures
+4. **CI Prerequisites**: GitHub Actions workflow updated with GPG tooling
+
+**Documentation**:
+- **Security Guide**: `docs/security/release-signing.md` - Complete signing and verification guide
+- **Release Checklist**: Updated with cryptographic signing steps
+- **Key Management**: Documented custodianship, rotation, and revocation procedures
+
+### For Users: Verifying Releases
+
+Starting with v0.3.3, all release artifacts will be signed. Verify authenticity before installing:
+
+```bash
+# Download artifact and signature
+curl -LO https://github.com/fulmenhq/goneat/releases/download/v0.3.3/goneat-darwin-arm64.tar.gz
+curl -LO https://github.com/fulmenhq/goneat/releases/download/v0.3.3/goneat-darwin-arm64.tar.gz.asc
+
+# Import FulmenHQ public key
+curl -L https://github.com/fulmenhq/goneat/releases/download/v0.3.3/fulmenhq-release-signing-key.asc | gpg --import
+
+# Verify signature
+gpg --verify goneat-darwin-arm64.tar.gz.asc goneat-darwin-arm64.tar.gz
+```
+
+**Expected Output**:
+```
+gpg: Good signature from "FulmenHQ Release Signing <security@fulmenhq.dev>"
+```
+
+### For Maintainers: Signing Workflow
+
+Release managers will sign artifacts using the manual workflow:
+
+1. **Build and Package**: Standard release build
+2. **Generate Checksums**: `sha256sum *.tar.gz *.zip > SHA256SUMS`
+3. **Sign Artifacts**: Using YubiKey-backed subkey
+4. **Verify Locally**: Test all signatures before upload
+5. **Publish**: Upload binaries, signatures, and public key
+
+See `docs/security/release-signing.md` for complete workflow.
+
+### Infrastructure Updates
+
+**GitHub Actions** (`.github/workflows/release.yml`):
+- ✅ GPG tooling prerequisites installed (gnupg2)
+- ✅ Workflow prepared for future signing automation
+- ⏳ Actual signing deferred to post-v0.3.3 (manual workflow first)
+
+**Security Documentation**:
+- ✅ `docs/security/release-signing.md` - Comprehensive signing guide
+- ✅ Key management and rotation procedures
+- ✅ Verification instructions for users
+- ✅ Troubleshooting and emergency procedures
+
+## Roadmap: Signing Automation
+
+**Phase 1 (v0.3.3)**: ✅ Manual signing + infrastructure
+- Manual signing workflow with YubiKey
+- CI tooling prerequisites installed
+- Documentation complete
+
+**Phase 2 (v0.3.4+)**: Automated CI signing
+- Deploy CI signing subkey
+- Secrets management (OIDC/Vault)
+- Automated signature generation
+
+**Phase 3 (v0.4.0+)**: Verification gates
+- Automated signature verification in CI
+- Pre-merge verification gates
+
+**Phase 4 (v0.5.0+)**: Advanced provenance
+- Sigstore integration
+- SLSA provenance attestation
+
+## Installation
+
+```bash
+# Go install (recommended)
+go install github.com/fulmenhq/goneat@v0.3.3
+
+# Verify installation
+goneat version
+```
+
+## Upgrade Notes
+
+No breaking changes. Simply upgrade to v0.3.3:
+
+```bash
+go install github.com/fulmenhq/goneat@v0.3.3
+```
+
+**Recommendation**: Verify signatures for all future downloads to ensure authenticity and protect against supply chain attacks.
+
+## Security
+
+For security concerns or to report key compromise:
+- Email: security@fulmenhq.dev
+- GitHub Security Advisories: https://github.com/fulmenhq/goneat/security
+
+## Links
+
+- **Repository**: https://github.com/fulmenhq/goneat
+- **CHANGELOG**: See [CHANGELOG.md](CHANGELOG.md) for full details
+- **Signing Documentation**: [docs/security/release-signing.md](docs/security/release-signing.md)
+- **v0.3.2 Release**: See [docs/releases/v0.3.2.md](docs/releases/v0.3.2.md)
+
+---
+
 # Goneat v0.3.2 — Version Conflict Management
 
 **Release Date**: 2025-10-28

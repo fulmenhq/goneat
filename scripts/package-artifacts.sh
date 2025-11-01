@@ -46,11 +46,13 @@ package() {
       ;;
   esac
 
-  # sha256sum portable
+  # Generate checksum with relative path (important for portability and signature verification)
+  # Relative paths ensure SHA256SUMS works correctly when distributed with artifacts
+  # and allows users to verify checksums regardless of download location
   if command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 "$OUT_DIR_ABS/$archive_name" | awk '{print $1"  "$2}' >> "$OUT_DIR_ABS/SHA256SUMS"
+    (cd "$OUT_DIR_ABS" && shasum -a 256 "$archive_name") >> "$OUT_DIR_ABS/SHA256SUMS"
   elif command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "$OUT_DIR_ABS/$archive_name" >> "$OUT_DIR_ABS/SHA256SUMS"
+    (cd "$OUT_DIR_ABS" && sha256sum "$archive_name") >> "$OUT_DIR_ABS/SHA256SUMS"
   else
     echo "No sha256 tool available" >&2; exit 1
   fi
