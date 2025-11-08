@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.3.4] - 2025-11-08
+
+### Added
+
+- **Package Manager Installation Support**: Tools config v1.1.0 schema with structured package manager configuration
+  - New `install` field for declarative package manager installations (Homebrew, Scoop)
+  - Support for custom taps/buckets, binary names, and installation destinations
+  - Multiple CLI flags configuration for complex tool installations
+  - Mutually exclusive with legacy `install_commands` field (enforced via schema)
+  - Improved validation error messages for better developer experience
+  - Comprehensive test fixtures for all v1.1.0 schema features
+
+- **SSOT Force-Remote Sync**: Explicit remote sync capability with improved developer experience
+  - New `--force-remote` flag to disable local path auto-detection
+  - `GONEAT_FORCE_REMOTE_SYNC=1` environment variable support
+  - Per-source `force_remote: true` configuration option
+  - **DX Improvement**: Auto-detection now only runs when `.local.yaml` exists (signals local dev intent)
+  - **Behavioral Change**: Without `.local.yaml`, uses production config (no auto-detection of `../crucible`)
+  - Eliminates need for `--force-remote` in common case (clean production usage)
+  - Preserves `--force-remote` for edge cases (force remote when `.local.yaml` present)
+
+- **SSOT Provenance Schemas v1.1.0**: Schema versioning with force-remote metadata tracking
+  - New v1.1.0 schemas: `ssot-provenance` and `source-metadata`
+  - Added `forced_remote` (boolean) field to track force-remote usage
+  - Added `forced_by` (enum: "flag"|"env"|"config") field to track activation method
+  - Preserves v1.0.0 schemas unchanged (proper semantic versioning)
+  - Updated code and tests to reference v1.1.0 schemas
+  - Synced to embedded assets for offline usage
+
+### Changed
+
+- **SSOT Auto-Detection Behavior**: Improved developer experience by making `.local.yaml` signal local dev intent
+  - **Before**: Auto-detection always ran if `../crucible` existed, even without `.local.yaml`
+  - **After**: Auto-detection only runs when `.local.yaml` is present
+  - **Rationale**: Absence of `.local.yaml` now clearly signals "use production/remote config"
+  - **Example**: TSFulmen can now test remote sync by simply not having `.local.yaml` (no need for `--force-remote`)
+
+### Documentation
+
+- **SSOT Documentation**: Updated `docs/appnotes/lib/ssot.md` with v0.3.4 features
+  - Documented `--force-remote` flag and usage examples
+  - Added auto-detection behavior section explaining DX improvement
+  - Documented `forced_remote` and `forced_by` provenance fields
+  - Added configuration precedence with `.local.yaml` signal behavior
+  - Included TSFulmen use case example demonstrating improved DX
+
 ## [0.3.3] - 2025-10-28
 
 ### Added
@@ -738,7 +786,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/fulmenhq/goneat/compare/v0.2.7...HEAD
+[Unreleased]: https://github.com/fulmenhq/goneat/compare/v0.3.4...HEAD
+[0.3.4]: https://github.com/fulmenhq/goneat/compare/v0.3.3...v0.3.4
+[0.3.3]: https://github.com/fulmenhq/goneat/compare/v0.3.2...v0.3.3
+[0.3.2]: https://github.com/fulmenhq/goneat/compare/v0.3.1...v0.3.2
+[0.3.1]: https://github.com/fulmenhq/goneat/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/fulmenhq/goneat/compare/v0.2.11...v0.3.0
+[0.2.11]: https://github.com/fulmenhq/goneat/compare/v0.2.10...v0.2.11
+[0.2.10]: https://github.com/fulmenhq/goneat/compare/v0.2.9...v0.2.10
+[0.2.9]: https://github.com/fulmenhq/goneat/compare/v0.2.8...v0.2.9
+[0.2.8]: https://github.com/fulmenhq/goneat/compare/v0.2.7...v0.2.8
 [v0.2.7]: https://github.com/fulmenhq/goneat/compare/v0.2.6...v0.2.7
 [v0.2.6]: https://github.com/fulmenhq/goneat/compare/v0.2.5...v0.2.6
 [v0.2.5]: https://github.com/fulmenhq/goneat/compare/v0.2.4...v0.2.5

@@ -1,3 +1,282 @@
+# Goneat v0.3.4 — Package Managers & SSOT DX
+
+**Release Date**: 2025-11-08
+**Status**: Release
+
+## TL;DR
+
+- **Package Manager Installation**: Tools config v1.1.0 with declarative Homebrew/Scoop installations
+- **SSOT Force-Remote**: Explicit remote sync with improved auto-detection DX
+- **Schema Versioning**: Provenance schemas v1.1.0 with force-remote tracking
+- **Developer Experience**: .local.yaml now signals local dev intent for cleaner workflows
+
+## What's New
+
+### Package Manager Installation Support
+
+Tools configuration schema v1.1.0 introduces structured package manager installation support, enabling declarative configuration for Homebrew and Scoop installations.
+
+**New `install` Field**:
+
+```yaml
+version: v1.1.0
+
+tools:
+  - name: ripgrep
+    description: Fast recursive grep
+    kind: infrastructure
+    detect_command: rg --version
+    install:  # New declarative format
+      package_manager: brew
+      package_name: ripgrep
+      tap: homebrew/core  # Optional
+      binary_name: rg     # Optional - if different from package name
+      destination: /opt/homebrew/bin  # Optional
+      flags:  # Optional - for complex installations
+        - --force
+        - --overwrite
+```
+
+**Features**:
+
+- **Declarative Configuration**: Structured YAML instead of shell commands
+- **Package Manager Support**: Homebrew (macOS/Linux), Scoop (Windows)
+- **Custom Taps/Buckets**: Support for third-party package sources
+- **Binary Name Mapping**: Handle cases where package name ≠ binary name
+- **Installation Destinations**: Specify custom install locations
+- **Multiple Flags**: Support complex installation scenarios
+- **Schema Validation**: Enforced mutual exclusivity with legacy `install_commands`
+- **Better Error Messages**: Clear validation feedback for configuration issues
+
+**Migration Path**:
+
+```yaml
+# Old format (v1.0.0)
+tools:
+  - name: ripgrep
+    install_commands:
+      - "brew install ripgrep"
+
+# New format (v1.1.0)
+tools:
+  - name: ripgrep
+    install:
+      package_manager: brew
+      package_name: ripgrep
+```
+
+**Breaking Change Note**: `install` and `install_commands` are mutually exclusive (enforced via schema). Choose one approach per tool.
+
+### SSOT Force-Remote Sync
+
+Enable explicit remote syncing even when local directories exist, with improved developer experience through smarter auto-detection.
+
+**New Command Options**:
+
+```bash
+# Force remote sync (ignore local auto-detection)
+goneat ssot sync --force-remote
+
+# Force remote via environment variable
+GONEAT_FORCE_REMOTE_SYNC=1 goneat ssot sync
+
+# Per-source config option
+# .goneat/ssot-consumer.yaml:
+sources:
+  - name: crucible
+    repo: fulmenhq/crucible
+    ref: v0.2.8
+    force_remote: true  # Always use remote
+```
+
+**DX Improvement - Auto-Detection Signal**:
+
+The major DX improvement in v0.3.4 is making `.local.yaml` presence signal local development intent:
+
+**Before v0.3.4**:
+- Auto-detection always ran if `../crucible` directory existed
+- Even without `.local.yaml`, goneat would use local directory
+- Needed `--force-remote` flag to test remote sync behavior
+- Confusing for production/CI usage
+
+**After v0.3.4**:
+- Auto-detection only runs when `.local.yaml` exists
+- Absence of `.local.yaml` signals "use production config"
+- No need for `--force-remote` in common case
+- Clear signal: `.local.yaml` = local dev, no `.local.yaml` = production
+
+**Configuration Precedence**:
+
+1. **Command-line flags** (`--local-path` or `--force-remote`)
+2. **Environment variables** (`GONEAT_FORCE_REMOTE_SYNC=1`)
+3. **Local override** (`.goneat/ssot-consumer.local.yaml`)
+4. **Primary manifest** (`.goneat/ssot-consumer.yaml`)
+5. **Auto-detection** (`../<source>`) - **only if `.local.yaml` exists**
+
+**Example: TSFulmen Testing**:
+
+```bash
+# Before v0.3.4 - needed flag
+cd tsfulmen
+rm .goneat/ssot-consumer.local.yaml  # Remove local config
+goneat ssot sync --force-remote      # Still needed flag!
+
+# After v0.3.4 - clean workflow
+cd tsfulmen
+# No .local.yaml? Auto-detection disabled automatically
+goneat ssot sync  # Uses production config (remote)
+```
+
+**Use Cases**:
+
+- **Local Development**: Create `.local.yaml` pointing to `../crucible` for local testing
+- **Production/CI**: Don't create `.local.yaml`, uses remote repos from production config
+- **Edge Cases**: Use `--force-remote` when you have `.local.yaml` but want to temporarily test remote behavior
+
+### SSOT Provenance Schemas v1.1.0
+
+Proper schema versioning for force-remote metadata tracking:
+
+**New Schemas**:
+
+- `schemas/crucible-go/content/ssot-provenance/v1.1.0/ssot-provenance.schema.json`
+- `schemas/ssot/source-metadata.v1.1.0.json`
+
+**New Fields**:
+
+```json
+{
+  "sources": [{
+    "name": "crucible",
+    "forced_remote": true,        // New: Was force-remote used?
+    "forced_by": "flag",          // New: How? "flag"|"env"|"config"
+    "method": "git_clone",
+    "commit": "abc123..."
+  }]
+}
+```
+
+**Schema Versioning**:
+
+- ✅ v1.0.0 schemas preserved unchanged
+- ✅ v1.1.0 schemas include force-remote fields
+- ✅ All code updated to reference v1.1.0
+- ✅ Synced to embedded assets
+- ✅ Tests updated and passing
+
+**Audit Trail**: The `forced_remote` and `forced_by` fields enable CI enforcement and audit trails to track whether syncs used remote repos or local paths.
+
+## Installation
+
+```bash
+# Go install (recommended)
+go install github.com/fulmenhq/goneat@v0.3.4
+
+# Verify installation
+goneat version
+```
+
+## Upgrade Notes
+
+### For SSOT Users
+
+**Review Auto-Detection Behavior**:
+
+```bash
+# Check if you have local overrides
+ls -la .goneat/ssot-consumer.local.yaml
+
+# If you DON'T have .local.yaml:
+# ✅ No change - production config works as before
+
+# If you DO have .local.yaml:
+# ✅ Auto-detection continues working (signals local dev)
+
+# If you have .local.yaml but want to test remote:
+goneat ssot sync --force-remote
+```
+
+**Migration**: No configuration changes required. The DX improvement is backward compatible:
+
+- **With `.local.yaml`**: Auto-detection works as before (local dev signal)
+- **Without `.local.yaml`**: Auto-detection now properly disabled (production signal)
+
+### For Tools Config Users
+
+**Upgrade to v1.1.0 Schema**:
+
+```yaml
+# Update schema version
+version: v1.1.0  # Was: v1.0.0
+
+# Optionally migrate to declarative install format
+tools:
+  - name: your-tool
+    # Old: install_commands: ["brew install your-tool"]
+    # New:
+    install:
+      package_manager: brew
+      package_name: your-tool
+```
+
+## Breaking Changes
+
+**None**. All changes are backward compatible:
+
+- **Tools Config**: v1.1.0 is optional, v1.0.0 continues to work
+- **SSOT**: Auto-detection improvement is more correct, not breaking
+- **Schemas**: v1.0.0 schemas preserved, v1.1.0 is additive
+
+## Documentation
+
+- **SSOT Guide**: Updated `docs/appnotes/lib/ssot.md` with:
+  - Force-remote flag documentation
+  - Auto-detection behavior section (v0.3.4+)
+  - Configuration precedence with `.local.yaml` signal
+  - TSFulmen use case example
+  - Provenance field reference
+
+## Testing
+
+All tests passing:
+
+```bash
+# Schema validation tests
+go test ./pkg/tools/... -v
+# Provenance tests
+go test ./pkg/ssot/... -v -run TestProvenance
+# Auto-detection behavior tests
+go test ./pkg/ssot/... -v -run TestAutoDetection
+```
+
+**Coverage**:
+
+- ✅ Tools config v1.1.0 schema validation
+- ✅ Package manager installation fixtures
+- ✅ Force-remote flag behavior
+- ✅ Auto-detection with/without `.local.yaml`
+- ✅ Provenance schema v1.1.0 validation
+
+## Known Issues
+
+None at release time.
+
+## What's Next (v0.3.5+)
+
+Planned enhancements:
+
+- **Tool Installation Execution**: Implement actual package manager installation (currently schema-only)
+- **Multi-Language SSOT**: Support for TypeScript/Python SSOT patterns
+- **Provenance Validation**: CI gates for enforcing clean provenance
+
+## Links
+
+- **Repository**: https://github.com/fulmenhq/goneat
+- **CHANGELOG**: See [CHANGELOG.md](../../CHANGELOG.md) for detailed changes
+- **Previous Release**: [v0.3.3](v0.3.3.md) - Cryptographic Release Signing
+
+---
+
 # Goneat v0.3.3 — Cryptographic Release Signing
 
 **Release Date**: 2025-10-28
@@ -354,606 +633,52 @@ go install github.com/fulmenhq/goneat@v0.3.1
 
 ---
 
-# Goneat v0.3.0 — Dependency Protection
 
-**Release Date**: 2025-10-28
-**Status**: Release
+# Goneat v0.3.0 — Dependency Protection (2025-10-28)
 
 ## TL;DR
 
-- **Dependency Protection System**: Comprehensive license compliance, package cooling policy, and SBOM generation
-- **Supply Chain Security**: Configurable package age thresholds to prevent supply chain attacks
-- **License Compliance**: Policy-driven license detection with OPA integration for Go dependencies
-- **SBOM Generation**: CycloneDX 1.5 artifacts via managed Syft integration
-- **Assessment Integration**: Dependencies as first-class category in `goneat assess` workflow
-- **Version Propagation**: Automated VERSION sync across package managers
+- **Dependency Protection System**: License compliance, package cooling policy, and SBOM generation
+- **Supply Chain Security**: Configurable package age thresholds prevent supply chain attacks
+- **Assessment Integration**: Dependencies as first-class category in `goneat assess`
+- **SSOT Provenance**: Automatic audit trail generation for SSOT sync operations
 
-## What's New
+## Key Features
 
-### Dependency Protection System (`goneat dependencies`)
+### Dependency Protection (`goneat dependencies`)
 
-The flagship feature of v0.3.0 introduces comprehensive dependency protection capabilities:
-
-```bash
-# License compliance check
-goneat dependencies --licenses
-
-# Package cooling policy enforcement
-goneat dependencies --cooling
-
-# SBOM artifact generation
-goneat dependencies --sbom
-
-# Combined analysis
-goneat dependencies --licenses --cooling --sbom --fail-on=high
-
-# Assessment integration
-goneat assess --categories dependencies
-```
-
-**Key Features**:
-
-- Multi-language analyzer framework (Go production-ready, others extensible)
-- OPA policy engine for policy-as-code evaluation
+- Multi-language analyzer framework (Go production-ready)
+- OPA policy engine for license compliance
 - Network-aware execution with registry API integration
-- Git hook integration with pre-push recommendations
-
-### License Compliance Engine
-
-Policy-driven license detection and enforcement:
-
-**Configuration** (`.goneat/dependencies.yaml`):
-
-```yaml
-version: v1
-
-licenses:
-  forbidden:
-    - GPL-3.0
-    - AGPL-3.0
-```
-
-**Capabilities**:
-
-- Go dependency license detection (95%+ accuracy via go-licenses)
-- Forbidden license blocking with clear violation reporting
-- OPA integration for advanced policy evaluation
-- YAML-to-Rego policy transpilation
-- Multi-language analyzer interface for future expansion
+- Git hook integration
 
 ### Package Cooling Policy
 
-Mitigate supply chain attacks by enforcing minimum package age:
-
-**Configuration**:
-
-```yaml
-cooling:
-  enabled: true
-  min_age_days: 7 # Minimum package age before adoption
-  min_downloads: 100 # Minimum total downloads
-  min_downloads_recent: 10 # Minimum recent downloads (30 days)
-  alert_only: false # Fail build on violations
-  grace_period_days: 3 # Grace period for new packages
-
-  exceptions:
-    - pattern: "github.com/myorg/*"
-      reason: "Internal packages are pre-vetted"
-```
-
-**Registry Integration**:
-
-- npm registry API client
-- PyPI package metadata
-- crates.io for Rust dependencies
-- NuGet API v3 for .NET
-- Go modules proxy
-- 24-hour caching layer
-
-**Threat Protection**:
-
-- Blocks newly published packages (configurable threshold)
-- Download count validation
+- Mitigate supply chain attacks by enforcing minimum package age
+- Registry integration: npm, PyPI, crates.io, NuGet, Go modules
+- 24-hour caching layer for performance
 - Exception management for trusted sources
-- Grace period for gradual adoption
 
 ### SBOM Generation
 
-Generate Software Bill of Materials for compliance:
-
-```bash
-# Generate SBOM artifact
-goneat dependencies --sbom --sbom-format cyclonedx-json
-
-# Specify output location
-goneat dependencies --sbom --sbom-output sbom/app-1.0.0.cdx.json
-
-# With assessment integration (metadata included)
-goneat assess --categories dependencies
-```
-
-**Features**:
-
-- CycloneDX 1.5 format via managed Syft
+- CycloneDX 1.5 format via managed Syft integration
 - Automatic tool installation with SHA256 verification
 - Doctor integration: `goneat doctor tools --scope sbom --install`
-- Dependency graph with transitive relationships
-- NTIA minimum elements compliance
-
-### Assessment Integration
-
-Dependencies as a first-class assessment category:
-
-```bash
-# Run dependency assessment
-goneat assess --categories dependencies
-
-# Combined with other categories
-goneat assess --categories format,lint,dependencies --fail-on high
-```
-
-**Integration Points**:
-
-- CategoryDependencies registered in assessment engine
-- Priority level 2 (high risk for supply chain)
-- Network-aware execution planning
-- Unified reporting with other categories
-- Hook integration with pre-push recommendations
-
-### Version Propagation System
-
-Automated VERSION file propagation across package managers:
-
-```bash
-# Propagate version from VERSION to package.json, pyproject.toml, etc.
-goneat version propagate
-
-# Check what would be updated
-goneat version propagate --dry-run
-```
-
-**Features**:
-
-- Single source of truth (VERSION file)
-- Cross-language package manager support
-- Staging workspace for safe multi-file updates
-- Pathfinder integration for pattern matching
 
 ### SSOT Provenance Metadata
 
-Automatic audit trail generation for SSOT sync operations:
-
-```bash
-# Sync with automatic metadata capture
-goneat ssot sync
-
-# Metadata artifacts generated:
-# - .goneat/ssot/provenance.json (aggregate)
-# - .crucible/metadata/metadata.yaml (per-source mirror)
-```
-
-**Features**:
-
 - Git introspection: commit SHA, dirty state detection
 - Version detection from VERSION file
-- Outputs mapping (asset type → destination path)
 - CI enforcement support for clean sources
 - Configurable mirrors and output paths
-
-**Example Provenance**:
-
-```json
-{
-  "schema": { "name": "goneat.ssot.provenance", "version": "v1" },
-  "generated_at": "2025-10-27T18:00:00Z",
-  "sources": [
-    {
-      "name": "crucible",
-      "method": "local_path",
-      "commit": "b64d22a0f0f94e4f1f128172c04fd166cf255056",
-      "dirty": false,
-      "version": "2025.10.2",
-      "outputs": { "docs": "docs/crucible-go" }
-    }
-  ]
-}
-```
-
-**CI Enforcement**:
-
-```bash
-# Check for dirty sources
-jq '.sources[] | select(.dirty == true)' .goneat/ssot/provenance.json
-```
-
-### Registry Client Library (`pkg/registry/`)
-
-Reusable package registry API clients:
-
-**Supported Registries**:
-
-- npm (registry.npmjs.org)
-- PyPI (pypi.org JSON API)
-- crates.io (crates.io API)
-- NuGet (nuget.org API v3)
-- Go modules (pkg.go.dev + proxy.golang.org)
-
-**Features**:
-
-- Mockable HTTP transport for testing
-- Rate limiting and retry logic
-- 24-hour TTL caching
-- Configurable timeouts
-
-### Security Hardening
-
-Comprehensive security audit remediation:
-
-**Critical Fixes**:
-
-- Decompression bomb protection (500MB extraction limit)
-- Path traversal prevention in archive extraction
-- Command injection vulnerability fixes (G204 audit)
-- Input sanitization for git references
-- Managed tool resolver with artifact verification
-
-**Security Validations**:
-
-- Zero command injection vulnerabilities (gosec G204)
-- Path cleaning in all file operations
-- Archive extraction size limits
-- Tool artifact SHA256 verification
-
-## Configuration
-
-### Dependencies Policy File (`.goneat/dependencies.yaml`)
-
-Complete reference configuration:
-
-```yaml
-version: v1
-
-# License Compliance Policy
-licenses:
-  forbidden:
-    - GPL-3.0
-    - AGPL-3.0
-  # Optional: explicit allow list
-  # allowed:
-  #   - MIT
-  #   - Apache-2.0
-  #   - BSD-3-Clause
-
-# Supply Chain Security (Cooling Policy)
-cooling:
-  enabled: true
-  min_age_days: 7
-  min_downloads: 100
-  min_downloads_recent: 10
-  alert_only: false
-  grace_period_days: 3
-
-  exceptions:
-    - pattern: "github.com/myorg/*"
-      reason: "Internal packages"
-
-# Policy Engine Configuration
-policy_engine:
-  type: embedded # Use embedded OPA engine (recommended)
-  # Optional remote OPA server
-  # type: server
-  # url: "http://opa-server:8181"
-
-# SBOM Configuration
-sbom:
-  format: cyclonedx-json
-  include_dev_dependencies: false
-```
-
-### Hook Integration (`.goneat/hooks.yaml`)
-
-Network-aware hook configuration:
-
-```yaml
-hooks:
-  pre-commit: # Fast, offline-capable
-    - command: assess
-      args: ["--categories", "format,lint"]
-
-  pre-push: # Network-dependent checks
-    - command: assess
-      args: ["--categories", "dependencies", "--fail-on", "high"]
-```
-
-## Performance
-
-### Optimizations
-
-**Registry API Caching**:
-
-- 24-hour TTL for package metadata
-- Reduces network calls for repeated checks
-- Configurable cache directory
-
-**Analysis Speed**:
-
-- < 5s for typical projects (100 dependencies)
-- < 60s for large monorepos (1000+ dependencies)
-- < 2s for cached/incremental analysis
-
-## Quality Assurance
-
-### Linting Infrastructure Enhancements
-
-**Enhanced Test Suite Reliability**:
-
-- Added `.goneatignore` pattern support to lint runner for automatic test fixture exclusion
-- Improved lint assessment accuracy by respecting ignore patterns and preventing false positives
-- Fixed unchecked error returns in test files across multiple packages (environment variables, file operations)
-- Cleaned up dates test suite by removing skipped tests and implementing proper test fixtures
-- Achieved 0 lint issues and 100% health score across codebase
-
-### Three-Tier Integration Test Protocol
-
-**Tier 1 - Synthetic Fixtures** (CI Mandatory):
-
-- Time: < 10s
-- Dependencies: None
-- When: Every commit, pre-commit, pre-push
-- Command: `make test` (includes Tier 1)
-
-**Tier 2 - Quick Validation** (Pre-Release):
-
-- Time: ~8s warm cache, ~38s cold
-- Dependencies: Hugo repository
-- When: Before tagging release
-- Command: `make test-integration-cooling-quick`
-- Setup: `export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground`
-
-**Tier 3 - Full Suite** (Major Releases):
-
-- Time: ~2 minutes
-- Dependencies: Hugo, OPA, Traefik, Mattermost repos
-- When: Major versions (v0.3.0, v1.0.0, etc.)
-- Command: `make test-integration-cooling`
-- Expected: 6/8 passing (2 known non-blocking failures)
-
-## Documentation
-
-### New Guides
-
-**Dependency Protection**:
-
-- `docs/user-guide/workflows/dependency-gating.md`: Complete workflow guide
-- `docs/appnotes/license-policy-hooks.md`: Hook integration patterns
-- `.goneat/dependencies.yaml`: Reference configuration
-
-**SBOM Generation**:
-
-- Wave 4 SBOM documentation with examples
-- Try-it-yourself guides for CycloneDX generation
-- Doctor tool integration guide
-
-**Integration Testing**:
-
-- `.plans/active/v0.3.0/wave-2-phase-4-INTEGRATION-TEST-PROTOCOL.md`
-
-## Breaking Changes
-
-None. All new features are additive and backward compatible.
-
-## Upgrade Notes
-
-After upgrading to v0.3.0:
-
-1. **Configure dependency protection** (optional):
-
-   ```bash
-   # Copy reference configuration
-   cp .goneat/dependencies.yaml.example .goneat/dependencies.yaml
-
-   # Edit policy to match your requirements
-   # Customize forbidden licenses and cooling thresholds
-   ```
-
-2. **Update hooks** to include dependency checks:
-
-   ```bash
-   # Edit .goneat/hooks.yaml to add dependencies category
-   # Regenerate hooks
-   goneat hooks generate --with-guardian
-   goneat hooks install
-   ```
-
-3. **Test SBOM generation**:
-
-   ```bash
-   # Install Syft if needed
-   goneat doctor tools --scope sbom --install
-
-   # Generate SBOM
-   goneat dependencies --sbom
-   ```
-
-4. **Try assessment integration**:
-
-   ```bash
-   # Run dependency assessment
-   goneat assess --categories dependencies
-
-   # Combined workflow
-   goneat assess --categories format,lint,dependencies
-   ```
-
-## Documentation
-
-### Comprehensive User Guides (1,700+ lines)
-
-This release includes extensive documentation to help teams adopt dependency protection features:
-
-**Core Guides**:
-
-- **`docs/guides/dependency-protection-overview.md`** (397 lines)
-  - Complete feature overview with quick start (5 minutes to production)
-  - Real-world attack examples (ua-parser-js, event-stream, node-ipc)
-  - Integration patterns decision tree with Mermaid diagrams
-  - Clear network requirements and offline/online considerations
-  - Cross-linked navigation to all related documentation
-
-- **`docs/guides/package-cooling-policy.md`** (600 lines)
-  - Detailed supply chain security threat model
-  - Cooling timeline and validation flow diagrams (Mermaid)
-  - Step-by-step setup guide with copy-paste commands
-  - Complete policy configuration reference
-  - Exception patterns with approval templates
-  - Best practices and quarterly review guidelines
-
-- **`docs/troubleshooting/dependencies.md`** (665 lines)
-  - Comprehensive troubleshooting for all common issues
-  - License compliance problems and diagnostic commands
-  - Package cooling errors with step-by-step solutions
-  - SBOM generation issues and fixes
-  - Hook integration debugging
-  - Performance optimization tips
-  - Quick reference table of common fixes
-
-**Dogfooding & Reference Implementation**:
-
-- **`docs/appnotes/dogfooding-dependency-protection.md`** (410 lines)
-  - How goneat uses its own dependency protection features
-  - Real-world configuration with actual file paths and license counts
-  - Operational patterns: daily development workflow, adding dependencies, pre-release validation
-  - Current dependency health status (93 deps, 0 violations, 100% compliant)
-  - Lessons learned: what works, what was rejected, common pitfalls
-  - Implementation checklist for teams adopting the features
-
-**Enhanced Configuration**:
-
-- **`.goneat/dependencies.yaml`** (200+ lines of inline documentation)
-  - Production-ready configuration used by goneat itself
-  - Comprehensive field-by-field explanations
-  - Exception pattern examples with approval attribution
-  - Network requirements clearly called out
-  - Quick troubleshooting section in footer
-  - Strict allowlist approach: MIT, Apache-2.0, BSD, ISC, 0BSD, Unlicense
-  - MPL-2.0 added to forbidden list (copyleft concerns documented)
-
-**README Updates**:
-
-- Prominent "NEW in v0.3.0" section highlighting dependency protection
-- Supply chain security explained for non-technical readers
-- Quick start with 3 simple steps
-- Documentation navigation tree
-- Commands section updated with dependencies highlighted
-
-**Quality Features**:
-
-- ✅ Beginner-friendly: Explains "what" and "why" before "how"
-- ✅ Visual diagrams: 3 Mermaid diagrams for complex workflows
-- ✅ Real examples: Actual attack cases with dates and impact
-- ✅ Cross-linked: Every doc links to related documentation
-- ✅ Actionable: Step-by-step guides with copy-paste commands
-- ✅ Troubleshooting-first: Common issues prominently documented
-- ✅ Offline access: All docs embedded via `goneat docs`
-
-### Documentation Validation
-
-All documentation has been validated through dogfooding:
-
-- goneat's own `.goneat/dependencies.yaml` uses strict policies documented in guides
-- All examples tested against goneat's 93 dependencies
-- Troubleshooting scenarios derived from actual implementation issues
-- Performance numbers from real goneat repository testing
-
-## Known Limitations
-
-### Multi-Language Analyzers
-
-**v0.3.0 Scope**:
-
-- ✅ Go: Full production implementation (95%+ accuracy)
-- ✅ Framework: Extensible multi-language analyzer interface
-- ⏭️ TypeScript/Python/Rust/C#: Stub implementations (future expansion)
-
-**Rationale**:
-
-- Go-first approach delivers immediate value
-- Framework architecture proven and extensible
-- Avoids shipping untested multi-language features
-- Clear upgrade path for v0.3.1+ language support
 
 ## Installation
 
 ```bash
-# Go install (after release)
 go install github.com/fulmenhq/goneat@v0.3.0
-
-# From source
-git clone https://github.com/fulmenhq/goneat.git
-cd goneat
-git checkout v0.3.0
-make build
 ```
 
-## What's Next (v0.3.1+)
-
-Planned enhancements for future releases:
-
-**Multi-Language License Detection**:
-
-- TypeScript/JavaScript analyzer (npm packages)
-- Python analyzer (PyPI packages)
-- Rust analyzer (crates.io)
-- C# analyzer (NuGet packages)
-
-**SBOM Enhancements**:
-
-- SPDX format support
-- Vulnerability enrichment (OSV database)
-- VEX (Vulnerability Exploitability eXchange) support
-- Provenance data inclusion
-
-**Advanced Features**:
-
-- Typosquatting detection
-- Malicious package heuristics
-- Dependency update suggestions
-- License compatibility analysis
-
-## Contributors
-
-### AI Agent Attribution
-
-This release was developed collaboratively by the 3leaps AI agent team under human supervision:
-
-- **🦅 Arch Eagle**: Enterprise architecture, security compliance, policy engine design, implementation planning
-- **🔍 Code Scout**: Feature implementation, assessment integration, testing infrastructure, dogfooding implementation
-- **🛠️ Forge Neat**: Documentation authorship (1,700+ lines), CI/CD hardening, quality gates, release preparation
-
-**Supervised by**: @3leapsdave
-
-**Documentation Contributions**:
-
-Forge Neat authored the comprehensive documentation suite for v0.3.0:
-- Dependency protection overview with quick start and decision trees
-- Package cooling policy guide with threat model and Mermaid diagrams
-- Complete troubleshooting guide covering all common scenarios
-- Enhanced `.goneat/dependencies.yaml` with 200+ lines of inline docs
-- README feature highlights and cross-linked navigation
-- Validated through Code Scout's dogfooding appnote (goneat using its own features)
-
-### Human Oversight
-
-All contributions reviewed, approved, and committed by:
-
-- Dave Thompson (@3leapsdave) - Project Lead & Primary Maintainer
-
-## Links
-
-- **Repository**: https://github.com/fulmenhq/goneat
-- **Documentation**: https://github.com/fulmenhq/goneat/tree/main/docs
-- **Issues**: https://github.com/fulmenhq/goneat/issues
-- **Crucible Standards**: https://github.com/fulmenhq/crucible
+See [docs/releases/v0.3.0.md](v0.3.0.md) for comprehensive details.
 
 ---
 
