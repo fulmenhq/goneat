@@ -678,7 +678,7 @@ func (r *DatesRunner) Assess(ctx context.Context, target string, _ interface{}) 
 						}
 					}
 
-					// Add informational issue summarizing the scan
+					// Debug logging for scan results (no informational issues - only report actual problems)
 					sample := sampleDates(func() []time.Time {
 						var dates []time.Time
 						for _, entry := range datedEntries {
@@ -687,12 +687,8 @@ func (r *DatesRunner) Assess(ctx context.Context, target string, _ interface{}) 
 						return dates
 					}(), 5)
 
-					msg := fmt.Sprintf("Changelog scan: found %d total entries (%d dated, %d undated); sample dates: %s",
-						len(entries), len(datedEntries), len(entries)-len(datedEntries), sample)
-
-					mu.Lock()
-					issues = append(issues, DatesIssue{File: rel, Line: 0, Column: 0, Severity: "info", Message: msg, Category: "dates", AutoFixable: false})
-					mu.Unlock()
+					logger.Debug(fmt.Sprintf("Changelog scan: %s - found %d total entries (%d dated, %d undated); sample dates: %s",
+						rel, len(entries), len(datedEntries), len(entries)-len(datedEntries), sample))
 				} else {
 					logger.Debug(fmt.Sprintf("Dates monotonic check skipped for %s: enabled=%v, matches=%v", rel, cfg.Rules.MonotonicOrder.Enabled, matchesAny(rel, cfg.Rules.MonotonicOrder.Files)))
 				}
