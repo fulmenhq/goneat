@@ -40,6 +40,7 @@ func GetSchemaNames() []SchemaInfo {
 		"embed-manifest-v1.1.0":          "embedded_schemas/schemas/content/v1.1.0/embed-manifest.yaml",
 		"content-find-report-v1.0.0":     "embedded_schemas/schemas/output/v1.0.0/content-find-report.json",
 		"tools-config-v1.0.0":            "embedded_schemas/schemas/tools/v1.0.0/tools-config.yaml",
+		"tools-config-v1.1.0":            "embedded_schemas/schemas/tools/v1.1.0/tools-config.yaml",
 		"terminal-overrides-v1.0.0":      "embedded_schemas/schemas/ascii/v1.0.0/terminal-overrides.yaml",
 		"schema-mapping-manifest-v1.0.0": "embedded_schemas/schemas/config-mapping/v1.0.0/schema-mapping-manifest.yaml",
 		"version-policy-v1.0.0":          "embedded_schemas/schemas/crucible-go/config/goneat/v1.0.0/version-policy.schema.yaml",

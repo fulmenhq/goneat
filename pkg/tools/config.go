@@ -30,17 +30,38 @@ type Tool struct {
 	Description        string              `yaml:"description" json:"description"`
 	Kind               string              `yaml:"kind" json:"kind"`
 	DetectCommand      string              `yaml:"detect_command" json:"detect_command"`
-	InstallPackage     string              `yaml:"install_package,omitempty" json:"install_package,omitempty"`
+	Install            *InstallConfig      `yaml:"install,omitempty" json:"install,omitempty"`               // v1.1.0+: structured installation
+	InstallPackage     string              `yaml:"install_package,omitempty" json:"install_package,omitempty"` // Go package for "go" kind tools
 	VersionArgs        []string            `yaml:"version_args,omitempty" json:"version_args,omitempty"`
 	CheckArgs          []string            `yaml:"check_args,omitempty" json:"check_args,omitempty"`
 	Platforms          []string            `yaml:"platforms,omitempty" json:"platforms,omitempty"`
-	InstallCommands    map[string]string   `yaml:"install_commands,omitempty" json:"install_commands,omitempty"`
+	InstallCommands    map[string]string   `yaml:"install_commands,omitempty" json:"install_commands,omitempty"` // v1.0.0 legacy
 	InstallerPriority  map[string][]string `yaml:"installer_priority,omitempty" json:"installer_priority,omitempty"`
 	VersionScheme      string              `yaml:"version_scheme,omitempty" json:"version_scheme,omitempty"`
 	MinimumVersion     string              `yaml:"minimum_version,omitempty" json:"minimum_version,omitempty"`
 	RecommendedVersion string              `yaml:"recommended_version,omitempty" json:"recommended_version,omitempty"`
 	DisallowedVersions []string            `yaml:"disallowed_versions,omitempty" json:"disallowed_versions,omitempty"`
 	Artifacts          *ArtifactManifest   `yaml:"artifacts,omitempty" json:"artifacts,omitempty"`
+}
+
+// InstallConfig defines structured installation methods (v1.1.0+).
+// Supports package managers (brew, scoop), downloads, and scripts.
+type InstallConfig struct {
+	Type           string                  `yaml:"type" json:"type"` // package_manager, download, script
+	PackageManager *PackageManagerInstall  `yaml:"package_manager,omitempty" json:"package_manager,omitempty"`
+	// Future: Download, Script configs
+}
+
+// PackageManagerInstall defines installation via package managers (brew, scoop, etc.).
+type PackageManagerInstall struct {
+	Manager     string   `yaml:"manager" json:"manager"`               // brew, scoop
+	Tap         string   `yaml:"tap,omitempty" json:"tap,omitempty"`   // Homebrew tap (brew-only)
+	Bucket      string   `yaml:"bucket,omitempty" json:"bucket,omitempty"` // Scoop bucket (scoop-only)
+	Package     string   `yaml:"package" json:"package"`               // Package name
+	PackageType string   `yaml:"package_type,omitempty" json:"package_type,omitempty"` // formula|cask (brew-only, default: formula)
+	Flags       []string `yaml:"flags,omitempty" json:"flags,omitempty"` // Additional CLI flags
+	Destination string   `yaml:"destination,omitempty" json:"destination,omitempty"` // Symlink destination
+	BinName     string   `yaml:"bin_name,omitempty" json:"bin_name,omitempty"`     // Binary name override
 }
 
 // ArtifactManifest defines trusted artifacts with SHA256 verification for supply-chain integrity.
@@ -75,12 +96,15 @@ func ParseConfig(data []byte) (*Config, error) {
 }
 
 // ValidateBytes validates raw YAML/JSON content against the tools schema.
+// Validates against v1.1.0 schema which is backward compatible with v1.0.0.
 func ValidateBytes(data []byte) error {
 	var cfg interface{}
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return fmt.Errorf("yaml parse error: %w", err)
 	}
-	res, err := schema.Validate(cfg, "tools-config-v1.0.0")
+	// v1.1.0 is backward compatible with v1.0.0 (all new fields are optional)
+	// so we validate against v1.1.0 for all configs
+	res, err := schema.Validate(cfg, "tools-config-v1.1.0")
 	if err != nil {
 		return fmt.Errorf("schema validation error: %w", err)
 	}

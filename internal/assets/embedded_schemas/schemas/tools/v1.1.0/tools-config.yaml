@@ -1,0 +1,432 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://schemas.fulmenhq.dev/goneat/tools-config/v1.1.0
+version: "1.1.0"
+type: object
+description: |
+  Configuration for goneat doctor tools command - defines scopes and tool definitions.
+
+  Version 1.1.0 adds native package manager support (brew, scoop) with structured
+  install definitions. This is backward compatible with v1.0.0 manifests.
+
+properties:
+  scopes:
+    type: object
+    description: "Tool scopes that group related tools together"
+    patternProperties:
+      "^[a-z][a-z0-9-]*$":
+        type: object
+        description: "A tool scope definition"
+        properties:
+          description:
+            type: string
+            description: "Human-readable description of what this scope covers"
+            minLength: 1
+            maxLength: 200
+          tools:
+            type: array
+            description: "List of tool names that belong to this scope"
+            items:
+              type: string
+              pattern: "^[a-z][a-z0-9-]*$"
+              description: "Tool name (must match a key in the tools section)"
+            minItems: 1
+            uniqueItems: true
+          replace:
+            type: boolean
+            description: "When true, replace built-in scope definition instead of extending"
+        required: ["description", "tools"]
+        additionalProperties: false
+    minProperties: 1
+    additionalProperties: false
+  tools:
+    type: object
+    description: "Tool definitions with detection and installation methods"
+    patternProperties:
+      "^[a-z][a-z0-9-]*$":
+        $ref: "#/$defs/tool"
+    minProperties: 1
+    additionalProperties: false
+
+$defs:
+  tool:
+    type: object
+    description: "Definition of a single tool with platform-specific installation methods"
+    properties:
+      name:
+        type: string
+        description: "Canonical name of the tool (should match the key)"
+        pattern: "^[a-z][a-z0-9-]*$"
+        minLength: 1
+        maxLength: 50
+      description:
+        type: string
+        description: "Human-readable description of the tool's purpose"
+        minLength: 1
+        maxLength: 200
+      kind:
+        type: string
+        description: "Type of tool installation method"
+        enum: ["go", "bundled-go", "system"]
+      detect_command:
+        type: string
+        description: "Command to detect if tool is installed (e.g., 'rg --version')"
+        minLength: 1
+        maxLength: 100
+      install:
+        $ref: "#/$defs/installConfig"
+        description: |
+          Structured installation configuration (v1.1.0+).
+          Supports package managers (brew, scoop), downloads, and scripts.
+          Mutually exclusive with install_commands (legacy).
+      install_package:
+        type: string
+        description: "Go package path for 'go' kind tools (e.g., 'github.com/securego/gosec/v2/cmd/gosec@latest')"
+        pattern: "^[a-zA-Z0-9._/-]+@[a-zA-Z0-9._/-]+$"
+        minLength: 1
+        maxLength: 200
+      version_args:
+        type: array
+        description: "Arguments to get version information"
+        items:
+          type: string
+          minLength: 1
+          maxLength: 50
+        maxItems: 10
+      check_args:
+        type: array
+        description: "Arguments to check if tool works (usually help/usage)"
+        items:
+          type: string
+          minLength: 1
+          maxLength: 50
+        maxItems: 10
+      platforms:
+        type: array
+        description: "Supported platforms for system tools"
+        items:
+          type: string
+          enum: ["darwin", "linux", "windows", "*"]
+        minItems: 1
+        uniqueItems: true
+      install_commands:
+        type: object
+        description: |
+          Installation commands keyed by platform or installer keyword (e.g., darwin, linux, mise, scoop).
+          LEGACY: Prefer using 'install' object for structured package manager support (v1.1.0+).
+        propertyNames:
+          pattern: "^[a-z][a-z0-9_-]*$"
+        additionalProperties:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        minProperties: 1
+      version_scheme:
+        type: string
+        description: "Version comparison scheme (semver-full, semver-compact, calver, lexical)"
+        enum: ["semver", "semver-full", "semver-compact", "calver", "lexical"]
+      minimum_version:
+        type: string
+        description: "Minimum supported version that must be present"
+        minLength: 1
+        maxLength: 50
+      recommended_version:
+        type: string
+        description: "Recommended version to target during upgrades"
+        minLength: 1
+        maxLength: 50
+      disallowed_versions:
+        type: array
+        description: "Explicit versions that should never be used"
+        items:
+          type: string
+          minLength: 1
+          maxLength: 50
+        uniqueItems: true
+        maxItems: 20
+      installer_priority:
+        type: object
+        description: "Preferred installer order per platform (keywords drawn from curated list: mise, brew, scoop, winget, pacman, apt-get, dnf, yum, go-install, manual)"
+        propertyNames:
+          pattern: "^(all|darwin|linux|windows)$"
+        additionalProperties:
+          type: array
+          items:
+            type: string
+            pattern: "^[a-z][a-z0-9_-]*$"
+          minItems: 1
+          maxItems: 10
+      artifacts:
+        type: object
+        description: "Trusted artifact manifest for supply-chain integrity (download URLs with SHA256 verification)"
+        properties:
+          default_version:
+            type: string
+            description: "Default version to install when user doesn't specify --version"
+            pattern: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+            minLength: 5
+            maxLength: 20
+          versions:
+            type: object
+            description: "Map of version numbers to platform-specific artifacts"
+            patternProperties:
+              "^[0-9]+\\.[0-9]+\\.[0-9]+$":
+                $ref: "#/$defs/versionArtifacts"
+            minProperties: 1
+        required: ["default_version", "versions"]
+        additionalProperties: false
+    required: ["name", "description", "kind", "detect_command"]
+    # Enforce mutual exclusivity: install and install_commands cannot both be present
+    not:
+      required: ["install", "install_commands"]
+    additionalProperties: false
+
+  installConfig:
+    type: object
+    description: |
+      Structured installation configuration supporting package managers, downloads, and scripts.
+
+      The 'type' field determines which installation method to use:
+      - package_manager: Install via brew, scoop, etc.
+      - download: Download binary from URL (future)
+      - script: Run custom installation script (future)
+    properties:
+      type:
+        type: string
+        description: "Installation method type"
+        enum: ["package_manager", "download", "script"]
+      package_manager:
+        $ref: "#/$defs/packageManagerInstall"
+        description: "Package manager installation config (when type=package_manager)"
+      # Future: download, script configs will be added here
+    required: ["type"]
+    allOf:
+      - if:
+          properties:
+            type:
+              const: "package_manager"
+        then:
+          required: ["package_manager"]
+    additionalProperties: false
+
+  packageManagerInstall:
+    type: object
+    description: |
+      Package manager installation configuration.
+
+      Supports Homebrew (macOS/Linux) and Scoop (Windows - experimental).
+
+      Example - Homebrew formula:
+        package_manager:
+          manager: brew
+          tap: fulmenhq/homebrew-tap
+          package: fulmenhq/tap/goneat
+          flags: ["--quiet"]
+
+      Example - Homebrew cask (GUI apps):
+        package_manager:
+          manager: brew
+          package: docker
+          package_type: cask
+
+      Example - Scoop (Windows - experimental):
+        package_manager:
+          manager: scoop
+          bucket: main
+          package: ripgrep
+
+      Flag Splitting (like MCP server args):
+        flags: ["--quiet", "-f", "./file.txt"]  # ✅ Correct: separate args
+        flags: ["--quiet -f ./file.txt"]        # ❌ Wrong: single arg with spaces
+    properties:
+      manager:
+        type: string
+        description: |
+          Package manager to use.
+
+          Supported:
+          - brew: Homebrew (macOS/Linux) - fully tested
+          - scoop: Scoop (Windows) - experimental, full testing pending Windows compatibility
+        enum: ["brew", "scoop"]
+      tap:
+        type: string
+        description: |
+          Homebrew tap to add before installation (brew-only).
+
+          Example: "fulmenhq/homebrew-tap"
+
+          If specified, runs 'brew tap <tap>' before 'brew install'.
+          Idempotent - ignored if already tapped.
+        pattern: "^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$"
+        minLength: 3
+        maxLength: 100
+      bucket:
+        type: string
+        description: |
+          Scoop bucket to add before installation (scoop-only).
+
+          Example: "main", "extras", "versions"
+
+          If specified, runs 'scoop bucket add <bucket>' before 'scoop install'.
+        pattern: "^[a-zA-Z0-9_-]+$"
+        minLength: 1
+        maxLength: 50
+      package:
+        type: string
+        description: |
+          Package name to install.
+
+          Examples:
+          - brew formula: "fulmenhq/tap/goneat" or just "goneat"
+          - brew cask: "docker", "visual-studio-code"
+          - scoop: "ripgrep", "jq"
+        minLength: 1
+        maxLength: 200
+      package_type:
+        type: string
+        description: |
+          Package type for Homebrew (brew-only).
+
+          - formula: Command-line tools (default)
+          - cask: GUI applications
+
+          Determines whether to use 'brew install --formula' or 'brew install --cask'.
+        enum: ["formula", "cask"]
+        default: "formula"
+      flags:
+        type: array
+        description: |
+          Additional CLI flags to pass to the package manager.
+
+          Each array element is a SEPARATE argument (like MCP server initialization).
+
+          Correct examples:
+            flags: ["--quiet"]
+            flags: ["--force", "--quiet"]
+            flags: ["-f", "./myfile.txt"]      # Flag + value as separate args
+            flags: ["--config", "~/.myrc"]     # Flag + value as separate args
+
+          Incorrect examples (DO NOT DO THIS):
+            flags: ["--force --quiet"]         # ❌ Treated as single arg with space
+            flags: ["-f ./myfile.txt"]         # ❌ Treated as single arg with space
+
+          Common brew flags:
+            --quiet: Suppress output
+            --force: Overwrite existing installations
+            --no-quarantine: Skip macOS quarantine (security implications!)
+
+          Common scoop flags:
+            --no-cache: Don't cache downloads
+            --skip: Skip hash validation (not recommended)
+        items:
+          type: string
+          minLength: 1
+          maxLength: 100
+        maxItems: 20
+        uniqueItems: false
+      destination:
+        type: string
+        description: |
+          Optional destination directory for symlinking the installed binary.
+
+          Example: "./bin" to create project-local symlink
+
+          If not specified, tool must be available in system PATH.
+        minLength: 1
+        maxLength: 200
+      bin_name:
+        type: string
+        description: |
+          Binary name override when symlinking to destination.
+
+          Default: Uses package name
+
+          Example: If package "fulmenhq/tap/goneat" installs as "goneat",
+          but you want "./bin/neat", set bin_name: "neat"
+        pattern: "^[a-zA-Z0-9_-]+$"
+        minLength: 1
+        maxLength: 50
+    required: ["manager", "package"]
+    allOf:
+      - if:
+          properties:
+            manager:
+              const: "brew"
+        then:
+          properties:
+            bucket:
+              not: {}
+          description: "tap is valid for brew, but bucket is not"
+      - if:
+          properties:
+            manager:
+              const: "scoop"
+        then:
+          properties:
+            tap:
+              not: {}
+            package_type:
+              not: {}
+          description: "bucket is valid for scoop, but tap and package_type are not"
+    additionalProperties: false
+
+  versionArtifacts:
+    type: object
+    description: "Platform-specific artifacts for a single version"
+    properties:
+      darwin_amd64:
+        $ref: "#/$defs/artifact"
+      darwin_arm64:
+        $ref: "#/$defs/artifact"
+      linux_amd64:
+        $ref: "#/$defs/artifact"
+      linux_arm64:
+        $ref: "#/$defs/artifact"
+      windows_amd64:
+        $ref: "#/$defs/artifact"
+    minProperties: 1
+    additionalProperties: false
+
+  artifact:
+    type: object
+    description: "Single artifact with URL and integrity hash"
+    properties:
+      url:
+        type: string
+        description: "Download URL for the artifact"
+        pattern: "^https://"
+        minLength: 10
+        maxLength: 500
+      sha256:
+        type: string
+        description: "SHA256 checksum for integrity verification"
+        pattern: "^[a-f0-9]{64}$"
+      extract_path:
+        type: string
+        description: "Optional path within archive to extract (default: tool name)"
+        minLength: 1
+        maxLength: 200
+    required: ["url", "sha256"]
+    additionalProperties: false
+
+# Validation rules
+required: ["scopes", "tools"]
+additionalProperties: false
+
+# Migration notes from v1.0.0 to v1.1.0:
+#
+# v1.0.0 manifests are fully compatible with v1.1.0.
+# New optional 'install' object provides structured package manager support.
+#
+# Before (v1.0.0):
+#   install_commands:
+#     darwin: "brew install fulmenhq/tap/goneat"
+#     linux: "brew install fulmenhq/tap/goneat"
+#
+# After (v1.1.0):
+#   install:
+#     type: package_manager
+#     package_manager:
+#       manager: brew
+#       tap: fulmenhq/homebrew-tap
+#       package: fulmenhq/tap/goneat
+#       flags: ["--quiet"]

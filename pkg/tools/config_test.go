@@ -40,6 +40,73 @@ tools:
       darwin: ["mise", "brew"]
 `
 
+// v1.1.0 config with package_manager install
+const sampleConfigV110Brew = `scopes:
+  cli:
+    description: "CLI tools via brew"
+    tools: ["goneat", "docker"]
+tools:
+  goneat:
+    name: "goneat"
+    description: "Fulmen CLI"
+    kind: "system"
+    detect_command: "goneat --version"
+    install:
+      type: package_manager
+      package_manager:
+        manager: brew
+        tap: fulmenhq/homebrew-tap
+        package: fulmenhq/tap/goneat
+        package_type: formula
+        flags: ["--quiet"]
+  docker:
+    name: "docker"
+    description: "Docker Desktop"
+    kind: "system"
+    detect_command: "docker --version"
+    install:
+      type: package_manager
+      package_manager:
+        manager: brew
+        package: docker
+        package_type: cask
+`
+
+const sampleConfigV110Scoop = `scopes:
+  windows-tools:
+    description: "Windows tools via scoop"
+    tools: ["ripgrep"]
+tools:
+  ripgrep:
+    name: "ripgrep"
+    description: "Fast grep"
+    kind: "system"
+    detect_command: "rg --version"
+    install:
+      type: package_manager
+      package_manager:
+        manager: scoop
+        bucket: main
+        package: ripgrep
+        flags: ["--no-cache"]
+`
+
+// v1.0.0 legacy config with install_commands (backward compatibility test)
+const sampleConfigV100Legacy = `scopes:
+  legacy:
+    description: "Legacy install commands"
+    tools: ["ripgrep"]
+tools:
+  ripgrep:
+    name: "ripgrep"
+    description: "Fast grep"
+    kind: "system"
+    detect_command: "rg --version"
+    install_commands:
+      darwin: "brew install ripgrep"
+      linux: "brew install ripgrep"
+`
+
 func TestParseConfig(t *testing.T) {
 	cfg, err := ParseConfig([]byte(sampleConfig))
 	if err != nil {
@@ -514,5 +581,266 @@ func TestMergeScopeReplace(t *testing.T) {
 	}
 	if scope.Replace {
 		t.Fatal("replace flag should be cleared after merge")
+	}
+}
+
+// TestPackageManagerConfigV110 tests v1.1.0 package manager configurations
+func TestPackageManagerConfigV110(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   string
+		toolName string
+		wantMgr  string
+		wantPkg  string
+		wantType string
+	}{
+		{
+			name:     "brew_formula",
+			config:   sampleConfigV110Brew,
+			toolName: "goneat",
+			wantMgr:  "brew",
+			wantPkg:  "fulmenhq/tap/goneat",
+			wantType: "formula",
+		},
+		{
+			name:     "brew_cask",
+			config:   sampleConfigV110Brew,
+			toolName: "docker",
+			wantMgr:  "brew",
+			wantPkg:  "docker",
+			wantType: "cask",
+		},
+		{
+			name:     "scoop",
+			config:   sampleConfigV110Scoop,
+			toolName: "ripgrep",
+			wantMgr:  "scoop",
+			wantPkg:  "ripgrep",
+			wantType: "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := ParseConfig([]byte(tc.config))
+			if err != nil {
+				t.Fatalf("unexpected parse error: %v", err)
+			}
+
+			tool, ok := cfg.Tools[tc.toolName]
+			if !ok {
+				t.Fatalf("tool %s not found", tc.toolName)
+			}
+
+			if tool.Install == nil {
+				t.Fatal("expected install config, got nil")
+			}
+
+			if tool.Install.Type != "package_manager" {
+				t.Fatalf("expected type package_manager, got %s", tool.Install.Type)
+			}
+
+			if tool.Install.PackageManager == nil {
+				t.Fatal("expected package_manager config, got nil")
+			}
+
+			pm := tool.Install.PackageManager
+			if pm.Manager != tc.wantMgr {
+				t.Fatalf("expected manager %s, got %s", tc.wantMgr, pm.Manager)
+			}
+
+			if pm.Package != tc.wantPkg {
+				t.Fatalf("expected package %s, got %s", tc.wantPkg, pm.Package)
+			}
+
+			if tc.wantType != "" && pm.PackageType != tc.wantType {
+				t.Fatalf("expected package_type %s, got %s", tc.wantType, pm.PackageType)
+			}
+		})
+	}
+}
+
+// TestPackageManagerFlags tests flag parsing
+func TestPackageManagerFlags(t *testing.T) {
+	cfg, err := ParseConfig([]byte(sampleConfigV110Brew))
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+
+	goneat := cfg.Tools["goneat"]
+	if goneat.Install == nil || goneat.Install.PackageManager == nil {
+		t.Fatal("expected package manager config")
+	}
+
+	flags := goneat.Install.PackageManager.Flags
+	if len(flags) != 1 {
+		t.Fatalf("expected 1 flag, got %d", len(flags))
+	}
+
+	if flags[0] != "--quiet" {
+		t.Fatalf("expected --quiet flag, got %s", flags[0])
+	}
+}
+
+// TestBackwardCompatibilityV100 tests that v1.0.0 install_commands still work
+func TestBackwardCompatibilityV100(t *testing.T) {
+	cfg, err := ParseConfig([]byte(sampleConfigV100Legacy))
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+
+	tool, ok := cfg.Tools["ripgrep"]
+	if !ok {
+		t.Fatal("ripgrep tool not found")
+	}
+
+	// v1.0.0 uses install_commands, not install
+	if tool.Install != nil {
+		t.Fatal("expected nil install for v1.0.0 config")
+	}
+
+	if len(tool.InstallCommands) == 0 {
+		t.Fatal("expected install_commands to be populated")
+	}
+
+	if tool.InstallCommands["darwin"] != "brew install ripgrep" {
+		t.Fatalf("unexpected darwin install command: %s", tool.InstallCommands["darwin"])
+	}
+}
+
+// TestSchemaValidationV110 tests schema validation for v1.1.0 configs
+func TestSchemaValidationV110(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name:    "valid_brew_formula",
+			config:  sampleConfigV110Brew,
+			wantErr: false,
+		},
+		{
+			name:    "valid_scoop",
+			config:  sampleConfigV110Scoop,
+			wantErr: false,
+		},
+		{
+			name:    "valid_v1.0.0_legacy",
+			config:  sampleConfigV100Legacy,
+			wantErr: false,
+		},
+		{
+			name: "invalid_missing_manager",
+			config: `scopes:
+  test:
+    description: "Test"
+    tools: ["tool1"]
+tools:
+  tool1:
+    name: "tool1"
+    description: "Test tool"
+    kind: "system"
+    detect_command: "tool1 --version"
+    install:
+      type: package_manager
+      package_manager:
+        package: "tool1"`,
+			wantErr: true,
+			errMsg:  "manager",
+		},
+		{
+			name: "invalid_missing_package",
+			config: `scopes:
+  test:
+    description: "Test"
+    tools: ["tool1"]
+tools:
+  tool1:
+    name: "tool1"
+    description: "Test tool"
+    kind: "system"
+    detect_command: "tool1 --version"
+    install:
+      type: package_manager
+      package_manager:
+        manager: brew`,
+			wantErr: true,
+			errMsg:  "package",
+		},
+		{
+			name: "invalid_scoop_with_tap",
+			config: `scopes:
+  test:
+    description: "Test"
+    tools: ["tool1"]
+tools:
+  tool1:
+    name: "tool1"
+    description: "Test tool"
+    kind: "system"
+    detect_command: "tool1 --version"
+    install:
+      type: package_manager
+      package_manager:
+        manager: scoop
+        tap: fulmenhq/tap
+        package: tool1`,
+			wantErr: true,
+			errMsg:  "tap",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateBytes([]byte(tc.config))
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected validation error, got nil")
+				}
+				if tc.errMsg != "" && !strings.Contains(err.Error(), tc.errMsg) {
+					t.Fatalf("expected error containing %q, got: %v", tc.errMsg, err)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected validation error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// TestBrewTapParsing tests that brew tap field is correctly parsed
+func TestBrewTapParsing(t *testing.T) {
+	cfg, err := ParseConfig([]byte(sampleConfigV110Brew))
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+
+	goneat := cfg.Tools["goneat"]
+	if goneat.Install == nil || goneat.Install.PackageManager == nil {
+		t.Fatal("expected package manager config")
+	}
+
+	if goneat.Install.PackageManager.Tap != "fulmenhq/homebrew-tap" {
+		t.Fatalf("expected tap fulmenhq/homebrew-tap, got %s", goneat.Install.PackageManager.Tap)
+	}
+}
+
+// TestScoopBucketParsing tests that scoop bucket field is correctly parsed
+func TestScoopBucketParsing(t *testing.T) {
+	cfg, err := ParseConfig([]byte(sampleConfigV110Scoop))
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+
+	rg := cfg.Tools["ripgrep"]
+	if rg.Install == nil || rg.Install.PackageManager == nil {
+		t.Fatal("expected package manager config")
+	}
+
+	if rg.Install.PackageManager.Bucket != "main" {
+		t.Fatalf("expected bucket main, got %s", rg.Install.PackageManager.Bucket)
 	}
 }

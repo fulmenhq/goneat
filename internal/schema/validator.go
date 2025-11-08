@@ -36,6 +36,7 @@ func init() {
 		"goneat-config-v1.0.0": "embedded_schemas/config/goneat-config-v1.0.0.yaml",
 		"dates":                "embedded_schemas/schemas/config/dates.yaml",
 		"tools-config-v1.0.0":  "embedded_schemas/schemas/tools/v1.0.0/tools-config.yaml",
+		"tools-config-v1.1.0":  "embedded_schemas/schemas/tools/v1.1.0/tools-config.yaml",
 		// Add more as needed
 	}
 	for name, path := range known {
@@ -72,6 +73,27 @@ func init() {
 	}
 }
 
+// improveErrorMessage translates cryptic JSON Schema validator messages into more actionable ones.
+func improveErrorMessage(path, message, schemaName string) string {
+	// Detect mutual exclusivity violations in tools-config schemas
+	if path == "tools.badtool" || len(path) > 6 && path[:6] == "tools." {
+		if message == "Must not validate the schema (not)" {
+			return "Both 'install' and 'install_commands' cannot be present (mutually exclusive). Use only 'install' for v1.1.0+ package managers, or only 'install_commands' for legacy scripts. See schema: " + schemaName
+		}
+		if message == "Additional property install is not allowed" {
+			return "The 'install' property requires schema v1.1.0+. Either upgrade to v1.1.0 schema or use 'install_commands' instead. See schema: " + schemaName
+		}
+	}
+
+	// Generic improvement for "not" schema failures
+	if message == "Must not validate the schema (not)" {
+		return message + " (Schema constraint violation - check for mutually exclusive properties or invalid combinations)"
+	}
+
+	// Return original message if no improvement available
+	return message
+}
+
 // Validate validates data (interface{}) against the named schema.
 func Validate(data interface{}, schemaName string) (*Result, error) {
 	schema, ok := registry[schemaName]
@@ -92,9 +114,11 @@ func Validate(data interface{}, schemaName string) (*Result, error) {
 			if field == "" {
 				field = "root"
 			}
+			originalMsg := verr.Description()
+			improvedMsg := improveErrorMessage(field, originalMsg, schemaName)
 			res.Errors = append(res.Errors, ValidationError{
 				Path:    field,
-				Message: verr.Description(),
+				Message: improvedMsg,
 			})
 		}
 	}

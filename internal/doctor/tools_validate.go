@@ -18,8 +18,8 @@ func ValidateToolsConfig(configBytes []byte) error {
 		return fmt.Errorf("yaml parse error: %w", err)
 	}
 
-	// Validate against schema
-	result, err := schema.Validate(configData, "tools-config-v1.0.0")
+	// Validate against v1.1.0 schema (backward compatible with v1.0.0)
+	result, err := schema.Validate(configData, "tools-config-v1.1.0")
 	if err != nil {
 		return fmt.Errorf("schema validation error: %w", err)
 	}
