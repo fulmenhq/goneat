@@ -4,9 +4,9 @@
 
 set -e
 
-# Get version from VERSION file
+# Get version from VERSION file (already contains 'v' prefix)
 VERSION=$(cat VERSION)
-echo "🔨 Building goneat v$VERSION for all platforms..."
+echo "🔨 Building goneat $VERSION for all platforms..."
 
 # Ensure embedded assets are synced from SSOT
 echo "📦 Syncing embedded assets (templates/, schemas/)..."
