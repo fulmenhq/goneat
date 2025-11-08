@@ -127,7 +127,7 @@ func syncSource(source Source, opts SyncOptions, result *SyncResult) error {
 	}
 
 	// Capture metadata for this source
-	metadata, err := captureSourceMetadata(source, *resolved, outputs)
+	metadata, err := captureSourceMetadata(source, *resolved, outputs, opts)
 	if err != nil {
 		logger.Debug(fmt.Sprintf("Failed to capture metadata for %s: %v", source.Name, err))
 	} else {

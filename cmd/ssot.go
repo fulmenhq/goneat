@@ -28,14 +28,17 @@ Examples:
   # Sync with local override path
   goneat ssot sync --local-path ../crucible
 
+  # Force remote sync (ignore local auto-detection)
+  goneat ssot sync --force-remote
+
   # Dry run to see what would be synced
   goneat ssot sync --dry-run
 
 Configuration Priority:
-  1. Command-line flags (--local-path)
+  1. Command-line flags (--local-path takes precedence, --force-remote disables detection)
   2. .goneat/ssot-consumer.local.yaml (gitignored, for local dev)
   3. .goneat/ssot-consumer.yaml (production config, committed)
-  4. Environment variables (GONEAT_SSOT_CONSUMER_<SOURCE>_LOCAL_PATH)
+  4. Environment variables (GONEAT_SSOT_CONSUMER_<SOURCE>_LOCAL_PATH, GONEAT_FORCE_REMOTE_SYNC)
 `,
 }
 
@@ -66,9 +69,10 @@ Exit Codes:
 }
 
 var (
-	flagSSOTLocalPath string
-	flagSSOTDryRun    bool
-	flagSSOTVerbose   bool
+	flagSSOTLocalPath   string
+	flagSSOTForceRemote bool
+	flagSSOTDryRun      bool
+	flagSSOTVerbose     bool
 )
 
 func init() {
@@ -86,11 +90,17 @@ func init() {
 
 	// Flags for sync subcommand
 	ssotSyncCmd.Flags().StringVar(&flagSSOTLocalPath, "local-path", "", "Local path to source repository (overrides config)")
+	ssotSyncCmd.Flags().BoolVar(&flagSSOTForceRemote, "force-remote", false, "Force remote sync, ignore local auto-detection (v0.3.4+)")
 	ssotSyncCmd.Flags().BoolVar(&flagSSOTDryRun, "dry-run", false, "Show what would be synced without performing sync")
 	ssotSyncCmd.Flags().BoolVar(&flagSSOTVerbose, "verbose", false, "Show verbose output including file-level operations")
 }
 
 func runSSOTSync(cmd *cobra.Command, args []string) error {
+	// Validate flag conflicts
+	if flagSSOTLocalPath != "" && flagSSOTForceRemote {
+		return fmt.Errorf("cannot use --local-path and --force-remote together (mutually exclusive)")
+	}
+
 	// Load configuration with local override support
 	config, err := ssot.LoadSyncConfig()
 	if err != nil {
@@ -107,17 +117,32 @@ func runSSOTSync(cmd *cobra.Command, args []string) error {
 		logger.Info(fmt.Sprintf("Using local path override: %s", flagSSOTLocalPath))
 	}
 
+	// Apply force-remote flag
+	if flagSSOTForceRemote {
+		for i := range config.Sources {
+			config.Sources[i].ForceRemote = true
+		}
+		logger.Info("Force remote mode enabled: ignoring local auto-detection for all sources")
+	}
+
 	// Validate source exists
 	if err := ssot.ValidateSource(config); err != nil {
 		logger.Error(fmt.Sprintf("Source validation failed: %v", err))
 		return fmt.Errorf("source not found: %w", err)
 	}
 
+	// Determine force-remote source for provenance
+	forceRemoteBy := ""
+	if flagSSOTForceRemote {
+		forceRemoteBy = "flag"
+	}
+
 	// Perform sync
 	opts := ssot.SyncOptions{
-		Config:  config,
-		DryRun:  flagSSOTDryRun,
-		Verbose: flagSSOTVerbose,
+		Config:        config,
+		DryRun:        flagSSOTDryRun,
+		Verbose:       flagSSOTVerbose,
+		ForceRemoteBy: forceRemoteBy,
 	}
 
 	result, err := ssot.PerformSync(opts)

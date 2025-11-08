@@ -448,7 +448,7 @@ func TestPerSourceConfigOverrides(t *testing.T) {
 
 		outputs := map[string]string{"docs": "docs/test"}
 
-		metadata, err := captureSourceMetadata(source, resolved, outputs)
+		metadata, err := captureSourceMetadata(source, resolved, outputs, SyncOptions{})
 		require.NoError(t, err)
 
 		assert.Equal(t, "custom-v1.0.0", metadata.Version)

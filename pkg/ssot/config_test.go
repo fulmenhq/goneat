@@ -136,3 +136,153 @@ func TestLoadSyncConfig_EnvOverride(t *testing.T) {
 		t.Fatalf("env override mismatch: got %s want %s", got, want)
 	}
 }
+
+// TestForceRemote_ConfigFile tests force_remote from config file
+func TestForceRemote_ConfigFile(t *testing.T) {
+	configWithForceRemote := `version: v1.1.0
+
+sources:
+  - name: crucible
+    repo: fulmenhq/crucible
+    ref: main
+    force_remote: true
+    sync_path_base: lang/go
+    assets:
+      - type: doc
+        paths:
+          - docs/**/*
+        subdir: docs/crucible-go
+
+strategy:
+  on_conflict: overwrite
+`
+
+	tmp := t.TempDir()
+	writeFile(t, tmp, ".goneat/ssot-consumer.yaml", configWithForceRemote)
+
+	restore := withWorkingDir(t, tmp)
+	defer restore()
+
+	cfg, err := LoadSyncConfig()
+	if err != nil {
+		t.Fatalf("LoadSyncConfig() error = %v", err)
+	}
+
+	source := cfg.Sources[0]
+	if !source.ForceRemote {
+		t.Fatalf("expected ForceRemote=true from config, got false")
+	}
+}
+
+// TestForceRemote_EnvironmentVariable tests GONEAT_FORCE_REMOTE_SYNC env var
+func TestForceRemote_EnvironmentVariable(t *testing.T) {
+	tmp := t.TempDir()
+	writeFile(t, tmp, ".goneat/ssot-consumer.yaml", primaryConfig)
+
+	restore := withWorkingDir(t, tmp)
+	defer restore()
+
+	// Set environment variable
+	t.Setenv("GONEAT_FORCE_REMOTE_SYNC", "1")
+
+	cfg, err := LoadSyncConfig()
+	if err != nil {
+		t.Fatalf("LoadSyncConfig() error = %v", err)
+	}
+
+	source := cfg.Sources[0]
+	if !source.ForceRemote {
+		t.Fatalf("expected ForceRemote=true from env var, got false")
+	}
+}
+
+// TestForceRemote_DisablesAutoDetection tests that force-remote disables auto-detection
+func TestForceRemote_DisablesAutoDetection(t *testing.T) {
+	tmp := t.TempDir()
+	writeFile(t, tmp, ".goneat/ssot-consumer.yaml", primaryConfig)
+
+	// Create ../crucible directory (would normally trigger auto-detection)
+	cruciblePath := filepath.Join(tmp, "../crucible")
+	if err := os.MkdirAll(cruciblePath, 0o755); err != nil {
+		t.Fatalf("mkdir crucible: %v", err)
+	}
+
+	restore := withWorkingDir(t, tmp)
+	defer restore()
+
+	// Set force-remote via environment
+	t.Setenv("GONEAT_FORCE_REMOTE_SYNC", "1")
+
+	cfg, err := LoadSyncConfig()
+	if err != nil {
+		t.Fatalf("LoadSyncConfig() error = %v", err)
+	}
+
+	source := cfg.Sources[0]
+	if !source.ForceRemote {
+		t.Fatalf("expected ForceRemote=true")
+	}
+	// LocalPath should remain empty because force-remote disabled auto-detection
+	if source.LocalPath != "" {
+		t.Fatalf("expected empty LocalPath with force-remote, got %s", source.LocalPath)
+	}
+}
+
+// TestAutoDetection_OnlyWhenLocalYamlPresent tests improved DX:
+// Auto-detection should only run when .local.yaml exists (explicit local dev intent)
+func TestAutoDetection_OnlyWhenLocalYamlPresent(t *testing.T) {
+	t.Run("without_local_yaml_no_autodetect", func(t *testing.T) {
+		tmp := t.TempDir()
+		writeFile(t, tmp, ".goneat/ssot-consumer.yaml", primaryConfig)
+
+		// Create ../crucible directory (would trigger auto-detect in old behavior)
+		cruciblePath := filepath.Join(tmp, "../crucible")
+		if err := os.MkdirAll(cruciblePath, 0o755); err != nil {
+			t.Fatalf("mkdir crucible: %v", err)
+		}
+
+		restore := withWorkingDir(t, tmp)
+		defer restore()
+
+		cfg, err := LoadSyncConfig()
+		if err != nil {
+			t.Fatalf("LoadSyncConfig() error = %v", err)
+		}
+
+		source := cfg.Sources[0]
+		// Without .local.yaml, auto-detection should NOT run (better DX)
+		if source.LocalPath != "" {
+			t.Fatalf("expected empty LocalPath without .local.yaml, got %s (auto-detection should not run)", source.LocalPath)
+		}
+	})
+
+	t.Run("with_local_yaml_autodetects", func(t *testing.T) {
+		tmp := t.TempDir()
+		writeFile(t, tmp, ".goneat/ssot-consumer.yaml", primaryConfig)
+		// Add .local.yaml (signals local dev intent)
+		writeFile(t, tmp, ".goneat/ssot-consumer.local.yaml", `version: v1.1.0
+sources:
+  - name: crucible
+`)
+
+		// Create ../crucible directory
+		cruciblePath := filepath.Join(tmp, "../crucible")
+		if err := os.MkdirAll(cruciblePath, 0o755); err != nil {
+			t.Fatalf("mkdir crucible: %v", err)
+		}
+
+		restore := withWorkingDir(t, tmp)
+		defer restore()
+
+		cfg, err := LoadSyncConfig()
+		if err != nil {
+			t.Fatalf("LoadSyncConfig() error = %v", err)
+		}
+
+		source := cfg.Sources[0]
+		// With .local.yaml present, auto-detection SHOULD run
+		if source.LocalPath != "../crucible" {
+			t.Fatalf("expected auto-detected LocalPath=../crucible with .local.yaml present, got %s", source.LocalPath)
+		}
+	})
+}

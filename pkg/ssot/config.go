@@ -200,11 +200,27 @@ func mergeConfigs(prod, local *SyncConfig) *SyncConfig {
 
 // applyEnvironmentOverrides applies environment variable overrides
 // Environment variables: GONEAT_SSOT_CONSUMER_{SOURCE}_LOCAL_PATH (legacy GONEAT_SSOT_{SOURCE}_LOCAL_PATH / GONEAT_{SOURCE}_LOCAL_PATH)
+// Also checks GONEAT_FORCE_REMOTE_SYNC=1 to disable local auto-detection
 func applyEnvironmentOverrides(config *SyncConfig) *SyncConfig {
+	// Check global force-remote environment variable
+	forceRemoteEnv := os.Getenv("GONEAT_FORCE_REMOTE_SYNC") == "1"
+
 	for i := range config.Sources {
 		source := &config.Sources[i]
 
-		// Check for environment variable override
+		// Apply global force-remote setting from environment if not already set
+		if forceRemoteEnv && !source.ForceRemote {
+			source.ForceRemote = true
+		}
+
+		// If force-remote is enabled, skip all local path detection
+		if source.ForceRemote {
+			// Clear any auto-detected or environment-based local paths
+			// Note: explicit LocalPath from config/CLI is preserved (handled upstream)
+			continue
+		}
+
+		// Check for environment variable override (only if not forcing remote)
 		envKey := strings.ToUpper(strings.ReplaceAll(source.Name, "-", "_"))
 		if envPath := os.Getenv(fmt.Sprintf("GONEAT_SSOT_CONSUMER_%s_LOCAL_PATH", envKey)); envPath != "" {
 			source.LocalPath = envPath
@@ -216,8 +232,15 @@ func applyEnvironmentOverrides(config *SyncConfig) *SyncConfig {
 			}
 		}
 
-		// Convention-based fallback: check for ../crucible (or ../source-name)
-		if source.LocalPath == "" && source.Repo != "" {
+		// Convention-based auto-detection: check for ../crucible (or ../source-name)
+		// Only runs when:
+		// 1. Not forcing remote
+		// 2. .local.yaml was loaded (config.isLocal is true)
+		// 3. LocalPath is still empty after env var checks
+		//
+		// DX rationale: If .local.yaml doesn't exist, user wants production/remote config.
+		// Auto-detection should only help local development, not override remote intent.
+		if config.isLocal && source.LocalPath == "" && source.Repo != "" {
 			conventionalPath := filepath.Join("..", source.Name)
 			if info, err := os.Stat(conventionalPath); err == nil && info.IsDir() {
 				source.LocalPath = conventionalPath

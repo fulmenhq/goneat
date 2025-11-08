@@ -33,6 +33,8 @@ type SourceMetadata struct {
 	Commit        string            `json:"commit,omitempty" yaml:"commit,omitempty"`
 	Dirty         bool              `json:"dirty,omitempty" yaml:"dirty,omitempty"`
 	DirtyReason   string            `json:"dirty_reason,omitempty" yaml:"dirty_reason,omitempty"`
+	ForcedRemote  bool              `json:"forced_remote,omitempty" yaml:"forced_remote,omitempty"` // v0.3.4+: indicates force-remote was used
+	ForcedBy      string            `json:"forced_by,omitempty" yaml:"forced_by,omitempty"`         // v0.3.4+: "flag", "env", "config"
 	VersionFile   string            `json:"version_file,omitempty" yaml:"version_file,omitempty"`
 	Version       string            `json:"version,omitempty" yaml:"version,omitempty"`
 	VersionSource string            `json:"version_source,omitempty" yaml:"version_source,omitempty"`
@@ -168,7 +170,7 @@ func generateSlug(name string) string {
 }
 
 // captureSourceMetadata captures metadata for a single source
-func captureSourceMetadata(source Source, resolved ResolvedSource, outputs map[string]string) (*SourceMetadata, error) {
+func captureSourceMetadata(source Source, resolved ResolvedSource, outputs map[string]string, opts SyncOptions) (*SourceMetadata, error) {
 	slug := generateSlug(source.Name)
 
 	// Introspect repository - returns repo root for finding VERSION file
@@ -213,6 +215,20 @@ func captureSourceMetadata(source Source, resolved ResolvedSource, outputs map[s
 		repoURL = fmt.Sprintf("https://github.com/%s", source.Repo)
 	}
 
+	// Determine force-remote metadata (v0.3.4+)
+	forcedRemote := source.ForceRemote
+	forcedBy := ""
+	if forcedRemote {
+		// Determine the source of force-remote
+		if opts.ForceRemoteBy != "" {
+			forcedBy = opts.ForceRemoteBy
+		} else if os.Getenv("GONEAT_FORCE_REMOTE_SYNC") == "1" {
+			forcedBy = "env"
+		} else {
+			forcedBy = "config"
+		}
+	}
+
 	return &SourceMetadata{
 		Name:          source.Name,
 		Slug:          slug,
@@ -223,6 +239,8 @@ func captureSourceMetadata(source Source, resolved ResolvedSource, outputs map[s
 		Commit:        commit,
 		Dirty:         dirty,
 		DirtyReason:   dirtyReason,
+		ForcedRemote:  forcedRemote,
+		ForcedBy:      forcedBy,
 		VersionFile:   versionFile,
 		Version:       version,
 		VersionSource: versionSource,

@@ -12,15 +12,16 @@ type SyncConfig struct {
 
 // Source defines a sync source (e.g., crucible repository)
 type Source struct {
-	Name         string               `yaml:"name"`               // Source name (e.g., "crucible")
-	Repo         string               `yaml:"repo"`               // GitHub repo (e.g., "fulmenhq/crucible")
-	Ref          string               `yaml:"ref"`                // Git ref/branch/tag (e.g., "main")
-	LocalPath    string               `yaml:"localPath"`          // Local filesystem path (overrides repo, for dev)
-	SyncPathBase string               `yaml:"sync_path_base"`     // Subpath within repo (e.g., "lang/go")
-	Assets       []Asset              `yaml:"assets"`             // Assets to sync
-	Keys         []string             `yaml:"keys"`               // Optional catalog keys
-	Output       string               `yaml:"output"`             // Optional destination root
-	Metadata     SourceMetadataConfig `yaml:"metadata,omitempty"` // Metadata generation config (v0.3.0+)
+	Name         string               `yaml:"name"`                   // Source name (e.g., "crucible")
+	Repo         string               `yaml:"repo"`                   // GitHub repo (e.g., "fulmenhq/crucible")
+	Ref          string               `yaml:"ref"`                    // Git ref/branch/tag (e.g., "main")
+	LocalPath    string               `yaml:"localPath"`              // Local filesystem path (overrides repo, for dev)
+	ForceRemote  bool                 `yaml:"force_remote,omitempty"` // Disable local detection, always use remote (v0.3.4+)
+	SyncPathBase string               `yaml:"sync_path_base"`         // Subpath within repo (e.g., "lang/go")
+	Assets       []Asset              `yaml:"assets"`                 // Assets to sync
+	Keys         []string             `yaml:"keys"`                   // Optional catalog keys
+	Output       string               `yaml:"output"`                 // Optional destination root
+	Metadata     SourceMetadataConfig `yaml:"metadata,omitempty"`     // Metadata generation config (v0.3.0+)
 }
 
 // Asset defines what files to sync and where
@@ -43,9 +44,10 @@ type Strategy struct {
 
 // SyncOptions contains runtime options for sync operation
 type SyncOptions struct {
-	Config  *SyncConfig
-	DryRun  bool
-	Verbose bool
+	Config        *SyncConfig
+	DryRun        bool
+	Verbose       bool
+	ForceRemoteBy string // Track how force-remote was activated: "flag", "env", "config", "" (v0.3.4+)
 }
 
 // SyncResult contains the results of a sync operation
