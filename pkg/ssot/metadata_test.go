@@ -152,7 +152,7 @@ func TestProvenanceJSONMarshaling(t *testing.T) {
 		Schema: SchemaDescriptor{
 			Name:    "goneat.ssot.provenance",
 			Version: "v1",
-			URL:     "https://github.com/fulmenhq/crucible/schemas/content/ssot-provenance/v1.0.0/ssot-provenance.schema.json",
+			URL:     "https://github.com/fulmenhq/crucible/schemas/content/ssot-provenance/v1.1.0/ssot-provenance.schema.json",
 		},
 		GeneratedAt: mustParseTime("2025-10-27T18:00:00Z"),
 		Sources: []SourceMetadata{
@@ -183,7 +183,7 @@ func TestWriteAggregateProvenance(t *testing.T) {
 			Schema: SchemaDescriptor{
 				Name:    "goneat.ssot.provenance",
 				Version: "v1",
-				URL:     "https://github.com/fulmenhq/crucible/schemas/content/ssot-provenance/v1.0.0/ssot-provenance.schema.json",
+				URL:     "https://github.com/fulmenhq/crucible/schemas/content/ssot-provenance/v1.1.0/ssot-provenance.schema.json",
 			},
 			GeneratedAt: mustParseTime("2025-10-27T18:00:00Z"),
 			Sources:     []SourceMetadata{{Name: "test", Slug: "test", Method: "local_path"}},
@@ -205,7 +205,7 @@ func TestWriteAggregateProvenance(t *testing.T) {
 			Schema: SchemaDescriptor{
 				Name:    "goneat.ssot.provenance",
 				Version: "v1",
-				URL:     "https://github.com/fulmenhq/crucible/schemas/content/ssot-provenance/v1.0.0/ssot-provenance.schema.json",
+				URL:     "https://github.com/fulmenhq/crucible/schemas/content/ssot-provenance/v1.1.0/ssot-provenance.schema.json",
 			},
 			GeneratedAt: mustParseTime("2025-10-27T18:00:00Z"),
 			Sources:     []SourceMetadata{{Name: "test", Slug: "test", Method: "local_path"}},
@@ -292,7 +292,7 @@ func TestProvenanceSchemaValidation(t *testing.T) {
 		Schema: SchemaDescriptor{
 			Name:    "goneat.ssot.provenance",
 			Version: "v1",
-			URL:     "https://github.com/fulmenhq/crucible/schemas/content/ssot-provenance/v1.0.0/ssot-provenance.schema.json",
+			URL:     "https://github.com/fulmenhq/crucible/schemas/content/ssot-provenance/v1.1.0/ssot-provenance.schema.json",
 		},
 		GeneratedAt: time.Now().UTC(),
 		Sources: []SourceMetadata{
@@ -340,7 +340,7 @@ func TestSourceMetadataSchemaValidation(t *testing.T) {
 		Schema: SchemaDescriptor{
 			Name:    "goneat.ssot.source-metadata",
 			Version: "v1",
-			URL:     "https://github.com/fulmenhq/goneat/schemas/ssot/source-metadata.v1.json",
+			URL:     "https://github.com/fulmenhq/goneat/schemas/ssot/source-metadata.v1.1.0.json",
 		},
 		GeneratedAt: time.Now().UTC(),
 		Sources: []SourceMetadata{
@@ -378,7 +378,7 @@ func TestSourceMetadataSchemaValidation(t *testing.T) {
 func TestSchemaMetaValidation(t *testing.T) {
 	t.Run("provenance schema validates against meta-schema", func(t *testing.T) {
 		// Read provenance schema
-		schemaPath := "../../schemas/crucible-go/content/ssot-provenance/v1.0.0/ssot-provenance.schema.json"
+		schemaPath := "../../schemas/crucible-go/content/ssot-provenance/v1.1.0/ssot-provenance.schema.json"
 		if _, err := os.Stat(schemaPath); os.IsNotExist(err) {
 			t.Skip("Schema file not found at expected path")
 		}
@@ -401,7 +401,7 @@ func TestSchemaMetaValidation(t *testing.T) {
 
 	t.Run("source-metadata schema validates against meta-schema", func(t *testing.T) {
 		// Read source-metadata schema
-		schemaPath := "../../schemas/ssot/source-metadata.v1.json"
+		schemaPath := "../../schemas/ssot/source-metadata.v1.1.0.json"
 		if _, err := os.Stat(schemaPath); os.IsNotExist(err) {
 			t.Skip("Schema file not found at expected path")
 		}

@@ -32,6 +32,7 @@ sources:
   - name: crucible
     repo: fulmenhq/crucible
     ref: main
+    force_remote: false  # Optional: disable auto-detection for this source (v0.3.4+)
     sync_path_base: lang/go
     assets:
       - type: doc
@@ -43,6 +44,22 @@ sources:
           - schemas/**/*
         subdir: schemas/crucible-go
 ```
+
+**Force Remote Config Option (v0.3.4+)**
+
+Add `force_remote: true` to a source to permanently disable auto-detection:
+
+```yaml
+sources:
+  - name: crucible
+    repo: fulmenhq/crucible
+    ref: v0.2.8
+    force_remote: true  # Always use remote, never auto-detect local paths
+    sync_path_base: lang/go
+    assets: [...]
+```
+
+This is useful for CI environments or projects that always want remote syncs.
 
 Local override (`.goneat/ssot-consumer.local.yaml`) can contain only the fields necessary for a developer override:
 
@@ -70,23 +87,46 @@ goneat ssot sync --verbose
 
 # Override source path for all sources from the CLI
 goneat ssot sync --local-path ../crucible
+
+# Force remote sync (ignore local auto-detection) - v0.3.4+
+goneat ssot sync --force-remote
+
+# Force remote via environment variable
+GONEAT_FORCE_REMOTE_SYNC=1 goneat ssot sync
 ```
 
 Command options:
 
-| Flag           | Description                                                            |
-| -------------- | ---------------------------------------------------------------------- |
-| `--local-path` | Force all sources to read from the provided path (highest precedence). |
-| `--dry-run`    | Show planned operations without copying files.                         |
-| `--verbose`    | Emit per-file copy/link operations.                                    |
+| Flag             | Description                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------- |
+| `--local-path`   | Force all sources to read from the provided path (highest precedence).                                  |
+| `--force-remote` | Force remote sync for all sources, disable local auto-detection (v0.3.4+). Mutually exclusive with `--local-path`. |
+| `--dry-run`      | Show planned operations without copying files.                                                          |
+| `--verbose`      | Emit per-file copy/link operations.                                                                     |
 
 ## Configuration Precedence
 
-1. **Command-line flags** (e.g., `--local-path`).
-2. **Environment variables** (`GONEAT_SSOT_CONSUMER_<SOURCE>_LOCAL_PATH`).
+1. **Command-line flags** (e.g., `--local-path` or `--force-remote`).
+2. **Environment variables**:
+   - `GONEAT_FORCE_REMOTE_SYNC=1` - Disable local auto-detection (v0.3.4+)
+   - `GONEAT_SSOT_CONSUMER_<SOURCE>_LOCAL_PATH` - Override source path
 3. **Local override** (`.goneat/ssot-consumer.local.yaml`).
 4. **Primary manifest** (`.goneat/ssot-consumer.yaml`).
-5. **Convention-based fallback** (`../<source>` when a repo is declared but no path override is provided).
+5. **Convention-based auto-detection** (`../<source>` directory) - **only runs when `.local.yaml` exists** (v0.3.4+).
+
+### Auto-Detection Behavior (v0.3.4+)
+
+**Improved DX**: Auto-detection now only runs when `.goneat/ssot-consumer.local.yaml` exists, signaling local development intent.
+
+- **`.local.yaml` present** → Auto-detection enabled: checks for `../<source>` directories
+- **`.local.yaml` absent** → No auto-detection: uses production config (remote repos/refs)
+
+This eliminates the need for `--force-remote` in the common case where you want to use the committed configuration.
+
+**Example: TSFulmen Remote Sync**
+
+Previously, removing `.local.yaml` was insufficient - auto-detection still ran if `../crucible` existed.
+Now, simply archive/delete `.local.yaml` and `goneat ssot sync` will use the remote config.
 
 ## Schema & Validation
 
@@ -203,12 +243,31 @@ sources:
       "ref": "main",
       "commit": "b64d22a0f0f94e4f1f128172c04fd166cf255056",
       "dirty": false,
+      "forced_remote": false,
       "version": "2025.10.2",
       "version_source": "VERSION",
       "outputs": {
         "docs": "docs/crucible-go",
         "schemas": "schemas/crucible-go"
       }
+    }
+  ]
+}
+```
+
+**Example with Force Remote** (v0.3.4+):
+
+```json
+{
+  "sources": [
+    {
+      "name": "crucible",
+      "method": "git_clone",
+      "repo_url": "https://github.com/fulmenhq/crucible",
+      "ref": "v0.2.8",
+      "commit": "abc123...",
+      "forced_remote": true,
+      "forced_by": "flag"
     }
   ]
 }
@@ -239,20 +298,22 @@ outputs:
 
 ### Metadata Fields
 
-| Field            | Description                                                   |
-| ---------------- | ------------------------------------------------------------- |
-| `name`           | Source name from manifest                                     |
-| `slug`           | URL-safe slug (lowercase, hyphens)                            |
-| `method`         | Sync method: `local_path`, `git_ref`, `git_tag`, or `archive` |
-| `repo_url`       | Repository URL (https://github.com/org/repo)                  |
-| `local_path`     | Local filesystem path used                                    |
-| `ref`            | Git branch/tag                                                |
-| `commit`         | Full 40-character Git commit SHA                              |
-| `dirty`          | Whether source had uncommitted changes                        |
-| `dirty_reason`   | Reason for dirty state: `worktree-dirty`, `non-git`, etc.     |
-| `version`        | Version detected from VERSION file                            |
-| `version_source` | Source of version: filename or `not-found`                    |
-| `outputs`        | Map of asset type to destination path                         |
+| Field            | Description                                                              |
+| ---------------- | ------------------------------------------------------------------------ |
+| `name`           | Source name from manifest                                                |
+| `slug`           | URL-safe slug (lowercase, hyphens)                                       |
+| `method`         | Sync method: `local_path`, `git_ref`, `git_tag`, or `archive`            |
+| `repo_url`       | Repository URL (https://github.com/org/repo)                             |
+| `local_path`     | Local filesystem path used                                               |
+| `ref`            | Git branch/tag                                                           |
+| `commit`         | Full 40-character Git commit SHA                                         |
+| `dirty`          | Whether source had uncommitted changes                                   |
+| `dirty_reason`   | Reason for dirty state: `worktree-dirty`, `non-git`, etc.                |
+| `forced_remote`  | Whether force-remote was used (v0.3.4+)                                  |
+| `forced_by`      | How force-remote was activated: `flag`, `env`, or `config` (v0.3.4+)    |
+| `version`        | Version detected from VERSION file                                       |
+| `version_source` | Source of version: filename or `not-found`                               |
+| `outputs`        | Map of asset type to destination path                                    |
 
 ### Programmatic Access
 

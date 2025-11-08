@@ -254,7 +254,7 @@ func buildProvenance(sources []SourceMetadata) *Provenance {
 		Schema: SchemaDescriptor{
 			Name:    "goneat.ssot.provenance",
 			Version: "v1",
-			URL:     "https://github.com/fulmenhq/crucible/schemas/content/ssot-provenance/v1.0.0/ssot-provenance.schema.json",
+			URL:     "https://github.com/fulmenhq/crucible/schemas/content/ssot-provenance/v1.1.0/ssot-provenance.schema.json",
 		},
 		GeneratedAt: time.Now().UTC(),
 		Sources:     sources,
@@ -330,7 +330,7 @@ func writePerSourceMirror(source *SourceMetadata, format string, sourceConfig *S
 		Schema: SchemaDescriptor{
 			Name:    "goneat.ssot.source-metadata",
 			Version: "v1",
-			URL:     "https://github.com/fulmenhq/goneat/schemas/ssot/source-metadata.v1.json",
+			URL:     "https://github.com/fulmenhq/goneat/schemas/ssot/source-metadata.v1.1.0.json",
 		},
 		GeneratedAt: time.Now().UTC(),
 		Sources:     []SourceMetadata{*source},
