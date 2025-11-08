@@ -65,8 +65,9 @@ FulmenHQ repositories use standardized versioning strategies to provide clear, p
 
 **Examples:**
 
-- `crucible` - Standards and schema SSOT
 - `fulmen-cosmography` - Galaxy taxonomy and documentation
+
+**Note**: Crucible originally used CalVer but transitioned to SemVer (v0.2.0) for Go module compatibility. See [ADR-0010](../architecture/decisions/ADR-0010-semantic-versioning-adoption.md) for the decision rationale.
 
 **Benefits over SemVer for content:**
 
@@ -392,21 +393,23 @@ bun run version:embed       # Embeds in source files
 bun run build               # Builds with embedded version
 ```
 
-### CalVer Implementation: Crucible
+### SemVer Implementation: Crucible (Post-Transition)
 
-**Repository**: `crucible`  
-**Strategy**: CalVer  
+**Repository**: `crucible`
+**Strategy**: SemVer (transitioned from CalVer at v0.2.0)
 **Pattern**: VERSION file with asset revision tracking
 
 ```bash
-VERSION file: 2025.10.0
+VERSION file: 0.2.1
 
 # Schemas track independent versions:
 schemas/terminal/v1.0.0/schema.json (revision 3)
 schemas/pathfinder/v1.0.0/schema.json (revision 1)
 
-# Repository version = release snapshot
+# Repository version = release snapshot with Go module compatibility
 ```
+
+**Historical Note**: Crucible originally used CalVer (`2025.10.x`) but adopted SemVer for Go module compatibility per [ADR-0010](../architecture/decisions/ADR-0010-semantic-versioning-adoption.md). CalVer tags (v2025.10.1-v2025.10.5) were retroactively mapped to SemVer equivalents (v0.1.0-v0.1.4).
 
 ---
 

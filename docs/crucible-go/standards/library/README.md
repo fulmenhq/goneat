@@ -25,8 +25,19 @@ expectations, and references to machine-readable schemas.
   - `ssot-sync.md` – SSOT synchronization workflow using FulDX consumer manifests.
 - `extensions/` – Optional modules (cloud storage, pathfinder, ascii helpers, …).
 - `foundry/`
-  - `README.md` – Shared pattern/catalog data (regex/glob, HTTP statuses, country codes, MIME types).
+  - `README.md` – Shared pattern/catalog data (regex/glob, HTTP statuses, country codes, MIME types, exit codes).
   - `interfaces.md` – Required helper interfaces (pattern accessors, MIME detection, etc.).
+- **Web Styling** (v0.2.3+)
+  - Schema-driven branding and styling for web templates (Forge Codex Pulsar and future web forges)
+  - See `docs/architecture/fulmen-web-styling.md` for implementation guide
+  - Schemas: `schemas/web/branding/v1.0.0/`, `schemas/web/styling/v1.0.0/`
+  - Configs: `config/web/branding/`, `config/web/styling/`
+- **Server Management** (v0.2.3+)
+  - Server orchestration for local dev, testing, and preview environments (dev, test, a11y, preview, prod_like)
+  - See `modules/server-management.md` for module specification
+  - See `docs/architecture/fulmen-server-management.md` for architecture guide
+  - Schema: `schem../protocol/management/v1.0.0/server-management.schema.json`
+  - Config: `conf../protocol/management/server-management.yaml`
 
 > Observability logging remains under `docs/standards/observability/`. Module specs reference that standard to
 > avoid duplicating cross-cutting requirements.

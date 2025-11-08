@@ -47,10 +47,10 @@ project/
 ## HTTP Server (Fastify)
 
 - Use **Fastify** (`fastify@^5`) with `@fastify/ajv-compiler` for schema validation.
-- Register routes under `/api/v1/*` and health endpoints at `/health/live`, `/health/ready`, `/health/startup`.
+- Register routes under../protocol/v1/\*`and health endpoints at`/health/live`, `/health/ready`, `/health/startup`.
 - Expose `/metrics` using `@fastify/metrics` (Prometheus format).
 - Integrate logging via `pino` with serializers that emit Crucible-compliant log events.
-- Example bootstrap (`src/server/http.ts`):
+- Example bootstrap (`s../protocol/http.ts`):
 
 ```ts
 import fastify from "fastify";
@@ -67,7 +67,7 @@ export async function createServer() {
 ## gRPC (Optional)
 
 - Use `@grpc/grpc-js` + `@grpc/proto-loader` for runtime; generate TypeScript types with `ts-proto` or `protobufjs`.
-- Implement services in `src/server/grpc.ts`, sharing core logic with HTTP handlers.
+- Implement services in `s../protocol/grpc.ts`, sharing core logic with HTTP handlers.
 - Expose standard health service (`grpc.health.v1.Health`) alongside custom services.
 - Propagate correlation IDs via metadata keys `x-request-id` and `x-correlation-id`.
 
@@ -106,7 +106,7 @@ export async function createServer() {
 
 ## References
 
-- `docs/standards/api/http-rest-standards.md`
-- `docs/standards/api/grpc-standards.md`
+- `docs/standards/protocol/http-rest-standards.md`
+- `docs/standards/protocol/grpc-standards.md`
 - `docs/standards/library/README.md` (module spec index)
 - `docs/standards/observability/logging.md`

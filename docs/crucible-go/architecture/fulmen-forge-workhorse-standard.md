@@ -12,7 +12,7 @@ tags: ["architecture", "forge", "workhorse", "template", "2025.10.2"]
 
 This document defines the standardized structure and pre-integrated capabilities for Fulmen Workhorse forges. Workhorse forges provide production-ready templates for robust, general-purpose applications (e.g., servers, workers, long-running processes) that require reliable tooling out-of-the-box. They embody the CRDL philosophy (Clone → Degit → Refit → Launch) and align with the repository category taxonomy (`workhorse` key from [category-key.schema.json](schemas/taxonomy/repository-category/v1.0.0/category-key.schema.json)).
 
-Workhorse forges are distinguished from other categories (e.g., `cli` for command-line tools, `service` for microservices) by their focus on durable, scalable backends with emphasis on observability, config management, and error resilience. The prototype `forge-cli-pecan` evolves into `forge-workhorse-pecan` as the first canonical implementation, using tree-themed naming (`pecan` for workhorse) to delineate types without implying hierarchy.
+Workhorse forges are distinguished from other categories (e.g., `cli` for command-line tools, `service` for microservices) by their focus on durable, scalable backends with emphasis on observability, config management, and error resilience. Canonical implementations use horse breed names (`groningen` for Go, `percheron` for Python) to identify language-specific variants while maintaining consistent standards across the ecosystem.
 
 The canonical list of forge categories and statuses is maintained in the [Repository Category Taxonomy](schemas/taxonomy/repository-category/v1.0.0/README.md); consult that before proposing new forges or changing lifecycle states.
 
@@ -25,6 +25,145 @@ Core philosophy: Ship "batteries-included" templates that handle 80% of boilerpl
 **CDRL Guide**: Users follow Clone → Degit → Refit → Launch; see `docs/development/fulmen_cdrl_guide.md` for details. During refit, users rename the breed identifier (e.g., `groningen` → `myapi`) throughout the codebase.
 
 Implementers MUST comply with ecosystem standards in Crucible's `docs/standards/` (e.g., coding conventions, API patterns, repository structure) to ensure consistency.
+
+## Required Library Modules
+
+Workhorse forges MUST integrate these Fulmen helper library modules to ensure ecosystem compliance. All modules are accessed via the language-specific helper library (e.g., gofulmen, pyfulmen, tsfulmen) - no direct Crucible dependencies. Each module reference includes the compliance requirement (REQUIRED vs RECOMMENDED) and links to canonical specifications.
+
+### Core Identity & Configuration Modules
+
+1. **App Identity Module** (REQUIRED)
+   - **Purpose**: Standardized application metadata (binary name, vendor, environment prefix)
+   - **Spec**: [App Identity Module](../standards/library/modules/app-identity.md)
+   - **Compliance**: MUST implement `.fulmen/app.yaml` with:
+     - `binary_name`: Breed name for template (users rename during CDRL refit)
+     - `vendor`: Default `fulmenhq` (users customize)
+     - `env_prefix`: Environment variable prefix (e.g., `PERCHERON_`)
+     - `config_name`: Config directory name (usually same as binary_name)
+   - **Helper API**: `app_identity.load()` → AppIdentity object
+   - **Addresses Gap**: Binary name parameterization (see percheron workhorse-standard-gaps.md)
+   - **CDRL Workflow**: Users update `.fulmen/app.yaml` FIRST, then run `make validate-app-identity` to find hardcoded references
+
+2. **Crucible Shim Module** (REQUIRED)
+   - **Purpose**: Access Crucible SSOT assets (schemas, docs, configs) without direct sync
+   - **Spec**: [Crucible Shim](../standards/library/modules/crucible-shim.md)
+   - **Compliance**: Use helper's `crucible.GetSchema()`, `crucible.GetDoc()`, `crucible.GetConfig()`
+   - **Exposure**: `/version` endpoint MUST include Crucible version from `crucible.GetVersion()`
+
+3. **Three-Layer Config Module** (REQUIRED)
+   - **Purpose**: Layered configuration (Crucible defaults → User config → Runtime overrides)
+   - **Spec**: [Three-Layer Config](../standards/library/modules/three-layer-config.md)
+   - **Compliance**:
+     - Layer 1: Crucible defaults via helper (e.g., `workhorse/v1.0.0/defaults`)
+     - Layer 2: User config at `~/.config/{vendor}/{app}/config.yaml`
+     - Layer 3: Runtime dict/env var overrides
+   - **Standard Env Vars** (REQUIRED):
+     - `{PREFIX}PORT` - Server port (default: 8080)
+     - `{PREFIX}HOST` - Server host (default: 0.0.0.0)
+     - `{PREFIX}LOG_LEVEL` - Log level (trace|debug|info|warn|error, default: info)
+     - `{PREFIX}CONFIG_PATH` - Config file path override
+     - `{PREFIX}METRICS_PORT` - Metrics port (optional, default: same as PORT)
+     - `{PREFIX}HEALTH_PORT` - Health port (optional, default: same as PORT)
+   - **Precedence**: CLI flags → Env vars → Config file → Defaults
+
+4. **Config Path API Module** (REQUIRED)
+   - **Purpose**: Discover Fulmen config directories (user, system, app-specific)
+   - **Spec**: [Config Path API](../standards/library/modules/config-path-api.md)
+   - **Compliance**: Use `get_app_config_dir({app_name})` from App Identity for Layer 2 paths
+
+5. **Schema Validation Module** (REQUIRED)
+   - **Purpose**: Runtime validation of configs, requests, responses against Crucible schemas
+   - **Spec**: [Schema Validation](../standards/library/modules/schema-validation.md)
+   - **Compliance**: Validate config files on load, API payloads on ingress
+
+### Observability & Resilience Modules
+
+6. **Telemetry/Metrics Module** (REQUIRED)
+   - **Purpose**: Prometheus-compatible metrics export (counters, gauges, histograms)
+   - **Spec**: [Telemetry/Metrics](../standards/library/modules/telemetry-metrics.md)
+   - **Compliance**:
+     - Implement Prometheus exporter metrics: `prometheus_exporter_refresh_total`, `prometheus_exporter_http_requests_total`, etc.
+     - Auto-emit module metrics (Foundry, Error Handling, FulHash) if modules used
+     - Expose `/metrics` endpoint (Prometheus text format)
+     - Use ADR-0007 histogram buckets
+   - **Application Metrics**: Use binary-prefixed names (e.g., `percheron_task_duration_ms`, `groningen_request_latency_ms`)
+
+7. **Logging Module** (REQUIRED)
+   - **Purpose**: Structured logging with Crucible schema compliance
+   - **Spec**: [Observability Logging](../standards/observability/logging.md)
+   - **Compliance**:
+     - Use SIMPLE or STRUCTURED profile from Crucible logging schemas
+     - Service name from App Identity (`binary_name`)
+     - Default middleware: Request ID correlation, severity mapping
+     - Support `{PREFIX}LOG_LEVEL` env var
+
+8. **Error Handling & Propagation Module** (REQUIRED)
+   - **Purpose**: Standardized error types with severity, correlation, context wrapping
+   - **Spec**: [Error Handling Propagation](../standards/library/modules/error-handling-propagation.md)
+   - **Compliance**:
+     - Use helper's error types (extend Pathfinder patterns)
+     - Wrap errors uniformly for logging/JSON export
+     - Auto-emit `error_handling_wraps_total` metric
+
+9. **Signal Handling Module** (REQUIRED)
+   - **Purpose**: Graceful shutdown, Ctrl+C double-tap, config reload via signals
+   - **Spec**: [Signal Handling](../standards/library/modules/signal-handling.md)
+   - **Compliance**:
+     - Handle SIGTERM/SIGINT (graceful shutdown with cleanup)
+     - Implement Ctrl+C double-tap pattern (2s window, force quit on second)
+     - Support SIGHUP for config reload (validate → restart)
+     - Expose `/admin/signal` HTTP endpoint for containerized environments
+     - Use exit codes from Crucible signals catalog (e.g., SIGTERM=143)
+   - **Runtime Pattern**: Context cancellation, resource cleanup chains
+
+### Content & Documentation Modules
+
+10. **Docscribe Module** (REQUIRED)
+    - **Purpose**: Access Crucible documentation with frontmatter parsing
+    - **Spec**: [Docscribe](../standards/library/modules/docscribe.md)
+    - **Compliance**:
+      - Embed examples via `docscribe.GetDoc(path)`
+      - Optional: `/docs` endpoint for runtime doc serving
+
+### Data Processing Modules (Conditional)
+
+11. **Foundry Module** (RECOMMENDED for data-heavy workhorses)
+    - **Purpose**: Catalogs for country codes, HTTP statuses, MIME types, text similarity
+    - **Spec**: [Foundry Catalogs](../standards/library/foundry/README.md)
+    - **Compliance**: Use `foundry.GetCountryCode()`, `foundry.GetHTTPStatus()`, etc. instead of hardcoded lookups
+    - **Auto-Metrics**: Emits `foundry_mime_detections_total_*`, `foundry_mime_detection_ms_*` if MIME detection used
+
+12. **FulHash Module** (RECOMMENDED for content hashing)
+    - **Purpose**: Standardized hashing (XXH3-128 for performance, SHA256 for security)
+    - **Spec**: [FulHash](../standards/library/modules/fulhash.md)
+    - **Compliance**: Use helper's hash APIs instead of language-native hashlib
+    - **Auto-Metrics**: Emits `fulhash_operations_total_*`, `fulhash_bytes_hashed_total`, `fulhash_operation_ms`
+
+13. **Server Management Module** (RECOMMENDED for complex server orchestration)
+    - **Purpose**: Multi-server orchestration (dev, test, preview, prod-like configs)
+    - **Spec**: [Server Management](../standards/library/modules/server-management.md)
+    - **Compliance**: Use helper's orchestration harness for multi-process coordination
+    - **Use Case**: Workhorses with multiple background services or complex dev environments
+
+### Module Integration Summary
+
+| Module             | Status      | Purpose                                  | Auto-Metrics                       | Spec Link                                                                                   |
+| ------------------ | ----------- | ---------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------- |
+| App Identity       | REQUIRED    | Binary name, env prefix, vendor metadata | None                               | [app-identity.md](../standards/library/modules/app-identity.md)                             |
+| Crucible Shim      | REQUIRED    | SSOT asset access                        | None                               | [crucible-shim.md](../standards/library/modules/crucible-shim.md)                           |
+| Three-Layer Config | REQUIRED    | Layered configuration                    | None                               | [three-layer-config.md](../standards/library/modules/three-layer-config.md)                 |
+| Config Path API    | REQUIRED    | Config directory discovery               | None                               | [config-path-api.md](../standards/library/modules/config-path-api.md)                       |
+| Schema Validation  | REQUIRED    | Runtime schema validation                | None                               | [schema-validation.md](../standards/library/modules/schema-validation.md)                   |
+| Telemetry/Metrics  | REQUIRED    | Prometheus metrics export                | Yes (7 exporter metrics)           | [telemetry-metrics.md](../standards/library/modules/telemetry-metrics.md)                   |
+| Logging            | REQUIRED    | Structured logging                       | None                               | [logging.md](../standards/observability/logging.md)                                         |
+| Error Handling     | REQUIRED    | Error wrapping, propagation              | Yes (`error_handling_wraps_total`) | [error-handling-propagation.md](../standards/library/modules/error-handling-propagation.md) |
+| Signal Handling    | REQUIRED    | Graceful shutdown, signals               | None                               | [signal-handling.md](../standards/library/modules/signal-handling.md)                       |
+| Docscribe          | REQUIRED    | Documentation access                     | None                               | [docscribe.md](../standards/library/modules/docscribe.md)                                   |
+| Foundry            | RECOMMENDED | Catalogs (country, HTTP, MIME)           | Yes (12 MIME detection metrics)    | [foundry/README.md](../standards/library/foundry/README.md)                                 |
+| FulHash            | RECOMMENDED | Content hashing                          | Yes (5 hash operation metrics)     | [fulhash.md](../standards/library/modules/fulhash.md)                                       |
+| Server Management  | RECOMMENDED | Multi-server orchestration               | None                               | [server-management.md](../standards/library/modules/server-management.md)                   |
+
+**Total Auto-Emitted Metrics**: 24 (7 exporter + 1 error handling + 12 MIME + 4 hash) when all modules active.
 
 ## Mandatory Capabilities
 
@@ -90,10 +229,10 @@ Implementers MUST comply with ecosystem standards in Crucible's `docs/standards/
      - `/health`: Liveness/readiness (JSON: `{status: "healthy", version: str}`).
      - `/version`: Full version info (integrate Crucible/SSOT versions from helper).
      - `/metrics`: Prometheus/OpenTelemetry export.
-     - Error responses: JSON per [API HTTP Standards](docs/standards/api/http-rest-standards.md) (e.g., `{error: {code: str, message: str, details: any}}`).
+     - Error responses: JSON per [API HTTP Standards](docs/standards/protocol/http-rest-standards.md) (e.g., `{error: {code: str, message: str, details: any}}`).
      - gRPC: Use proto defs from Crucible schemas; unary/streaming with metadata propagation.
    - **Messages**: Structured payloads validated against schemas (e.g., log events, metrics). Use helper's Foundry for patterns (e.g., HTTP status groups, MIME types).
-   - Refer to [API Standards](docs/standards/api/README.md).
+   - Refer to [API Standards](docs/standards/protocol/README.md).
 
 10. **CLI Surface for Server Invocation**
     - Provide a standard CLI wrapper (e.g., via cobra/click/argparse) for backend server:
@@ -149,30 +288,7 @@ To refactor existing tools like sumpter (Go CLI for data extraction/inspection) 
 
 This refactoring reduces boilerplate, aligns with ecosystem, adds server capabilities without breaking CLI focus.
 
-4. **Observability & Telemetry**
-   - Pre-wire structured logging using Crucible logging schemas (SIMPLE/STRUCTURED profiles).
-   - Integrate metrics export (counters/gauges/histograms) via Telemetry/Metrics module.
-   - Default middleware: Request ID correlation, severity mapping, throttling.
-   - Expose health/version endpoints per API standards.
-   - Refer to [Observability Logging](docs/standards/observability/logging.md) and [Telemetry/Metrics](docs/standards/library/modules/telemetry-metrics.md).
-
-5. **Error Handling & Propagation**
-   - Use standardized error types from Error Handling module (extend Pathfinder with severity/correlation).
-   - Wrap errors uniformly for logging/export (JSON responses for APIs).
-   - Refer to [Error Handling Standard](docs/standards/library/modules/error-handling-propagation.md).
-
-6. **Config Path & Management**
-   - Use Config Path API for discovering Fulmen/app directories.
-   - Pre-load configs via Three-Layer pattern; validate against schemas.
-   - Support env var overrides (e.g., `FULMEN_CONFIG_HOME`).
-   - Refer to [Config Path API](docs/standards/library/modules/config-path-api.md).
-
-7. **Docscribe Module Integration**
-   - Embed examples using docscribe module for frontmatter parsing and clean doc reads.
-   - Include runtime doc serving (e.g., /docs endpoint) for self-documenting apps.
-   - Refer to [Docscribe Standard](docs/standards/library/modules/docscribe.md).
-
-8. **CI/CD & Release Readiness**
+4. **CI/CD & Release Readiness**
    - Include basic GitHub Actions or equivalent for lint/test/build.
    - Pre-commit hooks via goneat (format, validate schemas).
    - Versioning: CalVer support with `make version-bump`.
@@ -184,6 +300,8 @@ Workhorse forges MUST follow this skeleton for consistency (Python example with 
 
 ```
 forge-workhorse-groningen/
+├── .fulmen/                          # Fulmen application metadata (REQUIRED)
+│   └── app.yaml                      # App Identity config (binary name, vendor, env prefix)
 ├── .goneat/                          # Optional DX tooling only
 │   ├── tools.yaml                    # Linting/validation (no SSOT)
 │   └── tools.local.yaml.example      # Local template
@@ -291,6 +409,79 @@ Adapt helper library template:
 
 - Follow fulmen_cdrl_guide.md → `make bootstrap` → `make run`
 ```
+
+## CDRL Compliance
+
+Workhorse forges MUST comply with the [Fulmen Template CDRL Standard](fulmen-template-cdrl-standard.md) to ensure predictable, repeatable customization workflows for downstream users.
+
+### Required CDRL Implementation
+
+1. **App Identity Module** (PRIMARY CUSTOMIZATION POINT)
+   - Implement `.fulmen/app.yaml` as documented in [App Identity Module](../standards/library/modules/app-identity.md)
+   - All parameterization points (binary name, env prefix, config paths, telemetry namespaces) MUST derive from App Identity
+   - No hardcoded breed names in source code (except `.fulmen/app.yaml` itself)
+
+2. **CDRL Validation Targets** (REQUIRED MAKEFILE TARGETS)
+   - Implement `make validate-app-identity` per [Makefile Standard Annex B](../standards/makefile-standard.md#annex-b-template-repository-cdrl-targets)
+   - Implement `make doctor` (or `make validate-cdrl-ready`) for comprehensive refit validation
+   - Both targets MUST be documented in Makefile help output
+
+3. **CDRL Workflow Guide** (REQUIRED DOCUMENTATION)
+   - Provide `docs/development/fulmen_cdrl_guide.md` with template-specific CDRL instructions
+   - Document all parameterization points (binary name, module path, env vars, config files)
+   - Include verification checklist and troubleshooting guide
+   - Link to ecosystem CDRL guide: [CDRL Workflow Guide](../standards/cdrl/workflow-guide.md)
+
+4. **Directory Structure CDRL Readiness**
+   - `.fulmen/app.yaml` MUST exist with breed name as default identity
+   - `.env.example` MUST use breed-prefixed environment variables
+   - `config/{breed}.yaml` MUST be named with breed identifier (users rename during refit)
+   - All config paths MUST derive from App Identity, not hardcoded strings
+
+5. **Bootstrap Script** (RECOMMENDED)
+   - Provide `scripts/bootstrap.py` (Python) or `scripts/bootstrap.ts` (TypeScript) for reproducible tool installation
+   - Implement manifest-driven bootstrap reading `.goneat/tools.yaml` (version-pinned tools)
+   - Integrate with `make bootstrap` target
+   - See [Reference Bootstrap Pattern](../standards/cdrl/reference-bootstrap.md) for implementation guidance
+   - **Note**: Go templates can use native dependency management instead
+
+### CDRL Parameterization Points
+
+Templates MUST document these customization points in their CDRL guide:
+
+- **Binary Name**: CLI commands, HTTP server responses, process names, telemetry service names
+- **Module Path**: `go.mod` module directive, `package.json` name, `pyproject.toml` name
+- **Environment Variables**: All env vars MUST use `{ENV_PREFIX}*` from App Identity
+- **Configuration Paths**: Layer 2 config at `~/.config/{vendor}/{config_name}/config.yaml`
+- **Telemetry Namespaces**: Logging service names, metric prefixes, trace service names
+
+### Validation Requirements
+
+**Pre-Release Gate**: Templates MUST pass all CDRL validation before being published:
+
+```bash
+# Required validation sequence
+make validate-app-identity  # Exit 0: No hardcoded breed names
+make doctor                 # Exit 0: Comprehensive validation passed
+make test                   # Exit 0: All tests pass
+```
+
+**Example Refit Test**: Template maintainers MUST periodically test full CDRL workflow:
+
+1. Clone template to temporary directory
+2. Edit `.fulmen/app.yaml` with test identity (e.g., breed → `testapp`)
+3. Run `make validate-app-identity` → SHOULD detect hardcoded references
+4. Fix all violations
+5. Run `make doctor` → MUST pass
+6. Run `make test` → MUST pass
+7. Run `make build && make run` → MUST work with test identity
+
+### CDRL References
+
+- [Fulmen Template CDRL Standard](fulmen-template-cdrl-standard.md) - Architectural requirements
+- [CDRL Workflow Guide](../standards/cdrl/workflow-guide.md) - User-facing step-by-step instructions
+- [Makefile Standard Annex B](../standards/makefile-standard.md#annex-b-template-repository-cdrl-targets) - Required validation targets
+- [Repository Category Taxonomy](../../config/taxonomy/repository-categories.yaml) - CDRL compliance requirements by category
 
 ## Version Alignment & Lifecycle
 

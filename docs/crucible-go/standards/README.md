@@ -44,7 +44,7 @@ standards/
    - Configuration standards – see [config/README.md](config/README.md)
    - Machine-readable taxonomies – see `config/taxonomy/` (schemas in `schemas/taxonomy/`)
 2. **Agentic Attribution** - How AI agents contribute to projects
-3. **API Standards** - HTTP/REST and gRPC conventions (`docs/standards/api/`)
+3. **API Standards** - HTTP/REST and gRPC conventions (`docs/standards/protocol/`)
 4. **Repository Structure Patterns** - Category taxonomy (`cli`, `workhorse`, `codex`, etc.) and language variants
 5. **Coding Standards** - Language-specific best practices
    - Go standards for all Go projects

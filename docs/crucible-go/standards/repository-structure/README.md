@@ -59,7 +59,7 @@ below.
 - Response schemas: success envelope `{success:boolean,message:string,data?:object}`; error envelope `{error:string,code:string,details?:object}` with RFC 7807 compatibility.
 - Request/trace correlation: accept `X-Request-ID` and `X-Correlation-ID`; generate UUIDv7 identifiers when absent and propagate via logs/traces.
 - gRPC interfaces are OPTIONAL by default; when implemented, they MUST expose health reflection and share core logic with HTTP handlers.
-- HTTP endpoints MUST follow the [HTTP REST Standard](../api/http-rest-standards.md); optional gRPC services follow the [gRPC Standard](../api/grpc-standards.md).
+- HTTP endpoints MUST follow the [HTTP REST Standard](../protocol/http-rest-standards.md); optional gRPC services follow the [gRPC Standard](../protocol/grpc-standards.md).
 
 ### Service (`service`)
 
@@ -67,7 +67,7 @@ below.
 - Graceful shutdown: handle SIGTERM/SIGINT with configurable drain periods.
 - Readiness probes MUST validate dependent services (databases, queues) and degrade gracefully when `critical: false` dependencies fail.
 - Authentication/authorization strategies MUST be documented (e.g., mTLS for gRPC, JWT/OIDC for HTTP). Future security standard will elaborate.
-- MUST comply with both [HTTP REST Standard](../api/http-rest-standards.md) and [gRPC Standard](../api/grpc-standards.md) when exposing respective transports.
+- MUST comply with both [HTTP REST Standard](../protocol/http-rest-standards.md) and [gRPC Standard](../protocol/grpc-standards.md) when exposing respective transports.
 
 ### Library (`library`)
 

@@ -18,7 +18,9 @@ sources:
      repo: fulmenhq/crucible
      ref: v0.2.8
      # Without .local.yaml, goneat clones from GitHub (force-remote friendly)
-     sync_path_base: lang/go
+     sync_path_base: .
+     # NOTE: Crucible no longer exports a dedicated lang/go mirror. We sync from repo root for now,
+     # but may switch to consuming gofulmen (or embedding Crucible directly) in a future release.
      assets:
        - type: config
          source_path: config
@@ -28,7 +30,10 @@ sources:
        - type: doc
          source_path: docs
          paths:
-           - '**/*'
+           - standards/**
+           - architecture/**
+           - guides/**
+           - sop/**
          subdir: docs/crucible-go
        - type: schema
          source_path: schemas

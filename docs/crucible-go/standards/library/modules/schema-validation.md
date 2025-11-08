@@ -17,7 +17,7 @@ languages. Ensures applications can enforce SSOT contracts at runtime and during
 
 ## Responsibilities
 
-1. Provide schema lookup APIs keyed by logical identifier (`schemas/api/http/v1.0.0/health-response`).
+1. Provide schema lookup APIs keyed by logical identifier (`schemas/protocol/http/v1.0.0/health-response`).
 2. Support JSON Schema draft 2020-12 validation, delegating to goneat binaries where applicable.
 3. Offer convenience helpers for common operations (validate file, validate string payload, compare schemas).
 4. Emit structured validation errors with location data (pointer, message, severity).

@@ -355,7 +355,7 @@ raise ConfigurationError(f"Failed to load config from {path}") from err
 // Go
 logger.Info("Request processed",
     zap.String("method", "GET"),
-    zap.String("path", "/api/users"),
+    zap.String("path",../protocol/users"),
     zap.Duration("duration", elapsed),
     zap.Int("status", 200),
 )
@@ -365,7 +365,7 @@ logger.Info("Request processed",
 // TypeScript
 logger.info("Request processed", {
   method: "GET",
-  path: "/api/users",
+  path:../protocol/users",
   duration: elapsed,
   status: 200,
 });
@@ -375,7 +375,7 @@ logger.info("Request processed", {
 # Python
 logger.info("Request processed", extra={
     "method": "GET",
-    "path": "/api/users",
+    "path":../protocol/users",
     "duration": elapsed,
     "status": 200
 })
@@ -399,7 +399,7 @@ logger.info("Request processed", extra={
   "message": "Request processed",
   "context": {
     "method": "GET",
-    "path": "/api/users",
+    "path":../protocol/users",
     "duration_ms": 45,
     "status": 200
   }

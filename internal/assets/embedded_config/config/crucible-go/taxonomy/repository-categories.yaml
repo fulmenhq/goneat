@@ -19,7 +19,10 @@ categories:
     typicalConsumers:
       - "Operations automation"
       - "MCP servers"
-    notes: "Requires request correlation IDs and Prometheus metrics"
+    notes: "Requires request correlation IDs and Prometheus metrics. Templates (forge-workhorse-*) must comply with CDRL standard."
+    references:
+      - "docs/architecture/fulmen-forge-workhorse-standard.md"
+      - "docs/architecture/fulmen-template-cdrl-standard.md"
   - key: service
     summary: "Long-running HTTP/gRPC services without interactive CLI UX"
     primaryEntryPoints:
@@ -54,7 +57,10 @@ categories:
     typicalConsumers:
       - "Fulmen developers"
       - "External stakeholders"
-    notes: "Generated assets must trace back to committed source"
+    notes: "Generated assets must trace back to committed source. Templates (forge-codex-*) must comply with CDRL standard."
+    references:
+      - "docs/architecture/fulmen-forge-codex-standard.md"
+      - "docs/architecture/fulmen-template-cdrl-standard.md"
   - key: sdk
     summary: "Client SDKs targeting external services or APIs"
     primaryEntryPoints:
@@ -64,3 +70,46 @@ categories:
       - "External developers"
       - "Partner integrations"
     notes: "Ship compatibility matrix and error taxonomy"
+  - key: forge-workhorse
+    summary: "Production-ready templates for backend services (Clone → Degit → Refit → Launch)"
+    primaryEntryPoints:
+      - "Template repository (GitHub)"
+      - "CDRL workflow (Clone → Degit → Refit → Launch)"
+      - "make validate-app-identity"
+      - "make doctor"
+    typicalConsumers:
+      - "Developers building new services"
+      - "Teams standardizing on Fulmen stack"
+    notes: "MUST comply with CDRL standard. Named with horse breeds (groningen, percheron). REQUIRED: .fulmen/app.yaml, CDRL validation targets, fulmen_cdrl_guide.md"
+    references:
+      - "docs/architecture/fulmen-forge-workhorse-standard.md"
+      - "docs/architecture/fulmen-template-cdrl-standard.md"
+      - "docs/standards/cdrl/workflow-guide.md"
+      - "docs/standards/makefile-standard.md#annex-b-template-repository-cdrl-targets"
+  - key: forge-codex
+    summary: "Production-ready templates for documentation sites (Clone → Degit → Refit → Launch)"
+    primaryEntryPoints:
+      - "Template repository (GitHub)"
+      - "CDRL workflow (Clone → Degit → Refit → Launch)"
+      - "make validate-app-identity"
+      - "make doctor"
+    typicalConsumers:
+      - "Developers building documentation portals"
+      - "Teams creating schema registries"
+    notes: "MUST comply with CDRL standard. REQUIRED: .fulmen/app.yaml, CDRL validation targets, fulmen_cdrl_guide.md. Astro/Starlight baseline."
+    references:
+      - "docs/architecture/fulmen-forge-codex-standard.md"
+      - "docs/architecture/fulmen-template-cdrl-standard.md"
+      - "docs/standards/cdrl/workflow-guide.md"
+      - "docs/standards/makefile-standard.md#annex-b-template-repository-cdrl-targets"
+  - key: forge-gymnasium
+    summary: "Experimental templates for prototyping and research (CDRL optional until graduation)"
+    primaryEntryPoints:
+      - "Template repository (GitHub)"
+      - "Experimental workflows"
+    typicalConsumers:
+      - "Researchers"
+      - "Prototype developers"
+    notes: "Experimental template category. May graduate to forge-workhorse or forge-codex upon maturity. CDRL compliance RECOMMENDED but not required until stable."
+    references:
+      - "docs/architecture/fulmen-template-cdrl-standard.md"

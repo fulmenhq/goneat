@@ -18,6 +18,32 @@ $defs:
       - logging_emit_count
       - logging_emit_latency_ms
       - goneat_command_duration_ms
+      - prometheus_exporter_refresh_duration_seconds
+      - prometheus_exporter_refresh_total
+      - prometheus_exporter_refresh_errors_total
+      - prometheus_exporter_refresh_inflight
+      - prometheus_exporter_http_requests_total
+      - prometheus_exporter_http_errors_total
+      - prometheus_exporter_restarts_total
+      - foundry_mime_detections_total_json
+      - foundry_mime_detections_total_xml
+      - foundry_mime_detections_total_yaml
+      - foundry_mime_detections_total_csv
+      - foundry_mime_detections_total_plain_text
+      - foundry_mime_detections_total_unknown
+      - foundry_mime_detection_ms_json
+      - foundry_mime_detection_ms_xml
+      - foundry_mime_detection_ms_yaml
+      - foundry_mime_detection_ms_csv
+      - foundry_mime_detection_ms_plain_text
+      - foundry_mime_detection_ms_unknown
+      - error_handling_wraps_total
+      - error_handling_wrap_ms
+      - fulhash_operations_total_xxh3_128
+      - fulhash_operations_total_sha256
+      - fulhash_hash_string_total
+      - fulhash_bytes_hashed_total
+      - fulhash_operation_ms
   metricUnit:
     type: string
     enum:
@@ -25,11 +51,12 @@ $defs:
       - ms
       - bytes
       - percent
+      - s
 properties:
   version:
     type: string
-    description: Taxonomy version (CalVer).
-    pattern: "^\\d{4}\\.\\d{2}\\.\\d+$"
+    description: Taxonomy version (SemVer, aligned with Crucible releases).
+    pattern: "^\\d+\\.\\d+\\.\\d+$"
   defaults:
     type: object
     description: Default configuration applied across metrics.
@@ -66,7 +93,7 @@ required:
   - version
   - metrics
 additionalProperties: false
-version: "2025.10.3"
+version: "0.2.8"
 defaults:
   histogram_buckets:
     ms_metrics:
@@ -113,3 +140,132 @@ metrics:
   - name: goneat_command_duration_ms
     unit: ms
     description: Duration of goneat command execution (instrumentation helper).
+  - name: prometheus_exporter_refresh_duration_seconds
+    unit: s
+    description: >
+      Time to refresh/export registry data into Prometheus collectors. Uses ADR-0007 buckets converted to seconds: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0]. Required labels: phase (collect|convert|export), result (success|error). Optional labels: error_type.
+
+  - name: prometheus_exporter_refresh_total
+    unit: count
+    description: >
+      Total refresh cycles attempted. Use with result label for success/error breakdown. Exporters SHOULD emit both this and prometheus_exporter_refresh_errors_total. Required labels: result (success|error). Optional labels: error_type.
+
+  - name: prometheus_exporter_refresh_errors_total
+    unit: count
+    description: >
+      Failed refresh cycles with detailed error classification. Sum MUST equal prometheus_exporter_refresh_total{result="error"}. Required labels: error_type (validation|io|timeout|other). Optional labels: phase.
+
+  - name: prometheus_exporter_refresh_inflight
+    unit: count
+    description: >
+      Number of concurrent refresh operations currently running. Optional labels: phase.
+
+  - name: prometheus_exporter_http_requests_total
+    unit: count
+    description: >
+      HTTP scrape/exposition requests handled by exporter. Distinct from prom-client defaults; recommend disabling client defaults when using this. Required labels: status (HTTP code), path. Optional labels: client (high cardinality warning).
+
+  - name: prometheus_exporter_http_errors_total
+    unit: count
+    description: >
+      HTTP exposition failures (5xx, auth failures, timeouts). Required labels: status (HTTP code), path. Optional labels: client (high cardinality warning).
+
+  - name: prometheus_exporter_restarts_total
+    unit: count
+    description: >
+      Exporter refresh loop or HTTP server restarts. Required labels: reason (config_change|error|manual|other).
+
+  - name: foundry_mime_detections_total_json
+    unit: count
+    description: >
+      Total JSON MIME type detections performed by the Foundry module. Tracks usage patterns for JSON content processing.
+
+  - name: foundry_mime_detections_total_xml
+    unit: count
+    description: >
+      Total XML MIME type detections performed by the Foundry module. Tracks usage patterns for XML content processing.
+
+  - name: foundry_mime_detections_total_yaml
+    unit: count
+    description: >
+      Total YAML MIME type detections performed by the Foundry module. Tracks usage patterns for YAML content processing.
+
+  - name: foundry_mime_detections_total_csv
+    unit: count
+    description: >
+      Total CSV MIME type detections performed by the Foundry module. Tracks usage patterns for CSV content processing.
+
+  - name: foundry_mime_detections_total_plain_text
+    unit: count
+    description: >
+      Total plain text MIME type detections performed by the Foundry module. Tracks usage patterns for plain text content processing.
+
+  - name: foundry_mime_detections_total_unknown
+    unit: count
+    description: >
+      Total unknown/binary MIME type detections performed by the Foundry module. Tracks usage patterns for unknown content types.
+
+  - name: foundry_mime_detection_ms_json
+    unit: ms
+    description: >
+      JSON MIME type detection latency in milliseconds. Uses ADR-0007 buckets: [1, 5, 10, 50, 100, 500, 1000, 5000, 10000]. Enables performance analysis for JSON detection algorithms.
+
+  - name: foundry_mime_detection_ms_xml
+    unit: ms
+    description: >
+      XML MIME type detection latency in milliseconds. Uses ADR-0007 buckets: [1, 5, 10, 50, 100, 500, 1000, 5000, 10000]. Enables performance analysis for XML detection algorithms.
+
+  - name: foundry_mime_detection_ms_yaml
+    unit: ms
+    description: >
+      YAML MIME type detection latency in milliseconds. Uses ADR-0007 buckets: [1, 5, 10, 50, 100, 500, 1000, 5000, 10000]. Enables performance analysis for YAML detection algorithms.
+
+  - name: foundry_mime_detection_ms_csv
+    unit: ms
+    description: >
+      CSV MIME type detection latency in milliseconds. Uses ADR-0007 buckets: [1, 5, 10, 50, 100, 500, 1000, 5000, 10000]. Enables performance analysis for CSV detection algorithms.
+
+  - name: foundry_mime_detection_ms_plain_text
+    unit: ms
+    description: >
+      Plain text MIME type detection latency in milliseconds. Uses ADR-0007 buckets: [1, 5, 10, 50, 100, 500, 1000, 5000, 10000]. Enables performance analysis for plain text detection algorithms.
+
+  - name: foundry_mime_detection_ms_unknown
+    unit: ms
+    description: >
+      Unknown/binary MIME type detection latency in milliseconds. Uses ADR-0007 buckets: [1, 5, 10, 50, 100, 500, 1000, 5000, 10000]. Enables performance analysis for fallback detection logic.
+
+  - name: error_handling_wraps_total
+    unit: count
+    description: >
+      Total error wrap operations performed by the Error Handling module. Tracks error handling patterns and frequency across the application.
+
+  - name: error_handling_wrap_ms
+    unit: ms
+    description: >
+      Error wrap operation latency in milliseconds. Uses ADR-0007 buckets: [1, 5, 10, 50, 100, 500, 1000, 5000, 10000]. Enables detection of error handling performance regressions.
+
+  - name: fulhash_operations_total_xxh3_128
+    unit: count
+    description: >
+      Total XXH3-128 hash operations performed by the FulHash module. Tracks usage of the fast, non-cryptographic hash algorithm for performance-oriented scenarios.
+
+  - name: fulhash_operations_total_sha256
+    unit: count
+    description: >
+      Total SHA256 hash operations performed by the FulHash module. Tracks usage of the cryptographic hash algorithm for security-oriented scenarios.
+
+  - name: fulhash_hash_string_total
+    unit: count
+    description: >
+      Total string hash operations performed by the FulHash module (any algorithm). Tracks the common use case of hashing string data.
+
+  - name: fulhash_bytes_hashed_total
+    unit: bytes
+    description: >
+      Total bytes processed across all hash operations by the FulHash module. Counter value represents cumulative byte count. Enables capacity planning and throughput analysis.
+
+  - name: fulhash_operation_ms
+    unit: ms
+    description: >
+      Hash operation latency in milliseconds for all algorithms. Uses ADR-0007 buckets: [1, 5, 10, 50, 100, 500, 1000, 5000, 10000]. Enables performance benchmarking across XXH3-128 and SHA256.

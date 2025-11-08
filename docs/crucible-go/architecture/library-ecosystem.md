@@ -1,118 +1,114 @@
 ---
 title: "Fulmen Library Ecosystem"
-description: "Architecture overview of shared standards, data repos, and language foundations"
-author: "Codex Assistant"
-date: "2025-10-02"
-last_updated: "2025-10-02"
-status: "draft"
-tags: ["architecture", "ecosystem", "libraries", "observability"]
+description: "Overview of Layer 1 foundations, SSOT integration, and ecosystem dependencies"
+author: "Schema Cartographer"
+date: "2025-10-28"
+last_updated: "2025-10-28"
+status: "active"
+tags: ["architecture", "ecosystem", "libraries", "layer-1", "observability"]
 ---
 
 # Fulmen Library Ecosystem
 
 ## Overview
 
-FulmenHQ maintains a constellation of repositories that separate concerns between source-of-truth assets, language-specific foundations, and application/tooling consumers. This document maps those relationships so maintainers understand how to compose dependencies without creating cycles.
+The Fulmen library ecosystem centers on Layer 1 foundations (`*fulmen` packages), which wrap Layer 0 SSOT assets (Crucible schemas/standards) for idiomatic use. This prevents direct SSOT imports, ensuring type safety and consistency while avoiding cycles. Libraries enable Layers 2-4 (templates, tools, apps) to consume shared capabilities like observability and config paths.
 
 ```
-SSOT Repositories          Language Foundations            Consumers / Tools
---------------------------------------------------------------------------------
-crucible  ──┐
-            ├──▶ gofulmen ─────┐
-cosmography ─┘                 │
-                                ├──▶ Application repos (fulward, etc.)
-                                └──▶ Tooling (goneat CLI)
+Fulmen Layer Cake (Library Focus)
 
-crucible ──┐
-            ├──▶ tsfulmen ─────▶ Web/Node services
-cosmography ─┘
+Layer 0: SSOT (Crucible, Cosmography) ──┐
+                                        ├──▶ Layer 1: Foundations (*fulmen)
+                                        │     ├── gofulmen (Go)
+                                        │     ├── pyfulmen (Python)
+                                        │     ├── tsfulmen (TS/JS)
+                                        │     └── {rsfulmen, csfulmen} (Planned)
+                                        │
+                                        └──▶ Layer 2-4: Consumers
+                                              ├── Templates (Fulmens: cockpit, runner-forge)
+                                              ├── Tools (goneat, fulward, pathfinder)
+                                              └── Apps (brooklyn-mcp, sumpter)
 ```
 
-- **SSOT Repositories** (e.g., `crucible`, `cosmography`) contain standards, schemas, documentation, and templates.
-- **Language Foundations** (`gofulmen`, `tsfulmen`, future `{lang}fulmen`) provide ergonomic APIs that wrap SSOT assets for a given language.
-- **Consumers** (Fulward, goneat, services) depend on the foundation layer rather than importing SSOT repos directly.
+- **Layer 0 (SSOT)**: Crucible holds schemas, standards, docs; Cosmography (planned) adds data modeling.
+- **Layer 1 (Foundations)**: `*fulmen` packages provide language-native APIs for SSOT assets (e.g., schema validation, logging).
+- **Consumers (Layers 2-4)**: Depend on foundations, not raw SSOT, for ergonomic access and principle enforcement (e.g., type safety, observability).
 
 ## Repository Roles
 
 ### Language Foundations Taxonomy
 
-The Fulmen foundation libraries follow a shared roadmap and identity schema. This table captures the
-canonical language set so downstream standards stay aligned during the v2025.10.2 cycle.
+Layer 1 libraries follow a shared roadmap, aligning with Core Fulmen Principles (e.g., type safety, schemas first). This table lists canonical support for 2025.10.4+.
 
-| Language   | Library Name | Status  | Minimum Runtime | Notes                                                         |
-| ---------- | ------------ | ------- | --------------- | ------------------------------------------------------------- |
-| Go         | gofulmen     | Active  | Go 1.23+        | Reference implementation for helper standards                 |
-| Python     | pyfulmen     | Active  | Python 3.12+    | Productionizing logging/context upgrades in 2025.10.2         |
-| TypeScript | tsfulmen     | Active  | TypeScript 5.0+ | Ships Bun/Node-compatible bundles with ESM as default         |
-| Rust       | rsfulmen     | Planned | Rust 1.70+      | Specification work begins once logging/core modules stabilize |
-| C#         | csfulmen     | Planned | .NET 8.0+       | Targets ASP.NET + worker scenarios after rust foundation      |
+| Language   | Library Name | Status  | Minimum Runtime    | Notes                                                                 |
+| ---------- | ------------ | ------- | ------------------ | --------------------------------------------------------------------- |
+| Go         | gofulmen     | Active  | Go 1.23+           | Reference for standards; implements config paths, observability.      |
+| Python     | pyfulmen     | Active  | Python 3.12+       | Focus on logging/context; Pydantic for schema validation.             |
+| TypeScript | tsfulmen     | Active  | TS 5.0+ (Bun/Node) | ESM bundles; Zod for runtime types; aligns with web/service patterns. |
+| Rust       | rsfulmen     | Planned | Rust 1.70+         | Post-stabilization; serd/serde for schemas.                           |
+| C#         | csfulmen     | Planned | .NET 8.0+          | For ASP.NET/workers; nullable types for safety.                       |
 
-The table replaces ad-hoc language lists in individual feature briefs. Any future additions (e.g., Java,
-Ruby) must update this canonical source before new standards reference them. The machine-readable registry
-for tooling lives at `config/taxonomy/languages.yaml`, and category-specific repository expectations are
-documented in `docs/standards/repository-structure/README.md`.
+Updates sync from `config/taxonomy/languages.yaml`. New languages require principle-aligned modules (e.g., observability) before standards reference them. See `docs/standards/repository-structure/` for repo expectations.
 
-### Crucible
+### Crucible (Layer 0 SSOT)
 
-- SSOT for standards, schemas, templates, documentation.
-- Provides Go/TypeScript packages but intended primarily as asset store.
-- Observability/logging standards live under `docs/standards/observability/`.
+- Authoritative source for schemas (e.g., observability, pathfinder), standards (coding, security), docs, and configs.
+- Foundations import/embed assets (e.g., via sync scripts); not direct consumer dependency.
+- Ties to Principles: "Schemas First," "Observability from Day One." Observability under `docs/standards/observability/`.
 
-### Cosmography (planned reuse)
+### Cosmography (Planned Layer 0 Extension)
 
-- Analogous SSOT for data modeling / topology assets.
+- Upcoming SSOT for data modeling, topology, and domain-specific schemas (e.g., entity relationships).
+- Foundations will wrap for language-native access, extending "Schemas First" to complex data.
 
-### gofulmen
+### gofulmen (Go Foundation, Layer 1)
 
-- Go foundation: exposes typed access to Crucible/other SSOT assets.
-- Houses reusable libraries (logging, schemas, pathfinder, config paths, etc.).
-- Implements the shared config-path API (`config.GetAppConfigDir`, etc.) defined in the Fulmen Config Path Standard.
-- Should not import consumer tools (e.g., goneat) to avoid cycles.
+- Provides idiomatic Go APIs for Layer 0 assets (e.g., schema validation, logging via Crucible).
+- Core modules: config paths (per Fulmen Config Path Standard), observability, Foundry catalogs.
+- Avoids cycles: No imports from Layer 3+ (e.g., goneat as CLI only).
+- Aligns with Principles: "Type Safety," "DRY with Purpose" via reusable structs/enums.
 
-### tsfulmen
+### tsfulmen (TypeScript Foundation, Layer 1)
 
-- TypeScript foundation mirroring gofulmen capabilities.
+- Mirrors gofulmen: Native TS/JS APIs for schemas, logging, config (Zod for validation).
+- Supports Bun/Node; ESM bundles for web/services.
+- Principles: "Ruthless About Type Safety" (strict TS), "Observability from Day One" (pre-wired metrics).
 
-### goneat
+### pyfulmen (Python Foundation, Layer 1)
 
-- CLI tooling (format, lint, security) depending on gofulmen/Crucible.
-- Not imported as a library; accessed as external tool (CLI).
+- Idiomatic Python APIs for Layer 0 (Pydantic for schemas, logging adapters).
+- Focus: Context management, observability; aligns with Python typing standards.
+- Principles: "Schemas First" (runtime validation), "Persnickety About Code" (ruff integration via goneat).
+
+### goneat (Layer 3 Tool, Not Library)
+
+- CLI for quality (format, lint, validation); depends on gofulmen for assets.
+- External binary only—no library imports to avoid cycles.
+- Enforces Principles: "Persnickety About Code" via hooks; integrates with fulward for security.
 
 ## Namespace Patterns
 
-To keep imports clear:
+Adopt Option B for clarity: Direct SSOT nesting (e.g., `gofulmen/crucible/logging`) with `foundation/` for cross-SSOT utilities (e.g., `foundation/config/paths`).
 
-- Reserve top-level package name (e.g., `gofulmen/pathfinder`, `gofulmen/observability/logging`).
-- Nest SSOT-specific wrappers under namespace reflecting origin, e.g., `gofulmen/crucible/logging` or `gofulmen/foundations/crucible/logging`. Decision pending; see "Namespace Decision" below.
-- Provide convenience re-exports for frequently used assets.
-
-## Namespace Decision (Pending)
-
-**Option A:** `foundation/crucible/logging`, `foundation/cosmography/*`
-
-- Pros: groups all SSOT adapters under foundation.
-- Cons: deeper import path.
-
-**Option B:** `crucible/logging`, `cosmography/*`
-
-- Pros: shorter imports, obvious source.
-- Cons: mixing root packages for assets and non-asset utilities.
-
-**Recommendation:** adopt Option B for clarity (`gofulmen/crucible/logging`, `gofulmen/cosmography/maps`), reserving `foundation/` for language-level utilities (e.g., `foundation/config/paths`) that aggregate cross-SSOT helpers such as the config-path API. Decision to be confirmed with gofulmen maintainers.
+- Top-level: Reserve for core (e.g., `gofulmen/pathfinder`).
+- Re-exports: Convenience for common assets (e.g., `gofulmen/logging` → Crucible schemas).
+- Benefits: Short, source-obvious imports; supports "Simplicity" principle without deep nesting.
 
 ## Packaging Guidance
 
-- Consumers depend on gofulmen/tsfulmen.
-- Foundations pin compatible Crucible versions internally.
-- Tools like goneat are adopted as external binaries via manifests (see `.goneat/tools.yaml`).
+- Layers 2-4 depend on `*fulmen` (Layer 1) for assets; pin via CalVer (e.g., `gofulmen@v2025.10.4`).
+- Foundations embed/sync Layer 0 (Crucible) versions internally.
+- Tools (Layer 3, e.g., goneat) as external CLIs via manifests (`.goneat/tools.yaml`); no lib deps to prevent cycles.
+- Principles Tie-In: Ensures "Type Safety" and "DRY" through reusable, versioned APIs.
 
 ## Related Docs
 
-- [Crucible Pseudo-Monorepo Playbook](pseudo-monorepo.md)
-- [Crucible Sync Model](sync-model.md)
+- [Fulmen Layer Cake Guide](fulmen-ecosystem-guide.md)
+- [Technical Manifesto (Principles)](fulmen-technical-manifesto.md)
+- [Helper Library Standard](fulmen-helper-library-standard.md)
+- [Config Path Standard](../standards/config/fulmen-config-paths.md)
 - [Makefile Standard](../standards/makefile-standard.md)
-- [Fulmen Config Path Standard](../standards/config/fulmen-config-paths.md)
-- [Fulmen Helper Library Standard](fulmen-helper-library-standard.md)
-- [Fulmen Ecosystem Guide](fulmen-ecosystem-guide.md)
-- [Fulmen Technical Manifesto](fulmen-technical-manifesto.md)
+- [Sync Model](sync-model.md)
+- [Pseudo-Monorepo](pseudo-monorepo.md)
 - [Observability Standards](../standards/observability/README.md)
+- [Repository Structure](../standards/repository-structure/README.md)

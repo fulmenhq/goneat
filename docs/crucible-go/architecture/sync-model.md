@@ -1,22 +1,25 @@
 ---
 title: "Crucible Sync Model Architecture"
-description: "Architecture decision record for how Crucible distributes schemas, docs, and templates"
+description: "Architecture decision record for how Crucible distributes schemas, docs, and config to downstream consumers"
 author: "@3leapsdave"
 date: "2025-10-02"
-last_updated: "2025-10-02"
+last_updated: "2025-11-07"
 status: "approved"
-tags: ["architecture", "adr", "sync", "distribution"]
+tags: ["architecture", "adr", "sync", "distribution", "fuldx"]
 ---
 
 # Crucible Sync Model Architecture
 
 ## Status
 
-**Approved** - 2025-10-02
+**Approved** - 2025-10-02  
+**Updated** - 2025-10-28 (Added Python support, TypeScript scripts, modernized tooling)
 
 ## Context
 
-Crucible serves as the single source of truth (SSOT) for schemas, standards, templates, and documentation across the FulmenHQ ecosystem. We needed to decide how downstream repositories (gofulmen, tsfulmen, tools, Fulmens) would consume these assets.
+Crucible serves as the single source of truth (SSOT) for schemas, standards, config defaults, and documentation across the FulmenHQ ecosystem. We needed to decide how downstream repositories (gofulmen, tsfulmen, pyfulmen, forge repos, tools) would consume these assets.
+
+**Current Implementation**: Dual distribution model—published packages for runtime use, pull scripts for build-time integration. See [Pull Script README](../../scripts/pull/README.md) for usage.
 
 ### Requirements
 
@@ -38,7 +41,7 @@ Crucible serves as the single source of truth (SSOT) for schemas, standards, tem
 
 ## Decision
 
-We will implement a **dual distribution model**:
+We implement a **dual distribution model** for different consumption patterns:
 
 ### 1. Published Packages (Primary for Runtime Use)
 
@@ -58,36 +61,58 @@ import { schemas } from "@fulmenhq/crucible";
 const schema = schemas.terminal.v1_0_0;
 ```
 
+**Python Package**: `fulmenhq-crucible`
+
+```python
+from crucible import schemas
+
+schema = schemas.terminal.v1_0_0
+```
+
 **Characteristics:**
 
 - Monolithic package with internal organization
-- Schemas/docs embedded at build time
+- Schemas/docs/config embedded at build time
 - Versioned with CalVer matching repo VERSION
-- Published to standard registries (Go modules, npm)
+- Published to standard registries (Go modules, npm, PyPI)
 - Tree-shakeable in modern bundlers
 
-### 2. Pull Scripts (Reference for Custom Integration)
+### 2. Pull Script (Primary for Build-Time Asset Integration)
 
 **Bun/TypeScript Script**: `scripts/pull/crucible-pull.ts`
 
-- Cross-platform reference implementation
-- Selective sync of assets
-- Version pinning support
-- Config file driven
-- Copy-and-adapt model
+```bash
+# Copy to your downstream repo
+cp scripts/pull/crucible-pull.ts <your-repo>/scripts/
 
-**Shell Script** (future): `scripts/pull/crucible-pull.sh`
+# Pull assets (selective sync supported)
+bun run scripts/crucible-pull.ts --schemas terminal
+bun run scripts/crucible-pull.ts --version=2025.10.0
+```
 
-- For Go developers who prefer shell
-- Same interface as TypeScript version
-- Minimal dependencies
+**Config File Example** (`.crucible-sync.json`):
+
+```json
+{
+  "version": "2025.10.0",
+  "output": ".crucible",
+  "include": {
+    "schemas": ["terminal", "pathfinder"],
+    "docs": ["standards/coding/go"],
+    "templates": []
+  },
+  "gitignore": true
+}
+```
 
 **Characteristics:**
 
-- Downstream repos copy and customize
-- Not prescriptive on output paths (`.crucible/` vs `crucible/`)
+- Copy-and-adapt model (customize in your repo)
+- Selective sync of assets
+- Version pinning support
+- Config file driven
 - Supports both gitignored and committed patterns
-- Explicit version tracking via `.crucible-version`
+- Explicit version tracking via `.crucible-version` file
 
 ## Architecture
 
@@ -104,43 +129,77 @@ crucible/
 │   ├── standards/
 │   ├── guides/
 │   └── architecture/
-├── templates/                   # SSOT templates
-├── lang/                        # Language wrappers
+├── config/                      # SSOT configuration defaults
+│   ├── sync/
+│   │   └── sync-keys.yaml      # Registered sync keys for FulDX
+│   ├── library/
+│   └── terminal/
+├── lang/                        # Language wrappers (internal)
 │   ├── go/                     # Go package
-│   │   ├── schemas.go          # Embedded schemas
-│   │   ├── docs.go             # Embedded docs
+│   │   ├── schemas/            # Synced from root
+│   │   ├── docs/               # Synced from root
+│   │   ├── config/             # Synced from root
+│   │   ├── schemas.go          # Embedded access
 │   │   └── go.mod
-│   └── typescript/             # TypeScript package
-│       ├── src/
-│       │   ├── schemas.ts      # Embedded schemas
-│       │   └── docs.ts         # Embedded docs
-│       └── package.json
+│   ├── typescript/             # TypeScript package
+│   │   ├── schemas/            # Synced from root
+│   │   ├── docs/               # Synced from root
+│   │   ├── config/             # Synced from root
+│   │   └── package.json
+│   └── python/                 # Python package
+│       ├── schemas/            # Synced from root
+│       ├── docs/               # Synced from root
+│       ├── config/             # Synced from root
+│       └── pyproject.toml
 └── scripts/
-    ├── sync-to-lang.sh         # Internal: sync root -> lang/
+    ├── sync-to-lang.ts         # Internal: sync root → lang/
+    ├── bootstrap-tools.ts      # Installs goneat/fuldx to ./bin/
     └── pull/
-        ├── crucible-pull.ts    # Reference: for downstream
-        └── README.md
+        └── crucible-pull.ts    # Legacy reference (use FulDX instead)
 ```
 
 ### Build Process
 
 **Pre-publish (internal to crucible):**
 
-1. **Update root assets** (schemas/, docs/, templates/)
-2. **Bump VERSION** to new CalVer
-3. **Sync to language wrappers**:
+1. **Bootstrap tools** (if needed):
    ```bash
-   # Internal sync script
-   scripts/sync-to-lang.sh
-   # Copies schemas/ → lang/go/schemas/
-   # Copies schemas/ → lang/typescript/schemas/
+   make bootstrap
+   # Installs goneat and other tools to ./bin/
+   # See docs/guides/bootstrap-goneat.md for details
+   ```
+2. **Update root assets** (schemas/, docs/, config/)
+3. **Bump VERSION** to new SemVer
+4. **Sync to language wrappers** (two-stage pipeline):
+   ```bash
+   make sync
+   # Runs: bun run scripts/sync-to-lang.ts
+   #
+   # STAGE 1 - SNAPSHOT GENERATION:
+   # - Regenerates JSON snapshots from YAML catalogs
+   # - config/library/foundry/exit-codes.snapshot.json (from exit-codes.yaml)
+   # - config/library/foundry/simplified-modes.snapshot.json
+   # - Ensures snapshots are fresh before codegen
+   #
+   # STAGE 2 - CODE GENERATION & SYNC:
+   # - Generates language-native bindings from fresh snapshots
+   # - foundry/exit_codes.go
+   # - lang/python/src/crucible/foundry/exit_codes.py
+   # - lang/typescript/src/foundry/exitCodes.ts
+   # - Copies schemas/ → lang/go/schemas/ (via go:embed, no file copy)
+   # - Copies schemas/ → lang/typescript/schemas/
+   # - Copies schemas/ → lang/python/schemas/
    # Copies docs/ → lang/go/docs/
    # Copies docs/ → lang/typescript/docs/
+   # Copies docs/ → lang/python/docs/
+   # Copies config/ → lang/go/config/
+   # Copies config/ → lang/typescript/config/
+   # Copies config/ → lang/python/config/
    ```
-4. **Embed in packages**:
+5. **Embed in packages**:
    - Go: `//go:embed` directives compile schemas into binary
    - TypeScript: Build process bundles schemas as constants/JSON
-5. **Publish packages**:
+6. **Publish packages**:
 
    ```bash
    # Go: automatic via GitHub (git tag triggers module update)
@@ -157,31 +216,51 @@ crucible/
 **Pattern A: Use Published Package (Runtime)**
 
 ```typescript
-// In gofulmen or other tool
+// In gofulmen, forge repos, or application code
 import { schemas } from "@fulmenhq/crucible";
 
 // Schemas are embedded, no file I/O needed
 const terminalSchema = schemas.terminal.v1_0_0;
 ```
 
-**Pattern B: Use Pull Script (Build-Time)**
+**Best for**: Runtime schema access, type generation, validation in application code.
+
+**Pattern B: Use Pull Script (Build-Time Integration)**
 
 ```bash
-# In Fulmen template repo
-bun run scripts/crucible-pull.ts --templates
-# Pulls templates/ into .crucible/templates/
-# Used during project scaffolding
+# In downstream repo (gofulmen, tsfulmen, forge repos)
+
+# 1. Copy pull script (first time)
+cp scripts/pull/crucible-pull.ts <your-repo>/scripts/
+
+# 2. Configure what to sync (.crucible-sync.json)
+# See scripts/pull/README.md
+
+# 3. Pull assets from Crucible SSOT
+bun run scripts/crucible-pull.ts --version=2025.10.0
 ```
 
-**Pattern C: Hybrid**
+**Best for**: Syncing docs, config defaults, or schema source files for code generation, keeping local copies in sync with Crucible releases.
+
+**Pattern C: Hybrid (Recommended for Helper Libraries)**
 
 ```go
 // In gofulmen: use package for runtime access
 import "github.com/fulmenhq/crucible"
 
-// But also pull for development/testing
-// .crucible/schemas/ for validation against source
+// Runtime schemas embedded in package
+schema := crucible.Schemas.Terminal.V1_0_0()
 ```
+
+```bash
+# Also use pull script to sync source assets for:
+# - Code generation from schemas
+# - Keeping docs in sync
+# - Validating against SSOT during development
+bun run scripts/crucible-pull.ts --schemas --docs
+```
+
+**Best for**: Helper libraries that both embed Crucible at runtime AND need source assets for development/code-gen.
 
 ## Consequences
 
@@ -224,36 +303,49 @@ import "github.com/fulmenhq/crucible"
 - Automated update PRs (Dependabot-style)
 - Clear communication of updates via CHANGELOG
 
-## Internal Sync Process
+## Internal Sync Process (Crucible Repository)
 
-### scripts/sync-to-lang.sh
+The internal sync process keeps Crucible's language wrappers (`lang/go/`, `lang/typescript/`, `lang/python/`) in sync with root SSOT assets. This is distinct from **external downstream sync** (how consumers like gofulmen pull from Crucible).
+
+### Bootstrap Tools First
+
+Before syncing, ensure tools are installed:
 
 ```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-
-echo "🔄 Syncing root assets to language wrappers..."
-
-# Sync to Go
-echo "📦 Go wrapper..."
-rsync -av --delete "$ROOT/schemas/" "$ROOT/lang/go/schemas/"
-rsync -av --delete "$ROOT/docs/" "$ROOT/lang/go/docs/"
-
-# Sync to TypeScript
-echo "📦 TypeScript wrapper..."
-rsync -av --delete "$ROOT/schemas/" "$ROOT/lang/typescript/schemas/"
-rsync -av --delete "$ROOT/docs/" "$ROOT/lang/typescript/docs/"
-
-echo "✅ Sync complete"
+make bootstrap
+# Installs goneat, fuldx, and other tools to ./bin/
+# See docs/guides/bootstrap-goneat.md for details
 ```
+
+### scripts/sync-to-lang.ts
+
+```bash
+# Run via Make target
+make sync
+
+# Or directly
+bun run scripts/sync-to-lang.ts
+```
+
+This TypeScript script:
+
+- Copies `schemas/` → `lang/{go,typescript,python}/schemas/`
+- Copies `docs/` → `lang/{go,typescript,python}/docs/`
+- Copies `config/` → `lang/{go,typescript,python}/config/`
+- Preserves directory structure and file metadata
 
 **When to run:**
 
 - Before bumping VERSION
 - Before publishing packages
-- Can be automated in CI/CD
+- Automatically via `make precommit` or `make prepush`
+- In CI/CD validation workflows
+
+**Why TypeScript, not shell?**
+
+- Cross-platform (Windows, macOS, Linux)
+- Safer error handling and path manipulation
+- Consistent with other Crucible tooling (bootstrap, validation)
 
 ### Embedding Strategy
 
@@ -390,8 +482,8 @@ Future: Machine-readable registry of available assets with metadata:
 
 ## References
 
-- [Sync Strategy Guide](../guides/sync-strategy.md) - User-facing documentation
-- [Pull Script README](../../scripts/pull/README.md) - Reference implementation
+- [Pull Script README](../../scripts/pull/README.md) - Reference implementation for downstream sync
+- [Bootstrap Goneat Guide](../guides/bootstrap-goneat.md) - Installing goneat tooling
 - [Repository Versioning Standard](../standards/repository-versioning.md) - CalVer strategy
 
 ## Related Standards

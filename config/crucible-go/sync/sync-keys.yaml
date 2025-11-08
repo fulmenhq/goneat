@@ -62,3 +62,13 @@ keys:
     basePath: schemas/content/embed-manifest/
     recommendedOutput: schemas/content/embed-manifest
     tags: [schemas, content, advanced]
+  - id: crucible.schemas.config.repository.app-identity
+    description: "Application identity schema"
+    basePath: schemas/config/repository/app-identity/
+    recommendedOutput: schemas/config/repository/app-identity
+    tags: [schemas, config, app-identity]
+  - id: crucible.config.repository.app-identity
+    description: "Application identity config examples and fixtures"
+    basePath: config/repository/app-identity/
+    recommendedOutput: config/repository/app-identity
+    tags: [config, app-identity, fixtures]

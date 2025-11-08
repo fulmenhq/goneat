@@ -454,36 +454,51 @@ project/
 
 ### Multi-Language Projects
 
-**Structure:**
+**Structure (Asymmetric Pattern):**
+
+As of v2025.10.5, Crucible uses an asymmetric structure with Go at root and other languages in `lang/` subdirectories:
 
 ```
-project/
+crucible/
 ├── README.md         # Overall project docs
 ├── VERSION           # Repository version
 ├── LICENSE
 ├── CONTRIBUTING.md
 ├── CHANGELOG.md
-├── lang/             # Language implementations
-│   ├── go/
+├── go.mod            # Go module at root (v2025.10.5+)
+├── go.sum
+├── *.go              # Go sources at root
+├── lang/             # Non-Go language implementations
+│   ├── go/           # Breadcrumb README only (see ADR-0009)
+│   ├── python/
 │   │   ├── README.md
-│   │   ├── go.mod
+│   │   ├── pyproject.toml
 │   │   └── ...
 │   └── typescript/
 │       ├── README.md
 │       ├── package.json
 │       └── ...
-├── schemas/          # Shared schemas
-├── docs/             # Shared documentation
+├── schemas/          # SSOT schemas (Go embeds directly)
+├── docs/             # SSOT documentation (Go embeds directly)
+├── config/           # SSOT configuration
 └── scripts/          # Cross-language utilities
 ```
 
-**Examples**: `crucible`, `fulmen-cosmography`
+**Rationale for Asymmetric Pattern:**
 
-**Pseudo-monorepo rules:**
+- **Go at root**: Enables standard external installation (`go get github.com/fulmenhq/crucible`), supports `go:embed` directives for direct SSOT access, and follows Go ecosystem conventions
+- **Python/TypeScript in lang/**: Standard package structures with synced SSOT assets
+- **Industry precedent**: Terraform, Kubernetes, NATS, and etcd use similar patterns
 
-- Treat root assets (`schemas/`, `docs/`, `templates/`) as the only source of truth.
-- Regenerate language wrappers via automation (`bun run sync:to-lang`, `bun run version:update`)—never edit `lang/` contents manually.
-- Keep planning briefs in `.plans/` (gitignored) or similar so release artifacts stay clean.
+See [ADR-0009](../architecture/decisions/ADR-0009-go-module-root-relocation.md) for detailed rationale and migration notes.
+
+**SSOT Sync Rules:**
+
+- Root assets (`schemas/`, `docs/`, `config/`) are the only source of truth
+- **Go**: Embeds directly from root via `//go:embed` directives (no sync needed)
+- **Python/TypeScript**: Receive synced copies via `bun run sync:to-lang`
+- Never edit `lang/python/` or `lang/typescript/` contents manually—edit root SSOT and run sync
+- Keep planning briefs in `.plans/` (gitignored) or similar so release artifacts stay clean
 
 ## Documentation Structure
 

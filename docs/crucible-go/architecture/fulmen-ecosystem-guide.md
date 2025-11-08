@@ -10,28 +10,41 @@ tags: ["fulmen", "architecture", "ecosystem", "2025.10.2"]
 
 # Fulmen Ecosystem Guide
 
-## Thrive on Scale: The Fulmen Ecosystem
+## Thrive on Scale: The Fulmen Layer Cake
 
 Fulmen empowers teams to build enterprise systems that start fast and scale effortlessly—delivering lightning-speed development without sacrificing reliability or maintainability. Evolving from frustration with trivial boilerplate to a comprehensive ecosystem, Fulmen now integrates single-source-of-truth (SSOT) standards via Crucible, language-specific libraries, automation tools, production-ready forges, and AI-human collaboration to eliminate repeated wheel-reinvention in logging, schemas, enums, and more. Future expansions like Cosmography will extend SSOT to data modeling and topology.
 
-**Core Layers** (building a flywheel: standards → libraries → tools → applications):
+**Core Layers** (hierarchical flywheel: infoarch → implementations → scaffolding → automation → production):
 
-1. **SSOT Standards & Schemas (Crucible)**: Authoritative contracts, policies, docs, processes, coding rules (e.g., TS barrel exports, logging adapters), and devsecops (pre-commit gates, security scans)—ensuring persnickety excellence and zero silos.
-2. **Automation Tooling (goneat, Fulward)**: CLI-driven validation, formatting, sync, and approval workflows for seamless governance.
-3. **Language Foundations (`gofulmen`, `pyfulmen`, `tsfulmen`; Rust/C# planned)**: Idiomatic APIs wrapping Crucible assets, solving cross-project pains like config paths, schema validation, and observability.
-4. **Fulmen Forges (Templates)**: Complete, functional starters (CLI, portal, runner) embodying CRDL (Clone → Degit → Refit → Launch) for rapid, scale-ready launches.
-5. **Operational Services (brooklyn-mcp, data utilities)**: MCP orchestration, observability defaults, and AI agents (e.g., Schema Cartographer) for collaborative maintenance, per MAINTAINERS.md roles (dev, devsecops, docs, architects).
+0. **Crucible (Infoarch SSOT)**: Foundational layer for datamodels/schemas, processes/SOPs, and specs/standards. Authoritative contracts, policies, docs, coding rules (e.g., TS barrel exports, logging adapters), and devsecops (pre-commit gates, security scans)—ensuring persnickety excellence and zero silos. Refines practices through rigorous validation, powering the entire cake.
+
+1. **Helper Libraries (\*fulmen)**: Idiomatic implementations of core data and utilities wrapping Crucible assets. Solves cross-project pains like config paths, schema validation, observability, and Foundry catalogs (countries, HTTP statuses, patterns). Current: `gofulmen`, `pyfulmen`, `tsfulmen`; planned: `rsfulmen` (Rust), `csfulmen` (C#) as ecosystem needs evolve.
+
+2. **Templates (Fulmens)**: Proven, production-ready starters embodying CRDL (Clone → Degit → Refit → Launch). Bootstraps projects with embedded Layer 1 libs, AAA (auth/audit/access), observability, testing, and deployment pipelines. Examples: `forge-workhorse-groningen` (Go backend), `forge-workhorse-percheron` (Python backend). Gymnasiums (e.g., TUI experiments) modularize for future integration.
+
+3. **DX/Dev Tools**: Automation layer for governance and productivity. CLI-driven validation, formatting, sync, approvals, and orchestration. Key tools:
+   - `goneat`: Quality enforcement (linting, schema validation, hooks; v0.3+ stricter assessments).
+   - `fulward`: Protection and approval workflows (successor to guardian; centralizes commit/release policies).
+   - `sumpter`: Build and CLI orchestration (emerging for streamlined compilation/packaging across layers).
+   - `pathfinder`: Safe file discovery with constraints.
+     Future: Release note automation, environment bootstraps.
+
+4. **Apps/Services (Operational & Production)**: Deployable systems composing lower layers for real-world scale. Includes workflow orchestration, analytics, and AI enablement:
+   - `brooklyn-mcp`: MCP server for Fulmen workflows, IDE/AI integration.
+   - Data wrangling utilities and observability defaults (Substaile patterns for docs/coding norms).
+   - Production forges (e.g., multi-tenant portals, API gateways) and analytics platforms.
+     AI agents (Schema Cartographer, Pipeline Architect) maintain via MAINTAINERS.md roles (dev, devsecops, docs, architects), with human oversight.
 
 Layers compose into a virtuous cycle: Refine standards in Crucible → Sync to libraries → Automate via tools → Deploy via forges → Iterate with AI oversight. This prevents siloed reinvention, enabling teams to focus on unique value while thriving at enterprise scale.
 
 ## Evolution: From Templates to Ecosystem Flywheel
 
-| Phase               | Timeline     | Key Evolution                                                                                                                | Outcomes                                                                                                              |
-| ------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| **Inception**       | Feb–Apr 2025 | Frustration with boilerplate → Build functional forges (cockpit, runner, portal) via CRDL (Clone → Degit → Refit → Launch).  | Proven "complete systems" accelerate teams to production-scale without basics drudgery.                               |
-| **Standards Forge** | May–Jul 2025 | Realized repeated pains (logging, schemas, enums) → Crucible as SSOT for contracts/docs/processes; prototype goneat/Fulward. | Centralized standards prevent reinvention; early libs (gofulmen) emerge for idiomatic access.                         |
-| **Consolidation**   | Aug–Sep 2025 | Ecosystem sprawl → Align libs (pyfulmen, tsfulmen), tools (brooklyn-mcp), AI co-maintainers; draft Substaile coding norms.   | Module parity across langs; MCP integrates workflows; human-AI roles defined in MAINTAINERS.md.                       |
-| **Scale Wave**      | Oct 2025+    | Full flywheel → Foundry catalogs, CalVer releases, Cosmography (data SSOT); AI stewardship for maintenance.                  | Multi-lang readiness; forges like forge-cli-pecan leverage ecosystem; "Thrive on Scale" realized via composed layers. |
+| Phase               | Timeline     | Key Evolution                                                                                                                | Outcomes                                                                                                   |
+| ------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **Inception**       | Feb–Apr 2025 | Frustration with boilerplate → Build functional forges via CRDL (Clone → Degit → Refit → Launch).                            | Proven "complete systems" accelerate teams to production-scale without basics drudgery.                    |
+| **Standards Forge** | May–Jul 2025 | Realized repeated pains (logging, schemas, enums) → Crucible as SSOT for contracts/docs/processes; prototype goneat/Fulward. | Centralized standards prevent reinvention; early libs (gofulmen) emerge for idiomatic access.              |
+| **Consolidation**   | Aug–Sep 2025 | Ecosystem sprawl → Align libs (pyfulmen, tsfulmen), tools (brooklyn-mcp), AI co-maintainers; draft Substaile coding norms.   | Module parity across langs; MCP integrates workflows; human-AI roles defined in MAINTAINERS.md.            |
+| **Scale Wave**      | Oct 2025+    | Full flywheel → Foundry catalogs, CalVer releases, Cosmography (data SSOT); AI stewardship for maintenance.                  | Multi-lang readiness; workhorse forges leverage ecosystem; "Thrive on Scale" realized via composed layers. |
 
 ## Ecosystem Map
 
@@ -55,9 +68,9 @@ graph TD
   D --> D2[pyfulmen]
   D --> D3[tsfulmen]
 
-  E --> E1[Fulmen Portal Forge]
-  E --> E2[Fulmen Runner Forge]
-  E --> E3[Forge CLI (Pecan)]
+  E --> E1[Forge Workhorse Groningen]
+  E --> E2[Forge Workhorse Percheron]
+  E --> E3[Future Forge Templates]
 
   F --> F1[brooklyn-mcp]
   F --> F2[Data wrangling utilities]
@@ -66,76 +79,75 @@ graph TD
 
 ## Layer-by-Layer Details
 
-### 1. Standards & Schemas (Crucible)
+### 0. Crucible (Infoarch SSOT)
 
-- **Purpose**: Authoritative definition of everything Fulmen depends on—logging,
-  configuration, taxonomy, helper modules, and foundry catalogs.
-- **Key Assets**: `schemas/`, `docs/standards/`, `config/`, language sync targets.
-- **Quality Gates**: `make check-all` (schema validation, linting, tests), Fulward
-  enforcement on commits, CalVer release cadence with release notes.
-- **Why it matters**: Downstream projects treat Crucible as the SSOT; language wrappers
-  embed its assets so that templates and services stay consistent.
+- **Purpose**: Purifies foundational elements—datamodels (schemas), processes (SOPs), and specs (standards)—enabling massive scale through validation and real-world proofing.
 
-### 2. Tooling & Automation
+- **Key Assets**: `schemas/` (JSON contracts), `docs/standards/` (coding/devsecops), `config/` (catalogs/taxonomy), sync targets for languages.
 
-- **goneat**: Fulmen-native CLI for formatting, linting, schema validation, and hook
-  orchestration. v0.3.0 introduces stricter assessments; v0.4.x will slim the binary as
-  approval workflows move elsewhere.
-- **Fulward**: Successor to the guardian prototype. Resides in `../fulward` and
-  centralizes approval policies for commits, releases, and other level-one operations.
-  goneat retains a `guardian` subcommand temporarily until Fulward reaches general
-  availability.
-- **Scripts**: `scripts/validate-schemas.ts`, `scripts/sync-to-lang.ts`, and version
-  tooling keep the SSOT and wrappers synchronized.
-- **Future**: Additional tasks for release note generation and environment bootstraps.
+- **Quality Gates**: `make check-all` (validation, lint, tests), fulward approvals, CalVer releases with notes. AI agents enforce via protocols.
 
-### 3. Helper Libraries (`*fulmen`)
+- **Why it matters**: As Layer 0, Crucible is the forge; all upper layers sync from here, preventing silos and ensuring interoperability. Future: Cosmography for data topology SSOT.
 
-- **Repositories**: `gofulmen`, `pyfulmen`, `tsfulmen`, with planned `rsfulmen` and
-  `csfulmen`.
-- **Core Modules**: Config path API, three-layer config, schema validation, Crucible
-  shim, SSOT sync, observability logging, foundry catalogs (patterns, HTTP statuses,
-  countries, MIME types).
-- **Testing Targets**: Coverage thresholds driven by `config/library/v1.0.0/module-manifest.yaml`.
-- **Role**: Provide idiomatic APIs so applications don’t need to read raw YAML/JSON
-  from Crucible.
+### 3. DX/Dev Tools
 
-### 4. Fulmen Forges (Templates)
+- **goneat**: Fulmen-native CLI for formatting, linting, schema validation, and hook orchestration. v0.3.0 introduces stricter assessments; v0.4.x slims binary as approvals migrate to fulward.
 
-- **Current**: `fulmen-portal-forge`, `fulmen-runner-forge`, `fulmen-cockpit`, and the
-  refreshed `fulmen-forge-cli-pecan` (maintaining the tree-themed taxonomy while
-  aligning with repository categories).
-- **Philosophy**: Clone → degit → refit → launch. Ship production-ready systems with
-  AAA, observability, testing, deployment pipelines, and docs from the start.
-- **Gymnasium Experiments**: Internal playgrounds—nicknamed “gymnasiums”—bundle TUIs,
-  code-metric analyzers, and other exploration tools. Candidates such as
-  “forge-gymnasium-ginkgo” may emerge once the components are modularized.
-- **Roadmap**: Expand to more functional verticals (workflow automation, API gateway,
-  data ingestion) and integrate Crucible/goneat flows by default. Tie forge families to
-  `config/taxonomy/repository-categories.yaml` so every template advertises its role
-  using the shared taxonomy.
-- **Docs**: Upcoming revisions will align each forge README with this guide and the
-  technical manifesto.
+- **Fulward**: Successor to guardian; centralizes policies for commits, releases, and ops in `../fulward`. goneat's `guardian` subcommand bridges temporarily.
 
-### 5. Operational Services & AI Enablement
+- **Sumpter**: Emerging build/CLI orchestrator (`../sumpter`) for compilation, packaging, and cross-layer workflows.
 
-- **brooklyn-mcp**: MCP server that orchestrates Fulmen workflows and integrates with AI
-  agents and IDEs.
-- **Data utilities**: Wrangling tools, validators, and scaffolding to prepare data for
-  Fulmen-based services.
-- **Substaile**: Standards for documentation-enforced coding conventions (currently
-  living in prototype form, with portions merged into Crucible’s coding standards).
-- **AI Agents**: Schema Cartographer, Pipeline Architect, and future specialists operate
-  with documented protocols (`AGENTS.md`, `MAINTAINERS.md`) to maintain the ecosystem.
+- **Pathfinder**: Safe file discovery with Crucible schemas for constraints.
 
-## How Things Sync
+- **Scripts**: `scripts/validate-schemas.ts`, `sync-to-lang.ts`, version tools ensure SSOT sync.
 
-| Source           | Sync Target                  | Command                               | Notes                                                        |
-| ---------------- | ---------------------------- | ------------------------------------- | ------------------------------------------------------------ |
-| Crucible root    | `lang/*` docs/config/schemas | `bun run sync:to-lang`                | Keeps Go, Python, TypeScript wrappers aligned.               |
-| Crucible configs | Downstream libraries         | `goneat ssot pull` _(planned)_        | Future automation for consumers to update assets.            |
-| Forges           | Project codebases            | `degit` or repo clone scripts         | Templates will pull latest Crucible snapshots during setup.  |
-| Docs             | Ecosystem portals            | `docs/` publishing pipeline (planned) | Consolidated site similar to Codex, powered by this content. |
+- **Future**: Auto-release notes, env bootstraps, AI-integrated DX (e.g., via brooklyn-mcp).
+
+### 1. Helper Libraries (\*fulmen)
+
+- **Repositories**: `gofulmen`, `pyfulmen`, `tsfulmen`; planned: `rsfulmen` (Rust), `csfulmen` (C#) as needs evolve.
+
+- **Core Modules**: Config path API, three-layer config, schema validation, Crucible shim, SSOT sync, observability logging, Foundry catalogs (patterns, HTTP statuses, countries, MIME types).
+
+- **Testing Targets**: Coverage per `config/library/v1.0.0/module-manifest.yaml` (e.g., Go ≥95%, TS ≥85%).
+
+- **Role**: Idiomatic wrappers for Layer 0 assets; embed schemas for zero-dependency runtime use in upper layers.
+
+### 2. Templates (Fulmens)
+
+- **Current**: `forge-workhorse-groningen` (Go backend template), `forge-workhorse-percheron` (Python backend template). Future forges will expand patterns for CLI tools, frontends, and specialized services.
+
+- **Philosophy**: CRDL (Clone → Degit → Refit → Launch). Ship complete systems with Layer 1 libs, AAA (auth/audit/access), observability (Layer 0 schemas), testing, CI/CD, and docs—production-ready from commit zero.
+
+- **Gymnasiums**: Experimental playgrounds (TUIs, metrics analyzers); e.g., “forge-gymnasium-ginkgo” for modular components.
+
+- **Roadmap**: Vertical expansions (automation, gateways, ingestion); default Crucible/goneat integration. Tie to `config/taxonomy/repository-categories.yaml` for role advertisement.
+
+- **Docs**: Align forge READMEs with this guide/manifesto for consistency.
+
+### 4. Apps/Services (Operational & Production)
+
+- **brooklyn-mcp**: MCP orchestration server; integrates workflows, AI agents, IDEs for Layer 3+ automation.
+
+- **Data Utilities**: Wrangling, validation, scaffolding for Fulmen services; leverages Layer 1 for observability.
+
+- **Substaile**: Doc-enforced coding norms (prototype; merging into Crucible standards for Layer 0 enforcement).
+
+- **Production Forges**: Scalable apps (portals, gateways, analytics) composing layers; e.g., multi-tenant systems with AAA/telemetry defaults.
+
+- **AI Enablement**: Agents (Schema Cartographer for standards, Pipeline Architect for workflows) per `MAINTAINERS.md`; human-AI collab with .plans/, approvals, audits.
+
+## How Layers Compose & Sync
+
+The flywheel: Layer 0 refines → Layer 1 embeds → Layer 2 scaffolds → Layer 3 automates → Layer 4 deploys/iterates.
+
+| Source (Layer)      | Target Layers                | Mechanism                                        | Notes                                                   |
+| ------------------- | ---------------------------- | ------------------------------------------------ | ------------------------------------------------------- |
+| Crucible (0)        | 1 (Libraries), 2 (Templates) | `bun run sync:to-lang`; pull scripts             | Assets (schemas/docs/config) propagate via CalVer tags. |
+| Libraries (1)       | 2 (Templates), 4 (Apps)      | Package deps (go get, bun add)                   | Idiomatic APIs; embed for zero-runtime deps.            |
+| Tools (3)           | All upper layers             | CLI integration (goneat hooks, fulward policies) | Automate governance; e.g., precommit syncs Layer 0.     |
+| Templates (2)       | 4 (Apps)                     | CRDL (degit/clone) + refit                       | Bootstraps with Layers 0-3; gyms for experiments.       |
+| Future: Cosmography | Layer 0 extensions           | Sync pipelines (planned)                         | Data modeling/topology SSOT.                            |
 
 ## Working Across the Ecosystem
 
@@ -165,7 +177,7 @@ extending the SSOT strategy into spatial and mapping domains.
 
 ## Next Steps
 
-- Complete forge refreshes (including `forge-cli-pecan`) using the updated library
+- Complete workhorse forge refreshes (Groningen, Percheron) using the updated library
   modules and guardian policies.
 - Expand Substaile into a formal Crucible module or dedicated repository for coding
   standards.

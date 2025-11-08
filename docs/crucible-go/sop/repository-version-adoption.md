@@ -109,12 +109,14 @@ Use this checklist when adopting version management in a repository:
 
 ### Use CalVer when:
 
-✅ Repository is **documentation or information architecture**  
-✅ Repository contains **schemas, standards, templates**  
-✅ **Temporal context** matters more than API compatibility  
+✅ Repository is **documentation or information architecture**
+✅ Repository contains **schemas, standards, templates**
+✅ **Temporal context** matters more than API compatibility
 ✅ "Breaking changes" are **hard to define** (e.g., doc rewording)
 
-**Examples**: `crucible`, `fulmen-cosmography`
+**Examples**: `fulmen-cosmography`
+
+**Note**: Crucible originally used CalVer but transitioned to SemVer (v0.2.0) for Go module compatibility. See [ADR-0010](../architecture/decisions/ADR-0010-semantic-versioning-adoption.md).
 
 ## Version Management Workflow
 
@@ -304,11 +306,12 @@ Use these for consistent version handling across the ecosystem.
 - Static version embedding
 - Full CI/CD validation
 
-**CalVer reference**: `fulmenhq/crucible`
+**SemVer reference (post-transition)**: `fulmenhq/crucible`
 
 - VERSION file as SSOT
 - Asset-level revision tracking
 - Schema/doc coordination
+- Transitioned from CalVer to SemVer per ADR-0010
 
 ## Review and Updates
 
