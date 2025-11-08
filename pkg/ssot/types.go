@@ -62,7 +62,8 @@ type SyncResult struct {
 // ResolvedSource contains the resolved path to a source
 type ResolvedSource struct {
 	Name     string // Source name
-	Path     string // Resolved filesystem path
+	Path     string // Resolved filesystem path (sync_path_base applied)
+	RepoRoot string // Repository root path (for metadata/version detection)
 	IsLocal  bool   // Whether this is a local path (not cloned)
 	IsCloned bool   // Whether this was cloned via go-git
 }

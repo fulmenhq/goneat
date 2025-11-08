@@ -327,52 +327,68 @@ func validateConfig(config *SyncConfig) error {
 	return nil
 }
 
-// ValidateSource checks if the configured source exists
+// ValidateSource performs lightweight validation (ensures required fields and local paths when specified)
 func ValidateSource(config *SyncConfig) error {
 	for _, source := range config.Sources {
-		resolved, err := ResolveSource(source)
-		if err != nil {
-			return fmt.Errorf("source %s: %w", source.Name, err)
+		if source.LocalPath == "" && (source.Repo == "" || source.Ref == "") {
+			return fmt.Errorf("source %s requires either localPath or repo/ref", source.Name)
 		}
 
-		// Check if resolved path exists
-		info, err := os.Stat(resolved.Path)
-		if os.IsNotExist(err) {
-			if source.LocalPath != "" {
-				return fmt.Errorf("source %s: local path not found: %s\n\nTo fix:\n  git clone git@github.com:%s.git %s", source.Name, resolved.Path, source.Repo, source.LocalPath)
+		if source.LocalPath != "" && !source.ForceRemote {
+			fullPath := filepath.Join(source.LocalPath, source.SyncPathBase)
+			info, err := os.Stat(fullPath)
+			if os.IsNotExist(err) {
+				return fmt.Errorf("source %s: local path not found: %s\n\nTo fix:\n  git clone git@github.com:%s.git %s", source.Name, fullPath, source.Repo, source.LocalPath)
 			}
-			return fmt.Errorf("source %s: path not found: %s", source.Name, resolved.Path)
-		}
-		if err != nil {
-			return fmt.Errorf("source %s: failed to access path: %w", source.Name, err)
-		}
-
-		if !info.IsDir() {
-			return fmt.Errorf("source %s: path is not a directory: %s", source.Name, resolved.Path)
+			if err != nil {
+				return fmt.Errorf("source %s: failed to access path: %w", source.Name, err)
+			}
+			if !info.IsDir() {
+				return fmt.Errorf("source %s: path is not a directory: %s", source.Name, fullPath)
+			}
 		}
 	}
 
 	return nil
 }
 
-// ResolveSource resolves a source to a filesystem path
-// For now, we only support localPath. In the future, we'll use go-git to clone repos.
+// ResolveSource resolves a source to a filesystem path (local or remote clone)
 func ResolveSource(source Source) (*ResolvedSource, error) {
-	// If localPath is specified, use it directly
-	if source.LocalPath != "" {
+	useLocal := source.LocalPath != "" && !source.ForceRemote
+
+	if useLocal {
 		fullPath := filepath.Join(source.LocalPath, source.SyncPathBase)
 		return &ResolvedSource{
 			Name:     source.Name,
 			Path:     fullPath,
+			RepoRoot: source.LocalPath,
 			IsLocal:  true,
 			IsCloned: false,
 		}, nil
 	}
 
-	// TODO: In future, use go-git to clone repo and checkout ref
-	// For now, return error if no localPath
+	if source.Repo != "" && source.Ref != "" {
+		cloned, err := CloneRepository(source.Repo, source.Ref)
+		if err != nil {
+			return nil, fmt.Errorf("failed to clone repo %s@%s: %w", source.Repo, source.Ref, err)
+		}
+
+		fullPath := filepath.Join(cloned.Path, source.SyncPathBase)
+		if _, err := os.Stat(fullPath); err != nil {
+			return nil, fmt.Errorf("sync_path_base %q not found in %s@%s: %w", source.SyncPathBase, source.Repo, source.Ref, err)
+		}
+
+		return &ResolvedSource{
+			Name:     source.Name,
+			Path:     fullPath,
+			RepoRoot: cloned.Path,
+			IsLocal:  false,
+			IsCloned: true,
+		}, nil
+	}
+
 	envKey := strings.ToUpper(strings.ReplaceAll(source.Name, "-", "_"))
-	return nil, fmt.Errorf("remote repository cloning not yet implemented (repo: %s, ref: %s). Use localPath or set GONEAT_SSOT_CONSUMER_%s_LOCAL_PATH environment variable", source.Repo, source.Ref, envKey)
+	return nil, fmt.Errorf("source %s requires either localPath or repo/ref. Set GONEAT_SSOT_CONSUMER_%s_LOCAL_PATH or configure repo/ref with --force-remote", source.Name, envKey)
 }
 
 func exists(path string) bool {

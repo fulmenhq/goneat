@@ -1,18 +1,23 @@
 # Goneat SSOT Consumer Configuration (Production)
 # Defines how goneat syncs documentation and schemas from the crucible repository.
-# Local developers can override values in ssot-consumer.local.yaml (gitignored).
+#
+# v0.3.4+ DX: No .local.yaml file = production/remote config (auto-detection disabled)
+# For local development, create .goneat/ssot-consumer.local.yaml with localPath override.
+# See ssot-consumer.local.yaml.example for reference.
 #
 # Priority:
-#   1. ssot-consumer.local.yaml (gitignored, for local development)
-#   2. ssot-consumer.yaml (this file, committed)
-#   3. Environment variables (GONEAT_SSOT_CONSUMER_<SOURCE>_LOCAL_PATH)
-#   4. Convention-based (../<source>)
+#   1. Command-line flags (--local-path or --force-remote)
+#   2. Environment variables (GONEAT_FORCE_REMOTE_SYNC=1, GONEAT_SSOT_CONSUMER_<SOURCE>_LOCAL_PATH)
+#   3. ssot-consumer.local.yaml (gitignored, for local development)
+#   4. ssot-consumer.yaml (this file, committed)
+#   5. Convention-based (../<source>) - only if .local.yaml exists
 version: v1.1.0
 
 sources:
    - name: crucible
      repo: fulmenhq/crucible
-     ref: main
+     ref: v0.2.8
+     # Without .local.yaml, goneat clones from GitHub (force-remote friendly)
      sync_path_base: lang/go
      assets:
        - type: config

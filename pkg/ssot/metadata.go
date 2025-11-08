@@ -188,7 +188,9 @@ func captureSourceMetadata(source Source, resolved ResolvedSource, outputs map[s
 	// Detect version - use repo root if available, otherwise fall back to resolved path
 	// This ensures we find VERSION at repo root even when sync_path_base is set
 	versionSearchPath := resolved.Path
-	if repoRoot != "" {
+	if resolved.RepoRoot != "" {
+		versionSearchPath = resolved.RepoRoot
+	} else if repoRoot != "" {
 		versionSearchPath = repoRoot
 	}
 	versionFile := "VERSION"

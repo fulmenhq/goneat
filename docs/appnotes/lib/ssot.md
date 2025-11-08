@@ -10,6 +10,7 @@ Goneat ships with a first-class SSOT (Single Source of Truth) synchronization wo
 ## Key Capabilities
 
 - **Command-Line Sync**: `goneat ssot sync` copies assets described by a manifest into the current repository.
+- **Remote Repository Cloning** (v0.3.4+): Automatic cloning of GitHub repositories using go-git when `repo` + `ref` are specified. No local checkout required.
 - **Typed Configuration**: `.goneat/ssot-consumer.yaml` (and optional `.goneat/ssot-consumer.local.yaml`) provide structured configuration that is validated after merge.
 - **Local Overrides**: Developers can point to a sibling checkout (e.g., `../crucible`) without touching the checked-in manifest.
 - **Environment Overrides**: Set `GONEAT_SSOT_CONSUMER_<SOURCE>_LOCAL_PATH` to override source paths in CI, ephemeral environments, or alternate directory layouts.
@@ -127,6 +128,73 @@ This eliminates the need for `--force-remote` in the common case where you want 
 
 Previously, removing `.local.yaml` was insufficient - auto-detection still ran if `../crucible` existed.
 Now, simply archive/delete `.local.yaml` and `goneat ssot sync` will use the remote config.
+
+### Remote Repository Cloning (v0.3.4+)
+
+**Automatic GitHub Cloning**: When a source specifies `repo` + `ref` without `localPath`, goneat automatically clones the repository using go-git.
+
+**How It Works**:
+
+```yaml
+sources:
+  - name: crucible
+    repo: fulmenhq/crucible  # GitHub org/repo
+    ref: v0.2.8              # Branch, tag, or commit
+    sync_path_base: lang/go
+    assets: [...]
+```
+
+**Cloning Process**:
+1. Constructs GitHub URL: `https://github.com/fulmenhq/crucible.git`
+2. Clones to cache: `~/.goneat/cache/ssot/<hash>` (deterministic hash of repo+ref)
+3. Checks out specified ref (branch, tag, or commit SHA)
+4. Syncs assets from `<clone>/sync_path_base`
+5. Reuses cached clone on subsequent runs (fetches updates if needed)
+
+**Cache Location**: `~/.goneat/cache/ssot/`
+- Clones persist between runs for performance
+- Safe to delete manually to force re-clone
+- Future: `goneat ssot clean` command to manage cache
+
+**Supported Protocols**:
+- ✅ HTTPS (public repositories): `https://github.com/org/repo.git`
+- ✅ File URLs (local testing): `file:///path/to/repo.git`
+- ⏳ SSH (future): Private repository authentication
+
+**Force-Remote Interaction**:
+
+When `force_remote: true` is set in production config:
+- Remote cloning always used, even if `.local.yaml` exists
+- `.local.yaml` `localPath` overrides are ignored
+- Ensures CI/CD and production builds use exact published versions
+
+Without `force_remote` (default):
+- `.local.yaml` `localPath` takes precedence when present
+- Remote cloning used when no local override exists
+- Developers can use local checkouts for faster iteration
+
+**Cache Performance**:
+- First run: Full clone (~5-30s depending on repo size)
+- Subsequent runs: Reuse cache + fetch (~1-5s)
+- Shallow clones minimize disk usage
+
+**Example Workflow**:
+
+```bash
+# Fresh clone of goneat (no crucible checkout)
+git clone https://github.com/fulmenhq/goneat.git
+cd goneat
+
+# Sync will clone crucible@v0.2.8 automatically
+make sync-crucible
+# → Clones to ~/.goneat/cache/ssot/abc123...
+# → Syncs from cloned path
+
+# Second run reuses cache
+make sync-crucible
+# → Reuses ~/.goneat/cache/ssot/abc123...
+# → Much faster
+```
 
 ## Schema & Validation
 
