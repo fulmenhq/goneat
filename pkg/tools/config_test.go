@@ -790,6 +790,28 @@ tools:
 			wantErr: true,
 			errMsg:  "tap",
 		},
+		{
+			name: "invalid_both_install_methods",
+			config: `scopes:
+  test:
+    description: "Test"
+    tools: ["badtool"]
+tools:
+  badtool:
+    name: "badtool"
+    description: "Tool with both install methods (should fail)"
+    kind: "system"
+    detect_command: "badtool --version"
+    install:
+      type: package_manager
+      package_manager:
+        manager: brew
+        package: badtool
+    install_commands:
+      darwin: "brew install badtool"`,
+			wantErr: true,
+			errMsg:  "mutually exclusive",
+		},
 	}
 
 	for _, tc := range tests {
@@ -842,5 +864,208 @@ func TestScoopBucketParsing(t *testing.T) {
 
 	if rg.Install.PackageManager.Bucket != "main" {
 		t.Fatalf("expected bucket main, got %s", rg.Install.PackageManager.Bucket)
+	}
+}
+
+// TestBrewWithoutTap tests brew installation without tap (tap is optional)
+func TestBrewWithoutTap(t *testing.T) {
+	config := `scopes:
+  test:
+    description: "Test"
+    tools: ["jq"]
+tools:
+  jq:
+    name: "jq"
+    description: "JSON processor"
+    kind: "system"
+    detect_command: "jq --version"
+    install:
+      type: package_manager
+      package_manager:
+        manager: brew
+        package: jq`
+
+	cfg, err := ParseConfig([]byte(config))
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+
+	// Validate schema
+	if err := ValidateBytes([]byte(config)); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+
+	jq := cfg.Tools["jq"]
+	if jq.Install == nil || jq.Install.PackageManager == nil {
+		t.Fatal("expected package manager config")
+	}
+
+	if jq.Install.PackageManager.Tap != "" {
+		t.Fatalf("expected empty tap, got %s", jq.Install.PackageManager.Tap)
+	}
+
+	if jq.Install.PackageManager.Manager != "brew" {
+		t.Fatalf("expected manager brew, got %s", jq.Install.PackageManager.Manager)
+	}
+}
+
+// TestMultipleFlags tests parsing of multiple CLI flags
+func TestMultipleFlags(t *testing.T) {
+	config := `scopes:
+  test:
+    description: "Test"
+    tools: ["tool1"]
+tools:
+  tool1:
+    name: "tool1"
+    description: "Tool with multiple flags"
+    kind: "system"
+    detect_command: "tool1 --version"
+    install:
+      type: package_manager
+      package_manager:
+        manager: brew
+        package: tool1
+        flags: ["--quiet", "--force", "--no-cache"]`
+
+	cfg, err := ParseConfig([]byte(config))
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+
+	if err := ValidateBytes([]byte(config)); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+
+	tool := cfg.Tools["tool1"]
+	pm := tool.Install.PackageManager
+	if len(pm.Flags) != 3 {
+		t.Fatalf("expected 3 flags, got %d", len(pm.Flags))
+	}
+
+	expectedFlags := []string{"--quiet", "--force", "--no-cache"}
+	for i, expected := range expectedFlags {
+		if pm.Flags[i] != expected {
+			t.Fatalf("expected flag[%d] = %s, got %s", i, expected, pm.Flags[i])
+		}
+	}
+}
+
+// TestDestinationAndBinName tests destination and bin_name fields
+func TestDestinationAndBinName(t *testing.T) {
+	config := `scopes:
+  test:
+    description: "Test"
+    tools: ["goneat"]
+tools:
+  goneat:
+    name: "goneat"
+    description: "Fulmen CLI"
+    kind: "system"
+    detect_command: "goneat --version"
+    install:
+      type: package_manager
+      package_manager:
+        manager: brew
+        tap: fulmenhq/homebrew-tap
+        package: fulmenhq/tap/goneat
+        destination: ./bin
+        bin_name: neat`
+
+	cfg, err := ParseConfig([]byte(config))
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+
+	if err := ValidateBytes([]byte(config)); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+
+	goneat := cfg.Tools["goneat"]
+	pm := goneat.Install.PackageManager
+
+	if pm.Destination != "./bin" {
+		t.Fatalf("expected destination ./bin, got %s", pm.Destination)
+	}
+
+	if pm.BinName != "neat" {
+		t.Fatalf("expected bin_name neat, got %s", pm.BinName)
+	}
+}
+
+// TestEmptyFlags tests that empty flags array is handled correctly
+func TestEmptyFlags(t *testing.T) {
+	config := `scopes:
+  test:
+    description: "Test"
+    tools: ["tool1"]
+tools:
+  tool1:
+    name: "tool1"
+    description: "Tool with empty flags"
+    kind: "system"
+    detect_command: "tool1 --version"
+    install:
+      type: package_manager
+      package_manager:
+        manager: brew
+        package: tool1
+        flags: []`
+
+	cfg, err := ParseConfig([]byte(config))
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+
+	if err := ValidateBytes([]byte(config)); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+
+	tool := cfg.Tools["tool1"]
+	pm := tool.Install.PackageManager
+
+	// Empty array should be valid
+	if pm.Flags == nil {
+		t.Fatal("expected empty flags array, got nil")
+	}
+
+	if len(pm.Flags) != 0 {
+		t.Fatalf("expected 0 flags, got %d", len(pm.Flags))
+	}
+}
+
+// TestNoFlags tests that omitting flags field is valid
+func TestNoFlags(t *testing.T) {
+	config := `scopes:
+  test:
+    description: "Test"
+    tools: ["tool1"]
+tools:
+  tool1:
+    name: "tool1"
+    description: "Tool without flags field"
+    kind: "system"
+    detect_command: "tool1 --version"
+    install:
+      type: package_manager
+      package_manager:
+        manager: brew
+        package: tool1`
+
+	cfg, err := ParseConfig([]byte(config))
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+
+	if err := ValidateBytes([]byte(config)); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+
+	tool := cfg.Tools["tool1"]
+	pm := tool.Install.PackageManager
+
+	// No flags field should result in nil or empty slice
+	if len(pm.Flags) > 0 {
+		t.Fatalf("expected nil or empty flags, got %d flags", len(pm.Flags))
 	}
 }

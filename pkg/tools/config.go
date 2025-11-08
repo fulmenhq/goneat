@@ -30,7 +30,7 @@ type Tool struct {
 	Description        string              `yaml:"description" json:"description"`
 	Kind               string              `yaml:"kind" json:"kind"`
 	DetectCommand      string              `yaml:"detect_command" json:"detect_command"`
-	Install            *InstallConfig      `yaml:"install,omitempty" json:"install,omitempty"`               // v1.1.0+: structured installation
+	Install            *InstallConfig      `yaml:"install,omitempty" json:"install,omitempty"`                 // v1.1.0+: structured installation
 	InstallPackage     string              `yaml:"install_package,omitempty" json:"install_package,omitempty"` // Go package for "go" kind tools
 	VersionArgs        []string            `yaml:"version_args,omitempty" json:"version_args,omitempty"`
 	CheckArgs          []string            `yaml:"check_args,omitempty" json:"check_args,omitempty"`
@@ -47,21 +47,21 @@ type Tool struct {
 // InstallConfig defines structured installation methods (v1.1.0+).
 // Supports package managers (brew, scoop), downloads, and scripts.
 type InstallConfig struct {
-	Type           string                  `yaml:"type" json:"type"` // package_manager, download, script
-	PackageManager *PackageManagerInstall  `yaml:"package_manager,omitempty" json:"package_manager,omitempty"`
+	Type           string                 `yaml:"type" json:"type"` // package_manager, download, script
+	PackageManager *PackageManagerInstall `yaml:"package_manager,omitempty" json:"package_manager,omitempty"`
 	// Future: Download, Script configs
 }
 
 // PackageManagerInstall defines installation via package managers (brew, scoop, etc.).
 type PackageManagerInstall struct {
-	Manager     string   `yaml:"manager" json:"manager"`               // brew, scoop
-	Tap         string   `yaml:"tap,omitempty" json:"tap,omitempty"`   // Homebrew tap (brew-only)
-	Bucket      string   `yaml:"bucket,omitempty" json:"bucket,omitempty"` // Scoop bucket (scoop-only)
-	Package     string   `yaml:"package" json:"package"`               // Package name
+	Manager     string   `yaml:"manager" json:"manager"`                               // brew, scoop
+	Tap         string   `yaml:"tap,omitempty" json:"tap,omitempty"`                   // Homebrew tap (brew-only)
+	Bucket      string   `yaml:"bucket,omitempty" json:"bucket,omitempty"`             // Scoop bucket (scoop-only)
+	Package     string   `yaml:"package" json:"package"`                               // Package name
 	PackageType string   `yaml:"package_type,omitempty" json:"package_type,omitempty"` // formula|cask (brew-only, default: formula)
-	Flags       []string `yaml:"flags,omitempty" json:"flags,omitempty"` // Additional CLI flags
-	Destination string   `yaml:"destination,omitempty" json:"destination,omitempty"` // Symlink destination
-	BinName     string   `yaml:"bin_name,omitempty" json:"bin_name,omitempty"`     // Binary name override
+	Flags       []string `yaml:"flags,omitempty" json:"flags,omitempty"`               // Additional CLI flags
+	Destination string   `yaml:"destination,omitempty" json:"destination,omitempty"`   // Symlink destination
+	BinName     string   `yaml:"bin_name,omitempty" json:"bin_name,omitempty"`         // Binary name override
 }
 
 // ArtifactManifest defines trusted artifacts with SHA256 verification for supply-chain integrity.

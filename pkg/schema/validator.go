@@ -256,6 +256,28 @@ func (v *Validator) ValidateBytes(dataBytes []byte) (*Result, error) {
 	return validateWithCompiled(v.schema, data)
 }
 
+// improveErrorMessage translates cryptic JSON Schema validator messages into more actionable ones.
+func improveErrorMessage(path, message string) string {
+	// Detect mutual exclusivity violations in tools-config schemas
+	// Match any path under tools (e.g., "tools.badtool", "tools.goneat")
+	if len(path) >= 6 && path[:6] == "tools." {
+		if message == "Must not validate the schema (not)" {
+			return "Both 'install' and 'install_commands' cannot be present (mutually exclusive). Use only 'install' for v1.1.0+ package managers, or only 'install_commands' for legacy scripts."
+		}
+		if message == "Additional property install is not allowed" {
+			return "The 'install' property requires schema v1.1.0+. Either upgrade to v1.1.0 schema or use 'install_commands' instead."
+		}
+	}
+
+	// Generic improvement for "not" schema failures
+	if message == "Must not validate the schema (not)" {
+		return message + " (Schema constraint violation - check for mutually exclusive properties or invalid combinations)"
+	}
+
+	// Return original message if no improvement available
+	return message
+}
+
 func validateWithCompiled(sch *gojsonschema.Schema, data interface{}) (*Result, error) {
 	dataJSON, err := json.Marshal(data)
 	if err != nil {
@@ -273,9 +295,11 @@ func validateWithCompiled(sch *gojsonschema.Schema, data interface{}) (*Result, 
 			if field == "" {
 				field = "root"
 			}
+			originalMsg := verr.Description()
+			improvedMsg := improveErrorMessage(field, originalMsg)
 			res.Errors = append(res.Errors, ValidationError{
 				Path:    field,
-				Message: verr.Description(),
+				Message: improvedMsg,
 			})
 		}
 	}

@@ -76,7 +76,8 @@ func init() {
 // improveErrorMessage translates cryptic JSON Schema validator messages into more actionable ones.
 func improveErrorMessage(path, message, schemaName string) string {
 	// Detect mutual exclusivity violations in tools-config schemas
-	if path == "tools.badtool" || len(path) > 6 && path[:6] == "tools." {
+	// Match any path under tools (e.g., "tools.badtool", "tools.goneat")
+	if len(path) >= 6 && path[:6] == "tools." {
 		if message == "Must not validate the schema (not)" {
 			return "Both 'install' and 'install_commands' cannot be present (mutually exclusive). Use only 'install' for v1.1.0+ package managers, or only 'install_commands' for legacy scripts. See schema: " + schemaName
 		}

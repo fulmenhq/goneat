@@ -1,6 +1,7 @@
 package server
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -293,6 +294,7 @@ func TestList(t *testing.T) {
 }
 
 func TestIsPortAvailable(t *testing.T) {
+	// Test invalid/negative ports
 	tests := []struct {
 		name     string
 		port     int
@@ -300,7 +302,6 @@ func TestIsPortAvailable(t *testing.T) {
 	}{
 		{"invalid port", 0, false},
 		{"negative port", -1, false},
-		{"valid port", 8080, true}, // Assuming 8080 is available in test environment
 	}
 
 	for _, tt := range tests {
@@ -311,6 +312,43 @@ func TestIsPortAvailable(t *testing.T) {
 			}
 		})
 	}
+
+	// Test valid port by finding an available one dynamically
+	t.Run("valid_port", func(t *testing.T) {
+		// Let OS pick an available port
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatalf("failed to get available port: %v", err)
+		}
+		addr := ln.Addr().(*net.TCPAddr)
+		availablePort := addr.Port
+		_ = ln.Close()
+
+		// Now test that IsPortAvailable returns true for this port
+		result := IsPortAvailable(availablePort)
+		if !result {
+			t.Errorf("IsPortAvailable(%d) = false, want true (dynamically allocated available port)", availablePort)
+		}
+	})
+
+	// Test unavailable port by actually binding to one
+	t.Run("unavailable_port", func(t *testing.T) {
+		// Bind to a port
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatalf("failed to bind test port: %v", err)
+		}
+		defer func() { _ = ln.Close() }()
+
+		addr := ln.Addr().(*net.TCPAddr)
+		boundPort := addr.Port
+
+		// Port should not be available while we hold it
+		result := IsPortAvailable(boundPort)
+		if result {
+			t.Errorf("IsPortAvailable(%d) = true, want false (port is currently bound)", boundPort)
+		}
+	})
 }
 
 func TestProbeHello(t *testing.T) {
