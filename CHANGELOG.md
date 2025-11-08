@@ -36,6 +36,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated code and tests to reference v1.1.0 schemas
   - Synced to embedded assets for offline usage
 
+- **SSOT Remote Repository Cloning**: Automatic GitHub repository cloning with go-git
+  - Implements CloneRepository() function for HTTPS and file:// URL cloning
+  - Intelligent caching at `~/.goneat/cache/ssot/` with SHA-256 cache keys
+  - Reuses cached clones with automatic fetch for updates
+  - Constructs GitHub URLs from short-form (e.g., `fulmenhq/crucible` → `https://github.com/fulmenhq/crucible.git`)
+  - Supports branch, tag, and commit SHA references
+  - Enables production/CI workflows without local checkouts
+  - Cache performance: first run ~5-30s (clone), subsequent runs ~1-5s (reuse)
+  - Works seamlessly with force-remote and auto-detection features
+
 ### Changed
 
 - **SSOT Auto-Detection Behavior**: Improved developer experience by making `.local.yaml` signal local dev intent
@@ -43,6 +53,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **After**: Auto-detection only runs when `.local.yaml` is present
   - **Rationale**: Absence of `.local.yaml` now clearly signals "use production/remote config"
   - **Example**: TSFulmen can now test remote sync by simply not having `.local.yaml` (no need for `--force-remote`)
+
+### Fixed
+
+- **Dates Assessment Noise Reduction**: Eliminated informational scan summary issues from assessment reports
+  - Removed info-level "Changelog scan: found N entries" per-file messages
+  - Replaced with debug logging for troubleshooting visibility
+  - Reduces pre-commit noise: 96 informational messages → 0 issues (when everything is correct)
+  - Focus on actual problems: monotonic order violations, missing dates, future dates, placeholders
+  - **DX Impact**: "0 issues" now means everything is correct, not buried in scan receipts
+  - Pre-commit hooks show only actionable problems
 
 ### Documentation
 
