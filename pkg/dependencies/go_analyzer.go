@@ -60,7 +60,8 @@ func (a *GoAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisCon
 	}()
 
 	// Run license check for the target module (transitives included by go-licenses)
-	libraries, err := licenses.Libraries(ctx, classifier, false, nil, ".")
+	// Use "./..." pattern to scan all packages in the module, even if there are no .go files in root
+	libraries, err := licenses.Libraries(ctx, classifier, false, nil, "./...")
 	if err != nil {
 		return nil, err
 	}

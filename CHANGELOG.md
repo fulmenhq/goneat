@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.5] - 2025-11-11
+
+### Fixed
+
+- **Dependencies Language Detection**: Fixed `go-licenses` call to work with Go modules that have no root .go files
+  - Changed pattern from `"."` to `"./..."` to scan all packages in module
+  - Fixes "no Go files in directory" error for projects with code in subdirectories (cmd/, pkg/, etc.)
+  - **Impact**: Projects like sumpter with all source files in subdirectories now work correctly
+  - **Root Cause**: `go-licenses` library requires Go source files at scan location; projects with only go.mod at root would fail
+  - **Affected Users**: Any Go project using `goneat dependencies` without .go files in repository root
+  - Tested against both goneat (has main.go at root) and sumpter (no root .go files) - both work correctly
+
+### Changed
+
+- **Dependencies**: Updated go-git from v5.16.2 to v5.16.3 for latest bug fixes and improvements
+
 ## [0.3.4] - 2025-11-08
 
 ### Added
@@ -806,7 +822,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/fulmenhq/goneat/compare/v0.3.4...HEAD
+[Unreleased]: https://github.com/fulmenhq/goneat/compare/v0.3.5...HEAD
+[0.3.5]: https://github.com/fulmenhq/goneat/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/fulmenhq/goneat/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/fulmenhq/goneat/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/fulmenhq/goneat/compare/v0.3.1...v0.3.2

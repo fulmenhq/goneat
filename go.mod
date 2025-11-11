@@ -14,7 +14,7 @@ require (
 	github.com/beevik/etree v1.6.0
 	github.com/bmatcuk/doublestar/v4 v4.9.1
 	github.com/go-git/go-billy/v5 v5.6.2
-	github.com/go-git/go-git/v5 v5.16.2
+	github.com/go-git/go-git/v5 v5.16.3
 	github.com/google/go-licenses v1.6.0
 	github.com/mattn/go-runewidth v0.0.17
 	github.com/open-policy-agent/opa v1.9.0

@@ -105,7 +105,7 @@ go install github.com/fulmenhq/goneat@latest
 
   ```bash
   brew install --formula \
-    https://raw.githubusercontent.com/fulmenhq/goneat/v0.3.4/packaging/homebrew/goneat.rb
+    https://raw.githubusercontent.com/fulmenhq/goneat/v0.3.5/packaging/homebrew/goneat.rb
   ```
 
 - Scoop (rc.8+):
@@ -190,7 +190,7 @@ make build
 
 ## Status
 
-- Release: v0.3.4 (per `VERSION` file)
+- Release: v0.3.5 (per `VERSION` file)
 - Lifecycle Phase: GA (per `LIFECYCLE_PHASE` file)
 - Release Phase: Release (per `RELEASE_PHASE` file)
 - Repo Visibility: Public
