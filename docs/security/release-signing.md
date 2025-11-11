@@ -271,6 +271,13 @@ done
 
 # Verify signatures were created
 ls -lh *.asc
+
+# Export public key for distribution (always fresh for each release)
+gpg --armor --export security@fulmenhq.dev > fulmenhq-release-signing-key.asc
+
+# Verify public key was exported correctly (should show PGP PUBLIC KEY BLOCK)
+echo "Public key exported:"
+head -5 fulmenhq-release-signing-key.asc
 ```
 
 **Step 4: Verify Signatures Locally**
