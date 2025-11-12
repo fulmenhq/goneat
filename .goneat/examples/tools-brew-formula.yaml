@@ -1,0 +1,52 @@
+# Example: Brew Formula Package Manager Installation
+#
+# This example demonstrates installing CLI tools via Homebrew formulas.
+# Suitable for macOS and Linux platforms.
+
+scopes:
+  example-brew:
+    description: "Example tools installed via Homebrew formulas"
+    tools: ["jq", "ripgrep", "goneat"]
+
+tools:
+  jq:
+    name: jq
+    kind: system
+    description: "Command-line JSON processor"
+    detect_command: "jq --version"
+    platforms: ["darwin", "linux"]
+    install:
+      type: package_manager
+      package_manager:
+        manager: brew
+        package: jq
+        package_type: formula
+        flags: []
+
+  ripgrep:
+    name: ripgrep
+    kind: system
+    description: "Fast grep alternative with smart defaults"
+    detect_command: "rg --version"
+    platforms: ["darwin", "linux"]
+    install:
+      type: package_manager
+      package_manager:
+        manager: brew
+        package: ripgrep
+        package_type: formula
+
+  goneat:
+    name: goneat
+    kind: system
+    description: "Fulmen CLI for neat code workflows"
+    detect_command: "goneat --version"
+    platforms: ["darwin", "linux"]
+    install:
+      type: package_manager
+      package_manager:
+        manager: brew
+        tap: fulmenhq/homebrew-tap
+        package: fulmenhq/tap/goneat
+        package_type: formula
+        flags: ["--quiet"]

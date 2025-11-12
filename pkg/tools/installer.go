@@ -32,6 +32,7 @@ type InstallOptions struct {
 	Version  string
 	FromFile string
 	Force    bool
+	DryRun   bool
 }
 
 type InstallResult struct {
@@ -451,6 +452,38 @@ func extractZip(archivePath, targetPath, toolName, extractPath string) error {
 	}
 
 	return fmt.Errorf("binary %s not found in archive", binaryName)
+}
+
+// InstallWithPackageManager installs a tool via package manager.
+func InstallWithPackageManager(tool Tool, opts InstallOptions) (*InstallResult, error) {
+	if tool.Install == nil || tool.Install.PackageManager == nil {
+		return nil, fmt.Errorf("tool %s does not have package manager configuration", tool.Name)
+	}
+
+	config := tool.Install.PackageManager
+
+	// Validate manager is supported on current platform
+	mgr, err := GetManager(config.Manager)
+	if err != nil {
+		return nil, fmt.Errorf("package manager validation failed: %w", err)
+	}
+
+	if !mgr.IsAvailable() {
+		return nil, fmt.Errorf("%s is not installed; install from %s",
+			config.Manager, mgr.InstallationURL())
+	}
+
+	// Route to appropriate installer
+	switch config.Manager {
+	case "brew":
+		installer := NewBrewInstaller(&tool, config, opts.DryRun)
+		return installer.Install()
+	case "scoop":
+		installer := NewScoopInstaller(&tool, config, opts.DryRun)
+		return installer.Install()
+	default:
+		return nil, fmt.Errorf("unsupported package manager: %s", config.Manager)
+	}
 }
 
 func FindToolBinary(toolName string) (string, error) {

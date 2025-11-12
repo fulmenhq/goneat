@@ -7,7 +7,6 @@ description: |
 
   Version 1.1.0 adds native package manager support (brew, scoop) with structured
   install definitions. This is backward compatible with v1.0.0 manifests.
-
 properties:
   scopes:
     type: object
@@ -46,7 +45,6 @@ properties:
         $ref: "#/$defs/tool"
     minProperties: 1
     additionalProperties: false
-
 $defs:
   tool:
     type: object
@@ -179,7 +177,6 @@ $defs:
     not:
       required: ["install", "install_commands"]
     additionalProperties: false
-
   installConfig:
     type: object
     description: |
@@ -197,7 +194,7 @@ $defs:
       package_manager:
         $ref: "#/$defs/packageManagerInstall"
         description: "Package manager installation config (when type=package_manager)"
-      # Future: download, script configs will be added here
+        # Future: download, script configs will be added here
     required: ["type"]
     allOf:
       - if:
@@ -207,7 +204,6 @@ $defs:
         then:
           required: ["package_manager"]
     additionalProperties: false
-
   packageManagerInstall:
     type: object
     description: |
@@ -368,7 +364,6 @@ $defs:
               not: {}
           description: "bucket is valid for scoop, but tap and package_type are not"
     additionalProperties: false
-
   versionArtifacts:
     type: object
     description: "Platform-specific artifacts for a single version"
@@ -385,7 +380,6 @@ $defs:
         $ref: "#/$defs/artifact"
     minProperties: 1
     additionalProperties: false
-
   artifact:
     type: object
     description: "Single artifact with URL and integrity hash"
@@ -407,7 +401,6 @@ $defs:
         maxLength: 200
     required: ["url", "sha256"]
     additionalProperties: false
-
 # Validation rules
 required: ["scopes", "tools"]
 additionalProperties: false

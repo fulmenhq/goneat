@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.6] - 2025-11-12
+
+### Added
+
+- **Package Manager Installation Engine (v1.1.0 Implementation)**: Complete package manager-based tool installation
+  - **Detection Layer**: BrewManager and ScoopManager with platform-aware detection and version parsing
+  - **Installer Engine**: Brew installer with tap support, formula/cask types, and custom flags
+  - **Installer Engine**: Scoop installer with bucket support and custom flags
+  - **Doctor Integration**: Package manager status display in `goneat doctor tools` output
+  - **Doctor Command**: `--install-package-managers` flag (shows installation guidance, auto-install deferred)
+  - **Dry-Run Mode**: Test installations without executing commands (`--dry-run`)
+  - **Installation Verification**: Automatic verification via `detect_command` after package manager install
+  - **Example Manifests**: tools-brew-formula.yaml, tools-brew-cask.yaml, tools-scoop.yaml
+  - **Documentation**: Examples README with usage instructions and validation commands
+  - **Platform Guards**: Automatic platform validation (macOS/Linux for brew, Windows for scoop)
+  - **Error Messages**: Clear remediation guidance when package managers not available
+  - **Test Coverage**: 32 new tests covering detection, parsing, installation, and integration
+
+### Implementation Details
+
+- **Phase 1** (v0.3.4): Schema v1.1.0 with `install.type: package_manager` support
+- **Phase 2** (v0.3.6): Package manager detection and status reporting (261 LOC)
+- **Phase 3** (v0.3.6): Installer implementations for brew and scoop (326 LOC)
+- **Phase 4** (v0.3.6): Doctor command integration with status display
+- **Phase 5** (v0.3.6): Documentation and example manifests
+- **Phase 6** (v0.3.6): Comprehensive test coverage (953 LOC)
+
+### Technical Notes
+
+- **Backward Compatible**: v1.0.0 manifests with `install_commands` continue to work
+- **Schema Version**: Tools config v1.1.0 (additive change, not breaking)
+- **Files Added**: package_managers.go, installer_brew.go, installer_scoop.go + tests
+- **Auto-Install**: Package manager auto-installation deferred to v0.3.7+ (documented in roadmap)
+
 ## [0.3.5] - 2025-11-11
 
 ### Fixed

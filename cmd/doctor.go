@@ -145,6 +145,14 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 		return handleDryRun(cmd)
 	}
 
+	// Handle --install-package-managers flag
+	if flagDoctorInstallPkgMgr {
+		return handleInstallPackageManagers(cmd)
+	}
+
+	// Display package manager status (non-verbose mode)
+	displayPackageManagerStatus(cmd)
+
 	// Load configuration
 	config, err := loadToolsConfiguration()
 	if err != nil {
@@ -1060,4 +1068,41 @@ func countVersionConflicts(installations []GoneatInstallation, currentVersion st
 		}
 	}
 	return conflicts
+}
+
+// displayPackageManagerStatus shows package manager availability.
+func displayPackageManagerStatus(cmd *cobra.Command) {
+	statuses := intdoctor.GetAllPackageManagerStatuses()
+	if len(statuses) == 0 {
+		return
+	}
+
+	fmt.Fprintln(cmd.OutOrStdout(), "\nPackage Managers:") //nolint:errcheck // CLI output errors are typically ignored
+
+	for _, status := range statuses {
+		if status.Available {
+			fmt.Fprintf(cmd.OutOrStdout(), "  ✅ %-10s %s (detected)\n", status.Name, status.Version) //nolint:errcheck // CLI output errors are typically ignored
+		} else if status.SupportedHere {
+			fmt.Fprintf(cmd.OutOrStdout(), "  ❌ %-10s not found\n", status.Name)                     //nolint:errcheck // CLI output errors are typically ignored
+			fmt.Fprintf(cmd.OutOrStdout(), "                 Install: %s\n", status.InstallationURL) //nolint:errcheck // CLI output errors are typically ignored
+		}
+	}
+
+	fmt.Fprintln(cmd.OutOrStdout()) //nolint:errcheck // CLI output errors are typically ignored
+}
+
+// handleInstallPackageManagers handles the --install-package-managers flag.
+func handleInstallPackageManagers(cmd *cobra.Command) error {
+	// Currently only warn that auto-install is not implemented
+	fmt.Fprintln(cmd.OutOrStdout(), "⚠️  Package manager auto-install is not yet implemented.") //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintln(cmd.OutOrStdout())                                                             //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintln(cmd.OutOrStdout(), "Please install package managers manually:")                //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintln(cmd.OutOrStdout(), "  • Homebrew (macOS/Linux): https://brew.sh")              //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintln(cmd.OutOrStdout(), "  • Scoop (Windows): https://scoop.sh")                    //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintln(cmd.OutOrStdout())                                                             //nolint:errcheck // CLI output errors are typically ignored
+
+	// Display current status
+	displayPackageManagerStatus(cmd)
+
+	return nil
 }

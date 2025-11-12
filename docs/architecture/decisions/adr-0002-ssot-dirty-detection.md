@@ -38,6 +38,7 @@ After implementing prepush validation to block dirty crucible sources, we discov
 **Root Cause**: The go-git library's `Status().IsClean()` method includes ALL untracked files in its dirty check, even those matched by gitignore patterns. This differs from git's behavior.
 
 **Specific Test Case**:
+
 - File: `crucible/.claude/settings.local.json`
 - Status: Untracked, but matched by global gitignore (`~/.config/git/ignore`)
 - Not in crucible's repository `.gitignore`
@@ -46,6 +47,7 @@ After implementing prepush validation to block dirty crucible sources, we discov
 - go-git Status: Included file with `Worktree='?'` (untracked), marking repo as dirty
 
 **Investigation**:
+
 ```bash
 # Crucible showed clean via git CLI
 $ cd crucible && git status --porcelain
@@ -79,6 +81,7 @@ Instead of using go-git's `Status().IsClean()` which includes all untracked file
    - Untracked files NOT matched by repository gitignore patterns
 
 **Code Example**:
+
 ```go
 // Load repository .gitignore patterns
 patterns, err := gitignore.ReadPatterns(worktree.Filesystem, nil)
@@ -145,11 +148,13 @@ if err == nil {
 **Approach**: Ignore all untracked files in dirty detection, checking only tracked file modifications
 
 **Pros**:
+
 - Simplest implementation
 - No gitignore parsing needed
 - Never false positives from ignored files
 
 **Cons**:
+
 - Too permissive - misses legitimate untracked files that should trigger dirty state
 - Developer could have important uncommitted new files
 - Defeats purpose of comprehensive dirty detection
@@ -161,10 +166,12 @@ if err == nil {
 **Approach**: Parse and apply both repository `.gitignore` and global gitignore (`~/.config/git/ignore`, `~/.gitignore`, etc.)
 
 **Pros**:
+
 - Matches individual developer's local git behavior exactly
 - No "false positives" for developers with global ignore rules
 
 **Cons**:
+
 - **Personal Configuration**: Global gitignore varies per developer
 - **CI/CD Mismatch**: CI doesn't use global gitignore
 - **Team Inconsistency**: Different developers see different dirty states
@@ -178,10 +185,12 @@ if err == nil {
 **Approach**: Shell out to `git status --porcelain` instead of using go-git
 
 **Pros**:
+
 - Matches git CLI behavior exactly
 - No library discrepancies
 
 **Cons**:
+
 - Requires git CLI to be installed and available
 - Platform-dependent (Windows vs Unix paths)
 - Slower than in-memory go-git operations
@@ -235,6 +244,7 @@ if err == nil {
 **File**: `pkg/ssot/metadata.go:95-136` - Function `introspectRepository()`
 
 **Before** (using `Status().IsClean()`):
+
 ```go
 status, err := worktree.Status()
 if err != nil {
@@ -246,6 +256,7 @@ if !status.IsClean() {
 ```
 
 **After** (filtering by repository gitignore):
+
 ```go
 status, err := worktree.Status()
 if err != nil {
@@ -282,12 +293,14 @@ if err == nil {
 ### Testing Strategy
 
 **Manual Testing**:
+
 1. Add `.claude/` to crucible's `.gitignore`
 2. Run `make sync-ssot` to update provenance
 3. Verify crucible shows clean in provenance metadata
 4. Verify prepush validation passes
 
 **Integration Testing**:
+
 - Existing tests in `pkg/ssot/` validate metadata introspection
 - Prepush validation script: `scripts/verify-crucible-clean.sh`
 
@@ -326,13 +339,14 @@ git check-ignore -v .claude/settings.local.json
 
 The fix was verified with a 3-pass test demonstrating correct behavior:
 
-| Pass | Crucible State | Provenance `dirty` | Expected | Result |
-|------|----------------|-------------------|----------|---------|
-| 1 | `.claude/settings.local.json` (global ignore only) | `true` | False positive bug | ❌ Bug present |
-| 2 | `.gitignore` modified (uncommitted) | `true` | Correct (real change) | ✅ Working |
-| 3 | `.gitignore` committed (clean) | *absent* | Correct (clean) | ✅ **Fixed!** |
+| Pass | Crucible State                                     | Provenance `dirty` | Expected              | Result         |
+| ---- | -------------------------------------------------- | ------------------ | --------------------- | -------------- |
+| 1    | `.claude/settings.local.json` (global ignore only) | `true`             | False positive bug    | ❌ Bug present |
+| 2    | `.gitignore` modified (uncommitted)                | `true`             | Correct (real change) | ✅ Working     |
+| 3    | `.gitignore` committed (clean)                     | _absent_           | Correct (clean)       | ✅ **Fixed!**  |
 
 **Pass 3 Result**: After adding `.claude/` to repository `.gitignore` and committing:
+
 - Provenance shows no `dirty` field (indicates clean)
 - Crucible commit updated: `00ab9d81ce2ed1e8906c6c78de817464db48abcf`
 - `git status --porcelain` confirms clean state

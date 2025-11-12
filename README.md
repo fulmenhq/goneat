@@ -19,6 +19,7 @@ brew install fulmenhq/tap/goneat
 ```
 
 To upgrade later:
+
 ```bash
 brew upgrade goneat
 ```
@@ -32,6 +33,7 @@ Download the latest release from [GitHub Releases](https://github.com/fulmenhq/g
 - Windows: `goneat_v{VERSION}_windows_amd64.zip`
 
 Extract and move to your PATH:
+
 ```bash
 tar -xzf goneat_v*.tar.gz
 sudo mv goneat /usr/local/bin/
@@ -126,12 +128,14 @@ goneat version
 For projects that want to manage goneat as a **repository-local tool** (keeping the binary in `./bin/goneat` within your project), you can use the bootstrap pattern with `.goneat/tools.yaml`:
 
 **Quick Summary**:
+
 1. Create `.goneat/tools.yaml` describing goneat as a tool dependency
 2. Run `bun run scripts/bootstrap-tools.ts` (or equivalent) to download/install
 3. Use `./bin/goneat` for project-specific tooling
 4. Override with `.goneat/tools.local.yaml` for local development
 
 **Full Guide**: See [Bootstrap Goneat Guide](docs/crucible-go/guides/bootstrap-goneat.md) for:
+
 - Complete `.goneat/tools.yaml` manifest format
 - Checksum verification setup
 - Local override pattern with `tools.local.yaml`
@@ -139,6 +143,7 @@ For projects that want to manage goneat as a **repository-local tool** (keeping 
 - Post-install validation checklist
 
 This pattern is especially useful for:
+
 - **Monorepos** where different projects use different goneat versions
 - **CI/CD pipelines** that need reproducible, pinned tooling
 - **Teams** that want to version-control their exact tool versions

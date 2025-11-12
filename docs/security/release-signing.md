@@ -21,6 +21,7 @@ Created: 2025-10-31
 ```
 
 **Key Publication Channels**:
+
 - This documentation (authoritative)
 - GitHub repository README
 - Release notes for each version
@@ -29,6 +30,7 @@ Created: 2025-10-31
 ### Extracting Key Information for Documentation
 
 The FulmenHQ signing key has **multiple subkeys** for different purposes:
+
 - **Primary Key**: Certification only (offline, for signing subkeys and revocation)
 - **Signing Subkey (Manual)**: YubiKey-backed, used for manual artifact signing (**document this one**)
 - **Signing Subkey (CI)**: Staged for future CI automation (not active in v0.3.3)
@@ -47,6 +49,7 @@ gpg --armor --export security@fulmenhq.dev > fulmenhq-release-signing-key.asc
 ```
 
 **Example output**:
+
 ```
 pub   ed25519/1A2B3C4D5E6F7G8H 2025-10-28 [C]
       1A2B 3C4D 5E6F 7G8H 9I0J  1K2L 3M4N 5O6P 7Q8R 9S0T
@@ -60,6 +63,7 @@ sub   cv25519/KKKK0000LLLL9999 2025-10-28 [E]  ← Encryption subkey
 ```
 
 **Identifying subkeys**:
+
 - `[C]` = Certification (primary key only)
 - `[S]` = Signing capability
 - `[E]` = Encryption capability
@@ -69,12 +73,14 @@ sub   cv25519/KKKK0000LLLL9999 2025-10-28 [E]  ← Encryption subkey
 **Note**: The convention that "first `[S]` subkey = manual signing" is specific to FulmenHQ's key management process. Other organizations may structure their signing keys differently. This is not a GPG-enforced rule, but our documented operational practice.
 
 **What to document in the Trust Model section**:
+
 - **Key ID**: Manual signing subkey ID (e.g., `AAAA1111BBBB2222`)
 - **Fingerprint**: Manual signing subkey fingerprint (40-char hex, spaces removed)
 - **Type**: Subkey algorithm (e.g., `ed25519`)
 - **Created**: Subkey creation date
 
 **To get just the manual signing subkey fingerprint**:
+
 ```bash
 # Show all fingerprints
 gpg --fingerprint security@fulmenhq.dev
@@ -84,6 +90,7 @@ gpg --fingerprint security@fulmenhq.dev
 ```
 
 **Safe to publish** (these are public identifiers, not secrets):
+
 - ✅ Key ID (short and long form) - for primary key and all subkeys
 - ✅ Subkey IDs (e.g., 448A539320A397AF, 45342521E9536A31) - completely safe
 - ✅ Full fingerprint (40-character hex) - for primary key and all subkeys
@@ -94,6 +101,7 @@ gpg --fingerprint security@fulmenhq.dev
 - ✅ Public key file (.asc)
 
 **Never publish**:
+
 - ❌ Private key material
 - ❌ Passphrase or PIN
 - ❌ YubiKey serial numbers
@@ -147,6 +155,7 @@ gpg --verify goneat-darwin-arm64.tar.gz.asc goneat-darwin-arm64.tar.gz
 ```
 
 **Expected output**:
+
 ```
 gpg: Signature made [timestamp]
 gpg:                using EDDSA key [fingerprint]
@@ -154,6 +163,7 @@ gpg: Good signature from "FulmenHQ Release Signing <security@fulmenhq.dev>"
 ```
 
 **Warning signs** (DO NOT proceed if you see):
+
 ```
 gpg: BAD signature from "FulmenHQ Release Signing <security@fulmenhq.dev>"
 gpg: Can't check signature: No public key
@@ -192,11 +202,13 @@ fi
 ### Prerequisites
 
 **Required**:
+
 - YubiKey with FulmenHQ signing subkey configured
 - GPG 2.2+ installed
 - Access to release artifacts (post-build)
 
 **Setup** (one-time):
+
 ```bash
 # Verify YubiKey is connected and recognized
 gpg --card-status
@@ -225,6 +237,7 @@ make package
 ```
 
 **What happens**:
+
 - `make clean`: Removes `dist/` and `bin/` directories
 - `make build-all`: Creates raw binaries in `bin/` (goneat-{os}-{arch})
 - `make package`: Packages binaries from `bin/` into `dist/release/` (.tar.gz/.zip archives + SHA256SUMS)
@@ -338,16 +351,20 @@ gh release upload v0.3.3 fulmenhq-release-signing-key.asc
 **Step 6: Document in Release Notes**
 
 Add to release notes:
+
 ```markdown
 ## Signature Verification
 
 All artifacts are cryptographically signed. Verify with:
 
 \`\`\`bash
+
 # Import public key
+
 curl -L https://github.com/fulmenhq/goneat/releases/download/v0.3.3/fulmenhq-release-signing-key.asc | gpg --import
 
 # Verify artifact
+
 gpg --verify goneat-darwin-arm64.tar.gz.asc goneat-darwin-arm64.tar.gz
 \`\`\`
 
@@ -388,6 +405,7 @@ Key fingerprint: [fingerprint here]
 ```
 
 **Why pre-push validation matters**:
+
 - Catches build/packaging issues before pushing
 - Validates YubiKey access and GPG configuration
 - Ensures signatures are valid before tagging
@@ -399,11 +417,13 @@ Key fingerprint: [fingerprint here]
 ### Key Structure
 
 **Primary Key** (offline, encrypted backup):
+
 - **Purpose**: Certification only (signs subkeys, revocation cert)
 - **Location**: Encrypted backup in dual secure locations
 - **Access**: Project lead only, emergency use
 
 **Signing Subkey (Manual)** (YubiKey):
+
 - **Key ID**: ed25519/448A539320A397AF
 - **Purpose**: Release artifact signing (manual)
 - **Location**: YubiKey hardware token
@@ -411,6 +431,7 @@ Key fingerprint: [fingerprint here]
 - **Usage**: v0.3.3+ manual signing workflow (use `--local-user 448A539320A397AF!`)
 
 **Signing Subkey (CI)** (staged, not active):
+
 - **Key ID**: ed25519/45342521E9536A31
 - **Purpose**: Automated CI signing (future)
 - **Location**: Encrypted in secure storage (not in CI yet)
@@ -422,6 +443,7 @@ Key fingerprint: [fingerprint here]
 **Schedule**: Annual renewal
 
 **Process**:
+
 1. Generate new signing subkey
 2. Sign with primary key (offline ceremony)
 3. Distribute updated public key
@@ -429,6 +451,7 @@ Key fingerprint: [fingerprint here]
 5. Maintain old subkey for 90-day overlap
 
 **Emergency Revocation**:
+
 1. Load revocation certificate
 2. Publish to keyservers
 3. Update all documentation
@@ -473,6 +496,7 @@ GNUPGHOME=/tmp/gpg-ci-setup gpg --list-secret-keys
 ```
 
 **Expected output**:
+
 ```
 sec#  ed25519 2025-10-31 [SC]
       E33FE149923314AFF3BC64723E0AD9999CF3D418
@@ -536,17 +560,20 @@ Value: <your NEW CI-only passphrase>
 ```
 
 **Why date stamps?**
+
 - Clear rotation tracking
 - Can stage new keys before old expire
 - Audit trail for key lifecycle
 
 **Organization vs Repository Secrets**:
+
 - ✅ **Organization secrets**: Recommended if same maintainers manage multiple repos
 - ✅ Can scope to specific repositories (e.g., only `goneat`)
 - ❌ **Repository secrets**: Use if this key is truly goneat-specific only
-- ⚠️  **Security note**: Organization-wide secrets require consistent maintainer trust across all scoped repos
+- ⚠️ **Security note**: Organization-wide secrets require consistent maintainer trust across all scoped repos
 
 **Configuration for Organization Secrets**:
+
 1. Create as organization secret
 2. Set "Repository access" → "Selected repositories"
 3. Choose: `goneat` (add others later if needed)
@@ -608,7 +635,7 @@ name: Release with Signing
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   release:
@@ -622,7 +649,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: "1.23"
 
       - name: Import GPG signing key
         run: |
@@ -686,17 +713,20 @@ jobs:
 ### Security Benefits
 
 **Defense in Depth**:
+
 - ✅ Primary key passphrase: Only you know, protects certification
 - ✅ CI subkey passphrase: Different, stored in GitHub, protects signing only
 - ✅ If CI passphrase leaks → only signing capability compromised → revoke CI subkey
 - ✅ Primary key and manual subkey remain secure
 
 **Principle of Least Privilege**:
+
 - ✅ CI only has signing capability (not certification)
 - ✅ Primary key never leaves secure offline storage
 - ✅ Subkey independently revocable
 
 **Key Rotation**:
+
 - ✅ Date-stamped secrets make rotation tracking clear
 - ✅ Can stage new keys before old ones expire
 - ✅ Clear audit trail for compliance
@@ -704,12 +734,14 @@ jobs:
 ### Current Status (v0.3.3)
 
 **Implemented**:
+
 - ✅ GPG tooling installed in CI workflow
 - ✅ Manual signing process documented and tested
 - ✅ Verification procedures established
 - ✅ CI subkey preparation process documented
 
 **Ready for Implementation** (v0.3.4+):
+
 - ⏳ GitHub Actions workflow with automated signing
 - ⏳ Organization secrets configured
 - ⏳ Automated signature verification gates

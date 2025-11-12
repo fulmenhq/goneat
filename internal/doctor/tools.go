@@ -1110,3 +1110,8 @@ func getGoBinPath() string {
 
 	return ""
 }
+
+// GetAllPackageManagerStatuses returns status for all package managers on the current platform.
+func GetAllPackageManagerStatuses() []*tools.PackageManagerStatus {
+	return tools.GetAllPackageManagerStatuses()
+}

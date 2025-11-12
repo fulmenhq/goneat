@@ -1011,3 +1011,187 @@ func TestInstallArtifact_UnsupportedPlatform(t *testing.T) {
 		t.Errorf("Error should mention platform or artifact availability, got: %s (current platform: %s)", errMsg, currentPlatform)
 	}
 }
+
+// TestInstallWithPackageManager tests the package manager installation function.
+func TestInstallWithPackageManager(t *testing.T) {
+	tests := []struct {
+		name    string
+		tool    Tool
+		opts    InstallOptions
+		wantErr bool
+		skipOn  string // Skip test on this platform
+	}{
+		{
+			name: "no_package_manager_config",
+			tool: Tool{
+				Name: "test-tool",
+			},
+			opts:    InstallOptions{},
+			wantErr: true,
+		},
+		{
+			name: "nil_install_config",
+			tool: Tool{
+				Name:    "test-tool",
+				Install: nil,
+			},
+			opts:    InstallOptions{},
+			wantErr: true,
+		},
+		{
+			name: "nil_package_manager",
+			tool: Tool{
+				Name: "test-tool",
+				Install: &InstallConfig{
+					Type:           "package_manager",
+					PackageManager: nil,
+				},
+			},
+			opts:    InstallOptions{},
+			wantErr: true,
+		},
+		{
+			name: "unsupported_manager",
+			tool: Tool{
+				Name: "test-tool",
+				Install: &InstallConfig{
+					Type: "package_manager",
+					PackageManager: &PackageManagerInstall{
+						Manager: "unsupported",
+						Package: "test-tool",
+					},
+				},
+			},
+			opts:    InstallOptions{},
+			wantErr: true,
+		},
+		{
+			name: "brew_on_windows",
+			tool: Tool{
+				Name: "test-tool",
+				Install: &InstallConfig{
+					Type: "package_manager",
+					PackageManager: &PackageManagerInstall{
+						Manager: "brew",
+						Package: "test-tool",
+					},
+				},
+			},
+			opts:    InstallOptions{},
+			wantErr: true,
+			skipOn:  "darwin,linux",
+		},
+		{
+			name: "scoop_on_unix",
+			tool: Tool{
+				Name: "test-tool",
+				Install: &InstallConfig{
+					Type: "package_manager",
+					PackageManager: &PackageManagerInstall{
+						Manager: "scoop",
+						Package: "test-tool",
+					},
+				},
+			},
+			opts:    InstallOptions{},
+			wantErr: true,
+			skipOn:  "windows",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Skip test if platform doesn't match
+			if tt.skipOn != "" {
+				platforms := strings.Split(tt.skipOn, ",")
+				for _, platform := range platforms {
+					if runtime.GOOS == strings.TrimSpace(platform) {
+						t.Skipf("skipping on %s", runtime.GOOS)
+					}
+				}
+			}
+
+			result, err := InstallWithPackageManager(tt.tool, tt.opts)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error, got nil")
+				}
+				if result != nil {
+					t.Error("expected nil result on error")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+				if result == nil {
+					t.Error("expected non-nil result")
+				}
+			}
+		})
+	}
+}
+
+// TestInstallWithPackageManager_DryRun tests dry run mode.
+func TestInstallWithPackageManager_DryRun(t *testing.T) {
+	var tool Tool
+	var opts InstallOptions
+
+	switch runtime.GOOS {
+	case "darwin", "linux":
+		mgr := &BrewManager{}
+		if !mgr.IsAvailable() {
+			t.Skip("brew not installed")
+		}
+
+		tool = Tool{
+			Name:          "jq",
+			DetectCommand: "jq --version",
+			Install: &InstallConfig{
+				Type: "package_manager",
+				PackageManager: &PackageManagerInstall{
+					Manager: "brew",
+					Package: "jq",
+				},
+			},
+		}
+		opts = InstallOptions{DryRun: true}
+
+	case "windows":
+		mgr := &ScoopManager{}
+		if !mgr.IsAvailable() {
+			t.Skip("scoop not installed")
+		}
+
+		tool = Tool{
+			Name:          "ripgrep",
+			DetectCommand: "rg --version",
+			Install: &InstallConfig{
+				Type: "package_manager",
+				PackageManager: &PackageManagerInstall{
+					Manager: "scoop",
+					Package: "ripgrep",
+				},
+			},
+		}
+		opts = InstallOptions{DryRun: true}
+
+	default:
+		t.Skip("no supported package manager on this platform")
+	}
+
+	result, err := InstallWithPackageManager(tool, opts)
+
+	if err != nil {
+		t.Fatalf("unexpected error in dry run: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if result.BinaryPath != "<dry-run>" {
+		t.Errorf("expected dry-run marker, got %s", result.BinaryPath)
+	}
+	if result.Verified {
+		t.Error("expected Verified to be false in dry run")
+	}
+}

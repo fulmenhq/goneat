@@ -1,0 +1,51 @@
+# Example: Scoop Package Manager Installation
+#
+# This example demonstrates installing CLI tools via Scoop.
+# Suitable for Windows platform only.
+
+scopes:
+  example-scoop:
+    description: "Example tools installed via Scoop on Windows"
+    tools: ["ripgrep", "jq", "git"]
+
+tools:
+  ripgrep:
+    name: ripgrep
+    kind: system
+    description: "Fast grep alternative with smart defaults"
+    detect_command: "rg --version"
+    platforms: ["windows"]
+    install:
+      type: package_manager
+      package_manager:
+        manager: scoop
+        bucket: main
+        package: ripgrep
+        flags: []
+
+  jq:
+    name: jq
+    kind: system
+    description: "Command-line JSON processor"
+    detect_command: "jq --version"
+    platforms: ["windows"]
+    install:
+      type: package_manager
+      package_manager:
+        manager: scoop
+        bucket: main
+        package: jq
+
+  git:
+    name: git
+    kind: system
+    description: "Git version control system"
+    detect_command: "git --version"
+    platforms: ["windows"]
+    install:
+      type: package_manager
+      package_manager:
+        manager: scoop
+        bucket: main
+        package: git
+        flags: ["--global"]

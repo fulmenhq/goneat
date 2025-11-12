@@ -1,3 +1,167 @@
+# Goneat v0.3.6 — Package Manager Installation Engine
+
+**Release Date**: 2025-11-12
+**Status**: Release
+
+## TL;DR
+
+- **Package Manager Installation**: Complete implementation of package manager-based tool installation (Homebrew, Scoop)
+- **Schema v1.1.0**: Full execution of declarative package manager installs defined in tools config
+- **Doctor Integration**: Package manager status display and installation verification
+- **Cross-Platform**: Native support for macOS/Linux (brew) and Windows (scoop)
+- **Example Manifests**: Ready-to-use configuration examples for brew formula, brew cask, and scoop
+
+## What's New
+
+### Package Manager Installation Engine
+
+Completes the package manager installation feature introduced in v0.3.4 (schema-only). Tools can now be installed declaratively via Homebrew (macOS/Linux) or Scoop (Windows) using structured configuration.
+
+**Example Configuration** (`.goneat/tools.yaml`):
+
+```yaml
+tools:
+  goneat:
+    name: goneat
+    kind: system
+    description: "Fulmen CLI for neat code workflows"
+    detect_command: "goneat --version"
+    install:
+      type: package_manager
+      package_manager:
+        manager: brew
+        tap: fulmenhq/homebrew-tap
+        package: fulmenhq/tap/goneat
+        package_type: formula
+        flags: ["--quiet"]
+```
+
+**Usage**:
+
+```bash
+# Check package manager availability
+goneat doctor tools --scope foundation
+
+# Dry-run to see what would be installed
+goneat doctor tools --config .goneat/tools.yaml --dry-run
+
+# Install tools via package manager
+goneat doctor tools --config .goneat/tools.yaml --install --yes
+```
+
+### Key Features
+
+#### 1. Platform-Aware Detection
+- Automatically detects Homebrew (macOS/Linux) or Scoop (Windows)
+- Version parsing for installed package managers
+- Clear status reporting with installation URLs for missing managers
+
+#### 2. Brew Installer
+- **Tap Support**: Automatically adds custom taps (e.g., `fulmenhq/homebrew-tap`)
+- **Formula & Cask**: Install CLI tools (formula) or GUI apps (cask)
+- **Custom Flags**: Pass additional flags like `--quiet`, `--force`
+- **Idempotent**: Safe to run multiple times
+
+#### 3. Scoop Installer
+- **Bucket Support**: Automatically adds custom buckets (e.g., `extras`)
+- **Custom Flags**: Pass flags like `--no-cache`, `--global`
+- **Windows Native**: First-class Windows package management
+
+#### 4. Doctor Command Integration
+- Package manager status shown before tool checks
+- Clear remediation when managers not available
+- `--install-package-managers` flag (shows manual installation instructions)
+
+#### 5. Dry-Run Mode
+```bash
+goneat doctor tools --config .goneat/examples/tools-brew-formula.yaml --dry-run
+```
+Shows what commands would execute without making changes.
+
+### Example Manifests
+
+Three ready-to-use examples included in `.goneat/examples/`:
+
+1. **tools-brew-formula.yaml**: CLI tools via Homebrew formulas (jq, ripgrep, goneat)
+2. **tools-brew-cask.yaml**: GUI applications via Homebrew casks (Docker Desktop, VS Code)
+3. **tools-scoop.yaml**: Windows tools via Scoop (ripgrep, jq, git)
+
+**Validate Examples**:
+```bash
+goneat doctor tools --config .goneat/examples/tools-brew-formula.yaml --validate-config
+```
+
+### Implementation Phases
+
+This release completes Phases 2-6 of the package manager feature:
+
+- **Phase 1** (v0.3.4): Schema v1.1.0 with `install.type: package_manager` support
+- **Phase 2** (v0.3.6): Detection layer with BrewManager/ScoopManager (261 LOC)
+- **Phase 3** (v0.3.6): Installer implementations for brew/scoop (326 LOC)
+- **Phase 4** (v0.3.6): Doctor command integration with status display
+- **Phase 5** (v0.3.6): Documentation and example manifests
+- **Phase 6** (v0.3.6): Comprehensive test coverage (32 new tests, 953 LOC)
+
+### Technical Details
+
+**Files Added**:
+- `pkg/tools/package_managers.go`: Detection and status reporting
+- `pkg/tools/installer_brew.go`: Homebrew installer implementation
+- `pkg/tools/installer_scoop.go`: Scoop installer implementation
+- `pkg/tools/package_managers_test.go`: Detection tests (503 LOC)
+- `pkg/tools/installer_brew_test.go`: Brew installer tests (231 LOC)
+- `pkg/tools/installer_scoop_test.go`: Scoop installer tests (219 LOC)
+- `.goneat/examples/`: Example manifests + README
+
+**Files Modified**:
+- `pkg/tools/installer.go`: Added InstallWithPackageManager factory
+- `pkg/tools/installer_test.go`: Added integration tests
+- `cmd/doctor.go`: Package manager status display
+- `internal/doctor/tools.go`: Status API forwarding
+
+**Backward Compatibility**: v1.0.0 manifests with `install_commands` continue to work. The schema change is additive (minor version bump).
+
+## Breaking Changes
+
+None. This is a purely additive feature.
+
+## Known Limitations
+
+- **Auto-Install**: Package manager auto-installation (`--install-package-managers`) shows manual instructions but does not execute automatic installation. This is intentional for security and will be considered for v0.3.7+ based on user feedback.
+- **Manager Support**: Currently supports Homebrew and Scoop. Other package managers (apt, dnf, winget) may be added in future releases.
+
+## Upgrade Guide
+
+No changes required. Existing configurations continue to work. To adopt package manager installations:
+
+1. Update your `.goneat/tools.yaml` to use v1.1.0 schema
+2. Replace `install_commands` with `install.package_manager` configuration
+3. Run `goneat doctor tools --validate-config` to verify
+4. Test with `--dry-run` before production use
+
+See `.goneat/examples/` for reference configurations.
+
+## Installation
+
+```bash
+# Go install (recommended)
+go install github.com/fulmenhq/goneat@v0.3.6
+
+# Homebrew (macOS/Linux)
+brew upgrade goneat
+
+# Verify installation
+goneat version
+```
+
+## What's Next (v0.3.7+)
+
+- Dependency vulnerability scanning integration
+- Package manager auto-install enhancement (optional)
+- Additional language support (TypeScript, Python) in v0.4.x
+
+---
+
 # Goneat v0.3.5 — Dependencies Bug Fix
 
 **Release Date**: 2025-11-11
@@ -25,6 +189,7 @@ Error: errors for ["."]:
 **Solution**: Changed the scan pattern from `"."` to `"./..."` to scan all packages in the module, regardless of directory structure.
 
 **Affected Projects**:
+
 - ✅ **goneat** (has `main.go` at root) - worked before, still works
 - ✅ **sumpter** (all code in subdirectories) - failed before, now works
 - ✅ **Any Go project** with go.mod at root but no .go files in root directory
@@ -118,13 +283,13 @@ tools:
     description: Fast recursive grep
     kind: infrastructure
     detect_command: rg --version
-    install:  # New declarative format
+    install: # New declarative format
       package_manager: brew
       package_name: ripgrep
-      tap: homebrew/core  # Optional
-      binary_name: rg     # Optional - if different from package name
-      destination: /opt/homebrew/bin  # Optional
-      flags:  # Optional - for complex installations
+      tap: homebrew/core # Optional
+      binary_name: rg # Optional - if different from package name
+      destination: /opt/homebrew/bin # Optional
+      flags: # Optional - for complex installations
         - --force
         - --overwrite
 ```
@@ -186,12 +351,14 @@ sources:
 The major DX improvement in v0.3.4 is making `.local.yaml` presence signal local development intent:
 
 **Before v0.3.4**:
+
 - Auto-detection always ran if `../crucible` directory existed
 - Even without `.local.yaml`, goneat would use local directory
 - Needed `--force-remote` flag to test remote sync behavior
 - Confusing for production/CI usage
 
 **After v0.3.4**:
+
 - Auto-detection only runs when `.local.yaml` exists
 - Absence of `.local.yaml` signals "use production config"
 - No need for `--force-remote` in common case
@@ -238,13 +405,15 @@ Proper schema versioning for force-remote metadata tracking:
 
 ```json
 {
-  "sources": [{
-    "name": "crucible",
-    "forced_remote": true,        // New: Was force-remote used?
-    "forced_by": "flag",          // New: How? "flag"|"env"|"config"
-    "method": "git_clone",
-    "commit": "abc123..."
-  }]
+  "sources": [
+    {
+      "name": "crucible",
+      "forced_remote": true, // New: Was force-remote used?
+      "forced_by": "flag", // New: How? "flag"|"env"|"config"
+      "method": "git_clone",
+      "commit": "abc123..."
+    }
+  ]
 }
 ```
 
@@ -268,8 +437,8 @@ Automatic GitHub repository cloning using go-git enables production and CI workf
 # .goneat/ssot-consumer.yaml
 sources:
   - name: crucible
-    repo: fulmenhq/crucible  # Short-form GitHub reference
-    ref: v0.2.8              # Branch, tag, or commit SHA
+    repo: fulmenhq/crucible # Short-form GitHub reference
+    ref: v0.2.8 # Branch, tag, or commit SHA
     sync_path_base: lang/go
 ```
 
@@ -410,7 +579,7 @@ goneat ssot sync --force-remote
 
 ```yaml
 # Update schema version
-version: v1.1.0  # Was: v1.0.0
+version: v1.1.0 # Was: v1.0.0
 
 # Optionally migrate to declarative install format
 tools:
@@ -505,6 +674,7 @@ Goneat v0.3.3 establishes the foundation for cryptographically signed releases, 
 4. **CI Prerequisites**: GitHub Actions workflow updated with GPG tooling
 
 **Documentation**:
+
 - **Security Guide**: `docs/security/release-signing.md` - Complete signing and verification guide
 - **Release Checklist**: Updated with cryptographic signing steps
 - **Key Management**: Documented custodianship, rotation, and revocation procedures
@@ -526,6 +696,7 @@ gpg --verify goneat-darwin-arm64.tar.gz.asc goneat-darwin-arm64.tar.gz
 ```
 
 **Expected Output**:
+
 ```
 gpg: Good signature from "FulmenHQ Release Signing <security@fulmenhq.dev>"
 ```
@@ -545,11 +716,13 @@ See `docs/security/release-signing.md` for complete workflow.
 ### Infrastructure Updates
 
 **GitHub Actions** (`.github/workflows/release.yml`):
+
 - ✅ GPG tooling prerequisites installed (gnupg2)
 - ✅ Workflow prepared for future signing automation
 - ⏳ Actual signing deferred to post-v0.3.3 (manual workflow first)
 
 **Security Documentation**:
+
 - ✅ `docs/security/release-signing.md` - Comprehensive signing guide
 - ✅ Key management and rotation procedures
 - ✅ Verification instructions for users
@@ -558,20 +731,24 @@ See `docs/security/release-signing.md` for complete workflow.
 ## Roadmap: Signing Automation
 
 **Phase 1 (v0.3.3)**: ✅ Manual signing + infrastructure
+
 - Manual signing workflow with YubiKey
 - CI tooling prerequisites installed
 - Documentation complete
 
 **Phase 2 (v0.3.4+)**: Automated CI signing
+
 - Deploy CI signing subkey
 - Secrets management (OIDC/Vault)
 - Automated signature generation
 
 **Phase 3 (v0.4.0+)**: Verification gates
+
 - Automated signature verification in CI
 - Pre-merge verification gates
 
 **Phase 4 (v0.5.0+)**: Advanced provenance
+
 - Sigstore integration
 - SLSA provenance attestation
 
@@ -598,6 +775,7 @@ go install github.com/fulmenhq/goneat@v0.3.3
 ## Security
 
 For security concerns or to report key compromise:
+
 - Email: security@fulmenhq.dev
 - GitHub Security Advisories: https://github.com/fulmenhq/goneat/security
 
@@ -688,17 +866,20 @@ Recommendations:
 ### Problem Solved
 
 **Scenario**: Developer has multiple repositories on their machine:
+
 - Repository A uses goneat v0.3.0 (bootstrapped to ./bin/goneat)
 - Repository B just added goneat v0.3.2
 - Developer previously ran `go install goneat@v0.2.11` (now in ~/go/bin)
 
 **Before v0.3.2**:
+
 - Commands might use the wrong version depending on PATH order
 - Hooks might call stale global version
 - Difficult to diagnose which version is running where
 - Manual removal required understanding of GOPATH/bin location
 
 **After v0.3.2**:
+
 - Single command shows all installations and conflicts
 - One-line fix to purge stale versions
 - Clear recommendations for resolution strategy
@@ -716,17 +897,20 @@ Recommendations:
 Fixed a false positive bug in SSOT provenance dirty state detection that caused crucible repositories to incorrectly show as "dirty" when files matched only global gitignore patterns.
 
 **The Bug**:
+
 - go-git's `Status().IsClean()` includes ALL untracked files, even those matched by global gitignore (`~/.config/git/ignore`)
 - This differs from git CLI behavior, which only checks repository `.gitignore`
 - **Example**: `.claude/settings.local.json` in global gitignore but not repo `.gitignore` triggered false positive
 
 **The Fix**:
+
 - Now filters untracked files through repository `.gitignore` patterns only
 - Repository `.gitignore` is the source of truth (matches CI/CD behavior)
 - Includes `.git/info/exclude` for repository-local excludes
 - Verified with 3-pass testing demonstrating correct behavior
 
 **Impact**:
+
 - ✅ **Team Consistency**: All developers see the same dirty state
 - ✅ **CI/CD Alignment**: Local detection matches CI/CD behavior
 - ✅ **Prepush Validation**: Correctly blocks only real uncommitted changes
@@ -735,6 +919,7 @@ Fixed a false positive bug in SSOT provenance dirty state detection that caused 
 **Design Decision**: See [ADR-0002](docs/architecture/decisions/adr-0002-ssot-dirty-detection.md) for detailed rationale on why repository `.gitignore` is the correct source of truth over global gitignore.
 
 **Before Fix**:
+
 ```bash
 $ cd crucible && git status
 working tree clean  # Git CLI says clean
@@ -744,6 +929,7 @@ crucible: dirty (false positive from .claude/settings.local.json)
 ```
 
 **After Fix**:
+
 ```bash
 $ cd crucible && git status
 working tree clean
@@ -835,7 +1021,6 @@ go install github.com/fulmenhq/goneat@v0.3.1
 ```
 
 ---
-
 
 # Goneat v0.3.0 — Dependency Protection (2025-10-28)
 

@@ -265,6 +265,7 @@ goneat hooks install
 Detect and manage multiple goneat installations on your system to prevent version conflicts.
 
 When working with multiple repositories, you may encounter situations where different goneat versions are installed:
+
 - Global installation via `go install` (in GOPATH/bin)
 - Project-local installations via bootstrap (in ./bin/goneat)
 - Development builds (in ./dist/goneat)
@@ -325,6 +326,7 @@ The command scans for goneat binaries in:
 4. **All PATH directories** - Any other goneat binaries in system PATH
 
 For each installation found, it reports:
+
 - Version information
 - Installation type (global, project-local, development, path)
 - Current running binary indicator (▶️)
@@ -339,6 +341,7 @@ goneat doctor versions
 ```
 
 **Example Output**:
+
 ```
 Goneat Version Analysis
 =======================
@@ -428,11 +431,13 @@ goneat doctor versions --json | jq '.conflict_count'
 #### Multi-Repository Development
 
 **Problem**: Developer has multiple repositories using different goneat versions:
+
 - Repository A uses v0.3.0 (bootstrapped)
 - Repository B uses v0.3.2 (bootstrapped)
 - Old global installation v0.2.11 in PATH causes confusion
 
 **Solution**:
+
 ```bash
 cd repo-a
 goneat doctor versions  # Detects conflict
@@ -444,6 +449,7 @@ goneat doctor versions --purge --yes  # Removes stale global
 **Problem**: New developer clones repository and encounters unexpected goneat behavior.
 
 **Solution**:
+
 ```bash
 # First step in onboarding script
 goneat doctor versions
@@ -455,6 +461,7 @@ goneat doctor versions
 **Problem**: Ensure build environments have correct goneat version.
 
 **Solution**:
+
 ```yaml
 # .github/workflows/ci.yml
 - name: Validate goneat version
@@ -471,6 +478,7 @@ goneat doctor versions
 **Problem**: Commands produce unexpected results, potentially due to version mismatch.
 
 **Solution**:
+
 ```bash
 # Debug which version is actually running
 goneat doctor versions

@@ -1,0 +1,36 @@
+# Example: Brew Cask Package Manager Installation
+#
+# This example demonstrates installing GUI applications via Homebrew casks.
+# Suitable for macOS platform only.
+
+scopes:
+  example-cask:
+    description: "Example GUI applications installed via Homebrew casks"
+    tools: ["docker", "visual-studio-code"]
+
+tools:
+  docker:
+    name: docker
+    kind: system
+    description: "Docker Desktop for Mac"
+    detect_command: "docker --version"
+    platforms: ["darwin"]
+    install:
+      type: package_manager
+      package_manager:
+        manager: brew
+        package: docker
+        package_type: cask
+
+  visual-studio-code:
+    name: visual-studio-code
+    kind: system
+    description: "Visual Studio Code editor"
+    detect_command: "code --version"
+    platforms: ["darwin"]
+    install:
+      type: package_manager
+      package_manager:
+        manager: brew
+        package: visual-studio-code
+        package_type: cask
