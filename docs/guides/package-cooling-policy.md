@@ -253,6 +253,88 @@ goneat automatically classifies dependencies:
 - **Production:** Runtime dependencies (main/prod scope)
 - **Development:** Test frameworks, build tools, dev dependencies
 
+### Tool-Specific Overrides
+
+**NEW in v0.3.6**: Override global cooling policy for specific tools in `.goneat/tools.yaml`.
+
+#### Why Tool-Specific Overrides?
+
+Different tools have different risk profiles:
+- **Critical SBOM tools** (syft) → Stricter policy (14 days, 5000 downloads)
+- **Standard CLI tools** (ripgrep, jq) → Use global defaults (7 days, 100 downloads)
+- **Low-risk formatters** → Could disable cooling entirely
+
+#### Configuration Hierarchy
+
+Cooling policies follow a 3-level hierarchy:
+
+```
+1. Global Default (.goneat/dependencies.yaml)
+   ↓ applies to all tools by default
+2. Tool-Specific Override (.goneat/tools.yaml)
+   ↓ applies to specific tool only
+3. CLI Flag (--no-cooling)
+   ↓ disables for all tools in this run
+```
+
+#### Example: Stricter Policy for Syft
+
+`.goneat/tools.yaml`:
+
+```yaml
+tools:
+  syft:
+    name: "syft"
+    description: "SBOM generation tool"
+    kind: "system"
+    detect_command: "syft version"
+    # ... other tool config ...
+
+    # Override global cooling policy for this critical tool
+    cooling:
+      min_age_days: 14        # More conservative than global 7 days
+      min_downloads: 5000     # Higher threshold than global 100
+      min_downloads_recent: 100  # Ensure active maintenance
+```
+
+**Result**: When `goneat doctor tools --scope sbom --install` runs:
+- Syft requires 14 days minimum age (not the global 7 days)
+- Syft requires 5000 downloads (not the global 100)
+- Other tools still use global policy (7 days, 100 downloads)
+
+#### Partial Overrides
+
+You can override individual fields and inherit others:
+
+```yaml
+tools:
+  critical-tool:
+    cooling:
+      min_age_days: 30  # Override only age, inherit downloads from global
+```
+
+#### Disabling Cooling for Specific Tools
+
+```yaml
+tools:
+  dev-tool:
+    cooling:
+      enabled: false  # Disable cooling for this tool only
+```
+
+#### CLI Override
+
+Disable cooling for all tools in a single run:
+
+```bash
+goneat doctor tools --scope all --no-cooling --install
+```
+
+**Use cases**:
+- Offline/air-gapped environments
+- Emergency hotfixes
+- Development/testing
+
 ## Setup Guide
 
 ### Step 1: Create Configuration (2 minutes)

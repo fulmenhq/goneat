@@ -42,6 +42,7 @@ type Tool struct {
 	RecommendedVersion string              `yaml:"recommended_version,omitempty" json:"recommended_version,omitempty"`
 	DisallowedVersions []string            `yaml:"disallowed_versions,omitempty" json:"disallowed_versions,omitempty"`
 	Artifacts          *ArtifactManifest   `yaml:"artifacts,omitempty" json:"artifacts,omitempty"`
+	Cooling            *CoolingConfig      `yaml:"cooling,omitempty" json:"cooling,omitempty"` // v1.2.0: optional tool-specific cooling policy override
 }
 
 // InstallConfig defines structured installation methods (v1.1.0+).
@@ -84,6 +85,26 @@ type Artifact struct {
 	URL         string `yaml:"url" json:"url"`
 	SHA256      string `yaml:"sha256" json:"sha256"`
 	ExtractPath string `yaml:"extract_path,omitempty" json:"extract_path,omitempty"`
+}
+
+// CoolingConfig defines package cooling policy for supply chain security.
+// Tool-specific cooling config can override global defaults from dependencies.yaml.
+type CoolingConfig struct {
+	Enabled            bool               `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	MinAgeDays         int                `yaml:"min_age_days,omitempty" json:"min_age_days,omitempty"`
+	MinDownloads       int                `yaml:"min_downloads,omitempty" json:"min_downloads,omitempty"`
+	MinDownloadsRecent int                `yaml:"min_downloads_recent,omitempty" json:"min_downloads_recent,omitempty"`
+	Exceptions         []CoolingException `yaml:"exceptions,omitempty" json:"exceptions,omitempty"`
+	AlertOnly          bool               `yaml:"alert_only,omitempty" json:"alert_only,omitempty"`
+	GracePeriodDays    int                `yaml:"grace_period_days,omitempty" json:"grace_period_days,omitempty"`
+}
+
+// CoolingException represents a trusted package that can bypass cooling period.
+type CoolingException struct {
+	Pattern    string `yaml:"pattern,omitempty" json:"pattern,omitempty"`
+	Reason     string `yaml:"reason,omitempty" json:"reason,omitempty"`
+	Until      string `yaml:"until,omitempty" json:"until,omitempty"`
+	ApprovedBy string `yaml:"approved_by,omitempty" json:"approved_by,omitempty"`
 }
 
 // ParseConfig parses YAML bytes into a Config structure.
@@ -276,4 +297,109 @@ func containsTraversal(path string) bool {
 	sep := string(filepath.Separator)
 	needle := sep + ".." + sep
 	return strings.Contains(cleaned, needle)
+}
+
+// LoadGlobalCoolingConfig loads the global cooling policy from .goneat/dependencies.yaml.
+// Returns nil if the file doesn't exist or cooling section is not configured.
+func LoadGlobalCoolingConfig() (*CoolingConfig, error) {
+	dependenciesPath := ".goneat/dependencies.yaml"
+	if _, err := os.Stat(dependenciesPath); os.IsNotExist(err) {
+		return nil, nil // No global config - OK
+	}
+
+	data, err := os.ReadFile(dependenciesPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s: %w", dependenciesPath, err)
+	}
+
+	// Parse YAML to extract just the cooling section
+	var doc struct {
+		Cooling *CoolingConfig `yaml:"cooling"`
+	}
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		return nil, fmt.Errorf("failed to parse %s: %w", dependenciesPath, err)
+	}
+
+	return doc.Cooling, nil
+}
+
+// MergeCoolingConfig merges tool-specific cooling config with global defaults.
+// Tool-specific settings override global defaults. If tool config is nil, returns global.
+// If both are nil, returns default enabled config with 7-day cooling.
+func MergeCoolingConfig(global, toolSpecific *CoolingConfig) *CoolingConfig {
+	// If no tool-specific override, use global
+	if toolSpecific == nil {
+		if global != nil {
+			return global
+		}
+		// Return sensible defaults if no configuration at all
+		return &CoolingConfig{
+			Enabled:            true,
+			MinAgeDays:         7,
+			MinDownloads:       100,
+			MinDownloadsRecent: 10,
+			AlertOnly:          false,
+			GracePeriodDays:    3,
+		}
+	}
+
+	// Tool-specific exists - merge with global as base
+	merged := &CoolingConfig{}
+	if global != nil {
+		*merged = *global // Copy global as baseline
+	} else {
+		// No global config, use defaults as base
+		merged.Enabled = true
+		merged.MinAgeDays = 7
+		merged.MinDownloads = 100
+		merged.MinDownloadsRecent = 10
+		merged.AlertOnly = false
+		merged.GracePeriodDays = 3
+	}
+
+	// Override with tool-specific values
+	// Note: For numeric fields, we treat 0 as "not set" (use global/default)
+	// For boolean fields and other types, we always override if tool-specific exists
+
+	// Numeric fields: only override if non-zero (0 means "use default")
+	if toolSpecific.MinAgeDays != 0 {
+		merged.MinAgeDays = toolSpecific.MinAgeDays
+	}
+	if toolSpecific.MinDownloads != 0 {
+		merged.MinDownloads = toolSpecific.MinDownloads
+	}
+	if toolSpecific.MinDownloadsRecent != 0 {
+		merged.MinDownloadsRecent = toolSpecific.MinDownloadsRecent
+	}
+	if toolSpecific.GracePeriodDays != 0 {
+		merged.GracePeriodDays = toolSpecific.GracePeriodDays
+	}
+
+	// Arrays: override if specified
+	if len(toolSpecific.Exceptions) > 0 {
+		merged.Exceptions = toolSpecific.Exceptions
+	}
+
+	// Boolean fields: We need special handling since we can't distinguish false from unset.
+	// Solution: If tool-specific config is provided, always apply its boolean values.
+	// To disable cooling for a tool, explicitly set enabled: false in tool config.
+	merged.Enabled = toolSpecific.Enabled
+	merged.AlertOnly = toolSpecific.AlertOnly
+
+	return merged
+}
+
+// GetEffectiveCoolingConfig returns the effective cooling configuration for a tool.
+// It loads global config, merges with tool-specific overrides, and respects --no-cooling flag.
+func (t *Tool) GetEffectiveCoolingConfig(disableCooling bool) (*CoolingConfig, error) {
+	if disableCooling {
+		return &CoolingConfig{Enabled: false}, nil
+	}
+
+	globalCooling, err := LoadGlobalCoolingConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load global cooling config: %w", err)
+	}
+
+	return MergeCoolingConfig(globalCooling, t.Cooling), nil
 }

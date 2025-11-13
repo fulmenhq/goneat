@@ -18,6 +18,11 @@ This document shows exactly how the goneat project configures and uses its own d
 
 ## Configuration Files
 
+goneat uses a two-level cooling policy configuration:
+
+1. **Global Policy** (`.goneat/dependencies.yaml`) - Applies to all tools and dependencies
+2. **Tool-Specific Overrides** (`.goneat/tools.yaml`) - Per-tool customization
+
 ### Primary Configuration: `.goneat/dependencies.yaml`
 
 **Location**: `./.goneat/dependencies.yaml` (repository root)
@@ -81,6 +86,51 @@ policy_engine:
    - Pre-vetted by maintainers during code review
    - Hosted on private/controlled infrastructure
    - Subject to internal security policies
+
+### Tool-Specific Overrides: `.goneat/tools.yaml`
+
+**Location**: `./.goneat/tools.yaml` (repository root)
+
+**NEW in v0.3.6**: goneat now supports tool-specific cooling policy overrides.
+
+#### Real-World Example: Stricter Policy for Syft
+
+```yaml
+tools:
+  syft:
+    name: "syft"
+    description: "SBOM generation tool for software supply chain security"
+    kind: "system"
+    detect_command: "syft version"
+    # ... platform configs, artifacts ...
+
+    # Tool-specific cooling override for critical SBOM tool
+    cooling:
+      min_age_days: 14        # More conservative than global 7 days
+      min_downloads: 5000     # Higher threshold than global 100
+      min_downloads_recent: 100  # Ensure active maintenance
+```
+
+**Rationale**: Syft generates SBOMs that document our entire supply chain. A compromised SBOM tool could:
+- Inject malicious packages into SBOMs
+- Hide vulnerable dependencies
+- Provide false security assurances
+
+Therefore, we apply a **stricter cooling policy** (14 days vs 7 days global) to ensure Syft releases have extra time for community vetting.
+
+**Other tools** (ripgrep, jq, golangci-lint, etc.) still use the global 7-day policy since they have lower supply chain risk.
+
+#### Configuration Hierarchy in Action
+
+| Tool | Cooling Policy Source | Min Age | Min Downloads |
+|------|----------------------|---------|---------------|
+| syft | Tool-specific override | 14 days | 5000 |
+| ripgrep | Global default | 7 days | 100 |
+| jq | Global default | 7 days | 100 |
+| golangci-lint | Global default | 7 days | 100 |
+| (with --no-cooling) | CLI flag | Disabled | N/A |
+
+**Key Insight**: This demonstrates goneat's "defense in depth" approach - different security postures for different risk profiles.
 
 ---
 

@@ -94,6 +94,7 @@ var (
 	flagDoctorListScopes        bool
 	flagDoctorValidateConfig    bool
 	flagDoctorDryRun            bool
+	flagDoctorNoCooling         bool
 )
 
 func init() {
@@ -124,6 +125,7 @@ func init() {
 	doctorToolsCmd.Flags().BoolVar(&flagDoctorListScopes, "list-scopes", false, "List available scopes and exit")
 	doctorToolsCmd.Flags().BoolVar(&flagDoctorValidateConfig, "validate-config", false, "Validate configuration file and exit")
 	doctorToolsCmd.Flags().BoolVar(&flagDoctorDryRun, "dry-run", false, "Show what would be installed without installing")
+	doctorToolsCmd.Flags().BoolVar(&flagDoctorNoCooling, "no-cooling", false, "Disable package cooling policy checks (for offline/air-gapped environments)")
 
 	// Flags for versions subcommand
 	doctorVersionsCmd.Flags().BoolVar(&flagDoctorVersionsPurge, "purge", false, "Remove stale global installation from GOPATH/bin")
