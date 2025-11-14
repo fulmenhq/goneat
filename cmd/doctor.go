@@ -14,11 +14,13 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"time"
 
 	intdoctor "github.com/fulmenhq/goneat/internal/doctor"
 	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/fulmenhq/goneat/pkg/buildinfo"
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/tools/metadata"
 	"github.com/spf13/cobra"
 )
 
@@ -172,6 +174,16 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
+	// Initialize shared metadata registry for cooling policy checks
+	// This registry is reused across all tool checks to benefit from 24-hour cache
+	// Prevents redundant GitHub API calls and reduces rate-limit risk
+	metadataRegistry := metadata.NewRegistry(24 * time.Hour)
+	githubFetcher := metadata.NewGitHubFetcher(
+		os.Getenv("GITHUB_TOKEN"),
+		30*time.Second,
+	)
+	metadataRegistry.RegisterFetcher("github", githubFetcher)
+
 	// Foundation scope validation - proactive checks for common issues
 	if flagDoctorScope == "foundation" {
 		if warnings := intdoctor.ValidateFoundationTools(); len(warnings) > 0 {
@@ -203,6 +215,18 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 			} else {
 				logger.Info(fmt.Sprintf("%s present", tool.Name))
 			}
+
+			// Optional: Check cooling policy for informational purposes on present tools
+			// This helps users understand if their currently-installed tools meet cooling requirements
+			if !flagDoctorNoCooling {
+				coolingResult := intdoctor.CheckToolCoolingPolicy(tool, flagDoctorNoCooling, &metadataRegistry)
+				if coolingResult != nil && !coolingResult.Disabled && !coolingResult.Passed {
+					logger.Warn(fmt.Sprintf("%s present but does not meet cooling policy", tool.Name))
+					if len(coolingResult.Violations) > 0 {
+						fmt.Fprintf(cmd.ErrOrStderr(), "%s\n", intdoctor.FormatCoolingViolation(tool.Name, coolingResult)) //nolint:errcheck
+					}
+				}
+			}
 		} else {
 			missing++
 			if strings.Contains(status.Instructions, "not in PATH") || strings.Contains(status.Instructions, "is installed at") {
@@ -220,6 +244,31 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 			}
 
 			if flagDoctorInstall {
+				// Check cooling policy before installation
+				coolingResult := intdoctor.CheckToolCoolingPolicy(tool, flagDoctorNoCooling, &metadataRegistry)
+				if coolingResult != nil && !coolingResult.Disabled && !coolingResult.Passed {
+					logger.Warn(fmt.Sprintf("Cooling policy check failed for %s", tool.Name))
+					if len(coolingResult.Violations) > 0 {
+						fmt.Fprintf(cmd.ErrOrStderr(), "%s\n", intdoctor.FormatCoolingViolation(tool.Name, coolingResult)) //nolint:errcheck
+					}
+
+					// Get effective cooling config to check alert-only mode
+					effectiveCoolingConfig, err := tool.GetEffectiveCoolingConfig(flagDoctorNoCooling)
+					blockInstallation := true
+					if err == nil && effectiveCoolingConfig != nil && effectiveCoolingConfig.AlertOnly {
+						blockInstallation = false
+					}
+
+					if blockInstallation {
+						logger.Error(fmt.Sprintf("Installation blocked for %s: cooling policy violation", tool.Name))
+						logger.Info("To bypass cooling checks, use: --no-cooling flag")
+						policyViolations++
+						continue
+					}
+					// AlertOnly mode: warn but allow installation
+					logger.Warn(fmt.Sprintf("Cooling policy violation for %s (alert-only mode: installation proceeding)", tool.Name))
+				}
+
 				if !flagDoctorYes {
 					if !promptYes(cmd, fmt.Sprintf("Install %s now using: %s ? [y/N] ", tool.Name, status.Instructions)) {
 						logger.Warn(fmt.Sprintf("Skipped install for %s", tool.Name))
@@ -592,6 +641,16 @@ func convertToolConfigToTool(toolConfig intdoctor.ToolConfig) (intdoctor.Tool, e
 
 	if toolConfig.Artifacts != nil {
 		tool.Artifacts = toolConfig.Artifacts
+	}
+
+	// Copy cooling policy configuration
+	if toolConfig.Cooling != nil {
+		tool.Cooling = toolConfig.Cooling
+	}
+
+	// Copy recommended version for metadata fetching
+	if toolConfig.RecommendedVersion != "" {
+		tool.RecommendedVersion = toolConfig.RecommendedVersion
 	}
 
 	return tool, nil

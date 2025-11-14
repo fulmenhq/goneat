@@ -175,6 +175,97 @@ func (f *GitHubFetcher) FetchMetadata(repo, version string) (*Metadata, error) {
 	return meta, nil
 }
 
+// FetchLatestMetadata fetches metadata for the latest release from GitHub API
+func (f *GitHubFetcher) FetchLatestMetadata(repo string) (*Metadata, error) {
+	// Normalize repo format to "owner/repo"
+	repo = strings.TrimPrefix(repo, "https://")
+	repo = strings.TrimPrefix(repo, "http://")
+	repo = strings.TrimPrefix(repo, "github.com/")
+
+	if !f.SupportsRepo(repo) {
+		return nil, fmt.Errorf("unsupported repository format: %s (expected owner/repo)", repo)
+	}
+
+	// GitHub Releases API: https://docs.github.com/en/rest/releases/releases#get-the-latest-release
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", repo)
+
+	// Create request
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Add authentication if token provided (increases rate limit from 60 to 5000/hour)
+	if f.token != "" {
+		req.Header.Set("Authorization", "token "+f.token)
+	}
+
+	// GitHub API requires User-Agent header
+	req.Header.Set("User-Agent", "goneat-tools-metadata")
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+	// Execute request
+	resp, err := f.httpFetcher.Do(req)
+	if err != nil {
+		// Network/transport errors
+		return nil, &NetworkError{
+			Source:  "github",
+			URL:     apiURL,
+			Wrapped: err,
+		}
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	// Handle HTTP status codes
+	switch {
+	case resp.StatusCode == 404:
+		// No releases found
+		return nil, fmt.Errorf("%w: no releases found for %s", ErrNotFound, repo)
+
+	case resp.StatusCode == 403, resp.StatusCode == 429:
+		// Rate limit exceeded - parse headers for retry information
+		return nil, f.parseRateLimitError(resp, apiURL)
+
+	case resp.StatusCode >= 500:
+		// Server errors (5xx) - retriable
+		return nil, &NetworkError{
+			Source:  "github",
+			URL:     apiURL,
+			Wrapped: fmt.Errorf("GitHub server error: HTTP %d", resp.StatusCode),
+		}
+
+	case resp.StatusCode != 200:
+		// Other errors (401, etc.) - likely fatal
+		return nil, fmt.Errorf("GitHub API error: HTTP %d", resp.StatusCode)
+	}
+
+	// Parse response
+	var release githubReleaseResponse
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		return nil, &ParseError{
+			Source:  "github",
+			Message: "release response",
+			Wrapped: err,
+		}
+	}
+
+	// Calculate total downloads from assets
+	totalDownloads := 0
+	for _, asset := range release.Assets {
+		totalDownloads += asset.DownloadCount
+	}
+
+	meta := &Metadata{
+		Version:         release.TagName,
+		PublishDate:     release.PublishedAt,
+		TotalDownloads:  totalDownloads,
+		RecentDownloads: -1, // GitHub doesn't provide recent download stats
+		Source:          "github",
+	}
+
+	return meta, nil
+}
+
 // fetchWithTag is a helper to retry with a different tag format
 func (f *GitHubFetcher) fetchWithTag(repo, tag string, baseReq *http.Request) (*Metadata, error) {
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/releases/tags/%s", repo, tag)

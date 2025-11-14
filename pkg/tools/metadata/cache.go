@@ -116,6 +116,66 @@ func (r *DefaultRegistry) GetMetadata(repo, version string) (*Metadata, error) {
 	return meta, nil
 }
 
+// GetLatestMetadata retrieves latest release metadata for a tool, using cache if available
+func (r *DefaultRegistry) GetLatestMetadata(repo string) (*Metadata, error) {
+	// Check cache first (cache key uses "latest" as version)
+	cacheKey := fmt.Sprintf("%s@latest", repo)
+
+	r.mu.RLock()
+	entry, ok := r.cache[cacheKey]
+	r.mu.RUnlock()
+
+	if ok && time.Now().Before(entry.expiry) {
+		r.mu.Lock()
+		r.stats.Hits++
+		r.mu.Unlock()
+
+		// Return cached copy with updated source
+		cached := *entry.metadata
+		cached.Source = "cache"
+		return &cached, nil
+	}
+
+	// Cache miss or expired
+	r.mu.Lock()
+	r.stats.Misses++
+	r.mu.Unlock()
+
+	// Find appropriate fetcher
+	var fetcher Fetcher
+	var fetcherName string
+
+	r.mu.RLock()
+	for name, f := range r.fetchers {
+		if f.SupportsRepo(repo) {
+			fetcher = f
+			fetcherName = name
+			break
+		}
+	}
+	r.mu.RUnlock()
+
+	if fetcher == nil {
+		return nil, fmt.Errorf("no fetcher available for repository: %s", repo)
+	}
+
+	// Fetch latest metadata
+	meta, err := fetcher.FetchLatestMetadata(repo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch latest metadata via %s: %w", fetcherName, err)
+	}
+
+	// Cache the result
+	r.mu.Lock()
+	r.cache[cacheKey] = &cacheEntry{
+		metadata: meta,
+		expiry:   time.Now().Add(r.ttl),
+	}
+	r.mu.Unlock()
+
+	return meta, nil
+}
+
 // ClearCache removes all cached entries
 func (r *DefaultRegistry) ClearCache() {
 	r.mu.Lock()

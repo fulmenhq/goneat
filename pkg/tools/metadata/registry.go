@@ -61,6 +61,10 @@ type Fetcher interface {
 	// Returns error if metadata cannot be fetched
 	FetchMetadata(repo, version string) (*Metadata, error)
 
+	// FetchLatestMetadata fetches metadata for the latest release
+	// Returns error if metadata cannot be fetched
+	FetchLatestMetadata(repo string) (*Metadata, error)
+
 	// SupportsRepo returns true if this fetcher can handle the given repo format
 	// Examples: "github.com/anchore/syft", "anchore/syft"
 	SupportsRepo(repo string) bool
@@ -71,6 +75,10 @@ type Registry interface {
 	// GetMetadata attempts to fetch metadata using appropriate fetcher
 	// Returns cached result if available and not expired
 	GetMetadata(repo, version string) (*Metadata, error)
+
+	// GetLatestMetadata attempts to fetch latest release metadata
+	// Returns cached result if available and not expired
+	GetLatestMetadata(repo string) (*Metadata, error)
 
 	// RegisterFetcher adds a new fetcher to the registry
 	RegisterFetcher(name string, fetcher Fetcher)

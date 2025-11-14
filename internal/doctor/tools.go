@@ -24,13 +24,15 @@ type Tool struct {
 	CheckArgs      []string
 	VersionPolicy  versioning.Policy
 	// System tool specific fields
-	Description       string                   // human-readable description of the tool's purpose
-	Platforms         []string                 // supported platforms: "darwin", "linux", "windows", "*" for all
-	InstallMethods    map[string]InstallMethod // platform-specific installation methods
-	InstallCommands   map[string]string        // installer commands keyed by platform/installer keyword
-	InstallerPriority map[string][]string      // preferred installer order per platform
-	DetectCommand     string                   // raw detect command from configuration
-	Artifacts         *tools.ArtifactManifest  // artifact-based installation with SHA256 verification
+	Description        string                   // human-readable description of the tool's purpose
+	Platforms          []string                 // supported platforms: "darwin", "linux", "windows", "*" for all
+	InstallMethods     map[string]InstallMethod // platform-specific installation methods
+	InstallCommands    map[string]string        // installer commands keyed by platform/installer keyword
+	InstallerPriority  map[string][]string      // preferred installer order per platform
+	DetectCommand      string                   // raw detect command from configuration
+	Artifacts          *tools.ArtifactManifest  // artifact-based installation with SHA256 verification
+	Cooling            *tools.CoolingConfig     // optional tool-specific cooling policy override
+	RecommendedVersion string                   // recommended version for metadata fetching
 }
 
 // InstallMethod represents a platform-specific installation method
@@ -38,6 +40,21 @@ type InstallMethod struct {
 	Detector     func() (version string, found bool) // function to detect if tool is installed
 	Installer    func() error                        // function to install the tool
 	Instructions string                              // human-readable installation instructions
+}
+
+// GetEffectiveCoolingConfig returns the effective cooling configuration for this tool
+// It loads global config, merges with tool-specific overrides, and respects --no-cooling flag
+func (t *Tool) GetEffectiveCoolingConfig(disableCooling bool) (*tools.CoolingConfig, error) {
+	if disableCooling {
+		return &tools.CoolingConfig{Enabled: false}, nil
+	}
+
+	globalCooling, err := tools.LoadGlobalCoolingConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load global cooling config: %w", err)
+	}
+
+	return tools.MergeCoolingConfig(globalCooling, t.Cooling), nil
 }
 
 type installerKind string
