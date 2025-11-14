@@ -47,11 +47,18 @@ tools:
     description: "Fast text search tool"
     kind: "system" # "go" | "bundled-go" | "system"
     detect_command: "rg --version"
-    install_commands:
-      darwin: "brew install ripgrep"
-      linux: "apt-get install -y ripgrep"
-      windows: "winget install BurntSushi.ripgrep.MSVC"
     platforms: ["darwin", "linux", "windows"]
+    # CRITICAL: Use installer-kind keys (mise, brew, apt-get), NOT platform keys!
+    installer_priority:
+      darwin: ["mise", "brew"]
+      linux: ["mise", "apt-get"]
+      windows: ["mise", "winget", "scoop"]
+    install_commands:
+      mise: "mise use -g ripgrep@latest"
+      brew: "brew install ripgrep"
+      apt-get: "sudo apt-get install -y ripgrep"
+      winget: "winget install BurntSushi.ripgrep.MSVC"
+      scoop: "scoop install ripgrep"
 ```
 
 ## Usage Patterns
@@ -206,22 +213,31 @@ tools:
 tools:
   golangci:
     kind: "system"
+    platforms: ["linux", "darwin", "windows"]
+    # Use go-install installer-kind (works across all platforms)
     install_commands:
-      linux: "go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
-      darwin: "go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
-      windows: "go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
+      go-install: "go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
 ```
 
-#### Version Manager Integration
+#### Version Manager Integration with Fallbacks
 
 ```yaml
 tools:
   ripgrep:
     kind: "system"
+    platforms: ["linux", "darwin", "windows"]
+    # Define installer priority per platform
+    installer_priority:
+      linux: ["mise", "apt-get"]
+      darwin: ["mise", "brew"]
+      windows: ["mise", "winget", "scoop"]
+    # Use installer-kind keys (NOT platform keys!)
     install_commands:
-      linux: "mise use ripgrep@latest 2>/dev/null || echo '📦 Run: sudo apt-get install ripgrep' && exit 1"
-      darwin: "mise use ripgrep@latest || brew install ripgrep"
-      windows: "winget install BurntSushi.ripgrep.MSVC || scoop install ripgrep"
+      mise: "mise use -g ripgrep@latest"
+      apt-get: "sudo apt-get install -y ripgrep"
+      brew: "brew install ripgrep"
+      winget: "winget install BurntSushi.ripgrep.MSVC"
+      scoop: "scoop install ripgrep"
 ```
 
 ### Platform Detection
@@ -320,11 +336,16 @@ tools:
     description: "YAML linter"
     kind: "system"
     detect_command: "yamllint --version"
-    install_commands:
-      darwin: "brew install yamllint"
-      linux: "pip install yamllint"
-      windows: "pip install yamllint"
     platforms: ["darwin", "linux", "windows"]
+    # Use installer-kind keys (brew for macOS, mise/manual for pip on all platforms)
+    installer_priority:
+      darwin: ["mise", "brew"]
+      linux: ["mise", "manual"]
+      windows: ["mise", "manual"]
+    install_commands:
+      mise: "mise use -g python@latest && mise exec -- pip install yamllint"
+      brew: "brew install yamllint"
+      manual: "pip install yamllint"
 ```
 
 ### Custom Scopes

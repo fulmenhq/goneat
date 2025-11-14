@@ -326,6 +326,124 @@ goneat doctor tools --scope bootstrap
 - `internal/doctor/tools_test.go`: Platform filtering unit tests (198 LOC)
 - `cmd/doctor_test.go`: Integration test for bug scenario
 
+### Manual Installer Execution
+
+Fixed a critical bug where manual installers were never executed, blocking package manager bootstrap workflows.
+
+**Problem**: The manual installer kind was designed for bootstrapping package managers (mise, scoop) via official install scripts, but `isInstallerAvailable()` returned `false` for `installerManual`, causing these commands to be skipped entirely.
+
+**Root Cause**: Manual installer was treated like other installers that require a package manager to be present. However, manual installers are just scripts/commands to execute and don't have prerequisites.
+
+**Solution**: Changed `isInstallerAvailable()` to return `true` for `installerManual`, treating it as always available.
+
+**Impact**:
+- ✅ **CI/CD Bootstrap**: Automated workflows can now bootstrap package managers from scratch
+- ✅ **Template Repositories**: Projects can include package manager bootstrap in their tool configs
+- ✅ **Fresh Workstations**: Onboarding developers can run `goneat doctor tools --scope bootstrap --install` to auto-setup
+
+**Example Configuration**:
+
+```yaml
+# .goneat/tools.yaml (bootstrap scope)
+tools:
+  mise:
+    name: "mise"
+    description: "Polyglot runtime manager"
+    kind: "system"
+    detect_command: "mise --version"
+    platforms: ["linux", "darwin"]
+    installer_priority:
+      linux: ["manual"]
+      darwin: ["manual"]
+    install_commands:
+      manual: |
+        curl https://mise.jdx.dev/install.sh | sh && \
+        echo 'Add $HOME/.local/bin to PATH'
+```
+
+**Usage**:
+
+```bash
+# Automatically bootstrap mise if missing
+goneat doctor tools --scope bootstrap --install --yes
+
+# Verify installation
+mise --version
+
+# Add to PATH for persistence
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+**Test Coverage**: 3 new unit tests for manual installer availability + integration test for bootstrap scenario.
+
+**Files Modified**:
+- `internal/doctor/tools.go`: Fixed `isInstallerAvailable()` for manual installer (3 LOC)
+- `internal/doctor/tools_test.go`: Manual installer unit tests (155 LOC)
+- `cmd/doctor_test.go`: Bootstrap integration test (48 LOC)
+
+### Install Commands Documentation Clarification
+
+Fixed misleading documentation that caused widespread confusion about `install_commands` syntax.
+
+**Problem**: Documentation and examples showed `install_commands` using platform keys (`linux:`, `darwin:`, `windows:`), but the code only recognizes **installer-kind keys** (`mise`, `brew`, `apt-get`, `manual`, etc.). Platform keys were silently ignored, causing tools to never install.
+
+**Root Cause**: Historical documentation carried over platform key examples when the feature was originally designed differently. The code evolved to use installer-kind keys for flexibility, but docs weren't updated.
+
+**Solution**:
+
+1. **Code Validation**: Added `ValidateInstallerCommands()` function that warns when:
+   - Platform keys (linux, darwin, windows) are used instead of installer-kind keys
+   - Unknown/unrecognized keys are used
+
+2. **Documentation Updates**: Fixed all examples in:
+   - `docs/appnotes/lib/tools.md` - Added comprehensive "Understanding Installer Kinds vs Platforms" section
+   - `docs/appnotes/tools-runner-usage.md` - Fixed all examples to use installer-kind keys with priority fallbacks
+   - `docs/user-guide/bootstrap/package-managers.md` - Added automatic bootstrap section with v0.3.6 examples
+
+**Example Warnings**:
+
+```bash
+# User config with platform keys (WRONG):
+tools:
+  ripgrep:
+    install_commands:
+      linux: "apt-get install ripgrep"  # This is ignored!
+
+# Warning output:
+WARN Tool ripgrep: install_commands key 'linux' looks like a platform.
+     Use installer-kind keys instead (mise, brew, apt-get, manual, etc.).
+     Platform keys are ignored by the installer.
+```
+
+**Correct Usage**:
+
+```yaml
+# ✅ CORRECT - Installer-kind keys with priority
+tools:
+  ripgrep:
+    platforms: ["linux", "darwin", "windows"]
+    installer_priority:
+      linux: ["mise", "apt-get"]
+      darwin: ["mise", "brew"]
+      windows: ["mise", "scoop"]
+    install_commands:
+      mise: "mise use -g ripgrep@latest"
+      apt-get: "sudo apt-get install -y ripgrep"
+      brew: "brew install ripgrep"
+      scoop: "scoop install ripgrep"
+```
+
+**Impact**:
+- ✅ Users will see warnings when using wrong keys
+- ✅ All documentation now consistently shows correct patterns
+- ✅ Explains why installer-kind approach is better (flexible, platform-independent, priority control)
+
+**Files Modified**:
+- `internal/doctor/tools.go`: Added `ValidateInstallerCommands()` with platform detection (42 LOC)
+- `docs/appnotes/lib/tools.md`: Added 80 lines of installer-kinds explanation + corrected examples
+- `docs/appnotes/tools-runner-usage.md`: Fixed 3 examples to use installer-kind keys
+- `docs/user-guide/bootstrap/package-managers.md`: Added 50 lines on automatic bootstrap with mise example
+
 ## Breaking Changes
 
 None. This is a purely additive feature.

@@ -2,13 +2,68 @@
 title: Installing Package Managers on a Fresh Workstation
 description: Step-by-step guidance for installing mise, Homebrew, Scoop, Winget, and Linux package managers before running goneat doctor
 author: Arch Eagle (@arch-eagle)
-last_updated: 2025-09-19
-version: v0.2.7
+last_updated: 2025-11-14
+version: v0.3.6
 ---
 
 # Installing Package Managers on a Fresh Workstation
 
 Goneat's tooling workflow assumes a baseline set of package managers. On a brand-new machine you may need to install these helpers before `goneat doctor tools --install` can succeed. Use the sections below to bootstrap your environment quickly.
+
+## Automatic Bootstrap (New in v0.3.6)
+
+**Goneat can now automatically bootstrap package managers** like mise and scoop using the `manual` installer. If your tools configuration includes bootstrap entries with `installer_priority: ["manual"]`, goneat doctor will execute the official installation scripts automatically.
+
+### Example: Bootstrap mise automatically
+
+```yaml
+# .goneat/tools.yaml
+tools:
+  mise:
+    name: "mise"
+    description: "Polyglot runtime manager"
+    kind: "system"
+    detect_command: "mise --version"
+    platforms: ["linux", "darwin"]
+    installer_priority:
+      linux: ["manual"]
+      darwin: ["manual"]
+    install_commands:
+      manual: |
+        curl https://mise.jdx.dev/install.sh | sh && \
+        echo '✅ mise installed. Add $HOME/.local/bin to PATH'
+```
+
+```bash
+# Run doctor to automatically install mise if missing
+goneat doctor tools --scope bootstrap --install --yes
+
+# Verify mise was installed
+mise --version
+```
+
+**PATH Verification**: After automatic bootstrap, verify the tool is in PATH:
+
+```bash
+# macOS/Linux: Add mise to PATH
+export PATH="$HOME/.local/bin:$PATH"
+
+# Verify
+mise --version
+
+# Add to shell profile for persistence
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc  # or ~/.zshrc
+```
+
+**When to use automatic bootstrap**:
+- ✅ CI/CD environments (GitHub Actions, GitLab CI, etc.)
+- ✅ Template repositories requiring standardized tooling
+- ✅ Multi-platform projects with shared tool configs
+- ✅ Fresh developer workstations (onboarding)
+
+## Manual Installation (Alternative)
+
+If you prefer to install package managers manually before running goneat, use the commands below.
 
 ## macOS (darwin)
 

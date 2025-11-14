@@ -11,18 +11,7 @@ import (
 // helper to run root with args and capture stdout/stderr
 func execRoot(t *testing.T, args []string) (string, error) {
 	t.Helper()
-	var buf bytes.Buffer
-	rootCmd.SetOut(&buf)
-	rootCmd.SetErr(&buf)
-	// Reduce log noise to capture clean command output for JSON parsing
-	full := append([]string{"--log-level", "error"}, args...)
-	rootCmd.SetArgs(full)
-	// Run from repository root so relative defaults (docs/, schemas/) resolve consistently
-	cwd, _ := os.Getwd()
-	if repo := findRepoRootFS(cwd); repo != "" {
-		_ = os.Chdir(repo)
-		defer func() { _ = os.Chdir(cwd) }()
-	}
+
 	// Reset global assess flags to avoid cross-test bleed
 	assessMode, assessNoOp, assessCheck, assessFix = "check", false, false, false
 	contentRoot = "docs"
@@ -48,8 +37,28 @@ func execRoot(t *testing.T, args []string) (string, error) {
 	contentInitInclude = nil
 	contentInitExclude = nil
 	contentInitOverwrite = false
+
+	// Create a fresh root command instance per test to prevent command tree pollution
+	cmd := newRootCommand()
+	registerSubcommands(cmd)
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+
+	// Reduce log noise to capture clean command output for JSON parsing
+	full := append([]string{"--log-level", "error"}, args...)
+	cmd.SetArgs(full)
+
+	// Run from repository root so relative defaults (docs/, schemas/) resolve consistently
+	cwd, _ := os.Getwd()
+	if repo := findRepoRootFS(cwd); repo != "" {
+		_ = os.Chdir(repo)
+		defer func() { _ = os.Chdir(cwd) }()
+	}
+
 	t.Setenv("GONEAT_OFFLINE_SCHEMA_VALIDATION", "true")
-	err := rootCmd.Execute()
+	err := cmd.Execute()
 	return buf.String(), err
 }
 

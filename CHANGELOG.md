@@ -66,6 +66,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Implementation**: Added `SupportsCurrentPlatform()` helper with support for empty lists (all platforms), wildcards (`*`, `all`), and explicit platform lists
   - **Test Coverage**: 12 unit tests covering platform matching scenarios, plus integration test for bug scenario
 
+- **Manual Installer Execution**: Fixed manual installer never executing for package manager bootstrap
+  - Manual installer (`installerManual`) now properly executes commands in `install_commands.manual`
+  - Enables bootstrapping of package managers (mise, scoop) via official install scripts
+  - **Impact**: CI/CD pipelines and template repositories can now auto-bootstrap package managers
+  - **Root Cause**: `isInstallerAvailable()` returned `false` for `installerManual`, causing installer to be skipped
+  - **Use Case**: Bootstrap workflows like `goneat doctor tools --scope bootstrap --install --yes`
+  - **Test Coverage**: 3 new unit tests for manual installer + integration test for bootstrap scenario
+
+- **Install Commands Documentation**: Fixed misleading documentation about `install_commands` keys
+  - Clarified that `install_commands` uses **installer-kind keys** (mise, brew, apt-get, manual), NOT platform keys (linux, darwin, windows)
+  - Added validation warnings when users accidentally use platform keys instead of installer-kind keys
+  - **Impact**: Users will get warnings like "install_commands key 'linux' looks like a platform. Use installer-kind keys instead"
+  - **Affected Documentation**: `docs/appnotes/lib/tools.md`, `docs/appnotes/tools-runner-usage.md`, `docs/user-guide/bootstrap/package-managers.md`
+  - All examples now correctly demonstrate installer-kind usage with priority fallback chains
+
 ## [0.3.5] - 2025-11-11
 
 ### Fixed

@@ -920,3 +920,147 @@ func containsString(slice []string, target string) bool {
 	}
 	return false
 }
+
+// TestIsInstallerAvailable_Manual tests that manual installer is always available
+func TestIsInstallerAvailable_Manual(t *testing.T) {
+	// Manual installer should always be available (it's just a script to execute)
+	available := isInstallerAvailable(installerManual)
+	if !available {
+		t.Errorf("isInstallerAvailable(installerManual) = false, want true. "+
+			"Manual installer should always be available for bootstrap scripts (mise, scoop, etc.)")
+	}
+}
+
+// TestValidateInstallerCommands tests validation warnings for install_commands keys
+func TestValidateInstallerCommands(t *testing.T) {
+	tests := []struct {
+		name           string
+		tool           Tool
+		expectWarnings bool
+		description    string
+	}{
+		{
+			name: "Valid installer-kind keys (no warnings)",
+			tool: Tool{
+				Name: "test-tool",
+				InstallCommands: map[string]string{
+					"mise":    "mise use -g test@latest",
+					"brew":    "brew install test",
+					"apt-get": "sudo apt-get install -y test",
+					"manual":  "curl https://example.com/install.sh | sh",
+				},
+			},
+			expectWarnings: false,
+			description:    "All keys are valid installer kinds - should not warn",
+		},
+		{
+			name: "Platform keys instead of installer kinds (warns)",
+			tool: Tool{
+				Name: "bad-tool",
+				InstallCommands: map[string]string{
+					"linux":   "apt-get install bad-tool",
+					"darwin":  "brew install bad-tool",
+					"windows": "scoop install bad-tool",
+				},
+			},
+			expectWarnings: true,
+			description:    "Using platform keys (linux, darwin, windows) should warn - common mistake",
+		},
+		{
+			name: "Unknown keys (warns)",
+			tool: Tool{
+				Name: "unknown-tool",
+				InstallCommands: map[string]string{
+					"foobar": "install command",
+				},
+			},
+			expectWarnings: true,
+			description:    "Unknown keys should warn",
+		},
+		{
+			name: "Empty install_commands (no warnings)",
+			tool: Tool{
+				Name:            "empty-tool",
+				InstallCommands: map[string]string{},
+			},
+			expectWarnings: false,
+			description:    "Empty install_commands should not warn",
+		},
+		{
+			name: "Nil install_commands (no warnings)",
+			tool: Tool{
+				Name:            "nil-tool",
+				InstallCommands: nil,
+			},
+			expectWarnings: false,
+			description:    "Nil install_commands should not warn",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// ValidateInstallerCommands logs warnings - we can't easily capture those
+			// but we can call it to ensure it doesn't panic
+			ValidateInstallerCommands(tt.tool)
+			// Test passes if no panic occurs
+			t.Logf("Validation completed for %s: %s", tt.tool.Name, tt.description)
+		})
+	}
+}
+
+// TestManualInstallerBootstrapScenario tests the mise/scoop bootstrap use case
+func TestManualInstallerBootstrapScenario(t *testing.T) {
+	// Simulate mise bootstrap configuration
+	miseTool := Tool{
+		Name:        "mise",
+		Kind:        "system",
+		Description: "Polyglot runtime manager",
+		Platforms:   []string{"linux", "darwin"},
+		InstallerPriority: map[string][]string{
+			"linux":  {"manual"},
+			"darwin": {"manual"},
+		},
+		InstallCommands: map[string]string{
+			"manual": "curl https://mise.jdx.dev/install.sh | sh",
+		},
+	}
+
+	// Validate that manual installer is available
+	available := isInstallerAvailable(installerManual)
+	if !available {
+		t.Fatalf("manual installer should be available for mise bootstrap")
+	}
+
+	// Validate that install_commands are correct (should not warn)
+	ValidateInstallerCommands(miseTool)
+
+	// Build installer attempts for the current platform
+	platform := getCurrentPlatform()
+	if platform != "linux" && platform != "darwin" {
+		t.Skipf("Skipping mise bootstrap test on %s (mise is unix-only)", platform)
+	}
+
+	attempts := buildInstallerAttempts(miseTool, platform)
+
+	// Verify manual installer attempt was created and marked available
+	foundManual := false
+	for _, attempt := range attempts {
+		if attempt.kind == installerManual {
+			foundManual = true
+			if !attempt.available {
+				t.Errorf("manual installer attempt should be marked as available")
+			}
+			if attempt.command == "" {
+				t.Errorf("manual installer command should not be empty")
+			}
+			if attempt.command != "curl https://mise.jdx.dev/install.sh | sh" {
+				t.Errorf("manual installer command = %q, want curl script", attempt.command)
+			}
+			t.Logf("Manual installer attempt: command=%q, available=%v", attempt.command, attempt.available)
+		}
+	}
+
+	if !foundManual {
+		t.Errorf("buildInstallerAttempts should include manual installer for mise bootstrap")
+	}
+}

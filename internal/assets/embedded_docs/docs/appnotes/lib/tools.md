@@ -240,21 +240,103 @@ go run -c "
 
 ### Tool Definition Fields
 
-| Field                 | Type     | Description                            | Required |
-| --------------------- | -------- | -------------------------------------- | -------- |
-| `name`                | string   | Display name of the tool               | Yes      |
-| `description`         | string   | Human-readable description             | Yes      |
-| `kind`                | string   | Tool type (system, go, bundled-go)     | Yes      |
-| `detect_command`      | string   | Command to detect if tool is installed | Yes      |
-| `install_package`     | string   | Go package path for installation       | No       |
-| `version_args`        | []string | Arguments to get tool version          | No       |
-| `check_args`          | []string | Arguments to verify tool functionality | No       |
-| `platforms`           | []string | Supported platforms                    | No       |
-| `install_commands`    | map      | Platform-specific install commands     | No       |
-| `version_scheme`      | string   | Version format (semver, custom)        | No       |
-| `minimum_version`     | string   | Minimum required version               | No       |
-| `recommended_version` | string   | Recommended version                    | No       |
-| `disallowed_versions` | []string | Versions to avoid                      | No       |
+| Field                 | Type     | Description                                                             | Required |
+| --------------------- | -------- | ----------------------------------------------------------------------- | -------- |
+| `name`                | string   | Display name of the tool                                                | Yes      |
+| `description`         | string   | Human-readable description                                              | Yes      |
+| `kind`                | string   | Tool type (system, go, bundled-go)                                      | Yes      |
+| `detect_command`      | string   | Command to detect if tool is installed                                  | Yes      |
+| `install_package`     | string   | Go package path for installation                                        | No       |
+| `version_args`        | []string | Arguments to get tool version                                           | No       |
+| `check_args`          | []string | Arguments to verify tool functionality                                  | No       |
+| `platforms`           | []string | Supported platforms (darwin, linux, windows)                            | No       |
+| `install_commands`    | map      | **Installer-kind** commands (mise, brew, apt-get, manual, etc.)         | No       |
+| `installer_priority`  | map      | Platform-specific installer priority order                              | No       |
+| `version_scheme`      | string   | Version format (semver, custom)                                         | No       |
+| `minimum_version`     | string   | Minimum required version                                                | No       |
+| `recommended_version` | string   | Recommended version                                                     | No       |
+| `disallowed_versions` | []string | Versions to avoid                                                       | No       |
+
+### Understanding Installer Kinds vs Platforms
+
+**CRITICAL**: The `install_commands` field uses **installer-kind keys**, NOT platform keys.
+
+**Installer Kinds** are package manager or installation method identifiers:
+- `mise` - Mise runtime manager
+- `brew` - Homebrew (macOS/Linux)
+- `apt-get` - APT package manager (Debian/Ubuntu)
+- `scoop` - Scoop package manager (Windows)
+- `winget` - Windows Package Manager
+- `pacman` - Arch Linux package manager
+- `dnf` - DNF package manager (Fedora)
+- `yum` - YUM package manager (RHEL/CentOS)
+- `manual` - Manual installation scripts (bootstrap use case)
+- `go-install` - Go tool installation via `go install`
+
+**Common Mistake**: Using platform keys (`linux`, `darwin`, `windows`) in `install_commands`:
+
+```yaml
+# ❌ WRONG - Platform keys are ignored!
+tools:
+  ripgrep:
+    install_commands:
+      linux: "apt-get install ripgrep"    # Ignored by installer
+      darwin: "brew install ripgrep"      # Ignored by installer
+```
+
+```yaml
+# ✅ CORRECT - Installer-kind keys work
+tools:
+  ripgrep:
+    install_commands:
+      apt-get: "sudo apt-get install -y ripgrep"
+      brew: "brew install ripgrep"
+      mise: "mise use -g ripgrep@latest"
+```
+
+**Installer Priority**: Use `installer_priority` to control which installer is tried first on each platform:
+
+```yaml
+tools:
+  ripgrep:
+    platforms: ["linux", "darwin", "windows"]
+    installer_priority:
+      linux: ["mise", "apt-get"]      # Try mise first, fall back to apt-get
+      darwin: ["mise", "brew"]        # Try mise first, fall back to brew
+      windows: ["mise", "scoop"]      # Try mise first, fall back to scoop
+    install_commands:
+      mise: "mise use -g ripgrep@latest"
+      apt-get: "sudo apt-get install -y ripgrep"
+      brew: "brew install ripgrep"
+      scoop: "scoop install ripgrep"
+```
+
+**Manual Installer Bootstrap**: Use for bootstrapping package managers themselves:
+
+```yaml
+tools:
+  mise:
+    name: "mise"
+    description: "Polyglot runtime manager"
+    kind: "system"
+    detect_command: "mise --version"
+    platforms: ["linux", "darwin"]
+    installer_priority:
+      linux: ["manual"]
+      darwin: ["manual"]
+    install_commands:
+      manual: |
+        curl https://mise.jdx.dev/install.sh | sh && \
+        echo 'Add $HOME/.local/bin to PATH'
+```
+
+**Why This Design?**
+
+The installer-kind approach enables:
+- **Flexible tool installation**: Same tool can be installed via multiple package managers
+- **Platform independence**: One tool can use `brew` on macOS and `apt-get` on Linux without duplication
+- **Priority control**: Define fallback chains (e.g., try `mise` first, then fall back to system package manager)
+- **Bootstrap capability**: Use `manual` installer to bootstrap package managers via official scripts
 
 ## Advanced Features
 
@@ -268,9 +350,15 @@ customTool := tools.Tool{
     Kind:          "system",
     DetectCommand: "my-tool --version",
     Platforms:     []string{"linux", "darwin"},
+    // Use installer-kind keys, NOT platform keys
     InstallCommands: map[string]string{
-        "linux":  "wget -O /usr/local/bin/my-tool https://example.com/my-tool && chmod +x /usr/local/bin/my-tool",
-        "darwin": "brew install my-tool",
+        "manual": "wget -O /usr/local/bin/my-tool https://example.com/my-tool && chmod +x /usr/local/bin/my-tool",
+        "brew":   "brew install my-tool",
+        "apt-get": "sudo apt-get install -y my-tool",
+    },
+    InstallerPriority: map[string][]string{
+        "linux":  {"apt-get", "manual"},
+        "darwin": {"brew", "manual"},
     },
     MinimumVersion:     "1.0.0",
     RecommendedVersion: "2.1.0",

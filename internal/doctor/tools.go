@@ -307,6 +307,10 @@ func GetToolByName(name string) (Tool, bool) {
 }
 
 func CheckTool(t Tool) Status {
+	// Validate install_commands keys to help users catch common mistakes
+	// (e.g., using platform keys like "linux" instead of installer kinds like "mise")
+	ValidateInstallerCommands(t)
+
 	if t.Artifacts != nil {
 		path, err := resolveToolPath(t.Name)
 		if err == nil {
@@ -910,6 +914,50 @@ func normalizeInstallerKeys(raw []string) []installerKind {
 	return priorities
 }
 
+// ValidateInstallerCommands checks install_commands keys and warns about unrecognized installer kinds.
+// This helps users catch common mistakes like using platform keys (linux, darwin) instead of installer
+// kinds (mise, brew, apt-get, manual).
+//
+// CRITICAL: install_commands must use installer-kind keys (mise, brew, manual, etc.), NOT platform
+// keys (linux, darwin, windows). Platform keys are silently ignored by the installation logic.
+func ValidateInstallerCommands(t Tool) {
+	if len(t.InstallCommands) == 0 {
+		return
+	}
+
+	knownPlatforms := map[string]bool{
+		"linux":   true,
+		"darwin":  true,
+		"windows": true,
+		"all":     true,
+	}
+
+	for key := range t.InstallCommands {
+		normalized := strings.ToLower(strings.TrimSpace(key))
+
+		// Check if it's a known installer kind
+		if _, isKnown := installerKindLookup[normalized]; isKnown {
+			continue
+		}
+
+		// Warn if it looks like a platform key (common mistake)
+		if knownPlatforms[normalized] {
+			logger.Warn(fmt.Sprintf(
+				"Tool %s: install_commands key '%s' looks like a platform. "+
+					"Use installer-kind keys instead (mise, brew, apt-get, manual, etc.). "+
+					"Platform keys are ignored by the installer.",
+				t.Name, key))
+			continue
+		}
+
+		// Warn about completely unrecognized keys
+		logger.Warn(fmt.Sprintf(
+			"Tool %s: install_commands key '%s' is not a recognized installer kind. "+
+				"Known kinds: mise, brew, apt-get, scoop, winget, pacman, dnf, yum, manual, go-install",
+			t.Name, key))
+	}
+}
+
 func isInstallerAvailable(kind installerKind) bool {
 	switch kind {
 	case installerMise:
@@ -930,6 +978,10 @@ func isInstallerAvailable(kind installerKind) bool {
 		return commandExists("yum")
 	case installerGoInstall:
 		return commandExists("go")
+	case installerManual:
+		// Manual installer is always "available" - it's just a script/command to execute
+		// Used for bootstrapping package managers (mise, scoop) via official install scripts
+		return true
 	default:
 		return false
 	}

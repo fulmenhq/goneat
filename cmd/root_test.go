@@ -80,14 +80,18 @@ func TestGetVersionFromSources(t *testing.T) {
 }
 
 func TestRootCmd_Help(t *testing.T) {
+	// Create fresh command instance per test to prevent state pollution
+	cmd := newRootCommand()
+	registerSubcommands(cmd)
+
 	// Capture help output
 	var buf bytes.Buffer
-	rootCmd.SetOut(&buf)
-	rootCmd.SetErr(&buf)
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
 
 	// Test help command
-	rootCmd.SetArgs([]string{"--help"})
-	err := rootCmd.Execute()
+	cmd.SetArgs([]string{"--help"})
+	err := cmd.Execute()
 
 	// Help should show usage and exit with code 0 or exit code for help
 	// We don't check the exact error since cobra help exits
@@ -106,13 +110,17 @@ func TestRootCmd_Help(t *testing.T) {
 }
 
 func TestRootCmd_VersionFlag(t *testing.T) {
+	// Create fresh command instance per test to prevent state pollution
+	cmd := newRootCommand()
+	registerSubcommands(cmd)
+
 	// Test --version flag
 	var buf bytes.Buffer
-	rootCmd.SetOut(&buf)
-	rootCmd.SetErr(&buf)
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
 
-	rootCmd.SetArgs([]string{"--version"})
-	err := rootCmd.Execute()
+	cmd.SetArgs([]string{"--version"})
+	err := cmd.Execute()
 
 	// Version should exit with success or specific version exit code
 	if err != nil && err.Error() != "exit 0" {
@@ -127,13 +135,17 @@ func TestRootCmd_VersionFlag(t *testing.T) {
 }
 
 func TestRootCmd_InvalidFlag(t *testing.T) {
+	// Create fresh command instance per test to prevent state pollution
+	cmd := newRootCommand()
+	registerSubcommands(cmd)
+
 	// Test invalid flag
 	var buf bytes.Buffer
-	rootCmd.SetOut(&buf)
-	rootCmd.SetErr(&buf)
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
 
-	rootCmd.SetArgs([]string{"--invalid-flag"})
-	err := rootCmd.Execute()
+	cmd.SetArgs([]string{"--invalid-flag"})
+	err := cmd.Execute()
 
 	// Should return an error for invalid flag
 	if err == nil {

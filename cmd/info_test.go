@@ -12,20 +12,32 @@ import (
 // execInfoLicenses executes via the root command path: goneat info licenses ...
 func execInfoLicenses(t *testing.T, args []string) (string, error) {
 	t.Helper()
+
+	// Reset flag values on the shared infoLicensesCmd to prevent state pollution
+	// Note: infoLicensesCmd is a package-level singleton, so flags persist across tests
+	if infoLicensesCmd.Flags().Lookup("filter") != nil {
+		_ = infoLicensesCmd.Flags().Set("filter", "")
+	}
+	if infoLicensesCmd.Flags().Lookup("summary") != nil {
+		_ = infoLicensesCmd.Flags().Set("summary", "false")
+	}
+	if infoLicensesCmd.Flags().Lookup("json") != nil {
+		_ = infoLicensesCmd.Flags().Set("json", "false")
+	}
+
+	// Create a fresh root command instance per test to prevent command tree pollution
+	cmd := newRootCommand()
+	registerSubcommands(cmd)
+
 	var buf bytes.Buffer
-	rootCmd.SetOut(&buf)
-	rootCmd.SetErr(&buf)
-	infoCmd.SetOut(&buf)
-	infoCmd.SetErr(&buf)
-	infoLicensesCmd.SetOut(&buf)
-	infoLicensesCmd.SetErr(&buf)
-	// Reset flag defaults to avoid bleed-over between tests
-	_ = infoLicensesCmd.Flags().Set("filter", "")
-	_ = infoLicensesCmd.Flags().Set("summary", "false")
-	_ = infoLicensesCmd.Flags().Set("json", "false")
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+
+	// Execute via the command path: goneat info licenses ...
 	full := append([]string{"info", "licenses"}, args...)
-	rootCmd.SetArgs(full)
-	err := rootCmd.Execute()
+	cmd.SetArgs(full)
+
+	err := cmd.Execute()
 	return buf.String(), err
 }
 

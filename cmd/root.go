@@ -14,11 +14,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// rootCmd represents the base command when called without any subcommands
-var rootCmd = &cobra.Command{
-	Use:   "goneat",
-	Short: "Unified Go-based formatting and validation tool",
-	Long: `Goneat is a unified tool for formatting and validating multiple languages/formats,
+// newRootCommand creates a fresh root command instance.
+// This factory pattern allows tests to create isolated command trees without shared state.
+func newRootCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "goneat",
+		Short: "Unified Go-based formatting and validation tool",
+		Long: `Goneat is a unified tool for formatting and validating multiple languages/formats,
 Inspired by Biome. It bundles existing OSS tools transparently for data engineering workflows.
 
 Examples:
@@ -27,34 +29,23 @@ Examples:
    goneat envinfo     # Show system information
    goneat format      # Format files
    goneat assess      # Comprehensive codebase assessment`,
-	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
-		initializeLogger(cmd)
-	},
-}
-
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
-	err := rootCmd.Execute()
-	if err != nil {
-		logger.Error("Command execution failed", logger.Err(err))
-		os.Exit(exitcode.GeneralError)
+		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
+			initializeLogger(cmd)
+		},
 	}
-}
 
-func init() {
 	// Add global flags
-	rootCmd.PersistentFlags().String("log-level", "info", "Set log level (trace|debug|info|warn|error)")
-	rootCmd.PersistentFlags().Bool("json", false, "Output logs in JSON format")
-	rootCmd.PersistentFlags().Bool("no-color", false, "Disable colored output")
-	rootCmd.PersistentFlags().Bool("no-op", false, "Run tasks without making changes (assessment mode)")
+	cmd.PersistentFlags().String("log-level", "info", "Set log level (trace|debug|info|warn|error)")
+	cmd.PersistentFlags().Bool("json", false, "Output logs in JSON format")
+	cmd.PersistentFlags().Bool("no-color", false, "Disable colored output")
+	cmd.PersistentFlags().Bool("no-op", false, "Run tasks without making changes (assessment mode)")
 
 	// Wire Cobra's built-in --version using goneat's binary version
-	rootCmd.Version = buildinfo.BinaryVersion
-	rootCmd.SetVersionTemplate("goneat {{.Version}}\n")
+	cmd.Version = buildinfo.BinaryVersion
+	cmd.SetVersionTemplate("goneat {{.Version}}\n")
 
 	// Grouped help by command group (Neat → Workflow → Support)
-	rootCmd.SetHelpFunc(func(cmd *cobra.Command, _ []string) {
+	cmd.SetHelpFunc(func(cmd *cobra.Command, _ []string) {
 		reg := ops.GetRegistry()
 		// Header
 		cmd.Println(cmd.Long)
@@ -80,6 +71,52 @@ func init() {
 		cmd.Println("Flags:")
 		cmd.Print(cmd.UsageString())
 	})
+
+	return cmd
+}
+
+// registerSubcommands adds all subcommands to the root command.
+// This is called from init() for production and can be called explicitly in tests.
+func registerSubcommands(cmd *cobra.Command) {
+	cmd.AddCommand(versionCmd)
+	cmd.AddCommand(formatCmd)
+	cmd.AddCommand(datesCmd)
+	cmd.AddCommand(securityCmd)
+	cmd.AddCommand(doctorCmd)
+	cmd.AddCommand(hooksCmd)
+	cmd.AddCommand(pathfinderCmd)
+	cmd.AddCommand(assessCmd)
+	cmd.AddCommand(validateCmd)
+	cmd.AddCommand(contentCmd)
+	cmd.AddCommand(docsCmd)
+	cmd.AddCommand(schemaCmd)
+	cmd.AddCommand(dependenciesCmd)
+	cmd.AddCommand(envinfoCmd)
+	cmd.AddCommand(homeCmd)
+	cmd.AddCommand(prettyCmd)
+	cmd.AddCommand(initCmd)
+	cmd.AddCommand(infoCmd)
+	cmd.AddCommand(serverCmd)
+	cmd.AddCommand(ssotCmd)
+	cmd.AddCommand(guardianCmd)
+}
+
+// rootCmd represents the base command when called without any subcommands
+var rootCmd = newRootCommand()
+
+// Execute adds all child commands to the root command and sets flags appropriately.
+// This is called by main.main(). It only needs to happen once to the rootCmd.
+func Execute() {
+	err := rootCmd.Execute()
+	if err != nil {
+		logger.Error("Command execution failed", logger.Err(err))
+		os.Exit(exitcode.GeneralError)
+	}
+}
+
+func init() {
+	// Register all subcommands with the production rootCmd
+	registerSubcommands(rootCmd)
 }
 
 // getVersionFromSources tries to get version from multiple sources in priority order

@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"bytes"
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -10,15 +13,40 @@ import (
 func execDoctorTools(t *testing.T, args []string) (string, error) {
 	t.Helper()
 
-	// Execute via the real root command path: goneat doctor tools ...
+	// Reset package-level flag variables to prevent state pollution between tests
+	// These are bound to flag vars and persist across test runs
+	flagDoctorInstall = false
+	flagDoctorAll = false
+	flagDoctorTools = nil
+	flagDoctorPrintInstructions = false
+	flagDoctorYes = false
+	flagDoctorScope = "security" // default value
+	flagDoctorCheckUpdates = false
+	flagDoctorInstallPkgMgr = false
+	flagDoctorConfig = ""
+	flagDoctorListScopes = false
+	flagDoctorValidateConfig = false
+	flagDoctorDryRun = false
+	flagDoctorNoCooling = false
+
+	// Create a fresh root command instance per test to prevent command tree pollution
+	// This ensures each test runs with a clean command tree
+	cmd := newRootCommand()
+
+	// Register all subcommands (doctor, etc.)
+	registerSubcommands(cmd)
+
 	var buf bytes.Buffer
-	rootCmd.SetOut(&buf)
-	rootCmd.SetErr(&buf)
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+
+	// Execute via the command path: goneat doctor tools ...
 	rootArgs := append([]string{"doctor", "tools"}, args...)
-	rootCmd.SetArgs(rootArgs)
+	cmd.SetArgs(rootArgs)
 
 	// Do not prompt in tests; we only exercise validation and printing paths
-	err := rootCmd.Execute()
+	err := cmd.Execute()
+
 	return buf.String(), err
 }
 
@@ -80,4 +108,73 @@ func TestDoctorTools_PlatformFiltering(t *testing.T) {
 	}
 
 	t.Logf("Platform filtering test completed successfully")
+}
+
+// TestDoctorTools_ManualInstallerBootstrap tests that manual installer works for bootstrap scenarios
+// This test addresses the bug where installerManual was never executed because isInstallerAvailable
+// returned false. Manual installers are used for bootstrapping package managers (mise, scoop) via
+// official install scripts.
+func TestDoctorTools_ManualInstallerBootstrap(t *testing.T) {
+	// Create a temporary tools config with a manual installer
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "tools-test-manual.yaml")
+
+	// Write a simple config with a tool that uses manual installer
+	// We use a fake tool that writes a marker file when "installed"
+	markerFile := filepath.Join(tmpDir, "installed.marker")
+	configContent := fmt.Sprintf(`
+scopes:
+  test-bootstrap:
+    description: "Test bootstrap scope"
+    tools: ["test-manual-tool"]
+
+tools:
+  test-manual-tool:
+    name: "test-manual-tool"
+    description: "Test tool for manual installer"
+    kind: "system"
+    detect_command: "test-manual-tool --version"
+    platforms: ["linux", "darwin", "windows"]
+    installer_priority:
+      linux: ["manual"]
+      darwin: ["manual"]
+      windows: ["manual"]
+    install_commands:
+      manual: "echo 'Manual install executed' > %s"
+`, markerFile)
+
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write test config: %v", err)
+	}
+
+	// Run doctor tools with --dry-run to see what would be executed
+	// (We use dry-run to avoid actually running install commands in tests)
+	out, err := execDoctorTools(t, []string{"--config", configPath, "--scope", "test-bootstrap", "--dry-run"})
+
+	// Command should succeed (or at least not panic)
+	if err != nil && !strings.Contains(err.Error(), "missing") {
+		t.Errorf("Manual installer bootstrap test failed unexpectedly: %v", err)
+	}
+
+	// Verify output contains dry-run results (not just scope listing)
+	// Handle both JSON and text output formats
+	hasDryRunOutput := strings.Contains(out, "would install") ||
+		strings.Contains(out, "Dry run") ||
+		strings.Contains(out, "would_install")
+
+	if !hasDryRunOutput {
+		t.Logf("Output: %s", out)
+		t.Errorf("Expected dry-run output, but got scope listing. This suggests --dry-run flag was not processed.")
+	}
+
+	// Verify manual installer is mentioned in the output (text or JSON format)
+	hasManualMention := strings.Contains(out, "Manual") ||
+		strings.Contains(out, "manual")
+
+	if hasDryRunOutput && !hasManualMention {
+		t.Logf("Output: %s", out)
+		t.Errorf("Expected output to mention 'Manual' installation, but it didn't.")
+	}
+
+	t.Logf("Manual installer bootstrap test completed. Output: %s", out)
 }
