@@ -1,4 +1,4 @@
-# Goneat v0.3.6 — Package Manager Installation Engine
+# Goneat v0.3.6 — Package Manager Installation & Tools Cooling Policy
 
 **Release Date**: 2025-11-12
 **Status**: Release
@@ -6,10 +6,11 @@
 ## TL;DR
 
 - **Package Manager Installation**: Complete implementation of package manager-based tool installation (Homebrew, Scoop)
-- **Schema v1.1.0**: Full execution of declarative package manager installs defined in tools config
-- **Doctor Integration**: Package manager status display and installation verification
+- **Tools Cooling Policy**: Supply chain security enforcement for external tool installation with configurable age/download thresholds
+- **Schema v1.1.0**: Full execution of declarative package manager installs and cooling policy configuration
+- **Doctor Integration**: Package manager status display, installation verification, and cooling policy enforcement
 - **Cross-Platform**: Native support for macOS/Linux (brew) and Windows (scoop)
-- **Example Manifests**: Ready-to-use configuration examples for brew formula, brew cask, and scoop
+- **Example Manifests**: Ready-to-use configuration examples for brew formula, brew cask, scoop, and cooling overrides
 
 ## What's New
 
@@ -120,6 +121,144 @@ This release completes Phases 2-6 of the package manager feature:
 - `internal/doctor/tools.go`: Status API forwarding
 
 **Backward Compatibility**: v1.0.0 manifests with `install_commands` continue to work. The schema change is additive (minor version bump).
+
+### Tools Cooling Policy (Supply Chain Security)
+
+Blocks installation of newly-published external tools until they meet minimum age and download thresholds, protecting against supply chain attacks where malicious actors publish or compromise tool releases.
+
+**Why It Matters**: 80% of supply chain attacks are detected within the first 7 days of package publication. Recent attacks on popular tools demonstrate the risk of adopting freshly-published releases.
+
+**Example Configuration** (`.goneat/dependencies.yaml` - global policy):
+
+```yaml
+version: v1
+cooling:
+  enabled: true
+  min_age_days: 7              # Require tools to be ≥7 days old
+  min_downloads: 100           # Require ≥100 total downloads
+  min_downloads_recent: 10     # Require ≥10 recent downloads
+  alert_only: false            # Block installation (not just warn)
+  grace_period_days: 3         # 3-day grace for initial publication
+  exceptions:
+    - pattern: "github.com/fulmenhq/*"
+      reason: "Internal packages are pre-vetted"
+      approved_by: "@3leapsdave"
+```
+
+**Tool-Specific Overrides** (`.goneat/tools.yaml` - risk-based policies):
+
+```yaml
+tools:
+  syft:
+    name: syft
+    description: "SBOM generation tool"
+    cooling:
+      min_age_days: 14         # Stricter for critical SBOM tool
+      min_downloads: 5000      # Higher threshold for supply chain tool
+      min_downloads_recent: 100
+```
+
+**Usage**:
+
+```bash
+# Check tools with cooling policy enforcement
+goneat doctor tools --scope foundation
+
+# Install with cooling checks (blocks new releases)
+goneat doctor tools --scope foundation --install --yes
+
+# Bypass cooling for offline/air-gapped environments
+goneat doctor tools --scope foundation --install --no-cooling
+```
+
+### Key Features
+
+#### 1. 3-Level Configuration Hierarchy
+
+Policy resolution follows this precedence:
+
+1. **CLI Flag** (`--no-cooling`) - Disables for this run
+2. **Tool-Specific** (`.goneat/tools.yaml`) - Per-tool overrides
+3. **Global Default** (`.goneat/dependencies.yaml`) - Organization-wide policy
+
+Example hierarchy in action:
+- `syft`: 14 days / 5000 downloads (tool-specific override)
+- `ripgrep`: 7 days / 100 downloads (global default)
+- `jq`: 7 days / 100 downloads (global default)
+- With `--no-cooling`: All checks disabled for this run
+
+#### 2. GitHub Releases API Integration
+
+- Fetches release metadata (publish date, download counts) from GitHub Releases API
+- 24-hour caching layer minimizes rate-limit risk
+- Automatic fallback to latest release when tool version not specified
+- Repository auto-detection from artifact URLs and common tool name patterns
+- Rate limit parsing with clear "retry in X minutes" messaging
+
+#### 3. Alert-Only Mode
+
+For gradual adoption or monitoring:
+
+```yaml
+cooling:
+  enabled: true
+  alert_only: true  # Warn but don't block installation
+```
+
+Useful for:
+- Pilot deployments to measure policy impact
+- Teams transitioning from no policy to strict enforcement
+- Development environments where cooling is informational
+
+#### 4. Offline Support
+
+Use `--no-cooling` flag for:
+- Air-gapped environments without GitHub API access
+- CI/CD pipelines with network restrictions
+- Emergency deployments requiring immediate tool adoption
+
+### Technical Details
+
+**Files Added**:
+- `pkg/tools/metadata/registry.go`: Metadata fetching registry with caching
+- `pkg/tools/metadata/cache.go`: 24-hour TTL cache implementation
+- `pkg/tools/metadata/github.go`: GitHub Releases API client
+- `pkg/tools/metadata/errors.go`: Structured error types
+- `internal/doctor/cooling.go`: Cooling policy enforcement
+- `pkg/tools/config.go`: CoolingConfig structs and inheritance logic
+- Comprehensive test coverage (515 LOC across metadata and config tests)
+
+**Files Modified**:
+- `cmd/doctor.go`: Added `--no-cooling` flag and enforcement integration
+- `internal/doctor/tools.go`: Extended Tool struct with cooling config
+- `schemas/tools/v1.1.0/tools-config.yaml`: Added `cooling` field to schema
+
+**Documentation**:
+- Enhanced `docs/guides/package-cooling-policy.md` with tool-specific overrides
+- Updated `docs/appnotes/dogfooding-dependency-protection.md` with hierarchy examples
+- Living example in `.goneat/tools.yaml` (syft with stricter policy)
+
+### Use Cases
+
+**Critical SBOM Tools** (stricter policy):
+```yaml
+syft:
+  cooling:
+    min_age_days: 14
+    min_downloads: 5000
+```
+SBOM tools document your entire supply chain - compromised SBOM tooling could hide vulnerabilities.
+
+**Standard CLI Tools** (use global defaults):
+Tools like `ripgrep`, `jq`, `golangci-lint` use organization-wide policy (typically 7 days).
+
+**Low-Risk Tools** (disable cooling):
+```yaml
+local-dev-tool:
+  cooling:
+    enabled: false
+```
+For non-production tools or when risk is acceptable.
 
 ## Breaking Changes
 
