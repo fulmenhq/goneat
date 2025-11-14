@@ -121,20 +121,17 @@ lint: build ## Run lint/format/style checks
 		exit 1; \
 	fi
 
-release-check: build ## Run the release checklist validation (tests, lint, sync scripts)
+release-prepare: build sync-crucible embed-assets ## Prepare release (sync SSOT, embed assets, build binary)
+	@echo "🚀 Preparing release environment..."
+	@echo "✅ Release preparation complete (SSOT synced, assets embedded, binary built)"
+
+release-check: release-prepare ## Validate release readiness (tests, lint, crucible, licenses)
 	@echo "🔍 Running release checklist validation..."
 	$(MAKE) test
 	$(MAKE) lint
 	$(MAKE) verify-crucible
 	$(MAKE) license-audit
 	@echo "✅ Release checklist validation passed"
-
-release-prepare: ## Sequence of commands to ready a release (sync, tests, version bump)
-	@echo "🚀 Preparing release..."
-	$(MAKE) sync-crucible
-	$(MAKE) test
-	$(MAKE) lint
-	@echo "✅ Release preparation complete"
 
 package: ## Package binaries into distribution archives (dist/release/*.tar.gz, *.zip, SHA256SUMS)
 	@echo "📦 Packaging release artifacts..."
@@ -345,8 +342,10 @@ precommit: build test ## Run pre-commit hooks (stub for now)
 		exit 1; \
 	fi
 
-prepush: build-all license-audit verify-crucible-clean ## Run pre-push hooks (stub for now)
+prepush: release-check ## Run comprehensive pre-push validation (prepare + check)
 	@echo "Running pre-push checks with goneat..."
+	$(MAKE) verify-crucible-clean
+	$(MAKE) build-all
 	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
 		GONEAT_OFFLINE_SCHEMA_VALIDATION=false $(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-push; \
 		echo "✅ Pre-push checks passed"; \

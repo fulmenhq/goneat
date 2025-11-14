@@ -1,341 +1,535 @@
 # Release Checklist
 
-This checklist ensures all requirements are met before releasing goneat to the Go package ecosystem.
+This document provides standard release procedures and best practices for goneat releases. Use this as a reference guide for preparing, validating, and executing releases.
 
-## Current Release Status: v0.2.11 (2025-09-30)
+## Release Workflow Philosophy
 
-**✅ RELEASE COMPLETE**: v0.2.11 successfully tagged and pushed to GitHub.
-**✅ POST-RELEASE**: All quality gates passed, binaries built, licenses audited.
+**Always use `make` targets** instead of standalone `go` commands. The Makefile orchestrates complex workflows, ensures proper sequencing, and maintains consistency across development and CI/CD environments.
 
-## Next Release Target: [0.3.0] - 2025-10-28 (Dependency Protection)
+**Git hooks delegate to `make`**: Our pre-commit and pre-push hooks invoke make targets (not direct tool invocations), ensuring developer workflows match CI validation.
 
-**🔄 IN PROGRESS**: Preparing v0.3.0 release with dependency protection features (license compliance, package cooling policy, SBOM generation) and comprehensive documentation.
+## Release Target Chain
+
+goneat implements a three-stage release validation chain:
+
+```
+make prepush
+  ↓
+make release-check
+  ↓
+make release-prepare → build + sync-crucible + embed-assets
+  ↓
+test + lint + verify-crucible + license-audit
+```
+
+**Key Targets:**
+
+- `make release-prepare`: Synchronizes SSOT, embeds assets, builds binary (no validation)
+- `make release-check`: Full validation suite (tests, lint, crucible, license audit)
+- `make prepush`: Comprehensive pre-push validation (includes release-check + crucible-clean + build-all + assess)
+
+**Why this matters**: Running `make prepush` before pushing ensures all validation gates pass. This target automatically chains through release-check → release-prepare, providing full release readiness validation.
 
 ## Pre-Release Preparation
 
-### Code Quality ✅
+### Code Quality Gates
 
-- [x] **Tests Passing**: All tests pass (`make test` - includes Tier 1 integration)
-- [x] **Code Formatting**: Code properly formatted (`make fmt`)
-- [x] **Linting**: No linting issues (`golangci-lint run`)
-- [x] **Static Analysis**: No vet issues (`go vet ./...`)
-- [x] **Build Success**: Project builds without errors (`make build`)
-- [x] **Embedded Assets**: Assets in sync with SSOT (`make verify-embeds`)
+**Always run through make targets:**
 
-### Integration Tests (Three-Tier Strategy)
+```bash
+# Full validation (recommended before any push)
+make prepush
+
+# Individual validation targets (if needed)
+make test                    # Unit + Tier 1 integration tests
+make lint                    # Go linting via goneat assess
+make verify-crucible         # Verify SSOT sync is current
+make verify-crucible-clean   # Verify no uncommitted changes in crucible sources
+make license-audit           # Forbidden license detection (GPL/LGPL/AGPL/MPL/CDDL)
+make build-all               # Cross-platform builds (6 targets)
+```
+
+**Never use standalone commands** like `go test ./...` or `golangci-lint run` directly. Always use make targets to ensure proper environment setup and configuration.
+
+### Integration Testing Strategy (Three-Tier)
 
 **Tier 1 (Mandatory - Always Run)**:
-
-- [x] **Synthetic Fixture Test**: `make test` (includes `test-integration-cooling-synthetic`)
-  - Time: < 10s
-  - Dependencies: None (CI-friendly)
-  - When: Every commit, pre-commit, pre-push
+- Included in `make test` automatically
+- Target: `make test-integration-cooling-synthetic`
+- Time: < 10s, no external dependencies (CI-friendly)
+- When: Every commit, pre-commit, pre-push
 
 **Tier 2 (Recommended - Pre-Release)**:
-
-- [ ] **Quick Validation**: `make test-integration-cooling-quick` (Hugo baseline)
-  - Time: ~8s (warm cache), ~38s (cold cache)
-  - Dependencies: Hugo repository (set `GONEAT_COOLING_TEST_ROOT`)
-  - When: Before tagging release
-  - Target: < 15s warm, < 10% violations
+- Target: `make test-integration-cooling-quick` (Hugo baseline)
+- Time: ~8s (warm cache), ~38s (cold cache)
+- Dependencies: Requires Hugo repository (set `GONEAT_COOLING_TEST_ROOT`)
+- When: Before tagging any release
 
 **Tier 3 (Optional - Major Releases)**:
+- Target: `make test-integration-cooling` (all 8 scenarios)
+- Time: ~113s (1.9 minutes)
+- Dependencies: Hugo, OPA, Traefik, Mattermost repos in `GONEAT_COOLING_TEST_ROOT`
+- When: Major version releases (v0.3.0, v1.0.0, etc.)
 
-- [ ] **Full Suite**: `make test-integration-cooling` (all 8 scenarios)
-  - Time: ~113s (1.9 minutes)
-  - Dependencies: Hugo, OPA, Traefik, Mattermost repos
-  - When: Major version releases (v0.3.0, v1.0.0, etc.)
-  - Expected: 6/8 passing (2 known non-blocking failures)
-
-**Extended Testing** (Non-Standard):
-
-- [ ] **All Tiers**: `make test-integration-extended` (comprehensive)
-  - Runs: Tier 1 + Tier 2 + Tier 3 sequentially
-  - When: Final validation before major release
+**Extended Testing** (Comprehensive):
+- Target: `make test-integration-extended`
+- Runs all three tiers sequentially
+- When: Final validation before major releases
 
 **Setup**:
 
 ```bash
-# For Tier 2/3, set test repo location
+# For Tier 2/3 testing
 export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground
-# Or clone repos to ~/dev/playground/
+# Or clone test repos to ~/dev/playground/
 ```
 
-See: [Integration Test Protocol](.plans/active/v0.3.0/wave-2-phase-4-INTEGRATION-TEST-PROTOCOL.md)
+### Version Management
 
-### Version Management ✅
+Version updates should be handled through make targets or the goneat binary:
 
-- [x] **Version Updated**: VERSION file contains v0.2.11
-- [x] **Changelog Updated**: CHANGELOG.md reflects all changes
-- [x] **Go Module**: go.mod version is correct
-- [x] **Embedded Version**: Binary embeds correct version info
+```bash
+# Using goneat (dogfooding - recommended)
+./dist/goneat version bump patch   # 0.3.5 → 0.3.6
+./dist/goneat version bump minor   # 0.3.5 → 0.4.0
+./dist/goneat version bump major   # 0.3.5 → 1.0.0
 
-### Cross-Platform Builds ✅
+# Using make (alternative)
+make version-set VERSION=v0.3.6
+make version-set-prerelease VERSION_SET=v0.3.6-rc.1
+```
 
-- [x] **All Platforms**: Build successful for all 6 targets
-  - [x] Linux AMD64
-  - [x] Linux ARM64
-  - [x] macOS AMD64
-  - [x] macOS ARM64
-  - [x] Windows AMD64
-  - [ ] Windows ARM64 (future)
-- [x] **Binary Testing**: Linux AMD64 binary functional
-- [x] **Binary Size**: Reasonable size (< 20MB each)
+**Always update these files when bumping versions:**
+- `VERSION` - Single source of truth
+- `CHANGELOG.md` - User-facing changes
+- `RELEASE_NOTES.md` - Detailed release context (for RELEASE.md artifact)
+- `docs/releases/v<version>.md` - Complete release documentation
 
-### Documentation ✅
+### Cross-Platform Build Validation
 
-- [x] **README Updated**: Installation and usage instructions
-- [x] **User Guide**: Complete for all features
-- [x] **API Documentation**: All commands documented
-- [x] **Standards**: All standards documents current
+```bash
+make build-all  # Builds 6 platform targets
 
-### Licensing Compliance ✅
+# Platforms:
+# - Linux AMD64/ARM64
+# - macOS AMD64/ARM64 (Darwin)
+# - Windows AMD64
+# - (Windows ARM64 planned for future)
+```
 
-- [x] **License Audit**: `make license-audit` passes (no GPL/LGPL/AGPL/MPL/CDDL)
-- [x] **Inventory Updated**: `make license-inventory` refreshes `docs/licenses/inventory.csv`
-- [x] **License Texts Saved**: `make license-save` updates `docs/licenses/third-party/`
-- [x] **Inventory MD Reviewed**: Update `docs/licenses/inventory.md` if dependencies changed materially
+Binary testing is automatic for compatible platforms. Non-compatible platforms (e.g., Windows on macOS) will show test warnings but still produce binaries.
 
-### Dependency Protection (v0.3.0+) 🆕
+### Documentation Requirements
 
-- [ ] **Dogfooding Validation**: goneat uses its own dependency protection features
-  - [ ] `.goneat/dependencies.yaml` configured with production policy
-  - [ ] License compliance check passes: `goneat dependencies --licenses`
-  - [ ] Cooling policy check passes: `goneat dependencies --cooling`
-  - [ ] SBOM generation works: `goneat dependencies --sbom`
-  - [ ] Zero license violations in production dependencies
-  - [ ] Zero cooling policy violations
-- [ ] **Documentation Complete**: All dependency protection docs reviewed
-  - [ ] `docs/guides/dependency-protection-overview.md` current
-  - [ ] `docs/guides/package-cooling-policy.md` accurate
-  - [ ] `docs/troubleshooting/dependencies.md` comprehensive
-  - [ ] `docs/appnotes/dogfooding-dependency-protection.md` reflects actual config
-- [ ] **SSOT Provenance**: Crucible sync metadata is current
-  - [ ] `.goneat/ssot/provenance.json` exists with valid schema
-  - [ ] `.crucible/metadata/metadata.yaml` tracks correct version
-  - [ ] Provenance includes commit SHA and version
+Before any release, ensure:
+- `README.md` - Installation and quick start current
+- `docs/` - All feature documentation updated
+- `docs/releases/v<version>.md` - Complete release documentation created
+- API reference docs - All commands documented
+- Breaking changes - Clearly documented with migration paths
+
+### Licensing Compliance (Required)
+
+**Always run license audit before release:**
+
+```bash
+make license-audit          # Fail on forbidden licenses
+make license-inventory      # Generate CSV inventory (docs/licenses/inventory.csv)
+make license-save           # Save third-party license texts (docs/licenses/third-party/)
+make update-licenses        # Alias: inventory + save
+```
+
+**Forbidden licenses**: GPL, LGPL, AGPL, MPL, CDDL
+
+License audit is included in `make release-check` and `make prepush`.
+
+### Dependency Protection Dogfooding (v0.3.0+)
+
+goneat uses its own dependency protection features:
+
+```bash
+# Validate dependency configuration
+./dist/goneat dependencies --licenses   # License compliance check
+./dist/goneat dependencies --cooling    # Cooling policy check
+./dist/goneat dependencies --sbom       # SBOM generation
+
+# Verify zero violations
+./dist/goneat assess --categories=dependencies
+```
+
+Configuration: `.goneat/dependencies.yaml`
+
+### SSOT Provenance Verification
+
+```bash
+make sync-crucible        # Sync from crucible SSOT
+make verify-crucible      # Verify sync is current
+make verify-crucible-clean # Verify no uncommitted changes
+
+# Provenance files (committed to repo):
+# - .goneat/ssot/provenance.json
+# - .crucible/metadata/metadata.yaml
+```
 
 ## Release Execution
 
-### Git Operations ✅
+### Standard Release Flow (Patch/Minor)
 
-- [x] **Version Commit**: Version update committed
-- [x] **Git Tag**: Annotated tag created (`git tag -a v0.2.9`)
-- [x] **Primary Push**: Pushed to GitHub (`git push origin v0.2.9`)
-- [ ] **Backup Push**: Pushed to GitLab (if configured)
+**1. Pre-Release Validation**
 
-### RC Validation Gates ✅
+```bash
+# Full validation (includes all checks below)
+make prepush
 
-- [x] Builds produced: `make build-all` (bin/\* across platforms)
-- [ ] Packaging successful: `scripts/package-artifacts.sh` (dist/release/\* + SHA256SUMS)
-- [ ] License audit workflow green (GitHub Actions)
-- [x] Pre-push gate passing (fail-on thresholds) after build-all
-- [ ] pkg.go.dev indexing verified for the tag
-- [x] README/CHANGELOG/RELEASE_NOTES updated for the RC
-- [x] Git tag created and pushed: v0.2.9
+# This internally runs:
+#   make release-check
+#     → make release-prepare (build, sync, embed)
+#     → make test
+#     → make lint
+#     → make verify-crucible
+#     → make license-audit
+#   make verify-crucible-clean
+#   make build-all
+#   goneat assess --hook pre-push
+```
 
-### Cryptographic Signing (v0.3.3+) 🆕
+**2. Tier 2 Integration Testing (Recommended)**
 
-- [ ] **Prerequisites Verified**: YubiKey connected and GPG configured
-  - [ ] `gpg --card-status` shows signing subkey
-  - [ ] `gpg --list-secret-keys security@fulmenhq.dev` accessible
-- [ ] **Checksums Generated**: SHA256SUMS file created for all artifacts
-  - [ ] `cd dist/release && sha256sum *.tar.gz *.zip > SHA256SUMS`
-- [ ] **Artifacts Signed**: All release artifacts have detached signatures
-  - [ ] Each `.tar.gz` has corresponding `.tar.gz.asc`
-  - [ ] Each `.zip` has corresponding `.zip.asc`
-  - [ ] `SHA256SUMS` has `SHA256SUMS.asc`
-- [ ] **Signatures Verified Locally**: Test verification before upload
-  - [ ] `gpg --verify *.asc` passes for all artifacts
-  - [ ] No "BAD signature" errors
-- [ ] **Public Key Published**: FulmenHQ public key available
-  - [ ] `fulmenhq-release-signing-key.asc` in release assets
+```bash
+export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground
+make test-integration-cooling-quick  # Hugo baseline (~8s)
+```
 
-**See**: `docs/security/release-signing.md` for detailed signing workflow
+**3. Tag and Push** (only after validation passes)
 
-### GitHub Release ✅
+```bash
+# Using make target
+make release-tag   # Creates annotated tag from VERSION file
 
-- [ ] **Release Created**: New release on GitHub
-- [ ] **Tag Selected**: Correct version tag
-- [ ] **Title Formatted**: "goneat v0.2.9"
-- [ ] **Release Notes**: Comprehensive changelog (include signing verification instructions)
-- [ ] **Binaries Attached**: All platform binaries uploaded
-- [ ] **Signatures Attached**: All `.asc` files and `SHA256SUMS` uploaded
-- [ ] **Public Key Attached**: `fulmenhq-release-signing-key.asc` uploaded (first release)
+# Or manually
+git tag -a v0.3.6 -m "Release v0.3.6"
+git push origin v0.3.6
+git push origin main  # Push commits
+```
 
-### Go Module Verification ✅
+**4. Build Release Artifacts**
 
-- [ ] **Module Accessible**: `go get github.com/fulmenhq/goneat@v0.2.9`
-- [ ] **Installation Works**: `go install github.com/fulmenhq/goneat@v0.2.9`
-- [ ] **Binary Functional**: Installed binary works correctly
+```bash
+make build-all    # Cross-platform binaries
+make package      # Create distribution archives (dist/release/*.tar.gz, *.zip, SHA256SUMS)
+make release-notes # Generate release notes artifact (dist/release/release-notes-v<version>.md)
+```
+
+### Major Release Flow (v0.X.0, v1.0.0)
+
+**All standard steps above, PLUS:**
+
+```bash
+# Comprehensive integration testing (before tagging)
+export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground
+make test-integration-extended  # All 3 tiers (~2 minutes)
+
+# Document results for release notes
+# Expected: 6/8 passing (2 known non-blocking failures in Tier 3)
+```
+
+### Cryptographic Signing (v0.3.4+)
+
+**Current Status**: Manual signing workflow operational. Automated signing planned for future releases.
+
+**Prerequisites:**
+- YubiKey connected with GPG signing subkey
+- `gpg --card-status` shows signing subkey available
+- `gpg --list-secret-keys security@fulmenhq.dev` accessible
+
+**Signing Workflow:**
+
+```bash
+# 1. Build and package artifacts
+make build-all
+make package  # Creates dist/release/*.tar.gz, *.zip, SHA256SUMS
+
+# 2. Sign artifacts (manual - performed by release manager)
+cd dist/release
+for file in *.tar.gz *.zip SHA256SUMS; do
+  gpg --detach-sign --armor --output "${file}.asc" "${file}"
+done
+
+# 3. Verify signatures locally
+gpg --verify *.asc  # Should show "Good signature" for all
+
+# 4. Include in GitHub release
+# - Upload all .tar.gz, .zip, .asc files
+# - Upload SHA256SUMS and SHA256SUMS.asc
+# - Upload fulmenhq-release-signing-key.asc (public key)
+```
+
+**See**: `docs/security/release-signing.md` for detailed signing procedures.
+
+### GitHub Release Creation
+
+**1. Create Release on GitHub**
+- Navigate to: https://github.com/fulmenhq/goneat/releases
+- Click "Draft a new release"
+- Select tag: `v0.3.6`
+- Title: `goneat v0.3.6`
+
+**2. Release Notes**
+- Use generated artifact: `dist/release/release-notes-v0.3.6.md`
+- Include signature verification instructions:
+
+```markdown
+## Verifying Signatures
+
+Download the FulmenHQ public key and verify artifacts:
+
+\`\`\`bash
+curl -LO https://github.com/fulmenhq/goneat/releases/download/v0.3.6/fulmenhq-release-signing-key.asc
+gpg --import fulmenhq-release-signing-key.asc
+gpg --verify goneat-linux-amd64.tar.gz.asc goneat-linux-amd64.tar.gz
+\`\`\`
+```
+
+**3. Upload Artifacts**
+- All platform binaries (`.tar.gz`, `.zip`)
+- All signature files (`.asc`)
+- Checksums: `SHA256SUMS`, `SHA256SUMS.asc`
+- Public key: `fulmenhq-release-signing-key.asc` (first release or key rotation)
+
+### Go Module Verification
+
+After GitHub release is created and tag is pushed:
+
+```bash
+# Wait 5-10 minutes for pkg.go.dev indexing
+
+# Test module resolution
+go get github.com/fulmenhq/goneat@v0.3.6
+
+# Test installation
+go install github.com/fulmenhq/goneat@v0.3.6
+
+# Verify binary works
+goneat version
+goneat doctor tools --scope foundation
+```
 
 ## Post-Release Validation
 
-### Distribution Channels ✅
+### Distribution Verification
 
-- [ ] **GitHub Downloads**: All binaries downloadable
-- [ ] **Go Module**: Module resolves correctly
-- [ ] **Cross-Platform**: Binaries work on target platforms
+**GitHub Release:**
+- All binaries downloadable
+- Signatures verify correctly
+- SHA256SUMS matches all artifacts
 
-### Community & Communication ✅
+**Go Module:**
+- `go get` resolves correctly
+- `go install` produces working binary
+- pkg.go.dev documentation generated
 
-- [ ] **Release Announced**: Relevant channels notified
-- [ ] **Documentation**: Installation docs updated if needed
-- [ ] **Issues Checked**: No critical issues from release
+**Cross-Platform:**
+- Binaries functional on target platforms
+- No runtime errors on supported OS/architectures
+
+### Communication
+
+- Announce release in relevant channels
+- Update installation documentation if needed
+- Monitor GitHub issues for critical problems
 
 ## Emergency Procedures
 
 ### Rollback Plan
 
-- [ ] **Tag Deletion**: `git tag -d v0.2.9 && git push origin :v0.2.9`
-- [ ] **Release Deletion**: Delete GitHub release
-- [ ] **Version Revert**: Update VERSION to previous version
-- [ ] **Communication**: Notify users of rollback
+**If critical issue discovered immediately after release:**
+
+```bash
+# 1. Delete tag (local and remote)
+git tag -d v0.3.6
+git push origin :refs/tags/v0.3.6
+
+# 2. Delete GitHub release
+# (via GitHub web UI)
+
+# 3. Revert VERSION file
+echo "v0.3.5" > VERSION
+git add VERSION
+git commit -m "revert: rollback to v0.3.5 due to critical issue"
+
+# 4. Notify users
+# - GitHub issue explaining rollback
+# - Update release notes
+```
 
 ### Recovery Checklist
 
-- [ ] **Repository State**: Local and remote repos in sync
-- [ ] **Backup Available**: GitLab has correct state
-- [ ] **Team Notified**: All stakeholders informed
+**After rollback:**
+- Verify local and remote repos in sync
+- Check GitLab backup has correct state
+- Inform all stakeholders
+- Create hotfix branch if needed
+- Re-run full validation before re-release
 
-## Automation Status
+## Git Hooks and Automation
 
-### Current Automation ✅
+### Hook Delegation Pattern
 
-- [ ] **Build Script**: `scripts/build-all.sh` functional
-- [ ] **Push Script**: `scripts/push-to-remotes.sh` functional
-- [ ] **Makefile Targets**: All release targets working
-- [ ] **Test Suite**: Automated test execution
+goneat git hooks **always delegate to make targets**:
 
-### Future Automation 🎯
+```bash
+# .git/hooks/pre-commit (simplified)
+#!/bin/bash
+make precommit
 
-- [ ] **GitHub Actions**: Automated builds and releases
-- [ ] **Release Automation**: Automated GitHub release creation
-- [ ] **Binary Upload**: Automated asset uploads
-- [ ] **Changelog Generation**: Automated from commits
+# .git/hooks/pre-push (simplified)
+#!/bin/bash
+make prepush
+```
+
+**Why this matters:**
+- Hooks use same validation as CI/CD
+- Changes to validation logic only need Makefile updates
+- Developers get same feedback locally as in pipeline
+- `make precommit` and `make prepush` can be run manually
+
+### Current Automation
+
+**Makefile targets:**
+- `make precommit` - Format checks, quick validation
+- `make prepush` - Full validation (release-check + build-all + assess)
+- `make build-all` - Cross-platform binary builds
+- `make package` - Release artifact packaging
+- `make release-notes` - Generate release notes artifact
+
+**Scripts:**
+- `scripts/build-all.sh` - Multi-platform build orchestration
+- `scripts/package-artifacts.sh` - Archive creation and checksums
+- `scripts/push-to-remotes.sh` - Push to all configured remotes
+- `scripts/generate-release-notes.sh` - Release notes generation
+
+### Future Automation (Planned)
+
+- GitHub Actions: Automated builds on tag push
+- Automated release creation
+- Binary upload automation
+- Changelog generation from commits
+- Automated signing integration (requires CI infrastructure)
 
 ## Quality Gates
 
-### Minimum Requirements
+### Minimum Release Requirements
 
-- [ ] **Test Coverage**: > 70% for new code
-- [ ] **Zero Critical Issues**: No blocking bugs
-- [ ] **Documentation Complete**: All features documented
-- [ ] **Cross-Platform Verified**: All target platforms tested
+**Must pass before any release:**
+- `make test` - All unit + Tier 1 integration tests
+- `make lint` - No linting issues
+- `make license-audit` - No forbidden licenses
+- `make verify-crucible` - SSOT sync current
+- `make build-all` - All platform builds succeed
+- `make prepush` - Full validation passes
+
+**Coverage gates:**
+- Enforced via `make coverage-check`
+- Thresholds based on `LIFECYCLE_PHASE` file
+- Alpha: 30%, Beta: 60%, RC: 70%, GA: 75%, LTS: 80%
 
 ### Success Metrics
 
-- [ ] **Installation Success**: > 95% successful installations
-- [ ] **User Feedback**: No critical issues reported
-- [ ] **Performance**: No significant performance regressions
-- [ ] **Compatibility**: Backward compatibility maintained
+**Installation success:** > 95% successful installations (monitor GitHub issues)
+**User feedback:** No critical issues reported within 48 hours
+**Performance:** No significant regressions (benchmark before major releases)
+**Compatibility:** Backward compatibility maintained (semver compliance)
 
 ## Release Scope Profiles
 
 ### Initial Public Release Baseline
 
-- [ ] **Core Commands Ready**: User‑facing commands for core value are fully functional
-- [ ] **Documentation Complete**: README, user guide, and command reference cover all supported features
-- [ ] **Test Suite Adequate**: Representative tests across packages with stable coverage gate enabled
-- [ ] **Cross‑Platform Builds**: Confirm successful builds for all target OS/arch and basic runtime sanity checks
-- [ ] **Go Module Installable**: `go install github.com/fulmenhq/goneat@vX.Y.Z` works end‑to‑end
+**Required for first public release:**
+- Core commands fully functional
+- Documentation complete (README, user guide, API reference)
+- Test suite with stable coverage gate
+- Cross-platform builds verified
+- `go install github.com/fulmenhq/goneat@vX.Y.Z` works end-to-end
 
 ### Ongoing Releases
 
-- [ ] **Breaking Changes Managed**: Major version bump when required; migration guidance provided
-- [ ] **Deprecations Tracked**: Deprecation notices with timelines and alternatives
-- [ ] **Performance Benchmarks**: Include or update relevant performance data where changes impact speed/size
+**For all subsequent releases:**
+- Breaking changes require major version bump (semver)
+- Deprecation notices with timelines and alternatives
+- Migration guides for breaking changes
+- Performance benchmarks for significant changes
 
-## Release Command Sequence
+## Development Workflows
 
-### Standard Release (Patch/Minor)
-
-```bash
-# Pre-release preparation
-make test                              # Run all tests (unit + Tier 1 integration)
-make build-all                         # Build all platforms
-make fmt                               # Format code
-make version-set VERSION=v0.2.9        # Update version
-
-# Pre-release validation (recommended)
-export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground
-make test-integration-cooling-quick    # Tier 2: Quick Hugo test (~8s)
-
-# RC validation (do not tag until all pass)
-make build-all                         # Build all platforms
-make license-audit                     # Should pass locally and in CI
-make prepush                           # Runs assess with build gate
-
-# Tag/push only after above succeed
-git tag -a v0.2.9 -m "release: v0.2.9" && git push origin v0.2.9
-```
-
-### Major Release (v0.3.0, v1.0.0)
+### Daily Development
 
 ```bash
-# All standard steps above, PLUS:
+# Before committing
+make fmt           # Format code
+make test          # Quick validation
 
-# Comprehensive integration testing (before tagging)
-export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground
-make test-integration-extended         # All 3 tiers (~2 minutes)
-
-# Document results
-cat /tmp/goneat-phase4-full-suite.log > dist/release/integration-test-results.log
-
-# Tag only after all tiers pass
-git tag -a v0.3.0 -m "release: v0.3.0" && git push origin v0.3.0
+# Before pushing
+make prepush       # Full validation (recommended)
 ```
 
-## Commit Consolidation (Required before push)
-
-Follow the Git Commit Consolidation SOP to squash work-in-progress commits into a single, clean commit using `git reset --soft` to the last pushed commit.
-
-Reference: docs/sop/git-commit-consolidation-sop.md
-
-## Prerequisites (CRITICAL)
-
-**⚠️ DO NOT BEGIN consolidation until ALL of the following are met:**
-
-- [ ] **Repository is clean**: `git status` shows "nothing to commit, working tree clean"
-- [ ] **Pre-push gates pass**: `./dist/goneat assess --hook=pre-push --fail-on=high` returns exit code 0
-- [ ] **All changes committed**: No unstaged or uncommitted files exist
-- [ ] **Backup branch created**: Safety backup exists before any history rewriting
-
-**Failure to meet these prerequisites will result in incomplete consolidation and potential data loss.**
-
-Quick flow:
+### Pre-Release Development
 
 ```bash
-# 0) Create a safety backup branch
-git branch backup/pre-consolidation-$(date +%Y%m%d-%H%M%S)
+# Continuous validation during feature development
+make test                              # Unit + Tier 1 integration
+make test-integration-cooling-quick    # Tier 2 validation (with repos)
 
-# 1) Identify last pushed commit (prefer upstream or origin/main)
-LAST_PUSHED=$(git rev-parse --verify --quiet @{u} || git rev-parse --verify origin/main)
-
-# 2) Soft reset to last pushed commit (keeps changes staged)
-git reset --soft "$LAST_PUSHED"
-
-# 3) Create consolidated commit (run gates first; see SOP)
-git add -A
-git commit -m "<consolidated message with attribution>"
+# Before creating release branch
+make prepush                           # Full validation
+make test-integration-extended         # Comprehensive (major releases)
 ```
 
-Emergency recovery steps are documented in the SOP (reflog and backup branch restore).
+### Release Branch Workflow
 
-# Post-release validation
+```bash
+# 1. Create release branch
+git checkout -b release/v0.3.6
 
-go install github.com/fulmenhq/goneat@v0.2.9
-goneat version # Verify installation
+# 2. Update version and docs
+./dist/goneat version set v0.3.6
+# Update CHANGELOG.md, RELEASE_NOTES.md, docs/releases/v0.3.6.md
 
+# 3. Full validation
+make prepush
+
+# 4. Merge to main and tag
+git checkout main
+git merge release/v0.3.6
+git tag -a v0.3.6 -m "Release v0.3.6"
+git push origin main v0.3.6
 ```
+
+## Best Practices Summary
+
+**DO:**
+- ✅ Use `make` targets for all operations
+- ✅ Run `make prepush` before pushing
+- ✅ Test Tier 2 integration before any release
+- ✅ Update all documentation before tagging
+- ✅ Verify license audit passes
+- ✅ Sign all release artifacts (v0.3.4+)
+- ✅ Wait for pkg.go.dev indexing before announcing
+
+**DON'T:**
+- ❌ Use standalone `go test`, `golangci-lint`, etc.
+- ❌ Skip `make prepush` validation
+- ❌ Tag before validation passes
+- ❌ Push without running full test suite
+- ❌ Release with failing license audit
+- ❌ Skip documentation updates
 
 ## Contact Information
 
 ### For Release Issues
 
-- **Primary**: GitHub Issues
+- **Primary**: GitHub Issues (https://github.com/fulmenhq/goneat/issues)
+- **Security**: security@fulmenhq.dev
 - **Urgent**: Direct team communication
-- **Security**: security@3leaps.net
 
 ### Release Coordination
 
@@ -346,7 +540,7 @@ goneat version # Verify installation
 
 ---
 
-**Release Checklist Version**: 1.0
-**Last Updated**: 2025-09-20
-**Next Review**: With each major release
-```
+**Document Version**: 2.0 (Best Practice Reference Guide)
+**Last Updated**: 2025-11-14 (v0.3.6 release cycle)
+**Next Review**: With each major release or significant process change
+**Format**: General reference (not version-specific checklist)

@@ -81,6 +81,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Affected Documentation**: `docs/appnotes/lib/tools.md`, `docs/appnotes/tools-runner-usage.md`, `docs/user-guide/bootstrap/package-managers.md`
   - All examples now correctly demonstrate installer-kind usage with priority fallback chains
 
+### Changed
+
+- **Test Infrastructure**: Implemented root factory pattern for Cobra command test isolation
+  - Prevents state pollution between tests in full suite runs (`go test ./...`)
+  - **Root Cause**: Shared `rootCmd` singleton and package-level subcommands caused flag/args state to persist between tests
+  - **Symptoms**: 16 tests failed in full suite but passed in isolation
+  - **Solution**:
+    - Added `newRootCommand()` factory to create fresh command instances per test
+    - Added `registerSubcommands()` helper for centralized subcommand registration
+    - Updated all test helpers (`execDoctorTools`, `execRoot`, `execInfoLicenses`) to use factory pattern
+    - Added flag reset logic for package-level variables and subcommand singletons
+  - **Impact**: All cmd tests now pass reliably in both isolation and full suite modes
+  - **Pattern Documentation**: Created `.plans/memos/crucible/cobra-test-isolation-pattern.md` with comprehensive guide for Crucible adoption
+  - **Test Results**: 0 failures (down from 16), all tests deterministic and order-independent
+
 ## [0.3.5] - 2025-11-11
 
 ### Fixed
