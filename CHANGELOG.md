@@ -9,16 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Tools Cooling Policy for External Tools**: Supply chain security enforcement for `goneat doctor tools --install`
-  - Blocks installation of newly-published tools until they meet minimum age/download thresholds
-  - 3-level configuration hierarchy: global (`.goneat/dependencies.yaml`) → tool-specific (`.goneat/tools.yaml`) → CLI flag (`--no-cooling`)
-  - GitHub Releases API integration with 24-hour caching to minimize rate-limit risk
-  - Automatic fallback to latest release when tool version not specified
-  - Alert-only mode for warnings without blocking installation
-  - Repository auto-detection from artifact URLs and common tool name patterns
-  - Schema extension in tools-config v1.1.0 (backward compatible)
-  - Documentation: Enhanced `docs/guides/package-cooling-policy.md` and `docs/appnotes/dogfooding-dependency-protection.md` with tool-specific override examples
-  - Living example: `.goneat/tools.yaml` demonstrates risk-based policies (syft: 14 days/5000 downloads vs global 7 days/100 downloads)
+### Changed
+
+### Fixed
+
+## [0.3.7] - 2025-11-14
+
+### Added
+
+- **Public Key Verification Script**: Automated cryptographic safety checks for release signing workflow
+  - Three-layer verification: negative check (no PRIVATE KEY blocks), positive check (PUBLIC KEY blocks present), GPG verification
+  - Defense-in-depth to prevent accidental private key disclosure during releases
+  - Clear error messages with visual warnings if private key detected
+  - Script: `scripts/verify-public-key.sh` with exit code 0 (safe) or 1 (danger)
+  - RELEASE_CHECKLIST.md updated with automated verification workflow
+  - Documentation encourages inspection of script before first use
 
 ## [0.3.6] - 2025-11-12
 

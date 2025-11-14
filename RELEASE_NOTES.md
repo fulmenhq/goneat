@@ -1,3 +1,141 @@
+# Goneat v0.3.7 — Release Process Security Enhancement
+
+**Release Date**: 2025-11-14
+**Status**: In Development
+
+## TL;DR
+
+- **Public Key Verification Script**: Automated cryptographic safety checks prevent accidental private key disclosure
+- **Release Process Hardening**: Three-layer verification (negative/positive/GPG) for all key material before upload
+- **Defense-in-Depth Security**: Never trust, always verify - scripted checks block upload if private key detected
+- **Developer Experience**: Clear error messages with visual warnings guide safe release workflows
+
+## What's New
+
+### Public Key Verification Script
+
+Automated verification script prevents catastrophic private key disclosure during release signing workflow. Implements defense-in-depth security checks with three independent verification layers.
+
+**Script**: `scripts/verify-public-key.sh`
+
+**Three-Layer Verification**:
+
+1. **Negative Check**: Scans entire file for "PRIVATE KEY" blocks (must be absent)
+   ```bash
+   grep -qi "PRIVATE KEY" fulmenhq-release-signing-key.asc
+   # Must return nothing - exits with error if found
+   ```
+
+2. **Positive Check**: Scans entire file for "PUBLIC KEY" blocks (must be present)
+   ```bash
+   grep -qi "PUBLIC KEY" fulmenhq-release-signing-key.asc
+   # Must find blocks - exits with error if missing
+   ```
+
+3. **GPG Verification**: Parse key with GPG to verify no secret keys
+   ```bash
+   gpg --show-keys fulmenhq-release-signing-key.asc
+   # Must show "pub" entries only, never "sec" (secret key)
+   ```
+
+**Usage** (from RELEASE_CHECKLIST.md):
+
+```bash
+# After extracting public key for distribution
+gpg --armor --export security@fulmenhq.dev > fulmenhq-release-signing-key.asc
+
+# CRITICAL: Verify PUBLIC key only (never upload private keys!)
+./scripts/verify-public-key.sh fulmenhq-release-signing-key.asc
+
+# Script output on success:
+# ✅ VERIFICATION PASSED
+# File: fulmenhq-release-signing-key.asc
+# Status: Contains PUBLIC key material only
+# Safety: SAFE TO UPLOAD to public repositories
+
+# Script output on failure (private key detected):
+# ❌❌❌ FATAL: PRIVATE KEY DETECTED IN FILE! ❌❌❌
+# 🚨 DO NOT UPLOAD THIS FILE 🚨
+# Exit code: 1 (blocks upload)
+```
+
+**Security Rationale**:
+
+- **Never assume exported key is public**: Always verify before upload to prevent catastrophic private key disclosure
+- **Defense-in-depth**: Three independent checks must all pass (grep negative, grep positive, GPG parse)
+- **Fail-fast**: Script exits immediately with error code 1 if any check fails
+- **Visual warnings**: Clear error messages with emoji indicators for high-stakes operations
+- **Scriptable**: Can be integrated into CI/CD workflows for automated verification
+
+**Updated Documentation**:
+
+- **RELEASE_CHECKLIST.md**: Updated signing workflow (Step 4) to use automated verification script
+- **Script comments**: Documents what checks are performed and why
+- **Encourages inspection**: Checklist instructs release managers to inspect script before first use
+- **Manual verification reference**: Provides manual grep/gpg commands as fallback
+
+### Testing
+
+**Positive Case**: Verified actual fulmenhq-release-signing-key.asc
+```bash
+./scripts/verify-public-key.sh dist/release/fulmenhq-release-signing-key.asc
+# ✅ VERIFICATION PASSED
+# Exit code: 0
+```
+
+**Negative Case**: Detects and blocks private key material
+```bash
+echo "-----BEGIN PGP PRIVATE KEY BLOCK-----" > /tmp/test-private-key.asc
+./scripts/verify-public-key.sh /tmp/test-private-key.asc
+# ❌❌❌ FATAL: PRIVATE KEY DETECTED IN FILE! ❌❌❌
+# Exit code: 1
+```
+
+## What's Changed
+
+### Release Checklist Enhancement
+
+Updated `RELEASE_CHECKLIST.md` signing workflow with automated verification:
+
+**Before v0.3.7**:
+- Manual inspection with `head -1` (only checked first line)
+- Risk of missing private key blocks later in file
+- No automated blocking mechanism
+
+**After v0.3.7**:
+- Automated script scans entire file
+- Three independent verification methods
+- Blocks upload with exit code 1 if private key detected
+- Clear pass/fail with visual indicators
+
+## Breaking Changes
+
+None. This is a process improvement that enhances security without affecting goneat functionality.
+
+## Installation
+
+```bash
+# Go install (recommended)
+go install github.com/fulmenhq/goneat@v0.3.7
+
+# Verify installation
+goneat version
+```
+
+## Upgrade Notes
+
+No configuration changes required. The verification script is used during release workflows only and does not affect normal goneat usage.
+
+**For release managers**: Review `scripts/verify-public-key.sh` before first use to understand verification logic.
+
+## What's Next (v0.3.8+)
+
+- Additional security enhancements for release automation
+- CI/CD integration for automated key verification
+- Extended tooling for secure release workflows
+
+---
+
 # Goneat v0.3.6 — Package Manager Installation & Tools Cooling Policy
 
 **Release Date**: 2025-11-12
