@@ -29,6 +29,9 @@ jobs:
       - name: Verify embedded assets in sync
         run: |
           make verify-embeds
+      - name: Bootstrap tools (dogfooding)
+        run: |
+          make bootstrap
       - name: Test
         run: |
           make test || true

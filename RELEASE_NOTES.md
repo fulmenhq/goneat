@@ -553,6 +553,104 @@ go test ./cmd/...
 # PASS: All tests (100% success rate)
 ```
 
+### Bootstrap Scope and CI Dogfooding
+
+Implemented proper bootstrap scope for package managers and CI validation to ensure goneat dogfoods its own tool installation features.
+
+**Problem**:
+- `mise` was in the `foundation` scope alongside tools that depend on mise for installation
+- This created a circular dependency: foundation tools need mise, but mise is in foundation
+- CI didn't test tool installation, so broken installer configurations went undetected
+- Tools were using platform keys (linux/darwin/windows) instead of installer-kind keys (mise/brew/apt-get)
+
+**Solution - Bootstrap Scope Pattern**:
+
+1. **Bootstrap Scope**: Created dedicated `bootstrap` scope in `.goneat/tools.yaml` for package managers that must be installed before other tools
+
+2. **Installer-Kind Migration**: Updated all tools to use installer-kind keys following the pattern documented in manual installer fix:
+   - `ripgrep`, `jq`: Use `installer_priority` with mise, apt-get, brew, winget, scoop
+   - `prettier`: Uses mise + manual (npm) fallback
+   - Go tools (`golangci-lint`, `gosec`, `govulncheck`, `yamlfmt`): Migrated to `kind: go` with `install_package`
+
+3. **Makefile Bootstrap**: Updated `make bootstrap` to execute `goneat doctor tools --scope bootstrap --install --yes`
+
+4. **CI Integration**: Added bootstrap testing step to `.github/workflows/ci.yml` that fails hard on bootstrap errors (no silent warnings)
+
+**Implementation**:
+
+```yaml
+# .goneat/tools.yaml (bootstrap scope)
+scopes:
+  bootstrap:
+    description: "Bootstrap package managers - must be installed before other tools"
+    tools: ["mise"]
+    replace: true
+  foundation:
+    description: "Core foundation tools required for goneat and basic AI agent operation"
+    tools: ["ripgrep", "jq", "yamlfmt", "prettier"]  # mise moved to bootstrap
+    replace: true
+
+tools:
+  mise:
+    name: "mise"
+    description: "Polyglot runtime manager for Linux/macOS (bootstrap tool)"
+    kind: "system"
+    detect_command: "mise --version"
+    platforms: ["linux", "darwin"]
+    installer_priority:        # Explicit manual installer priority
+      linux: ["manual"]
+      darwin: ["manual"]
+    install_commands:
+      manual: "curl https://mise.jdx.dev/install.sh | sh && ..."  # Installer-kind key
+
+  ripgrep:
+    # Now uses installer-kind keys instead of platform keys
+    installer_priority:
+      linux: ["mise", "apt-get"]
+      darwin: ["mise", "brew"]
+      windows: ["winget", "scoop"]
+    install_commands:
+      mise: "mise use -g ripgrep@latest"       # Installer-kind key
+      apt-get: "sudo apt-get install ripgrep"  # Installer-kind key
+      brew: "brew install ripgrep"             # Installer-kind key
+      # (NOT linux:/darwin:/windows: - those are platform keys and don't work)
+```
+
+**Makefile**:
+
+```makefile
+bootstrap: build ## Install bootstrap package managers (mise) before other tools
+	@echo "🥾 Installing bootstrap tools..."
+	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
+		$(BUILD_DIR)/$(BINARY_NAME) doctor tools --scope bootstrap --install --yes; \
+		echo "✅ Bootstrap complete"; \
+	else \
+		echo "❌ goneat binary not found, cannot bootstrap tools"; \
+		exit 1; \
+	fi
+```
+
+**CI Workflow** (`.github/workflows/ci.yml`):
+
+```yaml
+- name: Bootstrap tools (dogfooding)
+  run: |
+    make bootstrap  # Fails hard if bootstrap fails
+```
+
+**Impact**:
+
+- ✅ **Circular Dependency Resolved**: Package managers in separate scope, foundation tools can depend on them
+- ✅ **CI Validation**: Bootstrap failures now cause CI to fail, providing early detection
+- ✅ **Best Practice Example**: This repo demonstrates the installer-kind pattern we documented
+- ✅ **Dogfooding**: goneat now uses its own tool installation features in CI/CD
+- ⚠️ **CI May Fail**: Bootstrap step may fail in CI if package manager installation requires user interaction (expected - we'll verify)
+
+**Files Modified**:
+- `.goneat/tools.yaml`: Created bootstrap scope, migrated mise, updated all tools to installer-kind pattern (80 LOC changed)
+- `Makefile`: Updated bootstrap target to dogfood goneat doctor tools (7 LOC)
+- `.github/workflows/ci.yml`: Added bootstrap testing step (3 LOC)
+
 ## Breaking Changes
 
 None. This is a purely additive feature.

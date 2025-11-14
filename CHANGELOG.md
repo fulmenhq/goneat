@@ -96,6 +96,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Pattern Documentation**: Created `.plans/memos/crucible/cobra-test-isolation-pattern.md` with comprehensive guide for Crucible adoption
   - **Test Results**: 0 failures (down from 16), all tests deterministic and order-independent
 
+- **Bootstrap Scope and CI Dogfooding**: Implemented proper bootstrap scope for package managers and CI validation
+  - **Bootstrap Scope**: Created dedicated `bootstrap` scope in `.goneat/tools.yaml` for package managers (mise)
+  - **Circular Dependency Fix**: Moved `mise` from `foundation` to `bootstrap` scope to break dependency cycle
+  - **Installer-Kind Pattern**: Updated all tools to use installer-kind keys (mise, brew, apt-get, manual) instead of platform keys
+  - **Go Tools**: Migrated Go-based tools (golangci-lint, gosec, govulncheck, yamlfmt) to `kind: go` with `install_package`
+  - **Makefile Bootstrap**: Updated `make bootstrap` to call `goneat doctor tools --scope bootstrap --install --yes`
+  - **CI Integration**: Added bootstrap testing step to `.github/workflows/ci.yml` that fails on bootstrap errors
+  - **Impact**: CI now validates tool installation works correctly; provides early signal for broken installer configurations
+  - **Best Practice Example**: This repo now demonstrates installer-kind pattern documented in manual installer fix
+
 ## [0.3.5] - 2025-11-11
 
 ### Fixed

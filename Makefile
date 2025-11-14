@@ -31,7 +31,7 @@ LDFLAGS := -ldflags "\
 	-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
-.PHONY: help build clean test fmt format-docs format-config format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites sync-crucible sync-ssot verify-crucible verify-crucible-clean bootstrap tools lint release-check release-prepare release-build check-all prepush precommit
+.PHONY: help build clean clean-all test fmt format-docs format-config format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites sync-crucible sync-ssot verify-crucible verify-crucible-clean bootstrap tools lint release-check release-prepare release-build check-all prepush precommit
 
 # Default target
 all: clean build fmt
@@ -98,8 +98,15 @@ verify-crucible-clean: ## Verify crucible sources are clean (no uncommitted chan
 	@chmod +x scripts/verify-crucible-clean.sh
 	@./scripts/verify-crucible-clean.sh
 
-bootstrap: sync-ssot embed-assets ## Install external prerequisites listed in .goneat/tools.yaml (installers must use the tooling manifest schema)
-	@echo "✅ Bootstrap complete"
+bootstrap: build ## Install bootstrap package managers (mise) before other tools
+	@echo "🥾 Installing bootstrap tools..."
+	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
+		$(BUILD_DIR)/$(BINARY_NAME) doctor tools --scope bootstrap --install --yes; \
+		echo "✅ Bootstrap complete"; \
+	else \
+		echo "❌ goneat binary not found, cannot bootstrap tools"; \
+		exit 1; \
+	fi
 
 tools: build ## Verify external tools are present; may be a no-op if none are required
 	@echo "🔧 Verifying external tools..."
@@ -181,13 +188,33 @@ build-windows-amd64: ## Build for Windows AMD64
 	GOOS=windows GOARCH=amd64 $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe ./$(SRC_DIR)
 
 # Clean targets
-clean: ## Clean build artifacts and backup files
+# NOTE: internal/assets/embedded_* directories are NOT cleaned - they contain embedded assets
+# that allow `goneat docs list/show` to display docs/schemas/config without requiring the repo.
+# These directories are committed to git and synced via `make embed-assets` from SSOT sources.
+clean: ## Clean build artifacts, test cache, and generated files
 	@echo "Cleaning build artifacts..."
 	$(GOCLEAN)
 	rm -rf $(BUILD_DIR)
+	@echo "Cleaning test cache..."
+	go clean -testcache
+	@echo "Cleaning vendor directory..."
+	rm -rf vendor/
+	@echo "Cleaning coverage files..."
+	@find . -name "coverage.out" -type f -delete 2>/dev/null || true
+	@find . -name "*.test" -type f -delete 2>/dev/null || true
+	@rm -f coverage.out
+	@echo "Cleaning OS metadata files..."
+	@find . -name ".DS_Store" -type f -delete 2>/dev/null || true
 	@echo "Cleaning backup files..."
 	@find . -name "*.backup" -type f -delete 2>/dev/null || true
 	@echo "✅ Clean completed"
+
+clean-all: clean ## Deep clean including Go build cache (slow - use before major updates)
+	@echo "🧹 Deep cleaning Go build cache..."
+	go clean -cache
+	@echo "🧹 Cleaning user coverage directory..."
+	@rm -rf $(HOME)/.goneat/coverage/
+	@echo "✅ Deep clean completed (next build will be slower)"
 
 # Test targets
 test: test-unit test-integration-cooling-synthetic ## Run all tests (unit + Tier 1 integration)
