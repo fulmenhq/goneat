@@ -1,0 +1,30 @@
+# Common Tool Repository Mappings
+#
+# Maps tool names to GitHub repositories for cooling policy metadata fetching.
+# Used when tool manifest doesn't specify repo/artifacts.
+#
+# Maintained in alphabetical order for readability.
+# Format: tool-name: owner/repo
+
+version: v1.0.0
+
+repositories:
+  # Security & SBOM
+  cosign: sigstore/cosign
+  gitleaks: zricethezav/gitleaks
+  grype: anchore/grype
+  syft: anchore/syft
+  trivy: aquasecurity/trivy
+
+  # Go Tools
+  golangci-lint: golangci/golangci-lint
+  gosec: securego/gosec
+
+  # General CLI Tools
+  jq: jqlang/jq
+  prettier: prettier/prettier
+  ripgrep: BurntSushi/ripgrep
+  shellcheck: koalaman/shellcheck
+  shfmt: mvdan/sh
+  yamlfmt: google/yamlfmt
+  yq: mikefarah/yq

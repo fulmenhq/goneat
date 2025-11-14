@@ -2,9 +2,13 @@ package doctor
 
 import (
 	"fmt"
+	"io/fs"
 	"strings"
 	"time"
 
+	"gopkg.in/yaml.v3"
+
+	"github.com/fulmenhq/goneat/internal/assets"
 	"github.com/fulmenhq/goneat/pkg/config"
 	"github.com/fulmenhq/goneat/pkg/cooling"
 	"github.com/fulmenhq/goneat/pkg/dependencies/types"
@@ -195,23 +199,65 @@ func extractRepoFromURL(url string) string {
 	return fmt.Sprintf("%s/%s", pathParts[0], pathParts[1])
 }
 
-// guessRepoFromToolName attempts common GitHub repo patterns
-func guessRepoFromToolName(toolName string) string {
-	// Common mappings for well-known tools
-	commonRepos := map[string]string{
-		"syft":          "anchore/syft",
-		"grype":         "anchore/grype",
-		"trivy":         "aquasecurity/trivy",
-		"cosign":        "sigstore/cosign",
-		"gitleaks":      "zricethezav/gitleaks",
-		"gosec":         "securego/gosec",
-		"golangci-lint": "golangci/golangci-lint",
-		"ripgrep":       "BurntSushi/ripgrep",
-		"jq":            "jqlang/jq",
-		"yq":            "mikefarah/yq",
+// Package-level cache: parsed map cached at init to avoid reparsing YAML on every cooling check
+var commonReposCache map[string]string
+
+func init() {
+	var err error
+	commonReposCache, err = loadCommonToolsRepos()
+	if err != nil {
+		logger.Warn("Failed to load common tools repos config, using hardcoded fallback", logger.String("error", err.Error()))
+		commonReposCache = getHardcodedRepos()
+	}
+}
+
+// loadCommonToolsRepos loads the common tools repository mappings from embedded config
+// Uses existing fs.ReadFile pattern (same as used for schemas/config elsewhere)
+func loadCommonToolsRepos() (map[string]string, error) {
+	// Load from embedded assets using existing pattern
+	// Pattern: fs.ReadFile(assets.Config, ...) is used throughout goneat for embedded content
+	data, err := fs.ReadFile(assets.Config, "embedded_config/config/tools/common-tools-repos.yaml")
+	if err != nil {
+		// Fallback to hardcoded map for backward compatibility during transition
+		return getHardcodedRepos(), nil
 	}
 
-	if repo, ok := commonRepos[toolName]; ok {
+	var config struct {
+		Version      string            `yaml:"version"`
+		Repositories map[string]string `yaml:"repositories"`
+	}
+
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse common-tools-repos.yaml: %w", err)
+	}
+
+	return config.Repositories, nil
+}
+
+// getHardcodedRepos provides fallback for backward compatibility
+// These are the same mappings as in config/tools/common-tools-repos.yaml
+func getHardcodedRepos() map[string]string {
+	return map[string]string{
+		"cosign":        "sigstore/cosign",
+		"gitleaks":      "zricethezav/gitleaks",
+		"golangci-lint": "golangci/golangci-lint",
+		"gosec":         "securego/gosec",
+		"grype":         "anchore/grype",
+		"jq":            "jqlang/jq",
+		"prettier":      "prettier/prettier",
+		"ripgrep":       "BurntSushi/ripgrep",
+		"shellcheck":    "koalaman/shellcheck",
+		"shfmt":         "mvdan/sh",
+		"syft":          "anchore/syft",
+		"trivy":         "aquasecurity/trivy",
+		"yamlfmt":       "google/yamlfmt",
+		"yq":            "mikefarah/yq",
+	}
+}
+
+// guessRepoFromToolName attempts common GitHub repo patterns
+func guessRepoFromToolName(toolName string) string {
+	if repo, ok := commonReposCache[toolName]; ok {
 		return repo
 	}
 

@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/fulmenhq/goneat/schemas/tools/common-tools-repos.v1.0.0.json",
+  "title": "Common Tools Repository Mappings",
+  "description": "Maps tool names to GitHub repositories for cooling policy metadata fetching",
+  "type": "object",
+  "required": ["version", "repositories"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema version in semantic versioning format",
+      "pattern": "^v\\d+\\.\\d+\\.\\d+$"
+    },
+    "repositories": {
+      "type": "object",
+      "description": "Tool name to GitHub repository mappings (owner/repo format)",
+      "patternProperties": {
+        "^[a-z0-9][a-z0-9-]*$": {
+          "type": "string",
+          "pattern": "^[^/]+/[^/]+$",
+          "description": "GitHub repository in owner/repo format"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,4 +1,4 @@
-# Goneat v0.3.7 — Release Process Security Enhancement
+# Goneat v0.3.7 — Release Process Security & Externalized Tool Mappings
 
 **Release Date**: 2025-11-14
 **Status**: In Development
@@ -6,9 +6,10 @@
 ## TL;DR
 
 - **Public Key Verification Script**: Automated cryptographic safety checks prevent accidental private key disclosure
+- **Externalized Tool Repository Mappings**: Tool→GitHub repo mappings moved from code to configuration (14 tools)
 - **Release Process Hardening**: Three-layer verification (negative/positive/GPG) for all key material before upload
-- **Defense-in-Depth Security**: Never trust, always verify - scripted checks block upload if private key detected
-- **Developer Experience**: Clear error messages with visual warnings guide safe release workflows
+- **Configuration-Driven**: No code changes required to add new tool mappings - edit YAML only
+- **Developer Experience**: Clear error messages, alphabetically sorted configs, backward-compatible fallbacks
 
 ## What's New
 
@@ -128,8 +129,88 @@ No configuration changes required. The verification script is used during releas
 
 **For release managers**: Review `scripts/verify-public-key.sh` before first use to understand verification logic.
 
+### Externalized Common Tools Repository Mappings
+
+Tool→GitHub repository mappings for cooling policy have been moved from hardcoded Go maps to a configuration-driven approach with schema validation.
+
+**Configuration File**: `config/tools/common-tools-repos.yaml`
+
+```yaml
+version: v1.0.0
+
+repositories:
+  # Security & SBOM
+  cosign: sigstore/cosign
+  gitleaks: zricethezav/gitleaks
+  grype: anchore/grype
+  syft: anchore/syft
+  trivy: aquasecurity/trivy
+
+  # Go Tools
+  golangci-lint: golangci/golangci-lint
+  gosec: securego/gosec
+
+  # General CLI Tools
+  jq: jqlang/jq
+  prettier: prettier/prettier
+  ripgrep: BurntSushi/ripgrep
+  shellcheck: koalaman/shellcheck
+  shfmt: mvdan/sh
+  yamlfmt: google/yamlfmt
+  yq: mikefarah/yq
+```
+
+**Benefits**:
+
+- ✅ **No Code Changes Required**: Add new tool mappings by editing YAML only
+- ✅ **Schema Validation**: `schemas/tools/common-tools-repos.v1.0.0.json` ensures correctness
+- ✅ **Alphabetically Sorted**: Grouped by category for easy navigation
+- ✅ **Package-Level Caching**: Loaded once at init, no YAML parsing on every cooling check
+- ✅ **Backward Compatible**: Hardcoded fallback if config loading fails
+- ✅ **Embedded Assets**: Synced via `make embed-assets` for distribution
+
+**Implementation**:
+
+The cooling policy code now loads mappings from embedded config:
+
+```go
+// Package-level cache: parsed map cached at init to avoid reparsing YAML on every cooling check
+var commonReposCache map[string]string
+
+func init() {
+    var err error
+    commonReposCache, err = loadCommonToolsRepos()
+    if err != nil {
+        logger.Warn("Failed to load common tools repos config, using hardcoded fallback", ...)
+        commonReposCache = getHardcodedRepos()
+    }
+}
+```
+
+**Adding New Tools**:
+
+```bash
+# 1. Edit config file
+vim config/tools/common-tools-repos.yaml
+# Add: new-tool: owner/repo (in alphabetical order)
+
+# 2. Update hardcoded fallback
+vim internal/doctor/cooling.go
+# Add same entry to getHardcodedRepos()
+
+# 3. Sync and test
+make embed-assets
+make precommit
+```
+
+**Current Tool List** (14 tools):
+- Security & SBOM: cosign, gitleaks, grype, syft, trivy
+- Go Tools: golangci-lint, gosec
+- General CLI: jq, prettier, ripgrep, shellcheck, shfmt, yamlfmt, yq
+
 ## What's Next (v0.3.8+)
 
+- User overrides for tool repository mappings (`~/.goneat/config/common-tools-repos.yaml`)
 - Additional security enhancements for release automation
 - CI/CD integration for automated key verification
 - Extended tooling for secure release workflows

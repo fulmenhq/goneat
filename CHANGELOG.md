@@ -25,6 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - RELEASE_CHECKLIST.md updated with automated verification workflow
   - Documentation encourages inspection of script before first use
 
+- **Externalized Common Tools Repository Mappings**: Tool→GitHub repo mappings now configuration-driven
+  - Configuration: `config/tools/common-tools-repos.yaml` with 14 tool mappings
+  - Schema validation: `schemas/tools/common-tools-repos.v1.0.0.json`
+  - Alphabetically sorted within categories (Security/SBOM, Go Tools, General CLI)
+  - Package-level caching to avoid reparsing YAML on every cooling check
+  - Backward-compatible hardcoded fallback if config loading fails
+  - Tools included: cosign, gitleaks, golangci-lint, gosec, grype, jq, prettier, ripgrep, shellcheck, shfmt, syft, trivy, yamlfmt, yq
+  - No code changes required to add new tool mappings (edit YAML only)
+
 ## [0.3.6] - 2025-11-12
 
 ### Added
