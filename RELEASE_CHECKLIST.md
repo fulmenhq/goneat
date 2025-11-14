@@ -255,13 +255,34 @@ for file in *.tar.gz *.zip SHA256SUMS; do
   gpg --detach-sign --armor --output "${file}.asc" "${file}"
 done
 
-# 3. Verify signatures locally
-gpg --verify *.asc  # Should show "Good signature" for all
+# 3. Extract public key for distribution
+gpg --armor --export security@fulmenhq.dev > fulmenhq-release-signing-key.asc
 
-# 4. Include in GitHub release
-# - Upload all .tar.gz, .zip, .asc files
-# - Upload SHA256SUMS and SHA256SUMS.asc
-# - Upload fulmenhq-release-signing-key.asc (public key)
+# 4. CRITICAL: Verify PUBLIC key only (never upload private keys!)
+# Before first use: Inspect scripts/verify-public-key.sh to understand checks performed
+# The script performs three independent verifications:
+#   - Negative check: grep entire file for "PRIVATE KEY" blocks (must be absent)
+#   - Positive check: grep entire file for "PUBLIC KEY" blocks (must be present)
+#   - GPG verification: gpg --show-keys must show "pub" entries only (never "sec")
+# All three checks must pass or script exits with error and blocks upload
+
+./scripts/verify-public-key.sh fulmenhq-release-signing-key.asc
+
+# Manual verification (optional - script automates these checks):
+# grep -i "PRIVATE KEY" fulmenhq-release-signing-key.asc  # Must return nothing
+# grep -i "PUBLIC KEY" fulmenhq-release-signing-key.asc   # Must find blocks
+# gpg --show-keys fulmenhq-release-signing-key.asc       # Must show "pub" not "sec"
+
+# 5. Verify signatures locally
+for asc in *.asc; do
+  gpg --verify "$asc" "${asc%.asc}"
+done
+# Should show "Good signature" for all
+
+# 6. Upload to GitHub release
+gh release upload v<version> *.asc --clobber
+# Verify upload succeeded
+gh release view v<version> --json assets --jq '.assets[] | select(.name | endswith(".asc")) | .name'
 ```
 
 **See**: `docs/security/release-signing.md` for detailed signing procedures.
