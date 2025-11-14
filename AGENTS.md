@@ -22,6 +22,37 @@
 **Purpose**: Single tool for format/lint operations - "making it neat"
 **Governance Model**: 3leaps Initiative
 
+---
+
+## 🚨 CRITICAL: NEVER DO THESE THINGS
+
+### ❌ NEVER COMMIT PLANS TO GIT
+
+**`.plans/` directory is GITIGNORED and must remain LOCAL ONLY**
+
+```bash
+# ❌ WRONG - Never do this
+git add .plans/
+git commit .plans/
+
+# ✅ CORRECT - Plans stay local
+# Just create files in .plans/ and leave them there
+```
+
+**Why**: Plans are working documents for agent memory, not repository artifacts. They are excluded from git for a reason.
+
+**What to do instead**: Create plans in `.plans/active/` or `.plans/archive/` and leave them there. They're gitignored automatically.
+
+**Read more**: See "Planning and Documentation" section below for detailed guidance.
+
+### ❌ NEVER PUSH WITHOUT EXPLICIT APPROVAL
+
+**Git push operations require per-incident human maintainer approval**
+
+See "Git Operation Safety" section below for full protocol.
+
+---
+
 ## AI Agents
 
 ### 🛠️ Forge Neat (DevOps/CI/CD Tooling Expert)
@@ -97,6 +128,8 @@ go build -o goneat .  # ❌ Creates binary in repo root - MISSING EMBEDS
 
 #### Planning and Documentation
 
+**🚨 CRITICAL REMINDER**: See "NEVER COMMIT PLANS TO GIT" section at top of this document.
+
 **DO**: Use `.plans/` directory for planning documents (gitignored)
 
 ```bash
@@ -111,6 +144,8 @@ go build -o goneat .  # ❌ Creates binary in repo root - MISSING EMBEDS
 git add .plans/         # ❌ Plans are gitignored
 git commit .plans/      # ❌ Should remain local
 ```
+
+**This is a frequently violated rule - always check before attempting any git commit operation.**
 
 #### Development Operations
 
@@ -254,6 +289,8 @@ matches, err := finder.Find(pattern)
 **Critical**: As a DX tool, goneat must dogfood its own libraries to ensure they work correctly and to avoid code duplication. Always check existing goneat packages first before implementing new functionality.
 
 ### Git Operation Safety
+
+**🚨 CRITICAL REMINDER**: See "NEVER PUSH WITHOUT EXPLICIT APPROVAL" section at top of this document.
 
 **🚨 CRITICAL: PUSH AUTHORIZATION REQUIREMENT**
 
