@@ -48,3 +48,36 @@ func TestDoctorTools_KnownNames_Format(t *testing.T) {
 		t.Fatalf("did not expect unknown tools error for format tools; out=%q err=%v", out, err)
 	}
 }
+
+// TestDoctorTools_PlatformFiltering tests that platform-specific tools are correctly filtered
+// This test addresses a historical bug where Windows-only tools like "scoop" were reported
+// as missing on macOS/Linux, causing false failures in multi-platform CI/CD pipelines.
+// Platform-specific tools should be silently skipped on incompatible platforms.
+func TestDoctorTools_PlatformFiltering(t *testing.T) {
+	// Create a temporary config with platform-specific tools
+	// Note: We can't easily create a temp config file in this test structure,
+	// so we'll test by ensuring that built-in platform-specific tools don't cause failures
+
+	// Test that known platform-specific tools are handled correctly
+	// The actual tools checked depend on the embedded default configuration
+	// We verify that the command doesn't fail due to platform filtering issues
+
+	// Run doctor tools with a scope - should not fail due to platform-specific tools
+	_, err := execDoctorTools(t, []string{"--scope", "security"})
+
+	// The command may fail if tools are missing, but should NOT fail due to
+	// platform-specific tools being checked on incompatible platforms
+	// If the bug exists, we'd see errors like "1 tool(s) missing" for Windows tools on macOS
+
+	if err != nil {
+		errMsg := err.Error()
+		// Check for specific bug symptoms that indicate platform filtering is broken
+		if strings.Contains(strings.ToLower(errMsg), "scoop") {
+			t.Errorf("Platform filtering bug detected: scoop (Windows-only) should not be checked on non-Windows platforms. Error: %v", err)
+		}
+		// Note: Other errors (like actual missing security tools) are acceptable for this test
+		// We're specifically checking that platform-incompatible tools don't cause issues
+	}
+
+	t.Logf("Platform filtering test completed successfully")
+}

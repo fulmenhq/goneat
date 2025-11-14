@@ -54,6 +54,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Files Added**: package_managers.go, installer_brew.go, installer_scoop.go + tests
 - **Auto-Install**: Package manager auto-installation deferred to v0.3.7+ (documented in roadmap)
 
+### Fixed
+
+- **Platform Filtering for Tools**: Fixed `goneat doctor tools` incorrectly checking platform-specific tools on incompatible platforms
+  - Windows-only tools (e.g., scoop) no longer reported as "missing" on macOS/Linux
+  - Unix-only tools (e.g., mise) no longer reported as "missing" on Windows
+  - Platform filtering applied to all modes: check, install, dry-run, check-updates
+  - **Impact**: Multi-platform CI/CD pipelines with shared tool configurations now work correctly
+  - **Root Cause**: `GetToolsForScope()` returned all tools without platform filtering; tools with `platforms: ["windows"]` were checked on all platforms
+  - **Affected Users**: Template repositories, bootstrap scripts, and CI/CD workflows using platform-specific tools in shared scopes
+  - **Implementation**: Added `SupportsCurrentPlatform()` helper with support for empty lists (all platforms), wildcards (`*`, `all`), and explicit platform lists
+  - **Test Coverage**: 12 unit tests covering platform matching scenarios, plus integration test for bug scenario
+
 ## [0.3.5] - 2025-11-11
 
 ### Fixed

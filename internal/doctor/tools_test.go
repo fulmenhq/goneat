@@ -721,3 +721,202 @@ func TestLooksLikeVersion_EdgeCases(t *testing.T) {
 		}
 	}
 }
+
+// TestSupportsCurrentPlatform tests platform filtering logic for multi-platform tools
+func TestSupportsCurrentPlatform(t *testing.T) {
+	// Save current platform for restoration
+	originalGOOS := getCurrentPlatform()
+
+	tests := []struct {
+		name          string
+		tool          Tool
+		expectedMatch bool
+		description   string
+	}{
+		{
+			name: "No platform restriction (empty list)",
+			tool: Tool{
+				Name:      "curl",
+				Platforms: []string{},
+			},
+			expectedMatch: true,
+			description:   "Tools with empty platforms list should support all platforms",
+		},
+		{
+			name: "No platform restriction (nil list)",
+			tool: Tool{
+				Name:      "curl",
+				Platforms: nil,
+			},
+			expectedMatch: true,
+			description:   "Tools with nil platforms list should support all platforms",
+		},
+		{
+			name: "Wildcard platform support (*)",
+			tool: Tool{
+				Name:      "universal-tool",
+				Platforms: []string{"*"},
+			},
+			expectedMatch: true,
+			description:   "Tools with '*' wildcard should support all platforms",
+		},
+		{
+			name: "Wildcard platform support (all)",
+			tool: Tool{
+				Name:      "universal-tool",
+				Platforms: []string{"all"},
+			},
+			expectedMatch: true,
+			description:   "Tools with 'all' wildcard should support all platforms",
+		},
+		{
+			name: "Current platform in list",
+			tool: Tool{
+				Name:      "platform-specific",
+				Platforms: []string{"darwin", "linux", originalGOOS},
+			},
+			expectedMatch: true,
+			description:   "Tool should match when current platform is in platforms list",
+		},
+		{
+			name: "Current platform not in list",
+			tool: Tool{
+				Name:      "windows-only",
+				Platforms: []string{"windows"},
+			},
+			expectedMatch: originalGOOS == "windows",
+			description:   "Tool should only match on Windows platform",
+		},
+		{
+			name: "Windows-only tool on non-Windows (bug scenario)",
+			tool: Tool{
+				Name:        "scoop",
+				Description: "Package manager for Windows",
+				Platforms:   []string{"windows"},
+			},
+			expectedMatch: originalGOOS == "windows",
+			description:   "scoop (Windows-only) should not match on macOS/Linux - this was the reported bug",
+		},
+		{
+			name: "Unix-only tool (darwin, linux)",
+			tool: Tool{
+				Name:        "mise",
+				Description: "Polyglot runtime manager for Linux/macOS",
+				Platforms:   []string{"linux", "darwin"},
+			},
+			expectedMatch: originalGOOS == "linux" || originalGOOS == "darwin",
+			description:   "mise should only match on Linux or macOS, not Windows",
+		},
+		{
+			name: "Platform name with extra whitespace",
+			tool: Tool{
+				Name:      "whitespace-test",
+				Platforms: []string{" darwin ", "  linux  ", originalGOOS},
+			},
+			expectedMatch: true,
+			description:   "Platform matching should handle whitespace gracefully",
+		},
+		{
+			name: "Mixed case platform name",
+			tool: Tool{
+				Name:      "case-test",
+				Platforms: []string{"Darwin", "LINUX", strings.ToUpper(originalGOOS)},
+			},
+			expectedMatch: true,
+			description:   "Platform matching should be case-insensitive",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := SupportsCurrentPlatform(tt.tool)
+			if got != tt.expectedMatch {
+				t.Errorf("SupportsCurrentPlatform(%s on %s) = %v, want %v\n  Description: %s",
+					tt.tool.Name, originalGOOS, got, tt.expectedMatch, tt.description)
+			}
+		})
+	}
+}
+
+// TestSupportsCurrentPlatform_BugScenario specifically tests the reported bug scenario
+func TestSupportsCurrentPlatform_BugScenario(t *testing.T) {
+	// Simulate the exact scenario from the bug report:
+	// A scope containing curl (all platforms), scoop (Windows-only), and mise (Linux/macOS-only)
+	// should not fail when run on macOS
+	tools := []Tool{
+		{
+			Name:        "curl",
+			Description: "HTTP client",
+			Platforms:   []string{"linux", "darwin", "windows"},
+		},
+		{
+			Name:        "scoop",
+			Description: "Package manager for Windows",
+			Platforms:   []string{"windows"},
+		},
+		{
+			Name:        "mise",
+			Description: "Polyglot runtime manager for Linux/macOS",
+			Platforms:   []string{"linux", "darwin"},
+		},
+	}
+
+	currentPlatform := getCurrentPlatform()
+	var expectedApplicable []string
+
+	// Determine which tools should be applicable on current platform
+	for _, tool := range tools {
+		if SupportsCurrentPlatform(tool) {
+			expectedApplicable = append(expectedApplicable, tool.Name)
+		}
+	}
+
+	// Verify correct filtering based on current platform
+	switch currentPlatform {
+	case "darwin":
+		// On macOS: curl and mise should be applicable, scoop should be skipped
+		if !containsString(expectedApplicable, "curl") {
+			t.Errorf("curl should be applicable on darwin")
+		}
+		if !containsString(expectedApplicable, "mise") {
+			t.Errorf("mise should be applicable on darwin")
+		}
+		if containsString(expectedApplicable, "scoop") {
+			t.Errorf("scoop should NOT be applicable on darwin (this was the bug)")
+		}
+	case "linux":
+		// On Linux: curl and mise should be applicable, scoop should be skipped
+		if !containsString(expectedApplicable, "curl") {
+			t.Errorf("curl should be applicable on linux")
+		}
+		if !containsString(expectedApplicable, "mise") {
+			t.Errorf("mise should be applicable on linux")
+		}
+		if containsString(expectedApplicable, "scoop") {
+			t.Errorf("scoop should NOT be applicable on linux")
+		}
+	case "windows":
+		// On Windows: curl and scoop should be applicable, mise should be skipped
+		if !containsString(expectedApplicable, "curl") {
+			t.Errorf("curl should be applicable on windows")
+		}
+		if !containsString(expectedApplicable, "scoop") {
+			t.Errorf("scoop should be applicable on windows")
+		}
+		if containsString(expectedApplicable, "mise") {
+			t.Errorf("mise should NOT be applicable on windows")
+		}
+	}
+
+	t.Logf("Platform: %s, Applicable tools: %v", currentPlatform, expectedApplicable)
+}
+
+// Helper function for test assertions
+func containsString(slice []string, target string) bool {
+	for _, s := range slice {
+		if s == target {
+			return true
+		}
+	}
+	return false
+}

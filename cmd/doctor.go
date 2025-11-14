@@ -206,6 +206,23 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 	policyViolations := 0
 
 	for _, tool := range selected {
+		// CRITICAL: Platform filtering MUST occur before checking tools.
+		// Without this check, platform-specific tools (e.g., scoop on Windows, mise on Linux/macOS)
+		// will be reported as "missing" on incompatible platforms, causing false failures in:
+		// - Multi-platform CI/CD pipelines (same config, different runners)
+		// - Template repositories targeting multiple platforms
+		// - Make targets like `make bootstrap` that use shared tool scopes
+		//
+		// Historical context: Windows-only tools like "scoop" were incorrectly being checked
+		// on macOS/Linux systems, causing `goneat doctor tools` to fail with exit code 1
+		// even when all platform-applicable tools were present.
+		if !intdoctor.SupportsCurrentPlatform(tool) {
+			// Tool not applicable to current platform - skip silently
+			// Do NOT check, do NOT report as missing, do NOT count toward failure
+			logger.Debug(fmt.Sprintf("Skipping %s (not applicable to %s platform)", tool.Name, runtime.GOOS))
+			continue
+		}
+
 		status := intdoctor.CheckTool(tool)
 		policyStatus := status
 
@@ -711,6 +728,12 @@ func handleCheckUpdates(cmd *cobra.Command, selected []intdoctor.Tool) error {
 	}
 	infos := make([]toolInfo, 0, len(selected))
 	for _, tool := range selected {
+		// Platform filtering: skip tools not applicable to current platform
+		if !intdoctor.SupportsCurrentPlatform(tool) {
+			logger.Debug(fmt.Sprintf("Skipping %s (not applicable to %s platform)", tool.Name, runtime.GOOS))
+			continue
+		}
+
 		st := intdoctor.CheckTool(tool)
 		ver := st.Version
 		if ver == "" && st.Present {
@@ -778,6 +801,12 @@ func handleDryRun(cmd *cobra.Command) error {
 	wouldInstallCount := 0
 
 	for _, tool := range selected {
+		// Platform filtering: skip tools not applicable to current platform
+		if !intdoctor.SupportsCurrentPlatform(tool) {
+			logger.Debug(fmt.Sprintf("Skipping %s (not applicable to %s platform)", tool.Name, runtime.GOOS))
+			continue
+		}
+
 		status := intdoctor.CheckTool(tool)
 		info := dryRunInfo{
 			Name:    tool.Name,

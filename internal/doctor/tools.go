@@ -1089,6 +1089,44 @@ func getCurrentPlatform() string {
 	return runtime.GOOS
 }
 
+// SupportsCurrentPlatform checks if a tool is applicable to the current platform.
+//
+// CRITICAL: This function prevents platform-specific tools (e.g., Windows-only tools like "scoop")
+// from being checked, reported as missing, or counted toward failures on incompatible platforms
+// (e.g., macOS, Linux). Without this filtering, multi-platform CI/CD pipelines and template
+// repositories will fail with "tool missing" errors for tools that are intentionally excluded
+// from the current platform.
+//
+// Platform matching rules:
+// - Empty platforms list = tool supports all platforms (no restriction)
+// - "*" or "all" in platforms list = tool supports all platforms
+// - Otherwise, current platform must be explicitly listed in tool.Platforms
+//
+// Examples:
+// - platforms: ["windows"] on macOS → returns false (skip this tool)
+// - platforms: ["darwin", "linux"] on macOS → returns true (check this tool)
+// - platforms: [] on any platform → returns true (no restriction)
+// - platforms: ["*"] on any platform → returns true (explicit "all platforms")
+func SupportsCurrentPlatform(tool Tool) bool {
+	currentPlatform := getCurrentPlatform()
+
+	// No platform restriction = supports all platforms
+	if len(tool.Platforms) == 0 {
+		return true
+	}
+
+	// Check if current platform is explicitly listed or if wildcard is present
+	for _, platform := range tool.Platforms {
+		normalized := strings.TrimSpace(strings.ToLower(platform))
+		if normalized == currentPlatform || normalized == "*" || normalized == "all" {
+			return true
+		}
+	}
+
+	// Current platform not in supported list - skip this tool
+	return false
+}
+
 // TryCommand is a public wrapper for tryCommand
 func TryCommand(name string, args ...string) (string, bool) {
 	return tryCommand(name, args...)

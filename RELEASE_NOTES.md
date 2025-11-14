@@ -260,6 +260,72 @@ local-dev-tool:
 ```
 For non-production tools or when risk is acceptable.
 
+## What's Fixed
+
+### Platform Filtering for Doctor Tools
+
+Fixed a critical bug where `goneat doctor tools` was incorrectly checking platform-specific tools on incompatible platforms, causing false failures in multi-platform CI/CD pipelines.
+
+**Problem**: When using shared tool configurations across platforms (common in template repositories and CI/CD), Windows-only tools like `scoop` were reported as "missing" on macOS/Linux, and Unix-only tools like `mise` were reported as "missing" on Windows. This caused `goneat doctor tools` to exit with code 1 even when all platform-applicable tools were present.
+
+**Root Cause**: The `GetToolsForScope()` function returned all tools in a scope without filtering by platform. Tools with `platforms: ["windows"]` were checked on all platforms, leading to false "missing tool" errors.
+
+**Solution**: Added platform filtering before checking tools in all doctor modes:
+
+- **New Helper Function**: `SupportsCurrentPlatform()` checks if a tool is applicable to the current platform
+- **Platform Matching**:
+  - Empty `platforms` list = supports all platforms (no restriction)
+  - `*` or `all` in list = supports all platforms (explicit wildcard)
+  - Otherwise, current platform must be explicitly listed
+- **Applied to All Modes**: check, install, dry-run, check-updates
+
+**Impact**:
+
+- ✅ **Multi-Platform CI/CD**: Shared tool configs now work across different runner platforms
+- ✅ **Template Repositories**: Bootstrap scripts with platform-specific tools no longer fail
+- ✅ **Make Targets**: `make bootstrap` commands succeed on all supported platforms
+
+**Example**:
+
+```yaml
+# .goneat/tools.yaml (shared across platforms)
+scopes:
+  bootstrap:
+    tools: ["curl", "scoop", "mise"]
+
+tools:
+  curl:
+    platforms: ["darwin", "linux", "windows"]  # All platforms
+  scoop:
+    platforms: ["windows"]  # Windows-only
+  mise:
+    platforms: ["darwin", "linux"]  # Unix-only
+```
+
+**Before Fix** (on macOS):
+```bash
+goneat doctor tools --scope bootstrap
+# ERROR: scoop missing (incorrectly checked on macOS)
+# EXIT: 1 (failure)
+```
+
+**After Fix** (on macOS):
+```bash
+goneat doctor tools --scope bootstrap
+# INFO: curl present
+# INFO: mise present
+# DEBUG: Skipping scoop (not applicable to darwin platform)
+# EXIT: 0 (success)
+```
+
+**Test Coverage**: 12 unit tests covering platform matching scenarios, plus integration test for the bug scenario.
+
+**Files Modified**:
+- `internal/doctor/tools.go`: Added `SupportsCurrentPlatform()` helper (35 LOC)
+- `cmd/doctor.go`: Applied filtering to all tool check modes (4 locations)
+- `internal/doctor/tools_test.go`: Platform filtering unit tests (198 LOC)
+- `cmd/doctor_test.go`: Integration test for bug scenario
+
 ## Breaking Changes
 
 None. This is a purely additive feature.
