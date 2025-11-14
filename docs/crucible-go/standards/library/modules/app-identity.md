@@ -510,7 +510,7 @@ Error: Invalid app identity: /path/to/.fulmen/app.yaml
 
 - [Fulmen Ecosystem Guide](../../architecture/fulmen-ecosystem-guide.md)
 - [Config Path API Standard](./config-paths.md)
-- [Three-Layer Config Standard](./three-layer-config.md)
+- [Three-Layer Config Standard](./enterprise-three-layer-config.md)
 - [Repository Category Standards](../repository-category/README.md)
 
 ## References

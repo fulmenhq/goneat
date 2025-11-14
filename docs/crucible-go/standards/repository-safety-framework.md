@@ -187,6 +187,6 @@ Auditors should validate the same checklist plus confirm quality gates/emergency
 ## 🔗 Related References
 
 - [Agentic Attribution Standard](agentic-attribution.md)
-- [Sync Consumers Guide](../guides/sync-consumers-guide.md) (for FulDX asset pulls)
+- [Consuming Crucible Assets Guide](../guides/consuming-crucible-assets.md) (for SSOT asset synchronization)
 - Fulmen Codex policy: `policies/repository-safety-framework`
 - Fulmen Codex templates: `templates/safety-protocols/*`

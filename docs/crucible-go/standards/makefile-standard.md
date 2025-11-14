@@ -113,6 +113,39 @@ build-all: ## Build multi-platform binaries and generate checksums
 	@echo "✅ Multi-platform build complete - artifacts in $(DIST_DIR)/"
 ```
 
+### Clean Target Best Practices
+
+The `make clean` target removes **build artifacts** only. It must **never** delete working directories containing user-created content.
+
+**What to Delete** (safe, reproducible artifacts):
+
+- Compiled binaries: `dist/`, `build/`, language-specific output directories
+- Generated code: Auto-generated files with headers indicating generation
+- Downloaded dependencies: `node_modules/` (restorable via `npm install`), language package caches
+- Build caches: `.cache/`, language-specific build caches
+- External tool caches: `bin/` directory from `make bootstrap` (restorable via re-bootstrap)
+
+**What NOT to Delete** (user workspace, non-reproducible):
+
+- `.plans/` - Local planning workspace with session notes, incident logs, user-created content
+- `.env` - User's local environment configuration
+- `.vscode/`, `.idea/` - User's IDE settings
+- User configuration files not tracked in git
+- Any gitignored directory containing user-authored content
+
+**Example Clean Target:**
+
+```makefile
+clean: ## Clean build artifacts only
+	@echo "Cleaning artifacts..."
+	@rm -rf dist/ lang/*/dist/ bin/ .cache/
+	@echo "✅ Clean completed"
+```
+
+**Guideline**: If a directory is gitignored because it contains **user content** (not because it contains **generated artifacts**), it should not be in the clean target.
+
+**Common Mistake**: Including `.plans/` in clean target. This directory is gitignored for workspace privacy, not because it's a build artifact. Deleting it destroys non-recoverable planning work.
+
 ## Verification
 
 - CI pipelines should call `make lint`, `make test`, and `make release-check`.

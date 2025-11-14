@@ -127,7 +127,7 @@ Helpers MUST expose parsed schema content as native maps/objects consistent with
 - IDs include the terminal filename without extension to disambiguate multiple configs within the same version directory.
 - Config helpers SHOULD surface metadata (`checksum`, `size`, `modified`) alongside the parsed payload so consumers can detect drift.
 - When a configuration asset is formatted as JSON, helpers MUST parse it into equivalent native data types; consumers should not re-parse raw strings.
-- Libraries MAY expose additional ergonomic variants (e.g., `find_config(category, version, name)`), but all variants MUST resolve to the canonical ID specification above. Refer to the [Three-Layer Config standard](../three-layer-config.md) for integration patterns.
+- Libraries MAY expose additional ergonomic variants (e.g., `find_config(category, version, name)`), but all variants MUST resolve to the canonical ID specification above. Refer to the [Three-Layer Config standard](../enterprise-three-layer-config.md) for integration patterns.
 
 ## Documentation Access & Docscribe Integration
 
@@ -135,6 +135,258 @@ Helpers MUST expose parsed schema content as native maps/objects consistent with
 - Docscribe is responsible for frontmatter extraction, header detection, and other document processing concerns.
 - Helper libraries MAY provide convenience wrappers (`get_doc_with_metadata`) that internally call Docscribe, but such wrappers live outside the Crucible Shim contract.
 - Streaming interfaces MUST yield raw markdown bytes; libraries can adapt to language idioms (Python context manager, Go `io.ReadCloser`, Node.js `Readable`).
+
+### Accessing General Documentation
+
+The crucible shim provides access to **all Crucible documentation**, not just schemas and configs. This enables microtools, commit hooks, CI validators, and other tooling to reference standards and documentation programmatically without requiring a local crucible checkout.
+
+**Why this matters:**
+
+- **Sustainability**: Tools don't need local crucible checkout
+- **Consistency**: Same access pattern across all ecosystem tools
+- **Versioning**: Documentation is version-tracked via helper library dependency
+- **Offline**: No network dependency for standards/documentation access
+
+#### Common Documentation Paths
+
+Helper libraries expose Crucible documentation using relative paths beneath `docs/`:
+
+| Documentation Category | Example Paths                                                                                                                                            |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Standards**          | `standards/agentic-attribution.md`<br>`standards/makefile-standard.md`<br>`standards/observability/logging.md`<br>`standards/coding/go.md`               |
+| **Architecture**       | `architecture/fulmen-forge-microtool-standard.md`<br>`architecture/fulmen-template-cdrl-standard.md`<br>`architecture/fulmen-helper-library-standard.md` |
+| **Guides**             | `guides/consuming-crucible-assets.md`<br>`guides/bootstrap-goneat.md`<br>`guides/fulmen-library-bootstrap-guide.md`                                      |
+| **SOPs**               | `sop/repository-operations-sop.md`<br>`sop/repository-structure.md`                                                                                      |
+
+#### Use Cases
+
+**1. Commit Validation Hooks**
+Access agentic-attribution standard for commit message format validation:
+
+```go
+import "github.com/fulmenhq/gofulmen/crucible"
+
+// Load agentic attribution standard
+standard, err := crucible.GetDoc("standards/agentic-attribution.md")
+if err != nil {
+    return fmt.Errorf("failed to load attribution standard: %w", err)
+}
+
+// Validate commit message format (implementation detail omitted)
+if !hasRequiredTrailers(commitMsg, standard) {
+    return fmt.Errorf("commit missing required attribution trailers")
+}
+```
+
+**2. Documentation Generators**
+Access coding standards to generate boilerplate or validate generated code:
+
+```python
+from pyfulmen import crucible
+
+# Get Go coding standards for doc generator
+go_standards = crucible.get_doc("standards/coding/go.md")
+
+# Extract naming conventions section
+conventions = extract_section(go_standards, "Naming Conventions")
+```
+
+**3. CI Compliance Checkers**
+Validate repository structure against standards:
+
+```typescript
+import { crucible } from "@fulmenhq/tsfulmen";
+
+// Load repository structure standard
+const structureStd = await crucible.getDoc("sop/repository-structure.md");
+
+// Validate repository compliance
+const violations = validateStructure(repoPath, structureStd);
+if (violations.length > 0) {
+  process.exit(1);
+}
+```
+
+**4. Template Refit Tools**
+Access CDRL workflow documentation for automated template customization:
+
+```go
+import "github.com/fulmenhq/gofulmen/crucible"
+
+// Load CDRL standard
+cdrlStandard, err := crucible.GetDoc("architecture/fulmen-template-cdrl-standard.md")
+if err != nil {
+    return err
+}
+
+// Parse refit workflow steps
+workflow := parseCDRLWorkflow(cdrlStandard)
+```
+
+#### Discovering Available Documentation
+
+Use `ListAssets("docs", prefix)` to discover available documentation:
+
+**Go:**
+
+```go
+import "github.com/fulmenhq/gofulmen/crucible"
+
+// List all standards
+standards, err := crucible.ListAssets("docs", "standards/")
+for _, asset := range standards {
+    fmt.Printf("Standard: %s\n", asset.ID)
+}
+
+// List architecture docs
+archDocs, err := crucible.ListAssets("docs", "architecture/")
+
+// List guides
+guides, err := crucible.ListAssets("docs", "guides/")
+```
+
+**Python:**
+
+```python
+from pyfulmen import crucible
+
+# List all standards
+standards = crucible.list_assets("docs", prefix="standards/")
+for asset in standards:
+    print(f"Standard: {asset.id}")
+
+# List architecture docs
+arch_docs = crucible.list_assets("docs", prefix="architecture/")
+```
+
+**TypeScript:**
+
+```typescript
+import { crucible } from "@fulmenhq/tsfulmen";
+
+// List all standards
+const standards = await crucible.listAssets("docs", "standards/");
+for (const asset of standards) {
+  console.log(`Standard: ${asset.id}`);
+}
+
+// List architecture docs
+const archDocs = await crucible.listAssets("docs", "architecture/");
+```
+
+#### Cross-Language API Consistency
+
+All helper libraries provide consistent APIs for documentation access:
+
+| Language       | Get Document                                     | List Documents                                |
+| -------------- | ------------------------------------------------ | --------------------------------------------- |
+| **Go**         | `crucible.GetDoc(path string) (string, error)`   | `crucible.ListAssets("docs", prefix string)`  |
+| **Python**     | `crucible.get_doc(path: str) -> str`             | `crucible.list_assets("docs", prefix: str)`   |
+| **TypeScript** | `crucible.getDoc(path: string): Promise<string>` | `crucible.listAssets("docs", prefix: string)` |
+
+#### Complete Example: Commit Hook Validator
+
+**Go Implementation:**
+
+```go
+package main
+
+import (
+    "fmt"
+    "os"
+    "strings"
+
+    "github.com/fulmenhq/gofulmen/crucible"
+    "github.com/fulmenhq/gofulmen/foundry"
+)
+
+func main() {
+    // Load agentic attribution standard from embedded Crucible docs
+    attrStandard, err := crucible.GetDoc("standards/agentic-attribution.md")
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "Failed to load attribution standard: %v\n", err)
+        os.Exit(foundry.ExitFailure)
+    }
+
+    // Read commit message from git
+    commitMsgBytes, err := os.ReadFile(".git/COMMIT_EDITMSG")
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "Failed to read commit message: %v\n", err)
+        os.Exit(foundry.ExitFailure)
+    }
+    commitMsg := string(commitMsgBytes)
+
+    // Validate required trailers exist
+    requiredTrailers := []string{"Committer-of-Record:", "Co-Authored-By:"}
+    for _, trailer := range requiredTrailers {
+        if !strings.Contains(commitMsg, trailer) {
+            fmt.Fprintf(os.Stderr, "Commit missing required trailer: %s\n", trailer)
+            fmt.Fprintf(os.Stderr, "See attribution standard for format: standards/agentic-attribution.md\n")
+            os.Exit(foundry.ExitFailure)
+        }
+    }
+
+    fmt.Println("✅ Commit message follows attribution standard")
+    os.Exit(foundry.ExitSuccess)
+}
+```
+
+**Python Implementation:**
+
+```python
+#!/usr/bin/env python3
+import sys
+from pathlib import Path
+
+from pyfulmen import crucible, foundry
+
+def main():
+    # Load agentic attribution standard
+    try:
+        attr_standard = crucible.get_doc("standards/agentic-attribution.md")
+    except Exception as e:
+        print(f"Failed to load attribution standard: {e}", file=sys.stderr)
+        sys.exit(foundry.EXIT_FAILURE)
+
+    # Read commit message
+    commit_msg_path = Path(".git/COMMIT_EDITMSG")
+    if not commit_msg_path.exists():
+        print("Failed to read commit message", file=sys.stderr)
+        sys.exit(foundry.EXIT_FAILURE)
+
+    commit_msg = commit_msg_path.read_text()
+
+    # Validate required trailers
+    required_trailers = ["Committer-of-Record:", "Co-Authored-By:"]
+    for trailer in required_trailers:
+        if trailer not in commit_msg:
+            print(f"Commit missing required trailer: {trailer}", file=sys.stderr)
+            print("See attribution standard: standards/agentic-attribution.md", file=sys.stderr)
+            sys.exit(foundry.EXIT_FAILURE)
+
+    print("✅ Commit message follows attribution standard")
+    sys.exit(foundry.EXIT_SUCCESS)
+
+if __name__ == "__main__":
+    main()
+```
+
+#### Sustainability Guidance
+
+**Always access Crucible assets through the helper library shim** rather than filesystem reads or network fetches. This ensures:
+
+- ✅ **No crucible checkout required**: Tools work anywhere the helper library is installed
+- ✅ **Version-tracked**: Documentation version matches helper library dependency
+- ✅ **Offline access**: No network dependency or HTTP requests required
+- ✅ **Consistent access pattern**: Same API across all languages and all ecosystem tools
+- ✅ **Type safety**: Helper libraries provide typed APIs in statically-typed languages
+
+**Anti-patterns to avoid:**
+
+- ❌ Reading from local filesystem: `os.ReadFile("~/crucible/docs/standards/agentic-attribution.md")`
+- ❌ HTTP requests to github: `http.Get("https://raw.githubusercontent.com/.../agentic-attribution.md")`
+- ❌ Git cloning: Requiring `git clone` of crucible repository
+- ❌ Vendoring docs: Copying documentation files into your repository
 
 ## Streaming Expectations
 

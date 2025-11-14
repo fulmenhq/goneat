@@ -1104,6 +1104,20 @@ repos:
 
 ---
 
+## 14. Portable Testing
+
+Fulmen Python projects must keep `pytest` suites deterministic across laptops, CI, and sandboxed environments. Follow the cross-language [Portable Testing Practices](../testing/portable-testing-practices.md) and apply these Python patterns:
+
+- Use `tmp_path`/`tmp_path_factory` for temporary files and directories; never write to repo roots or `/tmp` without cleanup.
+- Provide shared helpers (e.g., `require_network`, `require_dns`) that call `pytest.skip` with explicit reasons when capabilities are unavailable.
+- Seed randomness via `random.seed(SEED)` or `secrets.randbelow` mocks to keep fixtures reproducible.
+- Prefer in-memory dependencies (SQLite `:memory:`, mocked HTTP servers) for unit tests; guard real integrations with markers (`@pytest.mark.integration`) and capability checks.
+- Use fixtures' `yield`/`finalizer` patterns to ensure sockets, threads, and background tasks are torn down regardless of test outcome.
+
+**CLI Testing**: For Typer/Click-based CLIs (e.g., microtool forges), follow the application factory pattern in [Language-Specific Testing Patterns](../testing/language-testing-patterns.md#python--typerclick-cli-isolation) to isolate context between tests.
+
+---
+
 ## Conclusion
 
 These standards ensure FulmenHQ Python projects maintain reliability as production-grade tools. The emphasis on type safety, output hygiene, and structured error handling is critical for maintaining code quality and seamless automation integration.

@@ -16,8 +16,9 @@ version: v1.1.0
 sources:
    - name: crucible
      repo: fulmenhq/crucible
-     ref: v0.2.8
+     ref: v0.2.12
      # Without .local.yaml, goneat clones from GitHub (force-remote friendly)
+     force_remote: true
      sync_path_base: .
      # NOTE: Crucible no longer exports a dedicated lang/go mirror. We sync from repo root for now,
      # but may switch to consuming gofulmen (or embedding Crucible directly) in a future release.

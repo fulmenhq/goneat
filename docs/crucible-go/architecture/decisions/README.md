@@ -134,7 +134,7 @@ Type-safe configuration hydration pattern using JSON schemas to validate and tra
 - Type generation from schemas
 - Fail-fast on invalid config
 
-**Related**: [Three-Layer Config Module](../../standards/library/modules/three-layer-config.md)
+**Related**: [Three-Layer Config Module](../../standards/library/modules/enterprise-three-layer-config.md)
 
 ---
 

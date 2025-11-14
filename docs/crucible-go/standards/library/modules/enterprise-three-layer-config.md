@@ -1,30 +1,44 @@
 ---
-title: "Three-Layer Configuration Standard"
-description: "Layered configuration loading contract for Fulmen helper libraries"
+title: "Enterprise Three-Layer Configuration Standard"
+description: "Layered configuration loading contract for enterprise-grade Fulmen applications (workhorses, complex CLIs)"
 author: "Schema Cartographer"
 date: "2025-10-09"
-last_updated: "2025-10-09"
+last_updated: "2025-11-10"
 status: "draft"
-tags: ["standards", "library", "configuration", "2025.10.2"]
+tags: ["standards", "library", "configuration", "enterprise", "2025.10.2"]
 ---
 
-# Three-Layer Configuration Standard
+# Enterprise Three-Layer Configuration Standard
 
 ## Purpose
 
-Define how helper libraries load and merge configuration from Crucible defaults, user overrides, and runtime
-inputs. Ensures applications can reliably compose configuration across languages and deployment targets.
+Define how helper libraries load and merge configuration from Crucible defaults, user overrides, and runtime inputs for **enterprise-grade applications**. This three-layer pattern is designed for workhorse services, complex CLI tools, and applications requiring ecosystem-wide standardization.
 
-## Layer Model
+**When to use Enterprise Three-Layer Config**:
 
-| Priority | Layer             | Source                                               |
-| -------- | ----------------- | ---------------------------------------------------- |
-| 3 (base) | Embedded defaults | Crucible assets (`config/<category>/vX.Y.Z/*.yaml`). |
-| 2        | User overrides    | Files in `GetAppConfigDir`.                          |
-| 1 (top)  | Runtime overrides | Environment variables, CLI flags, API inputs.        |
+- ✅ Workhorse services (HTTP APIs, background workers)
+- ✅ Complex CLI tools with multiple configuration sources
+- ✅ Applications requiring Crucible SSOT defaults for compliance
 
-Higher priority layers overwrite conflicting keys from lower layers. Arrays MUST replace the prior value unless
-the specification for a given schema explicitly opts into merge semantics.
+**When NOT to use** (use Simple Config Pattern instead):
+
+- ❌ Microtools (single-purpose CLI tools) - use two-layer config (defaults + user overrides only)
+- ❌ Simple applications with minimal configuration
+- ❌ Prototypes and experiments
+
+## Layer Model (The "Three Layers")
+
+This pattern is called "Enterprise **Three-Layer** Config" because configuration is composed from three distinct layers:
+
+| Priority | Layer                          | Source                                               | Description                                 |
+| -------- | ------------------------------ | ---------------------------------------------------- | ------------------------------------------- |
+| 3 (base) | **Layer 1: SSOT Defaults**     | Crucible assets (`config/<category>/vX.Y.Z/*.yaml`). | Ecosystem-wide standards and best practices |
+| 2        | **Layer 2: User Config**       | Files in `GetAppConfigDir`.                          | Application-specific settings               |
+| 1 (top)  | **Layer 3: Runtime Overrides** | Environment variables, CLI flags, API inputs.        | Dynamic configuration at execution time     |
+
+**Precedence**: Layer 3 (runtime) > Layer 2 (user) > Layer 1 (SSOT defaults)
+
+Higher priority layers overwrite conflicting keys from lower layers. Arrays MUST replace the prior value unless the specification for a given schema explicitly opts into merge semantics.
 
 ## Requirements
 

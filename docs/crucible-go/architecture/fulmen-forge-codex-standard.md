@@ -79,15 +79,20 @@ Codex forges MUST integrate these Fulmen helper library modules to ensure ecosys
    - **CDRL Workflow**: Users update `.fulmen/app.yaml` during site customization
 
 2. **Crucible Shim Module** (REQUIRED)
-   - **Purpose**: Access Crucible SSOT assets (schemas, docs, configs) for ingestion pipelines
+   - **Purpose**: Access Crucible SSOT assets (schemas, standards, documentation, configs, taxonomies) for ingestion pipelines
    - **Spec**: [Crucible Shim](../standards/library/modules/crucible-shim.md)
-   - **Compliance**: Use helper's `crucible.getSchema()`, `crucible.getDoc()`, `crucible.getConfig()`
+   - **Compliance**:
+     - **Schemas**: `crucible.getSchema()`, `crucible.getLoggingEventSchema()`
+     - **Documentation**: `crucible.getDoc("standards/observability/logging.md")`
+     - **Configs**: `crucible.getConfig()`
+     - **Standards**: `crucible.getGoStandards()`, `crucible.getTypeScriptStandards()`
    - **Build Integration**: Ingestion scripts (`src/scripts/`) use Crucible APIs to fetch schemas/docs
    - **Exposure**: Site footer MUST display Crucible version from `crucible.getVersion()`
+   - **Documentation ingestion**: Codex forges may ingest Crucible documentation for searchable content, API reference generation, or schema registry displays. See [Crucible Shim - Accessing General Documentation](../standards/library/modules/crucible-shim.md#accessing-general-documentation) for examples.
 
-3. **Three-Layer Config Module** (REQUIRED)
+3. **Enterprise Three-Layer Config Module** (REQUIRED)
    - **Purpose**: Layered configuration for build-time settings (deployment targets, analytics, features)
-   - **Spec**: [Three-Layer Config](../standards/library/modules/three-layer-config.md)
+   - **Spec**: [Enterprise Three-Layer Config](../standards/library/modules/enterprise-three-layer-config.md)
    - **Compliance**:
      - Layer 1: Crucible defaults via helper (e.g., `codex/v1.0.0/defaults`)
      - Layer 2: Local config at `config/site.yaml` (versioned in repo)
@@ -146,17 +151,17 @@ Codex forges MUST integrate these Fulmen helper library modules to ensure ecosys
 
 ### Module Integration Summary
 
-| Module             | Status      | Purpose                           | Build Phase | Spec Link                                                                   |
-| ------------------ | ----------- | --------------------------------- | ----------- | --------------------------------------------------------------------------- |
-| App Identity       | REQUIRED    | Site name, vendor metadata        | Build-time  | [app-identity.md](../standards/library/modules/app-identity.md)             |
-| Crucible Shim      | REQUIRED    | SSOT asset ingestion              | Build-time  | [crucible-shim.md](../standards/library/modules/crucible-shim.md)           |
-| Three-Layer Config | REQUIRED    | Build settings, deployment config | Build-time  | [three-layer-config.md](../standards/library/modules/three-layer-config.md) |
-| Config Path API    | REQUIRED    | Config directory discovery        | Build-time  | [config-path-api.md](../standards/library/modules/config-path-api.md)       |
-| Schema Validation  | REQUIRED    | Frontmatter, schema validation    | Build-time  | [schema-validation.md](../standards/library/modules/schema-validation.md)   |
-| Docscribe          | REQUIRED    | Documentation access/rendering    | Build-time  | [docscribe.md](../standards/library/modules/docscribe.md)                   |
-| Foundry            | RECOMMENDED | Catalog display (HTTP, MIME)      | Build-time  | [foundry/README.md](../standards/library/foundry/README.md)                 |
-| FulHash            | RECOMMENDED | Content hashing, cache busting    | Build-time  | [fulhash.md](../standards/library/modules/fulhash.md)                       |
-| Logging            | OPTIONAL    | Build pipeline diagnostics        | Build-time  | [logging.md](../standards/observability/logging.md)                         |
+| Module                        | Status      | Purpose                           | Build Phase | Spec Link                                                                                         |
+| ----------------------------- | ----------- | --------------------------------- | ----------- | ------------------------------------------------------------------------------------------------- |
+| App Identity                  | REQUIRED    | Site name, vendor metadata        | Build-time  | [app-identity.md](../standards/library/modules/app-identity.md)                                   |
+| Crucible Shim                 | REQUIRED    | SSOT asset ingestion              | Build-time  | [crucible-shim.md](../standards/library/modules/crucible-shim.md)                                 |
+| Enterprise Three-Layer Config | REQUIRED    | Build settings, deployment config | Build-time  | [enterprise-three-layer-config.md](../standards/library/modules/enterprise-three-layer-config.md) |
+| Config Path API               | REQUIRED    | Config directory discovery        | Build-time  | [config-path-api.md](../standards/library/modules/config-path-api.md)                             |
+| Schema Validation             | REQUIRED    | Frontmatter, schema validation    | Build-time  | [schema-validation.md](../standards/library/modules/schema-validation.md)                         |
+| Docscribe                     | REQUIRED    | Documentation access/rendering    | Build-time  | [docscribe.md](../standards/library/modules/docscribe.md)                                         |
+| Foundry                       | RECOMMENDED | Catalog display (HTTP, MIME)      | Build-time  | [foundry/README.md](../standards/library/foundry/README.md)                                       |
+| FulHash                       | RECOMMENDED | Content hashing, cache busting    | Build-time  | [fulhash.md](../standards/library/modules/fulhash.md)                                             |
+| Logging                       | OPTIONAL    | Build pipeline diagnostics        | Build-time  | [logging.md](../standards/observability/logging.md)                                               |
 
 **Modules NOT Required for Codex Forges**:
 
@@ -356,6 +361,8 @@ make test                   # Exit 0: All tests pass
 - Optional: Percy/Chromatic visual regression where design stability matters.
 
 CI MUST enforce these gates before merge. Build time for reference template should stay under 60 seconds for 1,000 MDX pages (baseline metric).
+
+Codex forges also need to follow the shared [Portable Testing Practices](../standards/testing/portable-testing-practices.md). Provide skip helpers/flags for network-dependent e2e suites so CI and sandboxed agents can run deterministic unit tests without masking real failures.
 
 ## Integration with Other Ecosystem Pieces
 

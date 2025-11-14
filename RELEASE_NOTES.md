@@ -651,6 +651,30 @@ bootstrap: build ## Install bootstrap package managers (mise) before other tools
 - `Makefile`: Updated bootstrap target to dogfood goneat doctor tools (7 LOC)
 - `.github/workflows/ci.yml`: Added bootstrap testing step (3 LOC)
 
+### Crucible SSOT Sync to v0.2.12
+
+Updated to Crucible v0.2.12 (from v0.2.8) to pull in latest standards, schemas, and documentation from the Fulmen ecosystem SSOT.
+
+**Changes**:
+- Updated `.goneat/ssot-consumer.yaml` ref: `v0.2.8` → `v0.2.12`
+- Added `force_remote: true` to ensure GitHub sourcing even with local crucible clone
+- Provenance now tracks `forced_remote` and `forced_by` metadata
+
+**New Content from Crucible v0.2.12**:
+- **DevSecOps**: New schemas and taxonomy for security/operations tooling
+- **Library Modules**: fulpack and fulencode standards and schemas
+- **Standards**: Repository naming conventions, microtool standard, testing frameworks
+- **Documentation**: Module compliance matrix, enterprise three-layer config patterns
+- **ADR**: Lorage DevSecOps schemas semver experimental decision
+
+**Updated Content**:
+- Repository categories and metrics taxonomy
+- Forge standards: Codex, Workhorse, Helper Library, Template CDRL
+- Coding standards: Go, Python, TypeScript
+- Makefile standard, repository safety framework
+
+**Files Changed**: 27 modified, 25 new files, 1 deletion (three-layer-config superseded by enterprise-three-layer-config)
+
 ## Breaking Changes
 
 None. This is a purely additive feature.

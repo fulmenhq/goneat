@@ -503,6 +503,20 @@ fi
 
 ---
 
+## 11. Portable Testing
+
+Fulmen Go projects must keep `go test ./...` deterministic across laptops, CI, and sandboxed environments. Follow the cross-language [Portable Testing Practices](../testing/portable-testing-practices.md) and adopt these Go-specific patterns:
+
+- Bind sockets with `net.Listen("127.0.0.1:0")` (or `tcp4`) and inject listeners into `httptest.Server` to avoid IPv6-only or privileged port failures.
+- Seed randomness deterministically (`rand.New(rand.NewSource(seed))`) so fixtures are reproducible.
+- Prefer gofulmen's in-memory telemetry emitter for unit tests; guard real exporters behind capability checks (e.g., a shared `RequireNetwork(t *testing.T)` helper that skips with a clear message).
+- Use `t.Cleanup` to close servers, goroutines, and temp dirs to keep tests isolated.
+- Provide shared skip helpers (network, DNS, filesystem) so skips are explicit and actionable.
+
+**CLI Testing**: For Cobra-based CLIs (e.g., goneat, workhorse forges), follow the Cobra command isolation pattern in [Language-Specific Testing Patterns](../testing/language-testing-patterns.md#go--cobra-command-isolation) to prevent state pollution between tests.
+
+---
+
 ## Conclusion
 
 These standards ensure FulmenHQ Go projects maintain reliability as production-grade tools. The emphasis on output hygiene is critical for structured data integrity and integration with automated systems.

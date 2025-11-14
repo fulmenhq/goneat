@@ -18,7 +18,7 @@ expectations, and references to machine-readable schemas.
 
 - `modules/`
   - `config-path-api.md` – Platform-aware configuration path discovery helpers.
-  - `three-layer-config.md` – Layered configuration loading with runtime overrides.
+  - `enterprise-three-layer-config.md` – Layered configuration loading with runtime overrides.
   - `schema-validation.md` – Schema lookup, validation, and error handling helpers.
   - `crucible-shim.md` – Asset accessors for embedded Crucible content.
   - `fuldx-bootstrap.md` – FulDX bootstrap workflow for installing tooling manifests.

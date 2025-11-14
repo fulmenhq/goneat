@@ -80,7 +80,7 @@ export async function createServer() {
 ## Configuration
 
 - Implement three-layer config using helpers from `@fulmenhq/crucible` once available, or local utilities following
-  `docs/standards/library/modules/three-layer-config.md`.
+  `docs/standards/library/modules/enterprise-three-layer-config.md`.
 - Read defaults from embedded YAML, merge user overrides (XDG/Bun config dir), apply environment/CLI overrides.
 - Validate merged config with AJV and Fulmen schemas.
 

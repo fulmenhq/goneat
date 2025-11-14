@@ -3,7 +3,7 @@ title: "Fulmen Helper Library Standard"
 description: "Standard structure and capabilities for gofulmen, tsfulmen, and future language helpers"
 author: "Schema Cartographer"
 date: "2025-10-02"
-last_updated: "2025-10-10"
+last_updated: "2025-11-11"
 status: "draft"
 tags: ["architecture", "helper-library", "multi-language", "local-development"]
 ---
@@ -18,6 +18,100 @@ consult that table before proposing new foundations or changing lifecycle state.
 ## Scope
 
 Applies to language-specific Fulmen helper libraries (gofulmen, tsfulmen, pyfulmen, csfulmen, rufulmen, etc.). Excludes SSOT repos (Crucible, Cosmography) and application/tool repos (Fulward, goneat).
+
+## Canonical Façade Principle
+
+**ARCHITECTURAL DECREE**: Helper libraries MUST provide canonical façades for all modules, regardless of whether the underlying functionality wraps standard library features, third-party libraries, or custom implementations.
+
+### Rationale
+
+The Fulmen ecosystem prioritizes **cross-language interface consistency** over implementation details. When applications use helper library modules, they should encounter the same API surface, error handling patterns, and behavioral contracts across Go, Python, and TypeScript—even when the underlying implementations differ significantly.
+
+### Core Tenets
+
+1. **Façades Are Mandatory**: Every module in the helper library registry MUST ship a façade, even if the implementation simply wraps standard library functionality with minimal adaptation.
+
+2. **Implementation Details Are Separate**: Whether a module wraps `stdlib`, uses third-party dependencies, or provides custom logic is documented in the `implementation` field of the module registry—it does NOT determine tier assignment.
+
+3. **Tier Assignment Is About Use Case**: A module's tier (Core, Common, Specialized) reflects:
+   - **Universality**: How many applications need this capability
+   - **Dependency footprint**: External dependencies beyond stdlib
+   - **Adoption patterns**: Expected usage across the ecosystem
+
+4. **stdlib Wrapping Is Common**: If stdlib provides baseline functionality that most applications need, wrapping it in a Common tier module with a consistent façade is the CORRECT pattern. Examples:
+   - `config`: Wraps `os`, `path/filepath` (Go), `os`, `pathlib` (Python), `fs`, `path` (Node.js)
+   - `fulpack`: Wraps `archive/tar`, `archive/zip` (Go), `tarfile`, `zipfile` (Python), `tar-stream`, `archiver` (TypeScript)
+   - `logging`: Wraps `log/slog` (Go), `logging` (Python), `console` with structured output (TypeScript)
+
+5. **Cross-Language Orchestration**: The power of façades emerges when:
+   - Python developers call `pyfulmen.fulpack.create_tar_gz()`
+   - Go developers call `gofulmen.fulpack.CreateTarGz()`
+   - TypeScript developers call `@fulmenhq/tsfulmen/fulpack.createTarGz()`
+
+   ...and all three receive the same error envelope structure, the same checksum verification behavior, and the same path traversal protections, regardless of whether the implementation uses stdlib, third-party libs, or custom code.
+
+### Implementation Transparency
+
+The `implementation` field in the module registry provides full transparency about how each language implements a module:
+
+```yaml
+languages:
+  go:
+    status: available
+    package: github.com/fulmenhq/gofulmen/fulpack
+    version: "0.1.0"
+    implementation: "Wraps stdlib archive/tar, archive/zip, compress/gzip"
+  python:
+    status: available
+    package: pyfulmen.fulpack
+    version: "0.1.0"
+    implementation: "Wraps stdlib tarfile, zipfile, gzip"
+  typescript:
+    status: available
+    package: "@fulmenhq/tsfulmen/fulpack"
+    version: "0.1.0"
+    implementation: "Wraps tar-stream and archiver for cross-platform compatibility"
+```
+
+This transparency allows developers to understand:
+
+- Performance characteristics per language
+- Dependency requirements
+- Platform compatibility
+- Maintenance complexity
+
+### Anti-Patterns
+
+❌ **DO NOT** skip façades because "stdlib already provides this"
+✅ **DO** wrap stdlib to ensure consistent error handling and API surface
+
+❌ **DO NOT** make every stdlib wrapper a Specialized module
+✅ **DO** use Common tier for widely-needed stdlib wrappers (tar/zip, basic encoding, signals)
+
+❌ **DO NOT** assume "no external deps = no façade needed"
+✅ **DO** provide façades to orchestrate cross-language interface consistency
+
+❌ **DO NOT** document implementation strategy as an override reason
+✅ **DO** use the `implementation` field to explain how the module is built
+
+### When Specialized Tier IS Appropriate
+
+Specialized tier is for:
+
+- **Niche use cases** (<50% of applications need it)
+- **Heavy external dependencies** (multiple third-party libs, large runtime footprint)
+- **Advanced/exotic capabilities** (e.g., `fulpack-formats` for 7z/rar/brotli, `fulencoding-advanced` for 200+ character sets)
+
+Examples:
+
+- `fulpack` (Common): Basic tar.gz and zip using stdlib
+- `fulpack-formats` (Specialized): Exotic formats (7z, rar, brotli) requiring heavy dependencies
+
+### References
+
+- [Extension Framework v2 Clarifications](../../.plans/memos/helperlibs/2025-11-15-extension-framework-clarifications-v2.md)
+- [Team Responses Synthesis](../../.plans/memos/helperlibs/2025-11-15-team-responses-synthesis.md)
+- [Module Registry](../../config/taxonomy/library/platform-modules/v1.0.0/modules.yaml)
 
 ## Mandatory Capabilities
 
@@ -70,7 +164,7 @@ Applies to language-specific Fulmen helper libraries (gofulmen, tsfulmen, pyfulm
    - Layer 1: Embed Crucible defaults from `config/{category}/vX.Y.Z/*-defaults.yaml`.
    - Layer 2: Merge user overrides from `GetFulmenConfigDir()`.
    - Layer 3: Allow application-provided config (BYOC) with explicit API hooks.
-   - Refer to the [Three-Layer Configuration Standard](../standards/library/modules/three-layer-config.md).
+   - Refer to the [Three-Layer Configuration Standard](../standards/library/modules/enterprise-three-layer-config.md).
 
 6. **Schema Validation Utilities**
    - Provide helpers to load, parse, and validate schemas shipped in Crucible.
@@ -91,6 +185,19 @@ Applies to language-specific Fulmen helper libraries (gofulmen, tsfulmen, pyfulm
    - Provide counter, gauge, and histogram helpers aligned with the metrics taxonomy.
    - Use the default millisecond histogram buckets defined in [ADR-0007](decisions/ADR-0007-telemetry-default-histogram-buckets.md) unless overridden explicitly.
    - Refer to the [Telemetry & Metrics Standard](../standards/library/modules/telemetry-metrics.md).
+
+10. **Module Registry Compliance**
+
+- Read and use the definitive module registry SSOT at `config/taxonomy/library/modules/v1.0.0/modules.yaml`.
+- Implement modules according to their assigned tier (Core, Common, Specialized).
+- Respect language-specific tier overrides when present (e.g., Common in one language, Specialized in another).
+- For Specialized modules, implement optional installation patterns per language:
+  - Python: `pip install pyfulmen[extras]`
+  - TypeScript: Peer dependencies or optional dependencies
+  - Go: Separate import paths with tree-shaking
+- Validate module implementation matches registry metadata (tier, dependencies, version).
+- Report any registry inconsistencies to Crucible maintainers for correction.
+- Refer to the [Module Registry](config/taxonomy/library/modules/v1.0.0/modules.yaml) and [Extension Tier Standard](../standards/library/modules/extension-tiering.md) (available v0.2.11+).
 
 ## Ecosystem Tool Integration
 
@@ -153,9 +260,10 @@ except AssetNotFoundError as e:
 - Cosmography shims once that SSOT expands.
 - Registry API clients if SSOT repos expose HTTP endpoints in the future.
 
-Module requirement levels, coverage targets, and language overrides are tracked in
-`config/library/v1.0.0/module-manifest.yaml` (validated by
-`schemas/library/module-manifest/v1.0.0/module-manifest.schema.json`).
+Module tiers, language-specific implementations, and cross-language status are tracked in the
+definitive module registry at `config/taxonomy/library/modules/v1.0.0/modules.yaml` (validated by
+`schemas/taxonomy/library/modules/v1.0.0/module-entry.schema.json`). This registry is the canonical
+SSOT for all helper library modules and their tier assignments.
 
 ## Directory Structure
 
@@ -257,6 +365,8 @@ make bootstrap
     - `type: link` creates symlinks (not copies) for local development
     - `type: download` fetches and verifies checksums for production
     - Symlinks automatically track source updates without re-bootstrap
+
+All helper tests MUST follow the cross-language [Portable Testing Practices](../standards/testing/portable-testing-practices.md). Provide shared capability checks/skip helpers (network, filesystem, DNS) so suites behave deterministically in CI and sandboxed agent environments without hiding real regressions.
 
 ## Module Implementation Guidelines
 

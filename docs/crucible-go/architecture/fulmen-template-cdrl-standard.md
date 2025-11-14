@@ -20,6 +20,8 @@ CDRL (Clone → Degit → Refit → Launch) is the canonical workflow for custom
 
 **Key Principle**: Customization should flow from a **single source of truth** (`.fulmen/app.yaml`) rather than scattered hardcoded values throughout the codebase.
 
+**Important**: Fulmen forges are **working reference implementations**, not collections of `.template` files with placeholder strings. The template IS a buildable, runnable application that users customize by editing `.fulmen/app.yaml` and following the CDRL workflow. Think of `forge-workhorse-groningen` as the canonical example: it builds and runs as-is, with "groningen" throughout the codebase.
+
 ## Context
 
 ### Problem Statement
@@ -123,6 +125,12 @@ version: 1.0.0 # Application version (independent of Crucible)
 
 ### 2. Parameterization Points (REQUIRED)
 
+These are NOT string literals to find-replace. Instead, they are the **locations where the template's breed/site name naturally appears** in working code. The CDRL workflow treats them as:
+
+1. **Edit `.fulmen/app.yaml` first** (single source of truth)
+2. **Run `make validate-app-identity`** (finds hardcoded breed name)
+3. **Update identified locations** (module path, imports, directory names)
+
 Templates MUST document these mandatory refit points:
 
 **Workhorse Templates**:
@@ -183,6 +191,36 @@ grep -r "groningen" --exclude-dir=".fulmen" --exclude="*.md" src/
 - 2: Errors (blocking issues)
 
 ### 4. Standard Directory Structure (REQUIRED)
+
+#### Template Files: Not `.template` Suffixes
+
+Fulmen forges do NOT use `.template` file suffixes (e.g., `app.yaml.template`, `go.mod.template`). Instead:
+
+- ✅ **Ship working files**: `go.mod` with real module path, `.fulmen/app.yaml` with breed/site name
+- ✅ **Users edit in place**: During CDRL refit, users modify these working files
+- ✅ **Validation catches missed renames**: `make validate-app-identity` finds hardcoded references
+
+**Why**: Templates must be buildable and testable in CI. Using `.template` files would prevent builds and IDE type-checking.
+
+**Example - Groningen Pattern (Correct)**:
+
+```
+forge-workhorse-groningen/
+├── .fulmen/app.yaml          # binary_name: groningen (users edit to: myapi)
+├── go.mod                    # module github.com/fulmenhq/forge-workhorse-groningen
+├── cmd/groningen/main.go     # Real working code
+```
+
+**Anti-Pattern (Avoid)**:
+
+```
+forge-workhorse-groningen/
+├── .fulmen/app.yaml.template    # ❌ Not buildable
+├── go.mod.template              # ❌ IDE can't check
+├── cmd/{{BREED}}/main.go        # ❌ Won't compile
+```
+
+#### Required Directory Structure
 
 ```
 forge-*/
@@ -477,6 +515,39 @@ make doctor || echo "FAIL: No doctor target"
 sed -i 's/breed/testapp/g' .fulmen/app.yaml
 make validate-app-identity  # Should detect hardcoded "breed" references
 ```
+
+## Working Implementation Pattern
+
+Fulmen forges follow the **working implementation pattern**:
+
+### Build Requirements
+
+- **MUST compile/build as-is**: `go build`, `npm run build`, `cargo build` succeeds
+- **MUST pass tests as-is**: `make test` succeeds without customization
+- **MUST run as-is**: Binary executes with `--help`, `--version` working
+
+### IDE Experience
+
+- **Syntax highlighting works**: No placeholder syntax breaking parsers
+- **Type checking works**: IDEs can validate imports and types
+- **Auto-complete works**: Developers get full IDE support when refitting
+
+### CI/CD Requirements
+
+- **Template repositories run CI**: Linting, testing, building validate template quality
+- **Quality gates enforce standards**: Pre-commit hooks, format checks, security scans
+
+### Comparison: Template Repository vs Template Files
+
+| Aspect      | Fulmen Forge (✅)    | Literal Templates (❌)                 |
+| ----------- | -------------------- | -------------------------------------- |
+| **Files**   | `go.mod`, `app.yaml` | `go.mod.template`, `app.yaml.template` |
+| **Build**   | Builds immediately   | Requires preprocessing                 |
+| **IDE**     | Full type checking   | No validation                          |
+| **CI**      | Can run tests        | Cannot test                            |
+| **Pattern** | Groningen, Percheron | Cookiecutter, Yeoman                   |
+
+**Reference**: See `forge-workhorse-groningen` as the canonical example of this pattern.
 
 ## Anti-Patterns
 

@@ -106,6 +106,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Impact**: CI now validates tool installation works correctly; provides early signal for broken installer configurations
   - **Best Practice Example**: This repo now demonstrates installer-kind pattern documented in manual installer fix
 
+- **Crucible SSOT Sync**: Updated to Crucible v0.2.12 (from v0.2.8)
+  - Added `force_remote: true` to `.goneat/ssot-consumer.yaml` to enforce GitHub sourcing
+  - New content: DevSecOps schemas, fulpack/fulencode library modules, microtool standard
+  - Updated taxonomy: Repository categories, metrics definitions
+  - Enhanced standards: Repository naming, testing frameworks, enterprise config patterns
+  - Module compliance matrix for Fulmen ecosystem tracking
+
 ## [0.3.5] - 2025-11-11
 
 ### Fixed

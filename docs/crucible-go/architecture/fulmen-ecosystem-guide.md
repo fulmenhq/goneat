@@ -3,7 +3,7 @@ title: "Fulmen Ecosystem Guide"
 description: "How the Fulmen ecosystem fits together—from schemas and tooling to libraries, forges, and operational standards"
 author: "Schema Cartographer"
 date: "2025-10-10"
-last_updated: "2025-10-10"
+last_updated: "2025-11-09"
 status: "draft"
 tags: ["fulmen", "architecture", "ecosystem", "2025.10.2"]
 ---
@@ -20,7 +20,11 @@ Fulmen empowers teams to build enterprise systems that start fast and scale effo
 
 1. **Helper Libraries (\*fulmen)**: Idiomatic implementations of core data and utilities wrapping Crucible assets. Solves cross-project pains like config paths, schema validation, observability, and Foundry catalogs (countries, HTTP statuses, patterns). Current: `gofulmen`, `pyfulmen`, `tsfulmen`; planned: `rsfulmen` (Rust), `csfulmen` (C#) as ecosystem needs evolve.
 
-2. **Templates (Fulmens)**: Proven, production-ready starters embodying CRDL (Clone → Degit → Refit → Launch). Bootstraps projects with embedded Layer 1 libs, AAA (auth/audit/access), observability, testing, and deployment pipelines. Examples: `forge-workhorse-groningen` (Go backend), `forge-workhorse-percheron` (Python backend). Gymnasiums (e.g., TUI experiments) modularize for future integration.
+2. **Templates (Fulmens)**: Proven, production-ready starters embodying CRDL (Clone → Degit → Refit → Launch). Three specialized template types for different use cases:
+   - **Workhorse**: General-purpose applications (servers, workers, long-running processes) - Examples: `forge-workhorse-groningen` (Go backend), `forge-workhorse-percheron` (Python backend)
+   - **Codex**: Documentation-first static sites and knowledge hubs - Examples: `forge-codex-aurora` (Astro-based documentation portal)
+   - **Microtool**: Ultra-narrow, single-purpose CLI tools - Examples: `forge-microtool-anvil` (fixture deployment), `forge-microtool-chisel` (config synchronization)
+     Gymnasiums (e.g., TUI experiments) modularize for future integration.
 
 3. **DX/Dev Tools**: Automation layer for governance and productivity. CLI-driven validation, formatting, sync, approvals, and orchestration. Key tools:
    - `goneat`: Quality enforcement (linting, schema validation, hooks; v0.3+ stricter assessments).
@@ -70,7 +74,9 @@ graph TD
 
   E --> E1[Forge Workhorse Groningen]
   E --> E2[Forge Workhorse Percheron]
-  E --> E3[Future Forge Templates]
+  E --> E3[Forge Codex Pulsar]
+  E --> E4[Forge Microtool Anvil]
+  E --> E5[Future Forge Templates]
 
   F --> F1[brooklyn-mcp]
   F --> F2[Data wrangling utilities]
@@ -115,11 +121,27 @@ graph TD
 
 ### 2. Templates (Fulmens)
 
-- **Current**: `forge-workhorse-groningen` (Go backend template), `forge-workhorse-percheron` (Python backend template). Future forges will expand patterns for CLI tools, frontends, and specialized services.
+Three specialized template categories, each optimized for different use cases:
+
+- **Workhorse Templates**: General-purpose applications (servers, workers, long-running processes)
+  - **Current**: `forge-workhorse-groningen` (Go backend), `forge-workhorse-percheron` (Python backend)
+  - **Binary naming**: Uses horse breed names (groningen, percheron, clydesdale)
+  - **Use cases**: APIs, workers, services requiring reliable tooling out-of-the-box
+
+- **Codex Templates**: Documentation-first static sites and knowledge hubs
+  - **Current**: `forge-codex-pulsar` (TypeScript/Astro documentation portal)
+  - **Use cases**: Schema registries, API docs, developer hubs, knowledge portals
+  - **Features**: Multi-version support, schema ingestion, i18n-ready, lighthouse benchmarks
+
+- **Microtool Templates**: Ultra-narrow, single-purpose CLI tools
+  - **Current**: `forge-microtool-anvil` (fixture deployment), `forge-microtool-chisel` (config sync)
+  - **Binary naming**: Uses tool/instrument names (anvil, chisel, grinder)
+  - **Use cases**: Fixture deployment, config synchronization, asset management
+  - **Philosophy**: One-way dependency flow (microtool → helper → SSOT, prevents circular dependencies)
+
+- **Gymnasiums**: Experimental playgrounds (TUIs, metrics analyzers); e.g., "forge-gymnasium-ginkgo" for modular components.
 
 - **Philosophy**: CRDL (Clone → Degit → Refit → Launch). Ship complete systems with Layer 1 libs, AAA (auth/audit/access), observability (Layer 0 schemas), testing, CI/CD, and docs—production-ready from commit zero.
-
-- **Gymnasiums**: Experimental playgrounds (TUIs, metrics analyzers); e.g., “forge-gymnasium-ginkgo” for modular components.
 
 - **Roadmap**: Vertical expansions (automation, gateways, ingestion); default Crucible/goneat integration. Tie to `config/taxonomy/repository-categories.yaml` for role advertisement.
 
@@ -177,12 +199,14 @@ extending the SSOT strategy into spatial and mapping domains.
 
 ## Next Steps
 
-- Complete workhorse forge refreshes (Groningen, Percheron) using the updated library
-  modules and guardian policies.
-- Expand Substaile into a formal Crucible module or dedicated repository for coding
-  standards.
-- Automate CalVer release note generation from the checklist.
-- Publish an ecosystem landing page synthesizing this guide for external readers.
+- **Forge Completeness**: Ensure all three forge types are fully documented and have reference implementations
+  - Workhorse: Complete refreshes (Groningen, Percheron) with updated library modules
+  - Codex: Finalize `forge-codex-pulsar` as canonical TypeScript/Astro implementation
+  - Microtool: Expand beyond `forge-microtool-anvil` with additional tool templates
+- **Expand Substaile** into a formal Crucible module or dedicated repository for coding standards.
+- **Automate CalVer release note generation** from the checklist.
+- **Publish an ecosystem landing page** synthesizing this guide for external readers.
+- **Extension Framework**: Complete v0.2.9 extension tiering to support upcoming Fulencoding, Fulpack, and Nimbus modules.
 
 Fulmen continues to be the fastest path from zero to production-grade systems—made even
 stronger now that the ecosystem shares a single source of truth, automation toolkit, and

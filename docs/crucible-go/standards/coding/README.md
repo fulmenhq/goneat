@@ -547,6 +547,13 @@ def test_load_config_missing_file():
     pass
 ```
 
+### 8.4 Additional Testing Guidance
+
+For comprehensive testing standards covering portable testing practices and language-specific patterns, see the [Testing Standards](../testing/README.md) directory:
+
+- **[Portable Testing Practices](../testing/portable-testing-practices.md)** - Cross-language practices for deterministic, sandbox-friendly test suites
+- **[Language-Specific Testing Patterns](../testing/language-testing-patterns.md)** - CLI testing isolation patterns for Go (Cobra), Python (Typer/Click), TypeScript (Commander/oclif), Rust, and C#
+
 ---
 
 ## 9. Documentation Standards

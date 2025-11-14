@@ -45,14 +45,19 @@ Workhorse forges MUST integrate these Fulmen helper library modules to ensure ec
    - **CDRL Workflow**: Users update `.fulmen/app.yaml` FIRST, then run `make validate-app-identity` to find hardcoded references
 
 2. **Crucible Shim Module** (REQUIRED)
-   - **Purpose**: Access Crucible SSOT assets (schemas, docs, configs) without direct sync
+   - **Purpose**: Access Crucible SSOT assets (schemas, standards, documentation, configs, taxonomies) without direct sync
    - **Spec**: [Crucible Shim](../standards/library/modules/crucible-shim.md)
-   - **Compliance**: Use helper's `crucible.GetSchema()`, `crucible.GetDoc()`, `crucible.GetConfig()`
+   - **Compliance**:
+     - **Schemas**: `crucible.GetSchema()`, `crucible.GetLoggingEventSchema()`
+     - **Documentation**: `crucible.GetDoc("standards/observability/logging.md")`
+     - **Configs**: `crucible.GetConfig()`
+     - **Standards**: `crucible.GetGoStandards()`, `crucible.GetTypeScriptStandards()`
    - **Exposure**: `/version` endpoint MUST include Crucible version from `crucible.GetVersion()`
+   - **Documentation access**: Workhorses may need to access standards for runtime compliance validation, API documentation generation, or operational playbooks. See [Crucible Shim - Accessing General Documentation](../standards/library/modules/crucible-shim.md#accessing-general-documentation) for examples.
 
-3. **Three-Layer Config Module** (REQUIRED)
-   - **Purpose**: Layered configuration (Crucible defaults → User config → Runtime overrides)
-   - **Spec**: [Three-Layer Config](../standards/library/modules/three-layer-config.md)
+3. **Enterprise Three-Layer Config Module** (REQUIRED)
+   - **Purpose**: Layered configuration (Crucible SSOT defaults → User config → Runtime overrides)
+   - **Spec**: [Enterprise Three-Layer Config](../standards/library/modules/enterprise-three-layer-config.md)
    - **Compliance**:
      - Layer 1: Crucible defaults via helper (e.g., `workhorse/v1.0.0/defaults`)
      - Layer 2: User config at `~/.config/{vendor}/{app}/config.yaml`
@@ -147,21 +152,21 @@ Workhorse forges MUST integrate these Fulmen helper library modules to ensure ec
 
 ### Module Integration Summary
 
-| Module             | Status      | Purpose                                  | Auto-Metrics                       | Spec Link                                                                                   |
-| ------------------ | ----------- | ---------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------- |
-| App Identity       | REQUIRED    | Binary name, env prefix, vendor metadata | None                               | [app-identity.md](../standards/library/modules/app-identity.md)                             |
-| Crucible Shim      | REQUIRED    | SSOT asset access                        | None                               | [crucible-shim.md](../standards/library/modules/crucible-shim.md)                           |
-| Three-Layer Config | REQUIRED    | Layered configuration                    | None                               | [three-layer-config.md](../standards/library/modules/three-layer-config.md)                 |
-| Config Path API    | REQUIRED    | Config directory discovery               | None                               | [config-path-api.md](../standards/library/modules/config-path-api.md)                       |
-| Schema Validation  | REQUIRED    | Runtime schema validation                | None                               | [schema-validation.md](../standards/library/modules/schema-validation.md)                   |
-| Telemetry/Metrics  | REQUIRED    | Prometheus metrics export                | Yes (7 exporter metrics)           | [telemetry-metrics.md](../standards/library/modules/telemetry-metrics.md)                   |
-| Logging            | REQUIRED    | Structured logging                       | None                               | [logging.md](../standards/observability/logging.md)                                         |
-| Error Handling     | REQUIRED    | Error wrapping, propagation              | Yes (`error_handling_wraps_total`) | [error-handling-propagation.md](../standards/library/modules/error-handling-propagation.md) |
-| Signal Handling    | REQUIRED    | Graceful shutdown, signals               | None                               | [signal-handling.md](../standards/library/modules/signal-handling.md)                       |
-| Docscribe          | REQUIRED    | Documentation access                     | None                               | [docscribe.md](../standards/library/modules/docscribe.md)                                   |
-| Foundry            | RECOMMENDED | Catalogs (country, HTTP, MIME)           | Yes (12 MIME detection metrics)    | [foundry/README.md](../standards/library/foundry/README.md)                                 |
-| FulHash            | RECOMMENDED | Content hashing                          | Yes (5 hash operation metrics)     | [fulhash.md](../standards/library/modules/fulhash.md)                                       |
-| Server Management  | RECOMMENDED | Multi-server orchestration               | None                               | [server-management.md](../standards/library/modules/server-management.md)                   |
+| Module                        | Status      | Purpose                                  | Auto-Metrics                       | Spec Link                                                                                         |
+| ----------------------------- | ----------- | ---------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------- |
+| App Identity                  | REQUIRED    | Binary name, env prefix, vendor metadata | None                               | [app-identity.md](../standards/library/modules/app-identity.md)                                   |
+| Crucible Shim                 | REQUIRED    | SSOT asset access                        | None                               | [crucible-shim.md](../standards/library/modules/crucible-shim.md)                                 |
+| Enterprise Three-Layer Config | REQUIRED    | Layered configuration                    | None                               | [enterprise-three-layer-config.md](../standards/library/modules/enterprise-three-layer-config.md) |
+| Config Path API               | REQUIRED    | Config directory discovery               | None                               | [config-path-api.md](../standards/library/modules/config-path-api.md)                             |
+| Schema Validation             | REQUIRED    | Runtime schema validation                | None                               | [schema-validation.md](../standards/library/modules/schema-validation.md)                         |
+| Telemetry/Metrics             | REQUIRED    | Prometheus metrics export                | Yes (7 exporter metrics)           | [telemetry-metrics.md](../standards/library/modules/telemetry-metrics.md)                         |
+| Logging                       | REQUIRED    | Structured logging                       | None                               | [logging.md](../standards/observability/logging.md)                                               |
+| Error Handling                | REQUIRED    | Error wrapping, propagation              | Yes (`error_handling_wraps_total`) | [error-handling-propagation.md](../standards/library/modules/error-handling-propagation.md)       |
+| Signal Handling               | REQUIRED    | Graceful shutdown, signals               | None                               | [signal-handling.md](../standards/library/modules/signal-handling.md)                             |
+| Docscribe                     | REQUIRED    | Documentation access                     | None                               | [docscribe.md](../standards/library/modules/docscribe.md)                                         |
+| Foundry                       | RECOMMENDED | Catalogs (country, HTTP, MIME)           | Yes (12 MIME detection metrics)    | [foundry/README.md](../standards/library/foundry/README.md)                                       |
+| FulHash                       | RECOMMENDED | Content hashing                          | Yes (5 hash operation metrics)     | [fulhash.md](../standards/library/modules/fulhash.md)                                             |
+| Server Management             | RECOMMENDED | Multi-server orchestration               | None                               | [server-management.md](../standards/library/modules/server-management.md)                         |
 
 **Total Auto-Emitted Metrics**: 24 (7 exporter + 1 error handling + 12 MIME + 4 hash) when all modules active.
 
@@ -208,7 +213,7 @@ Implementers MUST comply with ecosystem standards in Crucible's `docs/standards/
    - Use Config Path API from helper library for discovering Fulmen/app directories.
    - Implement Three-Layer Config explicitly: Layer 1 (Crucible defaults via helper), Layer 2 (user from app dir), Layer 3 (runtime BYOC).
    - Pre-load/validate configs against schemas; support env var overrides (e.g., `FULMEN_CONFIG_HOME`).
-   - Refer to [Config Path API](docs/standards/library/modules/config-path-api.md) and [Three-Layer Config](docs/standards/library/modules/three-layer-config.md).
+   - Refer to [Config Path API](docs/standards/library/modules/config-path-api.md) and [Three-Layer Config](docs/standards/library/modules/enterprise-three-layer-config.md).
 
 7. **Env Var & .env Support**
    - Use a required env var prefix based on breed name (e.g., `{BREED_NAME}_` where BREED*NAME is uppercase, default `GRONINGEN*` for groningen breed).
@@ -380,6 +385,8 @@ Forges bootstrap like libraries but add app-specific setup:
 - Integration: End-to-end via helper (asset access, validation); mock telemetry.
 - E2E: Basic health checks, config validation, CLI invocation.
 - Coverage: Enforce via CI; align with module manifest thresholds.
+
+All forge tests must follow the cross-repo [Portable Testing Practices](../standards/testing/portable-testing-practices.md) so workhorse templates run cleanly in CI and sandboxed environments. Provide shared skip helpers for network/file-system dependent suites and reference them in `DEVELOPMENT.md`.
 
 ## Documentation Requirements
 

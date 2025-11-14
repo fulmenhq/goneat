@@ -10,6 +10,47 @@ categories:
       - "Developers"
       - "CI/CD pipelines"
     notes: "Outputs data to STDOUT, diagnostics to STDERR"
+  - key: microtool
+    summary: "Ultra-narrow, single-purpose CLI deployment/automation tool"
+    primaryEntryPoints:
+      - "Executable binary (single command or minimal subcommands)"
+    typicalConsumers:
+      - "CI/CD pipelines"
+      - "Deployment automation"
+      - "Internal tooling"
+    constraints:
+      - "MUST have single primary purpose (e.g., fixture deployment)"
+      - "MUST be written in Go, TypeScript/Bun, or Rust only (no other languages)"
+      - "SHOULD import helper library (gofulmen, tsfulmen, or rsfulmen)"
+      - "If helper library is NOT imported, MUST NOT recreate any helper functionality (exit codes, logger, signals, config loading must be implemented independently without copying helper patterns)"
+      - "MUST obey exit codes, signals, logger, config standards (whether from helper or independent implementation)"
+      - "MUST NOT export packages or library interfaces (no pkg/ exports)"
+      - "MUST NOT have web server endpoints"
+      - "MUST NOT be imported by other repositories (one-way dependency only)"
+      - "MUST remain narrow in scope (if tool grows multi-purpose, promote to cli category)"
+    languages:
+      - "Go (preferred for binary size and ecosystem)"
+      - "TypeScript/Bun (compiled to binary)"
+      - "Rust (when rsfulmen stable)"
+    notes: "Microtools enforce architectural discipline through narrow scope and helper library dependency. One-way dependency flow (microtool → helper → SSOT) prevents circular dependencies. CDRL templates follow naming: forge-microtool-{instrument} where {instrument} uses hand tools/precision instruments with first letter matching language (grinder/gauge/gouge for Go, tongs/tap/trammel for TypeScript, rasp/reamer/router for Rust) - distinguishes from workhorse (horse breeds)."
+    examples:
+      - "fulmen-fixtures (fixture deployment and generation)"
+    templateNaming:
+      pattern: "forge-microtool-{instrument}"
+      note: "First letter of instrument matches implementation language (Go=G, TypeScript=T, Rust=R)"
+      instruments:
+        - "grinder (Go - heavy processing)"
+        - "gauge (Go - measurement/validation)"
+        - "gouge (Go - data extraction)"
+        - "tongs (TypeScript - data handling)"
+        - "tap (TypeScript - threading/integration)"
+        - "trammel (TypeScript - precision layout)"
+        - "rasp (Rust - file processing)"
+        - "reamer (Rust - data refinement)"
+        - "router (Rust - path/routing tools)"
+    references:
+      - "docs/architecture/fulmen-forge-microtool-standard.md"
+      - "docs/architecture/fulmen-template-cdrl-standard.md"
   - key: workhorse
     summary: "Hybrid CLI + HTTP runtime with optional gRPC interfaces"
     primaryEntryPoints:
@@ -19,7 +60,14 @@ categories:
     typicalConsumers:
       - "Operations automation"
       - "MCP servers"
-    notes: "Requires request correlation IDs and Prometheus metrics. Templates (forge-workhorse-*) must comply with CDRL standard."
+    notes: "Requires request correlation IDs and Prometheus metrics. CDRL templates follow naming: forge-workhorse-{breed} where {breed} uses horse breeds (groningen, percheron, clydesdale, shire, etc.)."
+    templateNaming:
+      pattern: "forge-workhorse-{breed}"
+      breeds:
+        - "groningen (Go implementation)"
+        - "percheron (Python implementation)"
+        - "clydesdale (TypeScript implementation)"
+        - "shire (Rust implementation, future)"
     references:
       - "docs/architecture/fulmen-forge-workhorse-standard.md"
       - "docs/architecture/fulmen-template-cdrl-standard.md"
@@ -57,7 +105,10 @@ categories:
     typicalConsumers:
       - "Fulmen developers"
       - "External stakeholders"
-    notes: "Generated assets must trace back to committed source. Templates (forge-codex-*) must comply with CDRL standard."
+    notes: "Generated assets must trace back to committed source. CDRL templates follow naming: forge-codex-{name} (naming pattern TBD - not horse breeds, not instruments)."
+    templateNaming:
+      pattern: "forge-codex-{name}"
+      note: "Naming pattern for codex templates TBD - should be meaningful but distinct from workhorse (horse breeds) and microtool (instruments)"
     references:
       - "docs/architecture/fulmen-forge-codex-standard.md"
       - "docs/architecture/fulmen-template-cdrl-standard.md"
@@ -70,46 +121,3 @@ categories:
       - "External developers"
       - "Partner integrations"
     notes: "Ship compatibility matrix and error taxonomy"
-  - key: forge-workhorse
-    summary: "Production-ready templates for backend services (Clone → Degit → Refit → Launch)"
-    primaryEntryPoints:
-      - "Template repository (GitHub)"
-      - "CDRL workflow (Clone → Degit → Refit → Launch)"
-      - "make validate-app-identity"
-      - "make doctor"
-    typicalConsumers:
-      - "Developers building new services"
-      - "Teams standardizing on Fulmen stack"
-    notes: "MUST comply with CDRL standard. Named with horse breeds (groningen, percheron). REQUIRED: .fulmen/app.yaml, CDRL validation targets, fulmen_cdrl_guide.md"
-    references:
-      - "docs/architecture/fulmen-forge-workhorse-standard.md"
-      - "docs/architecture/fulmen-template-cdrl-standard.md"
-      - "docs/standards/cdrl/workflow-guide.md"
-      - "docs/standards/makefile-standard.md#annex-b-template-repository-cdrl-targets"
-  - key: forge-codex
-    summary: "Production-ready templates for documentation sites (Clone → Degit → Refit → Launch)"
-    primaryEntryPoints:
-      - "Template repository (GitHub)"
-      - "CDRL workflow (Clone → Degit → Refit → Launch)"
-      - "make validate-app-identity"
-      - "make doctor"
-    typicalConsumers:
-      - "Developers building documentation portals"
-      - "Teams creating schema registries"
-    notes: "MUST comply with CDRL standard. REQUIRED: .fulmen/app.yaml, CDRL validation targets, fulmen_cdrl_guide.md. Astro/Starlight baseline."
-    references:
-      - "docs/architecture/fulmen-forge-codex-standard.md"
-      - "docs/architecture/fulmen-template-cdrl-standard.md"
-      - "docs/standards/cdrl/workflow-guide.md"
-      - "docs/standards/makefile-standard.md#annex-b-template-repository-cdrl-targets"
-  - key: forge-gymnasium
-    summary: "Experimental templates for prototyping and research (CDRL optional until graduation)"
-    primaryEntryPoints:
-      - "Template repository (GitHub)"
-      - "Experimental workflows"
-    typicalConsumers:
-      - "Researchers"
-      - "Prototype developers"
-    notes: "Experimental template category. May graduate to forge-workhorse or forge-codex upon maturity. CDRL compliance RECOMMENDED but not required until stable."
-    references:
-      - "docs/architecture/fulmen-template-cdrl-standard.md"

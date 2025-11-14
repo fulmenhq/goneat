@@ -926,7 +926,7 @@ func TestIsInstallerAvailable_Manual(t *testing.T) {
 	// Manual installer should always be available (it's just a script to execute)
 	available := isInstallerAvailable(installerManual)
 	if !available {
-		t.Errorf("isInstallerAvailable(installerManual) = false, want true. "+
+		t.Errorf("isInstallerAvailable(installerManual) = false, want true. " +
 			"Manual installer should always be available for bootstrap scripts (mise, scoop, etc.)")
 	}
 }

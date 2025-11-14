@@ -537,6 +537,20 @@ describe("ANSI_COLOR_REGEX", () => {
 
 ---
 
+## 11. Portable Testing
+
+Fulmen TypeScript projects must keep Jest/Vitest suites deterministic across laptops, CI, and sandboxed environments. Follow the cross-language [Portable Testing Practices](../testing/portable-testing-practices.md) and apply these TypeScript patterns:
+
+- Use `get-port` (or Bun's `Server.serverHTTP`) to allocate ephemeral ports; never bind to fixed privileged ports.
+- Clean up mocked timers (`jest.useRealTimers()`, `vi.useRealTimers()`) and HTTP servers in `afterEach` to prevent cross-test interference.
+- Seed randomness via deterministic helpers or inject seeds through environment variables for reproducible snapshots.
+- Provide shared skip helpers or environment flags (e.g., `SKIP_NETWORK_TESTS`) so integration tests can skip gracefully when capabilities are missing.
+- Prefer in-memory mocks for telemetry/logging; guard real network/file integrations behind explicit suites or tags.
+
+**CLI Testing**: For Commander/oclif-based CLIs (e.g., codex forges, tsfulmen tools), follow the factory pattern in [Language-Specific Testing Patterns](../testing/language-testing-patterns.md#typescript--commander--oclif-isolation) to build fresh command instances per test.
+
+---
+
 ## Conclusion
 
 These standards ensure FulmenHQ TypeScript projects maintain reliability as production-grade tools. The emphasis on type safety and structured error handling is critical for maintaining code quality and preventing runtime errors.
