@@ -81,9 +81,9 @@ tools:
             windows:
                 - scoop
                 - winget
-        version_scheme: semver
-        minimum_version: 1.21.0
-        recommended_version: 1.22.0
+        version_scheme: lexical
+        minimum_version: "go1.21.0"
+        recommended_version: "go1.22.0"
     go-licenses:
         name: go-licenses
         description: License compliance for Go dependencies
