@@ -7,9 +7,10 @@
 
 - **Public Key Verification Script**: Automated cryptographic safety checks prevent accidental private key disclosure
 - **Externalized Tool Repository Mappings**: Tool→GitHub repo mappings moved from code to configuration (14 tools)
+- **Automatic PATH Management**: Zero-friction tool installation on CI/CD runners with automatic PATH handling
 - **Release Process Hardening**: Three-layer verification (negative/positive/GPG) for all key material before upload
 - **Configuration-Driven**: No code changes required to add new tool mappings - edit YAML only
-- **Developer Experience**: Clear error messages, alphabetically sorted configs, backward-compatible fallbacks
+- **Platform Support**: Tested on macOS; Linux/Windows implementations present
 
 ## What's New
 
@@ -207,6 +208,56 @@ make precommit
 - Security & SBOM: cosign, gitleaks, grype, syft, trivy
 - Go Tools: golangci-lint, gosec
 - General CLI: jq, prettier, ripgrep, shellcheck, shfmt, yamlfmt, yq
+
+### Automatic PATH Management for Package Manager Shims
+
+Enables zero-friction tool installation on CI/CD runners by automatically managing PATH for package manager shim directories (mise, bun, scoop).
+
+**Key Features**:
+
+- **In-Process PATH Extension**: goneat automatically extends its own PATH to detect tools in shim directories
+- **GitHub Actions Integration**: Automatic `$GITHUB_PATH` file updates when `--install` flag used
+- **Shell Activation Helper**: `goneat doctor tools env --activate` for local development
+- **Zero Manual Steps**: No PATH configuration required in GitHub Actions workflows
+
+**Supported Package Managers** (v0.3.7 scope):
+- mise (`~/.local/share/mise/shims`)
+- bun (`~/.bun/bin`)
+- scoop (`~/scoop/shims`)
+- go-install (`~/go/bin` or `$GOBIN`)
+
+**Platform Support**:
+- ✅ macOS: Tested and verified
+- ⚠️ Linux/Windows: Implementations present, will validate in CI
+
+**Usage**:
+
+```yaml
+# GitHub Actions - single command, zero manual PATH steps
+- name: Install tools
+  run: goneat doctor tools --scope foundation --install --yes
+  # Tools automatically available in subsequent steps
+
+- name: Use tools
+  run: yq --version  # Works immediately
+```
+
+**Local Development**:
+
+```bash
+# Temporary activation
+eval "$(goneat doctor tools env --activate)"
+
+# Persistent (manual append to shell profile)
+goneat doctor tools env >> ~/.bashrc
+```
+
+**Documentation**: `docs/guides/goneat-tools-cicd-runner-support.md`
+
+**Limitations** (v0.3.7):
+- Shim paths hardcoded for known package managers (not config-driven yet)
+- Automatic integration only for GitHub Actions (other CI requires manual activation)
+- No automatic shell RC file editing (manual append required for persistence)
 
 ## What's Next (v0.3.8+)
 

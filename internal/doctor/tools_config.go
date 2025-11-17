@@ -13,82 +13,73 @@ type ToolsConfig = pkgtools.Config
 type ScopeConfig = pkgtools.Scope
 type ToolConfig = pkgtools.Tool
 
-// LoadToolsConfig loads the tools configuration with schema validation and user overrides.
+// LoadToolsConfig loads the tools configuration from .goneat/tools.yaml ONLY.
+// CHANGED in v0.3.7: No longer merges with defaults or ensures core scopes.
+// The .goneat/tools.yaml file is now the explicit SSOT with no hidden runtime behavior.
+//
+// Searches up the directory tree to find .goneat/tools.yaml in the repository root.
+// If not found, returns an error with helpful guidance.
+// Use `goneat doctor tools init` to create the file with language-specific defaults.
 func LoadToolsConfig() (*ToolsConfig, error) {
-	config, err := loadDefaultConfig()
+	// Search up the directory tree for .goneat/tools.yaml
+	configPath, err := findToolsConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load default config: %w", err)
+		return nil, fmt.Errorf(`.goneat/tools.yaml not found
+
+This file defines which tools goneat should manage for this repository.
+
+Initialize with:
+  goneat doctor tools init           # Recommended defaults for your repo type
+  goneat doctor tools init --minimal # CI-safe (only language-native tools)
+
+For more info: goneat doctor tools init --help`)
 	}
 
-	userConfigPath := ".goneat/tools.yaml"
-	if _, err := os.Stat(userConfigPath); err == nil {
-		data, err := os.ReadFile(userConfigPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read user config: %w", err)
-		}
-		if err := pkgtools.ValidateBytes(data); err != nil {
-			return nil, fmt.Errorf("user config validation failed: %w", err)
-		}
-		userConfig, err := pkgtools.ParseConfig(data)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse user config: %w", err)
-		}
-		config.Merge(userConfig)
+	// Read and validate user config
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s: %w", configPath, err)
+	}
 
-		// Ensure core scopes are always available (fallback guarantee)
-		ensureCoreScopes(config)
+	if err := pkgtools.ValidateBytes(data); err != nil {
+		return nil, fmt.Errorf("config validation failed: %w", err)
+	}
+
+	config, err := pkgtools.ParseConfig(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 
 	return config, nil
 }
 
-// ensureCoreScopes guarantees that essential scopes (foundation, format, security, all)
-// are always available, even if user config tries to replace or remove them.
-func ensureCoreScopes(config *ToolsConfig) {
-	coreScopes := map[string]ScopeConfig{
-		"foundation": {
-			Description: "Core foundation tools required for goneat and basic AI agent operation",
-			Tools:       []string{"ripgrep", "jq", "go-licenses", "golangci-lint", "yamlfmt", "yq"},
-		},
-		"format": {
-			Description: "Code formatting tools",
-			Tools:       []string{"goimports", "gofmt"},
-		},
-		"security": {
-			Description: "Security scanning tools",
-			Tools:       []string{"gosec", "govulncheck", "gitleaks"},
-		},
-		"all": {
-			Description: "All tools from all scopes",
-			Tools:       []string{"gosec", "govulncheck", "gitleaks", "goimports", "gofmt", "ripgrep", "jq", "go-licenses", "golangci-lint", "yamlfmt", "yq"},
-		},
-	}
-
-	if config.Scopes == nil {
-		config.Scopes = make(map[string]ScopeConfig)
-	}
-
-	for name, coreScope := range coreScopes {
-		if _, exists := config.Scopes[name]; !exists {
-			config.Scopes[name] = coreScope
-		}
-		// Note: We don't override existing scopes to preserve user customizations,
-		// but we ensure they exist if missing
-	}
-}
-
-func loadDefaultConfig() (*ToolsConfig, error) {
-	configBytes := GetDefaultToolsConfig()
-	if len(configBytes) == 0 {
-		return nil, fmt.Errorf("embedded default config is empty")
-	}
-
-	cfg, err := pkgtools.ParseConfig(configBytes)
+// findToolsConfig searches up the directory tree for .goneat/tools.yaml
+func findToolsConfig() (string, error) {
+	dir, err := os.Getwd()
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse embedded config: %w", err)
+		return "", err
 	}
-	return cfg, nil
+
+	for {
+		configPath := filepath.Join(dir, ".goneat", "tools.yaml")
+		if _, err := os.Stat(configPath); err == nil {
+			return configPath, nil
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Reached filesystem root
+			return "", fmt.Errorf(".goneat/tools.yaml not found in current directory or any parent")
+		}
+		dir = parent
+	}
 }
+
+// REMOVED in v0.3.7: ensureCoreScopes() and loadDefaultConfig() deleted
+// These functions forced hardcoded tools into runtime configuration, causing the CI blocker.
+//
+// Replacement: .goneat/tools.yaml is the explicit SSOT. Use `goneat doctor tools init`
+// to seed it with language-specific defaults. No runtime merging occurs.
 
 // ParseConfig parses YAML configuration into ToolsConfig (public function for backwards compatibility).
 func ParseConfig(configBytes []byte) (*ToolsConfig, error) {

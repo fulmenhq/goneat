@@ -34,6 +34,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Tools included: cosign, gitleaks, golangci-lint, gosec, grype, jq, prettier, ripgrep, shellcheck, shfmt, syft, trivy, yamlfmt, yq
   - No code changes required to add new tool mappings (edit YAML only)
 
+- **Automatic PATH Management for Package Manager Shims**: Zero-friction tool installation on CI/CD runners
+  - Automatic PATH extension for goneat's process (tools immediately detectable)
+  - GitHub Actions integration: automatic `$GITHUB_PATH` updates when `--install` flag used
+  - Shell activation helper: `goneat doctor tools env --activate` for local development
+  - Shim detection for mise, bun, scoop, go-install (hardcoded well-known paths)
+  - Platform support: Tested on macOS; Linux/Windows implementations present
+  - No manual PATH configuration required for GitHub Actions workflows
+  - Documentation: `docs/guides/goneat-tools-cicd-runner-support.md`
+
 ## [0.3.6] - 2025-11-12
 
 ### Added

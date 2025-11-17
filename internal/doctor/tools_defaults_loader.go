@@ -10,31 +10,31 @@ import (
 
 // ToolsDefaultsConfig represents the foundation-tools-defaults.yaml structure
 type ToolsDefaultsConfig struct {
-	Version          string                    `yaml:"version"`
-	FoundationTools  []ToolDefinition          `yaml:"foundation_tools"`
-	SecurityTools    []ToolDefinition          `yaml:"security_tools"`
-	FormatTools      []ToolDefinition          `yaml:"format_tools"`
-	PythonTools      []ToolDefinition          `yaml:"python_tools"`
-	TypeScriptTools  []ToolDefinition          `yaml:"typescript_tools"`
-	Scopes           map[string]ScopeDefinition `yaml:"scopes"`
+	Version         string                     `yaml:"version"`
+	FoundationTools []ToolDefinition           `yaml:"foundation_tools"`
+	SecurityTools   []ToolDefinition           `yaml:"security_tools"`
+	FormatTools     []ToolDefinition           `yaml:"format_tools"`
+	PythonTools     []ToolDefinition           `yaml:"python_tools"`
+	TypeScriptTools []ToolDefinition           `yaml:"typescript_tools"`
+	Scopes          map[string]ScopeDefinition `yaml:"scopes"`
 }
 
 // ToolDefinition represents a tool definition from the defaults config
 type ToolDefinition struct {
-	Name                  string      `yaml:"name"`
-	Description           string      `yaml:"description"`
-	Kind                  string      `yaml:"kind"`
-	DetectCommand         string      `yaml:"detect_command"`
-	Platforms             []string    `yaml:"platforms,omitempty"`
-	PackageManagers       interface{} `yaml:"package_managers"` // can be map[string][]string or simple
-	AutoInstallSafe       bool        `yaml:"auto_install_safe"`
-	RequiredForLanguages  []string    `yaml:"required_for_languages,omitempty"`
-	InstallPackage        string      `yaml:"install_package,omitempty"`
-	VersionArgs           []string    `yaml:"version_args,omitempty"`
-	CheckArgs             []string    `yaml:"check_args,omitempty"`
-	VersionScheme         string      `yaml:"version_scheme,omitempty"`
-	MinimumVersion        string      `yaml:"minimum_version,omitempty"`
-	RecommendedVersion    string      `yaml:"recommended_version,omitempty"`
+	Name                 string      `yaml:"name"`
+	Description          string      `yaml:"description"`
+	Kind                 string      `yaml:"kind"`
+	DetectCommand        string      `yaml:"detect_command"`
+	Platforms            []string    `yaml:"platforms,omitempty"`
+	PackageManagers      interface{} `yaml:"package_managers"` // can be map[string][]string or simple
+	AutoInstallSafe      bool        `yaml:"auto_install_safe"`
+	RequiredForLanguages []string    `yaml:"required_for_languages,omitempty"`
+	InstallPackage       string      `yaml:"install_package,omitempty"`
+	VersionArgs          []string    `yaml:"version_args,omitempty"`
+	CheckArgs            []string    `yaml:"check_args,omitempty"`
+	VersionScheme        string      `yaml:"version_scheme,omitempty"`
+	MinimumVersion       string      `yaml:"minimum_version,omitempty"`
+	RecommendedVersion   string      `yaml:"recommended_version,omitempty"`
 }
 
 // ScopeDefinition represents a scope definition from the defaults config

@@ -7,39 +7,9 @@ import (
 	"testing"
 )
 
-func TestGetToolByName_Known(t *testing.T) {
-	tool, ok := GetToolByName("GoSeC")
-	if !ok {
-		t.Fatalf("expected to find known tool 'gosec'")
-	}
-	if tool.Name != "gosec" {
-		t.Fatalf("expected tool name 'gosec', got %q", tool.Name)
-	}
-}
-
-func TestGetToolByName_Gitleaks(t *testing.T) {
-	tool, ok := GetToolByName("gitleaks")
-	if !ok {
-		t.Fatalf("expected to find known tool 'gitleaks'")
-	}
-	if tool.Name != "gitleaks" {
-		t.Fatalf("expected tool name 'gitleaks', got %q", tool.Name)
-	}
-	if tool.Kind != "go" || tool.InstallPackage == "" {
-		t.Fatalf("expected gitleaks to be go-installable with a package path")
-	}
-	// Ensure correct module path is used
-	if tool.InstallPackage != "github.com/zricethezav/gitleaks/v8@latest" {
-		t.Fatalf("unexpected gitleaks install path: %q", tool.InstallPackage)
-	}
-}
-
-func TestGetToolByName_Unknown(t *testing.T) {
-	_, ok := GetToolByName("not-a-real-tool")
-	if ok {
-		t.Fatalf("expected unknown tool to return ok=false")
-	}
-}
+// REMOVED in v0.3.7: TestGetToolByName_* tests deleted
+// GetToolByName() function was removed as part of eliminating hardcoded tool catalogs.
+// Tools are now loaded from .goneat/tools.yaml ONLY (explicit SSOT).
 
 func TestGoInstallCommand(t *testing.T) {
 	tool := Tool{
@@ -118,136 +88,10 @@ func TestLooksLikeVersion(t *testing.T) {
 	}
 }
 
-func TestKnownSecurityTools(t *testing.T) {
-	tools := KnownSecurityTools() //nolint:golint,errcheck,staticcheck // function exists in tools.go
-	if len(tools) == 0 {
-		t.Fatal("KnownSecurityTools should return at least one tool")
-	}
-
-	// Check that all tools have required fields
-	for _, tool := range tools {
-		if tool.Name == "" {
-			t.Error("Tool should have a non-empty name")
-		}
-		if tool.Kind == "" {
-			t.Error("Tool should have a non-empty kind")
-		}
-		if tool.Kind == "go" && tool.InstallPackage == "" {
-			t.Errorf("Go tool %s should have an install package", tool.Name)
-		}
-	}
-
-	// Check for expected tools
-	names := make([]string, len(tools))
-	for i, tool := range tools {
-		names[i] = tool.Name
-	}
-
-	expected := []string{"gosec", "govulncheck", "gitleaks"}
-	for _, exp := range expected {
-		found := false
-		for _, name := range names {
-			if name == exp {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("Expected tool %s not found in KnownSecurityTools", exp)
-		}
-	}
-}
-
-func TestKnownFormatTools(t *testing.T) {
-	tools := KnownFormatTools()
-	if len(tools) == 0 {
-		t.Fatal("KnownFormatTools should return at least one tool")
-	}
-
-	// Check that all tools have required fields
-	for _, tool := range tools {
-		if tool.Name == "" {
-			t.Error("Tool should have a non-empty name")
-		}
-		if tool.Kind == "" {
-			t.Error("Tool should have a non-empty kind")
-		}
-	}
-
-	// Check for expected tools
-	names := make([]string, len(tools))
-	for i, tool := range tools {
-		names[i] = tool.Name
-	}
-
-	expected := []string{"goimports", "gofmt"}
-	for _, exp := range expected {
-		found := false
-		for _, name := range names {
-			if name == exp {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("Expected tool %s not found in KnownFormatTools", exp)
-		}
-	}
-}
-
-func TestKnownAllTools(t *testing.T) {
-	allTools := KnownAllTools()
-	secTools := KnownSecurityTools() //nolint:golint,errcheck,staticcheck // function exists in tools.go
-	fmtTools := KnownFormatTools()
-	infraTools := KnownInfrastructureTools()
-
-	expectedCount := len(secTools) + len(fmtTools) + len(infraTools)
-	if len(allTools) != expectedCount {
-		t.Fatalf("KnownAllTools should return %d tools, got %d", expectedCount, len(allTools))
-	}
-
-	// Check that all security tools are included
-	for _, secTool := range secTools {
-		found := false
-		for _, allTool := range allTools {
-			if allTool.Name == secTool.Name {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("Security tool %s not found in KnownAllTools", secTool.Name)
-		}
-	}
-
-	// Check that all format tools are included
-	for _, fmtTool := range fmtTools {
-		found := false
-		for _, allTool := range allTools {
-			if allTool.Name == fmtTool.Name {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("Format tool %s not found in KnownAllTools", fmtTool.Name)
-		}
-	}
-
-	// Check that all foundation tools are included
-	for _, infraTool := range infraTools {
-		found := false
-		for _, allTool := range allTools {
-			if allTool.Name == infraTool.Name {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("Infrastructure tool %s not found in KnownAllTools", infraTool.Name)
-		}
-	}
-}
+// REMOVED in v0.3.7: TestKnown*Tools tests deleted
+// Known*Tools() functions were removed as part of eliminating hardcoded tool catalogs.
+// Tools are now loaded from .goneat/tools.yaml ONLY (explicit SSOT).
+// Use `goneat doctor tools init` to seed config with language-specific defaults.
 
 func TestFirstLine(t *testing.T) {
 	cases := []struct {
@@ -443,20 +287,24 @@ func TestInstallTool_NonGo(t *testing.T) {
 }
 
 func TestLoadToolsConfig(t *testing.T) {
+	// CHANGED in v0.3.7: LoadToolsConfig now REQUIRES .goneat/tools.yaml to exist
+	// and searches up the directory tree to find it.
+
+	// LoadToolsConfig should find .goneat/tools.yaml in the repo root
 	config, err := LoadToolsConfig()
 	if err != nil {
-		t.Errorf("LoadToolsConfig should not return error: %v", err)
+		t.Fatalf("LoadToolsConfig should find .goneat/tools.yaml in repo root: %v", err)
 	}
 
 	if config == nil {
 		t.Fatal("LoadToolsConfig should return a non-nil config")
 	}
 
-	if config != nil && len(config.Scopes) == 0 {
+	if len(config.Scopes) == 0 {
 		t.Error("Config should have at least one scope")
 	}
 
-	if config != nil && len(config.Tools) == 0 {
+	if len(config.Tools) == 0 {
 		t.Error("Config should have at least one tool")
 	}
 }

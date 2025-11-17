@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	intdoctor "github.com/fulmenhq/goneat/internal/doctor"
 	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/fulmenhq/goneat/pkg/buildinfo"
 	"github.com/fulmenhq/goneat/pkg/exitcode"
@@ -31,6 +32,18 @@ Examples:
    goneat assess      # Comprehensive codebase assessment`,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			initializeLogger(cmd)
+
+			// Extend PATH for goneat's process to include package manager shim directories
+			// This ensures tools installed via package managers (mise, bun, scoop) are accessible
+			// for all goneat commands (assess, doctor, format, etc.)
+			pkgMgrConfig, err := intdoctor.LoadPackageManagersConfig()
+			if err == nil {
+				additions := intdoctor.GetRequiredPATHAdditions(pkgMgrConfig)
+				if len(additions) > 0 {
+					pathMgr := intdoctor.NewPathManager()
+					pathMgr.AddToSessionPATH(additions...)
+				}
+			}
 		},
 	}
 

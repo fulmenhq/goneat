@@ -60,6 +60,7 @@ func (t *Tool) GetEffectiveCoolingConfig(disableCooling bool) (*tools.CoolingCon
 type installerKind string
 
 const (
+	installerBun       installerKind = "bun"
 	installerMise      installerKind = "mise"
 	installerBrew      installerKind = "brew"
 	installerScoop     installerKind = "scoop"
@@ -73,6 +74,7 @@ const (
 )
 
 var installerKindLookup = map[string]installerKind{
+	"bun":        installerBun,
 	"mise":       installerMise,
 	"brew":       installerBrew,
 	"scoop":      installerScoop,
@@ -113,198 +115,16 @@ type Status struct {
 	PolicyError      error
 }
 
-func KnownSecurityTools() []Tool {
-	return []Tool{
-		{
-			Name:           "gosec",
-			Kind:           "go",
-			InstallPackage: "github.com/securego/gosec/v2/cmd/gosec@latest",
-			DetectCommand:  "gosec -version",
-			VersionArgs:    []string{"-version"},
-			CheckArgs:      []string{"-h"},
-			VersionPolicy: versioning.Policy{
-				Scheme: versioning.SchemeSemverFull,
-			},
-		},
-		{
-			Name:           "govulncheck",
-			Kind:           "go",
-			InstallPackage: "golang.org/x/vuln/cmd/govulncheck@latest",
-			DetectCommand:  "govulncheck -version",
-			VersionArgs:    []string{"-version"},
-			CheckArgs:      []string{"-h"},
-			VersionPolicy: versioning.Policy{
-				Scheme: versioning.SchemeSemverFull,
-			},
-		},
-		{
-			Name: "gitleaks",
-			Kind: "go",
-			// Note: Module path is zricethezav/gitleaks; binary name remains 'gitleaks'
-			InstallPackage: "github.com/zricethezav/gitleaks/v8@latest",
-			DetectCommand:  "gitleaks version",
-			VersionArgs:    []string{"version"},
-			CheckArgs:      []string{"help"},
-			VersionPolicy: versioning.Policy{
-				Scheme: versioning.SchemeSemverFull,
-			},
-		},
-	}
-}
-
-// KnownFormatTools returns tools used by the format pipeline (MVP)
-func KnownFormatTools() []Tool {
-	return []Tool{
-		{
-			Name:           "goimports",
-			Kind:           "go",
-			InstallPackage: "golang.org/x/tools/cmd/goimports@latest",
-			DetectCommand:  "goimports -h",
-			VersionArgs:    []string{},
-			CheckArgs:      []string{"-h"},
-			VersionPolicy: versioning.Policy{
-				Scheme: versioning.SchemeSemverFull,
-			},
-		},
-		{
-			// gofmt is bundled with the Go toolchain
-			Name:           "gofmt",
-			Kind:           "bundled-go",
-			InstallPackage: "",
-			DetectCommand:  "gofmt -h",
-			VersionArgs:    []string{},
-			CheckArgs:      []string{"-h"},
-			VersionPolicy: versioning.Policy{
-				Scheme: versioning.SchemeLexical, // gofmt version is not semver
-			},
-		},
-	}
-}
-
-// KnownInfrastructureTools returns tools commonly needed by goneat ecosystem
-func KnownInfrastructureTools() []Tool {
-	return []Tool{
-		{
-			Name:          "ripgrep",
-			Kind:          "system",
-			Description:   "Fast text search tool used for enhanced text searching and license auditing",
-			Platforms:     []string{"darwin", "linux", "windows"},
-			DetectCommand: "rg --version",
-			InstallCommands: map[string]string{
-				"darwin":  "brew install ripgrep",
-				"linux":   "sudo apt-get install ripgrep || sudo yum install ripgrep || sudo pacman -S ripgrep",
-				"windows": "winget install BurntSushi.ripgrep.MSVC || scoop install ripgrep",
-				"mise":    "mise use ripgrep@latest",
-				"brew":    "brew install ripgrep",
-				"pacman":  "sudo pacman -S --noconfirm ripgrep",
-				"apt-get": "sudo apt-get install -y ripgrep",
-				"dnf":     "sudo dnf install -y ripgrep",
-				"yum":     "sudo yum install -y ripgrep",
-				"scoop":   "scoop install ripgrep",
-				"winget":  "winget install BurntSushi.ripgrep.MSVC",
-			},
-			InstallerPriority: map[string][]string{
-				"darwin":  {string(installerMise), string(installerBrew)},
-				"linux":   {string(installerMise), string(installerPacman), string(installerAptGet), string(installerDnf), string(installerYum)},
-				"windows": {string(installerScoop), string(installerWinget)},
-			},
-			VersionPolicy: versioning.Policy{
-				Scheme: versioning.SchemeSemverFull,
-			},
-		},
-		{
-			Name:          "jq",
-			Kind:          "system",
-			Description:   "JSON processor used for CI/CD scripts and API response parsing",
-			Platforms:     []string{"darwin", "linux", "windows"},
-			DetectCommand: "jq --version",
-			InstallCommands: map[string]string{
-				"darwin":  "brew install jq",
-				"linux":   "sudo apt-get install jq || sudo yum install jq || sudo pacman -S jq",
-				"windows": "winget install jqlang.jq || scoop install jq",
-				"mise":    "mise use jq@latest",
-				"brew":    "brew install jq",
-				"pacman":  "sudo pacman -S --noconfirm jq",
-				"apt-get": "sudo apt-get install -y jq",
-				"dnf":     "sudo dnf install -y jq",
-				"yum":     "sudo yum install -y jq",
-				"scoop":   "scoop install jq",
-				"winget":  "winget install jqlang.jq",
-			},
-			InstallerPriority: map[string][]string{
-				"darwin":  {string(installerMise), string(installerBrew)},
-				"linux":   {string(installerMise), string(installerPacman), string(installerAptGet), string(installerDnf), string(installerYum)},
-				"windows": {string(installerScoop), string(installerWinget)},
-			},
-			VersionPolicy: versioning.Policy{
-				Scheme: versioning.SchemeSemverFull,
-			},
-		},
-		{
-			Name:          "go",
-			Kind:          "system",
-			Description:   "Go toolchain required for Go projects",
-			Platforms:     []string{"darwin", "linux", "windows"},
-			DetectCommand: "go version",
-			InstallCommands: map[string]string{
-				"darwin":  "brew install go",
-				"linux":   "sudo apt-get install golang || sudo dnf install golang || sudo pacman -S go",
-				"windows": "winget install GoLang.Go || scoop install go",
-				"mise":    "mise use go@1.22.0",
-				"brew":    "brew install go",
-				"pacman":  "sudo pacman -S --noconfirm go",
-				"apt-get": "sudo apt-get install -y golang",
-				"dnf":     "sudo dnf install -y golang",
-				"yum":     "sudo yum install -y golang",
-				"scoop":   "scoop install go",
-				"winget":  "winget install GoLang.Go",
-			},
-			InstallerPriority: map[string][]string{
-				"darwin":  {string(installerMise), string(installerBrew)},
-				"linux":   {string(installerMise), string(installerPacman), string(installerAptGet), string(installerDnf), string(installerYum)},
-				"windows": {string(installerScoop), string(installerWinget)},
-			},
-			VersionPolicy: versioning.Policy{
-				Scheme:             versioning.SchemeSemverFull,
-				MinimumVersion:     "1.21.0",
-				RecommendedVersion: "1.22.0",
-			},
-		},
-		{
-			Name:           "go-licenses",
-			Kind:           "go",
-			Description:    "License compliance tool for Go dependencies",
-			InstallPackage: "github.com/google/go-licenses@latest",
-			VersionArgs:    []string{},
-			CheckArgs:      []string{"-h"},
-			VersionPolicy: versioning.Policy{
-				Scheme: versioning.SchemeSemverFull,
-			},
-		},
-	}
-}
-
-// KnownAllTools returns the union of all known tool catalogs
-func KnownAllTools() []Tool {
-	sec := KnownSecurityTools()
-	fmtTools := KnownFormatTools()
-	infraTools := KnownInfrastructureTools()
-	all := make([]Tool, 0, len(sec)+len(fmtTools)+len(infraTools))
-	all = append(all, sec...)
-	all = append(all, fmtTools...)
-	all = append(all, infraTools...)
-	return all
-}
-
-func GetToolByName(name string) (Tool, bool) {
-	n := strings.ToLower(strings.TrimSpace(name))
-	for _, t := range KnownAllTools() {
-		if t.Name == n {
-			return t, true
-		}
-	}
-	return Tool{}, false
-}
+// REMOVED in v0.3.7: Hardcoded tool functions deleted
+// These functions (KnownSecurityTools, KnownFormatTools, KnownInfrastructureTools,
+// KnownAllTools, GetToolByName) were causing CI blocker by forcing sudo-requiring
+// tools into runtime configuration.
+//
+// Replacement: Use `goneat doctor tools init` to seed .goneat/tools.yaml with
+// language-specific defaults from foundation-tools-defaults.yaml.
+//
+// Tools are now loaded ONLY from .goneat/tools.yaml (explicit SSOT) with no
+// hidden runtime merging or hardcoded defaults.
 
 func CheckTool(t Tool) Status {
 	// Validate install_commands keys to help users catch common mistakes
@@ -609,7 +429,43 @@ func installSystemTool(t Tool) Status {
 			return status
 		}
 
-		// installed but not in PATH, best-effort detection
+		// Tool installed but not in PATH - check shim directories
+		shimPath := GetShimPath(string(attempt.kind))
+		if shimPath != "" {
+			toolPath := filepath.Join(shimPath, t.Name)
+			if runtime.GOOS == "windows" {
+				toolPath += ".exe"
+			}
+
+			// Check if tool exists in shim directory
+			if _, err := os.Stat(toolPath); err == nil {
+				logger.Info(fmt.Sprintf("%s installed to %s but not in PATH", t.Name, shimPath))
+
+				// Extend PATH for goneat's process so subsequent tool checks work
+				if !IsPathInPATH(shimPath) {
+					pathMgr := NewPathManager()
+					pathMgr.AddToSessionPATH(shimPath)
+					logger.Info(fmt.Sprintf("Extended goneat's PATH to include %s", shimPath))
+				}
+
+				// Check if tool is now accessible
+				if _, err := exec.LookPath(t.Name); err == nil {
+					status.Present = true
+					status.Version = sanitizeVersion(detectVersion(t))
+					applyVersionPolicy(t, &status)
+
+					// Provide instructions for persistent PATH setup
+					status.Instructions = BuildPATHInstructions(t.Name, shimPath, string(attempt.kind))
+					return status
+				}
+
+				// Tool exists but still not accessible - provide instructions
+				status.Instructions = BuildPATHInstructions(t.Name, shimPath, string(attempt.kind))
+				return status
+			}
+		}
+
+		// Fallback: installed but not in PATH, best-effort detection in Go bin
 		if goBin := getGoBinPath(); goBin != "" {
 			checkPath := filepath.Join(goBin, t.Name)
 			if _, err := os.Stat(checkPath); err == nil {
@@ -953,13 +809,15 @@ func ValidateInstallerCommands(t Tool) {
 		// Warn about completely unrecognized keys
 		logger.Warn(fmt.Sprintf(
 			"Tool %s: install_commands key '%s' is not a recognized installer kind. "+
-				"Known kinds: mise, brew, apt-get, scoop, winget, pacman, dnf, yum, manual, go-install",
+				"Known kinds: bun, mise, brew, apt-get, scoop, winget, pacman, dnf, yum, manual, go-install",
 			t.Name, key))
 	}
 }
 
 func isInstallerAvailable(kind installerKind) bool {
 	switch kind {
+	case installerBun:
+		return commandExists("bun")
 	case installerMise:
 		return commandExists("mise")
 	case installerBrew:

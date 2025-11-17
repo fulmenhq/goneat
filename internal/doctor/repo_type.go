@@ -43,7 +43,7 @@ const (
 func DetectRepoType(rootDir string) RepoType {
 	// Priority 1: Go
 	if fileExists(filepath.Join(rootDir, "go.mod")) ||
-	   fileExists(filepath.Join(rootDir, "go.sum")) {
+		fileExists(filepath.Join(rootDir, "go.sum")) {
 		return RepoTypeGo
 	}
 
@@ -73,7 +73,7 @@ func DetectRepoType(rootDir string) RepoType {
 
 	// Priority 4: Rust
 	if fileExists(filepath.Join(rootDir, "Cargo.toml")) ||
-	   fileExists(filepath.Join(rootDir, "Cargo.lock")) {
+		fileExists(filepath.Join(rootDir, "Cargo.lock")) {
 		return RepoTypeRust
 	}
 

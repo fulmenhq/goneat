@@ -163,6 +163,26 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to load tools configuration: %w", err)
 	}
 
+	// If in GitHub Actions and we're installing tools, automatically update GITHUB_PATH
+	// This makes tools immediately usable in subsequent workflow steps
+	// Note: PATH is already extended globally in PersistentPreRun for all goneat commands
+	if flagDoctorInstall && os.Getenv("GITHUB_ACTIONS") == "true" {
+		pkgMgrConfig, pkgMgrErr := intdoctor.LoadPackageManagersConfig()
+		if pkgMgrErr == nil {
+			additions := intdoctor.GetRequiredPATHAdditions(pkgMgrConfig)
+			if len(additions) > 0 {
+				githubPath := os.Getenv("GITHUB_PATH")
+				if githubPath != "" {
+					if err := updateGitHubActionsPath(githubPath, additions); err != nil {
+						logger.Warn(fmt.Sprintf("Failed to update GITHUB_PATH: %v", err))
+					} else {
+						logger.Info("Updated GITHUB_PATH for subsequent workflow steps")
+					}
+				}
+			}
+		}
+	}
+
 	// Convert configuration tools to legacy Tool format for compatibility
 	selected, err := selectToolsFromConfig(config)
 	if err != nil {
@@ -402,6 +422,34 @@ func getGoBinPath() string {
 	}
 
 	return ""
+}
+
+// updateGitHubActionsPath appends paths to GitHub Actions GITHUB_PATH file
+// This makes tools installed to shim directories immediately available in subsequent workflow steps
+func updateGitHubActionsPath(githubPathFile string, paths []string) error {
+	if len(paths) == 0 {
+		return nil
+	}
+
+	// Open file in append mode
+	f, err := os.OpenFile(githubPathFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open GITHUB_PATH file: %w", err)
+	}
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil {
+			logger.Warn(fmt.Sprintf("Failed to close GITHUB_PATH file: %v", closeErr))
+		}
+	}()
+
+	// Write each path on a new line
+	for _, path := range paths {
+		if _, err := fmt.Fprintln(f, path); err != nil {
+			return fmt.Errorf("failed to write to GITHUB_PATH: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func runDoctorEnv(cmd *cobra.Command, _ []string) error {

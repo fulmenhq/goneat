@@ -13,34 +13,34 @@ import (
 
 // PackageManager represents a package manager with its capabilities and requirements
 type PackageManager struct {
-	Name                   string                 `yaml:"name"`
-	Description            string                 `yaml:"description"`
-	Platforms              []string               `yaml:"platforms"`
-	RequiresSudo           interface{}            `yaml:"requires_sudo"` // bool or map[string]bool
-	RequiresPathUpdate     bool                   `yaml:"requires_path_update"`
-	PathUpdateAutomatic    bool                   `yaml:"path_update_automatic,omitempty"`
-	PathActivation         map[string]string      `yaml:"path_activation,omitempty"`
-	RequiresPrerequisites  []string               `yaml:"requires_prerequisites,omitempty"`
-	SafeForLanguages       []string               `yaml:"safe_for_languages"`
-	InstallMethod          string                 `yaml:"install_method"`
-	InstallCommand         interface{}            `yaml:"install_command,omitempty"` // string or map[string]string
-	AutoInstallSafe        interface{}            `yaml:"auto_install_safe"`         // bool or map[string]bool
-	DetectionCommand       string                 `yaml:"detection_command,omitempty"`
-	Priority               int                    `yaml:"priority,omitempty"`
-	Recommended            interface{}            `yaml:"recommended,omitempty"` // bool or map[string]bool
-	Notes                  string                 `yaml:"notes,omitempty"`
+	Name                  string            `yaml:"name"`
+	Description           string            `yaml:"description"`
+	Platforms             []string          `yaml:"platforms"`
+	RequiresSudo          interface{}       `yaml:"requires_sudo"` // bool or map[string]bool
+	RequiresPathUpdate    bool              `yaml:"requires_path_update"`
+	PathUpdateAutomatic   bool              `yaml:"path_update_automatic,omitempty"`
+	PathActivation        map[string]string `yaml:"path_activation,omitempty"`
+	RequiresPrerequisites []string          `yaml:"requires_prerequisites,omitempty"`
+	SafeForLanguages      []string          `yaml:"safe_for_languages"`
+	InstallMethod         string            `yaml:"install_method"`
+	InstallCommand        interface{}       `yaml:"install_command,omitempty"` // string or map[string]string
+	AutoInstallSafe       interface{}       `yaml:"auto_install_safe"`         // bool or map[string]bool
+	DetectionCommand      string            `yaml:"detection_command,omitempty"`
+	Priority              int               `yaml:"priority,omitempty"`
+	Recommended           interface{}       `yaml:"recommended,omitempty"` // bool or map[string]bool
+	Notes                 string            `yaml:"notes,omitempty"`
 
 	// Runtime state
-	Installed              bool   `yaml:"-"`
-	Version                string `yaml:"-"`
+	Installed bool   `yaml:"-"`
+	Version   string `yaml:"-"`
 }
 
 // PackageManagersConfig represents the foundation-package-managers.yaml structure
 type PackageManagersConfig struct {
-	Version          string                    `yaml:"version"`
-	PackageManagers  []PackageManager          `yaml:"package_managers"`
+	Version           string                       `yaml:"version"`
+	PackageManagers   []PackageManager             `yaml:"package_managers"`
 	RepoTypeDetection map[string]RepoDetectionRule `yaml:"repo_type_detection,omitempty"`
-	Recommendations   map[string]PlatformRec    `yaml:"recommendations,omitempty"`
+	Recommendations   map[string]PlatformRec       `yaml:"recommendations,omitempty"`
 }
 
 // RepoDetectionRule defines files that indicate a repository type

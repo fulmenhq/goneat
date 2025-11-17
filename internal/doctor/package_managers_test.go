@@ -146,10 +146,10 @@ func TestGetStringForPlatform(t *testing.T) {
 
 func TestPackageManager_RequiresSudoOnPlatform(t *testing.T) {
 	tests := []struct {
-		name          string
-		pm            PackageManager
-		platform      string
-		expectedSudo  bool
+		name         string
+		pm           PackageManager
+		platform     string
+		expectedSudo bool
 	}{
 		{
 			name: "brew requires sudo on darwin",
