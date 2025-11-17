@@ -34,14 +34,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Tools included: cosign, gitleaks, golangci-lint, gosec, grype, jq, prettier, ripgrep, shellcheck, shfmt, syft, trivy, yamlfmt, yq
   - No code changes required to add new tool mappings (edit YAML only)
 
-- **Automatic PATH Management for Package Manager Shims**: Zero-friction tool installation on CI/CD runners
-  - Automatic PATH extension for goneat's process (tools immediately detectable)
-  - GitHub Actions integration: automatic `$GITHUB_PATH` updates when `--install` flag used
-  - Shell activation helper: `goneat doctor tools env --activate` for local development
-  - Shim detection for mise, bun, scoop, go-install (hardcoded well-known paths)
-  - Platform support: Tested on macOS; Linux/Windows implementations present
-  - No manual PATH configuration required for GitHub Actions workflows
-  - Documentation: `docs/guides/goneat-tools-cicd-runner-support.md`
+- **Foundation Tools Externalization** (Phases 1-5): Tool configuration moved from hardcoded to explicit SSOT
+  - **Configuration Files** (Phase 1): Created config/tools/foundation-tools-defaults.yaml and foundation-package-managers.yaml
+    - Package manager safety matrix: bun, mise, scoop, winget with sudo requirements
+    - Tool definitions with package manager preferences
+    - Schema validation for both configurations
+  - **Repo Type Detection** (Phase 2): Language-aware tool selection
+    - Detects Go, Python, TypeScript, Rust, C# repositories
+    - Uses Crucible language taxonomy for consistent detection
+    - Filters tools based on detected repository type
+  - **Package Manager Commands** (Phase 3): Package manager discovery and status
+    - Detection for 8 package managers across all platforms
+    - Version parsing and sudo requirement detection
+    - `goneat doctor package-managers` command with JSON output
+    - Installation instructions (manual in v0.3.7)
+  - **Tools Init Command** (Phase 4): Explicit tool configuration seeding
+    - `goneat doctor tools init` generates .goneat/tools.yaml
+    - Auto-detects repository type and filters appropriate tools
+    - `--minimal` flag for CI-safe, language-native tools only
+    - `--scope` flag for foundation, security, format, all
+    - `--force` flag to overwrite existing configuration
+    - Validates generated configuration via schema
+  - **PATH Management** (Phase 5): Automatic shim directory detection
+    - PATH extension in PersistentPreRun (all goneat commands benefit)
+    - GitHub Actions integration: automatic `$GITHUB_PATH` updates with `--install`
+    - Shell activation helper: `goneat doctor tools env --activate`
+    - Shim detection for mise, bun, scoop, go-install
+    - Platform support: Tested on macOS; Linux/Windows implementations present
+    - Documentation: `docs/guides/goneat-tools-cicd-runner-support.md`
+
+- **Breaking Change**: Hardcoded tool defaults removed
+  - `.goneat/tools.yaml` is now required (was optional with hidden defaults)
+  - Run `goneat doctor tools init` to generate configuration
+  - Error message guides users to init command if file missing
+  - Migration: Existing repos must run init or manually create config
 
 ## [0.3.6] - 2025-11-12
 

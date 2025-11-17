@@ -5,12 +5,14 @@
 
 ## TL;DR
 
+- **Foundation Tools Externalization**: Complete removal of hardcoded tool defaults - explicit configuration required
+- **Automatic PATH Management**: Zero-friction tool installation on CI/CD runners with automatic PATH handling
+- **Package Manager Safety Matrix**: Opinionated package manager selection (bun, mise, scoop) - avoids sudo
+- **Language-Aware Tool Selection**: Auto-detects repository type and generates appropriate tool configuration
+- **Tools Init Command**: `goneat doctor tools init` generates .goneat/tools.yaml with sensible defaults
+- **Breaking Change**: `.goneat/tools.yaml` now required (was optional with hidden defaults)
 - **Public Key Verification Script**: Automated cryptographic safety checks prevent accidental private key disclosure
 - **Externalized Tool Repository Mappings**: Tool→GitHub repo mappings moved from code to configuration (14 tools)
-- **Automatic PATH Management**: Zero-friction tool installation on CI/CD runners with automatic PATH handling
-- **Release Process Hardening**: Three-layer verification (negative/positive/GPG) for all key material before upload
-- **Configuration-Driven**: No code changes required to add new tool mappings - edit YAML only
-- **Platform Support**: Tested on macOS; Linux/Windows implementations present
 
 ## What's New
 
@@ -208,6 +210,166 @@ make precommit
 - Security & SBOM: cosign, gitleaks, grype, syft, trivy
 - Go Tools: golangci-lint, gosec
 - General CLI: jq, prettier, ripgrep, shellcheck, shfmt, yamlfmt, yq
+
+### Foundation Tools Externalization (Phases 1-5)
+
+**Problem**: CI/CD pipelines failing due to hardcoded foundation tools attempting sudo-requiring installs (Homebrew).
+
+**Solution**: Complete externalization of tool configuration from hardcoded functions to explicit, visible `.goneat/tools.yaml` SSOT.
+
+#### Phase 1: Configuration Files
+
+**Files Created**:
+- `config/tools/foundation-tools-defaults.yaml` - Tool templates with package manager preferences
+- `config/tools/foundation-package-managers.yaml` - Package manager safety matrix
+- `schemas/tools/foundation-tools-defaults.v1.0.0.json` - Schema validation
+- `schemas/tools/foundation-package-managers.v1.0.0.json` - Schema validation
+
+**Package Manager Safety Matrix**:
+| Manager | Platforms | Requires Sudo | Auto-Install Safe |
+|---------|-----------|---------------|-------------------|
+| bun     | all       | ❌ No         | ✅ Yes            |
+| mise    | darwin, linux | ❌ No     | ✅ Yes            |
+| scoop   | windows   | ❌ No         | ✅ Yes            |
+| winget  | windows   | ❌ No         | ✅ Yes (pre-installed) |
+| brew    | darwin, linux | ✅ Yes    | ❌ No             |
+| apt-get | linux     | ✅ Yes        | ❌ No             |
+
+**Key Decision**: Prefer sudo-free package managers (bun, mise, scoop) for CI/CD safety.
+
+#### Phase 2: Repository Type Detection
+
+**Files Created**:
+- `internal/doctor/repo_type.go` - Language detection using Crucible taxonomy
+- `internal/doctor/repo_type_test.go` - 7 test cases
+
+**Supported Languages**:
+- Go (detects: go.mod, go.sum, *.go files)
+- Python (detects: pyproject.toml, requirements.txt, *.py files)
+- TypeScript (detects: package.json with typescript dep, tsconfig.json, *.ts files)
+- Rust (detects: Cargo.toml, *.rs files)
+- C# (detects: *.csproj, *.sln, *.cs files)
+
+**Usage**: Auto-filters tools based on detected repo type (e.g., Go repos get go-licenses, Python repos get different tooling).
+
+#### Phase 3: Package Manager Commands
+
+**Files Created**:
+- `internal/doctor/package_managers.go` - Detection and status reporting
+- `cmd/doctor_package_managers.go` - CLI command
+- Comprehensive test coverage (9 tests)
+
+**Command**:
+```bash
+# Show all package managers
+goneat doctor package-managers
+
+# Show recommended (sudo-free only)
+goneat doctor package-managers --recommended
+
+# JSON output
+goneat doctor package-managers --json
+```
+
+**Features**:
+- Detects 8 package managers across all platforms
+- Parses versions from detect commands
+- Identifies sudo requirements
+- Provides installation instructions
+
+#### Phase 4: Tools Init Command
+
+**Files Created**:
+- `internal/doctor/tools_defaults_loader.go` - Loading and filtering logic
+- `cmd/doctor_tools_init.go` - Init command implementation
+- Test coverage (8 tests)
+
+**Command**:
+```bash
+# Auto-detect repo type, foundation scope
+goneat doctor tools init
+
+# CI-safe minimal mode (language-native tools only)
+goneat doctor tools init --minimal
+
+# Force specific language
+goneat doctor tools init --language python
+
+# Different scope
+goneat doctor tools init --scope security
+
+# Overwrite existing
+goneat doctor tools init --force
+```
+
+**What It Does**:
+1. Detects repository type (go, python, typescript, etc.)
+2. Loads tool templates from foundation-tools-defaults.yaml
+3. Filters tools appropriate for detected language
+4. Generates `.goneat/tools.yaml` with proper structure
+5. Validates generated configuration
+
+**Example Output** (Go repo):
+```yaml
+# Generated by: goneat doctor tools init
+# This file is the SINGLE SOURCE OF TRUTH for tools configuration
+
+scopes:
+  foundation:
+    description: Core foundation tools
+    tools: [ripgrep, jq, yq, go, go-licenses, golangci-lint, yamlfmt]
+
+tools:
+  go:
+    name: go
+    kind: system
+    detect_command: go version
+    installer_priority:
+      darwin: [mise]
+      linux: [mise]
+  # ... more tools
+```
+
+#### Phase 5: PATH Management (completed in this session)
+
+See "Automatic PATH Management for Package Manager Shims" section below.
+
+#### Breaking Change
+
+**Before v0.3.7**: Foundation tools automatically included via hidden hardcoded defaults
+```go
+// Hardcoded in tools.go - user had no control
+func KnownInfrastructureTools() []Tool {
+    return []Tool{{Name: "go", InstallCommands: map[string]string{
+        "darwin": "brew install go",  // ❌ Requires sudo, fails in CI
+    }}}
+}
+```
+
+**After v0.3.7**: Explicit configuration required
+```bash
+# Error if .goneat/tools.yaml missing
+$ goneat doctor tools
+Error: .goneat/tools.yaml not found
+
+Initialize with:
+  goneat doctor tools init           # Recommended defaults for your repo type
+  goneat doctor tools init --minimal # CI-safe (only language-native tools)
+```
+
+**Migration**:
+```bash
+# For existing repos
+cd your-repo
+goneat doctor tools init
+
+# For CI/CD (sudo-free)
+goneat doctor tools init --minimal
+
+# Commit the generated config
+git add .goneat/tools.yaml
+git commit -m "Add explicit tools configuration"
+```
 
 ### Automatic PATH Management for Package Manager Shims
 
