@@ -1,0 +1,280 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.goneat.dev/tools/foundation-package-managers.v1.0.0.json",
+  "title": "Foundation Package Managers Configuration",
+  "description": "Defines package managers, their safety characteristics, and language/platform compatibility",
+  "type": "object",
+  "required": ["version", "package_managers"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^v\\d+\\.\\d+\\.\\d+$",
+      "description": "Schema version"
+    },
+    "package_managers": {
+      "type": "array",
+      "description": "Available package managers with safety and platform metadata",
+      "items": {
+        "$ref": "#/$defs/PackageManager"
+      }
+    },
+    "repo_type_detection": {
+      "type": "object",
+      "description": "Rules for detecting repository primary language",
+      "patternProperties": {
+        ".*": {
+          "$ref": "#/$defs/RepoDetectionRule"
+        }
+      }
+    },
+    "recommendations": {
+      "type": "object",
+      "description": "Platform-specific package manager recommendations",
+      "properties": {
+        "darwin": {
+          "$ref": "#/$defs/PlatformRecommendation"
+        },
+        "linux": {
+          "$ref": "#/$defs/PlatformRecommendation"
+        },
+        "windows": {
+          "$ref": "#/$defs/PlatformRecommendation"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "PackageManager": {
+      "type": "object",
+      "required": ["name", "description", "platforms", "requires_sudo", "requires_path_update", "safe_for_languages", "install_method"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Package manager identifier (lowercase, alphanumeric + hyphens)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description"
+        },
+        "platforms": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["darwin", "linux", "windows"]
+          },
+          "minItems": 1,
+          "description": "Supported platforms"
+        },
+        "requires_sudo": {
+          "oneOf": [
+            {
+              "type": "boolean",
+              "description": "True if sudo required on all platforms"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "darwin": {
+                  "type": "boolean"
+                },
+                "linux": {
+                  "type": "boolean"
+                },
+                "windows": {
+                  "type": "boolean"
+                }
+              },
+              "description": "Platform-specific sudo requirements"
+            }
+          ],
+          "description": "Whether installation/usage requires sudo/admin privileges"
+        },
+        "requires_path_update": {
+          "type": "boolean",
+          "description": "Whether PATH environment variable update is required"
+        },
+        "path_update_automatic": {
+          "type": "boolean",
+          "description": "Whether PATH update is handled automatically by installer"
+        },
+        "path_activation": {
+          "type": "object",
+          "properties": {
+            "bash": {
+              "type": "string"
+            },
+            "zsh": {
+              "type": "string"
+            },
+            "fish": {
+              "type": "string"
+            },
+            "powershell": {
+              "type": "string"
+            }
+          },
+          "description": "Shell-specific PATH activation commands"
+        },
+        "requires_prerequisites": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Tools that must be present before this package manager can be used"
+        },
+        "safe_for_languages": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "../crucible-go/taxonomy/language/v1.0.0/language-key.schema.json"
+              },
+              {
+                "type": "string",
+                "const": "all"
+              }
+            ]
+          },
+          "description": "Languages this package manager can safely install tools for"
+        },
+        "install_method": {
+          "type": "string",
+          "enum": ["builtin", "curl", "bash", "powershell", "manual"],
+          "description": "How this package manager itself can be installed"
+        },
+        "install_command": {
+          "oneOf": [
+            {
+              "type": "string",
+              "description": "Single install command for all platforms"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "darwin": {
+                  "type": "string"
+                },
+                "linux": {
+                  "type": "string"
+                },
+                "windows": {
+                  "type": "string"
+                }
+              },
+              "description": "Platform-specific install commands"
+            }
+          ],
+          "description": "Command to install this package manager (if install_method != builtin)"
+        },
+        "auto_install_safe": {
+          "oneOf": [
+            {
+              "type": "boolean",
+              "description": "True if safe to auto-install on all platforms"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "darwin": {
+                  "type": "boolean"
+                },
+                "linux": {
+                  "type": "boolean"
+                },
+                "windows": {
+                  "type": "boolean"
+                }
+              },
+              "description": "Platform-specific auto-install safety"
+            }
+          ],
+          "description": "Whether this package manager can be auto-installed without user intervention"
+        },
+        "detection_command": {
+          "type": "string",
+          "description": "Command to detect if package manager is present (e.g., 'brew --version')"
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Priority for package manager selection (lower = higher priority)"
+        },
+        "recommended": {
+          "oneOf": [
+            {
+              "type": "boolean",
+              "description": "True if recommended on all platforms"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "darwin": {
+                  "type": "boolean"
+                },
+                "linux": {
+                  "type": "boolean"
+                },
+                "windows": {
+                  "type": "boolean"
+                }
+              },
+              "description": "Platform-specific recommendation flags"
+            }
+          ],
+          "description": "Whether this package manager is in goneat's opinionated recommendations"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes about this package manager"
+        }
+      },
+      "additionalProperties": false
+    },
+    "RepoDetectionRule": {
+      "type": "object",
+      "required": ["files", "priority"],
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Files whose presence indicates this language"
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Detection priority (lower = higher priority, checked first)"
+        }
+      }
+    },
+    "PlatformRecommendation": {
+      "type": "object",
+      "required": ["primary"],
+      "properties": {
+        "primary": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Recommended package managers in priority order"
+        },
+        "fallback": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Fallback options if primary not available"
+        },
+        "avoid": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Package managers to avoid (e.g., require sudo)"
+        }
+      }
+    }
+  }
+}

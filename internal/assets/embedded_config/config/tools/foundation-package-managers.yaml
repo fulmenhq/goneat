@@ -1,0 +1,231 @@
+version: v1.0.0
+
+# Foundation Package Managers Configuration
+# Defines package managers, their safety characteristics, and language/platform compatibility
+# Used by `goneat doctor tools init` to select appropriate package managers for tool installation
+
+package_managers:
+  # Universal package managers (opinionated top tier)
+  - name: bun
+    description: "Bun - Fast all-in-one JavaScript runtime and package manager"
+    platforms: ["darwin", "linux", "windows"]
+    requires_sudo: false
+    requires_path_update: false
+    path_update_automatic: true
+    requires_prerequisites: []
+    safe_for_languages: ["all"]
+    install_method: "curl"
+    install_command:
+      darwin: "curl -fsSL https://bun.sh/install | bash"
+      linux: "curl -fsSL https://bun.sh/install | bash"
+      windows: "powershell -c \"irm bun.sh/install.ps1 | iex\""
+    auto_install_safe: true
+    detection_command: "bun --version"
+    priority: 1
+    recommended: true
+
+  - name: mise
+    description: "Mise - Universal version manager (asdf successor)"
+    platforms: ["darwin", "linux"]
+    requires_sudo: false
+    requires_path_update: true
+    path_update_automatic: false
+    path_activation:
+      bash: 'eval "$(mise activate bash)"'
+      zsh: 'eval "$(mise activate zsh)"'
+      fish: 'mise activate fish | source'
+    requires_prerequisites: []
+    safe_for_languages: ["all"]
+    install_method: "curl"
+    install_command: "curl https://mise.run | sh"
+    auto_install_safe: true
+    detection_command: "mise --version"
+    priority: 2
+    recommended:
+      darwin: true
+      linux: true
+      windows: false
+
+  # Platform-specific universal managers
+  - name: scoop
+    description: "Scoop - Windows package manager"
+    platforms: ["windows"]
+    requires_sudo: false
+    requires_path_update: true
+    path_update_automatic: true
+    requires_prerequisites: ["powershell"]
+    safe_for_languages: ["all"]
+    install_method: "powershell"
+    install_command: 'iex "& {$(irm get.scoop.sh)} -RunAsAdmin"'
+    auto_install_safe: true
+    detection_command: "scoop --version"
+    priority: 2
+    recommended: true
+
+  - name: winget
+    description: "Windows Package Manager (built-in on Windows 10+)"
+    platforms: ["windows"]
+    requires_sudo: false
+    requires_path_update: false
+    requires_prerequisites: []
+    safe_for_languages: ["all"]
+    install_method: "builtin"
+    auto_install_safe: true
+    detection_command: "winget --version"
+    priority: 3
+    recommended: true
+    notes: "Built-in on Windows 10 1809+, limited package selection compared to scoop"
+
+  - name: brew
+    description: "Homebrew - Package manager for macOS and Linux"
+    platforms: ["darwin", "linux"]
+    requires_sudo:
+      darwin: true
+      linux: true
+    requires_path_update: false
+    requires_prerequisites: []
+    safe_for_languages: ["all"]
+    install_method: "bash"
+    install_command: '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
+    auto_install_safe: false
+    detection_command: "brew --version"
+    priority: 10
+    recommended: false
+    notes: "Requires sudo on both macOS and Linux - not recommended for CI/CD"
+
+  # Built-in language package managers
+  - name: go-install
+    description: "Go's built-in package installer"
+    platforms: ["darwin", "linux", "windows"]
+    requires_sudo: false
+    requires_path_update: false
+    requires_prerequisites: ["go"]
+    safe_for_languages: ["go"]
+    install_method: "builtin"
+    auto_install_safe: true
+    detection_command: "go version"
+    priority: 1
+
+  - name: uv
+    description: "uv - Fast Python package installer (Rust-based pip replacement)"
+    platforms: ["darwin", "linux", "windows"]
+    requires_sudo: false
+    requires_path_update: false
+    requires_prerequisites: []
+    safe_for_languages: ["python"]
+    install_method: "curl"
+    install_command: "curl -LsSf https://astral.sh/uv/install.sh | sh"
+    auto_install_safe: true
+    detection_command: "uv --version"
+    priority: 1
+
+  - name: pip
+    description: "Python package installer (fallback)"
+    platforms: ["darwin", "linux", "windows"]
+    requires_sudo: false
+    requires_path_update: false
+    requires_prerequisites: ["python3"]
+    safe_for_languages: ["python"]
+    install_method: "builtin"
+    auto_install_safe: true
+    detection_command: "pip --version"
+    priority: 5
+
+  - name: npm
+    description: "Node.js package manager"
+    platforms: ["darwin", "linux", "windows"]
+    requires_sudo: false
+    requires_path_update: false
+    requires_prerequisites: ["node"]
+    safe_for_languages: ["typescript"]
+    install_method: "builtin"
+    auto_install_safe: true
+    detection_command: "npm --version"
+    priority: 2
+
+  - name: cargo
+    description: "Rust package manager"
+    platforms: ["darwin", "linux", "windows"]
+    requires_sudo: false
+    requires_path_update: false
+    requires_prerequisites: ["rustc"]
+    safe_for_languages: ["rust"]
+    install_method: "builtin"
+    auto_install_safe: true
+    detection_command: "cargo --version"
+    priority: 1
+
+  # System package managers (not safe for auto-install)
+  - name: apt-get
+    description: "Debian/Ubuntu package manager"
+    platforms: ["linux"]
+    requires_sudo: true
+    requires_path_update: false
+    requires_prerequisites: []
+    safe_for_languages: ["all"]
+    install_method: "builtin"
+    auto_install_safe: false
+    detection_command: "apt-get --version"
+    priority: 20
+
+  - name: pacman
+    description: "Arch Linux package manager"
+    platforms: ["linux"]
+    requires_sudo: true
+    requires_path_update: false
+    requires_prerequisites: []
+    safe_for_languages: ["all"]
+    install_method: "builtin"
+    auto_install_safe: false
+    detection_command: "pacman --version"
+    priority: 20
+
+  - name: dnf
+    description: "Fedora package manager"
+    platforms: ["linux"]
+    requires_sudo: true
+    requires_path_update: false
+    requires_prerequisites: []
+    safe_for_languages: ["all"]
+    install_method: "builtin"
+    auto_install_safe: false
+    detection_command: "dnf --version"
+    priority: 20
+
+# Repository type detection rules
+repo_type_detection:
+  go:
+    files: ["go.mod", "go.sum"]
+    priority: 1
+
+  python:
+    files: ["pyproject.toml", "requirements.txt", "setup.py", "Pipfile", "uv.lock"]
+    priority: 2
+
+  typescript:
+    files: ["tsconfig.json", "package.json"]
+    priority: 3
+
+  rust:
+    files: ["Cargo.toml", "Cargo.lock"]
+    priority: 4
+
+  csharp:
+    files: ["*.csproj", "*.sln", "*.fsproj"]
+    priority: 5
+
+# Platform-specific recommendations (opinionated defaults)
+recommendations:
+  darwin:
+    primary: ["bun", "mise"]
+    fallback: ["go-install", "uv", "npm", "cargo"]
+    avoid: ["brew"]
+
+  linux:
+    primary: ["bun", "mise"]
+    fallback: ["go-install", "uv", "npm", "cargo"]
+    avoid: ["apt-get", "pacman", "dnf", "brew"]
+
+  windows:
+    primary: ["bun", "scoop", "winget"]
+    fallback: ["go-install", "npm"]

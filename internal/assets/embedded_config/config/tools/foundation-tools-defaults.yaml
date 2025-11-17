@@ -1,0 +1,240 @@
+version: v1.0.0
+
+# Foundation Tools Defaults
+# These tools can be seeded into .goneat/tools.yaml via `goneat doctor tools init`
+# Organized by category with package manager preferences per platform
+
+foundation_tools:
+  # System CLI tools (prefer sudo-free package managers)
+  - name: ripgrep
+    description: "Fast text search - used by goneat for license auditing"
+    kind: "system"
+    detect_command: "rg --version"
+    platforms: ["darwin", "linux", "windows"]
+    package_managers:
+      darwin: ["bun", "mise"]
+      linux: ["bun", "mise"]
+      windows: ["bun", "scoop", "winget"]
+    auto_install_safe: true
+
+  - name: jq
+    description: "JSON processor - used in CI/CD scripts"
+    kind: "system"
+    detect_command: "jq --version"
+    platforms: ["darwin", "linux", "windows"]
+    package_managers:
+      darwin: ["bun", "mise"]
+      linux: ["bun", "mise"]
+      windows: ["bun", "scoop", "winget"]
+    auto_install_safe: true
+
+  - name: yq
+    description: "YAML processor"
+    kind: "system"
+    detect_command: "yq --version"
+    platforms: ["darwin", "linux", "windows"]
+    package_managers:
+      darwin: ["bun", "mise"]
+      linux: ["bun", "mise"]
+      windows: ["bun", "scoop", "winget"]
+    auto_install_safe: true
+
+  - name: go
+    description: "Go toolchain - required for Go projects"
+    kind: "system"
+    detect_command: "go version"
+    platforms: ["darwin", "linux", "windows"]
+    package_managers:
+      darwin: ["mise"]
+      linux: ["mise"]
+      windows: ["scoop", "winget"]
+    auto_install_safe: true
+    required_for_languages: ["go"]
+    version_scheme: "semver"
+    minimum_version: "1.21.0"
+    recommended_version: "1.22.0"
+
+  # Go-installable tools (always safe, no sudo)
+  - name: go-licenses
+    description: "License compliance for Go dependencies"
+    kind: "go"
+    detect_command: "go-licenses -h"
+    install_package: "github.com/google/go-licenses@latest"
+    version_args: []
+    check_args: ["-h"]
+    package_managers:
+      all: ["go-install"]
+    auto_install_safe: true
+    required_for_languages: ["go"]
+
+  - name: golangci-lint
+    description: "Fast linters runner for Go"
+    kind: "go"
+    detect_command: "golangci-lint --version"
+    install_package: "github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
+    version_args: ["--version"]
+    check_args: ["--help"]
+    package_managers:
+      darwin: ["go-install", "mise", "bun"]
+      linux: ["go-install", "mise", "bun"]
+      windows: ["go-install", "scoop", "winget"]
+    auto_install_safe: true
+    required_for_languages: ["go"]
+    version_scheme: "semver"
+    minimum_version: "1.54.0"
+    recommended_version: "2.4.0"
+
+  - name: yamlfmt
+    description: "YAML formatter and linter"
+    kind: "go"
+    detect_command: "yamlfmt --version"
+    install_package: "github.com/google/yamlfmt/cmd/yamlfmt@latest"
+    version_args: ["--version"]
+    check_args: ["--help"]
+    package_managers:
+      all: ["go-install"]
+    auto_install_safe: true
+
+# Security tools (Go-based, safe to install)
+security_tools:
+  - name: gosec
+    description: "Go security checker"
+    kind: "go"
+    detect_command: "gosec -version"
+    install_package: "github.com/securego/gosec/v2/cmd/gosec@latest"
+    version_args: ["-version"]
+    check_args: ["-h"]
+    package_managers:
+      all: ["go-install"]
+    auto_install_safe: true
+    required_for_languages: ["go"]
+
+  - name: govulncheck
+    description: "Go vulnerability checker"
+    kind: "go"
+    detect_command: "govulncheck -version"
+    install_package: "golang.org/x/vuln/cmd/govulncheck@latest"
+    version_args: ["-version"]
+    check_args: ["-h"]
+    package_managers:
+      all: ["go-install"]
+    auto_install_safe: true
+    required_for_languages: ["go"]
+
+  - name: gitleaks
+    description: "Git secrets scanner"
+    kind: "go"
+    detect_command: "gitleaks version"
+    install_package: "github.com/zricethezav/gitleaks/v8@latest"
+    version_args: ["version"]
+    check_args: ["help"]
+    package_managers:
+      all: ["go-install"]
+    auto_install_safe: true
+
+# Format tools (Go-based)
+format_tools:
+  - name: goimports
+    description: "Go import formatter"
+    kind: "go"
+    detect_command: "goimports -h"
+    install_package: "golang.org/x/tools/cmd/goimports@latest"
+    version_args: []
+    check_args: ["-h"]
+    package_managers:
+      all: ["go-install"]
+    auto_install_safe: true
+    required_for_languages: ["go"]
+
+  - name: gofmt
+    description: "Go formatter (bundled with Go toolchain)"
+    kind: "bundled-go"
+    detect_command: "gofmt -h"
+    version_args: []
+    check_args: ["-h"]
+    package_managers:
+      all: ["builtin"]
+    auto_install_safe: true
+    required_for_languages: ["go"]
+
+# Python tools (future expansion)
+python_tools:
+  - name: ruff
+    description: "Fast Python linter and formatter"
+    kind: "python"
+    detect_command: "ruff --version"
+    package_managers:
+      all: ["uv", "pip"]
+    auto_install_safe: true
+    required_for_languages: ["python"]
+
+  - name: black
+    description: "Python code formatter"
+    kind: "python"
+    detect_command: "black --version"
+    package_managers:
+      all: ["uv", "pip"]
+    auto_install_safe: true
+    required_for_languages: ["python"]
+
+# TypeScript tools (future expansion)
+typescript_tools:
+  - name: prettier
+    description: "Opinionated code formatter"
+    kind: "node"
+    detect_command: "prettier --version"
+    package_managers:
+      all: ["bun", "npm"]
+    auto_install_safe: true
+    required_for_languages: ["typescript"]
+
+  - name: eslint
+    description: "JavaScript/TypeScript linter"
+    kind: "node"
+    detect_command: "eslint --version"
+    package_managers:
+      all: ["bun", "npm"]
+    auto_install_safe: true
+    required_for_languages: ["typescript"]
+
+# Scopes define which tools to include for each scope
+scopes:
+  foundation:
+    description: "Core foundation tools required for goneat and basic AI agent operation"
+    tools:
+      - ripgrep
+      - jq
+      - yq
+      - go  # Only if Go repo detected
+      - go-licenses  # Only if Go repo detected
+      - golangci-lint  # Only if Go repo detected
+      - yamlfmt
+
+  security:
+    description: "Security scanning tools"
+    tools:
+      - gosec
+      - govulncheck
+      - gitleaks
+
+  format:
+    description: "Code formatting tools"
+    tools:
+      - goimports
+      - gofmt
+
+  all:
+    description: "All tools from all scopes"
+    tools:
+      - ripgrep
+      - jq
+      - yq
+      - go
+      - go-licenses
+      - golangci-lint
+      - yamlfmt
+      - gosec
+      - govulncheck
+      - gitleaks
+      - goimports
+      - gofmt

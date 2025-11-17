@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.goneat.dev/tools/foundation-tools-defaults.v1.0.0.json",
+  "title": "Foundation Tools Defaults Configuration",
+  "description": "Defines default tools that can be seeded into .goneat/tools.yaml",
+  "type": "object",
+  "required": ["version"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^v\\d+\\.\\d+\\.\\d+$",
+      "description": "Schema version"
+    },
+    "foundation_tools": {
+      "type": "array",
+      "description": "Foundation scope tools",
+      "items": {
+        "$ref": "#/$defs/ToolDefinition"
+      }
+    },
+    "security_tools": {
+      "type": "array",
+      "description": "Security scope tools",
+      "items": {
+        "$ref": "#/$defs/ToolDefinition"
+      }
+    },
+    "format_tools": {
+      "type": "array",
+      "description": "Format scope tools",
+      "items": {
+        "$ref": "#/$defs/ToolDefinition"
+      }
+    },
+    "python_tools": {
+      "type": "array",
+      "description": "Python-specific tools",
+      "items": {
+        "$ref": "#/$defs/ToolDefinition"
+      }
+    },
+    "typescript_tools": {
+      "type": "array",
+      "description": "TypeScript-specific tools",
+      "items": {
+        "$ref": "#/$defs/ToolDefinition"
+      }
+    },
+    "scopes": {
+      "type": "object",
+      "description": "Scope definitions mapping names to tool lists",
+      "patternProperties": {
+        ".*": {
+          "$ref": "#/$defs/ScopeDefinition"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "ToolDefinition": {
+      "type": "object",
+      "required": ["name", "description", "kind", "detect_command", "package_managers", "auto_install_safe"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Tool name (lowercase, alphanumeric + hyphens)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["system", "go", "python", "node", "bundled-go", "builtin"],
+          "description": "Tool category"
+        },
+        "detect_command": {
+          "type": "string",
+          "description": "Command to detect if tool is present"
+        },
+        "platforms": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["darwin", "linux", "windows"]
+          },
+          "description": "Supported platforms (optional, defaults to all)"
+        },
+        "package_managers": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "darwin": {
+                  "type": "array",
+                  "items": {"type": "string"}
+                },
+                "linux": {
+                  "type": "array",
+                  "items": {"type": "string"}
+                },
+                "windows": {
+                  "type": "array",
+                  "items": {"type": "string"}
+                },
+                "all": {
+                  "type": "array",
+                  "items": {"type": "string"}
+                }
+              },
+              "description": "Platform-specific package manager lists"
+            }
+          ],
+          "description": "Package managers that can install this tool (platform-specific or 'all')"
+        },
+        "auto_install_safe": {
+          "type": "boolean",
+          "description": "Whether this tool can be safely auto-installed without sudo"
+        },
+        "required_for_languages": {
+          "type": "array",
+          "items": {
+            "$ref": "../crucible-go/taxonomy/language/v1.0.0/language-key.schema.json"
+          },
+          "description": "Languages that require this tool"
+        },
+        "install_package": {
+          "type": "string",
+          "description": "Package identifier for go install or similar (e.g., github.com/foo/bar@latest)"
+        },
+        "version_args": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Arguments to pass for version detection"
+        },
+        "check_args": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Arguments to pass for health check"
+        },
+        "version_scheme": {
+          "type": "string",
+          "enum": ["semver", "date", "git", "custom"],
+          "description": "Version numbering scheme"
+        },
+        "minimum_version": {
+          "type": "string",
+          "description": "Minimum supported version"
+        },
+        "recommended_version": {
+          "type": "string",
+          "description": "Recommended version"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ScopeDefinition": {
+      "type": "object",
+      "required": ["description", "tools"],
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Human-readable scope description"
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Tool names included in this scope"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
