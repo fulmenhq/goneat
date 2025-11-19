@@ -139,7 +139,7 @@ func (pm *PathManager) AddToSessionPATH(paths ...string) {
 		return
 	}
 
-	logger.Info(fmt.Sprintf("Extended PATH for session with %d directories", len(pm.additions)))
+	logger.Debug(fmt.Sprintf("Extended PATH for session with %d directories", len(pm.additions)))
 	for _, path := range pm.additions {
 		logger.Debug(fmt.Sprintf("  + %s", path))
 	}

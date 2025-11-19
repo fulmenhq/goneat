@@ -1,3 +1,21 @@
+# ⚠️ DEPRECATED in v0.3.7 - DO NOT EDIT
+#
+# This file is NO LONGER USED at runtime as of goneat v0.3.7.
+#
+# Replacement: config/tools/foundation-tools-defaults.yaml
+# The new config is loaded via `goneat doctor tools init` to seed .goneat/tools.yaml
+#
+# Why deprecated:
+# - This file was embedded and merged at runtime, causing hidden sudo-requiring tools
+#   to be auto-included in CI/CD pipelines, causing the v0.3.7 CI blocker.
+# - The hardcoded functions (KnownInfrastructureTools, etc.) that used this file
+#   have been removed.
+#
+# Kept for: Backward compatibility reference only (read-only)
+# Migration: Run `goneat doctor tools init` to create .goneat/tools.yaml from new defaults
+#
+# DO NOT ADD NEW TOOLS HERE - add them to config/tools/foundation-tools-defaults.yaml instead
+
 scopes:
   security:
     description: "Security scanning tools"
