@@ -75,8 +75,10 @@ tools:
             - windows
         installer_priority:
             darwin:
+                - brew
                 - mise
             linux:
+                - brew
                 - mise
             windows:
                 - scoop
@@ -179,9 +181,11 @@ tools:
             - windows
         installer_priority:
             darwin:
+                - brew
                 - bun
                 - mise
             linux:
+                - brew
                 - bun
                 - mise
             windows:
@@ -199,9 +203,11 @@ tools:
             - windows
         installer_priority:
             darwin:
+                - brew
                 - bun
                 - mise
             linux:
+                - brew
                 - bun
                 - mise
             windows:
@@ -236,8 +242,10 @@ tools:
             winget: winget install --id=mikefarah.yq
         installer_priority:
             darwin:
+                - brew
                 - mise
             linux:
+                - brew
                 - mise
             windows:
                 - scoop

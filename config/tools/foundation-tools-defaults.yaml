@@ -5,15 +5,15 @@ version: v1.0.0
 # Organized by category with package manager preferences per platform
 
 foundation_tools:
-  # System CLI tools (prefer sudo-free package managers)
+  # System CLI tools (prefer sudo-free package managers, brew with enhanced detection)
   - name: ripgrep
     description: "Fast text search - used by goneat for license auditing"
     kind: "system"
     detect_command: "rg --version"
     platforms: ["darwin", "linux", "windows"]
     package_managers:
-      darwin: ["bun", "mise"]
-      linux: ["bun", "mise"]
+      darwin: ["brew", "bun", "mise"]
+      linux: ["brew", "bun", "mise"]
       windows: ["bun", "scoop", "winget"]
     auto_install_safe: true
 
@@ -23,8 +23,8 @@ foundation_tools:
     detect_command: "jq --version"
     platforms: ["darwin", "linux", "windows"]
     package_managers:
-      darwin: ["bun", "mise"]
-      linux: ["bun", "mise"]
+      darwin: ["brew", "bun", "mise"]
+      linux: ["brew", "bun", "mise"]
       windows: ["bun", "scoop", "winget"]
     auto_install_safe: true
 
@@ -34,8 +34,8 @@ foundation_tools:
     detect_command: "yq --version"
     platforms: ["darwin", "linux", "windows"]
     package_managers:
-      darwin: ["bun", "mise"]
-      linux: ["bun", "mise"]
+      darwin: ["brew", "bun", "mise"]
+      linux: ["brew", "bun", "mise"]
       windows: ["bun", "scoop", "winget"]
     auto_install_safe: true
 
@@ -45,8 +45,8 @@ foundation_tools:
     detect_command: "go version"
     platforms: ["darwin", "linux", "windows"]
     package_managers:
-      darwin: ["mise"]
-      linux: ["mise"]
+      darwin: ["brew", "mise"]
+      linux: ["brew", "mise"]
       windows: ["scoop", "winget"]
     auto_install_safe: true
     required_for_languages: ["go"]

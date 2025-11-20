@@ -80,18 +80,19 @@ package_managers:
     description: "Homebrew - Package manager for macOS and Linux"
     platforms: ["darwin", "linux"]
     requires_sudo:
-      darwin: true
-      linux: true
+      darwin: true  # System brew requires sudo; user-local ($HOME/homebrew-local) is sudo-free
+      linux: true   # System brew requires sudo; user-local ($HOME/homebrew-local) is sudo-free
     requires_path_update: false
     requires_prerequisites: []
     safe_for_languages: ["all"]
     install_method: "bash"
     install_command: '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
-    auto_install_safe: false
+    auto_install_safe: false  # System brew requires sudo; Phase 2 (v0.4.0) will add user-local auto-install
     detection_command: "brew --version"
-    priority: 10
-    recommended: false
-    notes: "Requires sudo on both macOS and Linux - not recommended for CI/CD"
+    detection_notes: "Enhanced detection (v0.3.7+) supports system (/opt/homebrew, /usr/local, /home/linuxbrew) and user-local ($HOME/homebrew-local) installations"
+    priority: 5  # Elevated from 10: user-local brew is sudo-free and CI-safe
+    recommended: true  # User-local brew is recommended; runtime detection determines sudo requirement
+    notes: "System brew requires sudo; user-local brew ($HOME/homebrew-local) is sudo-free and CI-safe. Runtime detection (BrewInstaller) automatically configures environment for user-local installations."
 
   # Built-in language package managers
   - name: go-install
@@ -217,14 +218,14 @@ repo_type_detection:
 # Platform-specific recommendations (opinionated defaults)
 recommendations:
   darwin:
-    primary: ["bun", "mise"]
+    primary: ["brew", "bun", "mise"]  # brew (user-local) is sudo-free and widely supported
     fallback: ["go-install", "uv", "npm", "cargo"]
-    avoid: ["brew"]
+    avoid: []  # System brew requires sudo but user-local is safe; runtime detection handles this
 
   linux:
-    primary: ["bun", "mise"]
+    primary: ["brew", "bun", "mise"]  # brew (user-local) is sudo-free and CI-friendly
     fallback: ["go-install", "uv", "npm", "cargo"]
-    avoid: ["apt-get", "pacman", "dnf", "brew"]
+    avoid: ["apt-get", "pacman", "dnf"]  # System package managers require sudo
 
   windows:
     primary: ["bun", "scoop", "winget"]
