@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-## [0.3.7] - 2025-11-14
+## [0.3.7] - 2025-11-20
 
 ### Added
 
@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Tools included: cosign, gitleaks, golangci-lint, gosec, grype, jq, prettier, ripgrep, shellcheck, shfmt, syft, trivy, yamlfmt, yq
   - No code changes required to add new tool mappings (edit YAML only)
 
-- **Foundation Tools Externalization** (Phases 1-5): Tool configuration moved from hardcoded to explicit SSOT
+- **Foundation Tools Externalization** (Phases 1-5A): Tool configuration moved from hardcoded to explicit SSOT
   - **Configuration Files** (Phase 1): Created config/tools/foundation-tools-defaults.yaml and foundation-package-managers.yaml
     - Package manager safety matrix: bun, mise, scoop, winget with sudo requirements
     - Tool definitions with package manager preferences
@@ -62,12 +62,133 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Shim detection for mise, bun, scoop, go-install
     - Platform support: Tested on macOS; Linux/Windows implementations present
     - Documentation: `docs/guides/goneat-tools-cicd-runner-support.md`
+  - **Hardcoded Tools Removal** (Phase 5A): Complete elimination of hidden defaults
+    - Removed `KnownInfrastructureTools()`, `KnownSecurityTools()`, `KnownFormatTools()`, `KnownAllTools()` functions
+    - Removed `ensureCoreScopes()` function that forced foundation tools back in
+    - Removed all runtime merging of hardcoded tool definitions
+    - Deprecated `internal/doctor/tools-defaults.yaml` (replaced by foundation-tools-defaults.yaml)
+    - All tests passing with no hardcoded tool dependencies
 
-- **Breaking Change**: Hardcoded tool defaults removed
-  - `.goneat/tools.yaml` is now required (was optional with hidden defaults)
-  - Run `goneat doctor tools init` to generate configuration
+- **Package Manager Research Documentation**: Arch Eagle research on CI runner brew support
+  - Document: `docs/reference/tools-packaging-ci-runner-reference.md`
+  - Analysis of brew sudo requirements on CI runners (GitHub Actions, GitLab CI, etc.)
+  - Recommendations for sudo-free package managers in CI environments
+  - Alternative approaches: mise, bun, scoop, language-native package managers
+
+### Changed
+
+- **Tools Configuration Now Required**: Breaking change - `.goneat/tools.yaml` is now mandatory
+  - **Before v0.3.7**: Hidden defaults merged at runtime, unconditional foundation tools
+  - **After v0.3.7**: Explicit configuration required, no hidden defaults
+  - **Migration**: Run `goneat doctor tools init` to generate configuration
+  - **CI/CD Impact**: Pipelines must initialize tools config before using `goneat doctor tools`
   - Error message guides users to init command if file missing
-  - Migration: Existing repos must run init or manually create config
+
+- **STDOUT Hygiene Enforcement**: Fixed output pollution breaking structured data consumers
+  - Changed `logger.Info` to `logger.Debug` in path_manager.go (line 142)
+  - **Issue**: Logger output was polluting STDOUT, breaking JSON consumers and tests
+  - **Impact**: TestSecurity_Gitleaks_Smoke test was failing due to stdout pollution
+  - **Fix**: Debug messages now go to STDERR via logger.Debug
+  - Aligns with Go coding standards: STDOUT for data, STDERR for logs
+
+### Fixed
+
+- **STDOUT Pollution in PATH Manager**: Fixed logger.Info calls breaking structured output
+  - Test failure: `TestSecurity_Gitleaks_Smoke` was failing due to unexpected STDOUT
+  - Root cause: path_manager.go line 142 using logger.Info for debug messages
+  - Solution: Changed to logger.Debug to preserve STDOUT cleanliness
+  - Impact: All security tests now passing, JSON output clean
+
+### Breaking Changes & Migration Guide
+
+#### What Changed
+
+**Old Behavior** (v0.3.6 and earlier):
+- Foundation tools (go, ripgrep, jq, yq) were **hardcoded** in three locations
+- `goneat doctor tools` **automatically included** these tools without user control
+- **Hidden runtime merging** of defaults even if user tried to remove them
+- **No way to opt-out** for CI/CD environments
+- Tools installed via brew (**requires sudo** on both macOS and Linux now)
+
+**New Behavior** (v0.3.7+):
+- **Explicit configuration required**: Must run `goneat doctor tools init` first
+- **Single source of truth**: Only `.goneat/tools.yaml` is used (no hidden defaults)
+- **Full user control**: Edit, customize, or minimize tool list as needed
+- **CI-safe options**: `--minimal` flag generates sudo-free, language-native tools only
+- **Sudo-free package managers**: Prefer bun, mise, scoop/winget over brew
+
+#### Migration Steps
+
+**For CI/CD Pipelines** (Critical - prevents sudo errors):
+
+```bash
+# One-time setup (commit .goneat/tools.yaml to repo)
+goneat doctor tools init --minimal  # CI-safe, no sudo required
+git add .goneat/tools.yaml
+git commit -m "chore: add goneat tools config (v0.3.7)"
+
+# CI workflow (uses committed config)
+goneat doctor tools --install --yes
+# ✅ Now works without sudo - only uses go-install
+```
+
+**For Local Development**:
+
+```bash
+# One-time setup per repository
+goneat doctor tools init                # Auto-detects repo type, generates full config
+git add .goneat/tools.yaml
+git commit -m "chore: configure goneat tools"
+
+# Day-to-day usage (unchanged)
+goneat doctor tools --install           # Install missing tools
+```
+
+**For Existing Repos with Custom Tools**:
+
+```bash
+# Initialize with auto-detection
+goneat doctor tools init --force        # Overwrites existing config
+
+# Or manually add to existing .goneat/tools.yaml
+# See docs/appnotes/tools-runner-usage.md for examples
+```
+
+#### Affected Commands
+
+- `goneat doctor tools` - Now **requires** `.goneat/tools.yaml` (error if missing)
+- `goneat doctor tools --scope foundation` - Uses config, not hardcoded defaults
+- `make bootstrap` - Must initialize tools config first (update Makefiles)
+
+#### Error Messages
+
+If `.goneat/tools.yaml` doesn't exist:
+
+```
+❌ Error: .goneat/tools.yaml not found
+
+This file defines which tools goneat should manage for this repository.
+
+Initialize with:
+  goneat doctor tools init           # Recommended defaults for your repo type
+  goneat doctor tools init --minimal # CI-safe (only language-native tools)
+
+For more info: goneat doctor tools init --help
+```
+
+#### Recommended Actions
+
+1. **CI/CD Pipelines**: Update to run `goneat doctor tools init --minimal` before bootstrap
+2. **Local Development**: Run `goneat doctor tools init` and commit the generated config
+3. **Makefiles**: Add `bootstrap-init` target for one-time setup (see planning doc for examples)
+4. **Documentation**: Update README/setup guides with init command requirement
+
+### See Also
+
+- **Migration Guide**: `docs/appnotes/tools-runner-usage.md` (updated for v0.3.7)
+- **Package Managers**: `docs/guides/package-managers.md` (new in v0.3.7)
+- **Planning Document**: `.plans/active/v0.3.7/foundation-tools-package-managers.md`
+- **CI Runner Research**: `docs/reference/tools-packaging-ci-runner-reference.md`
 
 ## [0.3.6] - 2025-11-12
 

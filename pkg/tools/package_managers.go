@@ -2,7 +2,9 @@ package tools
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -19,6 +21,44 @@ type PackageManager interface {
 	IsSupportedOnCurrentPlatform() bool
 }
 
+// BrewLocation represents different types of Homebrew installations.
+type BrewLocation int
+
+const (
+	// BrewNotFound indicates no Homebrew installation was detected
+	BrewNotFound BrewLocation = iota
+	// BrewSystemAppleSilicon indicates Homebrew at /opt/homebrew (Apple Silicon macOS)
+	BrewSystemAppleSilicon
+	// BrewSystemIntel indicates Homebrew at /usr/local (Intel macOS)
+	BrewSystemIntel
+	// BrewSystemLinux indicates Homebrew at /home/linuxbrew/.linuxbrew (Linux standard)
+	BrewSystemLinux
+	// BrewUserLocal indicates Homebrew at $HOME/homebrew-local (user-local installation)
+	BrewUserLocal
+	// BrewCustom indicates Homebrew in PATH but at non-standard location
+	BrewCustom
+)
+
+// String returns the string representation of BrewLocation.
+func (l BrewLocation) String() string {
+	switch l {
+	case BrewNotFound:
+		return "not_found"
+	case BrewSystemAppleSilicon:
+		return "system_apple_silicon"
+	case BrewSystemIntel:
+		return "system_intel"
+	case BrewSystemLinux:
+		return "system_linux"
+	case BrewUserLocal:
+		return "user_local"
+	case BrewCustom:
+		return "custom"
+	default:
+		return "unknown"
+	}
+}
+
 // BrewManager implements PackageManager for Homebrew.
 type BrewManager struct{}
 
@@ -28,9 +68,10 @@ func (b *BrewManager) Name() string {
 }
 
 // IsAvailable checks if brew is in PATH and executable.
+// Uses enhanced detection to find system, user-local, or custom brew installations.
 func (b *BrewManager) IsAvailable() bool {
-	_, err := exec.LookPath("brew")
-	return err == nil
+	loc, _, err := DetectBrew()
+	return err == nil && loc != BrewNotFound
 }
 
 // Version returns the brew version string.
@@ -264,4 +305,117 @@ func GetAllPackageManagerStatuses() []*PackageManagerStatus {
 	}
 
 	return statuses
+}
+
+// DetectBrew detects Homebrew installations with hierarchy preference.
+// Returns the location type, path to brew binary, and any error.
+// Detection order (highest to lowest preference):
+//  1. System brew (Apple Silicon, Intel, Linux standard locations)
+//  2. User-local brew ($HOME/homebrew-local)
+//  3. Custom location via PATH
+func DetectBrew() (BrewLocation, string, error) {
+	// 1. Check standard system locations first (most common, best performance)
+	systemPaths := []struct {
+		loc  BrewLocation
+		path string
+	}{
+		{BrewSystemAppleSilicon, "/opt/homebrew/bin/brew"},
+		{BrewSystemIntel, "/usr/local/bin/brew"},
+		{BrewSystemLinux, "/home/linuxbrew/.linuxbrew/bin/brew"},
+	}
+
+	for _, candidate := range systemPaths {
+		if fileExists(candidate.path) {
+			logger.Debug("detected system brew",
+				logger.String("location", candidate.loc.String()),
+				logger.String("path", candidate.path))
+			return candidate.loc, candidate.path, nil
+		}
+	}
+
+	// 2. Check user-local installation ($HOME/homebrew-local)
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		logger.Debug("failed to get home directory", logger.Err(err))
+	} else {
+		userLocalPath := filepath.Join(homeDir, "homebrew-local", "bin", "brew")
+		if fileExists(userLocalPath) {
+			logger.Debug("detected user-local brew",
+				logger.String("location", BrewUserLocal.String()),
+				logger.String("path", userLocalPath))
+			return BrewUserLocal, userLocalPath, nil
+		}
+	}
+
+	// 3. Check PATH for custom installation
+	brewPath, err := exec.LookPath("brew")
+	if err == nil {
+		// Found in PATH - determine location type from path
+		loc := classifyBrewPath(brewPath)
+		logger.Debug("detected brew in PATH",
+			logger.String("location", loc.String()),
+			logger.String("path", brewPath))
+		return loc, brewPath, nil
+	}
+
+	// No brew found
+	logger.Debug("no brew installation detected")
+	return BrewNotFound, "", fmt.Errorf("brew not found")
+}
+
+// GetBrewPrefix returns the HOMEBREW_PREFIX for a given brew location.
+func GetBrewPrefix(loc BrewLocation) string {
+	switch loc {
+	case BrewSystemAppleSilicon:
+		return "/opt/homebrew"
+	case BrewSystemIntel:
+		return "/usr/local"
+	case BrewSystemLinux:
+		return "/home/linuxbrew/.linuxbrew"
+	case BrewUserLocal:
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return ""
+		}
+		return filepath.Join(homeDir, "homebrew-local")
+	default:
+		return ""
+	}
+}
+
+// IsUserLocalBrew checks if the given brew path is a user-local installation.
+func IsUserLocalBrew(brewPath string) bool {
+	if brewPath == "" {
+		return false
+	}
+	return strings.Contains(brewPath, "homebrew-local")
+}
+
+// classifyBrewPath determines the BrewLocation type from a brew binary path.
+func classifyBrewPath(brewPath string) BrewLocation {
+	if strings.Contains(brewPath, "/opt/homebrew") {
+		return BrewSystemAppleSilicon
+	}
+	if strings.Contains(brewPath, "/usr/local") && !strings.Contains(brewPath, "homebrew-local") {
+		return BrewSystemIntel
+	}
+	if strings.Contains(brewPath, "/home/linuxbrew") {
+		return BrewSystemLinux
+	}
+	if strings.Contains(brewPath, "homebrew-local") {
+		return BrewUserLocal
+	}
+	return BrewCustom
+}
+
+// fileExists checks if a file exists and is accessible.
+func fileExists(path string) bool {
+	if path == "" {
+		return false
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return !info.IsDir()
 }

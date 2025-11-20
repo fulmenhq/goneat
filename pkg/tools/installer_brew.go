@@ -2,7 +2,9 @@ package tools
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/fulmenhq/goneat/pkg/logger"
@@ -26,13 +28,26 @@ func NewBrewInstaller(tool *Tool, config *PackageManagerInstall, dryRun bool) *B
 
 // Install executes the brew installation.
 func (b *BrewInstaller) Install() (*InstallResult, error) {
-	// 1. Check brew availability
-	mgr := &BrewManager{}
-	if !mgr.IsAvailable() {
-		return nil, fmt.Errorf("brew not found in PATH; install from %s", mgr.InstallationURL())
+	// 1. Check brew availability and detect location
+	loc, brewPath, err := DetectBrew()
+	if err != nil || loc == BrewNotFound {
+		mgr := &BrewManager{}
+		return nil, fmt.Errorf("brew not found; install from %s", mgr.InstallationURL())
 	}
 
-	logger.Debug("brew detected", logger.String("tool", b.tool.Name))
+	logger.Debug("brew detected",
+		logger.String("tool", b.tool.Name),
+		logger.String("location", loc.String()),
+		logger.String("path", brewPath))
+
+	// 2. Setup environment for user-local brew if needed
+	if loc == BrewUserLocal {
+		if err := b.setupUserLocalEnvironment(); err != nil {
+			logger.Warn("failed to setup user-local brew environment",
+				logger.Err(err))
+			// Continue anyway - brew might still work
+		}
+	}
 
 	// 2. Setup tap if specified
 	if b.config.Tap != "" {
@@ -176,4 +191,32 @@ func (b *BrewInstaller) verifyInstallation() (string, error) {
 	}
 
 	return binaryPath, nil
+}
+
+// setupUserLocalEnvironment configures environment variables for user-local brew.
+// Sets HOMEBREW_PREFIX, HOMEBREW_CELLAR, and HOMEBREW_REPOSITORY for proper operation.
+func (b *BrewInstaller) setupUserLocalEnvironment() error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	prefix := filepath.Join(homeDir, "homebrew-local")
+
+	// Set environment variables for user-local brew
+	// These are used by brew to locate its installation directory
+	if err := os.Setenv("HOMEBREW_PREFIX", prefix); err != nil {
+		return fmt.Errorf("failed to set HOMEBREW_PREFIX: %w", err)
+	}
+	if err := os.Setenv("HOMEBREW_CELLAR", filepath.Join(prefix, "Cellar")); err != nil {
+		return fmt.Errorf("failed to set HOMEBREW_CELLAR: %w", err)
+	}
+	if err := os.Setenv("HOMEBREW_REPOSITORY", filepath.Join(prefix, "Homebrew")); err != nil {
+		return fmt.Errorf("failed to set HOMEBREW_REPOSITORY: %w", err)
+	}
+
+	logger.Debug("configured user-local brew environment",
+		logger.String("prefix", prefix))
+
+	return nil
 }

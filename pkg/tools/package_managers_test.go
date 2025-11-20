@@ -501,3 +501,213 @@ func TestScoopManager_Version(t *testing.T) {
 	}
 	t.Logf("scoop version: %s", version)
 }
+
+// TestBrewLocation_String tests BrewLocation string representation.
+func TestBrewLocation_String(t *testing.T) {
+	tests := []struct {
+		loc      BrewLocation
+		expected string
+	}{
+		{BrewNotFound, "not_found"},
+		{BrewSystemAppleSilicon, "system_apple_silicon"},
+		{BrewSystemIntel, "system_intel"},
+		{BrewSystemLinux, "system_linux"},
+		{BrewUserLocal, "user_local"},
+		{BrewCustom, "custom"},
+		{BrewLocation(999), "unknown"}, // Invalid value
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.expected, func(t *testing.T) {
+			result := tt.loc.String()
+			if result != tt.expected {
+				t.Errorf("expected '%s', got '%s'", tt.expected, result)
+			}
+		})
+	}
+}
+
+// TestClassifyBrewPath tests brew path classification logic.
+func TestClassifyBrewPath(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		expected BrewLocation
+	}{
+		{
+			name:     "apple_silicon",
+			path:     "/opt/homebrew/bin/brew",
+			expected: BrewSystemAppleSilicon,
+		},
+		{
+			name:     "intel_mac",
+			path:     "/usr/local/bin/brew",
+			expected: BrewSystemIntel,
+		},
+		{
+			name:     "linux_standard",
+			path:     "/home/linuxbrew/.linuxbrew/bin/brew",
+			expected: BrewSystemLinux,
+		},
+		{
+			name:     "user_local",
+			path:     "/Users/dave/homebrew-local/bin/brew",
+			expected: BrewUserLocal,
+		},
+		{
+			name:     "user_local_linux",
+			path:     "/home/dave/homebrew-local/bin/brew",
+			expected: BrewUserLocal,
+		},
+		{
+			name:     "custom_path",
+			path:     "/custom/location/brew",
+			expected: BrewCustom,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := classifyBrewPath(tt.path)
+			if result != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected.String(), result.String())
+			}
+		})
+	}
+}
+
+// TestGetBrewPrefix tests prefix generation for different brew locations.
+func TestGetBrewPrefix(t *testing.T) {
+	tests := []struct {
+		name     string
+		loc      BrewLocation
+		expected string
+	}{
+		{
+			name:     "apple_silicon",
+			loc:      BrewSystemAppleSilicon,
+			expected: "/opt/homebrew",
+		},
+		{
+			name:     "intel",
+			loc:      BrewSystemIntel,
+			expected: "/usr/local",
+		},
+		{
+			name:     "linux",
+			loc:      BrewSystemLinux,
+			expected: "/home/linuxbrew/.linuxbrew",
+		},
+		{
+			name:     "user_local",
+			loc:      BrewUserLocal,
+			expected: "", // Will be $HOME/homebrew-local, but we can't predict $HOME in tests
+		},
+		{
+			name:     "not_found",
+			loc:      BrewNotFound,
+			expected: "",
+		},
+		{
+			name:     "custom",
+			loc:      BrewCustom,
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := GetBrewPrefix(tt.loc)
+			if tt.loc == BrewUserLocal {
+				// For user-local, just verify it contains homebrew-local
+				if !strings.Contains(result, "homebrew-local") {
+					t.Errorf("expected path containing 'homebrew-local', got '%s'", result)
+				}
+			} else {
+				if result != tt.expected {
+					t.Errorf("expected '%s', got '%s'", tt.expected, result)
+				}
+			}
+		})
+	}
+}
+
+// TestIsUserLocalBrew tests user-local brew detection.
+func TestIsUserLocalBrew(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		expected bool
+	}{
+		{
+			name:     "user_local_mac",
+			path:     "/Users/dave/homebrew-local/bin/brew",
+			expected: true,
+		},
+		{
+			name:     "user_local_linux",
+			path:     "/home/dave/homebrew-local/bin/brew",
+			expected: true,
+		},
+		{
+			name:     "system_apple_silicon",
+			path:     "/opt/homebrew/bin/brew",
+			expected: false,
+		},
+		{
+			name:     "system_intel",
+			path:     "/usr/local/bin/brew",
+			expected: false,
+		},
+		{
+			name:     "system_linux",
+			path:     "/home/linuxbrew/.linuxbrew/bin/brew",
+			expected: false,
+		},
+		{
+			name:     "empty_path",
+			path:     "",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := IsUserLocalBrew(tt.path)
+			if result != tt.expected {
+				t.Errorf("expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
+
+// TestFileExists tests the fileExists helper function.
+func TestFileExists(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		expected bool
+	}{
+		{
+			name:     "empty_path",
+			path:     "",
+			expected: false,
+		},
+		{
+			name:     "nonexistent_file",
+			path:     "/nonexistent/path/to/nowhere",
+			expected: false,
+		},
+		// Note: Testing existing files would be environment-specific
+		// so we only test the failure cases here
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := fileExists(tt.path)
+			if result != tt.expected {
+				t.Errorf("expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
