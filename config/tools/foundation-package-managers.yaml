@@ -79,20 +79,22 @@ package_managers:
   - name: brew
     description: "Homebrew - Package manager for macOS and Linux"
     platforms: ["darwin", "linux"]
-    requires_sudo:
-      darwin: true  # System brew requires sudo; user-local ($HOME/homebrew-local) is sudo-free
-      linux: true   # System brew requires sudo; user-local ($HOME/homebrew-local) is sudo-free
+    requires_sudo: false
     requires_path_update: false
     requires_prerequisites: []
     safe_for_languages: ["all"]
     install_method: "bash"
     install_command: '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
-    auto_install_safe: false  # System brew requires sudo; Phase 2 (v0.4.0) will add user-local auto-install
+    auto_install_safe: true
+    installation:
+      method: user_local_script
+      description: "Installs to $HOME/homebrew-local (no sudo required)"
+      default_prefix: "$HOME/homebrew-local"
     detection_command: "brew --version"
     detection_notes: "Enhanced detection (v0.3.7+) supports system (/opt/homebrew, /usr/local, /home/linuxbrew) and user-local ($HOME/homebrew-local) installations"
     priority: 5  # Elevated from 10: user-local brew is sudo-free and CI-safe
     recommended: true  # User-local brew is recommended; runtime detection determines sudo requirement
-    notes: "System brew requires sudo; user-local brew ($HOME/homebrew-local) is sudo-free and CI-safe. Runtime detection (BrewInstaller) automatically configures environment for user-local installations."
+    notes: "User-local installation only. Runtime detection supports system brew for existing installations, but auto-install always uses user-local method."
 
   # Built-in language package managers
   - name: go-install

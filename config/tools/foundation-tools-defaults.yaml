@@ -199,6 +199,11 @@ typescript_tools:
 
 # Scopes define which tools to include for each scope
 scopes:
+  bootstrap:
+    description: "Minimal package managers for CI/CD bootstrap"
+    # No tools yet - package managers install via auto-install logic
+    # Tools will be installed in subsequent steps
+
   foundation:
     description: "Core foundation tools required for goneat and basic AI agent operation"
     tools:

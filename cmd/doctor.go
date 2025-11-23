@@ -20,6 +20,7 @@ import (
 	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/fulmenhq/goneat/pkg/buildinfo"
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/tools"
 	"github.com/fulmenhq/goneat/pkg/tools/metadata"
 	"github.com/spf13/cobra"
 )
@@ -149,18 +150,17 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 		return handleDryRun(cmd)
 	}
 
-	// Handle --install-package-managers flag
-	if flagDoctorInstallPkgMgr {
-		return handleInstallPackageManagers(cmd)
-	}
-
-	// Display package manager status (non-verbose mode)
-	displayPackageManagerStatus(cmd)
-
-	// Load configuration
+	// Load configuration early for auto-install
 	config, err := loadToolsConfiguration()
 	if err != nil {
 		return fmt.Errorf("failed to load tools configuration: %w", err)
+	}
+
+	// Auto-install missing package managers if --install flag set (before tool checks)
+	if flagDoctorInstall && !flagDoctorDryRun {
+		if err := autoInstallPackageManagers(cmd); err != nil {
+			logger.Warn("Package manager auto-install failed", logger.Err(err))
+		}
 	}
 
 	// If in GitHub Actions and we're installing tools, automatically update GITHUB_PATH
@@ -1209,6 +1209,8 @@ func countVersionConflicts(installations []GoneatInstallation, currentVersion st
 }
 
 // displayPackageManagerStatus shows package manager availability.
+//
+//nolint:unused // This function might be useful for future diagnostics even if currently unused
 func displayPackageManagerStatus(cmd *cobra.Command) {
 	statuses := intdoctor.GetAllPackageManagerStatuses()
 	if len(statuses) == 0 {
@@ -1229,18 +1231,66 @@ func displayPackageManagerStatus(cmd *cobra.Command) {
 	fmt.Fprintln(cmd.OutOrStdout()) //nolint:errcheck // CLI output errors are typically ignored
 }
 
-// handleInstallPackageManagers handles the --install-package-managers flag.
-func handleInstallPackageManagers(cmd *cobra.Command) error {
-	// Currently only warn that auto-install is not implemented
-	fmt.Fprintln(cmd.OutOrStdout(), "⚠️  Package manager auto-install is not yet implemented.") //nolint:errcheck // CLI output errors are typically ignored
-	fmt.Fprintln(cmd.OutOrStdout())                                                             //nolint:errcheck // CLI output errors are typically ignored
-	fmt.Fprintln(cmd.OutOrStdout(), "Please install package managers manually:")                //nolint:errcheck // CLI output errors are typically ignored
-	fmt.Fprintln(cmd.OutOrStdout(), "  • Homebrew (macOS/Linux): https://brew.sh")              //nolint:errcheck // CLI output errors are typically ignored
-	fmt.Fprintln(cmd.OutOrStdout(), "  • Scoop (Windows): https://scoop.sh")                    //nolint:errcheck // CLI output errors are typically ignored
-	fmt.Fprintln(cmd.OutOrStdout())                                                             //nolint:errcheck // CLI output errors are typically ignored
+func autoInstallPackageManagers(cmd *cobra.Command) error {
+	// Load package manager config
+	pmConfig, err := intdoctor.LoadPackageManagersConfig()
+	if err != nil {
+		return err
+	}
 
-	// Display current status
-	displayPackageManagerStatus(cmd)
+	// Load tools config to check if brew is needed
+	config, err := loadToolsConfiguration()
+	if err != nil {
+		return err
+	}
+
+	// Check if brew is needed and safe to auto-install
+	if needsBrew(config) && getBrewAutoInstallSafe(pmConfig) {
+		loc, _, err := tools.DetectBrew()
+		if err == nil && loc != tools.BrewNotFound {
+			return nil
+		}
+
+		logger.Info("Auto-installing user-local Homebrew...")
+
+		interactive := !isCI() && !flagDoctorYes
+		if err := tools.InstallUserLocalBrew("", interactive, false); err != nil {
+			return fmt.Errorf("failed to auto-install brew: %w", err)
+		}
+
+		logger.Info("Brew auto-install completed")
+	}
 
 	return nil
+}
+
+func needsBrew(cfg *intdoctor.ToolsConfig) bool {
+	platform := runtime.GOOS
+	if scope, ok := cfg.Scopes["foundation"]; ok {
+		for _, toolName := range scope.Tools {
+			if toolConfig, exists := cfg.Tools[toolName]; exists {
+				if installerPriority, ok := toolConfig.InstallerPriority[platform]; ok {
+					for _, pm := range installerPriority {
+						if pm == "brew" {
+							return true
+						}
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+func getBrewAutoInstallSafe(pmConfig *intdoctor.PackageManagersConfig) bool {
+	for _, pm := range pmConfig.PackageManagers {
+		if pm.Name == "brew" {
+			return pm.IsAutoInstallSafeOnPlatform(runtime.GOOS)
+		}
+	}
+	return false
+}
+
+func isCI() bool {
+	return os.Getenv("CI") != ""
 }

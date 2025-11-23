@@ -1,11 +1,18 @@
 package cmd
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"os"
 	"runtime"
 
+	"strings"
+	"time"
+
 	"github.com/fulmenhq/goneat/internal/doctor"
+	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/tools"
 	"github.com/spf13/cobra"
 )
 
@@ -15,19 +22,16 @@ var packageManagersCmd = &cobra.Command{
 	Long: `Check which package managers are installed and show goneat's opinionated recommendations.
 
 This command helps you understand:
-- Which package managers are installed on your system
-- Which package managers goneat recommends (sudo-free, multi-language support)
-- Which package managers require sudo/admin privileges
-- How to install recommended package managers (v0.3.7 - manual installation only)
-
-Examples:
-  goneat doctor package-managers                    # Show all package managers
-  goneat doctor package-managers --recommended      # Show only recommended ones
-  goneat doctor package-managers --json             # JSON output for automation`,
+ - Which package managers are installed on your system
+ - Which package managers goneat recommends (sudo-free, multi-language support)
+ - Which package managers require sudo/admin privileges
+ - How to install recommended package managers`,
 	RunE: runPackageManagers,
 }
 
 var (
+	flagBrewPrefix    string
+	flagBrewForce     bool
 	pmRecommendedOnly bool
 	pmJSONFormat      bool
 )
@@ -36,6 +40,29 @@ func init() {
 	doctorCmd.AddCommand(packageManagersCmd)
 	packageManagersCmd.Flags().BoolVar(&pmRecommendedOnly, "recommended", false, "Show only recommended package managers")
 	packageManagersCmd.Flags().BoolVar(&pmJSONFormat, "json", false, "Output in JSON format")
+
+	// Install parent command
+	installCmd := &cobra.Command{
+		Use:   "install",
+		Short: "Install package managers",
+	}
+	packageManagersCmd.AddCommand(installCmd)
+
+	// Install brew subcommand
+	installBrewCmd := &cobra.Command{
+		Use:   "brew",
+		Short: "Install Homebrew (user-local)",
+		Long: `Installs Homebrew to $HOME/homebrew-local (no sudo required).
+
+Auto-detection in CI:
+  Detects $CI environment variable and skips interactive prompts.`,
+		Args: cobra.NoArgs,
+		RunE: installBrew,
+	}
+	installBrewCmd.Flags().StringVar(&flagBrewPrefix, "prefix", "", "Installation prefix (default: $HOME/homebrew-local)")
+	installBrewCmd.Flags().BoolVar(&flagBrewForce, "force", false, "Force reinstallation if already exists")
+	installBrewCmd.Flags().BoolVarP(&flagDoctorYes, "yes", "y", false, "Skip confirmation prompts (auto-yes in CI)")
+	installCmd.AddCommand(installBrewCmd)
 }
 
 type packageManagerStatus struct {
@@ -75,7 +102,6 @@ func runPackageManagers(cmd *cobra.Command, args []string) error {
 		pms = doctor.DetectAllPackageManagers(config)
 	}
 
-	// Build output structure
 	output := packageManagersOutput{
 		Platform:        platform,
 		TotalDetected:   len(pms),
@@ -115,61 +141,55 @@ func runPackageManagers(cmd *cobra.Command, args []string) error {
 	return outputPackageManagersConsole(cmd, output)
 }
 
-func outputPackageManagersJSON(cobraCmd *cobra.Command, output packageManagersOutput) error {
-	encoder := json.NewEncoder(cobraCmd.OutOrStdout())
+func outputPackageManagersJSON(cmd *cobra.Command, output packageManagersOutput) error {
+	encoder := json.NewEncoder(cmd.OutOrStdout())
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(output)
 }
 
-func outputPackageManagersConsole(cobraCmd *cobra.Command, output packageManagersOutput) error {
-	// Header
-	_, _ = fmt.Fprintf(cobraCmd.OutOrStdout(), "\nPackage Managers Status (%s)\n", output.Platform)
-	_, _ = fmt.Fprintf(cobraCmd.OutOrStdout(), "═══════════════════════════════════════════════════════════════════════\n\n")
+func outputPackageManagersConsole(cmd *cobra.Command, output packageManagersOutput) error {
+	fmt.Fprintf(cmd.OutOrStdout(), "\nPackage Managers Status (%s)\n", output.Platform)                           //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintf(cmd.OutOrStdout(), "═══════════════════════════════════════════════════════════════════════\n\n") //nolint:errcheck // CLI output errors are typically ignored
 
-	// Summary
-	_, _ = fmt.Fprintf(cobraCmd.OutOrStdout(), "📊 Summary:\n")
-	_, _ = fmt.Fprintf(cobraCmd.OutOrStdout(), "   Total detected:  %d\n", output.TotalDetected)
-	_, _ = fmt.Fprintf(cobraCmd.OutOrStdout(), "   Installed:       %d\n", output.TotalInstalled)
-	_, _ = fmt.Fprintf(cobraCmd.OutOrStdout(), "   Recommended:     %d\n", output.RecommendedCount)
-	_, _ = fmt.Fprintln(cobraCmd.OutOrStdout())
+	fmt.Fprintf(cmd.OutOrStdout(), "📊 Summary:\n")                                      //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintf(cmd.OutOrStdout(), "   Total detected:  %d\n", output.TotalDetected)    //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintf(cmd.OutOrStdout(), "   Installed:       %d\n", output.TotalInstalled)   //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintf(cmd.OutOrStdout(), "   Recommended:     %d\n", output.RecommendedCount) //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintln(cmd.OutOrStdout())                                                     //nolint:errcheck // CLI output errors are typically ignored
 
-	// Recommended section
 	recommendedPMs := filterRecommended(output.PackageManagers)
 	if len(recommendedPMs) > 0 {
-		_, _ = fmt.Fprintln(cobraCmd.OutOrStdout(), "✨ Recommended Package Managers (sudo-free, opinionated)")
-		_, _ = fmt.Fprintln(cobraCmd.OutOrStdout())
+		fmt.Fprintln(cmd.OutOrStdout(), "✨ Recommended Package Managers (sudo-free, opinionated)") //nolint:errcheck // CLI output errors are typically ignored
+		fmt.Fprintln(cmd.OutOrStdout())                                                            //nolint:errcheck // CLI output errors are typically ignored
 
 		for _, pm := range recommendedPMs {
-			printPackageManager(cobraCmd, pm, true)
+			printPackageManager(cmd, pm, true)
 		}
 	}
 
-	// Other package managers
 	if !pmRecommendedOnly {
 		otherPMs := filterNotRecommended(output.PackageManagers)
 		if len(otherPMs) > 0 {
-			_, _ = fmt.Fprintln(cobraCmd.OutOrStdout())
-			_, _ = fmt.Fprintln(cobraCmd.OutOrStdout(), "📦 Other Package Managers")
-			_, _ = fmt.Fprintln(cobraCmd.OutOrStdout())
+			fmt.Fprintln(cmd.OutOrStdout())                             //nolint:errcheck // CLI output errors are typically ignored
+			fmt.Fprintln(cmd.OutOrStdout(), "📦 Other Package Managers") //nolint:errcheck // CLI output errors are typically ignored
+			fmt.Fprintln(cmd.OutOrStdout())                             //nolint:errcheck // CLI output errors are typically ignored
 
 			for _, pm := range otherPMs {
-				printPackageManager(cobraCmd, pm, false)
+				printPackageManager(cmd, pm, false)
 			}
 		}
 	}
 
-	// Footer
-	_, _ = fmt.Fprintln(cobraCmd.OutOrStdout())
-	_, _ = fmt.Fprintln(cobraCmd.OutOrStdout(), "───────────────────────────────────────────────────────────────────────")
-	_, _ = fmt.Fprintln(cobraCmd.OutOrStdout(), "💡 Tip: Use --recommended to see only goneat's opinionated recommendations")
-	_, _ = fmt.Fprintln(cobraCmd.OutOrStdout(), "💡 Tip: Use --json for machine-readable output")
-	_, _ = fmt.Fprintf(cobraCmd.OutOrStdout(), "💡 Note: v0.3.7 shows installation instructions only - auto-install coming in v0.4.0\n")
+	fmt.Fprintln(cmd.OutOrStdout())                                                                                       //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintln(cmd.OutOrStdout(), "───────────────────────────────────────────────────────────────────────")            //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintln(cmd.OutOrStdout(), "💡 Tip: Use --recommended to see only goneat's opinionated recommendations")          //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintln(cmd.OutOrStdout(), "💡 Tip: Use --json for machine-readable output")                                      //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintf(cmd.OutOrStdout(), "💡 Note: Auto-install available: goneat doctor package-managers install brew --yes\n") //nolint:errcheck // CLI output errors are typically ignored
 
 	return nil
 }
 
-func printPackageManager(cobraCmd *cobra.Command, pm packageManagerStatus, detailed bool) {
-	// Status icon and name
+func printPackageManager(cmd *cobra.Command, pm packageManagerStatus, detailed bool) {
 	statusIcon := "✗"
 	if pm.Installed {
 		statusIcon = "✓"
@@ -180,43 +200,37 @@ func printPackageManager(cobraCmd *cobra.Command, pm packageManagerStatus, detai
 		statusText = fmt.Sprintf("(%s)", pm.Version)
 	}
 
-	_, _ = fmt.Fprintf(cobraCmd.OutOrStdout(), "%s %s %s\n", statusIcon, pm.Name, statusText)
+	fmt.Fprintf(cmd.OutOrStdout(), "%s %s %s\n", statusIcon, pm.Name, statusText) //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintf(cmd.OutOrStdout(), "  %s\n", pm.Description)                      //nolint:errcheck // CLI output errors are typically ignored
 
-	// Description
-	_, _ = fmt.Fprintf(cobraCmd.OutOrStdout(), "  %s\n", pm.Description)
-
-	// Key attributes
 	if pm.RequiresSudo {
-		_, _ = fmt.Fprintf(cobraCmd.OutOrStdout(), "  ⚠️  Requires sudo/admin privileges\n")
+		fmt.Fprintf(cmd.OutOrStdout(), "  ⚠️  Requires sudo/admin privileges\n") //nolint:errcheck // CLI output errors are typically ignored
 	} else {
-		_, _ = fmt.Fprintf(cobraCmd.OutOrStdout(), "  ✓ Sudo-free installation\n")
+		fmt.Fprintf(cmd.OutOrStdout(), "  ✓ Sudo-free installation\n") //nolint:errcheck // CLI output errors are typically ignored
 	}
 
 	if detailed || !pm.Installed {
-		// Supported languages
 		if len(pm.SupportedLanguages) > 0 {
-			_, _ = fmt.Fprintf(cobraCmd.OutOrStdout(), "  Languages: %v\n", pm.SupportedLanguages)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Languages: %v\n", pm.SupportedLanguages) //nolint:errcheck // CLI output errors are typically ignored
 		}
 
-		// Installation instructions
 		if !pm.Installed {
-			_, _ = fmt.Fprintln(cobraCmd.OutOrStdout())
-			_, _ = fmt.Fprintf(cobraCmd.OutOrStdout(), "  📝 Installation (%s):\n", pm.InstallMethod)
+			fmt.Fprintln(cmd.OutOrStdout())                                              //nolint:errcheck // CLI output errors are typically ignored
+			fmt.Fprintf(cmd.OutOrStdout(), "  📝 Installation (%s):\n", pm.InstallMethod) //nolint:errcheck // CLI output errors are typically ignored
 
 			if pm.InstallCommand != "" {
-				_, _ = fmt.Fprintf(cobraCmd.OutOrStdout(), "     $ %s\n", pm.InstallCommand)
+				fmt.Fprintf(cmd.OutOrStdout(), "     $ %s\n", pm.InstallCommand) //nolint:errcheck // CLI output errors are typically ignored
 			} else {
-				_, _ = fmt.Fprintf(cobraCmd.OutOrStdout(), "     Manual installation required - see package manager documentation\n")
+				fmt.Fprintf(cmd.OutOrStdout(), "     Manual installation required - see package manager documentation\n") //nolint:errcheck // CLI output errors are typically ignored
 			}
 		}
 
-		// Notes
 		if pm.Notes != "" {
-			_, _ = fmt.Fprintf(cobraCmd.OutOrStdout(), "  ℹ️  %s\n", pm.Notes)
+			fmt.Fprintf(cmd.OutOrStdout(), "  ℹ️  %s\n", pm.Notes) //nolint:errcheck // CLI output errors are typically ignored
 		}
 	}
 
-	_, _ = fmt.Fprintln(cobraCmd.OutOrStdout())
+	fmt.Fprintln(cmd.OutOrStdout()) //nolint:errcheck // CLI output errors are typically ignored
 }
 
 func filterRecommended(pms []packageManagerStatus) []packageManagerStatus {
@@ -237,4 +251,55 @@ func filterNotRecommended(pms []packageManagerStatus) []packageManagerStatus {
 		}
 	}
 	return result
+}
+
+func installBrew(cmd *cobra.Command, args []string) error {
+	if !flagBrewForce {
+		loc, brewPath, err := tools.DetectBrew()
+		if err == nil && loc != tools.BrewNotFound {
+			logger.Info("Brew already installed", logger.String("location", loc.String()), logger.String("path", brewPath))
+			fmt.Fprintf(cmd.OutOrStdout(), "✅ Brew already installed at %s\n", brewPath) //nolint:errcheck // CLI output errors are typically ignored
+			fmt.Fprintln(cmd.OutOrStdout(), "Use --force to reinstall")                  //nolint:errcheck // CLI output errors are typically ignored
+			return nil
+		}
+	}
+
+	interactive := os.Getenv("CI") == "" && !flagDoctorYes
+
+	if interactive {
+		fmt.Fprintln(cmd.OutOrStdout(), "This will install Homebrew to a user-local directory (no sudo required)") //nolint:errcheck // CLI output errors are typically ignored
+		prefix := flagBrewPrefix
+		if prefix == "" {
+			prefix = "$HOME/homebrew-local"
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "Installation prefix: %s\n", prefix) //nolint:errcheck // CLI output errors are typically ignored
+		fmt.Fprintln(cmd.OutOrStdout())                                     //nolint:errcheck // CLI output errors are typically ignored
+
+		reader := bufio.NewReader(cmd.InOrStdin())
+		fmt.Fprint(cmd.OutOrStdout(), "Proceed with brew installation? [y/N] ") //nolint:errcheck // CLI output errors are typically ignored
+		line, _ := reader.ReadString('\n')
+		line = strings.ToLower(strings.TrimSpace(line))
+		if line != "y" && line != "yes" {
+			logger.Info("Brew installation cancelled by user")
+			return nil
+		}
+	}
+
+	logger.Info("Installing user-local Homebrew...")
+	start := time.Now()
+
+	if err := tools.InstallUserLocalBrew(flagBrewPrefix, interactive, false); err != nil {
+		return fmt.Errorf("brew installation failed: %w", err)
+	}
+
+	duration := time.Since(start)
+	logger.Info("Brew installation completed", logger.String("duration", fmt.Sprintf("%.1fs", duration.Seconds())))
+	fmt.Fprintf(cmd.OutOrStdout(), "✅ Homebrew installed successfully (%.1fs)\n", duration.Seconds())       //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintln(cmd.OutOrStdout())                                                                         //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintln(cmd.OutOrStdout(), "To activate in current shell:")                                        //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintf(cmd.OutOrStdout(), "  eval \"$(goneat doctor tools env --activate)\"\n")                    //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintln(cmd.OutOrStdout())                                                                         //nolint:errcheck // CLI output errors are typically ignored
+	fmt.Fprintln(cmd.OutOrStdout(), "In GitHub Actions, PATH is automatically updated with --install flag") //nolint:errcheck // CLI output errors are typically ignored
+
+	return nil
 }
