@@ -1,0 +1,93 @@
+name: Bootstrap Validation
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cmd/**'
+      - 'pkg/tools/**'
+      - 'config/tools/**'
+      - '.github/workflows/bootstrap-validation.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'cmd/**'
+      - 'pkg/tools/**'
+      - 'config/tools/**'
+      - '.github/workflows/bootstrap-validation.yml'
+  workflow_dispatch:
+jobs:
+  validate-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+      - name: Build goneat
+        run: make build
+      - name: Remove system Homebrew (to force auto-install)
+        run: |
+          sudo rm -rf /home/linuxbrew
+          sudo rm -rf /usr/local/bin/brew
+          # Ensure it's gone
+          if command -v brew &> /dev/null; then
+            echo "Brew still exists!"
+            exit 1
+          fi
+      - name: Run bootstrap scope (installs package managers)
+        run: |
+          # Run with --yes to accept all prompts/defaults
+          # This should trigger user-local brew installation
+          ./dist/goneat doctor tools --install --yes --scope bootstrap --verbose
+      - name: Verify user-local Homebrew
+        run: |
+          if [ -f "$HOME/homebrew-local/bin/brew" ]; then
+            echo "✅ User-local brew found"
+            $HOME/homebrew-local/bin/brew --version
+          else
+            echo "❌ User-local brew NOT found"
+            exit 1
+          fi
+      - name: Install foundation tools (uses new brew)
+        run: |
+          # Now install foundation tools which rely on brew
+          ./dist/goneat doctor tools --install --yes --scope foundation --verbose
+      - name: Verify installed tools
+        run: |
+          # Activate the new brew environment
+          eval "$($HOME/homebrew-local/bin/brew shellenv)"
+
+          # Check for a tool we expect to be installed (ripgrep)
+          if command -v rg &> /dev/null; then
+             echo "✅ ripgrep found"
+          else
+             echo "❌ ripgrep not found"
+             exit 1
+          fi
+  validate-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+      - name: Build goneat
+        run: make build
+      - name: Remove system Homebrew (to force auto-install)
+        run: "# macOS runners have brew pre-installed. \n# Uninstalling properly might be slow, let's just move it or unlink it to simulate absence\n# or we can skip this if it's too risky/slow on shared runners.\n# However, to test our code, we need it gone.\n\n# Force removal of the executable from path is a quick hack\nsudo rm -f /usr/local/bin/brew\nsudo rm -f /opt/homebrew/bin/brew\n\nif command -v brew &> /dev/null; then\n  echo \"Brew still exists!\"\n  exit 1\nfi\n"
+      - name: Run bootstrap (doctor tools --install)
+        run: |
+          ./dist/goneat doctor tools --install --yes --verbose
+      - name: Verify user-local Homebrew
+        run: |
+          if [ -f "$HOME/homebrew-local/bin/brew" ]; then
+            echo "✅ User-local brew found"
+            $HOME/homebrew-local/bin/brew --version
+          else
+            echo "❌ User-local brew NOT found"
+            exit 1
+          fi
