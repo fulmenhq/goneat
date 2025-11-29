@@ -205,6 +205,12 @@ gofmt -w .                          # ❌ Missing project-specific rules
 prettier --write .                  # ❌ Use goneat format instead
 ```
 
+##### SSOT Metadata & Provenance
+
+**DO**: After running `make prepush` or other SSOT sync targets, review `.crucible/metadata/metadata.yaml` and `.goneat/ssot/provenance.json` and commit the regenerated records once they match the current Crucible snapshot.
+
+**DO NOT**: Revert these files after a Crucible sync; doing so breaks provenance between embedded assets and the recorded SSOT.
+
 ##### Go Code Quality Standards
 
 **DO**: Follow STDOUT hygiene and logging standards (see [docs/crucible-go/standards/coding/README.md](docs/crucible-go/standards/coding/README.md) and [docs/crucible-go/standards/coding/go.md](docs/crucible-go/standards/coding/go.md))

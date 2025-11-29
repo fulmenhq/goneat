@@ -75,6 +75,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Recommendations for sudo-free package managers in CI environments
   - Alternative approaches: mise, bun, scoop, language-native package managers
 
+- **User-Local Homebrew Auto-Install**: Safe bootstrap path for hosted runners
+  - `goneat doctor tools --install` now prefers `~/homebrew` when Homebrew must be installed, avoiding `/usr/local` sudo flows
+  - Automatic detection and dogfooding ensure the repo itself validates the user-local install path
+  - Documented alongside the runner guidance in `docs/guides/goneat-tools-cicd-runner-support.md`
+
 ### Changed
 
 - **Tools Configuration Now Required**: Breaking change - `.goneat/tools.yaml` is now mandatory
@@ -98,6 +103,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Root cause: path_manager.go line 142 using logger.Info for debug messages
   - Solution: Changed to logger.Debug to preserve STDOUT cleanliness
   - Impact: All security tests now passing, JSON output clean
+
+- **Go Version Detection Accuracy**: `doctor tools` now parses `go version` output lexically to handle prefixes like `go1.23.4`
+  - Prevents false negatives when enforcing version policies against the Go toolchain
+  - Ensures assessment output and doctor reports show the correct Go version on all supported platforms
 
 ### Breaking Changes & Migration Guide
 

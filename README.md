@@ -10,118 +10,97 @@ We bring a smooth DX layer to the business of making neat code at scale. We wrap
 
 ## Quick Start (TL;DR)
 
-1. **Install goneat**:
+1. **Install goneat** (pick one):
+   - **Homebrew (recommended)**: `brew install fulmenhq/tap/goneat`
+   - **Go install**: `go install github.com/fulmenhq/goneat@latest`
+   - **Release archives**: download from [GitHub Releases](https://github.com/fulmenhq/goneat/releases) and place the binary on your `PATH`
+   - Verify with `goneat version`
 
-**macOS/Linux (Homebrew)** - Recommended
+2. **Initialize tooling config** (required in v0.3.7+):
 
-```bash
-brew install fulmenhq/tap/goneat
-```
+   ```bash
+   goneat doctor tools init           # local development defaults
+   goneat doctor tools init --minimal # CI-safe, language-native tools only
+   git add .goneat/tools.yaml && git commit -m "chore: configure goneat tools"
+   ```
 
-To upgrade later:
+   This replaces all hidden defaults—goneat commands read the committed `.goneat/tools.yaml` you generate here (no manual authoring needed).
 
-```bash
-brew upgrade goneat
-```
+3. **Get help and explore docs**:
 
-**Manual Installation**
+   ```bash
+   goneat --help
+   goneat docs list
+   goneat docs show user-guide/getting-started
+   goneat docs show user-guide/commands/assess
+   ```
 
-Download the latest release from [GitHub Releases](https://github.com/fulmenhq/goneat/releases):
+4. **Assess your repo**:
 
-- macOS: `goneat_v{VERSION}_darwin_{amd64|arm64}.tar.gz`
-- Linux: `goneat_v{VERSION}_linux_{amd64|arm64}.tar.gz`
-- Windows: `goneat_v{VERSION}_windows_amd64.zip`
+   ```bash
+   goneat assess                       # Full assessment
+   goneat assess --categories=format   # Just formatting issues
+   ```
 
-Extract and move to your PATH:
+5. **Fix formatting** (auto-fixable):
 
-```bash
-tar -xzf goneat_v*.tar.gz
-sudo mv goneat /usr/local/bin/
-```
+   ```bash
+   goneat format
+   ```
 
-**Go Install** (for Go developers)
+6. **Set up hooks** (optional, recommended for teams):
 
-```bash
-go install github.com/fulmenhq/goneat@latest
-```
-
-Verify: `goneat version`
-
-2. **Get help and explore docs**:
-
-```bash
-# Built-in help system
-goneat --help
-goneat docs list                    # See available docs
-goneat docs show user-guide/getting-started  # First recommended read
-goneat docs show user-guide/commands/assess  # Deep dive on assessment
-```
-
-3. **Assess your repo**:
-
-```bash
-goneat assess                       # Full assessment
-goneat assess --categories=format   # Just formatting issues
-```
-
-4. **Fix formatting** (auto-fixable):
-
-```bash
-goneat format                       # Fix all format issues
-```
-
-5. **Set up hooks** (optional, recommended for teams):
-
-```bash
-goneat hooks init                       # Auto-detects format capabilities
-goneat hooks generate --with-guardian   # Add security approval workflows
-goneat hooks install
-```
+   ```bash
+   goneat hooks init
+   goneat hooks generate --with-guardian
+   goneat hooks install
+   ```
 
 Hooks automatically detect and configure format capabilities (make format-all, prettier, etc.) and include maturity validation, dirty repository protection, and optional guardian security approval workflows. See [Release quality checking](#release-quality-checking) and [Guardian Security](#guardian-security) for details.
 
 **Notes:**
 
 - Name clarification: This project is not affiliated with any other "goneat". Use the full module path `github.com/fulmenhq/goneat`.
-- **Windows support is experimental until v0.3.0** - While goneat provides Windows binaries and basic functionality works, full compatibility testing and optimization is ongoing. Use with caution in production Windows environments.
-- Upcoming: Homebrew and Scoop packages will be available soon for easier installation.
+- **Windows binaries are available** and continually improving; we treat Windows support as beta until the CI matrix finishes validation.
+- Homebrew and Scoop packages ship with each tagged release (`brew install fulmenhq/tap/goneat`, `scoop install goneat`).
 
 ## Install
 
-- Go (recommended):
+### Go (cross-platform)
 
 ```bash
 go install github.com/fulmenhq/goneat@latest
 ```
 
-- Releases (prebuilt binaries): https://github.com/fulmenhq/goneat/releases
-
-- Homebrew (rc.8+):
-  - After the tap is published:
-
-  ```bash
-  brew install fulmenhq/goneat/goneat
-  ```
-
-  - During RC bring-up (temporary), you can install directly from the raw formula for a specific tag:
-
-  ```bash
-  brew install --formula \
-    https://raw.githubusercontent.com/fulmenhq/goneat/v0.3.5/packaging/homebrew/goneat.rb
-  ```
-
-- Scoop (rc.8+):
-  - After the bucket is published:
-  ```powershell
-  scoop bucket add fulmenhq https://github.com/fulmenhq/scoop-bucket
-  scoop install goneat
-  ```
-
-Verify install:
+### Homebrew (macOS/Linux)
 
 ```bash
-goneat version
+brew install fulmenhq/tap/goneat
+# upgrade later
+brew upgrade goneat
 ```
+
+### Scoop (Windows)
+
+```powershell
+scoop bucket add fulmenhq https://github.com/fulmenhq/scoop-bucket
+scoop install goneat
+```
+
+### Release archives
+
+Download artifacts from [GitHub Releases](https://github.com/fulmenhq/goneat/releases), extract, and place `goneat` on your `PATH`.
+
+### After installing (required)
+
+```bash
+goneat doctor tools init           # local defaults
+goneat doctor tools init --minimal # CI-safe
+
+git add .goneat/tools.yaml && git commit -m "chore: configure goneat tools"
+```
+
+All doctor/assess commands read the committed `.goneat/tools.yaml`, so running the init command once per repository replaces every hidden default.
 
 ## Bootstrap as a Local Tool
 
@@ -129,10 +108,11 @@ For projects that want to manage goneat as a **repository-local tool** (keeping 
 
 **Quick Summary**:
 
-1. Create `.goneat/tools.yaml` describing goneat as a tool dependency
-2. Run `bun run scripts/bootstrap-tools.ts` (or equivalent) to download/install
-3. Use `./bin/goneat` for project-specific tooling
-4. Override with `.goneat/tools.local.yaml` for local development
+1. Run `goneat doctor tools init --scope foundation` (or `--minimal`) to scaffold `.goneat/tools.yaml`
+2. Add/modify the generated manifest to include a `goneat` entry that installs into `./bin`
+3. Run `bun run scripts/bootstrap-tools.ts` (or equivalent) to download/install
+4. Use `./bin/goneat` for project-specific tooling
+5. Override with `.goneat/tools.local.yaml` for local development
 
 **Full Guide**: See [Bootstrap Goneat Guide](docs/crucible-go/guides/bootstrap-goneat.md) for:
 
@@ -195,14 +175,14 @@ make build
 
 ## Status
 
-- Release: v0.3.5 (per `VERSION` file)
-- Lifecycle Phase: GA (per `LIFECYCLE_PHASE` file)
-- Release Phase: Release (per `RELEASE_PHASE` file)
+- Release: v0.3.7 (see `VERSION`)
+- Lifecycle Phase: Alpha (see `LIFECYCLE_PHASE`)
+- Release Phase: Release (see `RELEASE_PHASE`)
 - Repo Visibility: Public
 - Gates: pre-commit (format+lint, fail-on=medium) passing; pre-push (format+lint+security+maturity+repo-status, fail-on=high) passing
 - Licensing: Audit clean (no GPL/LGPL/AGPL/MPL/CDDL); inventory maintained under `docs/licenses/`
 
-Note: This is alpha software in RC release phase. See `docs/standards/lifecycle-release-phase-standard.md` for phase definitions and operational details on coverage gates, contribution posture, and user guidance.
+This is active alpha software even while release artifacts ship. See `docs/standards/lifecycle-release-phase-standard.md` for definitions, gates, and guidance before adopting in production.
 
 ## 🛡️ **NEW in v0.3.0: Dependency Protection** 🛡️
 

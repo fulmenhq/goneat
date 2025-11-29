@@ -98,13 +98,13 @@ verify-crucible-clean: ## Verify crucible sources are clean (no uncommitted chan
 	@chmod +x scripts/verify-crucible-clean.sh
 	@./scripts/verify-crucible-clean.sh
 
-bootstrap: build ## Install bootstrap package managers (mise) before other tools
-	@echo "🥾 Installing bootstrap tools..."
+bootstrap: build ## Install foundation scope (auto-installs user-local brew/scoop as needed)
+	@echo "🥾 Installing foundation tools via goneat doctor tools..."
 	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
-		$(BUILD_DIR)/$(BINARY_NAME) doctor tools --scope bootstrap --install --yes; \
-		echo "✅ Bootstrap complete"; \
+		$(BUILD_DIR)/$(BINARY_NAME) doctor tools --scope foundation --install --yes; \
+		echo "✅ Foundation tools installed"; \
 	else \
-		echo "❌ goneat binary not found, cannot bootstrap tools"; \
+		echo "❌ goneat binary not found, cannot install tools"; \
 		exit 1; \
 	fi
 
