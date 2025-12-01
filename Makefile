@@ -467,14 +467,42 @@ release-push: ## Push release to all remotes
 	./scripts/push-to-remotes.sh
 	@echo "✅ Release pushed to all remotes"
 
+release-upload: ## Upload signed release artifacts to GitHub (requires dist/release/*.asc signatures)
+	@echo "📤 Uploading release artifacts to GitHub $(VERSION)..."
+	@if [ ! -f "dist/release/goneat_$(VERSION)_darwin_arm64.tar.gz.asc" ]; then \
+		echo "❌ Error: Signature files not found in dist/release/"; \
+		echo "   Run signing workflow first (see RELEASE_CHECKLIST.md)"; \
+		exit 1; \
+	fi
+	@echo "   Uploading binaries and checksums..."
+	cd dist/release && gh release upload $(VERSION) \
+		goneat_$(VERSION)_*.tar.gz \
+		goneat_$(VERSION)_*.zip \
+		SHA256SUMS \
+		--clobber
+	@echo "   Uploading signatures..."
+	cd dist/release && gh release upload $(VERSION) \
+		goneat_$(VERSION)_*.asc \
+		SHA256SUMS.asc \
+		fulmenhq-release-signing-key.asc \
+		--clobber
+	@echo "   Updating release notes..."
+	cd dist/release && gh release edit $(VERSION) --notes-file release-notes-$(VERSION).md
+	@echo "✅ Release artifacts uploaded to $(VERSION)"
+	@echo ""
+	@echo "🔍 Verify upload:"
+	@echo "   gh release view $(VERSION)"
+
 release: release-prep release-tag release-push ## Complete release process
 	@echo "🎉 Release v$(VERSION) completed!"
 	@echo ""
 	@echo "📋 Next steps:"
-	@echo "   1. Create GitHub release: https://github.com/fulmenhq/goneat/releases"
-	@echo "   2. Upload artifacts from dist/release/ (binaries + release-notes-v$(VERSION).md)"
-	@echo "   3. Paste release notes from dist/release/release-notes-v$(VERSION).md"
-	@echo "   4. Announce release in relevant channels"
+	@echo "   1. Sign artifacts: cd dist/release && gpg --detach-sign --armor *.tar.gz *.zip SHA256SUMS"
+	@echo "   2. Extract public key: gpg --armor --export security@fulmenhq.dev > fulmenhq-release-signing-key.asc"
+	@echo "   3. Verify public key: ../../scripts/verify-public-key.sh fulmenhq-release-signing-key.asc"
+	@echo "   4. Upload to GitHub: make release-upload"
+	@echo "   5. Update Homebrew tap (if applicable)"
+	@echo "   6. Announce release in relevant channels"
 
 # Future: goneat-based version management
 version-manage: build ## Use goneat for version management (future feature)

@@ -280,9 +280,27 @@ done
 # Should show "Good signature" for all
 
 # 6. Upload to GitHub release
-gh release upload v<version> *.asc --clobber
-# Verify upload succeeded
-gh release view v<version> --json assets --jq '.assets[] | select(.name | endswith(".asc")) | .name'
+# IMPORTANT: Upload BOTH binaries and signatures, not just signatures!
+# Option A: Use make target (recommended)
+cd ../..  # Return to repo root
+make release-upload
+
+# Option B: Manual upload
+gh release upload v<version> \
+  goneat_v<version>_*.tar.gz \
+  goneat_v<version>_*.zip \
+  SHA256SUMS \
+  --clobber
+gh release upload v<version> \
+  goneat_v<version>_*.asc \
+  SHA256SUMS.asc \
+  fulmenhq-release-signing-key.asc \
+  --clobber
+gh release edit v<version> --notes-file release-notes-v<version>.md
+
+# Verify upload succeeded (should show 13 assets)
+gh release view v<version> --json assets --jq '.assets | length'
+gh release view v<version> --json assets --jq '.assets[].name'
 ```
 
 **See**: `docs/security/release-signing.md` for detailed signing procedures.
