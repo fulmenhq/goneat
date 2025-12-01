@@ -24,6 +24,7 @@ scopes:
             - go-licenses
             - golangci-lint
             - yamlfmt
+            - prettier
     security:
         description: Security scanning tools
         tools:
@@ -45,6 +46,7 @@ scopes:
             - go-licenses
             - golangci-lint
             - yamlfmt
+            - prettier
             - gosec
             - govulncheck
             - gitleaks
@@ -224,8 +226,17 @@ tools:
             - --version
         check_args:
             - --help
+        install_commands:
+            scoop: scoop install main/yamlfmt
         installer_priority:
-            all:
+            darwin:
+                - brew
+                - go-install
+            linux:
+                - brew
+                - go-install
+            windows:
+                - scoop
                 - go-install
     yq:
         name: yq
@@ -250,3 +261,23 @@ tools:
             windows:
                 - scoop
                 - winget
+    prettier:
+        name: prettier
+        description: Code formatter for JavaScript, TypeScript, JSON, Markdown, YAML
+        kind: system
+        detect_command: prettier --version
+        platforms:
+            - darwin
+            - linux
+            - windows
+        installer_priority:
+            darwin:
+                - brew
+                - bun
+            linux:
+                - brew
+                - bun
+            windows:
+                - scoop
+                - winget
+                - bun

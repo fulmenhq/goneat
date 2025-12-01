@@ -608,8 +608,8 @@ func loadToolsConfiguration() (*intdoctor.ToolsConfig, error) {
 		return config, nil
 	}
 
-	// Otherwise, return error as we no longer merge defaults at runtime (Phase 5)
-	return nil, fmt.Errorf(".goneat/tools.yaml not found. Run 'goneat doctor tools init' to create it")
+	// Otherwise, use LoadToolsConfig which searches upward and falls back to embedded default
+	return intdoctor.LoadToolsConfig()
 }
 
 // selectToolsFromConfig selects tools based on configuration and flags

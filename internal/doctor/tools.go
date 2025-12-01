@@ -852,6 +852,11 @@ func commandExists(name string) bool {
 
 func defaultInstallerCommand(t Tool, kind installerKind) string {
 	switch kind {
+	case installerBun:
+		if cmd, ok := t.InstallCommands["bun"]; ok && cmd != "" {
+			return cmd
+		}
+		return fmt.Sprintf("bun add -g %s", t.Name)
 	case installerMise:
 		alias := t.Name
 		if cmd, ok := t.InstallCommands["mise"]; ok && cmd != "" {
