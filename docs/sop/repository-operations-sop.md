@@ -150,7 +150,7 @@ Coverage: 70%"
 - **Description:** Clear, actionable summary
 - **Body:** Detailed changes and impact
 - **Footer:** Issue references, coverage metrics
-- **Attribution:** Follow [Agentic Attribution Standard](../standards/agentic-attribution.md) for AI agent contributions
+- **Attribution:** Follow [Agentic Attribution Standard](../crucible-go/standards/agentic-attribution.md) for AI agent contributions
 
 ### Emergency Bypass Procedures
 

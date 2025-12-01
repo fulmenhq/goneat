@@ -156,7 +156,7 @@ Prepare a commit message that follows goneat's standards:
 - Summarizes the feature/changes comprehensively
 - Excludes project-specific task numbers or phase identifiers
 - Follows conventional commit format
-- Includes co-author attributions following [Agentic Attribution Standard](../standards/agentic-attribution.md)
+- Includes co-author attributions following [Agentic Attribution Standard](../crucible-go/standards/agentic-attribution.md)
 
 ```bash
 # Create commit message file
@@ -258,7 +258,7 @@ Before consolidation, ensure:
 
 ### Commit Message Standards
 
-Follow goneat's [Agentic Attribution Standard](../standards/agentic-attribution.md):
+Follow goneat's [Agentic Attribution Standard](../crucible-go/standards/agentic-attribution.md):
 
 ```bash
 feat: implement comprehensive feature with detailed subsystems
@@ -421,7 +421,7 @@ git log --oneline -3
 
 - [Git Documentation - Rewriting History](https://git-scm.com/book/en/v2/Git-Tools-Rewriting-History)
 - [Conventional Commits](https://www.conventionalcommits.org/)
-- [Goneat Agentic Attribution Standard](../standards/agentic-attribution.md)
+- [Goneat Agentic Attribution Standard](../crucible-go/standards/agentic-attribution.md)
 - [Goneat Repository Operations SOP](repository-operations-sop.md)
 
 ---
