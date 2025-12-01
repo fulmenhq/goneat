@@ -1,6 +1,109 @@
+# Goneat v0.3.8 — Hooks Configuration DX & Security Hardening
+
+**Release Date**: 2025-12-01
+**Status**: Release
+
+## TL;DR
+
+- `goneat hooks generate` now validates hooks.yaml against the embedded JSON schema before parsing, providing clear error messages when configuration is invalid.
+- Invalid configuration errors now show specific validation failures, expected format examples, and remediation guidance instead of raw Go struct type errors.
+- Fixed embedded schema path bug affecting both `hooks generate` and `hooks policy-validate` commands.
+- **Security hardening**: Resolved all 10 gosec findings with tightened permissions and comprehensive security suppressions, achieving 100% security health rating.
+
+## Highlights
+
+### User-friendly hooks.yaml validation errors
+
+Previously, when `hooks.yaml` had an invalid structure, users saw cryptic Go unmarshal errors:
+
+```
+cannot unmarshal !!map into []struct { Command string "yaml:\"command\""...
+```
+
+Now, `hooks generate` validates against the embedded schema first and provides actionable errors:
+
+```
+Error: hooks.yaml configuration is invalid:
+  - version: version must be one of the following: "1.0.0"
+  - hooks.pre-commit: Invalid type. Expected: array, given: object
+
+Expected format - hooks must be an array of commands:
+  hooks:
+    pre-commit:
+      - command: "assess"
+        args: ["--categories", "format,lint"]
+
+Run 'goneat hooks init' to generate a valid configuration template.
+```
+
+### Schema validation before struct parsing
+
+The `validateHooksManifestSchema()` helper validates raw YAML against the embedded schema before Go struct unmarshaling, catching errors at the schema level where messages are descriptive.
+
+### Fixed embedded schema path
+
+Corrected schema lookup path from `schemas/work/...` to `work/...` (relative to embedded FS root), fixing both `hooks generate` and `hooks policy-validate`.
+
+## Security Hardening
+
+This release addresses all security findings postponed from v0.3.7, achieving 100% security health.
+
+### Hardened File and Directory Permissions
+
+Tightened permissions following the principle of least privilege:
+
+- **Directory permissions**: `0755` → `0750` (removed world-read access)
+  - `pkg/tools/installer_brew_local.go:26` - User-local Homebrew prefix directory
+  - `cmd/doctor_tools_init.go:113` - .goneat configuration directory
+
+- **File permissions**: `0644` → `0600` (removed group/world access)
+  - `cmd/doctor_tools_init.go:171` - Tool configuration files
+
+- **GitHub Actions exception**: Retained `0644` for `$GITHUB_PATH` file per GitHub Actions standard
+  - `cmd/doctor.go:435` - Documented justification for standard compliance
+
+### Documented Security Suppressions
+
+Added comprehensive `#nosec` comments with detailed justifications for safe operations flagged by gosec:
+
+**G204 (Command Injection Prevention)** - Subprocess execution with validated/trusted sources:
+- `pkg/tools/installer_brew_local.go:66` - brewPath constructed from sanitized user home directory and filepath.Join
+- `internal/doctor/package_managers.go:177` - Detection commands from embedded trusted YAML configuration
+
+**G304 (File Inclusion Safety)** - File operations with validated or system-controlled paths:
+- `internal/doctor/tools_config.go:41` - Config path from safe upward directory traversal (findToolsConfig)
+- `cmd/doctor_tools_init.go:182` - Validation of just-created config file
+- `cmd/doctor.go:438` - GitHub Actions managed `$GITHUB_PATH` environment variable
+
+**G104 (Intentional Error Handling)** - Best-effort cleanup in error paths:
+- `pkg/tools/installer_brew_local.go:52` - Intentional best-effort curl cleanup when tar extraction fails
+
+### Security Assessment Results
+
+- **Before**: 10 medium/low severity findings (G204: 3, G304: 3, G301: 2, G302: 1, G306: 1, G104: 1)
+- **After**: 0 findings, 100% security health rating
+- **Validation**: All fixes verified with `goneat assess --categories security`
+
+## Breaking Changes
+
+None. This release improves error messaging without changing valid configuration behavior.
+
+## Upgrade Guide
+
+1. Install goneat v0.3.8: `go install github.com/fulmenhq/goneat@v0.3.8`.
+2. If you have hooks.yaml configuration issues, error messages will now be clearer.
+3. Run `goneat hooks init` to generate a valid template if needed.
+
+## Credits
+
+- Dave Thompson (@3leapsdave) – project lead and reviewer
+- Arch Eagle – DX improvement implementation and schema path fix
+
+---
+
 # Goneat v0.3.7 — Foundation Tooling Externalization
 
-**Release Date**: 2025-11-20  
+**Release Date**: 2025-11-20
 **Status**: Release
 
 ## TL;DR

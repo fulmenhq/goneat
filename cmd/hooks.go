@@ -345,6 +345,12 @@ func runHooksGenerate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read hooks manifest: %v", err)
 	}
+
+	// Validate manifest against schema before parsing into typed struct
+	if err := validateHooksManifestSchema(manifestData); err != nil {
+		return err
+	}
+
 	var manifest struct {
 		Hooks map[string][]struct {
 			Command    string   `yaml:"command"`
@@ -1397,7 +1403,7 @@ func runHooksPolicyValidate(cmd *cobra.Command, args []string) error {
 	docJSON, _ := json.Marshal(doc)
 	// Load schema from embedded FS (YAML -> JSON)
 	schemaFS := assets.GetSchemasFS()
-	sb, err := fs.ReadFile(schemaFS, "schemas/work/hooks-manifest-v1.0.0.yaml")
+	sb, err := fs.ReadFile(schemaFS, "work/hooks-manifest-v1.0.0.yaml")
 	if err != nil {
 		return fmt.Errorf("failed to read embedded hooks schema: %v", err)
 	}
@@ -1427,6 +1433,70 @@ func runHooksPolicyValidate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("hooks.yaml failed schema validation")
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), "✅ hooks.yaml is valid") //nolint:errcheck // CLI output, error is not critical
+	return nil
+}
+
+// validateHooksManifestSchema validates raw YAML data against the embedded hooks manifest schema.
+// Returns nil if valid, or a user-friendly error with guidance if invalid.
+func validateHooksManifestSchema(raw []byte) error {
+	// Parse YAML into generic structure for schema validation
+	var doc any
+	if err := yaml.Unmarshal(raw, &doc); err != nil {
+		return fmt.Errorf("failed to parse hooks.yaml as YAML: %v", err)
+	}
+	docJSON, err := json.Marshal(doc)
+	if err != nil {
+		return fmt.Errorf("failed to convert hooks.yaml to JSON for validation: %v", err)
+	}
+
+	// Load schema from embedded FS
+	schemaFS := assets.GetSchemasFS()
+	sb, err := fs.ReadFile(schemaFS, "work/hooks-manifest-v1.0.0.yaml")
+	if err != nil {
+		// Schema not found - skip validation (shouldn't happen in production)
+		logger.Debug("Skipping schema validation: embedded schema not found", logger.Err(err))
+		return nil
+	}
+	var schm any
+	if err := yaml.Unmarshal(sb, &schm); err != nil {
+		logger.Debug("Skipping schema validation: failed to parse embedded schema", logger.Err(err))
+		return nil
+	}
+
+	// Conditionally remove $schema field to prevent remote fetching in offline mode
+	if os.Getenv("GONEAT_OFFLINE_SCHEMA_VALIDATION") == "true" {
+		if m, ok := schm.(map[string]interface{}); ok {
+			delete(m, "$schema")
+		}
+	}
+	schJSON, _ := json.Marshal(schm)
+
+	// Validate against schema
+	schemaLoader := gojsonschema.NewBytesLoader(schJSON)
+	docLoader := gojsonschema.NewBytesLoader(docJSON)
+	res, err := gojsonschema.Validate(schemaLoader, docLoader)
+	if err != nil {
+		return fmt.Errorf("schema validation error: %v", err)
+	}
+
+	if !res.Valid() {
+		var errLines []string
+		errLines = append(errLines, "hooks.yaml configuration is invalid:")
+		for _, e := range res.Errors() {
+			errLines = append(errLines, fmt.Sprintf("  - %s", e))
+		}
+		errLines = append(errLines, "")
+		errLines = append(errLines, "Expected format - hooks must be an array of commands:")
+		errLines = append(errLines, "  hooks:")
+		errLines = append(errLines, "    pre-commit:")
+		errLines = append(errLines, "      - command: \"assess\"")
+		errLines = append(errLines, "        args: [\"--categories\", \"format,lint\"]")
+		errLines = append(errLines, "")
+		errLines = append(errLines, "Run 'goneat hooks init' to generate a valid configuration template.")
+
+		return fmt.Errorf("%s", strings.Join(errLines, "\n"))
+	}
+
 	return nil
 }
 

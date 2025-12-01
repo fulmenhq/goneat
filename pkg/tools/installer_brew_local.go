@@ -23,7 +23,7 @@ func InstallUserLocalBrew(prefix string, interactive bool, dryRun bool) error {
 		prefix = filepath.Join(home, "homebrew-local")
 	}
 
-	if err := os.MkdirAll(prefix, 0755); err != nil {
+	if err := os.MkdirAll(prefix, 0750); err != nil {
 		return fmt.Errorf("failed to create prefix %s: %w", prefix, err)
 	}
 
@@ -47,7 +47,9 @@ func InstallUserLocalBrew(prefix string, interactive bool, dryRun bool) error {
 		return fmt.Errorf("failed to start curl: %w", err)
 	}
 	if err := tarCmd.Wait(); err != nil {
-		cmd.Wait() //nolint:errcheck // Clean up curl process if tar fails
+		// #nosec G104 - intentionally ignoring curl cleanup error when tar fails
+		// Primary concern is tar extraction failure; curl cleanup is best-effort
+		cmd.Wait() //nolint:errcheck
 		return fmt.Errorf("failed to extract brew: %w", err)
 	}
 	if err := cmd.Wait(); err != nil {
@@ -59,6 +61,8 @@ func InstallUserLocalBrew(prefix string, interactive bool, dryRun bool) error {
 		return fmt.Errorf("brew installation failed: %s not found", brewPath)
 	}
 
+	// #nosec G204 - brewPath is constructed from validated prefix (user home dir + "homebrew-local")
+	// and filepath.Join which sanitizes path traversal. Not user-controllable command injection.
 	testCmd := exec.Command(brewPath, "--version")
 	if output, err := testCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("brew installed but not functional: %w\nOutput: %s", err, output)

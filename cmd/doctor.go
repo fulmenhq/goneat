@@ -432,6 +432,9 @@ func updateGitHubActionsPath(githubPathFile string, paths []string) error {
 	}
 
 	// Open file in append mode
+	// #nosec G302 G304 - githubPathFile comes from GITHUB_PATH env var managed by GitHub Actions
+	// Permission 0644 is the GitHub Actions standard for $GITHUB_PATH file
+	// File path is controlled by GitHub Actions runtime, not user input
 	f, err := os.OpenFile(githubPathFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open GITHUB_PATH file: %w", err)

@@ -110,7 +110,7 @@ func runToolsInit(cmd *cobra.Command, args []string) error {
 	toolsConfig := doctor.ConvertToToolsConfig(filteredTools, toolsInitScope, scopeDesc)
 
 	// Ensure .goneat directory exists
-	if err := os.MkdirAll(".goneat", 0755); err != nil {
+	if err := os.MkdirAll(".goneat", 0750); err != nil {
 		return fmt.Errorf("failed to create .goneat directory: %w", err)
 	}
 
@@ -168,7 +168,7 @@ func writeToolsConfig(path string, config *doctor.ToolsConfig) error {
 	fullData := append(header, data...)
 
 	// Write to file
-	if err := os.WriteFile(path, fullData, 0644); err != nil {
+	if err := os.WriteFile(path, fullData, 0600); err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
 
@@ -177,6 +177,8 @@ func writeToolsConfig(path string, config *doctor.ToolsConfig) error {
 
 func validateGeneratedConfig(path string) error {
 	// Read the file we just wrote
+	// #nosec G304 - path is the hardcoded ".goneat/tools.yaml" passed from runToolsInit
+	// This function only validates the config file we just created in writeToolsConfig
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("failed to read config: %w", err)

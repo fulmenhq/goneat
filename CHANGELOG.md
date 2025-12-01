@@ -13,6 +13,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.3.8] - 2025-12-01
+
+### Added
+
+- **Hooks Schema Validation Helper**: New `validateHooksManifestSchema()` function validates hooks.yaml against embedded JSON schema before Go struct parsing
+  - Provides clear, actionable error messages instead of raw Go type errors
+  - Shows specific validation failures with field paths (e.g., `hooks.pre-commit: Invalid type. Expected: array, given: object`)
+  - Includes expected format example and remediation guidance (`Run 'goneat hooks init'`)
+  - Gracefully skips validation if embedded schema not found (shouldn't happen in production)
+
+### Changed
+
+- **Hooks Generate Validation Flow**: `goneat hooks generate` now validates hooks.yaml against schema before attempting struct unmarshal
+  - Catches configuration errors at schema level where error messages are descriptive
+  - Users see clear validation errors instead of cryptic Go unmarshal type errors
+  - Example improvement: `hooks.pre-commit: Invalid type. Expected: array` instead of `cannot unmarshal !!map into []struct { Command string...`
+
+### Fixed
+
+- **Embedded Schema Path**: Corrected hooks manifest schema lookup path from `schemas/work/hooks-manifest-v1.0.0.yaml` to `work/hooks-manifest-v1.0.0.yaml`
+  - Path is relative to embedded schemas filesystem root (after `fs.Sub` extracts `embedded_schemas`)
+  - Affects both new `validateHooksManifestSchema()` helper and existing `runHooksPolicyValidate` command
+  - Schema validation now works correctly in both `hooks generate` and `hooks policy-validate`
+
+### Security
+
+- **Hardened File and Directory Permissions**: Tightened permissions to follow principle of least privilege
+  - Directory creation: Changed from `0755` to `0750` (pkg/tools/installer_brew_local.go:26, cmd/doctor_tools_init.go:113)
+  - File creation: Changed from `0644` to `0600` for tool configuration files (cmd/doctor_tools_init.go:171)
+  - GitHub Actions `$GITHUB_PATH` file: Retained `0644` per GitHub Actions standard with documented justification (cmd/doctor.go:435)
+
+- **Documented Security Suppressions**: Added comprehensive `#nosec` comments with detailed justifications for safe operations
+  - **G204 (Command Injection)**: Documented safe subprocess execution where commands come from validated/trusted sources
+    - `pkg/tools/installer_brew_local.go:66`: brewPath constructed from sanitized user home directory
+    - `internal/doctor/package_managers.go:177`: Detection commands from embedded trusted configuration
+  - **G304 (File Inclusion)**: Documented safe file operations where paths are validated or system-controlled
+    - `internal/doctor/tools_config.go:41`: Config path from safe upward directory traversal
+    - `cmd/doctor_tools_init.go:182`: Validation of just-created config file
+    - `cmd/doctor.go:438`: GitHub Actions managed `$GITHUB_PATH` environment variable
+  - **G104 (Unhandled Errors)**: Documented intentional best-effort cleanup in error paths (pkg/tools/installer_brew_local.go:52)
+
+- **Security Assessment**: All 10 gosec findings resolved, achieving 100% security health rating
+
 ## [0.3.7] - 2025-11-20
 
 ### Added

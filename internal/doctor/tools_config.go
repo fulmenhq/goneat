@@ -36,6 +36,8 @@ For more info: goneat doctor tools init --help`)
 	}
 
 	// Read and validate user config
+	// #nosec G304 - configPath comes from findToolsConfig() which safely searches upward
+	// from current working directory for .goneat/tools.yaml. Not user-controllable.
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %s: %w", configPath, err)

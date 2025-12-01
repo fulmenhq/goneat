@@ -171,6 +171,9 @@ func DetectPackageManager(pm *PackageManager) (bool, string) {
 		return false, ""
 	}
 
+	// #nosec G204 - DetectionCommand comes from embedded foundation-package-managers.yaml
+	// configuration file, which is a trusted source baked into the binary at build time.
+	// Not user-controllable input.
 	cmd := exec.Command(parts[0], parts[1:]...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
