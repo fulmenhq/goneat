@@ -175,7 +175,7 @@ make build
 
 ## Status
 
-- Release: v0.3.7 (see `VERSION`)
+- Release: v0.3.9 (see `VERSION`)
 - Lifecycle Phase: Alpha (see `LIFECYCLE_PHASE`)
 - Release Phase: Release (see `RELEASE_PHASE`)
 - Repo Visibility: Public
@@ -511,9 +511,15 @@ For full workflows, see [Release Readiness Guide](docs/user-guide/workflows/rele
 
 ## Zero‑friction tooling
 
-Never deal with "tool not found" errors again. Goneat's built-in doctor automatically detects and installs required external tools — no manual setup, no environment configuration hassles.
+Never deal with "tool not found" errors again. Goneat's built-in doctor automatically detects and installs required external tools — **including the package managers themselves** — no manual setup, no environment configuration hassles.
 
 ```bash
+# Bootstrap everything in one command (new in v0.3.9)
+# - Automatically installs bun or brew if needed
+# - Installs all foundation tools
+# - Updates PATH immediately
+goneat doctor tools --scope foundation --install --yes
+
 # Check what's missing
 goneat doctor tools --scope security
 
@@ -526,9 +532,15 @@ goneat doctor tools --scope format --print-instructions
 
 Supported tools:
 
+- **Foundation** (v0.3.9): ripgrep, jq, yq, go, go-licenses, golangci-lint, yamlfmt, prettier
 - **Security**: gosec, govulncheck, gitleaks
 - **Format**: goimports, gofmt (bundled with Go)
-- **Future**: Multi-language formatters and linters
+
+**Automatic Package Manager Installation** (new in v0.3.9):
+- goneat installs **bun** automatically if needed (simple curl-based install)
+- Falls back to **brew** (user-local, no sudo) if bun fails
+- Works on fresh CI runners without any pre-installed package managers
+- PATH updated immediately — tools usable in same session
 
 Benefits:
 
@@ -536,6 +548,7 @@ Benefits:
 - **Consistent environments**: Same tool versions across all machines
 - **Automatic updates**: Stay current with latest security tools
 - **Non-intrusive**: Only installs what's needed, with clear prompts
+- **CI-ready**: Works on fresh GitHub Actions runners out of the box
 
 ## Large‑repo performance
 

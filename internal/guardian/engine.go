@@ -87,6 +87,17 @@ func passesConditions(policy *ResolvedPolicy, ctx OperationContext) bool {
 			if ctx.Remote == "" {
 				return false
 			}
+			// Security fix: If remote looks like a URL (contains :// or starts with git@),
+			// we cannot reliably match it against name-based patterns like "origin".
+			// Fail-closed: treat URL remotes as matching the condition to require approval.
+			// This prevents bypass via URL-based remotes that should require approval.
+			if looksLikeURL(ctx.Remote) {
+				// URL detected - fail closed by treating as a match (requiring approval)
+				// rather than auto-approving because URL doesn't match "origin"
+				logger.Debug("Guardian: URL-based remote detected, requiring approval for safety",
+					logger.String("remote", ctx.Remote))
+				continue // Condition passes - proceed to next condition
+			}
 			if !matchesAny(values, ctx.Remote) {
 				return false
 			}
@@ -96,6 +107,35 @@ func passesConditions(policy *ResolvedPolicy, ctx OperationContext) bool {
 	}
 
 	return true
+}
+
+// looksLikeURL returns true if the value appears to be a URL rather than a remote name.
+// This detects patterns like:
+//   - https://github.com/user/repo.git
+//   - http://gitlab.example.com/repo
+//   - git@github.com:user/repo.git
+//   - ssh://git@github.com/user/repo.git
+func looksLikeURL(value string) bool {
+	// Check for protocol schemes
+	if strings.Contains(value, "://") {
+		return true
+	}
+	// Check for SSH-style URLs (git@host:path)
+	if strings.HasPrefix(value, "git@") && strings.Contains(value, ":") {
+		return true
+	}
+	// Check for common hosting domains (additional safety)
+	lowerVal := strings.ToLower(value)
+	urlIndicators := []string{
+		"github.com", "gitlab.com", "bitbucket.org",
+		"azure.com", "visualstudio.com", "codecommit",
+	}
+	for _, indicator := range urlIndicators {
+		if strings.Contains(lowerVal, indicator) {
+			return true
+		}
+	}
+	return false
 }
 
 func matchesAny(patterns []string, value string) bool {

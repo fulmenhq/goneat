@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -1235,46 +1236,111 @@ func displayPackageManagerStatus(cmd *cobra.Command) {
 }
 
 func autoInstallPackageManagers(cmd *cobra.Command) error {
+	logger.Debug("autoInstallPackageManagers: starting")
+
 	// Load package manager config
 	pmConfig, err := intdoctor.LoadPackageManagersConfig()
 	if err != nil {
+		logger.Debug("autoInstallPackageManagers: failed to load package manager config", logger.Err(err))
 		return err
 	}
 
-	// Load tools config to check if brew is needed
+	// Load tools config to check which package managers are needed
 	config, err := loadToolsConfiguration()
 	if err != nil {
+		logger.Debug("autoInstallPackageManagers: failed to load tools config", logger.Err(err))
 		return err
 	}
 
-	// Check if brew is needed and safe to auto-install
-	if needsBrew(config) && getBrewAutoInstallSafe(pmConfig) {
+	needsBrewResult := needsBrew(config)
+	needsBunResult := needsBun(config)
+	brewAutoInstallSafe := getPackageManagerAutoInstallSafe(pmConfig, "brew")
+	bunAutoInstallSafe := getPackageManagerAutoInstallSafe(pmConfig, "bun")
+
+	logger.Debug("autoInstallPackageManagers: checking conditions",
+		logger.Bool("needsBrew", needsBrewResult),
+		logger.Bool("needsBun", needsBunResult),
+		logger.Bool("brewAutoInstallSafe", brewAutoInstallSafe),
+		logger.Bool("bunAutoInstallSafe", bunAutoInstallSafe),
+		logger.String("platform", runtime.GOOS))
+
+	var brewInstalled, bunInstalled bool
+	var brewErr, bunErr error
+
+	// Try to install bun first (simpler, fewer dependencies, priority 1)
+	if needsBunResult && bunAutoInstallSafe {
+		if !tools.IsBunInstalled() {
+			logger.Info("Auto-installing bun...")
+			if err := tools.InstallBun(false); err != nil {
+				bunErr = err
+				logger.Warn("Failed to auto-install bun", logger.Err(err))
+			} else {
+				bunInstalled = true
+				logger.Info("bun auto-install completed")
+				// Add bun to PATH for current session
+				bunBinPath := tools.GetBunBinPath()
+				if bunBinPath != "" {
+					addToCurrentPATH(bunBinPath)
+				}
+			}
+		} else {
+			logger.Debug("autoInstallPackageManagers: bun already installed")
+			bunInstalled = true
+		}
+	}
+
+	// Try brew if bun isn't available/needed and brew is needed
+	if needsBrewResult && brewAutoInstallSafe && !bunInstalled {
 		loc, _, err := tools.DetectBrew()
+		logger.Debug("autoInstallPackageManagers: brew detection result",
+			logger.String("location", loc.String()),
+			logger.Err(err))
 		if err == nil && loc != tools.BrewNotFound {
-			return nil
+			logger.Debug("autoInstallPackageManagers: brew already installed")
+			brewInstalled = true
+		} else {
+			logger.Info("Auto-installing user-local Homebrew...")
+			interactive := !isCI() && !flagDoctorYes
+			if err := tools.InstallUserLocalBrew("", interactive, false); err != nil {
+				brewErr = err
+				logger.Warn("Failed to auto-install brew", logger.Err(err))
+			} else {
+				brewInstalled = true
+				logger.Info("Brew auto-install completed")
+				// Add brew to PATH for current session
+				homeDir, _ := os.UserHomeDir()
+				if homeDir != "" {
+					brewBinPath := filepath.Join(homeDir, "homebrew-local", "bin")
+					addToCurrentPATH(brewBinPath)
+				}
+			}
 		}
+	}
 
-		logger.Info("Auto-installing user-local Homebrew...")
-
-		interactive := !isCI() && !flagDoctorYes
-		if err := tools.InstallUserLocalBrew("", interactive, false); err != nil {
-			return fmt.Errorf("failed to auto-install brew: %w", err)
+	// Report overall status
+	if !bunInstalled && !brewInstalled && (needsBunResult || needsBrewResult) {
+		errMsg := "no package managers could be auto-installed"
+		if bunErr != nil {
+			errMsg += fmt.Sprintf("; bun: %v", bunErr)
 		}
-
-		logger.Info("Brew auto-install completed")
+		if brewErr != nil {
+			errMsg += fmt.Sprintf("; brew: %v", brewErr)
+		}
+		return errors.New(errMsg)
 	}
 
 	return nil
 }
 
-func needsBrew(cfg *intdoctor.ToolsConfig) bool {
+// needsPackageManager checks if any tool in the foundation scope needs the given package manager
+func needsPackageManager(cfg *intdoctor.ToolsConfig, pmName string) bool {
 	platform := runtime.GOOS
 	if scope, ok := cfg.Scopes["foundation"]; ok {
 		for _, toolName := range scope.Tools {
 			if toolConfig, exists := cfg.Tools[toolName]; exists {
 				if installerPriority, ok := toolConfig.InstallerPriority[platform]; ok {
 					for _, pm := range installerPriority {
-						if pm == "brew" {
+						if pm == pmName {
 							return true
 						}
 					}
@@ -1285,9 +1351,17 @@ func needsBrew(cfg *intdoctor.ToolsConfig) bool {
 	return false
 }
 
-func getBrewAutoInstallSafe(pmConfig *intdoctor.PackageManagersConfig) bool {
+func needsBrew(cfg *intdoctor.ToolsConfig) bool {
+	return needsPackageManager(cfg, "brew")
+}
+
+func needsBun(cfg *intdoctor.ToolsConfig) bool {
+	return needsPackageManager(cfg, "bun")
+}
+
+func getPackageManagerAutoInstallSafe(pmConfig *intdoctor.PackageManagersConfig, pmName string) bool {
 	for _, pm := range pmConfig.PackageManagers {
-		if pm.Name == "brew" {
+		if pm.Name == pmName {
 			return pm.IsAutoInstallSafeOnPlatform(runtime.GOOS)
 		}
 	}
@@ -1296,4 +1370,25 @@ func getBrewAutoInstallSafe(pmConfig *intdoctor.PackageManagersConfig) bool {
 
 func isCI() bool {
 	return os.Getenv("CI") != ""
+}
+
+// addToCurrentPATH adds a directory to the current PATH environment variable
+// This is needed after installing a package manager to make it immediately available
+func addToCurrentPATH(dir string) {
+	if dir == "" {
+		return
+	}
+
+	currentPATH := os.Getenv("PATH")
+	if strings.Contains(currentPATH, dir) {
+		logger.Debug("PATH already contains directory", logger.String("dir", dir))
+		return
+	}
+
+	newPATH := dir + string(os.PathListSeparator) + currentPATH
+	if err := os.Setenv("PATH", newPATH); err != nil {
+		logger.Warn("Failed to update PATH", logger.Err(err))
+		return
+	}
+	logger.Debug("Added to PATH for current session", logger.String("dir", dir))
 }

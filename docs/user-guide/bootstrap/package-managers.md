@@ -2,17 +2,40 @@
 title: Installing Package Managers on a Fresh Workstation
 description: Step-by-step guidance for installing mise, Homebrew, Scoop, Winget, and Linux package managers before running goneat doctor
 author: Arch Eagle (@arch-eagle)
-last_updated: 2025-11-14
-version: v0.3.6
+last_updated: 2025-12-01
+version: v0.3.9
 ---
 
 # Installing Package Managers on a Fresh Workstation
 
-Goneat's tooling workflow assumes a baseline set of package managers. On a brand-new machine you may need to install these helpers before `goneat doctor tools --install` can succeed. Use the sections below to bootstrap your environment quickly.
+Goneat's tooling workflow assumes a baseline set of package managers. **Starting in v0.3.9**, goneat can automatically install bun or brew for you, so on most systems you don't need to pre-install package managers at all.
 
-## Automatic Bootstrap (New in v0.3.6)
+## Fully Automatic Bootstrap (New in v0.3.9)
 
-**Goneat can now automatically bootstrap package managers** like mise and scoop using the `manual` installer. If your tools configuration includes bootstrap entries with `installer_priority: ["manual"]`, goneat doctor will execute the official installation scripts automatically.
+**goneat now automatically installs package managers** when they're needed but not present:
+
+```bash
+# Just run bootstrap - goneat handles package manager installation automatically
+make bootstrap
+# or directly:
+goneat doctor tools --scope foundation --install --yes
+```
+
+**What happens automatically**:
+1. goneat checks if bun or brew is needed (based on `.goneat/tools.yaml`)
+2. If needed but not installed, goneat installs bun first (simpler, no dependencies)
+3. Falls back to brew if bun fails
+4. Adds the package manager's bin directory to PATH immediately
+5. Installs the required tools
+
+**No manual package manager installation required** on:
+- GitHub Actions runners (ubuntu-latest, macos-latest)
+- Fresh macOS/Linux workstations
+- Any system with curl and bash
+
+## Semi-Automatic Bootstrap (v0.3.6 pattern)
+
+For more control, you can use the `manual` installer pattern. If your tools configuration includes bootstrap entries with `installer_priority: ["manual"]`, goneat doctor will execute the official installation scripts automatically.
 
 ### Example: Bootstrap mise automatically
 

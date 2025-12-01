@@ -241,3 +241,100 @@ func TestApprovalRequiredError(t *testing.T) {
 		t.Errorf("expected Unwrap to return ErrApprovalRequired, got: %v", err.Unwrap())
 	}
 }
+
+func TestLooksLikeURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    string
+		expected bool
+	}{
+		// URL patterns - should return true
+		{"https URL", "https://github.com/user/repo.git", true},
+		{"http URL", "http://gitlab.example.com/repo", true},
+		{"ssh URL with protocol", "ssh://git@github.com/user/repo.git", true},
+		{"git protocol", "git://github.com/user/repo.git", true},
+		{"SSH style git@", "git@github.com:user/repo.git", true},
+		{"SSH style gitlab", "git@gitlab.com:user/repo.git", true},
+		{"github.com without protocol", "github.com/user/repo", true},
+		{"gitlab.com in string", "my-gitlab.com/foo", true}, // Contains gitlab.com - fail-closed for security
+		{"bitbucket.org", "bitbucket.org/user/repo", true},
+		{"azure devops", "dev.azure.com/org/project/_git/repo", true},
+
+		// Remote names - should return false
+		{"origin", "origin", false},
+		{"upstream", "upstream", false},
+		{"fork", "my-fork", false},
+		{"custom remote", "company-backup", false},
+		{"remote with hyphen", "origin-backup", false},
+		{"remote with underscore", "my_remote", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := looksLikeURL(tt.value)
+			if result != tt.expected {
+				t.Errorf("looksLikeURL(%q) = %v, expected %v", tt.value, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestEngine_Check_URLRemoteRequiresApproval(t *testing.T) {
+	// Security test: URL-based remotes should require approval (fail-closed)
+	// This tests the fix for the auto-approval bypass bug
+	engine, err := NewEngine()
+	if err != nil {
+		t.Fatalf("NewEngine failed: %v", err)
+	}
+
+	tests := []struct {
+		name           string
+		remote         string
+		expectApproval bool
+	}{
+		// Named remotes matching patterns should require approval
+		{"origin remote", "origin", true},
+		{"upstream remote", "upstream", true},
+
+		// Named remotes NOT matching patterns should NOT require approval
+		{"fork remote", "my-fork", false},
+		{"custom remote", "backup", false},
+
+		// URL-based remotes should ALWAYS require approval (security fix)
+		{"https github URL", "https://github.com/user/repo.git", true},
+		{"ssh github URL", "git@github.com:user/repo.git", true},
+		{"https gitlab URL", "https://gitlab.com/user/repo.git", true},
+		{"ssh gitlab URL", "git@gitlab.com:user/repo.git", true},
+		{"https bitbucket URL", "https://bitbucket.org/user/repo.git", true},
+		{"azure devops URL", "https://dev.azure.com/org/project/_git/repo", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := OperationContext{
+				Branch: "main", // Protected branch
+				Remote: tt.remote,
+			}
+			policy, err := engine.Check("git", "push", ctx)
+
+			if tt.expectApproval {
+				if err == nil {
+					t.Errorf("expected approval required for remote %q, got no error", tt.remote)
+				}
+				if !IsApprovalRequired(err) {
+					t.Errorf("expected approval required error for remote %q, got: %v", tt.remote, err)
+				}
+				if policy == nil {
+					t.Errorf("expected policy to be returned for remote %q", tt.remote)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("expected no approval required for remote %q, got: %v", tt.remote, err)
+				}
+				if policy != nil {
+					t.Errorf("expected nil policy for remote %q, got: %v", tt.remote, policy)
+				}
+			}
+		})
+	}
+}

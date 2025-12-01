@@ -1,34 +1,45 @@
 # goneat Tools CI/CD Runner Support
 
-**Status**: Implemented in v0.3.7
-**Author**: Forge Neat
-**Last Updated**: 2025-11-17
+**Status**: Implemented in v0.3.7, Enhanced in v0.3.9
+**Author**: Forge Neat, Arch Eagle
+**Last Updated**: 2025-12-01
 
 ---
 
 ## Overview
 
-goneat provides **zero-friction tool installation** on CI/CD runners through automatic PATH management. Tools installed via package managers (mise, bun, scoop) are **immediately usable** without manual PATH configuration.
+goneat provides **zero-friction tool installation** on CI/CD runners through automatic PATH management AND automatic package manager installation. Tools installed via package managers (mise, bun, scoop, brew) are **immediately usable** without manual PATH configuration.
 
 This document explains how goneat achieves seamless tool availability on fresh CI/CD runners.
 
-### Scope & Limitations (v0.3.7)
+### What's New in v0.3.9
+
+**Automatic Package Manager Installation**: goneat now automatically installs bun or brew when needed:
+
+```yaml
+# Just run bootstrap - goneat handles everything
+- name: Bootstrap tools
+  run: make bootstrap
+  # ✅ Installs bun automatically (if not present)
+  # ✅ Installs tools via bun
+  # ✅ Updates PATH for current session
+  # ✅ Updates $GITHUB_PATH for subsequent steps
+```
+
+No need to pre-install package managers - goneat bootstraps them for you.
+
+### Scope & Limitations (v0.3.9)
 
 **✅ Fully Supported**:
-- Package managers: **mise**, **bun**, **scoop** (hardcoded well-known paths)
-- CI platform: **GitHub Actions** (automatic `$GITHUB_PATH` updates)
-- OS tested: **macOS** (darwin)
+- **Package manager auto-install**: bun (all platforms), brew user-local (darwin/linux)
+- **Tool installation via**: mise, bun, scoop, brew, go-install
+- **CI platform**: GitHub Actions (automatic `$GITHUB_PATH` updates)
+- **OS**: macOS (darwin), Linux (ubuntu-latest tested), Windows (scoop)
 
 **⚠️ Limited Support**:
-- **Linux**: Implementation present, not yet tested on CI runners
-- **Windows**: Implementation present (scoop), not yet tested on CI runners
 - **Other CI platforms** (GitLab CI, CircleCI, Jenkins): Manual activation via `goneat doctor tools env --activate` required
 
-**❌ Not Supported in v0.3.7** (planned for v0.3.8+):
-- Custom package manager shim locations (only standard paths detected)
-- Additional package managers beyond mise/bun/scoop (hardcoded list)
-- Automatic shell RC file editing (manual `goneat doctor tools env >> ~/.bashrc` required)
-- Reading shim paths from `foundation-package-managers.yaml` config
+**Note**: Custom package manager shim locations still use hardcoded paths (mise, bun, scoop, go-install)
 
 ---
 
@@ -408,25 +419,28 @@ goneat recommends **sudo-free package managers** specifically to avoid privilege
 
 ---
 
-## Future Enhancements (v0.3.8+)
+## Future Enhancements
 
-### Planned Features
+### Implemented in v0.3.9
 
-1. **Shell RC File Auto-Update** (v0.3.8)
+1. ✅ **Package Manager Auto-Installation**
+   - bun and brew auto-install when needed
+   - Tries bun first (simpler, no dependencies)
+   - Falls back to brew if bun fails
+   - PATH updated immediately after installation
+
+### Planned Features (v0.4.0+)
+
+1. **Shell RC File Auto-Update**
    - `goneat doctor tools env --persist`
    - Automatically append to `~/.bashrc`, `~/.zshrc`, etc.
    - With explicit user prompt for safety
 
-2. **CI Environment Auto-Detection** (v0.3.8)
+2. **CI Environment Auto-Detection**
    - Detect GitLab CI, CircleCI, Jenkins
    - Auto-update environment files (not just GitHub Actions)
 
-3. **Package Manager Auto-Installation** (v0.4.0)
-   - `goneat doctor package-managers install`
-   - Install mise/bun/scoop automatically
-   - Currently manual (users run package manager install scripts)
-
-4. **PATH Validation** (v0.4.0)
+3. **PATH Validation**
    - `goneat doctor tools validate-path`
    - Verify all installed tools are in PATH
    - Suggest fixes for missing shim directories
@@ -487,6 +501,6 @@ export PATH="/Users/user/.local/share/mise/shims:$PATH"
 
 ---
 
-**Last Updated**: 2025-11-17
-**Version**: v0.3.7
-**Status**: Implemented and Tested
+**Last Updated**: 2025-12-01
+**Version**: v0.3.9
+**Status**: Implemented and Tested (bun/brew auto-install added)
