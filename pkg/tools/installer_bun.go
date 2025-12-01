@@ -53,6 +53,7 @@ func InstallBun(dryRun bool) error {
 	}
 
 	// Test that it works
+	// #nosec G204 -- bunPath comes from getBunPath() which uses exec.LookPath or constructs from os.UserHomeDir() + hardcoded paths, not user input
 	testCmd := exec.Command(bunPath, "--version")
 	if output, err := testCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("bun installed but not functional: %w\nOutput: %s", err, output)
