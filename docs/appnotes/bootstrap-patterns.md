@@ -1,7 +1,7 @@
-# Bootstrap Patterns for goneat v0.3.9+
+# Bootstrap Patterns for goneat
 
 **Status**: Reference Guide
-**Version**: v0.3.9
+**Version**: v0.3.10+
 **Author**: Arch Eagle (@arch-eagle)
 **Last Updated**: 2025-12-01
 
@@ -9,7 +9,19 @@
 
 ## Overview
 
-This appnote documents recommended patterns for integrating goneat into downstream repositories. Starting with v0.3.9, goneat can automatically install package managers (bun, brew) and foundation tools, simplifying CI bootstrap significantly.
+This appnote documents recommended patterns for integrating goneat into downstream repositories. Starting with v0.3.9, goneat can automatically install package managers and foundation tools, simplifying CI bootstrap significantly. v0.3.10 refines the package manager strategy.
+
+## Package Manager Strategy (v0.3.10+)
+
+| Package Manager | Use Case |
+|-----------------|----------|
+| `brew` | System binaries on darwin/linux (ripgrep, jq, yq, prettier) |
+| `scoop/winget` | System binaries on Windows |
+| `go-install` | Go tools (golangci-lint, gosec, yamlfmt, etc.) |
+| `bun/npm` | Node.js packages ONLY (e.g., eslint for TypeScript repos) |
+| `uv/pip` | Python packages ONLY |
+
+**Key change in v0.3.10**: bun is no longer used for system binaries - it can only install npm packages.
 
 ## Key Concepts
 
@@ -26,7 +38,7 @@ goneat repositories may have TWO different tools.yaml files with DIFFERENT forma
 
 ### goneat Standard Format (tools.yaml)
 
-Created by `goneat doctor tools init`:
+Created by `goneat doctor tools init` (generates ALL 4 scopes in v0.3.10+):
 
 ```yaml
 # .goneat/tools.yaml (goneat standard format)
@@ -43,9 +55,13 @@ scopes:
     tools:
       - gosec
       - govulncheck
-  custom:
+  format:
     tools:
-      - my-special-tool
+      - goimports
+      - gofmt
+  all:
+    description: All tools
+    tools: [...]
 ```
 
 ### Custom Bootstrap Manifest Format
@@ -60,7 +76,7 @@ tools:
   - id: goneat
     install:
       type: download
-      url: https://github.com/fulmenhq/goneat/releases/download/v0.3.9/goneat_v0.3.9_{{os}}_{{arch}}.tar.gz
+      url: https://github.com/fulmenhq/goneat/releases/download/v0.3.10/goneat_v0.3.10_{{os}}_{{arch}}.tar.gz
       checksum:
         darwin-arm64: "..."
 ```
@@ -92,14 +108,14 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN_DIR="${ROOT_DIR}/bin"
-GONEAT_VERSION="v0.3.9"
+GONEAT_VERSION="v0.3.10"
 
 # SHA256 checksums (update when changing version)
 case "$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)" in
-  darwin-arm64) EXPECTED_SHA="830850afe860ec3773f5cc9f9eb693e3bb6aa6b8fd5bd30bcd54516d843d3d5a" ;;
-  darwin-x86_64) EXPECTED_SHA="3a054db2d58d5a4f7a3f7fb9f8d5fba4a92c9495e9ba03ced136fcbc91be7866" ;;
-  linux-x86_64) EXPECTED_SHA="2541a8d75c565ff4cca71fd090110e7ae0acaa919e5ff8c2cbcd382110a67618" ;;
-  linux-aarch64) EXPECTED_SHA="15f49a33958c114916d9c7965ef3ace0b971855f626eb110abe58a9a7eae1d1b" ;;
+  darwin-arm64) EXPECTED_SHA="<sha256>" ;;
+  darwin-x86_64) EXPECTED_SHA="<sha256>" ;;
+  linux-x86_64) EXPECTED_SHA="<sha256>" ;;
+  linux-aarch64) EXPECTED_SHA="<sha256>" ;;
   *) EXPECTED_SHA="" ;;
 esac
 
@@ -112,8 +128,9 @@ if [[ ! -f "${ROOT_DIR}/.goneat/tools.yaml" ]] || ! grep -q "^scopes:" "${ROOT_D
   "${BIN_DIR}/goneat" doctor tools init --force
 fi
 
-# Install foundation tools (auto-installs bun/brew if needed)
-"${BIN_DIR}/goneat" doctor tools --scope foundation --install --yes
+# Install foundation tools
+# --no-cooling: Skip package age verification (required for CI/offline environments)
+"${BIN_DIR}/goneat" doctor tools --scope foundation --install --yes --no-cooling
 ```
 
 ### Makefile
@@ -157,14 +174,14 @@ tools:
     required: true
     install:
       type: download
-      url: https://github.com/fulmenhq/goneat/releases/download/v0.3.9/goneat_v0.3.9_{{os}}_{{arch}}.tar.gz
+      url: https://github.com/fulmenhq/goneat/releases/download/v0.3.10/goneat_v0.3.10_{{os}}_{{arch}}.tar.gz
       binName: goneat
       destination: ./bin
       checksum:
-        darwin-arm64: "830850afe860ec3773f5cc9f9eb693e3bb6aa6b8fd5bd30bcd54516d843d3d5a"
-        darwin-amd64: "3a054db2d58d5a4f7a3f7fb9f8d5fba4a92c9495e9ba03ced136fcbc91be7866"
-        linux-amd64: "2541a8d75c565ff4cca71fd090110e7ae0acaa919e5ff8c2cbcd382110a67618"
-        linux-arm64: "15f49a33958c114916d9c7965ef3ace0b971855f626eb110abe58a9a7eae1d1b"
+        darwin-arm64: "<sha256>"
+        darwin-amd64: "<sha256>"
+        linux-amd64: "<sha256>"
+        linux-arm64: "<sha256>"
 ```
 
 ### Makefile
@@ -178,7 +195,7 @@ bootstrap:
 		./bin/goneat doctor tools init --force; \
 	fi
 	@echo "Installing foundation tools..."
-	@./bin/goneat doctor tools --scope foundation --install --yes
+	@./bin/goneat doctor tools --scope foundation --install --yes --no-cooling
 ```
 
 ---
@@ -201,12 +218,12 @@ jobs:
 
       - name: Install goneat
         run: |
-          curl -sSL https://github.com/fulmenhq/goneat/releases/download/v0.3.9/goneat_v0.3.9_linux_amd64.tar.gz | tar -xz -C /usr/local/bin
+          curl -sSL https://github.com/fulmenhq/goneat/releases/download/v0.3.10/goneat_v0.3.10_linux_amd64.tar.gz | tar -xz -C /usr/local/bin
 
       - name: Bootstrap foundation tools
         run: |
           goneat doctor tools init
-          goneat doctor tools --scope foundation --install --yes
+          goneat doctor tools --scope foundation --install --yes --no-cooling
 
       - name: Build and test
         run: make test
@@ -214,27 +231,47 @@ jobs:
 
 ---
 
-## v0.3.9 Auto-Install Features
+## v0.3.10 Features
+
+### --no-cooling Flag (New in v0.3.10)
+
+For CI environments or offline/air-gapped systems, use `--no-cooling` to skip package age verification:
+
+```bash
+goneat doctor tools --scope foundation --install --yes --no-cooling
+```
+
+Without this flag, goneat verifies packages aren't too new (cooling policy) by checking release dates online.
+
+### Multi-Scope Init (New in v0.3.10)
+
+`goneat doctor tools init` now generates ALL 4 standard scopes (foundation, security, format, all) regardless of `--scope` flag:
+
+```bash
+goneat doctor tools init
+# Creates: foundation, security, format, all scopes
+# Tools: 13 (for Go repos)
+```
 
 ### Package Manager Auto-Install
 
 When `goneat doctor tools --install` runs and no package manager is available:
 
-1. **Tries bun first** (simpler, no dependencies)
-   - Installs to `~/.bun/bin/`
+1. **Tries brew first** (user-local, no sudo required)
+   - Installs to `~/homebrew/` or `/opt/homebrew/`
    - Updates PATH immediately
 
-2. **Falls back to brew** (user-local)
-   - Installs to `~/homebrew/`
-   - No sudo required
+2. **Falls back to bun** for Node.js packages only
+   - Installs to `~/.bun/bin/`
 
 ### Foundation Tools Scope
 
 Default tools installed with `--scope foundation`:
 
-- ripgrep, jq, yq (CLI utilities)
-- go, go-licenses, golangci-lint (Go tooling)
-- yamlfmt, prettier (formatters)
+- ripgrep, jq, yq (CLI utilities) - via brew
+- go, go-licenses, golangci-lint (Go tooling) - via go-install
+- yamlfmt (formatter) - via go-install
+- prettier (formatter) - via brew
 
 ---
 
@@ -281,16 +318,15 @@ goneat doctor tools --scope my-project --install --yes
 
 ### "No available installer succeeded"
 
-**Cause**: No package manager (bun/brew) available and auto-install failed.
+**Cause**: No package manager available and auto-install failed.
 
-**Fix**: v0.3.9 should auto-install bun. If failing:
+**Fix**: Ensure brew is installed or use --no-cooling in CI:
 ```bash
-# Manual bun install
-curl -fsSL https://bun.sh/install | bash
-export PATH="$HOME/.bun/bin:$PATH"
+# Manual brew install (if needed)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 # Then retry
-goneat doctor tools --scope foundation --install --yes
+goneat doctor tools --scope foundation --install --yes --no-cooling
 ```
 
 ### "tools.yaml not found" or format errors
@@ -299,8 +335,17 @@ goneat doctor tools --scope foundation --install --yes
 
 **Fix**:
 ```bash
-# Initialize standard format
+# Initialize standard format (creates all 4 scopes)
 goneat doctor tools init --force
+```
+
+### "Cooling policy violation"
+
+**Cause**: Package is too new or can't verify release date.
+
+**Fix**: Use `--no-cooling` flag for CI/offline environments:
+```bash
+goneat doctor tools --scope foundation --install --yes --no-cooling
 ```
 
 ### Conflict between custom manifest and goneat format
@@ -330,5 +375,5 @@ If your repo has an old `.goneat/tools.yaml` in custom format:
 
 ---
 
-**Document Version**: 1.0
-**Applies to**: goneat v0.3.9+
+**Document Version**: 2.0
+**Applies to**: goneat v0.3.10+

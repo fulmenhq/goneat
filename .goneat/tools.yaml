@@ -14,6 +14,27 @@
 # See schema: schemas/tools/tools.v1.0.0.json
 
 scopes:
+    all:
+        description: All tools from all scopes
+        tools:
+            - ripgrep
+            - jq
+            - yq
+            - go
+            - go-licenses
+            - golangci-lint
+            - yamlfmt
+            - prettier
+            - gosec
+            - govulncheck
+            - gitleaks
+            - goimports
+            - gofmt
+    format:
+        description: Code formatting tools
+        tools:
+            - goimports
+            - gofmt
     foundation:
         description: Core foundation tools required for goneat and basic AI agent operation
         tools:
@@ -31,27 +52,6 @@ scopes:
             - gosec
             - govulncheck
             - gitleaks
-    format:
-        description: Code formatting tools
-        tools:
-            - goimports
-            - gofmt
-    all:
-        description: All tools from all scopes
-        tools:
-            - ripgrep
-            - jq
-            - yq
-            - go
-            - go-licenses
-            - golangci-lint
-            - yamlfmt
-            - prettier
-            - gosec
-            - govulncheck
-            - gitleaks
-            - goimports
-            - gofmt
 tools:
     gitleaks:
         name: gitleaks
@@ -78,16 +78,14 @@ tools:
         installer_priority:
             darwin:
                 - brew
-                - mise
             linux:
                 - brew
-                - mise
             windows:
                 - scoop
                 - winget
-        version_scheme: lexical
-        minimum_version: "go1.21.0"
-        recommended_version: "go1.22.0"
+        version_scheme: semver
+        minimum_version: 1.21.0
+        recommended_version: 1.22.0
     go-licenses:
         name: go-licenses
         description: License compliance for Go dependencies
@@ -131,18 +129,8 @@ tools:
         check_args:
             - --help
         installer_priority:
-            darwin:
+            all:
                 - go-install
-                - mise
-                - bun
-            linux:
-                - go-install
-                - mise
-                - bun
-            windows:
-                - go-install
-                - scoop
-                - winget
         version_scheme: semver
         minimum_version: 1.54.0
         recommended_version: 2.4.0
@@ -184,16 +172,24 @@ tools:
         installer_priority:
             darwin:
                 - brew
-                - bun
-                - mise
             linux:
                 - brew
-                - bun
-                - mise
             windows:
-                - bun
                 - scoop
                 - winget
+    prettier:
+        name: prettier
+        description: Opinionated code formatter
+        kind: node
+        detect_command: prettier --version
+        installer_priority:
+            darwin:
+                - brew
+            linux:
+                - brew
+            windows:
+                - scoop
+                - npm
     ripgrep:
         name: ripgrep
         description: Fast text search - used by goneat for license auditing
@@ -206,14 +202,9 @@ tools:
         installer_priority:
             darwin:
                 - brew
-                - bun
-                - mise
             linux:
                 - brew
-                - bun
-                - mise
             windows:
-                - bun
                 - scoop
                 - winget
     yamlfmt:
@@ -226,17 +217,8 @@ tools:
             - --version
         check_args:
             - --help
-        install_commands:
-            scoop: scoop install main/yamlfmt
         installer_priority:
-            darwin:
-                - brew
-                - go-install
-            linux:
-                - brew
-                - go-install
-            windows:
-                - scoop
+            all:
                 - go-install
     yq:
         name: yq
@@ -247,37 +229,11 @@ tools:
             - darwin
             - linux
             - windows
-        install_commands:
-            mise: mise use -g yq@latest
-            scoop: scoop install yq
-            winget: winget install --id=mikefarah.yq
         installer_priority:
             darwin:
                 - brew
-                - mise
             linux:
                 - brew
-                - mise
             windows:
                 - scoop
                 - winget
-    prettier:
-        name: prettier
-        description: Code formatter for JavaScript, TypeScript, JSON, Markdown, YAML
-        kind: system
-        detect_command: prettier --version
-        platforms:
-            - darwin
-            - linux
-            - windows
-        installer_priority:
-            darwin:
-                - brew
-                - bun
-            linux:
-                - brew
-                - bun
-            windows:
-                - scoop
-                - winget
-                - bun

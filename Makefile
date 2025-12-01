@@ -31,7 +31,7 @@ LDFLAGS := -ldflags "\
 	-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
-.PHONY: help build clean clean-all test fmt format-docs format-config format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites sync-crucible sync-ssot verify-crucible verify-crucible-clean bootstrap tools lint release-check release-prepare release-build check-all prepush precommit
+.PHONY: help build clean clean-all test fmt format-docs format-config format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites sync-crucible sync-ssot verify-crucible verify-crucible-clean bootstrap tools lint release-check release-prepare release-build check-all prepush precommit update-homebrew-formula
 
 # Default target
 all: clean build fmt
@@ -101,7 +101,7 @@ verify-crucible-clean: ## Verify crucible sources are clean (no uncommitted chan
 bootstrap: build ## Install foundation scope (auto-installs user-local brew/scoop as needed)
 	@echo "🥾 Installing foundation tools via goneat doctor tools..."
 	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
-		$(BUILD_DIR)/$(BINARY_NAME) doctor tools --scope foundation --install --yes; \
+		$(BUILD_DIR)/$(BINARY_NAME) doctor tools --scope foundation --install --yes --no-cooling && \
 		echo "✅ Foundation tools installed"; \
 	else \
 		echo "❌ goneat binary not found, cannot install tools"; \
@@ -492,6 +492,44 @@ release-upload: ## Upload signed release artifacts to GitHub (requires dist/rele
 	@echo ""
 	@echo "🔍 Verify upload:"
 	@echo "   gh release view $(VERSION)"
+	@echo ""
+	@echo "📝 Updating Homebrew formula..."
+	@$(MAKE) update-homebrew-formula
+
+update-homebrew-formula: ## Update Homebrew formula with new version and checksums (requires ../homebrew-tap)
+	@echo "Updating Homebrew formula for $(BINARY_NAME) $(VERSION)..."
+	@echo ""
+	@echo "ℹ️  Note: This target requires ../homebrew-tap to be cloned as a sibling directory"
+	@echo "   Repository: https://github.com/fulmenhq/homebrew-tap"
+	@echo "   Expected path: ../homebrew-tap"
+	@echo ""
+	@if [ ! -d "../homebrew-tap" ]; then \
+		echo "❌ Error: ../homebrew-tap directory not found"; \
+		echo ""; \
+		echo "Please clone the homebrew-tap repository:"; \
+		echo "  cd .. && git clone https://github.com/fulmenhq/homebrew-tap.git"; \
+		echo ""; \
+		echo "Directory structure should be:"; \
+		echo "  parent/"; \
+		echo "    ├── goneat/           (this repository)"; \
+		echo "    └── homebrew-tap/     (sibling repository)"; \
+		exit 1; \
+	fi
+	@if [ ! -f "../homebrew-tap/Formula/$(BINARY_NAME).rb" ]; then \
+		echo "❌ Error: Formula file not found: ../homebrew-tap/Formula/$(BINARY_NAME).rb"; \
+		exit 1; \
+	fi
+	@echo "✅ Sibling repository found: ../homebrew-tap"
+	@echo "   Calling homebrew-tap update target..."
+	@cd ../homebrew-tap && $(MAKE) update-goneat VERSION=$(VERSION)
+	@echo ""
+	@echo "✅ Homebrew formula updated successfully!"
+	@echo ""
+	@echo "📋 Next steps:"
+	@echo "   1. Review changes:  cd ../homebrew-tap && git diff Formula/$(BINARY_NAME).rb"
+	@echo "   2. Test formula:    cd ../homebrew-tap && make test APP=$(BINARY_NAME)"
+	@echo "   3. Commit formula:  cd ../homebrew-tap && git add Formula/$(BINARY_NAME).rb && git commit"
+	@echo "   4. Push to tap:     cd ../homebrew-tap && git push"
 
 release: release-prep release-tag release-push ## Complete release process
 	@echo "🎉 Release v$(VERSION) completed!"

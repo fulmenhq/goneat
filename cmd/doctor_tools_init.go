@@ -78,36 +78,17 @@ func runToolsInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load tools defaults: %w", err)
 	}
 
-	// Get tools for the specified scope
-	scopeTools, err := defaultsConfig.GetToolsForScope(toolsInitScope)
-	if err != nil {
-		return fmt.Errorf("failed to get tools for scope %s: %w", toolsInitScope, err)
+	// Generate complete config with ALL standard scopes
+	// This ensures .goneat/tools.yaml is fully functional regardless of which scope was requested
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "📦 Generating tools.yaml with all standard scopes...\n")
+
+	toolsConfig := doctor.ConvertToToolsConfigWithAllScopes(defaultsConfig, language, toolsInitMinimal)
+
+	if len(toolsConfig.Tools) == 0 {
+		return fmt.Errorf("no tools found for language %s", language)
 	}
 
-	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "📦 Loading scope: %s (%d tools)\n", toolsInitScope, len(scopeTools))
-
-	// Filter by language
-	var filteredTools []doctor.ToolDefinition
-	if toolsInitMinimal {
-		filteredTools = doctor.GetMinimalToolsForLanguage(scopeTools, language)
-		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "🎯 Minimal mode: filtered to %d language-native tools\n", len(filteredTools))
-	} else {
-		filteredTools = doctor.FilterToolsByLanguage(scopeTools, language)
-		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "🔧 Filtered to %d tools for %s\n", len(filteredTools), language)
-	}
-
-	if len(filteredTools) == 0 {
-		return fmt.Errorf("no tools found for language %s and scope %s", language, toolsInitScope)
-	}
-
-	// Get scope description
-	scopeDesc := "Foundation tools"
-	if scopeDef, exists := defaultsConfig.Scopes[toolsInitScope]; exists {
-		scopeDesc = scopeDef.Description
-	}
-
-	// Convert to ToolsConfig format
-	toolsConfig := doctor.ConvertToToolsConfig(filteredTools, toolsInitScope, scopeDesc)
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "🔧 Generated %d tools across %d scopes for %s\n", len(toolsConfig.Tools), len(toolsConfig.Scopes), language)
 
 	// Ensure .goneat directory exists
 	if err := os.MkdirAll(".goneat", 0750); err != nil {
@@ -132,8 +113,8 @@ func runToolsInit(cmd *cobra.Command, args []string) error {
 	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "   Scopes: %d\n", len(toolsConfig.Scopes))
 	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\n📋 Next steps:\n")
 	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "   1. Review %s and customize as needed\n", configPath)
-	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "   2. Run: goneat doctor tools --scope %s\n", toolsInitScope)
-	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "   3. Install missing tools if needed\n")
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "   2. Run: goneat doctor tools --scope foundation\n")
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "   3. Install missing tools: goneat doctor tools --scope foundation --install --yes\n")
 	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\n💡 Note: .goneat/tools.yaml is now your ONLY source of tool configuration.\n")
 	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "         No hidden defaults or runtime merging will occur.\n")
 

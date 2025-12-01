@@ -30,6 +30,30 @@ test + lint + verify-crucible + license-audit
 
 **Why this matters**: Running `make prepush` before pushing ensures all validation gates pass. This target automatically chains through release-check → release-prepare, providing full release readiness validation.
 
+## Prerequisites
+
+### Repository Structure
+
+goneat's release automation requires specific sibling repositories for package manager formula updates:
+
+```
+parent/
+  ├── goneat/              # This repository
+  ├── homebrew-tap/        # Required for `make update-homebrew-formula`
+  └── homebrew-tap-tools/  # Optional (improves local dev workflow)
+```
+
+**Setup:**
+
+```bash
+cd ..  # Navigate to parent directory
+git clone https://github.com/fulmenhq/homebrew-tap.git
+git clone https://github.com/fulmenhq/homebrew-tap-tools.git  # Optional
+cd goneat
+```
+
+**Why this matters**: The `make release-upload` target automatically updates the Homebrew formula after uploading release artifacts. If `../homebrew-tap` is not present, the release process will skip formula updates and provide manual instructions.
+
 ## Pre-Release Preparation
 
 ### Code Quality Gates
@@ -279,11 +303,11 @@ for asc in *.asc; do
 done
 # Should show "Good signature" for all
 
-# 6. Upload to GitHub release
+# 6. Upload to GitHub release and update package manager formulas
 # IMPORTANT: Upload BOTH binaries and signatures, not just signatures!
-# Option A: Use make target (recommended)
+# Option A: Use make target (recommended - includes Homebrew formula update)
 cd ../..  # Return to repo root
-make release-upload
+make release-upload  # Uploads artifacts AND updates ../homebrew-tap formula
 
 # Option B: Manual upload
 gh release upload v<version> \
@@ -301,7 +325,12 @@ gh release edit v<version> --notes-file release-notes-v<version>.md
 # Verify upload succeeded (should show 13 assets)
 gh release view v<version> --json assets --jq '.assets | length'
 gh release view v<version> --json assets --jq '.assets[].name'
+
+# If using Option B (manual upload), update Homebrew formula separately:
+make update-homebrew-formula  # Requires ../homebrew-tap
 ```
+
+**Note**: `make release-upload` (Option A) automatically calls `make update-homebrew-formula` after uploading artifacts. If using Option B (manual upload), run the formula update target separately.
 
 **See**: `docs/security/release-signing.md` for detailed signing procedures.
 
@@ -370,6 +399,12 @@ goneat doctor tools --scope foundation
 **Cross-Platform:**
 - Binaries functional on target platforms
 - No runtime errors on supported OS/architectures
+
+**Homebrew Formula (if updated):**
+- Formula version matches release version
+- All platform checksums updated correctly
+- Formula passes audit: `cd ../homebrew-tap && make audit APP=goneat`
+- Test installation works: `cd ../homebrew-tap && make test APP=goneat`
 
 ### Communication
 
@@ -440,6 +475,8 @@ make prepush
 - `make build-all` - Cross-platform binary builds
 - `make package` - Release artifact packaging
 - `make release-notes` - Generate release notes artifact
+- `make release-upload` - Upload artifacts and update Homebrew formula (v0.3.9+)
+- `make update-homebrew-formula` - Update Homebrew tap formula (v0.3.10+)
 
 **Scripts:**
 - `scripts/build-all.sh` - Multi-platform build orchestration
@@ -451,7 +488,10 @@ make prepush
 
 - GitHub Actions: Automated builds on tag push
 - Automated release creation
-- Binary upload automation
+- ✅ Binary upload automation (v0.3.9: `make release-upload`)
+- ✅ Homebrew formula updates (v0.3.10: `make update-homebrew-formula`)
+- Native `goneat formula` command (v0.3.11+: multi-package-manager support)
+- Scoop and Winget manifest updates (v0.4.x+)
 - Changelog generation from commits
 - Automated signing integration (requires CI infrastructure)
 
@@ -552,6 +592,9 @@ git push origin main v0.3.6
 - ✅ Update all documentation before tagging
 - ✅ Verify license audit passes
 - ✅ Sign all release artifacts (v0.3.4+)
+- ✅ Clone ../homebrew-tap for automated formula updates (v0.3.10+)
+- ✅ Use `make release-upload` for complete release process (v0.3.9+)
+- ✅ Verify Homebrew formula updates after release (v0.3.10+)
 - ✅ Wait for pkg.go.dev indexing before announcing
 
 **DON'T:**
@@ -561,6 +604,7 @@ git push origin main v0.3.6
 - ❌ Push without running full test suite
 - ❌ Release with failing license audit
 - ❌ Skip documentation updates
+- ❌ Manually update Homebrew formulas (use `make update-homebrew-formula`)
 
 ## Contact Information
 
@@ -579,7 +623,7 @@ git push origin main v0.3.6
 
 ---
 
-**Document Version**: 2.0 (Best Practice Reference Guide)
-**Last Updated**: 2025-11-14 (v0.3.6 release cycle)
+**Document Version**: 2.1 (Best Practice Reference Guide)
+**Last Updated**: 2025-12-01 (v0.3.10 - Homebrew formula automation)
 **Next Review**: With each major release or significant process change
 **Format**: General reference (not version-specific checklist)

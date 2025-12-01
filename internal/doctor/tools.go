@@ -645,6 +645,10 @@ func extractFirstVersionToken(s string) string {
 	parts := strings.Fields(line)
 	for _, p := range parts {
 		if looksLikeVersion(p) {
+			// Strip "go" prefix from Go version strings
+			// e.g., "go1.25.4" -> "1.25.4"
+			// Note: Keep "v" prefix as it's valid semver
+			p = strings.TrimPrefix(p, "go")
 			return p
 		}
 	}
@@ -652,8 +656,9 @@ func extractFirstVersionToken(s string) string {
 }
 
 func looksLikeVersion(s string) bool {
-	// v1.2.3 or 1.2.3 or similar
+	// v1.2.3 or 1.2.3 or go1.25.4 or similar
 	s = strings.TrimPrefix(s, "v")
+	s = strings.TrimPrefix(s, "go") // Go version: "go1.25.4"
 	dots := strings.Count(s, ".")
 	return dots >= 1 && dots <= 3
 }

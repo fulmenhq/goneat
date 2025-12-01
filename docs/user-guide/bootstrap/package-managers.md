@@ -1,32 +1,49 @@
 ---
 title: Installing Package Managers on a Fresh Workstation
-description: Step-by-step guidance for installing mise, Homebrew, Scoop, Winget, and Linux package managers before running goneat doctor
+description: Step-by-step guidance for installing Homebrew, Scoop, Winget, and Linux package managers before running goneat doctor
 author: Arch Eagle (@arch-eagle)
 last_updated: 2025-12-01
-version: v0.3.9
+version: v0.3.10
 ---
 
 # Installing Package Managers on a Fresh Workstation
 
-Goneat's tooling workflow assumes a baseline set of package managers. **Starting in v0.3.9**, goneat can automatically install bun or brew for you, so on most systems you don't need to pre-install package managers at all.
+Goneat's tooling workflow assumes a baseline set of package managers. **Starting in v0.3.9**, goneat can automatically install brew for you, so on most systems you don't need to pre-install package managers at all.
 
-## Fully Automatic Bootstrap (New in v0.3.9)
+## Package Manager Strategy (v0.3.10+)
 
-**goneat now automatically installs package managers** when they're needed but not present:
+| Package Manager | Use Case |
+|-----------------|----------|
+| `brew` | System binaries on darwin/linux (ripgrep, jq, yq, prettier) |
+| `scoop/winget` | System binaries on Windows |
+| `go-install` | Go tools (golangci-lint, gosec, yamlfmt, etc.) |
+| `bun/npm` | Node.js packages ONLY (e.g., eslint for TypeScript repos) |
+| `uv/pip` | Python packages ONLY |
+
+**Note**: bun is NOT used for system binaries - it can only install npm packages.
+
+## Fully Automatic Bootstrap (v0.3.9+)
+
+**goneat automatically installs package managers** when they're needed but not present:
 
 ```bash
 # Just run bootstrap - goneat handles package manager installation automatically
 make bootstrap
 # or directly:
-goneat doctor tools --scope foundation --install --yes
+goneat doctor tools --scope foundation --install --yes --no-cooling
 ```
 
 **What happens automatically**:
-1. goneat checks if bun or brew is needed (based on `.goneat/tools.yaml`)
-2. If needed but not installed, goneat installs bun first (simpler, no dependencies)
-3. Falls back to brew if bun fails
+1. goneat checks which tools are needed (based on `.goneat/tools.yaml`)
+2. For system binaries: installs brew if not present (user-local, no sudo)
+3. For Go tools: uses `go install` directly
 4. Adds the package manager's bin directory to PATH immediately
 5. Installs the required tools
+
+**The `--no-cooling` flag** (new in v0.3.10) skips package age verification, which is required for:
+- CI environments without network access to check release dates
+- Offline/air-gapped environments
+- Faster bootstrap when you don't need freshness verification
 
 **No manual package manager installation required** on:
 - GitHub Actions runners (ubuntu-latest, macos-latest)
@@ -54,7 +71,7 @@ tools:
     install_commands:
       manual: |
         curl https://mise.jdx.dev/install.sh | sh && \
-        echo '✅ mise installed. Add $HOME/.local/bin to PATH'
+        echo 'mise installed. Add $HOME/.local/bin to PATH'
 ```
 
 ```bash
@@ -79,10 +96,10 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc  # or ~/.zshrc
 ```
 
 **When to use automatic bootstrap**:
-- ✅ CI/CD environments (GitHub Actions, GitLab CI, etc.)
-- ✅ Template repositories requiring standardized tooling
-- ✅ Multi-platform projects with shared tool configs
-- ✅ Fresh developer workstations (onboarding)
+- CI/CD environments (GitHub Actions, GitLab CI, etc.)
+- Template repositories requiring standardized tooling
+- Multi-platform projects with shared tool configs
+- Fresh developer workstations (onboarding)
 
 ## Manual Installation (Alternative)
 
@@ -98,7 +115,7 @@ If you prefer to install package managers manually before running goneat, use th
 PATH="/opt/homebrew/bin:/usr/local/bin:$PATH" brew --version
 ```
 
-### 2. Install mise (recommended)
+### 2. Install mise (optional - for version management)
 
 ```bash
 curl https://mise.jdx.dev/install.sh | sh
@@ -108,14 +125,21 @@ source "$HOME/.local/share/mise/env"
 
 ## Linux
 
-### 1. Install mise (user-level, no sudo)
+### 1. Install Homebrew (brew) - user-level, no sudo
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+eval "$($HOME/.linuxbrew/bin/brew shellenv)"
+```
+
+### 2. Install mise (optional - for version management)
 
 ```bash
 curl https://mise.jdx.dev/install.sh | sh
 source "$HOME/.local/share/mise/env"
 ```
 
-### 2. Verify distro package manager availability
+### 3. Verify distro package manager availability
 
 - **Arch / Manjaro:** `pacman -V`
 - **Debian / Ubuntu:** `apt-get --version`
@@ -183,7 +207,10 @@ scoop install go
 When goneat reports "not in PATH," keep working by prepending the expected directory:
 
 ```bash
-# macOS / Linux
+# macOS / Linux (Homebrew)
+PATH="/opt/homebrew/bin:$HOME/.linuxbrew/bin:$PATH" goneat doctor tools --scope foundation
+
+# macOS / Linux (mise shims)
 PATH="$HOME/.local/share/mise/shims:$PATH" goneat doctor tools --scope foundation
 
 # Windows PowerShell
@@ -194,6 +221,6 @@ Add the export to your shell profile (`~/.bashrc`, `~/.zshrc`, `~/.config/fish/c
 
 ## See Also
 
-- `docs/appnotes/intelligent-tool-installation.md`
+- `docs/appnotes/bootstrap-patterns.md`
 - `goneat doctor tools --help`
 - `goneat docs` (embedded version of this guide)

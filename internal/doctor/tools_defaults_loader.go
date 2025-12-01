@@ -217,3 +217,94 @@ func ConvertToToolsConfig(tools []ToolDefinition, scopeName string, scopeDescrip
 
 	return config
 }
+
+// ConvertToToolsConfigWithAllScopes generates a complete tools.yaml config
+// with all standard scopes (foundation, security, format, all) populated.
+// This ensures users get a fully functional config regardless of which scope
+// they specify during init.
+func ConvertToToolsConfigWithAllScopes(defaultsConfig *ToolsDefaultsConfig, language string, minimal bool) *ToolsConfig {
+	config := &ToolsConfig{
+		Tools:  make(map[string]ToolConfig),
+		Scopes: make(map[string]ScopeConfig),
+	}
+
+	// Define standard scopes to generate
+	standardScopes := []string{"foundation", "security", "format", "all"}
+
+	// Collect all unique tools across all scopes
+	allToolDefs := make(map[string]ToolDefinition)
+
+	for _, scopeName := range standardScopes {
+		scopeTools, err := defaultsConfig.GetToolsForScope(scopeName)
+		if err != nil {
+			continue // Skip scopes that don't exist
+		}
+
+		// Filter by language
+		var filteredTools []ToolDefinition
+		if minimal {
+			filteredTools = GetMinimalToolsForLanguage(scopeTools, language)
+		} else {
+			filteredTools = FilterToolsByLanguage(scopeTools, language)
+		}
+
+		// Build scope definition
+		scopeToolNames := make([]string, 0, len(filteredTools))
+		for _, toolDef := range filteredTools {
+			allToolDefs[toolDef.Name] = toolDef
+			scopeToolNames = append(scopeToolNames, toolDef.Name)
+		}
+
+		// Add scope if it has tools
+		if len(scopeToolNames) > 0 {
+			scopeDesc := "Tools scope"
+			if scopeDef, exists := defaultsConfig.Scopes[scopeName]; exists {
+				scopeDesc = scopeDef.Description
+			}
+			config.Scopes[scopeName] = ScopeConfig{
+				Description: scopeDesc,
+				Tools:       scopeToolNames,
+			}
+		}
+	}
+
+	// Convert all collected tool definitions to ToolConfig
+	for _, toolDef := range allToolDefs {
+		tool := ToolConfig{
+			Name:               toolDef.Name,
+			Description:        toolDef.Description,
+			Kind:               toolDef.Kind,
+			DetectCommand:      toolDef.DetectCommand,
+			Platforms:          toolDef.Platforms,
+			InstallPackage:     toolDef.InstallPackage,
+			VersionArgs:        toolDef.VersionArgs,
+			CheckArgs:          toolDef.CheckArgs,
+			VersionScheme:      toolDef.VersionScheme,
+			MinimumVersion:     toolDef.MinimumVersion,
+			RecommendedVersion: toolDef.RecommendedVersion,
+		}
+
+		// Handle package_managers field - convert to installer_priority
+		if toolDef.PackageManagers != nil {
+			switch pm := toolDef.PackageManagers.(type) {
+			case map[string]interface{}:
+				tool.InstallerPriority = make(map[string][]string)
+				for platform, value := range pm {
+					if slice, ok := value.([]interface{}); ok {
+						managers := make([]string, 0, len(slice))
+						for _, item := range slice {
+							if str, ok := item.(string); ok {
+								managers = append(managers, str)
+							}
+						}
+						tool.InstallerPriority[platform] = managers
+					}
+				}
+			}
+		}
+
+		config.Tools[tool.Name] = tool
+	}
+
+	return config
+}

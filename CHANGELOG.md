@@ -13,6 +13,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.3.10] - 2025-12-01
+
+### Added
+
+- **All Standard Scopes in Tools Init**: `goneat doctor tools init` now generates all 4 standard scopes
+  (foundation, security, format, all) regardless of `--scope` flag value
+  - Ensures .goneat/tools.yaml is fully functional immediately after init
+  - Users no longer need to run init multiple times for different scopes
+  - New `ConvertToToolsConfigWithAllScopes()` function handles multi-scope generation
+
+- **--no-cooling Flag for CI**: New `--no-cooling` flag for `goneat doctor tools` command
+  - Disables package cooling policy checks
+  - Essential for offline/air-gapped environments and CI runners
+  - Prevents failures when unable to verify package release dates
+
+- **Node/Python Tool Kinds**: Schema now allows "node" and "python" as valid tool kinds
+  - Supports tools like prettier (node) and ruff (python)
+  - Updated schemas/tools/v1.0.0/tools-config.yaml and v1.1.0/tools-config.yaml
+
+### Changed
+
+- **Package Manager Strategy Cleanup**:
+  - `brew`: Primary for system binaries on darwin/linux (supports user-mode install)
+  - `scoop/winget`: Primary for Windows
+  - `go-install`: Primary for Go tools (no package manager needed)
+  - `bun/npm`: Node.js packages only (e.g., eslint for TypeScript repos)
+  - `uv/pip`: Python packages only
+  - **Removed**: bun from system tool installers (ripgrep, jq, yq) - bun can't install system binaries
+  - **Removed**: mise from default installers (it's a version manager, not general package manager)
+  - **Changed**: prettier now uses brew instead of bun (avoids installing bun just for this tool)
+
+- **Bootstrap Documentation**: Updated bootstrap-patterns appnote to v0.3.10 patterns
+
+### Fixed
+
+- **Makefile Bootstrap Exit Code Propagation**: Changed `;` to `&&` in bootstrap target
+  - Bootstrap now fails fast on first error instead of continuing silently
+  - CI now correctly detects bootstrap failures
+
+- **Go Version Parsing**: Fixed semver comparison for Go versions like "go1.25.4"
+  - Now strips "go" prefix before semver parsing
+  - Prevents "invalid semver format" errors
+
 ## [0.3.9] - 2025-12-01
 
 ### Added

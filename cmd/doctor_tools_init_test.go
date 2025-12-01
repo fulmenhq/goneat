@@ -45,23 +45,18 @@ func TestDoctorToolsInitCreatesFoundationConfig(t *testing.T) {
 func TestDoctorToolsInitMinimalMatchesDefaults(t *testing.T) {
 	tmpDir := t.TempDir()
 
+	// In minimal mode, we generate all scopes but filter each to minimal tools
+	// This test verifies that the generated config matches what
+	// ConvertToToolsConfigWithAllScopes produces with minimal=true
 	defaults, err := doctor.LoadToolsDefaultsConfig()
 	if err != nil {
 		t.Fatalf("failed to load defaults: %v", err)
 	}
 
-	scopeTools, err := defaults.GetToolsForScope("foundation")
-	if err != nil {
-		t.Fatalf("failed to get foundation scope tools: %v", err)
-	}
-
-	expectedTools := doctor.GetMinimalToolsForLanguage(scopeTools, "go")
-	if len(expectedTools) == 0 {
+	// Calculate expected tools across ALL scopes in minimal mode
+	expectedConfig := doctor.ConvertToToolsConfigWithAllScopes(defaults, "go", true)
+	if len(expectedConfig.Tools) == 0 {
 		t.Fatal("expected minimal tool list for go to be non-empty")
-	}
-	expectedSet := make(map[string]struct{}, len(expectedTools))
-	for _, tool := range expectedTools {
-		expectedSet[tool.Name] = struct{}{}
 	}
 
 	if _, err := runDoctorToolsInitInDir(t, tmpDir, toolsInitOptions{
@@ -74,13 +69,14 @@ func TestDoctorToolsInitMinimalMatchesDefaults(t *testing.T) {
 	}
 
 	config := loadGeneratedToolsConfig(t, tmpDir)
-	if len(config.Tools) != len(expectedSet) {
-		t.Fatalf("expected %d tools, got %d", len(expectedSet), len(config.Tools))
+	if len(config.Tools) != len(expectedConfig.Tools) {
+		t.Fatalf("expected %d tools, got %d", len(expectedConfig.Tools), len(config.Tools))
 	}
 
-	for name := range config.Tools {
-		if _, exists := expectedSet[name]; !exists {
-			t.Fatalf("unexpected tool %s in minimal config", name)
+	// Verify all expected tools are present
+	for name := range expectedConfig.Tools {
+		if _, exists := config.Tools[name]; !exists {
+			t.Fatalf("expected tool %s not in generated config", name)
 		}
 	}
 }
@@ -103,16 +99,32 @@ func TestDoctorToolsInitRequiresForceWhenConfigExists(t *testing.T) {
 	}
 }
 
-func TestDoctorToolsInitInvalidScope(t *testing.T) {
+func TestDoctorToolsInitGeneratesAllStandardScopes(t *testing.T) {
+	// Since v0.3.10, init always generates all 4 standard scopes (foundation, security, format, all)
+	// regardless of which scope is specified via --scope flag
 	tmpDir := t.TempDir()
 
 	_, err := runDoctorToolsInitInDir(t, tmpDir, toolsInitOptions{
 		language: "go",
-		scope:    "unknown",
+		scope:    "foundation", // scope flag is now ignored
 		force:    true,
 	})
-	if err == nil || !strings.Contains(err.Error(), "failed to get tools for scope") {
-		t.Fatalf("expected scope error, got: %v", err)
+	if err != nil {
+		t.Fatalf("doctor tools init failed: %v", err)
+	}
+
+	config := loadGeneratedToolsConfig(t, tmpDir)
+
+	// Verify all 4 standard scopes are present
+	expectedScopes := []string{"foundation", "security", "format", "all"}
+	for _, scope := range expectedScopes {
+		if _, exists := config.Scopes[scope]; !exists {
+			t.Fatalf("expected scope %s in generated config", scope)
+		}
+	}
+
+	if len(config.Scopes) != 4 {
+		t.Fatalf("expected 4 scopes, got %d", len(config.Scopes))
 	}
 }
 

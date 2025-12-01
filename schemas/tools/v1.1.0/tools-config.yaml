@@ -64,7 +64,7 @@ $defs:
       kind:
         type: string
         description: "Type of tool installation method"
-        enum: ["go", "bundled-go", "system"]
+        enum: ["go", "bundled-go", "system", "node", "python"]
       detect_command:
         type: string
         description: "Command to detect if tool is installed (e.g., 'rg --version')"

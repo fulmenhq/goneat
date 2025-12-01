@@ -3,18 +3,27 @@ version: v1.0.0
 # Foundation Tools Defaults
 # These tools can be seeded into .goneat/tools.yaml via `goneat doctor tools init`
 # Organized by category with package manager preferences per platform
+#
+# Package Manager Strategy (v0.3.10+):
+# - brew: Primary for system binaries on darwin/linux (user-mode install supported)
+# - scoop/winget: Primary for Windows
+# - go-install: Primary for Go tools (no package manager needed)
+# - bun/npm: For Node.js packages only
+# - uv/pip: For Python packages only
+#
+# Note: mise was removed - it's a version manager, not a general package manager
 
 foundation_tools:
-  # System CLI tools (prefer sudo-free package managers, brew with enhanced detection)
+  # System CLI tools - use brew (supports user-mode install)
   - name: ripgrep
     description: "Fast text search - used by goneat for license auditing"
     kind: "system"
     detect_command: "rg --version"
     platforms: ["darwin", "linux", "windows"]
     package_managers:
-      darwin: ["brew", "bun", "mise"]
-      linux: ["brew", "bun", "mise"]
-      windows: ["bun", "scoop", "winget"]
+      darwin: ["brew"]
+      linux: ["brew"]
+      windows: ["scoop", "winget"]
     auto_install_safe: true
 
   - name: jq
@@ -23,9 +32,9 @@ foundation_tools:
     detect_command: "jq --version"
     platforms: ["darwin", "linux", "windows"]
     package_managers:
-      darwin: ["brew", "bun", "mise"]
-      linux: ["brew", "bun", "mise"]
-      windows: ["bun", "scoop", "winget"]
+      darwin: ["brew"]
+      linux: ["brew"]
+      windows: ["scoop", "winget"]
     auto_install_safe: true
 
   - name: yq
@@ -34,9 +43,9 @@ foundation_tools:
     detect_command: "yq --version"
     platforms: ["darwin", "linux", "windows"]
     package_managers:
-      darwin: ["brew", "bun", "mise"]
-      linux: ["brew", "bun", "mise"]
-      windows: ["bun", "scoop", "winget"]
+      darwin: ["brew"]
+      linux: ["brew"]
+      windows: ["scoop", "winget"]
     auto_install_safe: true
 
   - name: go
@@ -45,8 +54,8 @@ foundation_tools:
     detect_command: "go version"
     platforms: ["darwin", "linux", "windows"]
     package_managers:
-      darwin: ["brew", "mise"]
-      linux: ["brew", "mise"]
+      darwin: ["brew"]
+      linux: ["brew"]
       windows: ["scoop", "winget"]
     auto_install_safe: true
     required_for_languages: ["go"]
@@ -54,7 +63,7 @@ foundation_tools:
     minimum_version: "1.21.0"
     recommended_version: "1.22.0"
 
-  # Go-installable tools (always safe, no sudo)
+  # Go-installable tools - use go-install (native, no package manager needed)
   - name: go-licenses
     description: "License compliance for Go dependencies"
     kind: "go"
@@ -75,9 +84,7 @@ foundation_tools:
     version_args: ["--version"]
     check_args: ["--help"]
     package_managers:
-      darwin: ["go-install", "mise", "bun"]
-      linux: ["go-install", "mise", "bun"]
-      windows: ["go-install", "scoop", "winget"]
+      all: ["go-install"]
     auto_install_safe: true
     required_for_languages: ["go"]
     version_scheme: "semver"
@@ -95,7 +102,7 @@ foundation_tools:
       all: ["go-install"]
     auto_install_safe: true
 
-# Security tools (Go-based, safe to install)
+# Security tools (Go-based, use go-install)
 security_tools:
   - name: gosec
     description: "Go security checker"
@@ -132,7 +139,7 @@ security_tools:
       all: ["go-install"]
     auto_install_safe: true
 
-# Format tools (Go-based)
+# Format tools (Go-based, use go-install)
 format_tools:
   - name: goimports
     description: "Go import formatter"
@@ -157,7 +164,7 @@ format_tools:
     auto_install_safe: true
     required_for_languages: ["go"]
 
-# Python tools (future expansion)
+# Python tools (use uv/pip)
 python_tools:
   - name: ruff
     description: "Fast Python linter and formatter"
@@ -177,22 +184,26 @@ python_tools:
     auto_install_safe: true
     required_for_languages: ["python"]
 
-# TypeScript tools (future expansion)
+# TypeScript/Node tools
 typescript_tools:
   - name: prettier
     description: "Opinionated code formatter"
     kind: "node"
     detect_command: "prettier --version"
     package_managers:
-      all: ["bun", "npm"]
+      # brew can install prettier - use it to avoid needing bun for foundation scope
+      darwin: ["brew"]
+      linux: ["brew"]
+      windows: ["scoop", "npm"]
     auto_install_safe: true
-    required_for_languages: ["typescript"]
+    # Note: prettier is also in foundation scope for YAML/markdown formatting
 
   - name: eslint
     description: "JavaScript/TypeScript linter"
     kind: "node"
     detect_command: "eslint --version"
     package_managers:
+      # eslint is TypeScript-specific, use bun/npm (only installed for TS repos)
       all: ["bun", "npm"]
     auto_install_safe: true
     required_for_languages: ["typescript"]
@@ -214,6 +225,7 @@ scopes:
       - go-licenses  # Only if Go repo detected
       - golangci-lint  # Only if Go repo detected
       - yamlfmt
+      - prettier  # Used by goneat format for markdown, JSON, YAML
 
   security:
     description: "Security scanning tools"
@@ -238,6 +250,7 @@ scopes:
       - go-licenses
       - golangci-lint
       - yamlfmt
+      - prettier
       - gosec
       - govulncheck
       - gitleaks
