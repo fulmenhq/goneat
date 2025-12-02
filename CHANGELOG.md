@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Install Probe CI Validation**: New `make install-probe` target validates package manager + tool combinations
+  - Runs in CI to catch invalid installer configurations (e.g., scoop+prettier)
+  - Uses build tag `installprobe` for opt-in execution
+  - Non-destructive: probes package managers with info commands, never installs
+  - Static `TestDefaultConfigInstallability` validates schema correctness in normal tests
+
 - **All Standard Scopes in Tools Init**: `goneat doctor tools init` now generates all 4 standard scopes
   (foundation, security, format, all) regardless of `--scope` flag value
   - Ensures .goneat/tools.yaml is fully functional immediately after init
@@ -42,7 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `uv/pip`: Python packages only
   - **Removed**: bun from system tool installers (ripgrep, jq, yq) - bun can't install system binaries
   - **Removed**: mise from default installers (it's a version manager, not general package manager)
-  - **Changed**: prettier now uses brew instead of bun (avoids installing bun just for this tool)
+  - **Removed**: scoop from prettier Windows installers (scoop lacks prettier package; uses bun only)
+  - **Changed**: prettier now uses brew instead of bun on darwin/linux
 
 - **Bootstrap Documentation**: Updated bootstrap-patterns appnote to v0.3.10 patterns
 
@@ -55,6 +62,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Go Version Parsing**: Fixed semver comparison for Go versions like "go1.25.4"
   - Now strips "go" prefix before semver parsing
   - Prevents "invalid semver format" errors
+
+- **Doctor Tool Installation Reliability**: Multiple fixes for package manager detection and installation
+  - Route node-kind tools to `installSystemTool` for proper brew/bun installation
+  - Derive candidate binary names from `detect_command` for accurate post-install lookup
+  - Add brew to `GetShimPath` for proper PATH resolution
+  - Add detected package manager paths to PATH before tool installation
+  - Enhanced installer diagnostics with output capture and exit codes
+  - Added INFO-level logging for package manager detection
+
+- **Logger Nil Error Handling**: Fixed panic when `Err()` field constructor receives nil error
 
 ## [0.3.9] - 2025-12-01
 
@@ -85,7 +102,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Helps diagnose CI bootstrap failures
 
 - **Automated Release Upload**: New `make release-upload` target for complete GitHub release uploads
-  - Uploads binaries (*.tar.gz, *.zip), SHA256SUMS, all signatures (.asc), and public key
+  - Uploads binaries (_.tar.gz, _.zip), SHA256SUMS, all signatures (.asc), and public key
   - Updates release notes automatically
   - Safety checks verify signatures exist before upload
   - Includes verification helper showing command to confirm upload succeeded
@@ -266,6 +283,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### What Changed
 
 **Old Behavior** (v0.3.6 and earlier):
+
 - Foundation tools (go, ripgrep, jq, yq) were **hardcoded** in three locations
 - `goneat doctor tools` **automatically included** these tools without user control
 - **Hidden runtime merging** of defaults even if user tried to remove them
@@ -273,6 +291,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tools installed via brew (**requires sudo** on both macOS and Linux now)
 
 **New Behavior** (v0.3.7+):
+
 - **Explicit configuration required**: Must run `goneat doctor tools init` first
 - **Single source of truth**: Only `.goneat/tools.yaml` is used (no hidden defaults)
 - **Full user control**: Edit, customize, or minimize tool list as needed
@@ -351,7 +370,6 @@ For more info: goneat doctor tools init --help
 - **Package Managers**: `docs/guides/package-managers.md` (new in v0.3.7)
 - **Planning Document**: `.plans/active/v0.3.7/foundation-tools-package-managers.md`
 - **CI Runner Research**: `docs/reference/tools-packaging-ci-runner-reference.md`
-
 
 ---
 
