@@ -157,13 +157,6 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to load tools configuration: %w", err)
 	}
 
-	// Auto-install missing package managers if --install flag set (before tool checks)
-	if flagDoctorInstall && !flagDoctorDryRun {
-		if err := autoInstallPackageManagers(cmd); err != nil {
-			logger.Warn("Package manager auto-install failed", logger.Err(err))
-		}
-	}
-
 	// If in GitHub Actions and we're installing tools, automatically update GITHUB_PATH
 	// This makes tools immediately usable in subsequent workflow steps
 	// Note: PATH is already extended globally in PersistentPreRun for all goneat commands
@@ -193,6 +186,13 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 	if len(selected) == 0 {
 		logger.Info("No tools selected")
 		return nil
+	}
+
+	// Auto-install missing package managers if --install flag set (before tool checks) using actual selection.
+	if flagDoctorInstall && !flagDoctorDryRun {
+		if err := autoInstallPackageManagers(cmd, selected); err != nil {
+			logger.Warn("Package manager auto-install failed", logger.Err(err))
+		}
 	}
 
 	// Initialize shared metadata registry for cooling policy checks
@@ -1235,7 +1235,7 @@ func displayPackageManagerStatus(cmd *cobra.Command) {
 	fmt.Fprintln(cmd.OutOrStdout()) //nolint:errcheck // CLI output errors are typically ignored
 }
 
-func autoInstallPackageManagers(cmd *cobra.Command) error {
+func autoInstallPackageManagers(cmd *cobra.Command, selected []intdoctor.Tool) error {
 	logger.Debug("autoInstallPackageManagers: starting")
 
 	// Load package manager config
@@ -1245,15 +1245,7 @@ func autoInstallPackageManagers(cmd *cobra.Command) error {
 		return err
 	}
 
-	// Load tools config to check which package managers are needed
-	config, err := loadToolsConfiguration()
-	if err != nil {
-		logger.Warn("Failed to load tools config for package manager detection", logger.Err(err))
-		return err
-	}
-
-	needsBrewResult := needsBrew(config)
-	needsBunResult := needsBun(config)
+	needsBrewResult, needsBunResult := computeNeededPackageManagers(selected)
 	brewAutoInstallSafe := getPackageManagerAutoInstallSafe(pmConfig, "brew")
 	bunAutoInstallSafe := getPackageManagerAutoInstallSafe(pmConfig, "bun")
 
@@ -1360,33 +1352,6 @@ func autoInstallPackageManagers(cmd *cobra.Command) error {
 	return nil
 }
 
-// needsPackageManager checks if any tool in the foundation scope needs the given package manager
-func needsPackageManager(cfg *intdoctor.ToolsConfig, pmName string) bool {
-	platform := runtime.GOOS
-	if scope, ok := cfg.Scopes["foundation"]; ok {
-		for _, toolName := range scope.Tools {
-			if toolConfig, exists := cfg.Tools[toolName]; exists {
-				if installerPriority, ok := toolConfig.InstallerPriority[platform]; ok {
-					for _, pm := range installerPriority {
-						if pm == pmName {
-							return true
-						}
-					}
-				}
-			}
-		}
-	}
-	return false
-}
-
-func needsBrew(cfg *intdoctor.ToolsConfig) bool {
-	return needsPackageManager(cfg, "brew")
-}
-
-func needsBun(cfg *intdoctor.ToolsConfig) bool {
-	return needsPackageManager(cfg, "bun")
-}
-
 func getPackageManagerAutoInstallSafe(pmConfig *intdoctor.PackageManagersConfig, pmName string) bool {
 	for _, pm := range pmConfig.PackageManagers {
 		if pm.Name == pmName {
@@ -1394,6 +1359,33 @@ func getPackageManagerAutoInstallSafe(pmConfig *intdoctor.PackageManagersConfig,
 		}
 	}
 	return false
+}
+
+// computeNeededPackageManagers inspects the installer priorities for the selected tools
+// and derives which package managers are actually needed on the current platform.
+func computeNeededPackageManagers(selected []intdoctor.Tool) (needsBrew bool, needsBun bool) {
+	platform := runtime.GOOS
+
+	for _, tool := range selected {
+		var priorities []string
+		if p, ok := tool.InstallerPriority[platform]; ok {
+			priorities = append(priorities, p...)
+		}
+		if p, ok := tool.InstallerPriority["all"]; ok {
+			priorities = append(priorities, p...)
+		}
+
+		for _, pm := range priorities {
+			switch strings.TrimSpace(strings.ToLower(pm)) {
+			case "brew":
+				needsBrew = true
+			case "bun":
+				needsBun = true
+			}
+		}
+	}
+
+	return needsBrew, needsBun
 }
 
 func isCI() bool {

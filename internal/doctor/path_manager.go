@@ -81,6 +81,7 @@ func GetRequiredPATHAdditions(config *PackageManagersConfig) []string {
 	}
 
 	var additions []string
+	pathSet := make(map[string]bool)
 	platform := runtime.GOOS
 
 	for _, pm := range config.PackageManagers {
@@ -92,6 +93,18 @@ func GetRequiredPATHAdditions(config *PackageManagersConfig) []string {
 		installed, _ := DetectPackageManager(&pm)
 		if !installed {
 			continue
+		}
+
+		// brew installs typically export PATH themselves, but CI runs benefit from explicit additions.
+		if pm.Name == "brew" {
+			if _, brewPath, err := tools.DetectBrew(); err == nil && brewPath != "" {
+				binDir := filepath.Dir(brewPath)
+				if _, err := os.Stat(binDir); err == nil && !pathSet[binDir] {
+					additions = append(additions, binDir)
+					pathSet[binDir] = true
+					logger.Debug(fmt.Sprintf("Detected brew bin directory for PATH: %s", binDir))
+				}
+			}
 		}
 
 		// Check if package manager requires PATH update
@@ -106,8 +119,9 @@ func GetRequiredPATHAdditions(config *PackageManagersConfig) []string {
 		}
 
 		// Verify directory exists
-		if _, err := os.Stat(shimPath); err == nil {
+		if _, err := os.Stat(shimPath); err == nil && !pathSet[shimPath] {
 			additions = append(additions, shimPath)
+			pathSet[shimPath] = true
 			logger.Debug(fmt.Sprintf("Found package manager shim directory: %s (%s)", shimPath, pm.Name))
 		}
 	}

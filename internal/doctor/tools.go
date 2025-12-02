@@ -412,15 +412,26 @@ func installSystemTool(t Tool) Status {
 		if !attempt.available {
 			continue
 		}
-		if err := executeInstallerCommand(attempt.command); err != nil {
-			logger.Warn(fmt.Sprintf("installer %s failed for %s: %v", attempt.kind, t.Name, err))
-			attempt.instructions = fmt.Sprintf("%s (failed: %v)", attempt.instructions, err)
-			lastErr = err
+		logger.Info(fmt.Sprintf("Installing %s via %s", t.Name, attempt.kind), logger.String("command", attempt.command))
+		output, exitCode, err := executeInstallerCommandWithOutput(attempt.command)
+		if err != nil {
+			logger.Warn(
+				fmt.Sprintf("installer %s failed for %s", attempt.kind, t.Name),
+				logger.Int("exit_code", exitCode),
+				logger.String("output", truncateInstallerOutput(output)),
+				logger.Err(err),
+			)
+			attempt.instructions = fmt.Sprintf("%s (failed: exit %d, output: %s)", attempt.instructions, exitCode, firstLine(truncateInstallerOutput(output)))
+			lastErr = fmt.Errorf("installer %s failed: %w", attempt.kind, err)
 			continue
+		}
+		if trimmed := strings.TrimSpace(output); trimmed != "" {
+			logger.Debug(fmt.Sprintf("installer %s output for %s", attempt.kind, t.Name), logger.String("output", truncateInstallerOutput(trimmed)))
 		}
 
 		// after successful attempt, refresh status
 		status.Installed = true
+		lastErr = nil
 		status.Present = false
 		if _, err := exec.LookPath(t.Name); err == nil {
 			status.Present = true
@@ -486,10 +497,13 @@ func installSystemTool(t Tool) Status {
 		status.Instructions = installInstruction(t)
 	}
 	status.Present = false
-	status.Installed = false
-	if lastErr != nil {
+
+	switch {
+	case status.Installed:
+		status.Error = fmt.Errorf("%s installed but not detected in PATH", t.Name)
+	case lastErr != nil:
 		status.Error = lastErr
-	} else {
+	default:
 		status.Error = fmt.Errorf("no available installer succeeded for %s", t.Name)
 	}
 	return status
@@ -950,13 +964,8 @@ func buildInstallerAttempts(t Tool, platform string) []installerAttempt {
 }
 
 func executeInstallerCommand(command string) error {
-	if command == "" {
-		return nil
-	}
-	if runtime.GOOS == "windows" {
-		return exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", command).Run()
-	}
-	return exec.Command("bash", "-lc", command).Run()
+	_, _, err := executeInstallerCommandWithOutput(command)
+	return err
 }
 
 func summarizeInstallerInstructions(attempts []installerAttempt) string {
@@ -1064,6 +1073,47 @@ func ExecuteInstallCommand(command string) error {
 	// #nosec G204 - Command parts come from internal configuration, not user input
 	cmd := exec.Command(parts[0], parts[1:]...)
 	return cmd.Run()
+}
+
+// executeInstallerCommandWithOutput runs the installer command and captures combined output + exit code for diagnostics.
+func executeInstallerCommandWithOutput(command string) (string, int, error) {
+	if command == "" {
+		return "", 0, nil
+	}
+
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", command) // #nosec G204
+	} else {
+		cmd = exec.Command("bash", "-lc", command) // #nosec G204
+	}
+
+	var buf bytes.Buffer
+	cmd.Stdout = &buf
+	cmd.Stderr = &buf
+
+	err := cmd.Run()
+
+	exitCode := 0
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok { //nolint:errorlint // stdlib type assertion is fine here
+			exitCode = exitErr.ExitCode()
+		} else {
+			exitCode = -1
+		}
+	}
+
+	return buf.String(), exitCode, err
+}
+
+// truncateInstallerOutput bounds installer output for logging while preserving helpful diagnostics.
+func truncateInstallerOutput(s string) string {
+	const maxLen = 800
+	s = strings.TrimSpace(s)
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "...(truncated)"
 }
 
 // getGoBinPath returns the Go bin directory where tools are installed
