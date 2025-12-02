@@ -207,6 +207,20 @@ func TestErrField(t *testing.T) {
 	}
 }
 
+func TestErrFieldWithNilError(t *testing.T) {
+	// Regression test: Err(nil) must not panic (was causing CI failures)
+	// This exercises the fix for nil pointer dereference in logger.Err()
+	errField := Err(nil)
+
+	if errField.Key != "error" {
+		t.Errorf("Err(nil) key = %v, expected 'error'", errField.Key)
+	}
+
+	if errField.Value != nil {
+		t.Errorf("Err(nil) value = %v, expected nil", errField.Value)
+	}
+}
+
 func TestConvenienceFunctions(t *testing.T) {
 	// Initialize logger for testing convenience functions
 	config := Config{

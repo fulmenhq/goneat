@@ -194,6 +194,9 @@ func Bool(key string, value bool) Field {
 
 // Err creates an error field
 func Err(err error) Field {
+	if err == nil {
+		return Field{Key: "error", Value: nil}
+	}
 	return Field{Key: "error", Value: err.Error()}
 }
 
