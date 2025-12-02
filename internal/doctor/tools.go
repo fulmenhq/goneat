@@ -433,55 +433,61 @@ func installSystemTool(t Tool) Status {
 		status.Installed = true
 		lastErr = nil
 		status.Present = false
-		if _, err := exec.LookPath(t.Name); err == nil {
-			status.Present = true
-			status.Version = sanitizeVersion(detectVersion(t))
-			applyVersionPolicy(t, &status)
-			return status
+		for _, bin := range candidateBinaryNames(t) {
+			if _, err := exec.LookPath(bin); err == nil {
+				status.Present = true
+				status.Version = sanitizeVersion(detectVersion(t))
+				applyVersionPolicy(t, &status)
+				return status
+			}
 		}
 
 		// Tool installed but not in PATH - check shim directories
 		shimPath := GetShimPath(string(attempt.kind))
 		if shimPath != "" {
-			toolPath := filepath.Join(shimPath, t.Name)
-			if runtime.GOOS == "windows" {
-				toolPath += ".exe"
-			}
-
-			// Check if tool exists in shim directory
-			if _, err := os.Stat(toolPath); err == nil {
-				logger.Info(fmt.Sprintf("%s installed to %s but not in PATH", t.Name, shimPath))
-
-				// Extend PATH for goneat's process so subsequent tool checks work
-				if !IsPathInPATH(shimPath) {
-					pathMgr := NewPathManager()
-					pathMgr.AddToSessionPATH(shimPath)
-					logger.Info(fmt.Sprintf("Extended goneat's PATH to include %s", shimPath))
+			for _, bin := range candidateBinaryNames(t) {
+				toolPath := filepath.Join(shimPath, bin)
+				if runtime.GOOS == "windows" {
+					toolPath += ".exe"
 				}
 
-				// Check if tool is now accessible
-				if _, err := exec.LookPath(t.Name); err == nil {
-					status.Present = true
-					status.Version = sanitizeVersion(detectVersion(t))
-					applyVersionPolicy(t, &status)
+				// Check if tool exists in shim directory
+				if _, err := os.Stat(toolPath); err == nil {
+					logger.Info(fmt.Sprintf("%s installed to %s but not in PATH", bin, shimPath))
 
-					// Provide instructions for persistent PATH setup
-					status.Instructions = BuildPATHInstructions(t.Name, shimPath, string(attempt.kind))
+					// Extend PATH for goneat's process so subsequent tool checks work
+					if !IsPathInPATH(shimPath) {
+						pathMgr := NewPathManager()
+						pathMgr.AddToSessionPATH(shimPath)
+						logger.Info(fmt.Sprintf("Extended goneat's PATH to include %s", shimPath))
+					}
+
+					// Check if tool is now accessible
+					if _, err := exec.LookPath(bin); err == nil {
+						status.Present = true
+						status.Version = sanitizeVersion(detectVersion(t))
+						applyVersionPolicy(t, &status)
+
+						// Provide instructions for persistent PATH setup
+						status.Instructions = BuildPATHInstructions(bin, shimPath, string(attempt.kind))
+						return status
+					}
+
+					// Tool exists but still not accessible - provide instructions
+					status.Instructions = BuildPATHInstructions(bin, shimPath, string(attempt.kind))
 					return status
 				}
-
-				// Tool exists but still not accessible - provide instructions
-				status.Instructions = BuildPATHInstructions(t.Name, shimPath, string(attempt.kind))
-				return status
 			}
 		}
 
 		// Fallback: installed but not in PATH, best-effort detection in Go bin
 		if goBin := getGoBinPath(); goBin != "" {
-			checkPath := filepath.Join(goBin, t.Name)
-			if _, err := os.Stat(checkPath); err == nil {
-				status.Instructions = buildPathInstructions(checkPath)
-				return status
+			for _, bin := range candidateBinaryNames(t) {
+				checkPath := filepath.Join(goBin, bin)
+				if _, err := os.Stat(checkPath); err == nil {
+					status.Instructions = buildPathInstructions(checkPath)
+					return status
+				}
 			}
 		}
 
@@ -963,11 +969,6 @@ func buildInstallerAttempts(t Tool, platform string) []installerAttempt {
 	return attempts
 }
 
-func executeInstallerCommand(command string) error {
-	_, _, err := executeInstallerCommandWithOutput(command)
-	return err
-}
-
 func summarizeInstallerInstructions(attempts []installerAttempt) string {
 	if len(attempts) == 0 {
 		return ""
@@ -1114,6 +1115,35 @@ func truncateInstallerOutput(s string) string {
 		return s
 	}
 	return s[:maxLen] + "...(truncated)"
+}
+
+// candidateBinaryNames returns possible binary names for a tool derived from config.
+// Uses the tool name and the first token of detect_command (if present) to avoid hardcoding per-tool aliases.
+func candidateBinaryNames(t Tool) []string {
+	seen := make(map[string]struct{})
+	var names []string
+
+	add := func(s string) {
+		if s == "" {
+			return
+		}
+		if _, ok := seen[s]; ok {
+			return
+		}
+		seen[s] = struct{}{}
+		names = append(names, s)
+	}
+
+	add(strings.TrimSpace(t.Name))
+
+	if t.DetectCommand != "" {
+		parts := strings.Fields(t.DetectCommand)
+		if len(parts) > 0 {
+			add(parts[0])
+		}
+	}
+
+	return names
 }
 
 // getGoBinPath returns the Go bin directory where tools are installed
