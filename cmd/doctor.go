@@ -1289,18 +1289,31 @@ func autoInstallPackageManagers(cmd *cobra.Command) error {
 		} else {
 			logger.Debug("autoInstallPackageManagers: bun already installed")
 			bunInstalled = true
+			// Ensure bun is in PATH for current session (may be detected but not in PATH)
+			bunBinPath := tools.GetBunBinPath()
+			if bunBinPath != "" {
+				addToCurrentPATH(bunBinPath)
+				logger.Debug("Added bun bin directory to PATH", logger.String("path", bunBinPath))
+			}
 		}
 	}
 
 	// Try brew if bun isn't available/needed and brew is needed
 	if needsBrewResult && brewAutoInstallSafe && !bunInstalled {
-		loc, _, err := tools.DetectBrew()
+		loc, brewPath, err := tools.DetectBrew()
 		logger.Debug("autoInstallPackageManagers: brew detection result",
 			logger.String("location", loc.String()),
+			logger.String("path", brewPath),
 			logger.Err(err))
 		if err == nil && loc != tools.BrewNotFound {
 			logger.Debug("autoInstallPackageManagers: brew already installed")
 			brewInstalled = true
+			// Ensure brew is in PATH for current session (may be detected but not in PATH)
+			if brewPath != "" {
+				brewBinDir := filepath.Dir(brewPath)
+				addToCurrentPATH(brewBinDir)
+				logger.Debug("Added brew bin directory to PATH", logger.String("path", brewBinDir))
+			}
 		} else {
 			logger.Info("Auto-installing user-local Homebrew...")
 			interactive := !isCI() && !flagDoctorYes
