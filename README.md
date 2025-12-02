@@ -537,6 +537,7 @@ Supported tools:
 - **Format**: goimports, gofmt (bundled with Go)
 
 **Automatic Package Manager Installation** (new in v0.3.9):
+
 - Linux/macOS: prefers **Homebrew** (user-local, no sudo) for foundation tooling
 - Windows: uses **bun** or **scoop** as defined in `.goneat/tools.yaml`
 - Works on fresh CI runners; PATH updates are applied immediately for later steps

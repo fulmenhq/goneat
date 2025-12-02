@@ -78,24 +78,28 @@ make build-all               # Cross-platform builds (6 targets)
 ### Integration Testing Strategy (Three-Tier)
 
 **Tier 1 (Mandatory - Always Run)**:
+
 - Included in `make test` automatically
 - Target: `make test-integration-cooling-synthetic`
 - Time: < 10s, no external dependencies (CI-friendly)
 - When: Every commit, pre-commit, pre-push
 
 **Tier 2 (Recommended - Pre-Release)**:
+
 - Target: `make test-integration-cooling-quick` (Hugo baseline)
 - Time: ~8s (warm cache), ~38s (cold cache)
 - Dependencies: Requires Hugo repository (set `GONEAT_COOLING_TEST_ROOT`)
 - When: Before tagging any release
 
 **Tier 3 (Optional - Major Releases)**:
+
 - Target: `make test-integration-cooling` (all 8 scenarios)
 - Time: ~113s (1.9 minutes)
 - Dependencies: Hugo, OPA, Traefik, Mattermost repos in `GONEAT_COOLING_TEST_ROOT`
 - When: Major version releases (v0.3.0, v1.0.0, etc.)
 
 **Extended Testing** (Comprehensive):
+
 - Target: `make test-integration-extended`
 - Runs all three tiers sequentially
 - When: Final validation before major releases
@@ -124,6 +128,7 @@ make version-set-prerelease VERSION_SET=v0.3.6-rc.1
 ```
 
 **Always update these files when bumping versions:**
+
 - `VERSION` - Single source of truth
 - `CHANGELOG.md` - User-facing changes
 - `RELEASE_NOTES.md` - Detailed release context (for RELEASE.md artifact)
@@ -146,6 +151,7 @@ Binary testing is automatic for compatible platforms. Non-compatible platforms (
 ### Documentation Requirements
 
 Before any release, ensure:
+
 - `README.md` - Installation and quick start current
 - `docs/` - All feature documentation updated
 - `docs/releases/v<version>.md` - Complete release documentation created
@@ -262,6 +268,7 @@ make test-integration-extended  # All 3 tiers (~2 minutes)
 **Current Status**: Manual signing workflow operational. Automated signing planned for future releases.
 
 **Prerequisites:**
+
 - YubiKey connected with GPG signing subkey
 - `gpg --card-status` shows signing subkey available
 - `gpg --list-secret-keys security@fulmenhq.dev` accessible
@@ -337,12 +344,14 @@ make update-homebrew-formula  # Requires ../homebrew-tap
 ### GitHub Release Creation
 
 **1. Create Release on GitHub**
+
 - Navigate to: https://github.com/fulmenhq/goneat/releases
 - Click "Draft a new release"
 - Select tag: `v0.3.6`
 - Title: `goneat v0.3.6`
 
 **2. Release Notes**
+
 - Use generated artifact: `dist/release/release-notes-v0.3.6.md`
 - Include signature verification instructions:
 
@@ -359,6 +368,7 @@ gpg --verify goneat-linux-amd64.tar.gz.asc goneat-linux-amd64.tar.gz
 ```
 
 **3. Upload Artifacts**
+
 - All platform binaries (`.tar.gz`, `.zip`)
 - All signature files (`.asc`)
 - Checksums: `SHA256SUMS`, `SHA256SUMS.asc`
@@ -387,20 +397,24 @@ goneat doctor tools --scope foundation
 ### Distribution Verification
 
 **GitHub Release:**
+
 - All binaries downloadable
 - Signatures verify correctly
 - SHA256SUMS matches all artifacts
 
 **Go Module:**
+
 - `go get` resolves correctly
 - `go install` produces working binary
 - pkg.go.dev documentation generated
 
 **Cross-Platform:**
+
 - Binaries functional on target platforms
 - No runtime errors on supported OS/architectures
 
 **Homebrew Formula (if updated):**
+
 - Formula version matches release version
 - All platform checksums updated correctly
 - Formula passes audit: `cd ../homebrew-tap && make audit APP=goneat`
@@ -439,6 +453,7 @@ git commit -m "revert: rollback to v0.3.5 due to critical issue"
 ### Recovery Checklist
 
 **After rollback:**
+
 - Verify local and remote repos in sync
 - Check GitLab backup has correct state
 - Inform all stakeholders
@@ -462,6 +477,7 @@ make prepush
 ```
 
 **Why this matters:**
+
 - Hooks use same validation as CI/CD
 - Changes to validation logic only need Makefile updates
 - Developers get same feedback locally as in pipeline
@@ -470,6 +486,7 @@ make prepush
 ### Current Automation
 
 **Makefile targets:**
+
 - `make precommit` - Format checks, quick validation
 - `make prepush` - Full validation (release-check + build-all + assess)
 - `make build-all` - Cross-platform binary builds
@@ -479,6 +496,7 @@ make prepush
 - `make update-homebrew-formula` - Update Homebrew tap formula (v0.3.10+)
 
 **Scripts:**
+
 - `scripts/build-all.sh` - Multi-platform build orchestration
 - `scripts/package-artifacts.sh` - Archive creation and checksums
 - `scripts/push-to-remotes.sh` - Push to all configured remotes
@@ -500,6 +518,7 @@ make prepush
 ### Minimum Release Requirements
 
 **Must pass before any release:**
+
 - `make test` - All unit + Tier 1 integration tests
 - `make lint` - No linting issues
 - `make license-audit` - No forbidden licenses
@@ -508,6 +527,7 @@ make prepush
 - `make prepush` - Full validation passes
 
 **Coverage gates:**
+
 - Enforced via `make coverage-check`
 - Thresholds based on `LIFECYCLE_PHASE` file
 - Alpha: 30%, Beta: 60%, RC: 70%, GA: 75%, LTS: 80%
@@ -524,6 +544,7 @@ make prepush
 ### Initial Public Release Baseline
 
 **Required for first public release:**
+
 - Core commands fully functional
 - Documentation complete (README, user guide, API reference)
 - Test suite with stable coverage gate
@@ -533,6 +554,7 @@ make prepush
 ### Ongoing Releases
 
 **For all subsequent releases:**
+
 - Breaking changes require major version bump (semver)
 - Deprecation notices with timelines and alternatives
 - Migration guides for breaking changes
@@ -586,6 +608,7 @@ git push origin main v0.3.6
 ## Best Practices Summary
 
 **DO:**
+
 - ✅ Use `make` targets for all operations
 - ✅ Run `make prepush` before pushing
 - ✅ Test Tier 2 integration before any release
@@ -598,6 +621,7 @@ git push origin main v0.3.6
 - ✅ Wait for pkg.go.dev indexing before announcing
 
 **DON'T:**
+
 - ❌ Use standalone `go test`, `golangci-lint`, etc.
 - ❌ Skip `make prepush` validation
 - ❌ Tag before validation passes

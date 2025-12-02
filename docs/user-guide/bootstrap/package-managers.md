@@ -12,13 +12,13 @@ Goneat's tooling workflow assumes a baseline set of package managers. **Starting
 
 ## Package Manager Strategy (v0.3.10+)
 
-| Package Manager | Use Case |
-|-----------------|----------|
-| `brew` | System binaries on darwin/linux (ripgrep, jq, yq, prettier) |
-| `scoop/winget` | System binaries on Windows |
-| `go-install` | Go tools (golangci-lint, gosec, yamlfmt, etc.) |
-| `bun/npm` | Node.js packages ONLY (e.g., eslint for TypeScript repos) |
-| `uv/pip` | Python packages ONLY |
+| Package Manager | Use Case                                                    |
+| --------------- | ----------------------------------------------------------- |
+| `brew`          | System binaries on darwin/linux (ripgrep, jq, yq, prettier) |
+| `scoop/winget`  | System binaries on Windows                                  |
+| `go-install`    | Go tools (golangci-lint, gosec, yamlfmt, etc.)              |
+| `bun/npm`       | Node.js packages ONLY (e.g., eslint for TypeScript repos)   |
+| `uv/pip`        | Python packages ONLY                                        |
 
 **Note**: bun is NOT used for system binaries - it can only install npm packages.
 
@@ -34,6 +34,7 @@ goneat doctor tools --scope foundation --install --yes --no-cooling
 ```
 
 **What happens automatically**:
+
 1. goneat checks which tools are needed (based on `.goneat/tools.yaml`)
 2. For system binaries: installs brew if not present (user-local, no sudo)
 3. For Go tools: uses `go install` directly
@@ -41,11 +42,13 @@ goneat doctor tools --scope foundation --install --yes --no-cooling
 5. Installs the required tools
 
 **The `--no-cooling` flag** (new in v0.3.10) skips package age verification, which is required for:
+
 - CI environments without network access to check release dates
 - Offline/air-gapped environments
 - Faster bootstrap when you don't need freshness verification
 
 **No manual package manager installation required** on:
+
 - GitHub Actions runners (ubuntu-latest, macos-latest)
 - Fresh macOS/Linux workstations
 - Any system with curl and bash
@@ -96,6 +99,7 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc  # or ~/.zshrc
 ```
 
 **When to use automatic bootstrap**:
+
 - CI/CD environments (GitHub Actions, GitLab CI, etc.)
 - Template repositories requiring standardized tooling
 - Multi-platform projects with shared tool configs

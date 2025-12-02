@@ -260,6 +260,7 @@ goneat automatically classifies dependencies:
 #### Why Tool-Specific Overrides?
 
 Different tools have different risk profiles:
+
 - **Critical SBOM tools** (syft) → Stricter policy (14 days, 5000 downloads)
 - **Standard CLI tools** (ripgrep, jq) → Use global defaults (7 days, 100 downloads)
 - **Low-risk formatters** → Could disable cooling entirely
@@ -292,12 +293,13 @@ tools:
 
     # Override global cooling policy for this critical tool
     cooling:
-      min_age_days: 14        # More conservative than global 7 days
-      min_downloads: 5000     # Higher threshold than global 100
-      min_downloads_recent: 100  # Ensure active maintenance
+      min_age_days: 14 # More conservative than global 7 days
+      min_downloads: 5000 # Higher threshold than global 100
+      min_downloads_recent: 100 # Ensure active maintenance
 ```
 
 **Result**: When `goneat doctor tools --scope sbom --install` runs:
+
 - Syft requires 14 days minimum age (not the global 7 days)
 - Syft requires 5000 downloads (not the global 100)
 - Other tools still use global policy (7 days, 100 downloads)
@@ -310,7 +312,7 @@ You can override individual fields and inherit others:
 tools:
   critical-tool:
     cooling:
-      min_age_days: 30  # Override only age, inherit downloads from global
+      min_age_days: 30 # Override only age, inherit downloads from global
 ```
 
 #### Disabling Cooling for Specific Tools
@@ -319,7 +321,7 @@ tools:
 tools:
   dev-tool:
     cooling:
-      enabled: false  # Disable cooling for this tool only
+      enabled: false # Disable cooling for this tool only
 ```
 
 #### CLI Override
@@ -331,6 +333,7 @@ goneat doctor tools --scope all --no-cooling --install
 ```
 
 **Use cases**:
+
 - Offline/air-gapped environments
 - Emergency hotfixes
 - Development/testing

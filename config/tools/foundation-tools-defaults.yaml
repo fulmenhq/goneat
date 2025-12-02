@@ -1,5 +1,4 @@
 version: v1.0.0
-
 # Foundation Tools Defaults
 # These tools can be seeded into .goneat/tools.yaml via `goneat doctor tools init`
 # Organized by category with package manager preferences per platform
@@ -12,7 +11,6 @@ version: v1.0.0
 # - uv/pip: For Python packages only
 #
 # Note: mise was removed - it's a version manager, not a general package manager
-
 foundation_tools:
   # System CLI tools - use brew (supports user-mode install)
   - name: ripgrep
@@ -25,7 +23,6 @@ foundation_tools:
       linux: ["brew"]
       windows: ["scoop", "winget"]
     auto_install_safe: true
-
   - name: jq
     description: "JSON processor - used in CI/CD scripts"
     kind: "system"
@@ -36,7 +33,6 @@ foundation_tools:
       linux: ["brew"]
       windows: ["scoop", "winget"]
     auto_install_safe: true
-
   - name: yq
     description: "YAML processor"
     kind: "system"
@@ -47,7 +43,6 @@ foundation_tools:
       linux: ["brew"]
       windows: ["scoop", "winget"]
     auto_install_safe: true
-
   - name: go
     description: "Go toolchain - required for Go projects"
     kind: "system"
@@ -62,7 +57,6 @@ foundation_tools:
     version_scheme: "semver"
     minimum_version: "1.21.0"
     recommended_version: "1.22.0"
-
   # Go-installable tools - use go-install (native, no package manager needed)
   - name: go-licenses
     description: "License compliance for Go dependencies"
@@ -75,7 +69,6 @@ foundation_tools:
       all: ["go-install"]
     auto_install_safe: true
     required_for_languages: ["go"]
-
   - name: golangci-lint
     description: "Fast linters runner for Go"
     kind: "go"
@@ -90,7 +83,6 @@ foundation_tools:
     version_scheme: "semver"
     minimum_version: "1.54.0"
     recommended_version: "2.4.0"
-
   - name: yamlfmt
     description: "YAML formatter and linter"
     kind: "go"
@@ -101,7 +93,6 @@ foundation_tools:
     package_managers:
       all: ["go-install"]
     auto_install_safe: true
-
 # Security tools (Go-based, use go-install)
 security_tools:
   - name: gosec
@@ -115,7 +106,6 @@ security_tools:
       all: ["go-install"]
     auto_install_safe: true
     required_for_languages: ["go"]
-
   - name: govulncheck
     description: "Go vulnerability checker"
     kind: "go"
@@ -127,7 +117,6 @@ security_tools:
       all: ["go-install"]
     auto_install_safe: true
     required_for_languages: ["go"]
-
   - name: gitleaks
     description: "Git secrets scanner"
     kind: "go"
@@ -138,7 +127,6 @@ security_tools:
     package_managers:
       all: ["go-install"]
     auto_install_safe: true
-
 # Format tools (Go-based, use go-install)
 format_tools:
   - name: goimports
@@ -152,7 +140,6 @@ format_tools:
       all: ["go-install"]
     auto_install_safe: true
     required_for_languages: ["go"]
-
   - name: gofmt
     description: "Go formatter (bundled with Go toolchain)"
     kind: "bundled-go"
@@ -163,7 +150,6 @@ format_tools:
       all: ["builtin"]
     auto_install_safe: true
     required_for_languages: ["go"]
-
 # Python tools (use uv/pip)
 python_tools:
   - name: ruff
@@ -174,7 +160,6 @@ python_tools:
       all: ["uv", "pip"]
     auto_install_safe: true
     required_for_languages: ["python"]
-
   - name: black
     description: "Python code formatter"
     kind: "python"
@@ -183,7 +168,6 @@ python_tools:
       all: ["uv", "pip"]
     auto_install_safe: true
     required_for_languages: ["python"]
-
 # TypeScript/Node tools
 typescript_tools:
   - name: prettier
@@ -197,7 +181,6 @@ typescript_tools:
       windows: ["scoop", "npm"]
     auto_install_safe: true
     # Note: prettier is also in foundation scope for YAML/markdown formatting
-
   - name: eslint
     description: "JavaScript/TypeScript linter"
     kind: "node"
@@ -207,39 +190,34 @@ typescript_tools:
       all: ["bun", "npm"]
     auto_install_safe: true
     required_for_languages: ["typescript"]
-
 # Scopes define which tools to include for each scope
 scopes:
   bootstrap:
     description: "Minimal package managers for CI/CD bootstrap"
     # No tools yet - package managers install via auto-install logic
     # Tools will be installed in subsequent steps
-
   foundation:
     description: "Core foundation tools required for goneat and basic AI agent operation"
     tools:
       - ripgrep
       - jq
       - yq
-      - go  # Only if Go repo detected
-      - go-licenses  # Only if Go repo detected
-      - golangci-lint  # Only if Go repo detected
+      - go # Only if Go repo detected
+      - go-licenses # Only if Go repo detected
+      - golangci-lint # Only if Go repo detected
       - yamlfmt
-      - prettier  # Used by goneat format for markdown, JSON, YAML
-
+      - prettier # Used by goneat format for markdown, JSON, YAML
   security:
     description: "Security scanning tools"
     tools:
       - gosec
       - govulncheck
       - gitleaks
-
   format:
     description: "Code formatting tools"
     tools:
       - goimports
       - gofmt
-
   all:
     description: "All tools from all scopes"
     tools:

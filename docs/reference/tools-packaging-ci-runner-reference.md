@@ -1,10 +1,8 @@
-
-
 # 🛠️ CI Runner Utilities: Non-Sudo Dependency Management
 
 This document provides recipes for ensuring common development utilities, particularly those found in **GNU Coreutils**, are available in CI/development environments without requiring root/administrator (e.g., `sudo`) privileges. This is crucial for pipeline speed and security.
 
------
+---
 
 ## 📦 Package Manager Artifacts (No `sudo` required)
 
@@ -14,8 +12,8 @@ While system package managers like `apt` or `brew` often require initial setup w
 
 This process downloads the Homebrew repository directly into a user-local path and uses `tar` and `curl` (common in CI runners) to install it, bypassing the `sudo` requirement of the standard installer.
 
-| Platform | Dependencies | Notes |
-| :--- | :--- | :--- |
+| Platform        | Dependencies          | Notes                                                                                                             |
+| :-------------- | :-------------------- | :---------------------------------------------------------------------------------------------------------------- |
 | **macOS/Linux** | `curl`, `tar`, `bash` | Homebrew will build packages from source if pre-compiled **bottles** aren't available for the non-default prefix. |
 
 ```bash
@@ -57,9 +55,9 @@ echo "Testing 'timeout' availability..."
 timeout 3s sleep 5 && echo "Command succeeded" || echo "Command timed out"
 ```
 
------
+---
 
------
+---
 
 ## 📦 Bundled `cpanminus` (Perl Module Installer)
 
@@ -90,24 +88,25 @@ perl -MJSON::MaybeXS -e 'print JSON::MaybeXS::encode_json({ok=>1})'
 ```
 
 Use Cases:
+
 - Coverage tooling for legacy Perl components
 - Template Toolkit or JSON parsing utilities during build steps
 
------
+---
 
 ## 🔨 Essential GNU Core Utilities for Developers
 
 GNU Coreutils provide consistent behavior across Linux/macOS runners (BSD utilities often diverge). Installing them ensures scripts behave identically.
 
-| Utility | Description | Use Case Example |
-| :--- | :--- | :--- |
-| **`timeout`** | Runs a command with a time limit. | Enforcing test suite runtimes; preventing hanging CI steps. |
-| **`gdate`** | GNU version of `date`. | Consistent date formatting (e.g., RFC 3339 timestamps for logs). |
-| **`gshuf`** | Generates random permutations (shuffle). | Creating randomized input for fuzz testing or unique temporary names. |
-| **`gsort`** | GNU version of `sort`. | Consistent sorting behavior for file diffs and deterministic outputs. |
-| **`greadlink`** | Canonicalizes file paths (GNU `readlink`). | Resolving symbolic links robustly to find the true binary location. |
+| Utility         | Description                                | Use Case Example                                                      |
+| :-------------- | :----------------------------------------- | :-------------------------------------------------------------------- |
+| **`timeout`**   | Runs a command with a time limit.          | Enforcing test suite runtimes; preventing hanging CI steps.           |
+| **`gdate`**     | GNU version of `date`.                     | Consistent date formatting (e.g., RFC 3339 timestamps for logs).      |
+| **`gshuf`**     | Generates random permutations (shuffle).   | Creating randomized input for fuzz testing or unique temporary names. |
+| **`gsort`**     | GNU version of `sort`.                     | Consistent sorting behavior for file diffs and deterministic outputs. |
+| **`greadlink`** | Canonicalizes file paths (GNU `readlink`). | Resolving symbolic links robustly to find the true binary location.   |
 
------
+---
 
 ## 💻 Tool Artifacts: Compile from Source
 
@@ -117,10 +116,10 @@ The most robust, truly cross-platform solution (Linux, macOS, and even Windows v
 
 This script downloads and builds the Coreutils package, installing it into a user-local directory. This requires `gcc` (or equivalent C compiler) and `make` to be available on the runner.
 
-| Platform | Dependencies | Notes |
-| :--- | :--- | :--- |
-| **Linux/macOS** | `curl` or `wget`, `tar`, `make`, `gcc` | Assumes a standard Unix-like build toolchain is available on the runner image. |
-| **Windows** | Requires a Unix-like layer (WSL, Git Bash, MinGW, MSYS2) where the above dependencies are available. | If a static binary is required, **cross-compilation** on a Linux host is generally more reliable than building directly on Windows. |
+| Platform        | Dependencies                                                                                         | Notes                                                                                                                               |
+| :-------------- | :--------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------- |
+| **Linux/macOS** | `curl` or `wget`, `tar`, `make`, `gcc`                                                               | Assumes a standard Unix-like build toolchain is available on the runner image.                                                      |
+| **Windows**     | Requires a Unix-like layer (WSL, Git Bash, MinGW, MSYS2) where the above dependencies are available. | If a static binary is required, **cross-compilation** on a Linux host is generally more reliable than building directly on Windows. |
 
 ```bash
 #!/bin/bash

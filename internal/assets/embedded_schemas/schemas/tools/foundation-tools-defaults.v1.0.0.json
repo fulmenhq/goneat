@@ -4,7 +4,9 @@
   "title": "Foundation Tools Defaults Configuration",
   "description": "Defines default tools that can be seeded into .goneat/tools.yaml",
   "type": "object",
-  "required": ["version"],
+  "required": [
+    "version"
+  ],
   "properties": {
     "version": {
       "type": "string",
@@ -59,7 +61,14 @@
   "$defs": {
     "ToolDefinition": {
       "type": "object",
-      "required": ["name", "description", "kind", "detect_command", "package_managers", "auto_install_safe"],
+      "required": [
+        "name",
+        "description",
+        "kind",
+        "detect_command",
+        "package_managers",
+        "auto_install_safe"
+      ],
       "properties": {
         "name": {
           "type": "string",
@@ -72,7 +81,14 @@
         },
         "kind": {
           "type": "string",
-          "enum": ["system", "go", "python", "node", "bundled-go", "builtin"],
+          "enum": [
+            "system",
+            "go",
+            "python",
+            "node",
+            "bundled-go",
+            "builtin"
+          ],
           "description": "Tool category"
         },
         "detect_command": {
@@ -83,7 +99,11 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["darwin", "linux", "windows"]
+            "enum": [
+              "darwin",
+              "linux",
+              "windows"
+            ]
           },
           "description": "Supported platforms (optional, defaults to all)"
         },
@@ -94,19 +114,27 @@
               "properties": {
                 "darwin": {
                   "type": "array",
-                  "items": {"type": "string"}
+                  "items": {
+                    "type": "string"
+                  }
                 },
                 "linux": {
                   "type": "array",
-                  "items": {"type": "string"}
+                  "items": {
+                    "type": "string"
+                  }
                 },
                 "windows": {
                   "type": "array",
-                  "items": {"type": "string"}
+                  "items": {
+                    "type": "string"
+                  }
                 },
                 "all": {
                   "type": "array",
-                  "items": {"type": "string"}
+                  "items": {
+                    "type": "string"
+                  }
                 }
               },
               "description": "Platform-specific package manager lists"
@@ -131,17 +159,26 @@
         },
         "version_args": {
           "type": "array",
-          "items": {"type": "string"},
+          "items": {
+            "type": "string"
+          },
           "description": "Arguments to pass for version detection"
         },
         "check_args": {
           "type": "array",
-          "items": {"type": "string"},
+          "items": {
+            "type": "string"
+          },
           "description": "Arguments to pass for health check"
         },
         "version_scheme": {
           "type": "string",
-          "enum": ["semver", "date", "git", "custom"],
+          "enum": [
+            "semver",
+            "date",
+            "git",
+            "custom"
+          ],
           "description": "Version numbering scheme"
         },
         "minimum_version": {
@@ -157,7 +194,10 @@
     },
     "ScopeDefinition": {
       "type": "object",
-      "required": ["description", "tools"],
+      "required": [
+        "description",
+        "tools"
+      ],
       "properties": {
         "description": {
           "type": "string",

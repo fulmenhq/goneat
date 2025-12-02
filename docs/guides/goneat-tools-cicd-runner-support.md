@@ -31,12 +31,14 @@ No need to pre-install package managers - goneat bootstraps them for you.
 ### Scope & Limitations (v0.3.9)
 
 **✅ Fully Supported**:
+
 - **Package manager auto-install**: bun (all platforms), brew user-local (darwin/linux)
 - **Tool installation via**: mise, bun, scoop, brew, go-install
 - **CI platform**: GitHub Actions (automatic `$GITHUB_PATH` updates)
 - **OS**: macOS (darwin), Linux (ubuntu-latest tested), Windows (scoop)
 
 **⚠️ Limited Support**:
+
 - **Other CI platforms** (GitLab CI, CircleCI, Jenkins): Manual activation via `goneat doctor tools env --activate` required
 
 **Note**: Custom package manager shim locations still use hardcoded paths (mise, bun, scoop, go-install)
@@ -61,10 +63,11 @@ No need to pre-install package managers - goneat bootstraps them for you.
   run: echo "$HOME/.local/share/mise/shims" >> $GITHUB_PATH
 
 - name: Verify tool works
-  run: yq --version  # Finally works!
+  run: yq --version # Finally works!
 ```
 
 **Problems**:
+
 - 3 separate steps required
 - User must know shim directory location
 - Platform-specific (mise vs bun vs scoop)
@@ -79,10 +82,11 @@ No need to pre-install package managers - goneat bootstraps them for you.
   # Tools installed AND PATH updated automatically
 
 - name: Verify tools work
-  run: yq --version  # ✅ Works immediately!
+  run: yq --version # ✅ Works immediately!
 ```
 
 **Benefits**:
+
 - Single command
 - No manual PATH manipulation
 - Platform-agnostic
@@ -187,24 +191,24 @@ if flagDoctorInstall && os.Getenv("GITHUB_ACTIONS") == "true" {
 
 ### Supported Package Managers
 
-| Package Manager | Platforms | Shim Directory | PATH Update | Auto-Install Safe |
-|----------------|-----------|----------------|-------------|-------------------|
-| **mise** | darwin, linux | `~/.local/share/mise/shims` | ✅ Automatic | ✅ Yes (no sudo) |
-| **bun** | all | `~/.bun/bin` | ✅ Automatic | ✅ Yes (no sudo) |
-| **scoop** | windows | `~/scoop/shims` | ✅ Automatic | ✅ Yes (no admin) |
-| **go-install** | all | `~/go/bin` or `$GOBIN` | N/A (usually in PATH) | ✅ Yes |
-| brew | darwin, linux | `/opt/homebrew/bin` | N/A (installer updates PATH) | ❌ No (requires sudo) |
+| Package Manager | Platforms     | Shim Directory              | PATH Update                  | Auto-Install Safe     |
+| --------------- | ------------- | --------------------------- | ---------------------------- | --------------------- |
+| **mise**        | darwin, linux | `~/.local/share/mise/shims` | ✅ Automatic                 | ✅ Yes (no sudo)      |
+| **bun**         | all           | `~/.bun/bin`                | ✅ Automatic                 | ✅ Yes (no sudo)      |
+| **scoop**       | windows       | `~/scoop/shims`             | ✅ Automatic                 | ✅ Yes (no admin)     |
+| **go-install**  | all           | `~/go/bin` or `$GOBIN`      | N/A (usually in PATH)        | ✅ Yes                |
+| brew            | darwin, linux | `/opt/homebrew/bin`         | N/A (installer updates PATH) | ❌ No (requires sudo) |
 
 ### CI/CD Runner Support
 
-| Platform | Status | Notes |
-|----------|--------|-------|
-| **GitHub Actions** (Linux) | ✅ Full Support | Automatic `$GITHUB_PATH` updates |
-| **GitHub Actions** (macOS) | ✅ Full Support | Automatic `$GITHUB_PATH` updates |
-| **GitHub Actions** (Windows) | ✅ Full Support | Automatic `$GITHUB_PATH` updates via scoop |
-| GitLab CI | ⚠️ Manual | Use `goneat doctor tools env >> $CI_ENV_FILE` |
-| CircleCI | ⚠️ Manual | Use `eval "$(goneat doctor tools env --activate)"` in run steps |
-| Jenkins | ⚠️ Manual | Use `goneat doctor tools env` and update PATH in pipeline |
+| Platform                     | Status          | Notes                                                           |
+| ---------------------------- | --------------- | --------------------------------------------------------------- |
+| **GitHub Actions** (Linux)   | ✅ Full Support | Automatic `$GITHUB_PATH` updates                                |
+| **GitHub Actions** (macOS)   | ✅ Full Support | Automatic `$GITHUB_PATH` updates                                |
+| **GitHub Actions** (Windows) | ✅ Full Support | Automatic `$GITHUB_PATH` updates via scoop                      |
+| GitLab CI                    | ⚠️ Manual       | Use `goneat doctor tools env >> $CI_ENV_FILE`                   |
+| CircleCI                     | ⚠️ Manual       | Use `eval "$(goneat doctor tools env --activate)"` in run steps |
+| Jenkins                      | ⚠️ Manual       | Use `goneat doctor tools env` and update PATH in pipeline       |
 
 ---
 
@@ -289,6 +293,7 @@ test:
 ### Tools Installed But Not Found
 
 **Symptom**: `goneat doctor tools` reports tools present, but direct execution fails:
+
 ```bash
 $ goneat doctor tools --tools yq
 INFO: yq present (v4.48.2)
@@ -300,6 +305,7 @@ command not found: yq
 **Cause**: goneat extended its own PATH but not your shell's PATH.
 
 **Solution**: Activate PATH in your shell:
+
 ```bash
 # Temporary (current shell only)
 eval "$(goneat doctor tools env --activate)"
@@ -316,6 +322,7 @@ source ~/.bashrc
 **Cause**: `--install` flag not used, so `$GITHUB_PATH` was not updated.
 
 **Solution**: Use `--install` flag:
+
 ```yaml
 # ❌ Wrong - no --install flag
 - run: goneat doctor tools --scope foundation --yes
@@ -331,6 +338,7 @@ source ~/.bashrc
 **Cause**: Trying to use package managers that require sudo (brew, apt-get).
 
 **Solution**: Use sudo-free package managers via `--minimal`:
+
 ```yaml
 # Use only language-native tools (go-install, npm, etc.)
 - run: goneat doctor tools init --minimal
@@ -338,6 +346,7 @@ source ~/.bashrc
 ```
 
 Or install recommended package managers first:
+
 ```yaml
 # Install mise (no sudo required)
 - run: curl https://mise.run | sh
@@ -358,12 +367,14 @@ Or install recommended package managers first:
 **Answer**: Yes, with caveats:
 
 **✅ Safe**:
+
 - Only updates PATH when `--install` flag explicitly used
 - Only affects GitHub Actions environment (detected via `$GITHUB_ACTIONS`)
 - Only adds shim directories for installed package managers (verified to exist)
 - Changes scoped to workflow run (not permanent)
 
 **⚠️ Considerations**:
+
 - Tools in shim directories take precedence over system tools
 - If malicious tool installed to shim, it could shadow system tool
 - Mitigated by: only using trusted package managers (mise, bun, scoop)
@@ -372,13 +383,13 @@ Or install recommended package managers first:
 
 goneat recommends **sudo-free package managers** specifically to avoid privileged operations:
 
-| Package Manager | Trust Level | Installation Scope | Requires Privilege |
-|----------------|-------------|-------------------|-------------------|
-| mise | ✅ High | User (`~/.local/share/mise`) | ❌ No |
-| bun | ✅ High | User (`~/.bun`) | ❌ No |
-| scoop | ✅ High | User (`~/scoop`) | ❌ No |
-| brew | ⚠️ Medium | System (`/opt/homebrew`) | ✅ Yes (sudo) |
-| apt-get | ⚠️ Medium | System (`/usr/bin`) | ✅ Yes (sudo) |
+| Package Manager | Trust Level | Installation Scope           | Requires Privilege |
+| --------------- | ----------- | ---------------------------- | ------------------ |
+| mise            | ✅ High     | User (`~/.local/share/mise`) | ❌ No              |
+| bun             | ✅ High     | User (`~/.bun`)              | ❌ No              |
+| scoop           | ✅ High     | User (`~/scoop`)             | ❌ No              |
+| brew            | ⚠️ Medium   | System (`/opt/homebrew`)     | ✅ Yes (sudo)      |
+| apt-get         | ⚠️ Medium   | System (`/usr/bin`)          | ✅ Yes (sudo)      |
 
 **Recommendation**: Use `goneat doctor tools init --minimal` for maximum security (language-native tools only, no third-party package managers).
 
@@ -405,6 +416,7 @@ goneat recommends **sudo-free package managers** specifically to avoid privilege
 **Goal**: No surprises - goneat only updates PATH when explicitly requested.
 
 **Implementation**:
+
 - Automatic GitHub Actions PATH update **only** when `--install` flag used
 - Local shell PATH changes **only** when user runs `goneat doctor tools env`
 
@@ -413,6 +425,7 @@ goneat recommends **sudo-free package managers** specifically to avoid privilege
 **Goal**: Same workflow works on Linux, macOS, Windows.
 
 **Implementation**:
+
 - Config-driven shim detection (`foundation-package-managers.yaml`)
 - Platform-specific package manager recommendations
 - Shell-specific activation syntax (bash/zsh/fish/powershell)
@@ -456,6 +469,7 @@ goneat recommends **sudo-free package managers** specifically to avoid privilege
 ### Q: What if my CI runner doesn't support `$GITHUB_PATH`?
 
 **A**: Use `goneat doctor tools env --activate` in your CI script:
+
 ```yaml
 script:
   - goneat doctor tools --install --yes
@@ -466,17 +480,19 @@ script:
 ### Q: Can I use brew instead of mise/bun?
 
 **A**: Yes, but brew requires sudo on CI runners, which we don't recommend. Edit `.goneat/tools.yaml` and change `installer_priority` if needed:
+
 ```yaml
 tools:
   ripgrep:
     installer_priority:
       darwin:
-        - brew  # Use brew instead of mise/bun
+        - brew # Use brew instead of mise/bun
 ```
 
 ### Q: How do I debug PATH issues?
 
 **A**: Use `goneat doctor tools env` to see what goneat would add to PATH:
+
 ```bash
 $ goneat doctor tools env
 # Installed package managers with shim directories:

@@ -31,10 +31,10 @@ LDFLAGS := -ldflags "\
 	-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
-.PHONY: help build clean clean-all test fmt format-docs format-config format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites sync-crucible sync-ssot verify-crucible verify-crucible-clean bootstrap tools lint release-check release-prepare release-build check-all prepush precommit update-homebrew-formula
+.PHONY: help build clean clean-all test fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites sync-crucible sync-ssot verify-crucible verify-crucible-clean bootstrap tools lint release-check release-prepare release-build check-all prepush precommit update-homebrew-formula
 
 # Default target
-all: clean build fmt
+all: clean build format-all
 
 # Help target
 help: ## Show this help message
@@ -318,7 +318,16 @@ format-config: build ## Format configuration and schema files using goneat (dogf
 		echo "Please install yamlfmt and jq for configuration formatting"; \
 	fi
 
-format-all: fmt format-docs format-config ## Format all code, documentation, and configuration files
+format-root: build ## Format root-level markdown files (README, CHANGELOG, etc.)
+	@echo "Formatting root markdown files with goneat..."
+	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
+		$(BUILD_DIR)/$(BINARY_NAME) format --types markdown *.md .github/; \
+		echo "✅ Root markdown formatting completed with goneat"; \
+	else \
+		echo "❌ goneat binary not found, cannot format root files"; \
+	fi
+
+format-all: fmt format-docs format-config format-root ## Format all code, documentation, and configuration files
 
 # License compliance
 license-inventory: ## Generate CSV inventory of dependency licenses
@@ -411,7 +420,7 @@ prerequisites: ## Check and install required development tools using goneat
 dev: prerequisites ## Set up development environment
 	@echo "Setting up development environment..."
 	$(MAKE) build
-	$(MAKE) fmt
+	$(MAKE) format-all
 	@echo "✅ Development environment ready"
 
 # Version management targets
@@ -456,7 +465,7 @@ release-prep: ## Prepare for release (run tests, coverage gate, build, etc.)
 	$(MAKE) test-coverage
 	$(MAKE) coverage-check
 	$(MAKE) build-all
-	$(MAKE) fmt
+	$(MAKE) format-all
 	$(MAKE) release-notes
 	@echo "✅ Release preparation complete"
 

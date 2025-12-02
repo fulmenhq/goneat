@@ -4,7 +4,10 @@
   "title": "Common Tools Repository Mappings",
   "description": "Maps tool names to GitHub repositories for cooling policy metadata fetching",
   "type": "object",
-  "required": ["version", "repositories"],
+  "required": [
+    "version",
+    "repositories"
+  ],
   "properties": {
     "version": {
       "type": "string",

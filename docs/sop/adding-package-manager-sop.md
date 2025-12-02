@@ -6,14 +6,7 @@ date: "2025-12-02"
 last_updated: "2025-12-02"
 version: "v0.3.10"
 component: "Doctor Tools / Package Manager Integration"
-tags:
-  [
-    "package-manager",
-    "doctor",
-    "tool-installation",
-    "development",
-    "sop",
-  ]
+tags: ["package-manager", "doctor", "tool-installation", "development", "sop"]
 ---
 
 # Adding a New Package Manager
@@ -99,6 +92,7 @@ func GetScoopBinPath() string {
 In `autoInstallPackageManagers()`, add logic for:
 
 1. **Pre-existing detection with PATH extension**:
+
 ```go
 // When package manager is already installed, ensure its bin is in PATH
 if scoopInstalled {
@@ -111,6 +105,7 @@ if scoopInstalled {
 ```
 
 2. **Post-installation PATH extension**:
+
 ```go
 // After installing the package manager, add its bin to PATH
 if scoopInstalled {
@@ -156,11 +151,13 @@ package_managers:
 ### 6. Tests
 
 **Files**:
+
 - `pkg/tools/package_managers_test.go`
 - `pkg/tools/installer_<name>_test.go` (new file)
 - `cmd/doctor_test.go`
 
 Add tests for:
+
 - Detection logic
 - Installer functionality
 - PATH extension behavior
@@ -220,6 +217,7 @@ The current design has these known issues:
 3. **Easy to miss a step**: This SOP exists because the integration is brittle
 
 Planned improvements:
+
 - Unified package manager registry with all metadata in one place
 - Config-driven shim paths (read from `foundation-package-managers.yaml`)
 - Automatic PATH discovery based on detection results

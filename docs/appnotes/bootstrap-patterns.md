@@ -13,13 +13,13 @@ This appnote documents recommended patterns for integrating goneat into downstre
 
 ## Package Manager Strategy (v0.3.10+)
 
-| Package Manager | Use Case |
-|-----------------|----------|
-| `brew` | System binaries on darwin/linux (ripgrep, jq, yq, prettier) |
-| `scoop/winget` | System binaries on Windows |
-| `go-install` | Go tools (golangci-lint, gosec, yamlfmt, etc.) |
-| `bun/npm` | Node.js packages ONLY (e.g., eslint for TypeScript repos) |
-| `uv/pip` | Python packages ONLY |
+| Package Manager | Use Case                                                    |
+| --------------- | ----------------------------------------------------------- |
+| `brew`          | System binaries on darwin/linux (ripgrep, jq, yq, prettier) |
+| `scoop/winget`  | System binaries on Windows                                  |
+| `go-install`    | Go tools (golangci-lint, gosec, yamlfmt, etc.)              |
+| `bun/npm`       | Node.js packages ONLY (e.g., eslint for TypeScript repos)   |
+| `uv/pip`        | Python packages ONLY                                        |
 
 **Key change in v0.3.10**: bun is no longer used for system binaries - it can only install npm packages.
 
@@ -29,10 +29,10 @@ This appnote documents recommended patterns for integrating goneat into downstre
 
 goneat repositories may have TWO different tools.yaml files with DIFFERENT formats:
 
-| File | Purpose | Format |
-|------|---------|--------|
+| File                              | Purpose                         | Format                    |
+| --------------------------------- | ------------------------------- | ------------------------- |
 | `.goneat/bootstrap-manifest.yaml` | Download goneat binary (custom) | gofulmen/groningen format |
-| `.goneat/tools.yaml` | goneat doctor tools config | goneat standard format |
+| `.goneat/tools.yaml`              | goneat doctor tools config      | goneat standard format    |
 
 **Important**: These are NOT interchangeable. The formats are different.
 
@@ -293,6 +293,7 @@ scopes:
 ```
 
 Install with:
+
 ```bash
 goneat doctor tools --scope my-project --install --yes
 ```
@@ -321,6 +322,7 @@ goneat doctor tools --scope my-project --install --yes
 **Cause**: No package manager available and auto-install failed.
 
 **Fix**: Ensure brew is installed or use --no-cooling in CI:
+
 ```bash
 # Manual brew install (if needed)
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -334,6 +336,7 @@ goneat doctor tools --scope foundation --install --yes --no-cooling
 **Cause**: Missing or wrong format tools.yaml.
 
 **Fix**:
+
 ```bash
 # Initialize standard format (creates all 4 scopes)
 goneat doctor tools init --force
@@ -344,6 +347,7 @@ goneat doctor tools init --force
 **Cause**: Package is too new or can't verify release date.
 
 **Fix**: Use `--no-cooling` flag for CI/offline environments:
+
 ```bash
 goneat doctor tools --scope foundation --install --yes --no-cooling
 ```

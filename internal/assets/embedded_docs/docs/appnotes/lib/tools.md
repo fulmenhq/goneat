@@ -240,28 +240,29 @@ go run -c "
 
 ### Tool Definition Fields
 
-| Field                 | Type     | Description                                                             | Required |
-| --------------------- | -------- | ----------------------------------------------------------------------- | -------- |
-| `name`                | string   | Display name of the tool                                                | Yes      |
-| `description`         | string   | Human-readable description                                              | Yes      |
-| `kind`                | string   | Tool type (system, go, bundled-go)                                      | Yes      |
-| `detect_command`      | string   | Command to detect if tool is installed                                  | Yes      |
-| `install_package`     | string   | Go package path for installation                                        | No       |
-| `version_args`        | []string | Arguments to get tool version                                           | No       |
-| `check_args`          | []string | Arguments to verify tool functionality                                  | No       |
-| `platforms`           | []string | Supported platforms (darwin, linux, windows)                            | No       |
-| `install_commands`    | map      | **Installer-kind** commands (mise, brew, apt-get, manual, etc.)         | No       |
-| `installer_priority`  | map      | Platform-specific installer priority order                              | No       |
-| `version_scheme`      | string   | Version format (semver, custom)                                         | No       |
-| `minimum_version`     | string   | Minimum required version                                                | No       |
-| `recommended_version` | string   | Recommended version                                                     | No       |
-| `disallowed_versions` | []string | Versions to avoid                                                       | No       |
+| Field                 | Type     | Description                                                     | Required |
+| --------------------- | -------- | --------------------------------------------------------------- | -------- |
+| `name`                | string   | Display name of the tool                                        | Yes      |
+| `description`         | string   | Human-readable description                                      | Yes      |
+| `kind`                | string   | Tool type (system, go, bundled-go)                              | Yes      |
+| `detect_command`      | string   | Command to detect if tool is installed                          | Yes      |
+| `install_package`     | string   | Go package path for installation                                | No       |
+| `version_args`        | []string | Arguments to get tool version                                   | No       |
+| `check_args`          | []string | Arguments to verify tool functionality                          | No       |
+| `platforms`           | []string | Supported platforms (darwin, linux, windows)                    | No       |
+| `install_commands`    | map      | **Installer-kind** commands (mise, brew, apt-get, manual, etc.) | No       |
+| `installer_priority`  | map      | Platform-specific installer priority order                      | No       |
+| `version_scheme`      | string   | Version format (semver, custom)                                 | No       |
+| `minimum_version`     | string   | Minimum required version                                        | No       |
+| `recommended_version` | string   | Recommended version                                             | No       |
+| `disallowed_versions` | []string | Versions to avoid                                               | No       |
 
 ### Understanding Installer Kinds vs Platforms
 
 **CRITICAL**: The `install_commands` field uses **installer-kind keys**, NOT platform keys.
 
 **Installer Kinds** are package manager or installation method identifiers:
+
 - `mise` - Mise runtime manager
 - `brew` - Homebrew (macOS/Linux)
 - `apt-get` - APT package manager (Debian/Ubuntu)
@@ -280,8 +281,8 @@ go run -c "
 tools:
   ripgrep:
     install_commands:
-      linux: "apt-get install ripgrep"    # Ignored by installer
-      darwin: "brew install ripgrep"      # Ignored by installer
+      linux: "apt-get install ripgrep" # Ignored by installer
+      darwin: "brew install ripgrep" # Ignored by installer
 ```
 
 ```yaml
@@ -301,9 +302,9 @@ tools:
   ripgrep:
     platforms: ["linux", "darwin", "windows"]
     installer_priority:
-      linux: ["mise", "apt-get"]      # Try mise first, fall back to apt-get
-      darwin: ["mise", "brew"]        # Try mise first, fall back to brew
-      windows: ["mise", "scoop"]      # Try mise first, fall back to scoop
+      linux: ["mise", "apt-get"] # Try mise first, fall back to apt-get
+      darwin: ["mise", "brew"] # Try mise first, fall back to brew
+      windows: ["mise", "scoop"] # Try mise first, fall back to scoop
     install_commands:
       mise: "mise use -g ripgrep@latest"
       apt-get: "sudo apt-get install -y ripgrep"
@@ -333,6 +334,7 @@ tools:
 **Why This Design?**
 
 The installer-kind approach enables:
+
 - **Flexible tool installation**: Same tool can be installed via multiple package managers
 - **Platform independence**: One tool can use `brew` on macOS and `apt-get` on Linux without duplication
 - **Priority control**: Define fallback chains (e.g., try `mise` first, then fall back to system package manager)

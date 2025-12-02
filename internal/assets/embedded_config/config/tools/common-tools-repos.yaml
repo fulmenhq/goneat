@@ -5,9 +5,7 @@
 #
 # Maintained in alphabetical order for readability.
 # Format: tool-name: owner/repo
-
 version: v1.0.0
-
 repositories:
   # Security & SBOM
   cosign: sigstore/cosign
@@ -15,11 +13,9 @@ repositories:
   grype: anchore/grype
   syft: anchore/syft
   trivy: aquasecurity/trivy
-
   # Go Tools
   golangci-lint: golangci/golangci-lint
   gosec: securego/gosec
-
   # General CLI Tools
   jq: jqlang/jq
   prettier: prettier/prettier

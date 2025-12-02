@@ -42,7 +42,6 @@ jobs:
       - name: Lint (informational for 0.2.1)
         run: |
           golangci-lint run || true
-
   install-probe:
     runs-on: ubuntu-latest
     steps:

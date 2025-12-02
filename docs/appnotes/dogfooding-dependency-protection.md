@@ -106,12 +106,13 @@ tools:
 
     # Tool-specific cooling override for critical SBOM tool
     cooling:
-      min_age_days: 14        # More conservative than global 7 days
-      min_downloads: 5000     # Higher threshold than global 100
-      min_downloads_recent: 100  # Ensure active maintenance
+      min_age_days: 14 # More conservative than global 7 days
+      min_downloads: 5000 # Higher threshold than global 100
+      min_downloads_recent: 100 # Ensure active maintenance
 ```
 
 **Rationale**: Syft generates SBOMs that document our entire supply chain. A compromised SBOM tool could:
+
 - Inject malicious packages into SBOMs
 - Hide vulnerable dependencies
 - Provide false security assurances
@@ -122,13 +123,13 @@ Therefore, we apply a **stricter cooling policy** (14 days vs 7 days global) to 
 
 #### Configuration Hierarchy in Action
 
-| Tool | Cooling Policy Source | Min Age | Min Downloads |
-|------|----------------------|---------|---------------|
-| syft | Tool-specific override | 14 days | 5000 |
-| ripgrep | Global default | 7 days | 100 |
-| jq | Global default | 7 days | 100 |
-| golangci-lint | Global default | 7 days | 100 |
-| (with --no-cooling) | CLI flag | Disabled | N/A |
+| Tool                | Cooling Policy Source  | Min Age  | Min Downloads |
+| ------------------- | ---------------------- | -------- | ------------- |
+| syft                | Tool-specific override | 14 days  | 5000          |
+| ripgrep             | Global default         | 7 days   | 100           |
+| jq                  | Global default         | 7 days   | 100           |
+| golangci-lint       | Global default         | 7 days   | 100           |
+| (with --no-cooling) | CLI flag               | Disabled | N/A           |
 
 **Key Insight**: This demonstrates goneat's "defense in depth" approach - different security postures for different risk profiles.
 

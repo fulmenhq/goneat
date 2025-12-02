@@ -1,9 +1,7 @@
 version: v1.0.0
-
 # Foundation Package Managers Configuration
 # Defines package managers, their safety characteristics, and language/platform compatibility
 # Used by `goneat doctor tools init` to select appropriate package managers for tool installation
-
 package_managers:
   # Universal package managers (opinionated top tier)
   - name: bun
@@ -23,7 +21,6 @@ package_managers:
     detection_command: "bun --version"
     priority: 1
     recommended: true
-
   - name: mise
     description: "Mise - Universal version manager (asdf successor)"
     platforms: ["darwin", "linux"]
@@ -45,7 +42,6 @@ package_managers:
       darwin: true
       linux: true
       windows: false
-
   # Platform-specific universal managers
   - name: scoop
     description: "Scoop - Windows package manager"
@@ -61,7 +57,6 @@ package_managers:
     detection_command: "scoop --version"
     priority: 2
     recommended: true
-
   - name: winget
     description: "Windows Package Manager (built-in on Windows 10+)"
     platforms: ["windows"]
@@ -75,7 +70,6 @@ package_managers:
     priority: 3
     recommended: true
     notes: "Built-in on Windows 10 1809+, limited package selection compared to scoop"
-
   - name: brew
     description: "Homebrew - Package manager for macOS and Linux"
     platforms: ["darwin", "linux"]
@@ -92,10 +86,9 @@ package_managers:
       default_prefix: "$HOME/homebrew-local"
     detection_command: "brew --version"
     detection_notes: "Enhanced detection (v0.3.7+) supports system (/opt/homebrew, /usr/local, /home/linuxbrew) and user-local ($HOME/homebrew-local) installations"
-    priority: 5  # Elevated from 10: user-local brew is sudo-free and CI-safe
-    recommended: true  # User-local brew is recommended; runtime detection determines sudo requirement
+    priority: 5 # Elevated from 10: user-local brew is sudo-free and CI-safe
+    recommended: true # User-local brew is recommended; runtime detection determines sudo requirement
     notes: "User-local installation only. Runtime detection supports system brew for existing installations, but auto-install always uses user-local method."
-
   # Built-in language package managers
   - name: go-install
     description: "Go's built-in package installer"
@@ -108,7 +101,6 @@ package_managers:
     auto_install_safe: true
     detection_command: "go version"
     priority: 1
-
   - name: uv
     description: "uv - Fast Python package installer (Rust-based pip replacement)"
     platforms: ["darwin", "linux", "windows"]
@@ -121,7 +113,6 @@ package_managers:
     auto_install_safe: true
     detection_command: "uv --version"
     priority: 1
-
   - name: pip
     description: "Python package installer (fallback)"
     platforms: ["darwin", "linux", "windows"]
@@ -133,7 +124,6 @@ package_managers:
     auto_install_safe: true
     detection_command: "pip --version"
     priority: 5
-
   - name: npm
     description: "Node.js package manager"
     platforms: ["darwin", "linux", "windows"]
@@ -145,7 +135,6 @@ package_managers:
     auto_install_safe: true
     detection_command: "npm --version"
     priority: 2
-
   - name: cargo
     description: "Rust package manager"
     platforms: ["darwin", "linux", "windows"]
@@ -157,7 +146,6 @@ package_managers:
     auto_install_safe: true
     detection_command: "cargo --version"
     priority: 1
-
   # System package managers (not safe for auto-install)
   - name: apt-get
     description: "Debian/Ubuntu package manager"
@@ -170,7 +158,6 @@ package_managers:
     auto_install_safe: false
     detection_command: "apt-get --version"
     priority: 20
-
   - name: pacman
     description: "Arch Linux package manager"
     platforms: ["linux"]
@@ -182,7 +169,6 @@ package_managers:
     auto_install_safe: false
     detection_command: "pacman --version"
     priority: 20
-
   - name: dnf
     description: "Fedora package manager"
     platforms: ["linux"]
@@ -194,41 +180,33 @@ package_managers:
     auto_install_safe: false
     detection_command: "dnf --version"
     priority: 20
-
 # Repository type detection rules
 repo_type_detection:
   go:
     files: ["go.mod", "go.sum"]
     priority: 1
-
   python:
     files: ["pyproject.toml", "requirements.txt", "setup.py", "Pipfile", "uv.lock"]
     priority: 2
-
   typescript:
     files: ["tsconfig.json", "package.json"]
     priority: 3
-
   rust:
     files: ["Cargo.toml", "Cargo.lock"]
     priority: 4
-
   csharp:
     files: ["*.csproj", "*.sln", "*.fsproj"]
     priority: 5
-
 # Platform-specific recommendations (opinionated defaults)
 recommendations:
   darwin:
-    primary: ["brew", "bun", "mise"]  # brew (user-local) is sudo-free and widely supported
+    primary: ["brew", "bun", "mise"] # brew (user-local) is sudo-free and widely supported
     fallback: ["go-install", "uv", "npm", "cargo"]
-    avoid: []  # System brew requires sudo but user-local is safe; runtime detection handles this
-
+    avoid: [] # System brew requires sudo but user-local is safe; runtime detection handles this
   linux:
-    primary: ["brew", "bun", "mise"]  # brew (user-local) is sudo-free and CI-friendly
+    primary: ["brew", "bun", "mise"] # brew (user-local) is sudo-free and CI-friendly
     fallback: ["go-install", "uv", "npm", "cargo"]
-    avoid: ["apt-get", "pacman", "dnf"]  # System package managers require sudo
-
+    avoid: ["apt-get", "pacman", "dnf"] # System package managers require sudo
   windows:
     primary: ["bun", "scoop", "winget"]
     fallback: ["go-install", "npm"]

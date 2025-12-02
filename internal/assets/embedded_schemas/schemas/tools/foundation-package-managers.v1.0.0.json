@@ -4,7 +4,10 @@
   "title": "Foundation Package Managers Configuration",
   "description": "Defines package managers, their safety characteristics, and language/platform compatibility",
   "type": "object",
-  "required": ["version", "package_managers"],
+  "required": [
+    "version",
+    "package_managers"
+  ],
   "properties": {
     "version": {
       "type": "string",
@@ -46,7 +49,15 @@
   "$defs": {
     "PackageManager": {
       "type": "object",
-      "required": ["name", "description", "platforms", "requires_sudo", "requires_path_update", "safe_for_languages", "install_method"],
+      "required": [
+        "name",
+        "description",
+        "platforms",
+        "requires_sudo",
+        "requires_path_update",
+        "safe_for_languages",
+        "install_method"
+      ],
       "properties": {
         "name": {
           "type": "string",
@@ -61,7 +72,11 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["darwin", "linux", "windows"]
+            "enum": [
+              "darwin",
+              "linux",
+              "windows"
+            ]
           },
           "minItems": 1,
           "description": "Supported platforms"
@@ -140,7 +155,13 @@
         },
         "install_method": {
           "type": "string",
-          "enum": ["builtin", "curl", "bash", "powershell", "manual"],
+          "enum": [
+            "builtin",
+            "curl",
+            "bash",
+            "powershell",
+            "manual"
+          ],
           "description": "How this package manager itself can be installed"
         },
         "install_command": {
@@ -233,7 +254,10 @@
     },
     "RepoDetectionRule": {
       "type": "object",
-      "required": ["files", "priority"],
+      "required": [
+        "files",
+        "priority"
+      ],
       "properties": {
         "files": {
           "type": "array",
@@ -251,7 +275,9 @@
     },
     "PlatformRecommendation": {
       "type": "object",
-      "required": ["primary"],
+      "required": [
+        "primary"
+      ],
       "properties": {
         "primary": {
           "type": "array",

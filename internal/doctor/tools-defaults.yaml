@@ -15,7 +15,6 @@
 # Migration: Run `goneat doctor tools init` to create .goneat/tools.yaml from new defaults
 #
 # DO NOT ADD NEW TOOLS HERE - add them to config/tools/foundation-tools-defaults.yaml instead
-
 scopes:
   security:
     description: "Security scanning tools"
