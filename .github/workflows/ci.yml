@@ -42,3 +42,18 @@ jobs:
       - name: Lint (informational for 0.2.1)
         run: |
           golangci-lint run || true
+
+  install-probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+      - name: Install probe (foundation tool availability)
+        env:
+          GONEAT_INSTALL_PROBE: "1"
+        run: |
+          make install-probe

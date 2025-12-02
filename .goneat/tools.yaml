@@ -188,7 +188,6 @@ tools:
             linux:
                 - brew
             windows:
-                - scoop
                 - bun
     ripgrep:
         name: ripgrep

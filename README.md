@@ -515,7 +515,7 @@ Never deal with "tool not found" errors again. Goneat's built-in doctor automati
 
 ```bash
 # Bootstrap everything in one command (new in v0.3.9)
-# - Automatically installs bun or brew if needed
+# - Automatically installs brew if needed (bun is used on Windows where required)
 # - Installs all foundation tools
 # - Updates PATH immediately
 goneat doctor tools --scope foundation --install --yes
@@ -537,9 +537,9 @@ Supported tools:
 - **Format**: goimports, gofmt (bundled with Go)
 
 **Automatic Package Manager Installation** (new in v0.3.9):
-- goneat installs **bun** automatically if needed (simple curl-based install)
-- Falls back to **brew** (user-local, no sudo) if bun fails
-- Works on fresh CI runners without any pre-installed package managers
+- Linux/macOS: prefers **Homebrew** (user-local, no sudo) for foundation tooling
+- Windows: uses **bun** or **scoop** as defined in `.goneat/tools.yaml`
+- Works on fresh CI runners; PATH updates are applied immediately for later steps
 - PATH updated immediately — tools usable in same session
 
 Benefits:

@@ -128,6 +128,9 @@ lint: build ## Run lint/format/style checks
 		exit 1; \
 	fi
 
+install-probe: ## Opt-in package-manager/tool availability probe (requires network; uses build tag installprobe)
+	GONEAT_INSTALL_PROBE=1 go test -tags=installprobe ./internal/doctor
+
 release-prepare: build sync-crucible embed-assets ## Prepare release (sync SSOT, embed assets, build binary)
 	@echo "🚀 Preparing release environment..."
 	@echo "✅ Release preparation complete (SSOT synced, assets embedded, binary built)"
