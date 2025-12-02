@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/tools"
 )
 
 // PathManager handles PATH detection and extension for package manager shims
@@ -26,11 +27,14 @@ func NewPathManager() *PathManager {
 
 // GetShimPath returns the shim directory path for a given package manager
 //
-// LIMITATION (v0.3.7): Shim paths are hardcoded for known package managers.
+// LIMITATION (v0.3.10): Shim paths are hardcoded for known package managers.
 // This does NOT read from foundation-package-managers.yaml config.
-// Scope limited to: mise, bun, scoop, go-install (well-known standard paths).
+// Scope limited to: mise, bun, scoop, go-install, brew (well-known standard paths).
 //
-// TODO (v0.3.8): Read shim paths from config to support:
+// See docs/sop/adding-package-manager-sop.md for the complete checklist when
+// adding a new package manager - GetShimPath is one of several required touchpoints.
+//
+// TODO (v0.4.x): Read shim paths from config to support:
 // - Custom shim locations (user-configured package manager install dirs)
 // - New package managers without code changes
 // - Platform-specific shim path variations
@@ -57,6 +61,13 @@ func GetShimPath(packageManager string) string {
 			return goBin
 		}
 		return filepath.Join(homeDir, "go", "bin")
+	case "brew":
+		// brew location varies by platform - use DetectBrew to find it
+		_, brewPath, err := tools.DetectBrew()
+		if err == nil && brewPath != "" {
+			return filepath.Dir(brewPath) // Return bin directory, not brew binary path
+		}
+		return ""
 	default:
 		return ""
 	}

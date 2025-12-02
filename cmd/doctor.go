@@ -1293,7 +1293,7 @@ func autoInstallPackageManagers(cmd *cobra.Command) error {
 			bunBinPath := tools.GetBunBinPath()
 			if bunBinPath != "" {
 				addToCurrentPATH(bunBinPath)
-				logger.Debug("Added bun bin directory to PATH", logger.String("path", bunBinPath))
+				logger.Info("Added bun bin directory to PATH", logger.String("path", bunBinPath))
 			}
 		}
 	}
@@ -1312,7 +1312,7 @@ func autoInstallPackageManagers(cmd *cobra.Command) error {
 			if brewPath != "" {
 				brewBinDir := filepath.Dir(brewPath)
 				addToCurrentPATH(brewBinDir)
-				logger.Debug("Added brew bin directory to PATH", logger.String("path", brewBinDir))
+				logger.Info("Added brew bin directory to PATH", logger.String("path", brewBinDir))
 			}
 		} else {
 			logger.Info("Auto-installing user-local Homebrew...")
