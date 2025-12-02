@@ -1241,14 +1241,14 @@ func autoInstallPackageManagers(cmd *cobra.Command) error {
 	// Load package manager config
 	pmConfig, err := intdoctor.LoadPackageManagersConfig()
 	if err != nil {
-		logger.Debug("autoInstallPackageManagers: failed to load package manager config", logger.Err(err))
+		logger.Warn("Failed to load package manager config", logger.Err(err))
 		return err
 	}
 
 	// Load tools config to check which package managers are needed
 	config, err := loadToolsConfiguration()
 	if err != nil {
-		logger.Debug("autoInstallPackageManagers: failed to load tools config", logger.Err(err))
+		logger.Warn("Failed to load tools config for package manager detection", logger.Err(err))
 		return err
 	}
 
@@ -1257,6 +1257,9 @@ func autoInstallPackageManagers(cmd *cobra.Command) error {
 	brewAutoInstallSafe := getPackageManagerAutoInstallSafe(pmConfig, "brew")
 	bunAutoInstallSafe := getPackageManagerAutoInstallSafe(pmConfig, "bun")
 
+	// Log at INFO level so users can see what package managers are needed
+	logger.Info(fmt.Sprintf("Package manager check: needsBrew=%v, needsBun=%v, platform=%s",
+		needsBrewResult, needsBunResult, runtime.GOOS))
 	logger.Debug("autoInstallPackageManagers: checking conditions",
 		logger.Bool("needsBrew", needsBrewResult),
 		logger.Bool("needsBun", needsBunResult),
@@ -1326,7 +1329,19 @@ func autoInstallPackageManagers(cmd *cobra.Command) error {
 		if brewErr != nil {
 			errMsg += fmt.Sprintf("; brew: %v", brewErr)
 		}
+		logger.Error(errMsg)
 		return errors.New(errMsg)
+	}
+
+	// Log success if we needed and installed package managers
+	if needsBrewResult && brewInstalled {
+		logger.Info("brew is available for tool installation")
+	}
+	if needsBunResult && bunInstalled {
+		logger.Info("bun is available for tool installation")
+	}
+	if !needsBrewResult && !needsBunResult {
+		logger.Debug("No package managers needed for selected scope")
 	}
 
 	return nil
