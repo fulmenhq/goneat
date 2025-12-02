@@ -326,6 +326,10 @@ func InstallTool(t Tool) Status {
 			return installArtifactTool(t)
 		}
 		return installSystemTool(t)
+	case "node":
+		// Node/bun/npm managed tools install via package managers similar to system tools.
+		// If we add npm/bun-specific handling later, wire it here.
+		return installSystemTool(t)
 	case "go":
 		return installGoTool(t)
 	case "bundled-go":

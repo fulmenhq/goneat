@@ -180,7 +180,7 @@ tools:
     prettier:
         name: prettier
         description: Opinionated code formatter
-        kind: node
+        kind: system
         detect_command: prettier --version
         installer_priority:
             darwin:
@@ -189,7 +189,7 @@ tools:
                 - brew
             windows:
                 - scoop
-                - npm
+                - bun
     ripgrep:
         name: ripgrep
         description: Fast text search - used by goneat for license auditing
