@@ -9,6 +9,7 @@ import (
 )
 
 func TestCompareSemverFull(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		a       string
@@ -64,6 +65,7 @@ func TestCompareSemverFull(t *testing.T) {
 }
 
 func TestCompareSemverCompact(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		a       string
@@ -106,6 +108,7 @@ func TestCompareSemverCompact(t *testing.T) {
 }
 
 func TestCompareCalver(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		a       string
@@ -161,6 +164,7 @@ func TestCompareCalver(t *testing.T) {
 }
 
 func TestCompareDefaultScheme(t *testing.T) {
+	t.Parallel()
 	// Test that empty scheme defaults to lexical
 	got, err := Compare("", "v1.0.0", "v1.0.1")
 	if err != nil {
@@ -172,6 +176,7 @@ func TestCompareDefaultScheme(t *testing.T) {
 }
 
 func TestEvaluatePolicy(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		policy         Policy
@@ -233,6 +238,7 @@ func TestEvaluatePolicy(t *testing.T) {
 }
 
 func TestSortDisallowed(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    []string
@@ -278,6 +284,7 @@ func TestSortDisallowed(t *testing.T) {
 
 // TestPolicyIsZero tests the zero policy fast path
 func TestPolicyIsZero(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name   string
 		policy Policy
@@ -308,6 +315,7 @@ func TestPolicyIsZero(t *testing.T) {
 
 // TestSemverRegressionWithCmdVersion tests edge cases that should match cmd/version.go behavior
 func TestSemverRegressionWithCmdVersion(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		a    string
@@ -343,6 +351,7 @@ func TestSemverRegressionWithCmdVersion(t *testing.T) {
 
 // TestLatestSemverTagRegression tests that our semver parsing matches cmd/version.go latestSemverTag
 func TestLatestSemverTagRegression(t *testing.T) {
+	t.Parallel()
 	// Test cases based on the latestSemverTag function in cmd/version.go
 	testCases := []struct {
 		name     string
@@ -430,6 +439,7 @@ func TestLatestSemverTagRegression(t *testing.T) {
 
 // TestLatestCalverTagRegression tests that our calver parsing matches cmd/version.go latestCalverTag
 func TestLatestCalverTagRegression(t *testing.T) {
+	t.Parallel()
 	// Test cases based on the latestCalverTag function in cmd/version.go
 	testCases := []struct {
 		name     string
@@ -500,6 +510,7 @@ func TestLatestCalverTagRegression(t *testing.T) {
 
 // TestCalverRegressionWithCmdVersion tests calendar version detection patterns
 func TestCalverRegressionWithCmdVersion(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		a    string
@@ -530,6 +541,7 @@ func TestCalverRegressionWithCmdVersion(t *testing.T) {
 
 // TestSchemeValidationMatrix verifies per-scheme validation rules.
 func TestSchemeValidationMatrix(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name    string
 		scheme  Scheme
@@ -574,6 +586,7 @@ func TestSchemeValidationMatrix(t *testing.T) {
 
 // TestCrossSchemeComparisonErrors ensures we fail when comparing across incompatible schemes.
 func TestCrossSchemeComparisonErrors(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name   string
 		scheme Scheme
@@ -596,6 +609,7 @@ func TestCrossSchemeComparisonErrors(t *testing.T) {
 
 // TestExtremeValues tests edge cases and extreme values
 func TestExtremeValues(t *testing.T) {
+	t.Parallel()
 	extremeTests := []struct {
 		name     string
 		scheme   Scheme
@@ -656,6 +670,7 @@ func TestExtremeValues(t *testing.T) {
 
 // TestPolicyEvaluationEdgeCases tests policy evaluation with extreme and edge case inputs
 func TestPolicyEvaluationEdgeCases(t *testing.T) {
+	t.Parallel()
 	edgeCaseTests := []struct {
 		name        string
 		policy      Policy
@@ -711,6 +726,7 @@ func TestPolicyEvaluationEdgeCases(t *testing.T) {
 
 // TestParseLenient tests the new ParseLenient function with various semver patterns
 func TestParseLenient(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		input       string
@@ -820,6 +836,7 @@ func TestParseLenient(t *testing.T) {
 
 // TestVersionString tests the String method and round-trip consistency
 func TestVersionString(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name  string
 		input string
@@ -873,6 +890,7 @@ func TestVersionString(t *testing.T) {
 
 // TestVersionStringNil tests String method with nil receiver
 func TestVersionStringNil(t *testing.T) {
+	t.Parallel()
 	var v *Version
 	result := v.String()
 	if result != "" {
@@ -882,6 +900,7 @@ func TestVersionStringNil(t *testing.T) {
 
 // TestVersionBumpOperations tests the bump methods
 func TestVersionBumpOperations(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -965,6 +984,7 @@ func TestVersionBumpOperations(t *testing.T) {
 
 // TestVersionBumpNilReceiver tests bump methods with nil receiver
 func TestVersionBumpNilReceiver(t *testing.T) {
+	t.Parallel()
 	var v *Version
 
 	if result := v.BumpPatch(); result != nil {
@@ -980,6 +1000,7 @@ func TestVersionBumpNilReceiver(t *testing.T) {
 
 // TestVersionBumpRoundTrip tests that bump operations are consistent
 func TestVersionBumpRoundTrip(t *testing.T) {
+	t.Parallel()
 	originalVersions := []string{
 		"1.2.3",
 		"v1.2.3",
@@ -1021,6 +1042,7 @@ func TestVersionBumpRoundTrip(t *testing.T) {
 
 // TestParseLenientIntegrationWithExistingAPIs tests integration with existing versioning APIs
 func TestParseLenientIntegrationWithExistingAPIs(t *testing.T) {
+	t.Parallel()
 	testVersions := []string{
 		"1.2.3",
 		"v1.2.4",
@@ -1085,6 +1107,7 @@ func TestParseLenientIntegrationWithExistingAPIs(t *testing.T) {
 
 // TestParseLenientEdgeCases tests edge cases and error conditions
 func TestParseLenientEdgeCases(t *testing.T) {
+	t.Parallel()
 	edgeCases := []struct {
 		name        string
 		input       string
