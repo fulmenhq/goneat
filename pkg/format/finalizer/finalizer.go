@@ -23,12 +23,18 @@ func NormalizeEOF(input []byte, ensure bool, collapse bool, trimTrailingSpaces b
 	// Convert to string for easier processing
 	content := string(input)
 	originalContent := content
-	lines := strings.Split(content, "\n")
 
-	// Determine the line ending style used in the file
+	// Determine the line ending style used in the file FIRST (before normalization)
 	if lineEnding == "" {
 		lineEnding = detectLineEnding(content)
 	}
+
+	// Normalize to LF for consistent processing to prevent CR corruption
+	// This ensures split/join cycle works correctly for CRLF files on Windows
+	normalizedContent := strings.ReplaceAll(content, "\r\n", "\n")
+	normalizedContent = strings.ReplaceAll(normalizedContent, "\r", "\n")
+
+	lines := strings.Split(normalizedContent, "\n")
 
 	// Process each line
 	for i, line := range lines {

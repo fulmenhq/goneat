@@ -1245,6 +1245,15 @@ func autoInstallPackageManagers(cmd *cobra.Command, selected []intdoctor.Tool) e
 		return err
 	}
 
+	// On Windows, ensure scoop shim path is in PATH for tool discovery
+	if runtime.GOOS == "windows" && tools.IsScoopInstalled() {
+		scoopBinPath := tools.GetScoopBinPath()
+		if scoopBinPath != "" {
+			addToCurrentPATH(scoopBinPath)
+			logger.Info("Added scoop bin directory to PATH", logger.String("path", scoopBinPath))
+		}
+	}
+
 	needsBrewResult, needsBunResult := computeNeededPackageManagers(selected)
 	brewAutoInstallSafe := getPackageManagerAutoInstallSafe(pmConfig, "brew")
 	bunAutoInstallSafe := getPackageManagerAutoInstallSafe(pmConfig, "bun")

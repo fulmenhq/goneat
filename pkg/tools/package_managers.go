@@ -1,12 +1,14 @@
 package tools
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/fulmenhq/goneat/pkg/logger"
 )
@@ -80,7 +82,11 @@ func (b *BrewManager) Version() (string, error) {
 		return "", fmt.Errorf("brew not found in PATH")
 	}
 
-	cmd := exec.Command("brew", "--version")
+	// Add timeout to prevent hanging
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "brew", "--version")
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to get brew version: %w", err)
@@ -148,7 +154,11 @@ func (s *ScoopManager) Version() (string, error) {
 		return "", fmt.Errorf("scoop not found in PATH")
 	}
 
-	cmd := exec.Command("scoop", "--version")
+	// Add timeout to prevent hanging on Windows
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "scoop", "--version")
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to get scoop version: %w", err)
@@ -177,24 +187,84 @@ func (s *ScoopManager) IsSupportedOnCurrentPlatform() bool {
 	return runtime.GOOS == "windows"
 }
 
+// GetScoopBinPath returns the scoop shims directory path.
+// Scoop installs tools as shims in ~/scoop/shims directory.
+// Returns empty string if home directory cannot be determined.
+func GetScoopBinPath() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(homeDir, "scoop", "shims")
+}
+
+// IsScoopInstalled checks if scoop is available in PATH or in its default location.
+func IsScoopInstalled() bool {
+	// Check PATH first
+	if _, err := exec.LookPath("scoop"); err == nil {
+		return true
+	}
+
+	// Check default scoop location
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+
+	scoopPath := filepath.Join(homeDir, "scoop", "shims", "scoop")
+	if runtime.GOOS == "windows" {
+		scoopPath += ".cmd"
+	}
+	_, err = os.Stat(scoopPath)
+	return err == nil
+}
+
 // parseScoopVersion extracts version from scoop --version output.
-// Expected format: "v0.3.1" or "Current Scoop version:\nv0.3.1"
+// Expected formats:
+//   - "v0.3.1"
+//   - "Current Scoop version:\nv0.3.1"
+//   - "Current Scoop version:\nb588a06e chore(release): Bump to version 0.5.3 (resync) (#6436)"
 func parseScoopVersion(output []byte) string {
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		// Version line typically starts with 'v'
-		if strings.HasPrefix(line, "v") && len(line) > 1 {
-			return line
-		}
-		// Or might be in format "Current Scoop version:" followed by version
-		if strings.Contains(line, "version") {
+
+		// Skip header lines
+		if strings.Contains(line, "Current Scoop version:") || strings.Contains(line, "bucket:") {
 			continue
 		}
-		// Try to find version pattern (vX.Y.Z)
+
+		// Check if line contains "version X.Y.Z" pattern (e.g., commit messages)
+		if strings.Contains(line, "version") {
+			// Extract version after "version" keyword
+			parts := strings.Split(line, "version")
+			if len(parts) >= 2 {
+				// Look for semver pattern in the text after "version"
+				fields := strings.Fields(parts[1])
+				for _, field := range fields {
+					// Remove common trailing characters
+					field = strings.TrimRight(field, "()#,")
+					// Check if this looks like a version (X.Y.Z)
+					if strings.Count(field, ".") >= 2 {
+						// Verify it starts with a digit
+						if len(field) > 0 && field[0] >= '0' && field[0] <= '9' {
+							return field
+						}
+					}
+				}
+			}
+		}
+
+		// Version line that starts with 'v' (older format)
+		if strings.HasPrefix(line, "v") && len(line) > 1 && strings.Contains(line, ".") {
+			return line
+		}
+
+		// Try to find version pattern (vX.Y.Z or X.Y.Z) in any field
 		fields := strings.Fields(line)
 		for _, field := range fields {
-			if strings.HasPrefix(field, "v") && strings.Contains(field, ".") {
+			field = strings.TrimRight(field, "()#,")
+			if (strings.HasPrefix(field, "v") || (len(field) > 0 && field[0] >= '0' && field[0] <= '9')) && strings.Count(field, ".") >= 2 {
 				return field
 			}
 		}

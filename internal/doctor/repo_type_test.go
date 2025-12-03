@@ -7,6 +7,7 @@ import (
 )
 
 func TestDetectRepoType_Go(t *testing.T) {
+	t.Parallel()
 	// Create temporary directory with go.mod
 	tmpDir := t.TempDir()
 	goModPath := filepath.Join(tmpDir, "go.mod")
@@ -21,6 +22,7 @@ func TestDetectRepoType_Go(t *testing.T) {
 }
 
 func TestDetectRepoType_Python(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name   string
 		marker string
@@ -49,6 +51,7 @@ func TestDetectRepoType_Python(t *testing.T) {
 }
 
 func TestDetectRepoType_TypeScript(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name   string
 		marker string
@@ -74,6 +77,7 @@ func TestDetectRepoType_TypeScript(t *testing.T) {
 }
 
 func TestDetectRepoType_Rust(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name   string
 		marker string
@@ -99,6 +103,7 @@ func TestDetectRepoType_Rust(t *testing.T) {
 }
 
 func TestDetectRepoType_CSharp(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name   string
 		marker string
@@ -125,6 +130,7 @@ func TestDetectRepoType_CSharp(t *testing.T) {
 }
 
 func TestDetectRepoType_Unknown(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	// Empty directory with no marker files
 
@@ -135,6 +141,7 @@ func TestDetectRepoType_Unknown(t *testing.T) {
 }
 
 func TestDetectRepoType_Priority(t *testing.T) {
+	t.Parallel()
 	// Test that Go has higher priority than Python
 	tmpDir := t.TempDir()
 
@@ -156,6 +163,7 @@ func TestDetectRepoType_Priority(t *testing.T) {
 }
 
 func TestRepoType_String(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		repoType RepoType
 		expected string
@@ -178,6 +186,7 @@ func TestRepoType_String(t *testing.T) {
 }
 
 func TestRepoType_IsLanguageNative(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		repoType RepoType
 		expected bool
@@ -201,6 +210,7 @@ func TestRepoType_IsLanguageNative(t *testing.T) {
 }
 
 func TestRepoType_GetLanguageNativePackageManager(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		repoType RepoType
 		expected string
@@ -225,6 +235,7 @@ func TestRepoType_GetLanguageNativePackageManager(t *testing.T) {
 }
 
 func TestDetectCurrentRepoType(t *testing.T) {
+	t.Parallel()
 	// Find the repo root by walking up from current directory
 	cwd, err := os.Getwd()
 	if err != nil {

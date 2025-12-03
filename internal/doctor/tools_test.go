@@ -12,6 +12,7 @@ import (
 // Tools are now loaded from .goneat/tools.yaml ONLY (explicit SSOT).
 
 func TestGoInstallCommand(t *testing.T) {
+	t.Parallel()
 	tool := Tool{
 		Name:           "gosec",
 		Kind:           "go",
@@ -24,6 +25,7 @@ func TestGoInstallCommand(t *testing.T) {
 }
 
 func TestInstallInstruction_Go(t *testing.T) {
+	t.Parallel()
 	tool := Tool{
 		Name:           "govulncheck",
 		Kind:           "go",
@@ -36,6 +38,7 @@ func TestInstallInstruction_Go(t *testing.T) {
 }
 
 func TestSanitizeVersion_CommonPatterns(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		in   string
 		want string
@@ -54,6 +57,7 @@ func TestSanitizeVersion_CommonPatterns(t *testing.T) {
 }
 
 func TestExtractFirstVersionToken(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		in   string
 		want string
@@ -71,6 +75,7 @@ func TestExtractFirstVersionToken(t *testing.T) {
 }
 
 func TestLooksLikeVersion(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		in   string
 		want bool
@@ -94,6 +99,7 @@ func TestLooksLikeVersion(t *testing.T) {
 // Use `goneat doctor tools init` to seed config with language-specific defaults.
 
 func TestFirstLine(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		in   string
 		want string
@@ -112,6 +118,7 @@ func TestFirstLine(t *testing.T) {
 }
 
 func TestInstallInstruction_BundledGo(t *testing.T) {
+	t.Parallel()
 	tool := Tool{
 		Name: "gofmt",
 		Kind: "bundled-go",
@@ -123,6 +130,7 @@ func TestInstallInstruction_BundledGo(t *testing.T) {
 }
 
 func TestInstallInstruction_System(t *testing.T) {
+	t.Parallel()
 	tool := Tool{
 		Name: "some-system-tool",
 		Kind: "system",
@@ -137,6 +145,7 @@ func TestInstallInstruction_System(t *testing.T) {
 }
 
 func TestGetGoBinPath(t *testing.T) {
+	t.Parallel()
 	// Test with GOBIN set
 	oldGoBin := os.Getenv("GOBIN")
 	defer func() {
@@ -184,6 +193,7 @@ func TestGetGoBinPath(t *testing.T) {
 }
 
 func TestDetectVersion_NoArgs(t *testing.T) {
+	t.Parallel()
 	tool := Tool{
 		Name:        "echo",
 		VersionArgs: []string{},
@@ -198,6 +208,7 @@ func TestDetectVersion_NoArgs(t *testing.T) {
 }
 
 func TestTryCommand(t *testing.T) {
+	t.Parallel()
 	// Test with a command that should work
 	output, ok := tryCommand("echo", "test")
 	if !ok {
@@ -215,6 +226,7 @@ func TestTryCommand(t *testing.T) {
 }
 
 func TestCheckTool_Present(t *testing.T) {
+	t.Parallel()
 	// Test with a tool that should be present (echo)
 	tool := Tool{
 		Name:        "echo",
@@ -236,6 +248,7 @@ func TestCheckTool_Present(t *testing.T) {
 }
 
 func TestCheckTool_NotPresent(t *testing.T) {
+	t.Parallel()
 	// Test with a tool that should not be present
 	tool := Tool{
 		Name:        "nonexistent-tool-12345",
@@ -260,6 +273,7 @@ func TestCheckTool_NotPresent(t *testing.T) {
 }
 
 func TestInstallTool_NonGo(t *testing.T) {
+	t.Parallel()
 	// Test installing a system tool (should provide installation instructions)
 	tool := Tool{
 		Name: "some-system-tool",
@@ -287,6 +301,7 @@ func TestInstallTool_NonGo(t *testing.T) {
 }
 
 func TestLoadToolsConfig(t *testing.T) {
+	t.Parallel()
 	// CHANGED in v0.3.7: LoadToolsConfig now REQUIRES .goneat/tools.yaml to exist
 	// and searches up the directory tree to find it.
 
@@ -310,6 +325,7 @@ func TestLoadToolsConfig(t *testing.T) {
 }
 
 func TestParseConfig(t *testing.T) {
+	t.Parallel()
 	yamlConfig := `
 scopes:
   foundation:
@@ -356,6 +372,7 @@ tools:
 }
 
 func TestParseConfig_InvalidYAML(t *testing.T) {
+	t.Parallel()
 	invalidYAML := `
 scopes:
   foundation:
@@ -371,6 +388,7 @@ scopes:
 }
 
 func TestValidateConfig(t *testing.T) {
+	t.Parallel()
 	validConfigPath := ".goneat/tools.yaml"
 	err := ValidateConfig(validConfigPath)
 	// This might fail if the file doesn't exist, which is OK for this test
@@ -381,6 +399,7 @@ func TestValidateConfig(t *testing.T) {
 }
 
 func TestToolsConfig_GetToolsForScope(t *testing.T) {
+	t.Parallel()
 	config := &ToolsConfig{
 		Scopes: map[string]ScopeConfig{
 			"foundation": {
@@ -424,6 +443,7 @@ func TestToolsConfig_GetToolsForScope(t *testing.T) {
 }
 
 func TestToolsConfig_GetToolsForScope_InvalidScope(t *testing.T) {
+	t.Parallel()
 	config := &ToolsConfig{
 		Scopes: map[string]ScopeConfig{},
 	}
@@ -435,6 +455,7 @@ func TestToolsConfig_GetToolsForScope_InvalidScope(t *testing.T) {
 }
 
 func TestToolsConfig_GetTool(t *testing.T) {
+	t.Parallel()
 	config := &ToolsConfig{
 		Tools: map[string]ToolConfig{
 			"ripgrep": {
@@ -462,6 +483,7 @@ func TestToolsConfig_GetTool(t *testing.T) {
 }
 
 func TestToolsConfig_GetAllScopes(t *testing.T) {
+	t.Parallel()
 	config := &ToolsConfig{
 		Scopes: map[string]ScopeConfig{
 			"foundation": {
@@ -497,12 +519,14 @@ func TestToolsConfig_GetAllScopes(t *testing.T) {
 }
 
 func TestInstallTool_NoGoToolchain(t *testing.T) {
+	t.Parallel()
 	// This test would require mocking exec.LookPath to return error for "go"
 	// For now, we'll skip this test as it requires more complex mocking
 	t.Skip("TestInstallTool_NoGoToolchain requires exec mocking")
 }
 
 func TestSanitizeVersion_EdgeCases(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		in   string
 		want string
@@ -525,6 +549,7 @@ func TestSanitizeVersion_EdgeCases(t *testing.T) {
 }
 
 func TestExtractFirstVersionToken_EdgeCases(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		in   string
 		want string
@@ -546,6 +571,7 @@ func TestExtractFirstVersionToken_EdgeCases(t *testing.T) {
 }
 
 func TestLooksLikeVersion_EdgeCases(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		in   string
 		want bool
@@ -572,6 +598,7 @@ func TestLooksLikeVersion_EdgeCases(t *testing.T) {
 
 // TestSupportsCurrentPlatform tests platform filtering logic for multi-platform tools
 func TestSupportsCurrentPlatform(t *testing.T) {
+	t.Parallel()
 	// Save current platform for restoration
 	originalGOOS := getCurrentPlatform()
 
@@ -688,6 +715,7 @@ func TestSupportsCurrentPlatform(t *testing.T) {
 
 // TestSupportsCurrentPlatform_BugScenario specifically tests the reported bug scenario
 func TestSupportsCurrentPlatform_BugScenario(t *testing.T) {
+	t.Parallel()
 	// Simulate the exact scenario from the bug report:
 	// A scope containing curl (all platforms), scoop (Windows-only), and mise (Linux/macOS-only)
 	// should not fail when run on macOS
@@ -771,6 +799,7 @@ func containsString(slice []string, target string) bool {
 
 // TestIsInstallerAvailable_Manual tests that manual installer is always available
 func TestIsInstallerAvailable_Manual(t *testing.T) {
+	t.Parallel()
 	// Manual installer should always be available (it's just a script to execute)
 	available := isInstallerAvailable(installerManual)
 	if !available {
@@ -781,6 +810,7 @@ func TestIsInstallerAvailable_Manual(t *testing.T) {
 
 // TestValidateInstallerCommands tests validation warnings for install_commands keys
 func TestValidateInstallerCommands(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		tool           Tool
@@ -858,6 +888,7 @@ func TestValidateInstallerCommands(t *testing.T) {
 
 // TestManualInstallerBootstrapScenario tests the mise/scoop bootstrap use case
 func TestManualInstallerBootstrapScenario(t *testing.T) {
+	t.Parallel()
 	// Simulate mise bootstrap configuration
 	miseTool := Tool{
 		Name:        "mise",

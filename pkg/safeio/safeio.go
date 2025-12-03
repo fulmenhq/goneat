@@ -8,12 +8,14 @@ import (
 )
 
 // CleanUserPath cleans a user-provided path and rejects traversal attempts.
+// Returns paths with forward slashes for cross-platform consistency.
 func CleanUserPath(p string) (string, error) {
 	c := filepath.Clean(p)
 	if strings.Contains(c, "..") {
 		return "", errors.New("path traversal detected")
 	}
-	return c, nil
+	// Normalize to forward slashes for cross-platform consistency
+	return filepath.ToSlash(c), nil
 }
 
 // WriteFilePreservePerms writes data to path preserving existing file mode when possible.

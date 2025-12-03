@@ -11,7 +11,14 @@
 
 # Variables
 BINARY_NAME := goneat
-VERSION := $(shell [ -f dist/goneat ] && ./dist/goneat version --project --json 2>/dev/null | jq -r '.project.version' 2>/dev/null || cat VERSION 2>/dev/null || echo "0.1.0")
+# Detect Windows platform and add .exe extension
+ifeq ($(OS),Windows_NT)
+	BINARY_NAME := goneat.exe
+	BINARY_NAME_NOEXT := goneat
+else
+	BINARY_NAME_NOEXT := goneat
+endif
+VERSION := $(shell [ -f dist/$(BINARY_NAME_NOEXT) ] && ./dist/$(BINARY_NAME_NOEXT) version --project --json 2>/dev/null | jq -r '.project.version' 2>/dev/null || cat VERSION 2>/dev/null || echo "0.1.0")
 BUILD_DIR := dist
 SRC_DIR := .
 
@@ -22,6 +29,12 @@ GOCLEAN := $(GOCMD) clean
 GOTEST := $(GOCMD) test
 GOMOD := $(GOCMD) mod
 GOFMT := $(GOCMD) fmt
+
+# Test parallelization (default 1 for CI, override locally)
+# Supports both: export GONEAT_TEST_PARALLEL=3 AND make test GONEAT_TEST_PARALLEL=3
+ifndef GONEAT_TEST_PARALLEL
+GONEAT_TEST_PARALLEL := 1
+endif
 
 # Build flags
 # Embed binary version, build time, and git commit for `go install` builds as well
@@ -225,11 +238,11 @@ test: test-unit test-integration-cooling-synthetic ## Run all tests (unit + Tier
 
 test-unit: ## Run unit tests only
 	@echo "Running unit tests..."
-	GONEAT_OFFLINE_SCHEMA_VALIDATION=true GONEAT_GUARDIAN_TEST_MODE=true GONEAT_GUARDIAN_AUTO_DENY=true $(GOTEST) ./... -v
+	GONEAT_OFFLINE_SCHEMA_VALIDATION=true GONEAT_GUARDIAN_TEST_MODE=true GONEAT_GUARDIAN_AUTO_DENY=true $(GOTEST) ./... -v -timeout 15m -parallel $(GONEAT_TEST_PARALLEL)
 
 test-integration: ## Run integration tests only
 	@echo "Running integration tests..."
-	GONEAT_OFFLINE_SCHEMA_VALIDATION=true GONEAT_GUARDIAN_TEST_MODE=true GONEAT_GUARDIAN_AUTO_DENY=true $(GOTEST) ./tests/integration/... -v
+	GONEAT_OFFLINE_SCHEMA_VALIDATION=true GONEAT_GUARDIAN_TEST_MODE=true GONEAT_GUARDIAN_AUTO_DENY=true $(GOTEST) ./tests/integration/... -v -timeout 15m
 
 test-integration-cooling-synthetic: ## Run cooling policy integration test (synthetic fixture only, CI-friendly)
 	@echo "Running cooling policy integration test (synthetic fixture)..."

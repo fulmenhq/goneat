@@ -4,11 +4,14 @@ Copyright © 2025 3 Leaps <info@3leaps.com>
 package integration
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestEnv provides a temporary directory environment for integration testing
@@ -119,7 +122,12 @@ func (env *TestEnv) RunVersionCommand(args ...string) VersionCommandResult {
 
 	// Clean path to prevent path traversal issues
 	goneatPath = filepath.Clean(goneatPath)
-	cmd := exec.Command(goneatPath, cmdArgs...) // #nosec G204
+
+	// Add timeout to prevent hanging
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, goneatPath, cmdArgs...) // #nosec G204
 	cmd.Dir = env.Dir
 
 	// Capture output
@@ -194,7 +202,11 @@ func (env *TestEnv) parseVersionOutput(result *VersionCommandResult) {
 
 // runCommand executes a command in the test environment directory
 func (env *TestEnv) runCommand(name string, args ...string) string {
-	cmd := exec.Command(name, args...)
+	// Add timeout to prevent hanging
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = env.Dir
 
 	output, err := cmd.CombinedOutput()
@@ -214,20 +226,26 @@ func (env *TestEnv) findGoneatBinary() string {
 		return ""
 	}
 
+	// Determine binary name based on platform
+	binaryName := "goneat"
+	if runtime.GOOS == "windows" {
+		binaryName = "goneat.exe"
+	}
+
 	// Look for goneat binary in various locations
 	possiblePaths := []string{
-		filepath.Join(cwd, "..", "..", "dist", "goneat"), // dist/ directory from tests/integration
-		filepath.Join(cwd, "..", "dist", "goneat"),       // dist/ directory from tests
-		filepath.Join(cwd, "dist", "goneat"),             // dist/ directory from root
-		filepath.Join(cwd, "..", "goneat"),               // Parent directory (legacy)
-		filepath.Join(cwd, "bin", "goneat"),              // bin/ directory (legacy)
-		"goneat",                                         // In PATH
+		filepath.Join(cwd, "..", "..", "dist", binaryName), // dist/ directory from tests/integration
+		filepath.Join(cwd, "..", "dist", binaryName),       // dist/ directory from tests
+		filepath.Join(cwd, "dist", binaryName),             // dist/ directory from root
+		filepath.Join(cwd, "..", binaryName),               // Parent directory (legacy)
+		filepath.Join(cwd, "bin", binaryName),              // bin/ directory (legacy)
+		binaryName,                                         // In PATH
 	}
 
 	for _, path := range possiblePaths {
 		if _, err := os.Stat(path); err == nil {
-			// Check if it's executable
-			if info, err := os.Stat(path); err == nil && (info.Mode()&0111 != 0) {
+			// Check if it's executable (or exists on Windows)
+			if info, err := os.Stat(path); err == nil && (info.Mode()&0111 != 0 || strings.HasSuffix(path, ".exe")) {
 				return path
 			}
 		}

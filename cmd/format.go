@@ -947,7 +947,9 @@ func executeSequentialWithOptions(files []string, checkOnly, quiet bool, cfg *co
 
 	for i, file := range files {
 		if err := processFile(file, checkOnly, quiet, cfg, ignoreMissingTools, options, useGoimports, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB, xmlIndent, xmlIndentCount, xmlSizeWarningMB); err != nil {
-			if err.Error() == "needs formatting" {
+			if err.Error() == "needs formatting" || err.Error() == "finalized" {
+				// "finalized" is returned when finalizer makes changes (EOF, trailing spaces, line endings)
+				// It should be treated as successful formatting, not an error
 				if checkOnly {
 					logger.Error(fmt.Sprintf("Failed to process %s", file), logger.Err(err))
 					errorCount++

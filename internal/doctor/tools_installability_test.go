@@ -25,6 +25,7 @@ var installerKinds = map[string]bool{
 // TestDefaultConfigInstallability ensures the repo's default tools.yaml declares at least one installer
 // for every supported platform per tool, and that Go tools include go-install in their priorities.
 func TestDefaultConfigInstallability(t *testing.T) {
+	t.Parallel()
 	cfg, err := LoadToolsConfig()
 	if err != nil {
 		t.Fatalf("failed to load tools config: %v", err)

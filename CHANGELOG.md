@@ -9,9 +9,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Windows Platform Support (Limited)**: Initial support for Windows development and testing
+  - Binary now builds as `goneat.exe` on Windows via Makefile platform detection
+  - Integration test helpers (`testenv.go`) detect and use `.exe` binaries on Windows
+  - Foundation tools (ripgrep, jq) work via Scoop package manager
+  - Note: Full Windows support pending performance improvements for build/test cycles
+
+- **Test Parallelization Infrastructure**: Support for parallel test execution to improve test performance
+  - New `GONEAT_TEST_PARALLEL` Makefile variable (default: 1, override with env var or command line)
+  - Supports both `export GONEAT_TEST_PARALLEL=3` and `make test GONEAT_TEST_PARALLEL=3`
+  - Proof-of-concept: Added `t.Parallel()` to 69 tests in `internal/doctor` package
+  - Measured 1.79x speedup (44% faster) with `-parallel 3` on Windows
+  - Test timeout increased from 10m to 15m for Windows compatibility
+
+- **Cross-Platform Line Ending Standard** (`.gitattributes`): Ensures consistent line endings across all platforms
+  - Auto-normalizes text files to LF on commit (Windows, Mac, Linux)
+  - Shell scripts forced to LF (required for Unix/Mac execution)
+  - Windows-specific files (.bat, .cmd, .ps1) use CRLF
+  - Binary files marked appropriately
+  - Prevents CRLF/LF inconsistencies in repository
+
 ### Changed
 
+- **Test Infrastructure Improvements**:
+  - Added 30-second timeouts to all test helper commands (prevents hanging on Windows)
+  - `RunVersionCommand()` in `testenv.go` now uses `context.WithTimeout`
+  - `runCommand()` and `runGitCommand()` in test fixtures now have timeouts
+  - Package manager detection (`brew --version`, `scoop --version`) now has 5-second timeout
+
+- **Cross-Platform Test Compatibility**:
+  - `doctor_workflow_test.go`: Added `goneatBinaryPath()` helper for platform-specific binary names
+  - `testenv.go`: `findGoneatBinary()` now searches for correct binary extension per platform
+  - All integration tests now properly detect Windows vs Unix binary paths
+
 ### Fixed
+
+- **CRITICAL: Line Ending Corruption on Windows** (`pkg/format/finalizer/finalizer.go`):
+  - Fixed bug where finalizer corrupted CRLF files by creating double CR characters (`\r\r\n`)
+  - Root cause: `strings.Split(content, "\n")` on CRLF content left CRs attached to lines
+  - When rejoined with CRLF, produced `line\r` + `\r\n` = `line\r\r\n` (corrupted)
+  - Fix: Normalize to LF before processing, detect line ending first, rejoin with detected ending
+  - Impact: Files with CRLF on Windows were repeatedly detected as needing formatting
+  - Result: Windows formatting now stable, preserves file's original line ending style
+
+- **Format Command Error Handling** (`cmd/format.go:950`):
+  - Fixed "finalized" error being treated as failure instead of success
+  - "finalized" indicates finalizer made changes (EOF, trailing spaces, line endings)
+  - Now treated same as "needs formatting" - successful file modification
+  - Eliminates false ERROR logs for finalizer-only changes on files without dedicated formatters
+
+- **Windows Test Execution**: Fixed multiple issues preventing tests from running on Windows
+  - Package manager version detection no longer hangs indefinitely
+  - Integration tests now find `goneat.exe` instead of looking for Unix-style `goneat`
+  - Test commands properly handle Windows executable extensions
+  - Makefile binary name detection works correctly on Windows (via `OS` environment variable)
+
+### Known Issues
+
+- **yamlfmt on Windows**: Occasional error with `.git/**` path syntax in yamlfmt dry run
+  - Error: `CreateFile .git/**: The filename, directory name, or volume label syntax is incorrect.`
+  - Appears to be yamlfmt issue with git-related file handling on Windows
+  - Does not block formatting of other files
+  - Under investigation
 
 ## [0.3.10] - 2025-12-01
 

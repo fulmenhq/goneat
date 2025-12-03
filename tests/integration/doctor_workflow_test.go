@@ -3,19 +3,31 @@ package integration
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
 
+// goneatBinaryPath returns the path to the goneat binary for the current platform
+func goneatBinaryPath() string {
+	binPath := filepath.Join(".", "dist", "goneat")
+	if runtime.GOOS == "windows" {
+		binPath += ".exe"
+	}
+	return binPath
+}
+
 // TestDoctorFoundationWorkflow tests the complete foundation tools workflow
 func TestDoctorFoundationWorkflow(t *testing.T) {
 	// Skip if binary doesn't exist
-	if _, err := os.Stat("./dist/goneat"); os.IsNotExist(err) {
+	binPath := goneatBinaryPath()
+	if _, err := os.Stat(binPath); os.IsNotExist(err) {
 		t.Skip("goneat binary not found, skipping integration test")
 	}
 
 	// Test the basic foundation scope check
-	cmd := exec.Command("./dist/goneat", "doctor", "tools", "--scope", "foundation")
+	cmd := exec.Command(binPath, "doctor", "tools", "--scope", "foundation")
 	output, err := cmd.CombinedOutput()
 	outputStr := string(output)
 
@@ -36,11 +48,12 @@ func TestDoctorFoundationWorkflow(t *testing.T) {
 // TestDoctorFoundationWorkflow_JSON tests JSON output workflow
 func TestDoctorFoundationWorkflow_JSON(t *testing.T) {
 	// Skip if binary doesn't exist
-	if _, err := os.Stat("./dist/goneat"); os.IsNotExist(err) {
+	binPath := goneatBinaryPath()
+	if _, err := os.Stat(binPath); os.IsNotExist(err) {
 		t.Skip("goneat binary not found, skipping integration test")
 	}
 
-	cmd := exec.Command("./dist/goneat", "doctor", "tools", "--scope", "foundation", "--json")
+	cmd := exec.Command(binPath, "doctor", "tools", "--scope", "foundation", "--json")
 	output, err := cmd.CombinedOutput()
 	outputStr := string(output)
 
@@ -62,11 +75,12 @@ func TestDoctorFoundationWorkflow_JSON(t *testing.T) {
 // TestDoctorFoundationWorkflow_DryRun tests dry-run workflow
 func TestDoctorFoundationWorkflow_DryRun(t *testing.T) {
 	// Skip if binary doesn't exist
-	if _, err := os.Stat("./dist/goneat"); os.IsNotExist(err) {
+	binPath := goneatBinaryPath()
+	if _, err := os.Stat(binPath); os.IsNotExist(err) {
 		t.Skip("goneat binary not found, skipping integration test")
 	}
 
-	cmd := exec.Command("./dist/goneat", "doctor", "tools", "--scope", "foundation", "--dry-run")
+	cmd := exec.Command(binPath, "doctor", "tools", "--scope", "foundation", "--dry-run")
 	output, err := cmd.CombinedOutput()
 	outputStr := string(output)
 
@@ -83,11 +97,12 @@ func TestDoctorFoundationWorkflow_DryRun(t *testing.T) {
 // TestDoctorWorkflow_ListScopes tests the list scopes workflow
 func TestDoctorWorkflow_ListScopes(t *testing.T) {
 	// Skip if binary doesn't exist
-	if _, err := os.Stat("./dist/goneat"); os.IsNotExist(err) {
+	binPath := goneatBinaryPath()
+	if _, err := os.Stat(binPath); os.IsNotExist(err) {
 		t.Skip("goneat binary not found, skipping integration test")
 	}
 
-	cmd := exec.Command("./dist/goneat", "doctor", "tools", "--list-scopes")
+	cmd := exec.Command(binPath, "doctor", "tools", "--list-scopes")
 	output, err := cmd.CombinedOutput()
 	outputStr := string(output)
 
@@ -112,7 +127,8 @@ func TestDoctorWorkflow_ListScopes(t *testing.T) {
 // TestDoctorWorkflow_CrossPlatformTools tests individual foundation tools
 func TestDoctorWorkflow_CrossPlatformTools(t *testing.T) {
 	// Skip if binary doesn't exist
-	if _, err := os.Stat("./dist/goneat"); os.IsNotExist(err) {
+	binPath := goneatBinaryPath()
+	if _, err := os.Stat(binPath); os.IsNotExist(err) {
 		t.Skip("goneat binary not found, skipping integration test")
 	}
 
@@ -120,7 +136,7 @@ func TestDoctorWorkflow_CrossPlatformTools(t *testing.T) {
 
 	for _, tool := range foundationTools {
 		t.Run(tool, func(t *testing.T) {
-			cmd := exec.Command("./dist/goneat", "doctor", "tools", "--tools", tool)
+			cmd := exec.Command(binPath, "doctor", "tools", "--tools", tool)
 			output, err := cmd.CombinedOutput()
 			outputStr := string(output)
 
@@ -140,12 +156,13 @@ func TestDoctorWorkflow_CrossPlatformTools(t *testing.T) {
 // TestDoctorWorkflow_ErrorHandling tests error handling scenarios
 func TestDoctorWorkflow_ErrorHandling(t *testing.T) {
 	// Skip if binary doesn't exist
-	if _, err := os.Stat("./dist/goneat"); os.IsNotExist(err) {
+	binPath := goneatBinaryPath()
+	if _, err := os.Stat(binPath); os.IsNotExist(err) {
 		t.Skip("goneat binary not found, skipping integration test")
 	}
 
 	// Test unknown scope
-	cmd := exec.Command("./dist/goneat", "doctor", "tools", "--scope", "nonexistent")
+	cmd := exec.Command(binPath, "doctor", "tools", "--scope", "nonexistent")
 	output, err := cmd.CombinedOutput()
 	outputStr := string(output)
 
@@ -162,12 +179,13 @@ func TestDoctorWorkflow_ErrorHandling(t *testing.T) {
 // TestDoctorWorkflow_InvalidTool tests invalid tool handling
 func TestDoctorWorkflow_InvalidTool(t *testing.T) {
 	// Skip if binary doesn't exist
-	if _, err := os.Stat("./dist/goneat"); os.IsNotExist(err) {
+	binPath := goneatBinaryPath()
+	if _, err := os.Stat(binPath); os.IsNotExist(err) {
 		t.Skip("goneat binary not found, skipping integration test")
 	}
 
 	// Test unknown tool
-	cmd := exec.Command("./dist/goneat", "doctor", "tools", "--tools", "nonexistent-tool")
+	cmd := exec.Command(binPath, "doctor", "tools", "--tools", "nonexistent-tool")
 	output, err := cmd.CombinedOutput()
 	outputStr := string(output)
 

@@ -22,6 +22,7 @@ import (
 // - Skips when package manager is absent on PATH.
 // - Only checks tools in the foundation scope that apply to the current platform.
 func TestFoundationToolInstallabilityProbe(t *testing.T) {
+	t.Parallel()
 	if os.Getenv("GONEAT_INSTALL_PROBE") != "1" {
 		t.Skip("set GONEAT_INSTALL_PROBE=1 to run installability probes")
 	}

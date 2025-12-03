@@ -5,6 +5,7 @@ import (
 )
 
 func TestLoadToolsDefaultsConfig(t *testing.T) {
+	t.Parallel()
 	config, err := LoadToolsDefaultsConfig()
 	if err != nil {
 		t.Fatalf("Failed to load tools defaults config: %v", err)
@@ -32,6 +33,7 @@ func TestLoadToolsDefaultsConfig(t *testing.T) {
 }
 
 func TestGetAllTools(t *testing.T) {
+	t.Parallel()
 	config, err := LoadToolsDefaultsConfig()
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
@@ -68,6 +70,7 @@ func TestGetAllTools(t *testing.T) {
 }
 
 func TestGetToolsForScope(t *testing.T) {
+	t.Parallel()
 	config, err := LoadToolsDefaultsConfig()
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
@@ -111,6 +114,7 @@ func TestGetToolsForScope(t *testing.T) {
 }
 
 func TestFilterToolsByLanguage(t *testing.T) {
+	t.Parallel()
 	config, err := LoadToolsDefaultsConfig()
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
@@ -170,6 +174,7 @@ func TestFilterToolsByLanguage(t *testing.T) {
 }
 
 func TestGetMinimalToolsForLanguage(t *testing.T) {
+	t.Parallel()
 	config, err := LoadToolsDefaultsConfig()
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
@@ -210,6 +215,7 @@ func TestGetMinimalToolsForLanguage(t *testing.T) {
 }
 
 func TestConvertToToolsConfig(t *testing.T) {
+	t.Parallel()
 	config, err := LoadToolsDefaultsConfig()
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
@@ -263,6 +269,7 @@ func TestConvertToToolsConfig(t *testing.T) {
 }
 
 func TestConvertToToolsConfig_PackageManagers(t *testing.T) {
+	t.Parallel()
 	config, err := LoadToolsDefaultsConfig()
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)

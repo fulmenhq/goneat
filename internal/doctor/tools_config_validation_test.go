@@ -9,6 +9,7 @@ import (
 
 // TestValidateConfigFile_Valid tests validation of valid config files
 func TestValidateConfigFile_Valid(t *testing.T) {
+	t.Parallel()
 	// Create a temporary valid config file
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "tools.yaml")
@@ -59,6 +60,7 @@ tools:
 
 // TestValidateConfigFile_InvalidYAML tests validation of invalid YAML
 func TestValidateConfigFile_InvalidYAML(t *testing.T) {
+	t.Parallel()
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "invalid.yaml")
 
@@ -82,6 +84,7 @@ scopes:
 
 // TestValidateConfigFile_MissingRequiredFields tests validation of configs missing required fields
 func TestValidateConfigFile_MissingRequiredFields(t *testing.T) {
+	t.Parallel()
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "missing-fields.yaml")
 
@@ -115,6 +118,7 @@ tools:
 
 // TestValidateConfigFile_InvalidToolKind tests validation of invalid tool kinds
 func TestValidateConfigFile_InvalidToolKind(t *testing.T) {
+	t.Parallel()
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "invalid-kind.yaml")
 
@@ -145,6 +149,7 @@ tools:
 
 // TestValidateConfigFile_DuplicateTools tests validation of duplicate tool names
 func TestValidateConfigFile_DuplicateTools(t *testing.T) {
+	t.Parallel()
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "duplicate-tools.yaml")
 
@@ -176,6 +181,7 @@ tools:
 
 // TestValidateConfigFile_EmptyScopes tests validation of empty scopes
 func TestValidateConfigFile_EmptyScopes(t *testing.T) {
+	t.Parallel()
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "empty-scopes.yaml")
 
@@ -206,6 +212,7 @@ tools:
 
 // TestValidateConfigFile_NonExistentFile tests handling of non-existent files
 func TestValidateConfigFile_NonExistentFile(t *testing.T) {
+	t.Parallel()
 	err := ValidateConfigFile("/non/existent/file.yaml")
 	if err == nil {
 		t.Error("Non-existent file should return error")
@@ -218,6 +225,7 @@ func TestValidateConfigFile_NonExistentFile(t *testing.T) {
 
 // TestValidateConfigFile_ComplexValidConfig tests a complex but valid configuration
 func TestValidateConfigFile_ComplexValidConfig(t *testing.T) {
+	t.Parallel()
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "complex-valid.yaml")
 

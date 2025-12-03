@@ -6,6 +6,7 @@ import (
 )
 
 func TestLoadPackageManagersConfig(t *testing.T) {
+	t.Parallel()
 	config, err := LoadPackageManagersConfig()
 	if err != nil {
 		t.Fatalf("Failed to load package managers config: %v", err)
@@ -34,6 +35,7 @@ func TestLoadPackageManagersConfig(t *testing.T) {
 }
 
 func TestGetBoolForPlatform(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		value    interface{}
@@ -97,6 +99,7 @@ func TestGetBoolForPlatform(t *testing.T) {
 }
 
 func TestGetStringForPlatform(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		value    interface{}
@@ -145,6 +148,7 @@ func TestGetStringForPlatform(t *testing.T) {
 }
 
 func TestPackageManager_RequiresSudoOnPlatform(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name         string
 		pm           PackageManager
@@ -185,6 +189,7 @@ func TestPackageManager_RequiresSudoOnPlatform(t *testing.T) {
 }
 
 func TestPackageManager_SupportsPlatform(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		pm       PackageManager
@@ -231,6 +236,7 @@ func TestPackageManager_SupportsPlatform(t *testing.T) {
 }
 
 func TestPackageManager_SupportsLanguage(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		pm       PackageManager
@@ -277,6 +283,7 @@ func TestPackageManager_SupportsLanguage(t *testing.T) {
 }
 
 func TestDetectPackageManager(t *testing.T) {
+	t.Parallel()
 	// Test with a command that should exist (go)
 	pm := PackageManager{
 		Name:             "go",
@@ -306,6 +313,7 @@ func TestDetectPackageManager(t *testing.T) {
 }
 
 func TestDetectAllPackageManagers(t *testing.T) {
+	t.Parallel()
 	config, err := LoadPackageManagersConfig()
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
@@ -334,6 +342,7 @@ func TestDetectAllPackageManagers(t *testing.T) {
 }
 
 func TestGetRecommendedPackageManagers(t *testing.T) {
+	t.Parallel()
 	config, err := LoadPackageManagersConfig()
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
@@ -361,6 +370,7 @@ func TestGetRecommendedPackageManagers(t *testing.T) {
 }
 
 func TestGetSafePackageManagersForLanguage(t *testing.T) {
+	t.Parallel()
 	config, err := LoadPackageManagersConfig()
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)

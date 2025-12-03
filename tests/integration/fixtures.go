@@ -4,10 +4,12 @@ Copyright © 2025 3 Leaps <info@3leaps.com>
 package integration
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
 	"testing"
+	"time"
 )
 
 // GitRepoFixture represents a test environment with git repository setup
@@ -68,7 +70,11 @@ func (f *GitRepoFixture) ListGitTags() []string {
 
 // runGitCommand executes a git command in the repository
 func (f *GitRepoFixture) runGitCommand(args ...string) string {
-	cmd := exec.Command("git", args...)
+	// Add timeout to prevent hanging
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = f.repoDir
 
 	output, err := cmd.CombinedOutput()
