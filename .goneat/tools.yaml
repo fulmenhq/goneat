@@ -193,7 +193,7 @@ tools:
             linux:
                 - brew
             windows:
-                - scoop
+                - bun
                 - npm
     ripgrep:
         name: ripgrep

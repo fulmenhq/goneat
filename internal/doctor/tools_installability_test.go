@@ -17,6 +17,7 @@ var installerKinds = map[string]bool{
 	"apt-get":    true,
 	"dnf":        true,
 	"yum":        true,
+	"npm":        true,
 	"go-install": true,
 	"manual":     true,
 	"builtin":    true,

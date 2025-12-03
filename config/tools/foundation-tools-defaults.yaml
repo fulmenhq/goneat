@@ -189,10 +189,10 @@ typescript_tools:
     kind: "node"
     detect_command: "prettier --version"
     package_managers:
-      # brew can install prettier - use it to avoid needing bun for foundation scope
+      # brew can install prettier on darwin/linux, bun on windows
       darwin: ["brew"]
       linux: ["brew"]
-      windows: ["scoop", "npm"]
+      windows: ["bun", "npm"]
     auto_install_safe: true
     # Note: prettier is also in foundation scope for YAML/markdown formatting
   - name: eslint
