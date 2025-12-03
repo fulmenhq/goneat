@@ -322,6 +322,8 @@ goneat hooks generate --with-guardian   # Add security approval workflows
 goneat hooks install
 ```
 
+**Important**: Git hooks live in `.git/hooks/` which is local to each clone. After cloning a repo, run `goneat hooks install` or use a Makefile with auto-install (see [hooks setup guide](docs/user-guide/bootstrap/hooks.md)).
+
 **Smart Detection:**
 
 - Auto-detects `make format-all`, `make format`, `make fmt` in Makefiles

@@ -44,7 +44,7 @@ LDFLAGS := -ldflags "\
 	-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
-.PHONY: help build clean clean-all test fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites sync-crucible sync-ssot verify-crucible verify-crucible-clean bootstrap tools lint release-check release-prepare release-build check-all prepush precommit update-homebrew-formula
+.PHONY: help build hooks-ensure clean clean-all test fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites sync-crucible sync-ssot verify-crucible verify-crucible-clean bootstrap tools lint release-check release-prepare release-build check-all prepush precommit update-homebrew-formula
 
 # Default target
 all: clean build format-all
@@ -67,6 +67,15 @@ build: embed-assets ## Build the binary
 	@mkdir -p $(BUILD_DIR)
 	$(GOBUILD) $(BUILD_FLAGS) ./$(SRC_DIR)
 	@echo "✅ Build completed: $(BUILD_DIR)/$(BINARY_NAME)"
+	@$(MAKE) hooks-ensure
+
+hooks-ensure: ## Ensure git hooks are installed (auto-installs if missing)
+	@if [ -d .git ] && [ ! -x .git/hooks/pre-commit ]; then \
+		if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
+			echo "🔗 Installing git hooks..."; \
+			$(BUILD_DIR)/$(BINARY_NAME) hooks install 2>/dev/null || true; \
+		fi; \
+	fi
 
 embed-assets: ## Sync templates/ and schemas/ into embedded assets (SSOT -> internal/assets)
 	@echo "Embedding assets (templates/, schemas/)..."
