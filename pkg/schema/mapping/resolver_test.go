@@ -3,6 +3,7 @@ package mapping
 import "testing"
 
 func TestResolverMatchesPathRules(t *testing.T) {
+	t.Parallel()
 	manifest := Manifest{
 		Version: ManifestVersionV1,
 		Mappings: []MappingRule{
@@ -37,6 +38,7 @@ func TestResolverMatchesPathRules(t *testing.T) {
 }
 
 func TestResolverRespectsExclusions(t *testing.T) {
+	t.Parallel()
 	manifest := Manifest{
 		Version:    ManifestVersionV1,
 		Mappings:   []MappingRule{{Pattern: "**/*.yaml", SchemaID: "generic"}},

@@ -10,6 +10,7 @@ import (
 )
 
 func TestValidate(t *testing.T) {
+	t.Parallel()
 	// Valid
 	validYAML := `
 format:
@@ -60,6 +61,7 @@ security:
 }
 
 func TestGetEmbeddedValidator(t *testing.T) {
+	t.Parallel()
 	validator, err := GetEmbeddedValidator("goneat-config-v1.0.0")
 	if err != nil {
 		t.Fatalf("GetEmbeddedValidator error: %v", err)
@@ -78,6 +80,7 @@ func TestGetEmbeddedValidator(t *testing.T) {
 }
 
 func TestNewValidatorFromBytes(t *testing.T) {
+	t.Parallel()
 	schemaBytes := []byte(`{
 		"type": "object",
 		"properties": {
@@ -106,6 +109,7 @@ func TestNewValidatorFromBytes(t *testing.T) {
 }
 
 func TestNewValidatorFromMetaSchema(t *testing.T) {
+	t.Parallel()
 	validator, err := NewValidatorFromMetaSchema("draft-07")
 	if err != nil {
 		t.Fatalf("NewValidatorFromMetaSchema error: %v", err)
@@ -137,6 +141,7 @@ func TestNewValidatorFromMetaSchema(t *testing.T) {
 }
 
 func TestNewSecurityContext(t *testing.T) {
+	t.Parallel()
 	ctx := NewSecurityContext()
 
 	// Should have basic properties
@@ -150,6 +155,7 @@ func TestNewSecurityContext(t *testing.T) {
 }
 
 func TestValidateDataFromBytes(t *testing.T) {
+	t.Parallel()
 	// Test with simple valid JSON schema and data
 	schema := []byte(`{
 		"type": "object",
@@ -186,6 +192,7 @@ func TestValidateDataFromBytes(t *testing.T) {
 }
 
 func TestValidateFile(t *testing.T) {
+	t.Parallel()
 	tempDir := t.TempDir()
 
 	// Create test files
@@ -216,6 +223,7 @@ func TestValidateFile(t *testing.T) {
 }
 
 func TestValidateFileFromSchemaFile(t *testing.T) {
+	t.Parallel()
 	tempDir := t.TempDir()
 
 	// Create test files
@@ -249,6 +257,7 @@ func TestValidateFileFromSchemaFile(t *testing.T) {
 }
 
 func TestValidateFileWithSecurity(t *testing.T) {
+	t.Parallel()
 	tempDir := t.TempDir()
 
 	// Create test files
@@ -282,6 +291,7 @@ func TestValidateFileWithSecurity(t *testing.T) {
 }
 
 func TestValidateFiles(t *testing.T) {
+	t.Parallel()
 	tempDir := t.TempDir()
 
 	// Create test files
@@ -315,6 +325,7 @@ func TestValidateFiles(t *testing.T) {
 }
 
 func TestValidateDirectory(t *testing.T) {
+	t.Parallel()
 	tempDir := t.TempDir()
 
 	// Create test files in directory
@@ -353,6 +364,7 @@ func TestValidateDirectory(t *testing.T) {
 }
 
 func TestLegacyMapSchemaNameToPath(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 	}{
@@ -376,6 +388,7 @@ func TestLegacyMapSchemaNameToPath(t *testing.T) {
 }
 
 func TestValidateFileWithSchemaPath(t *testing.T) {
+	t.Parallel()
 	tempDir := t.TempDir()
 
 	// Create schema file
@@ -470,6 +483,7 @@ age: 25
 }
 
 func TestValidateFromFileWithBytes(t *testing.T) {
+	t.Parallel()
 	tempDir := t.TempDir()
 
 	// Create schema file
@@ -553,6 +567,7 @@ count: 100
 }
 
 func TestValidateWithOptions(t *testing.T) {
+	t.Parallel()
 	// Test schema
 	schemaBytes := []byte(`{
 		"type": "object",

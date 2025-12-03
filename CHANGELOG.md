@@ -25,9 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Test Parallelization Infrastructure**: Support for parallel test execution to improve test performance
   - New `GONEAT_TEST_PARALLEL` Makefile variable (default: 1, override with env var or command line)
   - Supports both `export GONEAT_TEST_PARALLEL=3` and `make test GONEAT_TEST_PARALLEL=3`
-  - Proof-of-concept: Added `t.Parallel()` to 92 tests across 2 packages:
+  - Proof-of-concept: Added `t.Parallel()` to 124 tests across 3 packages:
     - `internal/doctor`: 69 tests parallelized
     - `pkg/versioning`: 23 tests parallelized
+    - `pkg/schema`: 32 tests parallelized (3 tests excluded due to t.Setenv usage)
   - Measured 1.79x speedup (44% faster) with `-parallel 3` on Windows
   - Test timeout increased from 10m to 15m for Windows compatibility
 

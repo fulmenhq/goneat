@@ -9,6 +9,7 @@ import (
 )
 
 func TestValidateFromBytes_YAMLSchema(t *testing.T) {
+	t.Parallel()
 	schemaYAML := []byte(`
 $schema: https://json-schema.org/draft/2020-12/schema
 type: object
@@ -32,6 +33,7 @@ required:
 }
 
 func TestValidateFromBytes_JSONSchema(t *testing.T) {
+	t.Parallel()
 	schemaJSON := []byte(`{
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
@@ -70,6 +72,7 @@ func TestValidateFromBytes_JSONSchema(t *testing.T) {
 }
 
 func TestValidateFromBytes_InvalidFormat(t *testing.T) {
+	t.Parallel()
 	_, err := ValidateFromBytes([]byte("not yaml and not json: \x00\x01"), map[string]any{"x": 1})
 	if err == nil {
 		t.Fatalf("expected error for invalid schema format")
@@ -77,6 +80,7 @@ func TestValidateFromBytes_InvalidFormat(t *testing.T) {
 }
 
 func TestValidateFromBytes_UnsupportedDraft(t *testing.T) {
+	t.Parallel()
 	schemaJSON := []byte(`{
   "$schema": "http://json-schema.org/draft-04/schema#",
   "type": "object"
@@ -88,6 +92,7 @@ func TestValidateFromBytes_UnsupportedDraft(t *testing.T) {
 }
 
 func TestGojsonschemaRequiredWorks(t *testing.T) {
+	t.Parallel()
 	schema := `{"type":"object","required":["name"]}`
 	data := `{}`
 	res, err := gojsonschema.Validate(gojsonschema.NewStringLoader(schema), gojsonschema.NewStringLoader(data))
@@ -100,6 +105,7 @@ func TestGojsonschemaRequiredWorks(t *testing.T) {
 }
 
 func TestCompileSchemaBytes_Required(t *testing.T) {
+	t.Parallel()
 	schemaJSON := []byte(`{"type":"object","required":["name"]}`)
 	sch, err := compileSchemaBytes(schemaJSON)
 	if err != nil {
@@ -115,6 +121,7 @@ func TestCompileSchemaBytes_Required(t *testing.T) {
 }
 
 func TestManualPathLikeValidateFromBytes(t *testing.T) {
+	t.Parallel()
 	// Mirrors ValidateFromBytes path (YAML-first decode, then bytes loaders)
 	schemaJSON := []byte(`{"$schema":"http://json-schema.org/draft-07/schema#","type":"object","required":["name"]}`)
 	var tmp any
@@ -136,6 +143,7 @@ func TestManualPathLikeValidateFromBytes(t *testing.T) {
 }
 
 func TestDirectGojsonschemaRequired(t *testing.T) {
+	t.Parallel()
 	// Test gojsonschema directly to ensure it works with required fields
 	schema := `{"$schema":"http://json-schema.org/draft-07/schema#","type":"object","required":["name"]}`
 	data := `{}`
@@ -149,6 +157,7 @@ func TestDirectGojsonschemaRequired(t *testing.T) {
 }
 
 func TestConcurrentValidation(t *testing.T) {
+	t.Parallel()
 	// simple valid config doc for embedded schema
 	var data interface{}
 	if err := yaml.Unmarshal([]byte("format: {}\nsecurity: {timeout: '5m'}"), &data); err != nil {

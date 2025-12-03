@@ -7,6 +7,7 @@ import (
 )
 
 func TestDetectorDetectJsonSchema(t *testing.T) {
+	t.Parallel()
 	manifest := &Manifest{
 		Version: "vtest",
 		Signatures: []Signature{
@@ -41,6 +42,7 @@ func TestDetectorDetectJsonSchema(t *testing.T) {
 }
 
 func TestDetectorFiltersByCategory(t *testing.T) {
+	t.Parallel()
 	manifest := &Manifest{
 		Signatures: []Signature{
 			{

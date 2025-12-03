@@ -7,6 +7,7 @@ import (
 )
 
 func TestManagerLoadFallbackToBuiltin(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -34,6 +35,7 @@ func TestManagerLoadFallbackToBuiltin(t *testing.T) {
 }
 
 func TestManagerLoadsRepositoryManifest(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -96,6 +98,7 @@ exclusions:
 }
 
 func TestManagerRejectsInvalidManifest(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -119,6 +122,7 @@ func TestManagerRejectsInvalidManifest(t *testing.T) {
 }
 
 func TestManagerGuardsAgainstTraversal(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
