@@ -71,6 +71,7 @@ make test-unit GONEAT_TEST_PARALLEL=3
 **Default:** `1` (sequential execution for CI stability)
 
 **Recommended for local development:**
+
 - **macOS/Linux:** `4-8` (depending on CPU cores)
 - **Windows:** `3-4` (anti-malware scanning creates I/O bottlenecks)
 
@@ -93,6 +94,7 @@ func TestMyFeature(t *testing.T) {
 ### Example: Before and After
 
 **Before (Sequential):**
+
 ```go
 func TestPackageManagerDetection(t *testing.T) {
 	config, err := LoadPackageManagersConfig()
@@ -104,6 +106,7 @@ func TestPackageManagerDetection(t *testing.T) {
 ```
 
 **After (Parallel):**
+
 ```go
 func TestPackageManagerDetection(t *testing.T) {
 	t.Parallel()  // ← Added
@@ -128,6 +131,7 @@ Tests can safely use `t.Parallel()` if they:
 ### Anti-Patterns to Avoid
 
 ❌ **Shared State:**
+
 ```go
 var globalCounter int  // ← Bad: shared across tests
 
@@ -138,6 +142,7 @@ func TestIncrement(t *testing.T) {
 ```
 
 ❌ **Fixed Ports/Paths:**
+
 ```go
 func TestServer(t *testing.T) {
 	t.Parallel()
@@ -146,6 +151,7 @@ func TestServer(t *testing.T) {
 ```
 
 ✅ **Correct Approach:**
+
 ```go
 func TestServer(t *testing.T) {
 	t.Parallel()
@@ -189,10 +195,10 @@ func TestFeatures(t *testing.T) {
 
 We measured the impact of parallelization on the `internal/doctor` package (69 tests):
 
-| Configuration | Time | Speedup |
-|--------------|------|---------|
-| Sequential (`-parallel 1`) | 69.8s | baseline |
-| Parallel (`-parallel 3`) | 39.0s | **1.79x (44% faster)** |
+| Configuration              | Time  | Speedup                |
+| -------------------------- | ----- | ---------------------- |
+| Sequential (`-parallel 1`) | 69.8s | baseline               |
+| Parallel (`-parallel 3`)   | 39.0s | **1.79x (44% faster)** |
 
 **Platform:** Windows with anti-malware scanning (worst-case scenario)
 
@@ -200,14 +206,15 @@ We measured the impact of parallelization on the `internal/doctor` package (69 t
 
 ### Scaling with Parallelization
 
-| `-parallel` | Expected Speedup | Best For |
-|-------------|------------------|----------|
-| 1 | 1x (baseline) | CI environments, debugging |
-| 3 | 1.5-2x | Windows with I/O constraints |
-| 4 | 2-2.5x | 4-core machines |
-| 8 | 2.5-3x | 8+ core machines |
+| `-parallel` | Expected Speedup | Best For                     |
+| ----------- | ---------------- | ---------------------------- |
+| 1           | 1x (baseline)    | CI environments, debugging   |
+| 3           | 1.5-2x           | Windows with I/O constraints |
+| 4           | 2-2.5x           | 4-core machines              |
+| 8           | 2.5-3x           | 8+ core machines             |
 
 **Note:** Speedup plateaus due to:
+
 - I/O bottlenecks (file system, network)
 - Test dependencies (some tests can't parallelize)
 - Package-level serialization (Go runs packages in parallel, but not all tests within)
@@ -219,27 +226,32 @@ We measured the impact of parallelization on the `internal/doctor` package (69 t
 ### Windows
 
 **Challenges:**
+
 - Anti-malware scanning introduces significant I/O overhead
 - Process creation is slower than Unix-like systems
 - File locking can cause test flakiness
 
 **Recommendations:**
+
 - Use `-parallel 3` for local development
 - Increase test timeouts to 15m+ via Makefile
 - Exclude test directories from anti-malware scanning if possible
 
 **Performance:**
+
 - Full test suite: ~400-500 seconds (sequential)
 - With parallelization: ~200-250 seconds (`-parallel 3`)
 
 ### macOS/Linux
 
 **Advantages:**
+
 - Faster process creation
 - Better file system performance
 - No anti-malware overhead (typically)
 
 **Recommendations:**
+
 - Use `-parallel 4-8` for local development
 - Standard 10m timeout is usually sufficient
 
@@ -252,13 +264,16 @@ We measured the impact of parallelization on the `internal/doctor` package (69 t
 All test helpers include timeouts to prevent hanging:
 
 **Test Commands** (`testenv.go`):
+
 - `RunVersionCommand()`: 30-second timeout
 - `runCommand()`: 30-second timeout
 
 **Git Commands** (`fixtures.go`):
+
 - `runGitCommand()`: 30-second timeout
 
 **Package Manager Detection** (`pkg/tools/package_managers.go`):
+
 - `brew --version`: 5-second timeout
 - `scoop --version`: 5-second timeout
 

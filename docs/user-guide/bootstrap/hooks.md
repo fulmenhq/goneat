@@ -35,12 +35,12 @@ This copies hooks from `.goneat/hooks/` to `.git/hooks/`.
 
 ## Comparison with Other Hook Tools
 
-| Tool | Installation Trigger | After Fresh Clone |
-|------|---------------------|-------------------|
-| **goneat** | `make build` or `goneat hooks install` | Automatic (if Makefile configured) |
-| **Husky (npm)** | `npm install` postinstall | Automatic |
-| **pre-commit (Python)** | `pre-commit install` | Manual |
-| **lefthook (Go)** | `lefthook install` | Manual |
+| Tool                    | Installation Trigger                   | After Fresh Clone                  |
+| ----------------------- | -------------------------------------- | ---------------------------------- |
+| **goneat**              | `make build` or `goneat hooks install` | Automatic (if Makefile configured) |
+| **Husky (npm)**         | `npm install` postinstall              | Automatic                          |
+| **pre-commit (Python)** | `pre-commit install`                   | Manual                             |
+| **lefthook (Go)**       | `lefthook install`                     | Manual                             |
 
 goneat follows the same pattern as Husky by tying hook installation to the standard development workflow.
 
@@ -72,6 +72,7 @@ build: embed-assets
 ```
 
 This pattern:
+
 1. Checks if we're in a git repo
 2. Checks if pre-commit hook is missing or not executable
 3. Installs hooks using goneat (system or local binary)

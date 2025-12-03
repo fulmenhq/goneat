@@ -61,7 +61,7 @@ Hooks automatically detect and configure format capabilities (make format-all, p
 **Notes:**
 
 - Name clarification: This project is not affiliated with any other "goneat". Use the full module path `github.com/fulmenhq/goneat`.
-- **Windows binaries are available** and continually improving; we treat Windows support as beta until the CI matrix finishes validation.
+- **Windows support is operational**: goneat runs on Windows with foundation tools via Scoop. Full build/dev/deployment workflows are still in progress.
 - Homebrew and Scoop packages ship with each tagged release (`brew install fulmenhq/tap/goneat`, `scoop install goneat`).
 
 ## Install

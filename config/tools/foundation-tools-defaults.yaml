@@ -162,7 +162,7 @@ sbom_tools:
     package_managers:
       darwin: ["brew"]
       linux: ["brew"]
-      windows: ["scoop"]  # scoop install main/syft
+      windows: ["scoop"] # scoop install main/syft
     auto_install_safe: true
 # Python tools (use uv/pip)
 python_tools:

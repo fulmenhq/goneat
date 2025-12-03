@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.11] - 2025-12-03
+
 ### Added
 
 - **SBOM Tools Support**: Added syft tool and sbom scope for Software Bill of Materials generation

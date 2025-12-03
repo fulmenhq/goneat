@@ -150,6 +150,20 @@ format_tools:
       all: ["builtin"]
     auto_install_safe: true
     required_for_languages: ["go"]
+# SBOM tools (software bill of materials)
+sbom_tools:
+  - name: syft
+    description: "SBOM generator for software supply chain security"
+    kind: "system"
+    detect_command: "syft version"
+    platforms: ["darwin", "linux", "windows"]
+    version_args: ["version"]
+    check_args: ["--help"]
+    package_managers:
+      darwin: ["brew"]
+      linux: ["brew"]
+      windows: ["scoop"]  # scoop install main/syft
+    auto_install_safe: true
 # Python tools (use uv/pip)
 python_tools:
   - name: ruff
@@ -218,6 +232,10 @@ scopes:
     tools:
       - goimports
       - gofmt
+  sbom:
+    description: "Software Bill of Materials (SBOM) generation tools"
+    tools:
+      - syft
   all:
     description: "All tools from all scopes"
     tools:
@@ -234,3 +252,4 @@ scopes:
       - gitleaks
       - goimports
       - gofmt
+      - syft

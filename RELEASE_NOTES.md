@@ -1,17 +1,15 @@
-# Goneat v0.3.10 — CI Bootstrap Fixes & Multi-Scope Init
+# Goneat v0.3.11 — Windows Compatibility & Test Parallelization
 
-**Release Date**: 2025-12-01
+**Release Date**: 2025-12-03
 **Status**: Release
 
 ## TL;DR
 
-- **Install Probe CI Validation**: New `make install-probe` validates package manager + tool combinations
-- **CI Bootstrap Fixed**: Makefile now properly propagates exit codes, Go version parsing fixed
-- **Doctor Tool Reliability**: Multiple fixes for package manager detection and tool installation
-- **Package Manager Strategy Cleanup**: Removed bun/scoop from invalid tool installers, prettier uses brew
-- `goneat doctor tools init` now generates ALL 4 standard scopes (foundation, security, format, all)
-- New `--no-cooling` flag for CI environments to skip package age verification
-- Schema updated to support "node" and "python" tool kinds
+- **Windows Platform Support**: goneat is now operational on Windows with proper binary naming, test compatibility, and line ending handling
+- **Test Parallelization**: Added `t.Parallel()` to 124 tests across 3 packages with 1.79x speedup measured on Windows
+- **SBOM Support**: New syft tool integration for Software Bill of Materials generation
+- **Line Ending Standards**: Established `.gitattributes` for consistent cross-platform line endings
+- **Critical Fix**: Resolved CRLF file corruption bug in formatter that was breaking Windows formatting
 
 ## Breaking Changes
 
