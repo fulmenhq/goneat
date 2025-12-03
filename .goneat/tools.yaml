@@ -30,6 +30,7 @@ scopes:
             - gitleaks
             - goimports
             - gofmt
+            - syft
     format:
         description: Code formatting tools
         tools:
@@ -46,6 +47,10 @@ scopes:
             - golangci-lint
             - yamlfmt
             - prettier
+    sbom:
+        description: Software Bill of Materials (SBOM) generation tools
+        tools:
+            - syft
     security:
         description: Security scanning tools
         tools:
@@ -180,7 +185,7 @@ tools:
     prettier:
         name: prettier
         description: Opinionated code formatter
-        kind: system
+        kind: node
         detect_command: prettier --version
         installer_priority:
             darwin:
@@ -188,7 +193,8 @@ tools:
             linux:
                 - brew
             windows:
-                - bun
+                - scoop
+                - npm
     ripgrep:
         name: ripgrep
         description: Fast text search - used by goneat for license auditing
@@ -206,6 +212,26 @@ tools:
             windows:
                 - scoop
                 - winget
+    syft:
+        name: syft
+        description: SBOM generator for software supply chain security
+        kind: system
+        detect_command: syft version
+        version_args:
+            - version
+        check_args:
+            - --help
+        platforms:
+            - darwin
+            - linux
+            - windows
+        installer_priority:
+            darwin:
+                - brew
+            linux:
+                - brew
+            windows:
+                - scoop
     yamlfmt:
         name: yamlfmt
         description: YAML formatter and linter

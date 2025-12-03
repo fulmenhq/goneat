@@ -100,7 +100,7 @@ func TestDoctorToolsInitRequiresForceWhenConfigExists(t *testing.T) {
 }
 
 func TestDoctorToolsInitGeneratesAllStandardScopes(t *testing.T) {
-	// Since v0.3.10, init always generates all 4 standard scopes (foundation, security, format, all)
+	// Since v0.3.11, init always generates all 5 standard scopes (foundation, security, format, sbom, all)
 	// regardless of which scope is specified via --scope flag
 	tmpDir := t.TempDir()
 
@@ -115,16 +115,16 @@ func TestDoctorToolsInitGeneratesAllStandardScopes(t *testing.T) {
 
 	config := loadGeneratedToolsConfig(t, tmpDir)
 
-	// Verify all 4 standard scopes are present
-	expectedScopes := []string{"foundation", "security", "format", "all"}
+	// Verify all 5 standard scopes are present
+	expectedScopes := []string{"foundation", "security", "format", "sbom", "all"}
 	for _, scope := range expectedScopes {
 		if _, exists := config.Scopes[scope]; !exists {
 			t.Fatalf("expected scope %s in generated config", scope)
 		}
 	}
 
-	if len(config.Scopes) != 4 {
-		t.Fatalf("expected 4 scopes, got %d", len(config.Scopes))
+	if len(config.Scopes) != 5 {
+		t.Fatalf("expected 5 scopes, got %d", len(config.Scopes))
 	}
 }
 

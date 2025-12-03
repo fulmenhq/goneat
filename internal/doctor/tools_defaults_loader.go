@@ -14,6 +14,7 @@ type ToolsDefaultsConfig struct {
 	FoundationTools []ToolDefinition           `yaml:"foundation_tools"`
 	SecurityTools   []ToolDefinition           `yaml:"security_tools"`
 	FormatTools     []ToolDefinition           `yaml:"format_tools"`
+	SbomTools       []ToolDefinition           `yaml:"sbom_tools"`
 	PythonTools     []ToolDefinition           `yaml:"python_tools"`
 	TypeScriptTools []ToolDefinition           `yaml:"typescript_tools"`
 	Scopes          map[string]ScopeDefinition `yaml:"scopes"`
@@ -65,6 +66,7 @@ func (c *ToolsDefaultsConfig) GetAllTools() []ToolDefinition {
 	allTools = append(allTools, c.FoundationTools...)
 	allTools = append(allTools, c.SecurityTools...)
 	allTools = append(allTools, c.FormatTools...)
+	allTools = append(allTools, c.SbomTools...)
 	allTools = append(allTools, c.PythonTools...)
 	allTools = append(allTools, c.TypeScriptTools...)
 	return allTools
@@ -219,7 +221,7 @@ func ConvertToToolsConfig(tools []ToolDefinition, scopeName string, scopeDescrip
 }
 
 // ConvertToToolsConfigWithAllScopes generates a complete tools.yaml config
-// with all standard scopes (foundation, security, format, all) populated.
+// with all standard scopes (foundation, security, format, sbom, all) populated.
 // This ensures users get a fully functional config regardless of which scope
 // they specify during init.
 func ConvertToToolsConfigWithAllScopes(defaultsConfig *ToolsDefaultsConfig, language string, minimal bool) *ToolsConfig {
@@ -229,7 +231,7 @@ func ConvertToToolsConfigWithAllScopes(defaultsConfig *ToolsDefaultsConfig, lang
 	}
 
 	// Define standard scopes to generate
-	standardScopes := []string{"foundation", "security", "format", "all"}
+	standardScopes := []string{"foundation", "security", "format", "sbom", "all"}
 
 	// Collect all unique tools across all scopes
 	allToolDefs := make(map[string]ToolDefinition)
