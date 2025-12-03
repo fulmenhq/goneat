@@ -492,7 +492,7 @@ release-push: ## Push release to all remotes
 	./scripts/push-to-remotes.sh
 	@echo "✅ Release pushed to all remotes"
 
-release-upload: ## Upload signed release artifacts to GitHub (requires dist/release/*.asc signatures)
+release-upload: release-notes ## Upload signed release artifacts to GitHub (requires dist/release/*.asc signatures)
 	@echo "📤 Uploading release artifacts to GitHub $(VERSION)..."
 	@if [ ! -f "dist/release/goneat_$(VERSION)_darwin_arm64.tar.gz.asc" ]; then \
 		echo "❌ Error: Signature files not found in dist/release/"; \

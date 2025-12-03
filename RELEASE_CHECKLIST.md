@@ -247,7 +247,7 @@ git push origin main  # Push commits
 ```bash
 make build-all    # Cross-platform binaries
 make package      # Create distribution archives (dist/release/*.tar.gz, *.zip, SHA256SUMS)
-make release-notes # Generate release notes artifact (dist/release/release-notes-v<version>.md)
+# Note: make release-notes is automatically called by make release-upload
 ```
 
 ### Major Release Flow (v0.X.0, v1.0.0)
@@ -337,7 +337,7 @@ gh release view v<version> --json assets --jq '.assets[].name'
 make update-homebrew-formula  # Requires ../homebrew-tap
 ```
 
-**Note**: `make release-upload` (Option A) automatically calls `make update-homebrew-formula` after uploading artifacts. If using Option B (manual upload), run the formula update target separately.
+**Note**: `make release-upload` (Option A) automatically generates release notes (`make release-notes`) and calls `make update-homebrew-formula` after uploading artifacts. If using Option B (manual upload), run these targets separately.
 
 **See**: `docs/security/release-signing.md` for detailed signing procedures.
 
@@ -492,7 +492,7 @@ make prepush
 - `make build-all` - Cross-platform binary builds
 - `make package` - Release artifact packaging
 - `make release-notes` - Generate release notes artifact
-- `make release-upload` - Upload artifacts and update Homebrew formula (v0.3.9+)
+- `make release-upload` - Upload artifacts, generate release notes, and update Homebrew formula (v0.3.9+, enhanced v0.3.11)
 - `make update-homebrew-formula` - Update Homebrew tap formula (v0.3.10+)
 
 **Scripts:**
@@ -647,7 +647,7 @@ git push origin main v0.3.6
 
 ---
 
-**Document Version**: 2.1 (Best Practice Reference Guide)
-**Last Updated**: 2025-12-01 (v0.3.10 - Homebrew formula automation)
+**Document Version**: 2.2 (Best Practice Reference Guide)
+**Last Updated**: 2025-12-02 (v0.3.11 - release-upload now generates release notes automatically)
 **Next Review**: With each major release or significant process change
 **Format**: General reference (not version-specific checklist)
