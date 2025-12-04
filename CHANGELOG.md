@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.12] - 2025-12-04
+
+### Fixed
+
+- **CRITICAL: yamlfmt Compatibility in Doctor Tools Init** (`cmd/doctor_tools_init.go`):
+  - Fixed bug where `goneat doctor tools init` generated `.goneat/tools.yaml` with incorrect indentation
+  - Root cause: Used `yaml.Marshal` with default 4-space indent instead of 2-space (yamlfmt standard)
+  - Impact: Fresh clones failed `make fmt` workflow with "did not find expected key" yamlfmt error
+  - Fix: Replace `yaml.Marshal` with `yaml.NewEncoder` + `SetIndent(2)` to match `.yamlfmt` config
+  - Result: Generated tools.yaml now passes yamlfmt validation without manual edits
+  - Added regression test: `TestDoctorToolsInitGeneratesYamlfmtCompatibleFile`
+  - Properly handle file.Close() errors per linter requirements
+
 ## [0.3.11] - 2025-12-03
 
 ### Added

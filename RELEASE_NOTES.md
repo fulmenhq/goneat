@@ -1,129 +1,95 @@
-# Goneat v0.3.11 — Windows Compatibility & Test Parallelization
+# Goneat v0.3.12 — yamlfmt Compatibility Fix
 
-**Release Date**: 2025-12-03
+**Release Date**: 2025-12-04
 **Status**: Release
 
 ## TL;DR
 
-- **Windows Platform Support**: goneat is now operational on Windows with proper binary naming, test compatibility, and line ending handling
-- **Test Parallelization**: Added `t.Parallel()` to 124 tests across 3 packages with 1.79x speedup measured on Windows
-- **SBOM Support**: New syft tool integration for Software Bill of Materials generation
-- **Line Ending Standards**: Established `.gitattributes` for consistent cross-platform line endings
-- **Critical Fix**: Resolved CRLF file corruption bug in formatter that was breaking Windows formatting
+- **Critical Fix**: `goneat doctor tools init` now generates yamlfmt-compatible `.goneat/tools.yaml` files
+- **Impact**: Fresh clones no longer fail `make fmt` with "did not find expected key" errors
+- **Regression Test**: Added test coverage to prevent future formatting incompatibilities
 
 ## Breaking Changes
 
-None. All changes are backwards compatible.
+None. This is a bugfix release, fully backwards compatible.
 
-## Highlights
+## The Problem
 
-### Install Probe CI Validation
-
-New CI job validates that package manager + tool combinations are actually installable:
+Previously, `goneat doctor tools init` generated `.goneat/tools.yaml` files that failed yamlfmt validation:
 
 ```bash
-# Run locally (opt-in, requires network)
-make install-probe
-```
-
-- Caught invalid `scoop` + `prettier` combination (scoop lacks prettier package)
-- Uses build tag `installprobe` to avoid slowing down normal test runs
-- Non-destructive: probes with `brew info`, `scoop info`, etc. - never installs
-- Static validation runs in normal tests; runtime probe is opt-in
-
-### Doctor Tool Installation Reliability
-
-Multiple fixes improve package manager detection and tool installation:
-
-- Route node-kind tools to `installSystemTool` for proper brew/bun installation
-- Derive candidate binary names from `detect_command` for accurate post-install lookup
-- Add brew to `GetShimPath` for proper PATH resolution
-- Add detected package manager paths to PATH before tool installation
-- Enhanced installer diagnostics with output capture and exit codes
-
-### Multi-Scope Tools Init
-
-Previously, `goneat doctor tools init` only generated a single scope in `.goneat/tools.yaml`. This caused issues when tests or other code expected all standard scopes to exist.
-
-**Before (v0.3.9)**:
-
-```bash
-goneat doctor tools init --scope foundation
-# Only creates foundation scope - security, format, all are missing
-```
-
-**After (v0.3.10)**:
-
-```bash
+# After fresh clone
 goneat doctor tools init
-# Creates all 4 scopes: foundation, security, format, all
-# Scopes: 4, Tools: 13 (for Go repos)
+make fmt
+
+# Result: ❌ FAILED
+yamlfmt: .goneat/tools.yaml: yaml: line 15: did not find expected key
 ```
 
-### Package Manager Strategy Cleanup
+**Root Cause**:
+- Used `yaml.Marshal()` with default 4-space indentation
+- Repository `.yamlfmt` config requires 2-space indentation
+- Generated files required manual reformatting before passing CI
 
-The v0.3.10 release establishes a clear package manager strategy:
+**Impact**:
+- Fresh clone workflows broke after initialization
+- CI bootstrap (`init` → `format` → `check`) failed consistently
+- Undermined "single source of truth" guarantee for tools.yaml
+- Developers had to manually format generated config files
 
-| Package Manager | Use Case                                                    |
-| --------------- | ----------------------------------------------------------- |
-| `brew`          | System binaries on darwin/linux (ripgrep, jq, yq, prettier) |
-| `scoop/winget`  | System binaries on Windows                                  |
-| `go-install`    | Go tools (golangci-lint, gosec, yamlfmt, etc.)              |
-| `bun/npm`       | Node.js packages ONLY (eslint for TypeScript repos)         |
-| `uv/pip`        | Python packages ONLY (ruff, etc.)                           |
+## The Fix
 
-**Removed from system tools**:
+**Technical Changes**:
+- Replaced `yaml.Marshal()` with `yaml.NewEncoder()` + `SetIndent(2)`
+- Match indentation to `.yamlfmt` configuration (2 spaces)
+- Remove extra blank line between header comments and content
+- Properly handle `file.Close()` errors per linter requirements
 
-- `bun` - Cannot install system binaries, only npm packages
-- `mise` - Version manager, not a general package manager
+**Verification**:
+```bash
+goneat doctor tools init --force
+yamlfmt -dry .goneat/tools.yaml
+# Output: "No files will be changed" ✅
+```
 
-### CI Bootstrap Improvements
-
-1. **Exit Code Propagation**: The Makefile bootstrap target now uses `&&` instead of `;` to chain commands, ensuring failures stop the build immediately.
-
-2. **--no-cooling Flag**: For CI environments without network access to verify package release dates:
-
-   ```bash
-   goneat doctor tools --scope foundation --install --yes --no-cooling
-   ```
-
-3. **Go Version Parsing**: Fixed parsing of Go versions like "go1.25.4" by stripping the "go" prefix before semver comparison.
+**Regression Prevention**:
+- New test: `TestDoctorToolsInitGeneratesYamlfmtCompatibleFile`
+- Verifies generated files use proper 2-space indentation
+- Ensures future changes maintain yamlfmt compatibility
 
 ## Upgrade Notes
 
-### For CI Pipelines
+### Immediate Action Required
 
-If your CI is failing due to cooling policy checks:
+If you're experiencing CI failures with forge-workhorse-groningen or similar repos:
 
-```bash
-# Add --no-cooling to your bootstrap command
-goneat doctor tools --scope foundation --install --yes --no-cooling
-```
+1. **Update goneat version** in `scripts/install-goneat.sh`:
+   ```bash
+   GONEAT_VERSION="v0.3.12"
+   ```
 
-### For .goneat/tools.yaml
+2. **Update SHA256 checksums** (from GitHub release):
+   ```bash
+   # Get checksums from release artifacts
+   # Update platform-specific EXPECTED_SHA values
+   ```
 
-If your tools.yaml is missing scopes, regenerate it:
+3. **Optionally regenerate** `.goneat/tools.yaml`:
+   ```bash
+   goneat doctor tools init --force
+   # Now generates properly formatted config
+   ```
 
-```bash
-goneat doctor tools init --force
-```
+### For Existing Installations
 
-This will create a complete config with all 4 standard scopes.
+No action required if your `.goneat/tools.yaml` is already formatted correctly. The fix only affects newly generated files.
 
 ## Files Changed
 
-- `.github/workflows/ci.yml`: New install-probe CI job
-- `Makefile`: Bootstrap target fix, --no-cooling support, install-probe target
-- `.goneat/tools.yaml`: Removed scoop from prettier Windows installers
-- `config/tools/foundation-tools-defaults.yaml`: Package manager cleanup
-- `internal/doctor/tools.go`: Go version parsing fix
-- `internal/doctor/tools_install_probe_test.go`: Runtime install probe tests
-- `internal/doctor/tools_installability_test.go`: Static installability validation
-- `internal/doctor/tools_defaults_loader.go`: ConvertToToolsConfigWithAllScopes
-- `internal/doctor/package_managers.go`: PATH and shim detection fixes
-- `cmd/doctor_tools_init.go`: Multi-scope generation
-- `pkg/logger/fields.go`: Nil error handling fix
-- `schemas/**/tools-config.yaml`: node/python kind enum
+- `cmd/doctor_tools_init.go`: Replace yaml.Marshal with yaml.NewEncoder
+- `cmd/doctor_tools_init_test.go`: Add yamlfmt compatibility regression test
+- `CHANGELOG.md`: Document v0.3.12 changes
+- `VERSION`: Bump to v0.3.12
 
 ## Full Changelog
 
@@ -131,4 +97,6 @@ See [CHANGELOG.md](CHANGELOG.md) for complete details.
 
 ---
 
-**Previous Release**: [v0.3.9](docs/releases/v0.3.9.md)
+**Previous Releases**:
+- [v0.3.11](docs/releases/v0.3.11.md) - Windows Compatibility & Test Parallelization
+- [v0.3.10](docs/releases/v0.3.10.md) - Install Probe & Multi-Scope Tools Init

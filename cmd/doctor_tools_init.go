@@ -121,13 +121,17 @@ func runToolsInit(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func writeToolsConfig(path string, config *doctor.ToolsConfig) error {
+func writeToolsConfig(path string, config *doctor.ToolsConfig) (err error) {
 	// Create file for writing
-	file, err := os.Create(path)
-	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
+	file, createErr := os.Create(path)
+	if createErr != nil {
+		return fmt.Errorf("failed to create file: %w", createErr)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("failed to close file: %w", closeErr)
+		}
+	}()
 
 	// Write header comment
 	// Note: No trailing newline - the YAML encoder will add one before the first key

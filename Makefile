@@ -44,7 +44,7 @@ LDFLAGS := -ldflags "\
 	-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
-.PHONY: help build hooks-ensure clean clean-all test fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites sync-crucible sync-ssot verify-crucible verify-crucible-clean bootstrap tools lint release-check release-prepare release-build check-all prepush precommit update-homebrew-formula
+.PHONY: help build hooks-ensure clean clean-release clean-all test fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites sync-crucible sync-ssot verify-crucible verify-crucible-clean bootstrap tools lint release-check release-prepare release-build check-all prepush precommit update-homebrew-formula verify-release-key
 
 # Default target
 all: clean build format-all
@@ -233,6 +233,21 @@ clean: ## Clean build artifacts, test cache, and generated files
 	@echo "Cleaning backup files..."
 	@find . -name "*.backup" -type f -delete 2>/dev/null || true
 	@echo "✅ Clean completed"
+
+clean-release: ## Clean old release artifacts (keeps current version), preserving dist/goneat binary
+	@echo "🧹 Cleaning old release artifacts from dist/release/..."
+	@if [ -d "dist/release" ]; then \
+		echo "   Removing old release packages and signatures..."; \
+		find dist/release -type f \( \
+			-name "goneat_v*.tar.gz" ! -name "goneat_$(VERSION)_*.tar.gz" -o \
+			-name "goneat_v*.zip" ! -name "goneat_$(VERSION)_*.zip" -o \
+			-name "goneat_v*.asc" ! -name "goneat_$(VERSION)_*.asc" -o \
+			-name "release-notes-v*.md" ! -name "release-notes-$(VERSION).md" \
+		\) -delete; \
+		echo "   ✅ Old artifacts cleaned (kept $(VERSION) artifacts)"; \
+	else \
+		echo "   ℹ️  No dist/release directory found"; \
+	fi
 
 clean-all: clean ## Deep clean including Go build cache (slow - use before major updates)
 	@echo "🧹 Deep cleaning Go build cache..."
@@ -501,8 +516,18 @@ release-push: ## Push release to all remotes
 	./scripts/push-to-remotes.sh
 	@echo "✅ Release pushed to all remotes"
 
+verify-release-key: ## Verify GPG public key for release signing (must run before upload)
+	@echo "🔐 Verifying GPG public key for release..."
+	@if [ ! -f "dist/release/fulmenhq-release-signing-key.asc" ]; then \
+		echo "❌ Error: fulmenhq-release-signing-key.asc not found in dist/release/"; \
+		echo "   Generate it first: gpg --armor --export security@fulmenhq.dev > dist/release/fulmenhq-release-signing-key.asc"; \
+		exit 1; \
+	fi
+	@./scripts/verify-public-key.sh dist/release/fulmenhq-release-signing-key.asc
+
 release-upload: release-notes ## Upload signed release artifacts to GitHub (requires dist/release/*.asc signatures)
 	@echo "📤 Uploading release artifacts to GitHub $(VERSION)..."
+	@echo "   ℹ️  Note: release-notes target runs automatically (Makefile dependency)"
 	@if [ ! -f "dist/release/goneat_$(VERSION)_darwin_arm64.tar.gz.asc" ]; then \
 		echo "❌ Error: Signature files not found in dist/release/"; \
 		echo "   Run signing workflow first (see RELEASE_CHECKLIST.md)"; \
