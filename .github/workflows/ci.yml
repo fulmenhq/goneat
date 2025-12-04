@@ -32,6 +32,18 @@ jobs:
       - name: Bootstrap tools (dogfooding)
         run: |
           make bootstrap
+          # Persist shim paths for subsequent steps (brew bin, go bin, etc.)
+          ./dist/goneat doctor tools env --github >> $GITHUB_PATH
+      - name: Verify foundation tools accessible (format check)
+        run: |
+          # Verify tools installed by bootstrap are accessible in PATH
+          echo "Verifying foundation tools..."
+          which prettier || (echo "prettier not found" && exit 1)
+          which yamlfmt || (echo "yamlfmt not found" && exit 1)
+          which golangci-lint || (echo "golangci-lint not found" && exit 1)
+          echo "All foundation tools accessible"
+          # Run format check to validate tools work end-to-end
+          ./dist/goneat format --check || echo "Format differences found (informational)"
       - name: Test
         run: |
           make test || true

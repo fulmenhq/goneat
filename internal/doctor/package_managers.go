@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/fulmenhq/goneat/internal/assets"
+	"github.com/fulmenhq/goneat/pkg/tools"
 	"gopkg.in/yaml.v3"
 )
 
@@ -161,6 +162,28 @@ func (pm *PackageManager) SupportsLanguage(language string) bool {
 
 // DetectPackageManager checks if a package manager is installed and gets its version
 func DetectPackageManager(pm *PackageManager) (bool, string) {
+	// Special case for brew: use tools.DetectBrew() which checks system paths directly
+	// This works even when brew isn't in PATH (e.g., fresh CI environment after install)
+	if pm.Name == "brew" {
+		_, brewPath, err := tools.DetectBrew()
+		if err != nil || brewPath == "" {
+			return false, ""
+		}
+		// Get version using the full path to brew
+		// #nosec G204 - brewPath comes from tools.DetectBrew() which only returns
+		// known system paths or PATH-validated locations
+		cmd := exec.Command(brewPath, "--version")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return true, "" // brew exists but version check failed
+		}
+		version := strings.TrimSpace(string(output))
+		if idx := strings.Index(version, "\n"); idx > 0 {
+			version = version[:idx]
+		}
+		return true, version
+	}
+
 	if pm.DetectionCommand == "" {
 		return false, ""
 	}

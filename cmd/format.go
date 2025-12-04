@@ -17,12 +17,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/fulmenhq/goneat/internal/doctor"
 	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/fulmenhq/goneat/pkg/config"
 	"github.com/fulmenhq/goneat/pkg/exitcode"
 	formatpkg "github.com/fulmenhq/goneat/pkg/format"
 	"github.com/fulmenhq/goneat/pkg/format/finalizer"
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/tools"
 	"github.com/fulmenhq/goneat/pkg/work"
 	"github.com/spf13/cobra"
 )
@@ -95,6 +97,57 @@ func init() {
 	formatCmd.Flags().String("xml-indent", "  ", "Indentation for XML prettification (e.g., '  ' or '\t')")
 	formatCmd.Flags().Int("xml-indent-count", 2, "Number of spaces for XML indentation (1-10, 0 to skip prettification)")
 	formatCmd.Flags().Int("xml-size-warning", 500, "Size threshold in MB for XML file warnings (0 to disable)")
+}
+
+// findToolPath finds a tool by name, checking PATH first then known shim directories.
+// This handles tools installed via brew, bun, go-install, etc. that may not be in PATH
+// (e.g., in CI environments where PATH wasn't updated after bootstrap).
+//
+// Returns the full path to the tool or empty string if not found.
+func findToolPath(toolName string) string {
+	// First check PATH (fast path for normal case)
+	if path, err := exec.LookPath(toolName); err == nil {
+		return path
+	}
+
+	// Check brew bin directory (covers tools installed via brew)
+	if _, brewPath, err := tools.DetectBrew(); err == nil && brewPath != "" {
+		binDir := filepath.Dir(brewPath)
+		candidate := filepath.Join(binDir, toolName)
+		if _, err := os.Stat(candidate); err == nil {
+			logger.Debug(fmt.Sprintf("found %s in brew bin: %s", toolName, candidate))
+			return candidate
+		}
+	}
+
+	// Check other known shim paths
+	shimDirs := []string{
+		doctor.GetShimPath("bun"),
+		doctor.GetShimPath("go-install"),
+		doctor.GetShimPath("mise"),
+		doctor.GetShimPath("scoop"),
+	}
+
+	for _, shimDir := range shimDirs {
+		if shimDir == "" {
+			continue
+		}
+		candidate := filepath.Join(shimDir, toolName)
+		if runtime.GOOS == "windows" && !strings.HasSuffix(candidate, ".exe") {
+			candidate += ".exe"
+		}
+		if _, err := os.Stat(candidate); err == nil {
+			logger.Debug(fmt.Sprintf("found %s in shim dir: %s", toolName, candidate))
+			return candidate
+		}
+	}
+
+	return ""
+}
+
+// toolExists checks if a tool is available (in PATH or shim directories)
+func toolExists(toolName string) bool {
+	return findToolPath(toolName) != ""
 }
 
 func RunFormat(cmd *cobra.Command, args []string) error {
@@ -320,7 +373,7 @@ func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignore
 	case ".yaml", ".yml":
 		// Skip if yamlfmt missing and ignoring missing tools
 		if ignoreMissingTools {
-			if _, e := exec.LookPath("yamlfmt"); e != nil {
+			if !toolExists("yamlfmt") {
 				logger.Warn("yamlfmt not found; skipping YAML formatting for this file")
 				// Even if skipping primary formatter, still allow finalizer below
 				break
@@ -330,7 +383,7 @@ func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignore
 
 	case ".json":
 		if ignoreMissingTools {
-			if _, e := exec.LookPath("jq"); e != nil {
+			if !toolExists("jq") {
 				logger.Warn("jq not found; skipping JSON formatting for this file")
 				break
 			}
@@ -342,7 +395,7 @@ func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignore
 
 	case ".md":
 		if ignoreMissingTools {
-			if _, e := exec.LookPath("prettier"); e != nil {
+			if !toolExists("prettier") {
 				logger.Warn("prettier not found; skipping Markdown formatting for this file")
 				break
 			}
@@ -474,13 +527,15 @@ func formatGoFile(file string, checkOnly bool, cfg *config.Config, useGoimports 
 	final := gofmtOut
 	// Step 2: goimports (optional)
 	if useGoimports {
-		if _, lookErr := exec.LookPath("goimports"); lookErr != nil {
+		goimportsPath := findToolPath("goimports")
+		if goimportsPath == "" {
 			if !ignoreMissingTools {
 				return fmt.Errorf("goimports not found but --use-goimports was specified.\nInstall with: go install golang.org/x/tools/cmd/goimports@latest\nOr run: goneat doctor tools --install goimports\nTip: use --ignore-missing-tools to skip import alignment")
 			}
 			logger.Debug("goimports not found; skipping import alignment due to --ignore-missing-tools")
 		} else {
-			cmd := exec.Command("goimports")
+			// #nosec G204 - goimportsPath comes from findToolPath which validates paths
+			cmd := exec.Command(goimportsPath)
 			cmd.Dir = filepath.Dir(file)
 			cmd.Stdin = strings.NewReader(string(final))
 			out, cmdErr := cmd.Output()
@@ -529,6 +584,12 @@ func formatYAMLFile(file string, checkOnly bool, cfg *config.Config, options fin
 	// Clean file path to prevent path traversal
 	file = filepath.Clean(file)
 
+	// Find yamlfmt (checks PATH, then shim directories for CI environments)
+	yamlfmtPath := findToolPath("yamlfmt")
+	if yamlfmtPath == "" {
+		return fmt.Errorf("yamlfmt not found. Install with: goneat doctor tools --install yamlfmt")
+	}
+
 	yamlConfig := cfg.GetYAMLConfig()
 
 	// For proper change detection, read original content first
@@ -561,7 +622,8 @@ func formatYAMLFile(file string, checkOnly bool, cfg *config.Config, options fin
 
 		logger.Debug(fmt.Sprintf("Running yamlfmt with args: %v", args))
 
-		cmd := exec.Command("yamlfmt", args...) // #nosec G204
+		// #nosec G204 - yamlfmtPath comes from findToolPath which validates paths
+		cmd := exec.Command(yamlfmtPath, args...)
 		output, err := cmd.CombinedOutput()
 
 		// In lint mode, yamlfmt returns exit code 1 if formatting is needed
@@ -581,7 +643,8 @@ func formatYAMLFile(file string, checkOnly bool, cfg *config.Config, options fin
 	dryArgs := append([]string{"-dry"}, args...)
 	dryArgs = append(dryArgs, file)
 
-	dryCmd := exec.Command("yamlfmt", dryArgs...) // #nosec G204
+	// #nosec G204 - yamlfmtPath comes from findToolPath which validates paths
+	dryCmd := exec.Command(yamlfmtPath, dryArgs...)
 	dryOutput, dryErr := dryCmd.CombinedOutput()
 
 	if dryErr != nil && !strings.Contains(string(dryOutput), "---") {
@@ -608,7 +671,8 @@ func formatYAMLFile(file string, checkOnly bool, cfg *config.Config, options fin
 	formatArgs := append(args, file)
 	logger.Debug(fmt.Sprintf("Running yamlfmt with args: %v", formatArgs))
 
-	cmd := exec.Command("yamlfmt", formatArgs...) // #nosec G204
+	// #nosec G204 - yamlfmtPath comes from findToolPath which validates paths
+	cmd := exec.Command(yamlfmtPath, formatArgs...)
 	output, err := cmd.CombinedOutput()
 
 	if err != nil {
@@ -827,6 +891,12 @@ func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config, options
 		return fmt.Errorf("invalid file path: contains path traversal")
 	}
 
+	// Find prettier (checks PATH, then shim directories for CI environments)
+	prettierPath := findToolPath("prettier")
+	if prettierPath == "" {
+		return fmt.Errorf("prettier not found. Install with: goneat doctor tools --install prettier")
+	}
+
 	mdConfig := cfg.GetMarkdownConfig()
 
 	// Read the original content
@@ -859,7 +929,8 @@ func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config, options
 	// Add file argument
 	args = append(args, "--stdin-filepath", file)
 
-	cmd := exec.Command("prettier", args...)
+	// #nosec G204 - prettierPath comes from findToolPath which validates paths
+	cmd := exec.Command(prettierPath, args...)
 	cmd.Stdin = strings.NewReader(string(originalContent))
 	output, cmdErr := cmd.Output()
 	if cmdErr != nil {
