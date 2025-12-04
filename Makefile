@@ -525,14 +525,22 @@ verify-release-key: ## Verify GPG public key for release signing (must run befor
 	fi
 	@./scripts/verify-public-key.sh dist/release/fulmenhq-release-signing-key.asc
 
-release-upload: release-notes ## Upload signed release artifacts to GitHub (requires dist/release/*.asc signatures)
+release-upload: release-notes verify-release-key ## Upload signed release artifacts to GitHub (requires dist/release/*.asc signatures)
 	@echo "📤 Uploading release artifacts to GitHub $(VERSION)..."
-	@echo "   ℹ️  Note: release-notes target runs automatically (Makefile dependency)"
+	@echo "   ℹ️  Note: release-notes and verify-release-key targets run automatically (Makefile dependencies)"
 	@if [ ! -f "dist/release/goneat_$(VERSION)_darwin_arm64.tar.gz.asc" ]; then \
 		echo "❌ Error: Signature files not found in dist/release/"; \
 		echo "   Run signing workflow first (see RELEASE_CHECKLIST.md)"; \
 		exit 1; \
 	fi
+	@echo "   🔏 Verifying signatures are cryptographically valid..."
+	@for artifact in dist/release/goneat_$(VERSION)_*.tar.gz dist/release/goneat_$(VERSION)_*.zip dist/release/SHA256SUMS; do \
+		if ! gpg --verify "$${artifact}.asc" "$$artifact" 2>&1 | grep -q "Good signature"; then \
+			echo "❌ Error: Invalid signature for $$artifact"; \
+			exit 1; \
+		fi; \
+	done
+	@echo "   ✅ All signatures verified"
 	@echo "   Uploading binaries and checksums..."
 	cd dist/release && gh release upload $(VERSION) \
 		goneat_$(VERSION)_*.tar.gz \
