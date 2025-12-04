@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.13] - 2025-12-04
+
+### Added
+
+- **Dynamic yamlfmt Indent Detection** (`cmd/doctor_tools_init.go`):
+  - `goneat doctor tools init` now reads `.yamlfmt` config to determine indent value
+  - Walks up directory tree to find `.yamlfmt` (supports monorepo structures)
+  - Security: Rejects malicious/corrupt indent values outside 1-8 range
+  - Falls back to 2-space indent if no `.yamlfmt` found or value invalid
+  - Enterprise-friendly: Respects organization yamlfmt configurations
+  - New tests: `TestDetectYamlfmtIndent*`, `TestDoctorToolsInitUsesYamlfmtIndent`
+
+### Changed
+
+- **Crucible SSOT Updated to v0.2.22**:
+  - Updated `.goneat/ssot-consumer.yaml` to sync from Crucible v0.2.22
+  - Schema `goneat-tools-config.schema.yaml` now includes `node` and `python` installer kinds
+  - Various config, schema, and documentation updates from upstream
+
+### Fixed
+
+- **CI Tool Detection** (committed in v0.3.13 prep):
+  - Added `findToolPath()` helper that checks PATH then shim directories
+  - Fixed `DetectPackageManager()` to use `tools.DetectBrew()` for brew detection
+  - Format command now uses findToolPath for yamlfmt, prettier, goimports
+  - CI bootstrap workflows now properly detect foundation tools
+
 ## [0.3.12] - 2025-12-04
 
 ### Fixed

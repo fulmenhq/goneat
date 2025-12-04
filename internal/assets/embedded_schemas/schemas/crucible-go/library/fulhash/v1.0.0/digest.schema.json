@@ -9,6 +9,8 @@
       "type": "string",
       "enum": [
         "xxh3-128",
+        "crc32",
+        "crc32c",
         "sha256"
       ],
       "description": "Hash algorithm identifier"
@@ -92,6 +94,64 @@
             "type": "array",
             "minItems": 32,
             "maxItems": 32
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "algorithm": {
+            "const": "crc32"
+          }
+        },
+        "required": [
+          "algorithm"
+        ]
+      },
+      "then": {
+        "properties": {
+          "hex": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}$"
+          },
+          "formatted": {
+            "type": "string",
+            "pattern": "^crc32:[0-9a-f]{8}$"
+          },
+          "bytes": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "algorithm": {
+            "const": "crc32c"
+          }
+        },
+        "required": [
+          "algorithm"
+        ]
+      },
+      "then": {
+        "properties": {
+          "hex": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}$"
+          },
+          "formatted": {
+            "type": "string",
+            "pattern": "^crc32c:[0-9a-f]{8}$"
+          },
+          "bytes": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4
           }
         }
       }

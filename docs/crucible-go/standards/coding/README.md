@@ -5,7 +5,7 @@ author: "Pipeline Architect"
 author_of_record: "Dave Thompson (https://github.com/3leapsdave)"
 supervised_by: "@3leapsdave"
 date: "2025-10-08"
-last_updated: "2025-10-08"
+last_updated: "2025-11-30"
 status: "approved"
 tags:
   [
@@ -27,8 +27,9 @@ This document establishes **language-agnostic coding standards** that apply to a
 **Language-Specific Standards**: See language-specific guides for implementation details:
 
 - **[Go Coding Standards](go.md)**
-- **[TypeScript Coding Standards](typescript.md)**
 - **[Python Coding Standards](python.md)**
+- **[Rust Coding Standards](rust.md)**
+- **[TypeScript Coding Standards](typescript.md)**
 
 ---
 
@@ -670,8 +671,9 @@ Before submitting code for review, verify:
 These cross-language patterns are implemented in language-specific ways. See:
 
 - **[Go Coding Standards](go.md)** - Go implementation details
-- **[TypeScript Coding Standards](typescript.md)** - TypeScript implementation details
 - **[Python Coding Standards](python.md)** - Python implementation details
+- **[Rust Coding Standards](rust.md)** - Rust implementation details
+- **[TypeScript Coding Standards](typescript.md)** - TypeScript implementation details
 
 Each language guide builds on these foundations with language-specific:
 

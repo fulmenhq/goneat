@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/fulmenhq/goneat/internal/doctor"
 	"github.com/fulmenhq/goneat/pkg/tools"
@@ -154,9 +155,10 @@ func writeToolsConfig(path string, config *doctor.ToolsConfig) (err error) {
 		return fmt.Errorf("failed to write header: %w", err)
 	}
 
-	// Create YAML encoder with proper indentation (2 spaces, matching yamlfmt config)
+	// Create YAML encoder with indentation matching local .yamlfmt config
+	indent := detectYamlfmtIndent()
 	encoder := yaml.NewEncoder(file)
-	encoder.SetIndent(2) // Match .yamlfmt configuration
+	encoder.SetIndent(indent)
 
 	if err := encoder.Encode(config); err != nil {
 		return fmt.Errorf("failed to encode config: %w", err)
@@ -208,4 +210,67 @@ func validateGeneratedConfig(path string) error {
 	}
 
 	return nil
+}
+
+// yamlfmtConfig represents the structure of a .yamlfmt configuration file.
+// We only parse the fields we need for indent detection.
+type yamlfmtConfig struct {
+	Formatter struct {
+		Indent int `yaml:"indent"`
+	} `yaml:"formatter"`
+}
+
+// detectYamlfmtIndent searches for a .yamlfmt configuration file starting from
+// the current directory and walking up to the filesystem root. Returns the
+// configured indent value if found, otherwise returns the default of 2.
+//
+// Security: Applies hardcoded limits to reject malicious/corrupt indent values.
+// Valid indent range: 1-8 spaces (inclusive). Values outside this range are
+// treated as invalid and the default is returned.
+func detectYamlfmtIndent() int {
+	const (
+		defaultIndent = 2
+		minIndent     = 1
+		maxIndent     = 8 // No legitimate use case for more than 8 spaces
+	)
+
+	// Start from current working directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		return defaultIndent
+	}
+
+	// Walk up the directory tree looking for .yamlfmt
+	dir := cwd
+	for {
+		yamlfmtPath := filepath.Join(dir, ".yamlfmt")
+
+		// Try to read the .yamlfmt file
+		// #nosec G304 - yamlfmtPath is constructed from cwd + ".yamlfmt"
+		data, err := os.ReadFile(yamlfmtPath)
+		if err == nil {
+			// Parse the YAML config
+			var cfg yamlfmtConfig
+			if err := yaml.Unmarshal(data, &cfg); err == nil {
+				indent := cfg.Formatter.Indent
+				// Only use the value if it's within sane limits
+				// This protects against malicious/corrupt configs
+				if indent >= minIndent && indent <= maxIndent {
+					return indent
+				}
+			}
+			// Found file but couldn't parse or indent out of range, use default
+			return defaultIndent
+		}
+
+		// Move up to parent directory
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Reached filesystem root
+			break
+		}
+		dir = parent
+	}
+
+	return defaultIndent
 }

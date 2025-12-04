@@ -1,95 +1,94 @@
-# Goneat v0.3.12 — yamlfmt Compatibility Fix
+# Goneat v0.3.13 — Dynamic yamlfmt Detection & Crucible v0.2.22
 
 **Release Date**: 2025-12-04
 **Status**: Release
 
 ## TL;DR
 
-- **Critical Fix**: `goneat doctor tools init` now generates yamlfmt-compatible `.goneat/tools.yaml` files
-- **Impact**: Fresh clones no longer fail `make fmt` with "did not find expected key" errors
-- **Regression Test**: Added test coverage to prevent future formatting incompatibilities
+- **Enterprise Feature**: `goneat doctor tools init` now auto-detects `.yamlfmt` indent configuration
+- **CI Fix**: Tools installed via brew/bun now properly detected in CI environments
+- **Crucible Update**: Synced to Crucible v0.2.22 with `node` and `python` installer kinds
 
 ## Breaking Changes
 
-None. This is a bugfix release, fully backwards compatible.
+None. This is a feature/bugfix release, fully backwards compatible.
 
-## The Problem
+## What's New
 
-Previously, `goneat doctor tools init` generated `.goneat/tools.yaml` files that failed yamlfmt validation:
+### Dynamic yamlfmt Indent Detection
+
+Previously, `goneat doctor tools init` hardcoded 2-space indentation. Now it reads your `.yamlfmt` configuration:
 
 ```bash
-# After fresh clone
-goneat doctor tools init
-make fmt
+# Enterprise repo with 4-space indent
+$ cat .yamlfmt
+formatter:
+  indent: 4
 
-# Result: ❌ FAILED
-yamlfmt: .goneat/tools.yaml: yaml: line 15: did not find expected key
+$ goneat doctor tools init --force
+# Generated .goneat/tools.yaml now uses 4-space indent!
 ```
 
-**Root Cause**:
-- Used `yaml.Marshal()` with default 4-space indentation
-- Repository `.yamlfmt` config requires 2-space indentation
-- Generated files required manual reformatting before passing CI
+**Features**:
 
-**Impact**:
-- Fresh clone workflows broke after initialization
-- CI bootstrap (`init` → `format` → `check`) failed consistently
-- Undermined "single source of truth" guarantee for tools.yaml
-- Developers had to manually format generated config files
+- Walks up directory tree to find `.yamlfmt` (monorepo-friendly)
+- Security hardening: Rejects indent values outside 1-8 range
+- Falls back to 2-space indent if no config found
 
-## The Fix
+**New Tests**:
 
-**Technical Changes**:
-- Replaced `yaml.Marshal()` with `yaml.NewEncoder()` + `SetIndent(2)`
-- Match indentation to `.yamlfmt` configuration (2 spaces)
-- Remove extra blank line between header comments and content
-- Properly handle `file.Close()` errors per linter requirements
+- `TestDetectYamlfmtIndent` - Table-driven tests for all edge cases
+- `TestDetectYamlfmtIndentWalksUpTree` - Parent directory detection
+- `TestDoctorToolsInitUsesYamlfmtIndent` - Integration test
 
-**Verification**:
-```bash
-goneat doctor tools init --force
-yamlfmt -dry .goneat/tools.yaml
-# Output: "No files will be changed" ✅
-```
+### CI Tool Detection Fix
 
-**Regression Prevention**:
-- New test: `TestDoctorToolsInitGeneratesYamlfmtCompatibleFile`
-- Verifies generated files use proper 2-space indentation
-- Ensures future changes maintain yamlfmt compatibility
+Fixed issue where tools installed via brew or bun weren't detected in CI environments:
+
+- Added `findToolPath()` helper that checks PATH then shim directories
+- Fixed `DetectPackageManager()` to use `tools.DetectBrew()` for brew detection
+- Format command now properly finds yamlfmt, prettier, goimports
+
+### Crucible v0.2.22
+
+Updated SSOT sync to Crucible v0.2.22:
+
+- Schema `goneat-tools-config.schema.yaml` now includes `node` and `python` installer kinds
+- Various config, schema, and documentation updates from upstream
+- Resolves schema validation issues for node/python tools
 
 ## Upgrade Notes
 
-### Immediate Action Required
+### For CI Pipelines
 
-If you're experiencing CI failures with forge-workhorse-groningen or similar repos:
+If you were experiencing issues with tool detection after bootstrap:
 
-1. **Update goneat version** in `scripts/install-goneat.sh`:
-   ```bash
-   GONEAT_VERSION="v0.3.12"
-   ```
+```bash
+# Update goneat version
+GONEAT_VERSION="v0.3.13"
 
-2. **Update SHA256 checksums** (from GitHub release):
-   ```bash
-   # Get checksums from release artifacts
-   # Update platform-specific EXPECTED_SHA values
-   ```
+# Tools should now be properly detected after:
+goneat doctor tools --scope foundation --install --yes
+```
 
-3. **Optionally regenerate** `.goneat/tools.yaml`:
-   ```bash
-   goneat doctor tools init --force
-   # Now generates properly formatted config
-   ```
+### For Enterprise Users
 
-### For Existing Installations
+If your organization uses a custom yamlfmt indent (e.g., 4 spaces):
 
-No action required if your `.goneat/tools.yaml` is already formatted correctly. The fix only affects newly generated files.
+```bash
+# Regenerate tools.yaml with correct indent
+goneat doctor tools init --force
+# Now matches your .yamlfmt configuration
+```
 
 ## Files Changed
 
-- `cmd/doctor_tools_init.go`: Replace yaml.Marshal with yaml.NewEncoder
-- `cmd/doctor_tools_init_test.go`: Add yamlfmt compatibility regression test
-- `CHANGELOG.md`: Document v0.3.12 changes
-- `VERSION`: Bump to v0.3.12
+- `cmd/doctor_tools_init.go`: Add yamlfmt indent detection
+- `cmd/doctor_tools_init_test.go`: Add detection tests
+- `cmd/format.go`: Add findToolPath helper
+- `internal/doctor/package_managers.go`: Fix brew detection
+- `.goneat/ssot-consumer.yaml`: Update to Crucible v0.2.22
+- Various Crucible-synced files in config/, docs/, schemas/
 
 ## Full Changelog
 
@@ -98,5 +97,7 @@ See [CHANGELOG.md](CHANGELOG.md) for complete details.
 ---
 
 **Previous Releases**:
+
+- [v0.3.12](docs/releases/v0.3.12.md) - yamlfmt Compatibility Fix
 - [v0.3.11](docs/releases/v0.3.11.md) - Windows Compatibility & Test Parallelization
 - [v0.3.10](docs/releases/v0.3.10.md) - Install Probe & Multi-Scope Tools Init

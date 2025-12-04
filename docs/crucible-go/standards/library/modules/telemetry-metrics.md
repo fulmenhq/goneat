@@ -118,6 +118,550 @@ Guidance:
 Apply these recommendations consistently across gofulmen, pyfulmen, tsfulmen, and future foundations so
 observability behaviour remains predictable regardless of language.
 
+## HTTP Server Metrics
+
+Applications building HTTP servers using Fulmen helpers SHOULD instrument their HTTP handlers with standardized HTTP server metrics to enable consistent observability across services. These metrics use the `http_*` namespace and are designed for application-level HTTP servers (Express, Fastify, Go net/http, Python FastAPI/Flask, etc.).
+
+### HTTP Metrics Specification
+
+| Metric Name                     | Unit    | Type      | Description                                           | Required Labels                        | Optional Labels |
+| ------------------------------- | ------- | --------- | ----------------------------------------------------- | -------------------------------------- | --------------- |
+| `http_requests_total`           | `count` | Counter   | Total HTTP requests received by the server.           | `method`, `route`, `status`, `service` | `outcome`       |
+| `http_request_duration_seconds` | `s`     | Histogram | Request duration in seconds from receipt to response. | `method`, `route`, `status`, `service` | `outcome`       |
+| `http_request_size_bytes`       | `bytes` | Histogram | Request body size in bytes.                           | `method`, `route`, `service`           | None            |
+| `http_response_size_bytes`      | `bytes` | Histogram | Response body size in bytes.                          | `method`, `route`, `status`, `service` | `outcome`       |
+| `http_active_requests`          | `count` | Gauge     | Number of HTTP requests currently being processed.    | `service`                              | None            |
+
+### Label Value Standards
+
+| Label     | Description                                                    | Examples                                | Cardinality Warning                                        |
+| --------- | -------------------------------------------------------------- | --------------------------------------- | ---------------------------------------------------------- |
+| `method`  | HTTP method (uppercase)                                        | `GET`, `POST`, `PUT`, `DELETE`          | Low (typically <10 values)                                 |
+| `route`   | **Templated/normalized** route path (NOT literal request path) | `/users/:id`, `/api/v1/orders/:orderId` | **CRITICAL**: Use templates to avoid cardinality explosion |
+| `status`  | HTTP status code (numeric)                                     | `200`, `404`, `500`                     | Low (typically <50 values)                                 |
+| `service` | Service identifier                                             | `api-gateway`, `auth-service`           | Low (one per service)                                      |
+| `outcome` | Optional HTTP status group derived from `status`               | `2xx`, `4xx`, `5xx`                     | Very low (3-5 values); use for simplified dashboards       |
+
+### Route Normalization (CRITICAL)
+
+**DO NOT use literal request paths as the `route` label value.** Literal paths create unbounded cardinality:
+
+```typescript
+// ❌ WRONG - Creates one time series per user ID
+http_requests_total{method="GET", route="/users/123", status="200"} 1
+http_requests_total{method="GET", route="/users/456", status="200"} 1
+http_requests_total{method="GET", route="/users/789", status="200"} 1
+// Result: Thousands/millions of time series = metric series explosion
+
+// ✅ CORRECT - Uses route template
+http_requests_total{method="GET", route="/users/:id", status="200"} 3
+// Result: Single time series aggregating all user requests
+```
+
+**Implementation Guidance**:
+
+1. **Express (TypeScript/Node.js)**: Extract from `req.route.path`
+
+   ```typescript
+   // Express: req.route.path gives "/users/:id"
+   const route = req.route?.path || "unknown";
+   metrics
+     .counter("http_requests_total")
+     .labels({
+       method: req.method,
+       route,
+       status: res.statusCode,
+       service: "api",
+     })
+     .inc();
+   ```
+
+2. **Fastify (TypeScript/Node.js)**: Extract from `request.routeOptions.url`
+
+   ```typescript
+   // Fastify: request.routeOptions.url gives "/users/:id"
+   const route = request.routeOptions?.url || "unknown";
+   metrics
+     .counter("http_requests_total")
+     .labels({
+       method: request.method,
+       route,
+       status: reply.statusCode,
+       service: "api",
+     })
+     .inc();
+   ```
+
+3. **Go chi router**: Extract from `RouteContext`
+
+   ```go
+   // chi: chi.RouteContext(r.Context()).RoutePattern()
+   route := chi.RouteContext(r.Context()).RoutePattern()
+   metrics.Counter("http_requests_total").
+     WithLabels(map[string]string{
+       "method": r.Method,
+       "route": route, // "/users/{id}"
+       "status": strconv.Itoa(statusCode),
+       "service": "api",
+     }).Inc()
+   ```
+
+4. **Go gin framework**: Extract from `c.FullPath()`
+
+   ```go
+   // gin: c.FullPath() gives "/users/:id"
+   route := c.FullPath()
+   metrics.Counter("http_requests_total").
+     WithLabels(map[string]string{
+       "method": c.Request.Method,
+       "route": route, // "/users/:id"
+       "status": strconv.Itoa(c.Writer.Status()),
+       "service": "api",
+     }).Inc()
+   ```
+
+5. **Go httprouter**: Store pattern during route registration
+
+   ```go
+   // httprouter: Must store pattern when registering route
+   // In route registration:
+   router.GET("/users/:id", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+       // Store pattern in context or use middleware wrapper
+       route := "/users/:id" // Pattern from registration
+       metrics.Counter("http_requests_total").
+         WithLabels(map[string]string{
+           "method": r.Method,
+           "route": route,
+           "status": strconv.Itoa(statusCode),
+           "service": "api",
+         }).Inc()
+   })
+   ```
+
+6. **Python FastAPI**: Use `request.scope["route"]`
+
+   ```python
+   # FastAPI: request.scope["route"] provides route pattern
+   route = request.scope.get("route", "unknown")
+   metrics.counter("http_requests_total").labels(
+       method=request.method,
+       route=route,  # "/users/{id}"
+       status=response.status_code,
+       service="api"
+   ).inc()
+   ```
+
+7. **Fallback normalization**: If route template unavailable, use canonical helper
+
+   ```typescript
+   // Canonical normalizeRoute helper for frameworks without route introspection
+   function normalizeRoute(path: string): string {
+     return path
+       .replace(
+         /\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,
+         "/:uuid",
+       ) // UUIDs
+       .replace(/\/\d+/g, "/:id") // Numeric IDs
+       .replace(/\/[0-9a-f]{24}/g, "/:objectid"); // MongoDB ObjectIDs
+   }
+   ```
+
+**Recommendation**: Fulmen helper libraries implementing HTTP metrics SHOULD provide a framework-specific route extractor with fallback to a `normalizeRoute()` utility function per language idioms.
+
+### Histogram Bucket Defaults
+
+**HTTP Request Duration** (`http_request_duration_seconds`):
+
+- **Unit**: Seconds (helpers exposing milliseconds MUST document conversion)
+- **Buckets**: `[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]`
+- **Coverage**: 5ms (fast in-memory) to 10s (slow backend calls)
+
+**HTTP Request/Response Size** (`http_request_size_bytes`, `http_response_size_bytes`):
+
+- **Unit**: Bytes
+- **Buckets**: `[1024, 10240, 102400, 1048576, 10485760, 104857600]`
+- **Coverage**: 1KB to 100MB (1KB, 10KB, 100KB, 1MB, 10MB, 100MB)
+
+### Unit Conversion Requirements
+
+**CRITICAL**: The taxonomy defines metric units as **seconds** (not milliseconds) for duration and **bytes** for sizes. Helper libraries MUST emit values in these canonical units to ensure bucket alignment across languages.
+
+**Duration metrics** (`http_request_duration_seconds`):
+
+- Taxonomy unit: **seconds**
+- Helper APIs MAY expose millisecond interfaces for developer convenience
+- **MUST convert milliseconds to seconds before calling histogram.observe()**
+
+**Size metrics** (`http_request_size_bytes`, `http_response_size_bytes`):
+
+- Taxonomy unit: **bytes**
+- Helpers MUST emit byte values directly (no conversion needed)
+- Avoid kilobytes, megabytes, or other units
+
+#### TypeScript/Node.js Conversion Example
+
+```typescript
+import { metrics } from "@fulmenhq/tsfulmen";
+
+// ❌ WRONG - Emitting milliseconds into seconds histogram
+const startMs = Date.now();
+// ... handle request ...
+const durationMs = Date.now() - startMs;
+metrics.histogram("http_request_duration_seconds").observe(durationMs); // WRONG!
+
+// ✅ CORRECT - Convert milliseconds to seconds before emitting
+const startMs = Date.now();
+// ... handle request ...
+const durationMs = Date.now() - startMs;
+const durationSeconds = durationMs / 1000; // Convert to seconds
+metrics.histogram("http_request_duration_seconds").observe(durationSeconds);
+
+// ✅ ALTERNATIVE - Helper wrapper with automatic conversion
+function observeDuration(metricName: string, durationMs: number) {
+  const durationSeconds = durationMs / 1000;
+  metrics.histogram(metricName).observe(durationSeconds);
+}
+
+const startMs = Date.now();
+// ... handle request ...
+observeDuration("http_request_duration_seconds", Date.now() - startMs);
+```
+
+#### Go Conversion Example
+
+```go
+import (
+	"time"
+	"github.com/fulmenhq/gofulmen/telemetry"
+)
+
+// ❌ WRONG - Emitting milliseconds or nanoseconds
+start := time.Now()
+// ... handle request ...
+durationMs := time.Since(start).Milliseconds()
+telemetry.Histogram("http_request_duration_seconds").Observe(float64(durationMs)) // WRONG!
+
+// ✅ CORRECT - Use time.Since().Seconds() for automatic conversion
+start := time.Now()
+// ... handle request ...
+durationSeconds := time.Since(start).Seconds() // Returns float64 in seconds
+telemetry.Histogram("http_request_duration_seconds").Observe(durationSeconds)
+
+// ✅ ALTERNATIVE - Explicit conversion if needed
+duration := time.Since(start)
+durationSeconds := duration.Seconds() // Or: float64(duration) / float64(time.Second)
+telemetry.Histogram("http_request_duration_seconds").Observe(durationSeconds)
+```
+
+#### Python Conversion Example
+
+```python
+import time
+from fulmenhq.pyfulmen import metrics
+
+# ❌ WRONG - Emitting milliseconds
+start = time.time()
+# ... handle request ...
+duration_ms = (time.time() - start) * 1000
+metrics.histogram("http_request_duration_seconds").observe(duration_ms)  # WRONG!
+
+# ✅ CORRECT - time.time() already returns seconds
+start = time.time()
+# ... handle request ...
+duration_seconds = time.time() - start  # Already in seconds
+metrics.histogram("http_request_duration_seconds").observe(duration_seconds)
+
+# ✅ ALTERNATIVE - Explicit conversion if using perf_counter
+start = time.perf_counter()
+# ... handle request ...
+duration_seconds = time.perf_counter() - start  # perf_counter also returns seconds
+metrics.histogram("http_request_duration_seconds").observe(duration_seconds)
+```
+
+**Size Handling** (no conversion needed):
+
+```typescript
+// TypeScript: Content-Length headers are already in bytes
+const reqSize = parseInt(req.get("content-length") || "0", 10); // Bytes
+metrics.histogram("http_request_size_bytes").observe(reqSize); // ✅ Correct
+```
+
+```go
+// Go: ContentLength is already in bytes
+reqSize := r.ContentLength // int64, bytes
+telemetry.Histogram("http_request_size_bytes").Observe(float64(reqSize)) // ✅ Correct
+```
+
+```python
+# Python: Content-Length headers are already in bytes
+req_size = int(request.headers.get("content-length", 0))  # Bytes
+metrics.histogram("http_request_size_bytes").observe(req_size)  # ✅ Correct
+```
+
+### Outcome Label (Optional)
+
+The `outcome` label groups HTTP status codes into coarse categories for simplified dashboards:
+
+| Outcome | Status Codes | Meaning      |
+| ------- | ------------ | ------------ |
+| `2xx`   | 200-299      | Success      |
+| `4xx`   | 400-499      | Client error |
+| `5xx`   | 500-599      | Server error |
+
+**When to use**:
+
+- ✅ High-level dashboards showing success/error rates
+- ✅ Alerts based on error rate thresholds
+
+**When NOT to use**:
+
+- ❌ Detailed debugging (use `status` label for specific codes)
+- ❌ When you need to distinguish 404 vs 403, 500 vs 503, etc.
+
+**Derivation**: Helpers MAY automatically populate `outcome` from `status`:
+
+```typescript
+function deriveOutcome(status: number): string {
+  if (status >= 200 && status < 300) return "2xx";
+  if (status >= 400 && status < 500) return "4xx";
+  if (status >= 500 && status < 600) return "5xx";
+  return "other";
+}
+```
+
+### Implementation Examples
+
+**TypeScript (Express)**:
+
+```typescript
+import { metrics } from "@fulmenhq/tsfulmen";
+
+app.use((req, res, next) => {
+  const start = Date.now();
+
+  // Track active requests
+  metrics.gauge("http_active_requests").labels({ service: "api" }).inc();
+
+  // Capture request size
+  const reqSize = parseInt(req.get("content-length") || "0", 10);
+  metrics
+    .histogram("http_request_size_bytes")
+    .labels({
+      method: req.method,
+      route: req.route?.path || "unknown",
+      service: "api",
+    })
+    .observe(reqSize);
+
+  res.on("finish", () => {
+    const duration = (Date.now() - start) / 1000; // Convert ms to seconds
+    const route = req.route?.path || "unknown";
+    const status = res.statusCode.toString();
+
+    // Record request
+    metrics
+      .counter("http_requests_total")
+      .labels({ method: req.method, route, status, service: "api" })
+      .inc();
+
+    // Record duration
+    metrics
+      .histogram("http_request_duration_seconds")
+      .labels({ method: req.method, route, status, service: "api" })
+      .observe(duration);
+
+    // Record response size
+    const resSize = parseInt(res.get("content-length") || "0", 10);
+    metrics
+      .histogram("http_response_size_bytes")
+      .labels({ method: req.method, route, status, service: "api" })
+      .observe(resSize);
+
+    // Decrement active requests
+    metrics.gauge("http_active_requests").labels({ service: "api" }).dec();
+  });
+
+  next();
+});
+```
+
+**Go (net/http with chi router)**:
+
+```go
+import (
+	"github.com/go-chi/chi/v5"
+	"github.com/fulmenhq/gofulmen/telemetry"
+)
+
+func httpMetricsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
+		// Track active requests
+		telemetry.Gauge("http_active_requests").
+			WithLabels(map[string]string{"service": "api"}).
+			Inc()
+
+		// Capture request size
+		reqSize := r.ContentLength
+		if reqSize > 0 {
+			route := chi.RouteContext(r.Context()).RoutePattern()
+			telemetry.Histogram("http_request_size_bytes").
+				WithLabels(map[string]string{
+					"method": r.Method,
+					"route": route,
+					"service": "api",
+				}).
+				Observe(float64(reqSize))
+		}
+
+		// Wrap response writer to capture status and size
+		wrapped := &responseWriter{ResponseWriter: w, statusCode: 200}
+		next.ServeHTTP(wrapped, r)
+
+		// Record metrics after response
+		duration := time.Since(start).Seconds()
+		route := chi.RouteContext(r.Context()).RoutePattern()
+		status := strconv.Itoa(wrapped.statusCode)
+
+		telemetry.Counter("http_requests_total").
+			WithLabels(map[string]string{
+				"method": r.Method,
+				"route": route,
+				"status": status,
+				"service": "api",
+			}).
+			Inc()
+
+		telemetry.Histogram("http_request_duration_seconds").
+			WithLabels(map[string]string{
+				"method": r.Method,
+				"route": route,
+				"status": status,
+				"service": "api",
+			}).
+			Observe(duration)
+
+		telemetry.Histogram("http_response_size_bytes").
+			WithLabels(map[string]string{
+				"method": r.Method,
+				"route": route,
+				"status": status,
+				"service": "api",
+			}).
+			Observe(float64(wrapped.size))
+
+		telemetry.Gauge("http_active_requests").
+			WithLabels(map[string]string{"service": "api"}).
+			Dec()
+	})
+}
+
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+	size       int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+func (rw *responseWriter) Write(b []byte) (int, error) {
+	n, err := rw.ResponseWriter.Write(b)
+	rw.size += n
+	return n, err
+}
+```
+
+**Python (FastAPI)**:
+
+```python
+from fastapi import FastAPI, Request
+from fulmenhq.pyfulmen import metrics
+import time
+
+app = FastAPI()
+
+@app.middleware("http")
+async def http_metrics_middleware(request: Request, call_next):
+    start = time.time()
+
+    # Track active requests
+    metrics.gauge("http_active_requests").labels(service="api").inc()
+
+    # Capture request size
+    req_size = int(request.headers.get("content-length", 0))
+    route = request.scope.get("route", "unknown")
+    if req_size > 0:
+        metrics.histogram("http_request_size_bytes").labels(
+            method=request.method,
+            route=route,
+            service="api"
+        ).observe(req_size)
+
+    # Process request
+    response = await call_next(request)
+
+    # Record metrics after response
+    duration = time.time() - start
+    status = str(response.status_code)
+
+    metrics.counter("http_requests_total").labels(
+        method=request.method,
+        route=route,
+        status=status,
+        service="api"
+    ).inc()
+
+    metrics.histogram("http_request_duration_seconds").labels(
+        method=request.method,
+        route=route,
+        status=status,
+        service="api"
+    ).observe(duration)
+
+    # Response size (if available)
+    res_size = int(response.headers.get("content-length", 0))
+    if res_size > 0:
+        metrics.histogram("http_response_size_bytes").labels(
+            method=request.method,
+            route=route,
+            status=status,
+            service="api"
+        ).observe(res_size)
+
+    metrics.gauge("http_active_requests").labels(service="api").dec()
+
+    return response
+```
+
+### Cardinality Budget
+
+Assuming typical application parameters:
+
+- Methods: 5 (GET, POST, PUT, DELETE, PATCH)
+- Routes: 50 (templated routes)
+- Status codes: 20 (200, 201, 400, 401, 403, 404, 500, 503, etc.)
+- Services: 1 per deployment
+
+**Estimated time series per metric**:
+
+- `http_requests_total`: 5 × 50 × 20 × 1 = **5,000 series**
+- `http_request_duration_seconds`: 5 × 50 × 20 × 1 × 11 buckets = **55,000 series**
+- `http_request_size_bytes`: 5 × 50 × 1 × 6 buckets = **1,500 series**
+- `http_response_size_bytes`: 5 × 50 × 20 × 1 × 6 buckets = **30,000 series**
+- `http_active_requests`: 1 = **1 series**
+
+**Total**: ~92,000 time series per service
+
+**Mitigation**: This is acceptable for modern Prometheus/Grafana deployments. If cardinality becomes an issue:
+
+1. Reduce route count by grouping similar endpoints
+2. Use `outcome` instead of `status` for less critical metrics
+3. Sample high-cardinality routes (e.g., only instrument top N routes)
+
 ## Prometheus Exporter Metrics
 
 Helper libraries shipping Prometheus exporters (gofulmen, pyfulmen ≥v0.1.10, tsfulmen ≥v0.1.8) emit
@@ -201,11 +745,13 @@ sum by (error_type) (rate(prometheus_exporter_refresh_errors_total[5m]))
 
 ### Prometheus Client Default Metrics
 
+⚠️ **CRITICAL WARNING for TypeScript/Node.js (prom-client)**: The `prom-client` library automatically emits `http_requests_total` and `http_request_duration_seconds` when using Express middleware, which **COLLIDES with taxonomy HTTP metrics**. This creates duplicate time series with different label sets, breaking dashboards and queries. You MUST disable prom-client defaults before instrumenting with taxonomy metrics.
+
 Many Prometheus client libraries emit default metrics:
 
-- Node.js (`prom-client`): `http_requests_total`, `http_request_duration_seconds`, process metrics
-- Python (`prometheus-client`): `process_*`, `python_gc_*`, platform metrics
-- Go (`prometheus/client_golang`): `go_*`, process metrics
+- Node.js (`prom-client`): `http_requests_total`, `http_request_duration_seconds`, `process_*`, `nodejs_*` ⚠️ **Collides with HTTP taxonomy metrics**
+- Python (`prometheus-client`): `process_*`, `python_gc_*`, platform metrics (no HTTP collision)
+- Go (`prometheus/client_golang`): `go_*`, `process_*` metrics (no HTTP collision)
 
 **Recommendation**: Disable client library defaults to prevent duplicate time series and reduce cardinality.
 

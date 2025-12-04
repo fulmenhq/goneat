@@ -166,8 +166,7 @@ languageOverrides:
       - config-path-api
       - schema-validation
       - crucible-shim
-      - foundry
-    notes: "rsfulmen planned post-logging stabilization; extensions deferred."
+    notes: "rsfulmen foundation enabled v0.2.21; codegen artifacts active."
   - language: csharp
     planned:
       - config-path-api

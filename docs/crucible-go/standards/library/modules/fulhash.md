@@ -2,9 +2,9 @@
 title: "FulHash Module Standard"
 description: "Shared hashing API for block and streaming checksums across Fulmen helper libraries"
 author: "Schema Cartographer"
-date: "2025-10-23"
-last_updated: "2025-10-23"
-status: "draft"
+date: "2025-11-21"
+last_updated: "2025-11-21"
+status: "approved"
 tags:
   [
     "standards",
@@ -13,7 +13,9 @@ tags:
     "checksums",
     "xxh3-128",
     "sha256",
-    "2025.10.3",
+    "crc32",
+    "crc32c",
+    "2025.11.20",
   ]
 ---
 
@@ -28,7 +30,7 @@ Provide a consistent, performant hashing API across all Fulmen helper libraries 
 3. **Change detection** (sync workflows, build systems)
 4. **Tamper detection** (optional cryptographic verification)
 
-By standardizing on two algorithms (`xxh3-128` for speed, `sha256` for security) with identical metadata formatting, FulHash ensures cross-language interoperability and prevents implementation drift.
+By standardizing on a curated set of algorithms (speed, security, compatibility) with identical metadata formatting, FulHash ensures cross-language interoperability and prevents implementation drift.
 
 ## Core Capabilities
 
@@ -114,16 +116,68 @@ algo, hex_value = fulhash.parse_checksum(checksum)
 - Hex MUST be lowercase
 - Separator MUST be single colon (`:`)
 
+### 4. Convenience Interfaces
+
+#### MultiHash
+
+Calculate multiple digests in a single pass (I/O optimization).
+
+**Signature**: `MultiHash(data/reader, algorithms[]) -> Map<Algorithm, Digest>`
+
+**Use Case**: Calculate `sha256` for security and `crc32` for legacy metadata simultaneously while reading a stream once.
+
+**Go**:
+
+```go
+digests, err := fulhash.MultiHashString("content", []Algorithm{XXH3_128, SHA256})
+fmt.Println(digests[XXH3_128].Hex)
+fmt.Println(digests[SHA256].Hex)
+```
+
+#### Verify
+
+Helper to verify data against an expected digest.
+
+**Signature**: `Verify(reader, expected_digest) -> bool`
+
+**Behavior**:
+
+- Returns `true` if hash matches.
+- Returns `false` if hash mismatches.
+- Raises `IntegrityError` (or language equivalent) on I/O failure or malformed digest.
+
+**Python**:
+
+```python
+valid = fulhash.verify(file_path, "sha256:e3b0c44...")
+```
+
+## Code Generation
+
+FulHash types and enums are **auto-generated** to ensure SSOT compliance.
+
+- **Source**: `schemas/taxonomy/library/fulhash/algorithms/v1.0.0/algorithms.yaml`
+- **Command**: `make codegen-fulhash`
+- **Outputs**:
+  - Go: `fulhash/types.go`
+  - Python: `src/crucible/fulhash/types.py`
+  - TypeScript: `src/fulhash/types.ts`
+
+Implementers MUST use these generated types for `Algorithm` enums and `Digest` structs.
+
 ## Algorithms
 
 | Algorithm  | Bit Width | Purpose                 | Default | Performance       |
 | ---------- | --------- | ----------------------- | ------- | ----------------- |
 | `xxh3-128` | 128-bit   | Fast change detection   | ✅ Yes  | ~50-100 GB/s      |
+| `crc32`    | 32-bit    | Archive compatibility   | No      | ~1-5 GB/s         |
+| `crc32c`   | 32-bit    | Cloud/HW accelerated    | No      | ~10-30 GB/s       |
 | `sha256`   | 256-bit   | Cryptographic integrity | No      | ~500 MB/s - 2GB/s |
 
 **Selection Criteria**:
 
 - **xxh3-128**: Default for Pathfinder, Docscribe, cache keys. Non-cryptographic but excellent collision resistance for integrity checks.
+- **crc32/crc32c**: Use when interoperability with legacy systems (ZIP, GZIP) or specific cloud APIs (GCS) is required. NOT suitable for collision resistance against malicious inputs.
 - **sha256**: Opt-in for tamper detection, release artifact verification, security-sensitive workflows.
 
 **Future Algorithms**: BLAKE3, SHA-512 may be added in future revisions; implementations MUST reject unsupported algorithms with clear error messages.
@@ -134,12 +188,12 @@ algo, hex_value = fulhash.parse_checksum(checksum)
 
 Represents a computed hash with metadata.
 
-| Field       | Type   | Description                                     |
-| ----------- | ------ | ----------------------------------------------- |
-| `algorithm` | string | Algorithm identifier (`"xxh3-128"`, `"sha256"`) |
-| `hex`       | string | Lowercase hexadecimal representation            |
-| `bytes`     | bytes  | Raw hash bytes (language-specific type)         |
-| `formatted` | string | Prefixed format: `"<algorithm>:<hex>"`          |
+| Field       | Type   | Description                                                            |
+| ----------- | ------ | ---------------------------------------------------------------------- |
+| `algorithm` | string | Algorithm identifier (`"xxh3-128"`, `"crc32"`, `"crc32c"`, `"sha256"`) |
+| `hex`       | string | Lowercase hexadecimal representation                                   |
+| `bytes`     | bytes  | Raw hash bytes (language-specific type)                                |
+| `formatted` | string | Prefixed format: `"<algorithm>:<hex>"`                                 |
 
 Canonical schema: [`digest.schema.json`](../../../schemas/library/fulhash/v1.0.0/digest.schema.json)
 
@@ -287,6 +341,7 @@ type StreamHasher interface {
 
 - `xxhash` package (PyPI, BSD-2-Clause)
 - `hashlib` (stdlib)
+- `google-crc32c` (Optional but Recommended for CRC32C performance)
 
 **Async Support**: Provide async variants for streaming:
 
@@ -363,4 +418,5 @@ async function hashFile(path: string, algorithm: Algorithm): Promise<Digest> {
 
 ## Changelog
 
+- **2025-11-21**: Added CRC32, CRC32C, MultiHash, Verify, and Codegen requirements (v0.2.20)
 - **2025-10-23**: Initial draft for 2025.10.3 release

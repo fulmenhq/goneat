@@ -48,7 +48,7 @@
     "middleware": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/middlewareConfig"
+        "$ref": "https://schemas.fulmenhq.dev/crucible/observability/logging/middleware-config-v1.0.0.json"
       },
       "description": "Middleware pipeline applied to log events (required for ENTERPRISE profile)."
     },
@@ -345,35 +345,6 @@
           }
         }
       ]
-    },
-    "middlewareConfig": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Middleware identifier (built-in or custom)."
-        },
-        "enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable or disable this middleware entry."
-        },
-        "order": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Execution order within the middleware pipeline."
-        },
-        "config": {
-          "type": "object",
-          "additionalProperties": true,
-          "description": "Middleware-specific configuration payload."
-        }
-      },
-      "required": [
-        "name"
-      ],
-      "additionalProperties": false
     },
     "throttlingConfig": {
       "type": "object",

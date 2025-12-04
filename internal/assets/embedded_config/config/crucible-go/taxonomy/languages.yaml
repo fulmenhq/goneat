@@ -22,9 +22,9 @@ languages:
   - key: rust
     name: Rust
     libraryName: rsfulmen
-    status: planned
+    status: active
     minimumRuntime: "1.70"
-    notes: "Specification work begins after helper logging schema enhancements"
+    notes: "Foundation enabled in v0.2.21; consumes generated codegen artifacts"
   - key: csharp
     name: C#
     libraryName: csfulmen

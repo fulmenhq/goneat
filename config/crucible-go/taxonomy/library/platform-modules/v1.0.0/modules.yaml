@@ -549,8 +549,43 @@ modules:
         typescript: []
     status: active
     added_version: "0.2.10"
-
-# ============================================================================
-# SPECIALIZED TIER - Opt-in via extras/optional installs
-# ============================================================================
-# (Currently empty - fulencoding and fulpack-formats planned for v0.2.11)
+    # ============================================================================
+    # SPECIALIZED TIER - Opt-in via extras/optional installs
+    # ============================================================================
+    # (Currently empty - fulencode planned for future releases)
+  - module_name: fulencode
+    tier: specialized
+    description: Encoding/decoding operations (Base64, Base32, Hex, UTF detection, Unicode normalization)
+    rationale: Specialized encoding needs; Common-tier operations with security-first design
+    evidence:
+      has_schema: true
+      schema_path: schemas/library/fulencode/v1.0.0/
+      has_config: false
+    languages:
+      go:
+        status: planned
+        package: github.com/fulmenhq/gofulmen/fulencode
+        version: "0.2.12"
+        implementation: "Wraps stdlib encoding/base64, encoding/hex, unicode/utf8"
+      python:
+        status: planned
+        package: pyfulmen.fulencode
+        version: "0.2.12"
+        implementation: "Wraps stdlib base64, binascii, unicodedata"
+      typescript:
+        status: planned
+        package: "@fulmenhq/tsfulmen/fulencode"
+        version: "0.2.12"
+        implementation: "Wraps Node.js Buffer API and native encoding methods"
+    dependencies:
+      required_modules: []
+      external_deps:
+        go: []
+        python: []
+        typescript: []
+    status: active
+    added_version: "0.2.12"
+    graduation_metrics:
+      adoption_threshold: "Used in 3+ production applications"
+      stability_threshold: "6 months without breaking changes"
+    sunset_date: "2026-11-16"

@@ -44,6 +44,11 @@ $defs:
       - fulhash_hash_string_total
       - fulhash_bytes_hashed_total
       - fulhash_operation_ms
+      - http_requests_total
+      - http_request_duration_seconds
+      - http_request_size_bytes
+      - http_response_size_bytes
+      - http_active_requests
   metricUnit:
     type: string
     enum:
@@ -70,6 +75,16 @@ properties:
             description: Default millisecond buckets used when metric name ends with `_ms`.
             items:
               type: number
+          seconds_metrics:
+            type: array
+            description: Default second buckets used when metric unit is `s` (for HTTP latency and duration metrics).
+            items:
+              type: number
+          bytes_metrics:
+            type: array
+            description: Default byte buckets used when metric name ends with `_bytes` (for HTTP request/response size metrics).
+            items:
+              type: number
         additionalProperties: false
     additionalProperties: false
   metrics:
@@ -93,7 +108,7 @@ required:
   - version
   - metrics
 additionalProperties: false
-version: "0.2.12"
+version: "0.2.22"
 defaults:
   histogram_buckets:
     ms_metrics:
@@ -106,6 +121,25 @@ defaults:
       - 1000
       - 5000
       - 10000
+    seconds_metrics:
+      - 0.005
+      - 0.01
+      - 0.025
+      - 0.05
+      - 0.1
+      - 0.25
+      - 0.5
+      - 1
+      - 2.5
+      - 5
+      - 10
+    bytes_metrics:
+      - 1024
+      - 10240
+      - 102400
+      - 1048576
+      - 10485760
+      - 104857600
 metrics:
   - name: schema_validations
     unit: count
@@ -269,3 +303,28 @@ metrics:
     unit: ms
     description: >
       Hash operation latency in milliseconds for all algorithms. Uses ADR-0007 buckets: [1, 5, 10, 50, 100, 500, 1000, 5000, 10000]. Enables performance benchmarking across XXH3-128 and SHA256.
+
+  - name: http_requests_total
+    unit: count
+    description: >
+      Total HTTP server requests received. Counter metric tracking all HTTP requests by method, route, status, and service. Required labels: method (GET/POST/etc), route (templated path like /users/:id to avoid cardinality), status (HTTP status code), service (service identifier). Optional labels: outcome (2xx/4xx/5xx grouping derived from status). IMPORTANT: Use normalized/templated routes (e.g., /users/:id, not /users/123) to prevent cardinality explosion. Helpers SHOULD provide route normalization utilities.
+
+  - name: http_request_duration_seconds
+    unit: s
+    description: >
+      HTTP server request duration in seconds. Histogram metric measuring request latency from receipt to response. Uses default seconds buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]. Required labels: method, route (templated), status, service. Optional labels: outcome. Helpers exposing millisecond APIs MUST document unit conversion (1 second = 1000 ms). Use templated routes to control cardinality.
+
+  - name: http_request_size_bytes
+    unit: bytes
+    description: >
+      HTTP server request body size in bytes. Histogram metric measuring incoming request payload sizes. Uses default bytes buckets: [1024, 10240, 102400, 1048576, 10485760, 104857600] (1KB to 100MB). Required labels: method, route (templated), service. Enables monitoring payload patterns and capacity planning. Use templated routes to avoid cardinality issues.
+
+  - name: http_response_size_bytes
+    unit: bytes
+    description: >
+      HTTP server response body size in bytes. Histogram metric measuring outgoing response payload sizes. Uses default bytes buckets: [1024, 10240, 102400, 1048576, 10485760, 104857600] (1KB to 100MB). Required labels: method, route (templated), status, service. Optional labels: outcome. Tracks bandwidth usage and response patterns. Use templated routes to prevent cardinality explosion.
+
+  - name: http_active_requests
+    unit: count
+    description: >
+      Number of HTTP requests currently being processed. Gauge metric tracking concurrent request load. Required labels: service. Intentionally minimal labels to avoid cardinality. Helps monitor server capacity and saturation. Increment on request start, decrement on completion.

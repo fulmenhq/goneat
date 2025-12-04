@@ -2,8 +2,8 @@
 title: Installing Package Managers on a Fresh Workstation
 description: Step-by-step guidance for installing Homebrew, Scoop, Winget, and Linux package managers before running goneat doctor
 author: Arch Eagle (@arch-eagle)
-last_updated: 2025-12-01
-version: v0.3.10
+last_updated: 2025-12-04
+version: v0.3.13
 ---
 
 # Installing Package Managers on a Fresh Workstation
@@ -52,6 +52,33 @@ goneat doctor tools --scope foundation --install --yes --no-cooling
 - GitHub Actions runners (ubuntu-latest, macos-latest)
 - Fresh macOS/Linux workstations
 - Any system with curl and bash
+
+## CI/CD PATH Persistence (v0.3.13+)
+
+In CI environments like GitHub Actions, PATH modifications in one step don't persist to subsequent steps. **v0.3.13** improves tool detection to work around this, but for explicit PATH persistence use:
+
+```yaml
+# .github/workflows/ci.yml
+- name: Bootstrap tools
+  run: |
+    make bootstrap
+    # Persist shim paths for subsequent steps (brew bin, go bin, etc.)
+    ./bin/goneat doctor tools env --github >> $GITHUB_PATH
+
+- name: Verify tools accessible
+  run: |
+    which prettier  # Verifies brew-installed tool is in PATH
+    which yamlfmt
+    ./bin/goneat format --check
+```
+
+**Key improvements in v0.3.13**:
+
+1. **`goneat doctor tools env --github`** now correctly outputs brew bin directory on Linux (even before brew is in PATH)
+2. **`goneat format`** automatically checks shim directories when tools aren't in PATH
+3. **`DetectBrew()`** checks system paths directly (`/home/linuxbrew/.linuxbrew/bin/brew`) without relying on PATH
+
+**Fallback behavior**: Even without `>> $GITHUB_PATH`, goneat format will find tools installed via brew by checking known shim directories.
 
 ## Semi-Automatic Bootstrap (v0.3.6 pattern)
 
