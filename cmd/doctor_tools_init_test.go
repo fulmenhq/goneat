@@ -128,6 +128,56 @@ func TestDoctorToolsInitGeneratesAllStandardScopes(t *testing.T) {
 	}
 }
 
+func TestDoctorToolsInitGeneratesYamlfmtCompatibleFile(t *testing.T) {
+	// Regression test for: generated .goneat/tools.yaml must be yamlfmt-compatible
+	// Bug: yaml.Marshal with default settings produced non-yamlfmt-compatible output
+	// Fix: Use yaml.NewEncoder with SetIndent(2) to match .yamlfmt configuration
+	tmpDir := t.TempDir()
+
+	_, err := runDoctorToolsInitInDir(t, tmpDir, toolsInitOptions{
+		language: "go",
+		force:    true,
+	})
+	if err != nil {
+		t.Fatalf("doctor tools init failed: %v", err)
+	}
+
+	// Verify the generated file is valid YAML and can be parsed
+	config := loadGeneratedToolsConfig(t, tmpDir)
+	if len(config.Tools) == 0 {
+		t.Fatal("expected generated config to contain tools")
+	}
+
+	// Verify indentation is correct (2 spaces as per .yamlfmt)
+	configPath := filepath.Join(tmpDir, ".goneat", "tools.yaml")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("failed to read generated config: %v", err)
+	}
+
+	content := string(data)
+
+	// Check that indentation uses 2 spaces (not tabs or 4 spaces)
+	// Look for a line that should be indented (e.g., inside scopes)
+	lines := strings.Split(content, "\n")
+	foundProperIndent := false
+	for _, line := range lines {
+		// Look for lines that start with 2 spaces (first level indent)
+		if strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "    ") && !strings.HasPrefix(line, "  #") {
+			foundProperIndent = true
+			// Verify it's using spaces, not tabs
+			if strings.HasPrefix(line, "\t") {
+				t.Fatal("generated file uses tabs instead of spaces for indentation")
+			}
+			break
+		}
+	}
+
+	if !foundProperIndent {
+		t.Fatal("could not verify proper 2-space indentation in generated file")
+	}
+}
+
 type toolsInitOptions struct {
 	language string
 	scope    string
