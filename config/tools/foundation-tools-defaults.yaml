@@ -73,7 +73,7 @@ foundation_tools:
     description: "Fast linters runner for Go"
     kind: "go"
     detect_command: "golangci-lint --version"
-    install_package: "github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
+    install_package: "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest"
     version_args: ["--version"]
     check_args: ["--help"]
     package_managers:
@@ -81,7 +81,7 @@ foundation_tools:
     auto_install_safe: true
     required_for_languages: ["go"]
     version_scheme: "semver"
-    minimum_version: "1.54.0"
+    minimum_version: "2.0.0"
     recommended_version: "2.4.0"
   - name: yamlfmt
     description: "YAML formatter and linter"
