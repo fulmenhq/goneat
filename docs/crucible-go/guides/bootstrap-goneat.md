@@ -3,8 +3,8 @@ title: "Goneat Bootstrap Guide"
 description: "Installing the goneat CLI via package managers or local overrides"
 author: "Schema Cartographer"
 date: "2025-10-09"
-last_updated: "2025-10-09"
-status: "draft"
+last_updated: "2025-12-08"
+status: "reference"
 tags: ["bootstrap", "goneat", "tools"]
 ---
 
@@ -16,28 +16,47 @@ manual bootstraps are needed.
 
 ## 1. Preferred Installation (Package Managers)
 
-As soon as taps/buckets are live, install goneat via your platform package manager:
+Install goneat via your platform package manager:
 
 ```bash
-# macOS (Homebrew)
-brew install goneat
+# macOS/Linux (Homebrew)
+brew install fulmenhq/tap/goneat
 
 # Windows (Scoop)
+scoop bucket add fulmenhq https://github.com/fulmenhq/scoop-bucket
 scoop install goneat
 
-# Linux (Homebrew on Linux or distro-specific packages)
-brew install goneat
+# Go install (cross-platform)
+go install github.com/fulmenhq/goneat@latest
 ```
 
 Package manager installs keep goneat on `$PATH` for CI/CD and local development. Scripts should invoke `goneat`
 directly rather than assuming `./bin/goneat`.
 
-You can also manually download and place in a folder that is in your machine's `$PATH` as well.
+You can also manually download release archives from [GitHub Releases](https://github.com/fulmenhq/goneat/releases) and place the binary in a folder on your `$PATH`.
+
+### CI Runners: Container Approach (Recommended)
+
+For CI runners, consider using the `goneat-tools` container instead of package manager installation:
+
+```yaml
+# .github/workflows/ci.yml
+jobs:
+  format-check:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/fulmenhq/goneat-tools:latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: goneat format --check .
+```
+
+This avoids package manager friction entirely. See [Bootstrap Patterns](../../appnotes/bootstrap-patterns.md) for more details.
 
 ## 2. Bootstrap Fallback (Manual Download)
 
-Until package managers are ready—or when you need a pinned binary—use the repository bootstrap script hosted at
-`scripts/bootstrap-tools.ts`.
+When you need a pinned binary or want repository-local tool management, use a bootstrap script.
+See [Bootstrap Patterns](../../appnotes/bootstrap-patterns.md) for detailed patterns.
 
 ### 2.1 Requirements
 
@@ -133,4 +152,4 @@ To find the latest released version:
 2. Or clone the repository and run its release workflow (`make dist` or `make release:preview`) to produce local
    binaries in `dist/` for use with the override manifest.
 
-Once package manager taps are published, update this guide with exact commands and any platform-specific flags.
+For the latest installation methods and platform-specific details, see the main [README](../../../README.md).

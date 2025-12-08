@@ -4,10 +4,10 @@
 
 goneat validates **two approaches** for tool availability in CI, with clear guidance on when to use each:
 
-| Path | Approach | Friction | Recommended For |
-|------|----------|----------|-----------------|
-| **Container** | `ghcr.io/fulmenhq/goneat-tools` | LOW | CI runners (always) |
-| **Package Manager** | `goneat doctor tools --install` | HIGHER | Local dev, platforms without container support |
+| Path                | Approach                        | Friction | Recommended For                                |
+| ------------------- | ------------------------------- | -------- | ---------------------------------------------- |
+| **Container**       | `ghcr.io/fulmenhq/goneat-tools` | LOW      | CI runners (always)                            |
+| **Package Manager** | `goneat doctor tools --install` | HIGHER   | Local dev, platforms without container support |
 
 ### CI Workflow Structure
 
@@ -22,6 +22,7 @@ bootstrap-probe  ← HIGHER friction, validates second
 ```
 
 **Why this order?**
+
 - Container path is the recommended CI approach - validate it first
 - Don't waste cycles on package manager issues if container fails
 - Gives users confidence: "If goneat CI passes, my container-based CI will work"
@@ -32,10 +33,10 @@ bootstrap-probe  ← HIGHER friction, validates second
 
 ### Why Container-Based CI?
 
-| Approach | Confidence | Why |
-|----------|------------|-----|
-| Install tools in runner | LOW | Package manager variability, arm64/amd64 differences, dependency failures |
-| Use goneat-tools container | HIGH | Same container everywhere = same behavior everywhere |
+| Approach                   | Confidence | Why                                                                       |
+| -------------------------- | ---------- | ------------------------------------------------------------------------- |
+| Install tools in runner    | LOW        | Package manager variability, arm64/amd64 differences, dependency failures |
+| Use goneat-tools container | HIGH       | Same container everywhere = same behavior everywhere                      |
 
 ### Benefits for All goneat Users
 
@@ -55,6 +56,7 @@ jobs:
 ```
 
 **What you get:**
+
 - Pre-installed, version-pinned tools (no `npm install`, no `brew install`)
 - Multi-arch support (linux/amd64 + linux/arm64)
 - Consistent formatting across all contributors
@@ -62,15 +64,15 @@ jobs:
 
 ### Tools in goneat-tools
 
-| Tool | Version | Purpose |
-|------|---------|---------|
-| prettier | 3.7.4 | JSON, Markdown, YAML formatting |
-| yamlfmt | v0.20.0 | YAML formatting/linting |
-| jq | 1.8.1 | JSON processing |
-| yq | 4.49.2 | YAML processing |
-| ripgrep | 15.1.0 | Fast text search |
-| git | 2.52.0 | Version control |
-| bash | 5.3.3 | Shell scripting |
+| Tool     | Version | Purpose                         |
+| -------- | ------- | ------------------------------- |
+| prettier | 3.7.4   | JSON, Markdown, YAML formatting |
+| yamlfmt  | v0.20.0 | YAML formatting/linting         |
+| jq       | 1.8.1   | JSON processing                 |
+| yq       | 4.49.2  | YAML processing                 |
+| ripgrep  | 15.1.0  | Fast text search                |
+| git      | 2.52.0  | Version control                 |
+| bash     | 5.3.3   | Shell scripting                 |
 
 Image registry: `ghcr.io/fulmenhq/goneat-tools:latest` (or `:v1.0.0` for pinned version)
 
@@ -104,28 +106,31 @@ make local-ci-all     # All jobs
 
 ### Make Targets
 
-| Target | Job | Description |
-|--------|-----|-------------|
-| `make local-ci-format` | format-check | Runs in goneat-tools container (HIGH confidence) |
-| `make local-ci` | build-test-lint | Go build, test, lint (standard runner) |
-| `make local-ci-all` | All jobs | Runs all CI jobs |
-| `make local-ci-check` | - | Verify prerequisites (Docker + act) |
+| Target                 | Job             | Description                                      |
+| ---------------------- | --------------- | ------------------------------------------------ |
+| `make local-ci-format` | format-check    | Runs in goneat-tools container (HIGH confidence) |
+| `make local-ci`        | build-test-lint | Go build, test, lint (standard runner)           |
+| `make local-ci-all`    | All jobs        | Runs all CI jobs                                 |
+| `make local-ci-check`  | -               | Verify prerequisites (Docker + act)              |
 
 ### Why Local CI is "Nice-to-Have" Now
 
 **Before v0.3.14**: Local CI was important because we needed to catch tool installation failures before pushing.
 
 **After v0.3.14**: Tool-dependent jobs run in the goneat-tools container. The container guarantees consistency:
+
 - Same image on your laptop (via act) = same image on GitHub runners
 - No package manager installs to fail
 - No arm64 vs amd64 tool build differences
 
 **When local CI is still useful:**
+
 - Fast iteration without push/wait cycles
 - Debugging workflow syntax issues
 - Testing changes to non-container jobs
 
 **When to just push to GitHub:**
+
 - You've made code changes (not workflow changes)
 - Container jobs will behave identically anyway
 - You want authoritative amd64 results (if on Apple Silicon)
@@ -140,20 +145,21 @@ act requires a Docker-compatible runtime:
 
 #### macOS / Linux
 
-| Runtime | Install | Start | Notes |
-|---------|---------|-------|-------|
-| **Colima** (recommended) | `brew install docker colima` | `colima start --mount-type sshfs` | Lightweight, CLI-only |
-| Docker Desktop | [Download](https://docker.com/products/docker-desktop) | Open app | Commercial license for large orgs |
-| Rancher Desktop | [Download](https://rancherdesktop.io/) | Open app | Use **dockerd** runtime |
+| Runtime                  | Install                                                | Start                             | Notes                             |
+| ------------------------ | ------------------------------------------------------ | --------------------------------- | --------------------------------- |
+| **Colima** (recommended) | `brew install docker colima`                           | `colima start --mount-type sshfs` | Lightweight, CLI-only             |
+| Docker Desktop           | [Download](https://docker.com/products/docker-desktop) | Open app                          | Commercial license for large orgs |
+| Rancher Desktop          | [Download](https://rancherdesktop.io/)                 | Open app                          | Use **dockerd** runtime           |
 
 #### Windows
 
-| Runtime | Install | Start | Notes |
-|---------|---------|-------|-------|
-| Docker Desktop | [Download](https://docker.com/products/docker-desktop) | Open app | Best WSL2 integration |
-| Rancher Desktop | [Download](https://rancherdesktop.io/) | Open app | Use **dockerd** runtime |
+| Runtime         | Install                                                | Start    | Notes                   |
+| --------------- | ------------------------------------------------------ | -------- | ----------------------- |
+| Docker Desktop  | [Download](https://docker.com/products/docker-desktop) | Open app | Best WSL2 integration   |
+| Rancher Desktop | [Download](https://rancherdesktop.io/)                 | Open app | Use **dockerd** runtime |
 
 **Verify Docker is running:**
+
 ```bash
 docker info
 ```
@@ -174,6 +180,7 @@ goneat doctor tools --install --scope cicd
 ```
 
 **Verify installation:**
+
 ```bash
 act --version
 ```
@@ -185,11 +192,13 @@ act --version
 act reads configuration from `~/.actrc` (user-level) or `./.actrc` (repo-level).
 
 **Recommended**: Copy the goneat template:
+
 ```bash
 cp config/cicd/actrc.template ~/.actrc
 ```
 
 The template configures:
+
 - Runner images for GitHub parity
 - Performance optimizations
 - Apple Silicon compatibility
@@ -204,6 +213,7 @@ GITHUB_TOKEN=ghp_xxxxxxxxxxxx
 ```
 
 Uncomment in `.actrc`:
+
 ```
 --secret-file .secrets
 ```
@@ -217,12 +227,14 @@ Uncomment in `.actrc`:
 ```
 
 **Fix**: Start your Docker runtime:
+
 - Colima: `colima start`
 - Docker Desktop: Open the application
 
 ### Platform Architecture (Apple Silicon)
 
 Local CI runs on your **native architecture**:
+
 - Apple Silicon (M1/M2/M3/M4): arm64
 - Intel Mac / Linux: amd64
 
@@ -233,6 +245,7 @@ Local CI runs on your **native architecture**:
 ### First Run is Slow
 
 First run downloads:
+
 1. **Colima VM** (~1GB): `colima start` first run
 2. **Runner images** (~2-4GB): First `act` run
 3. **goneat-tools image** (~150MB): First container job run
@@ -246,6 +259,7 @@ error while creating mount source path '.../.colima/docker.sock': mkdir ... oper
 ```
 
 **Fix**:
+
 ```bash
 colima delete -f
 colima start --mount-type sshfs

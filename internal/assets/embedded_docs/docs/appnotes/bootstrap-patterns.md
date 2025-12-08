@@ -1,9 +1,9 @@
 # Bootstrap Patterns for goneat
 
 **Status**: Reference Guide
-**Version**: v0.3.10+
+**Version**: v0.3.14+
 **Author**: Arch Eagle (@arch-eagle)
-**Last Updated**: 2025-12-01
+**Last Updated**: 2025-12-08
 
 ---
 
@@ -80,6 +80,106 @@ tools:
       checksum:
         darwin-arm64: "..."
 ```
+
+---
+
+## Pattern 0: Container-Based (Recommended for CI - v0.3.14+)
+
+Best for: CI runners, consistent reproducible environments, zero package manager friction.
+
+**Example**: goneat's own CI workflow
+
+### Why Container-Based?
+
+| Benefit           | Explanation                                           |
+| ----------------- | ----------------------------------------------------- |
+| **Zero friction** | No package manager installation, no PATH manipulation |
+| **Consistent**    | Same tools, same versions, every run                  |
+| **Fast**          | Pre-built image, no installation time                 |
+| **Portable**      | Works on any runner that supports containers          |
+
+### Structure
+
+```
+my-repo/
+├── .github/workflows/
+│   └── ci.yml              # Uses goneat-tools container
+└── .goneat/
+    └── tools.yaml          # Optional: for local dev fallback
+```
+
+### GitHub Actions Workflow
+
+```yaml
+name: CI
+on: [push, pull_request]
+
+jobs:
+  # Container-based format checking (LOW friction)
+  format-check:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/fulmenhq/goneat-tools:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify tools
+        run: |
+          prettier --version
+          yamlfmt --version
+          jq --version
+          yq --version
+          rg --version
+      - name: Check formatting
+        run: |
+          goneat format --check . || echo "Format differences found"
+          yamlfmt -lint .
+          prettier --check "**/*.{md,json}"
+```
+
+### With Artifact Sharing (for custom goneat builds)
+
+If you need to test a custom goneat binary in the container:
+
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+      - run: make build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: goneat-linux
+          path: dist/goneat
+
+  container-probe:
+    needs: [build]
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/fulmenhq/goneat-tools:latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: goneat-linux
+          path: ./bin
+      - run: |
+          chmod +x ./bin/goneat
+          ./bin/goneat doctor tools --scope foundation
+          ./bin/goneat format --check .
+```
+
+### When to Use Container vs Package Manager
+
+| Scenario                       | Recommended Path                                            |
+| ------------------------------ | ----------------------------------------------------------- |
+| CI runners                     | **Container** - zero friction, consistent                   |
+| Local development (first time) | **Package manager** - tools available globally              |
+| Local development (ongoing)    | Either - container via `make local-ci-*` or installed tools |
+| Environments without Docker    | **Package manager** - only option                           |
 
 ---
 
@@ -379,5 +479,5 @@ If your repo has an old `.goneat/tools.yaml` in custom format:
 
 ---
 
-**Document Version**: 2.0
-**Applies to**: goneat v0.3.10+
+**Document Version**: 3.0
+**Applies to**: goneat v0.3.14+

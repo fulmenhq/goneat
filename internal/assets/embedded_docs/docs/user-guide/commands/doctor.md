@@ -4,13 +4,53 @@ Diagnostics and tooling checks to verify (and optionally install) external tools
 
 Available scopes:
 
+- **foundation**: Core development tools (ripgrep, jq, yq, prettier, yamlfmt, golangci-lint)
 - **security**: Security scanning tools (gosec, govulncheck, gitleaks)
 - **format**: Code formatting tools (goimports, gofmt)
-- **infrastructure**: Development and infrastructure CLI tools (ripgrep, jq, go-licenses)
 - **all**: All tools from all scopes
 
 - Command: `goneat doctor`
 - Subcommands: `tools`, `versions`, `env`
+
+## Two Paths for Foundation Tools (v0.3.14+)
+
+goneat supports two approaches for ensuring foundation tools are available:
+
+| Path                | Approach                                           | Friction | Best For                                    |
+| ------------------- | -------------------------------------------------- | -------- | ------------------------------------------- |
+| **Container**       | Run in `ghcr.io/fulmenhq/goneat-tools` container   | LOW      | CI runners, consistent environments         |
+| **Package Manager** | `goneat doctor tools --scope foundation --install` | HIGHER   | Local development, users without containers |
+
+### Container Path (Recommended for CI)
+
+The `goneat-tools` container includes all foundation tools pre-installed. No package manager setup required:
+
+```yaml
+# .github/workflows/ci.yml
+jobs:
+  format-check:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/fulmenhq/goneat-tools:latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          goneat format --check .
+          yamlfmt -lint .
+          prettier --check "**/*.{md,json}"
+```
+
+### Package Manager Path (Local Development)
+
+For local development or environments where containers aren't available:
+
+```bash
+# Initialize tools configuration (creates .goneat/tools.yaml)
+goneat doctor tools init
+
+# Install all foundation tools
+goneat doctor tools --scope foundation --install --yes
+```
 
 ## doctor tools
 
@@ -18,39 +58,54 @@ Check presence, versions, and version policy compliance of supported tools, prin
 
 ### Supported Tools by Scope
 
-| Scope              | Tools                        | Purpose                                      |
-| ------------------ | ---------------------------- | -------------------------------------------- |
-| **security**       | gosec, govulncheck, gitleaks | Security scanning and vulnerability analysis |
-| **format**         | goimports, gofmt             | Code formatting and import management        |
-| **infrastructure** | ripgrep, jq, go-licenses     | Development and infrastructure CLI tools     |
+| Scope          | Tools                                             | Purpose                                      |
+| -------------- | ------------------------------------------------- | -------------------------------------------- |
+| **foundation** | ripgrep, jq, yq, prettier, yamlfmt, golangci-lint | Core development and formatting tools        |
+| **security**   | gosec, govulncheck, gitleaks                      | Security scanning and vulnerability analysis |
+| **format**     | goimports, gofmt                                  | Code formatting and import management        |
 
 ### Usage
 
 #### Basic Usage
 
-- Check infrastructure tools (most common use case):
-  - `goneat doctor tools --scope infrastructure`
+- Check foundation tools (most common use case):
+  - `goneat doctor tools --scope foundation`
 - Check all tools:
   - `goneat doctor tools --scope all`
 - Check specific scope:
-  - `goneat doctor tools` (defaults to `--scope security`)
+  - `goneat doctor tools` (defaults to `--scope foundation`)
   - `goneat doctor tools --scope format`
 - Check specific tools:
-  - `goneat doctor tools --tools ripgrep,jq,go-licenses`
+  - `goneat doctor tools --tools ripgrep,jq,prettier`
+
+#### Initialization (Required for v0.3.7+)
+
+Before using `doctor tools`, initialize the tools configuration:
+
+- Initialize with defaults:
+  - `goneat doctor tools init`
+- Initialize with minimal (CI-safe) tools:
+  - `goneat doctor tools init --minimal`
+- Force re-initialization:
+  - `goneat doctor tools init --force`
+
+This creates `.goneat/tools.yaml` with all standard scopes (foundation, security, format, all).
 
 #### Installation & Dry Run
 
 - Dry run (preview installations):
-  - `goneat doctor tools --scope infrastructure --dry-run`
+  - `goneat doctor tools --scope foundation --dry-run`
 - Install missing tools (non-interactive):
-  - `goneat doctor tools --scope infrastructure --install --yes`
+  - `goneat doctor tools --scope foundation --install --yes`
 - Install with prompts:
-  - `goneat doctor tools --scope infrastructure --install`
+  - `goneat doctor tools --scope foundation --install`
+- Install without cooling policy checks (CI/offline):
+  - `goneat doctor tools --scope foundation --install --yes --no-cooling`
 
 #### Configuration & Validation
 
 - Use custom configuration file:
-  - `goneat doctor tools --config custom-tools.yaml --scope infrastructure`
+  - `goneat doctor tools --config custom-tools.yaml --scope foundation`
 - Validate configuration:
   - `goneat doctor tools --validate-config`
 - List available scopes:
@@ -60,8 +115,8 @@ Check presence, versions, and version policy compliance of supported tools, prin
 
 #### Core Flags
 
-- `--scope security|format|infrastructure|all`
-  Select the tool scope (default: `security`). Use `infrastructure` for CLI tools like ripgrep, jq, go-licenses.
+- `--scope foundation|security|format|all`
+  Select the tool scope (default: `foundation`). Use `foundation` for core development tools.
 
 - `--tools string[,string]`
   Comma-separated list of tool names to target (e.g., `ripgrep,jq,go-licenses`). Overrides `--scope`.
@@ -134,20 +189,23 @@ Check presence, versions, and version policy compliance of supported tools, prin
 
 ### Examples
 
-#### Infrastructure Tools (Most Common Use Case)
+#### Foundation Tools (Most Common Use Case)
 
 ```bash
-# Check infrastructure tools (ripgrep, jq, go-licenses)
-goneat doctor tools --scope infrastructure
+# Check foundation tools (ripgrep, jq, yq, prettier, yamlfmt, golangci-lint)
+goneat doctor tools --scope foundation
 
-# Install missing infrastructure tools non-interactively
-goneat doctor tools --scope infrastructure --install --yes
+# Install missing foundation tools non-interactively
+goneat doctor tools --scope foundation --install --yes
+
+# Install without cooling checks (for CI/offline environments)
+goneat doctor tools --scope foundation --install --yes --no-cooling
 
 # Dry run to see what would be installed
-goneat doctor tools --scope infrastructure --dry-run
+goneat doctor tools --scope foundation --dry-run
 
 # JSON output for CI/CD automation
-goneat doctor tools --scope infrastructure --json
+goneat doctor tools --scope foundation --json
 ```
 
 #### Specific Tools
@@ -170,17 +228,17 @@ goneat doctor tools --validate-config --config .goneat/tools.yaml
 goneat doctor tools --list-scopes
 
 # Use custom configuration
-goneat doctor tools --config custom-tools.yaml --scope infrastructure
+goneat doctor tools --config custom-tools.yaml --scope foundation
 ```
 
 #### Legacy Usage
 
 ```bash
 # Interactive install (prompts for each tool)
-goneat doctor tools --scope infrastructure --install
+goneat doctor tools --scope foundation --install
 
 # Print instructions only (legacy, use --dry-run instead)
-goneat doctor tools --scope infrastructure --print-instructions
+goneat doctor tools --scope foundation --print-instructions
 ```
 
 ### Integration Points
@@ -200,12 +258,31 @@ goneat assess --hook pre-push   # Includes tools checking
 
 #### CI/CD Integration
 
+**Option A: Container-based (Recommended - LOW friction)**
+
+```yaml
+# .github/workflows/ci.yml
+jobs:
+  format-check:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/fulmenhq/goneat-tools:latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          goneat format --check .
+          goneat assess --categories format
+```
+
+**Option B: Package manager installation (HIGHER friction)**
+
 ```yaml
 # .github/workflows/ci.yml
 - name: Setup development tools
   run: |
     go install github.com/fulmenhq/goneat@latest
-    goneat doctor tools --scope infrastructure --install --yes
+    goneat doctor tools init
+    goneat doctor tools --scope foundation --install --yes --no-cooling
 
 - name: Run comprehensive assessment
   run: |
