@@ -44,7 +44,7 @@ LDFLAGS := -ldflags "\
 	-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
-.PHONY: help build hooks-ensure clean clean-release clean-all test fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites sync-crucible sync-ssot verify-crucible verify-crucible-clean bootstrap tools lint release-check release-prepare release-build check-all prepush precommit update-homebrew-formula verify-release-key
+.PHONY: help build hooks-ensure clean clean-release clean-all test fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites sync-crucible sync-ssot verify-crucible verify-crucible-clean bootstrap tools lint release-check release-prepare release-build check-all prepush precommit update-homebrew-formula verify-release-key local-ci-check local-ci
 
 # Default target
 all: clean build format-all
@@ -323,6 +323,123 @@ coverage-check: test-coverage ## Enforce coverage threshold based on lifecycle p
 	  if (cov >= thr) { printf "✅ Coverage %.1f%% meets threshold %.1f%% (%s)\n", cov, thr, ph; exit 0 } \
 	  else { printf "❌ Coverage %.1f%% below threshold %.1f%% (%s)\n", cov, thr, ph; exit 1 } \
 	}'
+
+# Local CI runner targets (optional - requires Docker + act)
+#
+# NOTE (v0.3.14+): With goneat-tools container, local CI is now a "nice-to-have"
+# rather than essential. The container-based approach provides HIGH CONFIDENCE
+# that GitHub CI will pass because:
+#   - format-check job runs inside ghcr.io/fulmenhq/goneat-tools container
+#   - Same container on GitHub runners = same behavior everywhere
+#   - Eliminates package manager variability, arm64/amd64 differences
+#
+# Local act runs are useful for quick iteration but not required for confidence.
+# The container IS the contract - if tools work in the image, they work in CI.
+#
+# Setup: cp config/cicd/actrc.template ~/.actrc
+# Docs: docs/cicd/local-runner.md
+local-ci-check: ## Verify local CI prerequisites (Docker + act)
+	@echo "Checking local CI prerequisites..."
+	@if ! docker info > /dev/null 2>&1; then \
+		echo "❌ Docker is not running"; \
+		echo ""; \
+		echo "A Docker-compatible runtime is required. Options:"; \
+		echo ""; \
+		echo "  Colima (recommended for macOS/Linux - lightweight, no licensing concerns):"; \
+		echo "    Install:  brew install docker colima"; \
+		echo "    Start:    colima start --mount-type sshfs"; \
+		echo "    Note:     First run downloads VM image (~1GB), takes 1-3 minutes"; \
+		echo ""; \
+		echo "  Docker Desktop (macOS/Linux/Windows):"; \
+		echo "    Install:  https://docker.com/products/docker-desktop"; \
+		echo "    Start:    Open Docker Desktop application"; \
+		echo "    Note:     Commercial license required for organizations >250 employees"; \
+		echo ""; \
+		echo "  Rancher Desktop (macOS/Linux/Windows):"; \
+		echo "    Install:  https://rancherdesktop.io/"; \
+		echo "    Start:    Open application"; \
+		echo "    Note:     Must select dockerd runtime (Preferences > Container Engine)"; \
+		echo ""; \
+		echo "After starting, verify with: docker info"; \
+		echo "Full guide: docs/cicd/local-runner.md"; \
+		exit 1; \
+	fi
+	@docker_version=$$(docker version --format '{{.Server.Version}}' 2>/dev/null || echo "unknown"); \
+	echo "  docker      running (v$$docker_version)"
+	@if ! command -v act > /dev/null 2>&1; then \
+		echo "❌ act not installed"; \
+		echo ""; \
+		echo "act runs GitHub Actions locally. Install options:"; \
+		echo ""; \
+		echo "  macOS / Linux:"; \
+		echo "    brew install act"; \
+		echo ""; \
+		echo "  Windows:"; \
+		echo "    scoop install act"; \
+		echo "    winget install nektos.act"; \
+		echo ""; \
+		echo "  Or via goneat:"; \
+		echo "    goneat doctor tools --install --scope cicd"; \
+		echo ""; \
+		echo "Full guide: docs/cicd/local-runner.md"; \
+		exit 1; \
+	fi
+	@act_version=$$(act --version 2>/dev/null | head -1 || echo "unknown"); \
+	echo "  act         $$act_version"
+	@if [ ! -f "$$HOME/.actrc" ] && [ ! -f ".actrc" ]; then \
+		echo ""; \
+		echo "⚠️  No .actrc found - using act defaults (may cause failures)"; \
+		echo "   Recommended: cp config/cicd/actrc.template ~/.actrc"; \
+	fi
+	@echo "✅ Local CI prerequisites OK"
+
+local-ci: local-ci-check ## Run CI workflow locally via act (build-test-lint job)
+	@echo "Running CI locally via act..."
+	@echo "Target job: build-test-lint"
+	@arch=$$(uname -m); \
+	if [ "$$arch" = "arm64" ] || [ "$$arch" = "aarch64" ]; then \
+		echo "Architecture: linux/arm64 (Apple Silicon detected)"; \
+		echo "Note: For amd64 parity, use GitHub CI or Daytona"; \
+		echo ""; \
+		act push -j build-test-lint --container-architecture linux/arm64; \
+	else \
+		echo "Architecture: linux/amd64"; \
+		echo ""; \
+		act push -j build-test-lint --container-architecture linux/amd64; \
+	fi
+	@echo ""
+	@echo "✅ Local CI completed"
+
+local-ci-format: local-ci-check ## Run format-check job locally via act (uses goneat-tools container)
+	@echo "Running format-check locally via act..."
+	@echo "Target job: format-check (uses ghcr.io/fulmenhq/goneat-tools)"
+	@arch=$$(uname -m); \
+	if [ "$$arch" = "arm64" ] || [ "$$arch" = "aarch64" ]; then \
+		echo "Architecture: linux/arm64 (Apple Silicon detected)"; \
+		echo ""; \
+		act push -j format-check --container-architecture linux/arm64; \
+	else \
+		echo "Architecture: linux/amd64"; \
+		echo ""; \
+		act push -j format-check --container-architecture linux/amd64; \
+	fi
+	@echo ""
+	@echo "✅ Format check completed"
+
+local-ci-all: local-ci-check ## Run all CI jobs locally via act
+	@echo "Running all CI jobs locally via act..."
+	@arch=$$(uname -m); \
+	if [ "$$arch" = "arm64" ] || [ "$$arch" = "aarch64" ]; then \
+		echo "Architecture: linux/arm64 (Apple Silicon detected)"; \
+		echo ""; \
+		act push --container-architecture linux/arm64; \
+	else \
+		echo "Architecture: linux/amd64"; \
+		echo ""; \
+		act push --container-architecture linux/amd64; \
+	fi
+	@echo ""
+	@echo "✅ All CI jobs completed"
 
 # Format targets
 fmt: build ## Format code using goneat (dogfooding)

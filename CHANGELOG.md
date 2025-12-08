@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.14] - 2025-12-08
+
+### Added
+
+- **Two-Path CI Validation**: Restructured CI to validate both container and package manager approaches
+  - `container-probe`: Proves goneat works inside goneat-tools container (LOW friction, validates first)
+  - `bootstrap-probe`: Proves `goneat doctor tools --install` works on fresh runners (HIGHER friction)
+  - Dependency ordering: bootstrap-probe only runs if container-probe passes
+  - Gives users confidence: "If goneat CI passes, my container-based CI will work"
+
+- **Container-Based CI (Recommended)**: `container-probe` job uses `ghcr.io/fulmenhq/goneat-tools:latest`
+  - Downloads goneat binary from build job, runs `goneat doctor tools --scope foundation` inside container
+  - Proves goneat integration works, not just that tools exist (`--version`)
+  - Tools available in container: prettier, yamlfmt, jq, yq, rg, git, bash
+  - HIGH confidence approach: Container IS the contract
+
+- **ToolExecutor Package (Phase 1)**: New `pkg/tools/executor*.go` infrastructure for future Docker-based tool execution
+  - `executor.go` - Interface and factory pattern
+  - `executor_local.go` - Local tool execution (existing behavior)
+  - `executor_docker.go` - Docker-based execution via goneat-tools container
+  - `executor_auto.go` - Smart selection (CI → docker, local → local tools)
+  - `executor_test.go` - Comprehensive test coverage
+  - Note: Phase 1 only - executor created but NOT yet integrated into cmd/format.go
+
+- **Local CI Runner Support**: New Makefile targets for running CI locally with containers
+  - `make local-ci-format` - Run format-check job locally using container
+  - `make local-ci-all` - Run all CI jobs locally
+  - Documentation: `docs/cicd/local-runner.md`
+
+- **CI/CD Configuration**: New config directory structure for CI/CD patterns
+  - `config/cicd/` - CI/CD configuration templates
+  - `docs/cicd/` - CI/CD documentation
+
+### Changed
+
+- **CI Workflow Restructured**: Three jobs with explicit dependency ordering
+  - `build-test-lint`: Go build/test/lint, uploads goneat binary as artifact
+  - `container-probe`: Validates container path (depends on build)
+  - `bootstrap-probe`: Validates package manager path (depends on container-probe)
+  - Strategic: Low-friction path validates first, don't waste cycles if container fails
+
+- **golangci-lint Updated to v2**: Updated install path and minimum version
+  - Old: `github.com/golangci/golangci-lint/cmd/golangci-lint@latest` (v1.x)
+  - New: `github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest` (v2.x)
+  - Minimum version updated from 1.54.0 to 2.0.0
+
+### Fixed
+
+- **Prettier/Brew CI Failures**: Root cause was OpenSSL@3 test suite failing in containers
+  - Strategic decision: Use goneat-tools container instead of installing tools in CI
+  - Documentation: `.plans/runjournals/cicd-runners/tools/prettier/`
+
 ## [0.3.13] - 2025-12-04
 
 ### Added

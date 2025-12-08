@@ -1,94 +1,136 @@
-# Goneat v0.3.13 — Dynamic yamlfmt Detection & Crucible v0.2.22
+# Goneat v0.3.14 — Container-Based CI & ToolExecutor Infrastructure
 
-**Release Date**: 2025-12-04
+**Release Date**: 2025-12-08
 **Status**: Release
 
 ## TL;DR
 
-- **Enterprise Feature**: `goneat doctor tools init` now auto-detects `.yamlfmt` indent configuration
-- **CI Fix**: Tools installed via brew/bun now properly detected in CI environments
-- **Crucible Update**: Synced to Crucible v0.2.22 with `node` and `python` installer kinds
+- **Two-Path CI Validation**: Validates both container path (LOW friction) and package manager path (HIGHER friction)
+- **Container-Probe**: Proves goneat works inside `ghcr.io/fulmenhq/goneat-tools` container (HIGH confidence)
+- **Bootstrap-Probe**: Validates package manager installation (only runs if container passes)
+- **Infrastructure**: New ToolExecutor package for future Docker-based tool execution
+- **golangci-lint v2**: Updated to v2 install path and minimum version
 
 ## Breaking Changes
 
-None. This is a feature/bugfix release, fully backwards compatible.
+None. This is a feature/infrastructure release, fully backwards compatible.
 
 ## What's New
 
-### Dynamic yamlfmt Indent Detection
+### Two-Path CI Validation
 
-Previously, `goneat doctor tools init` hardcoded 2-space indentation. Now it reads your `.yamlfmt` configuration:
+goneat now validates **two approaches** for tool availability with explicit dependency ordering:
 
-```bash
-# Enterprise repo with 4-space indent
-$ cat .yamlfmt
-formatter:
-  indent: 4
-
-$ goneat doctor tools init --force
-# Generated .goneat/tools.yaml now uses 4-space indent!
+```
+build-test-lint
+       ↓ (uploads goneat binary as artifact)
+container-probe  ← LOW friction, validates first
+       ↓ (only runs if container passes)
+bootstrap-probe  ← HIGHER friction, validates second
 ```
 
-**Features**:
+**Why this matters for users**:
+- Container path is THE recommended approach for CI - validate it first
+- Don't waste cycles on package manager issues if container fails
+- Gives confidence: "If goneat CI passes, my container-based CI will work"
 
-- Walks up directory tree to find `.yamlfmt` (monorepo-friendly)
-- Security hardening: Rejects indent values outside 1-8 range
-- Falls back to 2-space indent if no config found
+### Container-Probe (Recommended for CI)
 
-**New Tests**:
+The `container-probe` job downloads the goneat binary and validates it works inside the container:
 
-- `TestDetectYamlfmtIndent` - Table-driven tests for all edge cases
-- `TestDetectYamlfmtIndentWalksUpTree` - Parent directory detection
-- `TestDoctorToolsInitUsesYamlfmtIndent` - Integration test
+```yaml
+container-probe:
+  needs: [build-test-lint]
+  container:
+    image: ghcr.io/fulmenhq/goneat-tools:latest
+  steps:
+    - uses: actions/download-artifact@v4
+    - run: ./goneat doctor tools --scope foundation
+    - run: ./goneat format --check .
+```
 
-### CI Tool Detection Fix
+**Benefits**:
 
-Fixed issue where tools installed via brew or bun weren't detected in CI environments:
+- **Proves goneat integration** - not just that tools exist (`--version`)
+- **Same image everywhere** = same behavior (container IS the contract)
+- **Pre-built tools**: prettier, yamlfmt, jq, yq, rg, git, bash
 
-- Added `findToolPath()` helper that checks PATH then shim directories
-- Fixed `DetectPackageManager()` to use `tools.DetectBrew()` for brew detection
-- Format command now properly finds yamlfmt, prettier, goimports
+### Bootstrap-Probe (Validates Package Manager Path)
 
-### Crucible v0.2.22
+The `bootstrap-probe` job validates that `goneat doctor tools --install` works on fresh runners:
 
-Updated SSOT sync to Crucible v0.2.22:
+- Only runs if `container-probe` passes (strategic dependency)
+- Important for users who can't use containers
+- Future: Could expand to matrix (ubuntu, macos, windows)
 
-- Schema `goneat-tools-config.schema.yaml` now includes `node` and `python` installer kinds
-- Various config, schema, and documentation updates from upstream
-- Resolves schema validation issues for node/python tools
+### ToolExecutor Package (Phase 1)
+
+New infrastructure in `pkg/tools/executor*.go` for future Docker-based tool execution:
+
+- `executor.go` - Interface and factory pattern
+- `executor_local.go` - Local tool execution (existing behavior)
+- `executor_docker.go` - Docker-based execution via goneat-tools
+- `executor_auto.go` - Smart mode selection (CI → docker, local → local)
+
+**Note**: Phase 1 only - executor created but NOT yet integrated into `cmd/format.go`. Full integration planned for v0.3.15.
+
+### Local CI Runner Support
+
+New Makefile targets for running CI locally:
+
+```bash
+make local-ci-format    # Run format-check using container
+make local-ci-all       # Run all CI jobs
+```
+
+### golangci-lint v2
+
+Updated install path for golangci-lint v2:
+
+```bash
+# Old (v1.x)
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+# New (v2.x)
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+```
+
+Minimum version updated from 1.54.0 to 2.0.0.
 
 ## Upgrade Notes
 
 ### For CI Pipelines
 
-If you were experiencing issues with tool detection after bootstrap:
+No action required. The CI workflow changes are in the repository and will take effect automatically on push to main.
+
+### For Local Development
+
+If you want to test the container-based format checking locally:
 
 ```bash
-# Update goneat version
-GONEAT_VERSION="v0.3.13"
-
-# Tools should now be properly detected after:
-goneat doctor tools --scope foundation --install --yes
+# Requires Docker
+make local-ci-format
 ```
 
-### For Enterprise Users
+### For golangci-lint Users
 
-If your organization uses a custom yamlfmt indent (e.g., 4 spaces):
+If you have golangci-lint v1.x installed globally, update to v2:
 
 ```bash
-# Regenerate tools.yaml with correct indent
-goneat doctor tools init --force
-# Now matches your .yamlfmt configuration
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 ```
 
 ## Files Changed
 
-- `cmd/doctor_tools_init.go`: Add yamlfmt indent detection
-- `cmd/doctor_tools_init_test.go`: Add detection tests
-- `cmd/format.go`: Add findToolPath helper
-- `internal/doctor/package_managers.go`: Fix brew detection
-- `.goneat/ssot-consumer.yaml`: Update to Crucible v0.2.22
-- Various Crucible-synced files in config/, docs/, schemas/
+| Category | Files |
+|----------|-------|
+| CI Workflow | `.github/workflows/ci.yml` |
+| Makefile | `Makefile` (new local-ci targets) |
+| Version | `VERSION` |
+| Config | `config/tools/foundation-tools-defaults.yaml` |
+| New Package | `pkg/tools/executor*.go` (5 files) |
+| Documentation | `docs/cicd/local-runner.md` |
+| Config Templates | `config/cicd/` |
 
 ## Full Changelog
 
@@ -98,6 +140,6 @@ See [CHANGELOG.md](CHANGELOG.md) for complete details.
 
 **Previous Releases**:
 
+- [v0.3.13](docs/releases/v0.3.13.md) - Dynamic yamlfmt Detection & Crucible v0.2.22
 - [v0.3.12](docs/releases/v0.3.12.md) - yamlfmt Compatibility Fix
 - [v0.3.11](docs/releases/v0.3.11.md) - Windows Compatibility & Test Parallelization
-- [v0.3.10](docs/releases/v0.3.10.md) - Install Probe & Multi-Scope Tools Init

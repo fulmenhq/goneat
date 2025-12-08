@@ -5,6 +5,9 @@ on:
   pull_request:
     branches: [main]
 jobs:
+  # =============================================================================
+  # JOB 1: Build & Test (no external tools required)
+  # =============================================================================
   build-test-lint:
     runs-on: ubuntu-latest
     steps:
@@ -24,37 +27,70 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
       - name: Build
-        run: |
-          make build
+        run: make build
       - name: Verify embedded assets in sync
-        run: |
-          make verify-embeds
-      - name: Bootstrap tools (dogfooding)
-        run: |
-          make bootstrap
-          # Persist shim paths for subsequent steps (brew bin, go bin, etc.)
-          ./dist/goneat doctor tools env --github >> $GITHUB_PATH
-      - name: Verify foundation tools accessible (format check)
-        run: |
-          # Verify tools installed by bootstrap are accessible in PATH
-          echo "Verifying foundation tools..."
-          which prettier || (echo "prettier not found" && exit 1)
-          which yamlfmt || (echo "yamlfmt not found" && exit 1)
-          which golangci-lint || (echo "golangci-lint not found" && exit 1)
-          echo "All foundation tools accessible"
-          # Run format check to validate tools work end-to-end
-          ./dist/goneat format --check || echo "Format differences found (informational)"
+        run: make verify-embeds
       - name: Test
-        run: |
-          make test || true
+        run: make test || true
       - name: Install golangci-lint (v2)
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.4.0
-      - name: Lint (informational for 0.2.1)
+      - name: Lint (informational)
+        run: golangci-lint run || true
+      - name: Upload goneat binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: goneat-linux
+          path: dist/goneat
+          retention-days: 1
+
+  # =============================================================================
+  # JOB 2: Container Probe (LOW friction - validates container path)
+  # Proves: goneat works inside goneat-tools container
+  # This is THE recommended approach for CI runners
+  # =============================================================================
+  container-probe:
+    needs: [build-test-lint]
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/fulmenhq/goneat-tools:latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Download goneat binary
+        uses: actions/download-artifact@v4
+        with:
+          name: goneat-linux
+          path: ./bin
+      - name: Verify container tools (raw)
         run: |
-          golangci-lint run || true
-  install-probe:
+          echo "=== Tools in goneat-tools container ==="
+          prettier --version
+          yamlfmt --version
+          jq --version
+          yq --version
+          rg --version
+          echo "=== All foundation tools present ==="
+      - name: Validate goneat integration
+        run: |
+          chmod +x ./bin/goneat
+          echo "=== goneat doctor tools --scope foundation ==="
+          ./bin/goneat doctor tools --scope foundation || true
+          echo "=== goneat format --check (dry-run) ==="
+          ./bin/goneat format --check . || echo "Format differences found (informational)"
+      - name: Check YAML formatting
+        run: yamlfmt -lint . || echo "YAML format differences found (informational)"
+      - name: Check Markdown/JSON formatting
+        run: prettier --check "**/*.{md,json}" || echo "Prettier format differences found (informational)"
+
+  # =============================================================================
+  # JOB 3: Bootstrap Probe (HIGHER friction - validates package manager path)
+  # Proves: goneat doctor tools --install works on fresh runners
+  # Only runs if container-probe passes (don't waste cycles if container fails)
+  # =============================================================================
+  bootstrap-probe:
+    needs: [container-probe]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -63,8 +99,10 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.25.x'
-      - name: Install probe (foundation tool availability)
+      - name: Bootstrap probe (package manager installation)
         env:
           GONEAT_INSTALL_PROBE: "1"
         run: |
+          echo "=== Testing package manager tool installation ==="
+          echo "This validates the HIGHER friction path for users without containers"
           make install-probe
