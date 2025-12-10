@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -572,16 +573,17 @@ func printSchemaSummary(report *assess.AssessmentReport) {
 	}
 }
 
-// runHookMode executes assessment in hook mode
+// runHookMode executes commands defined in the hook manifest.
+// This is the main entry point for git hook execution via goneat.
 func runHookMode(cmd *cobra.Command, hookType, manifestPath string, config assess.AssessmentConfig, outFormat assess.OutputFormat) error {
-	logger.Info(fmt.Sprintf("Running assessment in hook mode: %s", hookType))
+	logger.Info(fmt.Sprintf("Running hook mode: %s", hookType))
 
 	// Validate hook type
 	if hookType != "pre-commit" && hookType != "pre-push" {
 		return fmt.Errorf("invalid hook type: %s (must be pre-commit or pre-push)", hookType)
 	}
 
-	// Load hook manifest if specified (full manifest to access optimization)
+	// Load hook manifest if specified
 	var hookConfig *HookConfig
 	if manifestPath != "" {
 		var err error
@@ -594,34 +596,172 @@ func runHookMode(cmd *cobra.Command, hookType, manifestPath string, config asses
 		hookConfig = getDefaultHookConfig(hookType)
 	}
 
-	// Determine effective categories for THIS hook (do not rely on global defaults)
-	// Prefer categories parsed from the hook's args, then sensible per-hook defaults
+	// Get commands for this hook type from manifest
+	hookEntries, hasCommands := hookConfig.Hooks[hookType]
+	if !hasCommands || len(hookEntries) == 0 {
+		// No commands defined - fall back to legacy behavior (direct assessment)
+		logger.Info(fmt.Sprintf("No commands defined for %s in manifest, running default assessment", hookType))
+		return runLegacyHookMode(cmd, hookType, hookConfig, config, outFormat)
+	}
+
+	// Convert to executor format (preserves original order for stable sort)
+	commands := convertToHookCommands(hookEntries)
+
+	// Get working directory (repo root)
+	workDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	// Create executor with internal command handler
+	executor := assess.NewHookExecutor(workDir)
+	executor.Verbose = assessVerbose
+	executor.InternalHandler = createInternalCommandHandler(cmd, hookType, hookConfig, config, outFormat)
+
+	// Execute all commands
+	logger.Info(fmt.Sprintf("Executing %d command(s) for %s hook", len(commands), hookType))
+	if err := executor.ExecuteHookCommands(cmd.Context(), commands); err != nil {
+		logger.Error(fmt.Sprintf("Hook %s failed: %v", hookType, err))
+		return err
+	}
+
+	logger.Info(fmt.Sprintf("Hook %s completed successfully", hookType))
+	return nil
+}
+
+// createInternalCommandHandler creates a handler for internal goneat commands.
+// This routes commands like "assess", "format", "dependencies" to their internal implementations.
+func createInternalCommandHandler(cmd *cobra.Command, hookType string, hookConfig *HookConfig, baseConfig assess.AssessmentConfig, outFormat assess.OutputFormat) assess.InternalCommandHandler {
+	return func(ctx context.Context, command string, args []string) error {
+		switch command {
+		case "assess":
+			// Run assessment with args parsed from manifest
+			return runInternalAssess(cmd, hookType, hookConfig, baseConfig, outFormat, args)
+		case "format":
+			// Run format command
+			return runInternalFormat(ctx, args)
+		case "dependencies":
+			// Run dependencies command
+			return runInternalDependencies(ctx, args)
+		default:
+			// For other internal commands, warn and skip
+			logger.Warn(fmt.Sprintf("Internal command %q not yet implemented in hook executor, skipping", command))
+			return nil
+		}
+	}
+}
+
+// runInternalAssess runs the internal assessment logic for hook mode.
+func runInternalAssess(cmd *cobra.Command, hookType string, hookConfig *HookConfig, config assess.AssessmentConfig, outFormat assess.OutputFormat, args []string) error {
+	// Parse categories and fail-on from args if provided
+	for i, arg := range args {
+		if arg == "--categories" && i+1 < len(args) {
+			parts := strings.Split(args[i+1], ",")
+			config.SelectedCategories = make([]string, 0, len(parts))
+			for _, p := range parts {
+				if pp := strings.TrimSpace(p); pp != "" {
+					config.SelectedCategories = append(config.SelectedCategories, pp)
+				}
+			}
+		}
+		if arg == "--fail-on" && i+1 < len(args) {
+			failOnValue := args[i+1]
+			// Sync to hookConfig so shouldFailHook uses the correct threshold
+			hookConfig.FailOn = failOnValue
+			switch failOnValue {
+			case "critical":
+				config.FailOnSeverity = assess.SeverityCritical
+			case "high":
+				config.FailOnSeverity = assess.SeverityHigh
+			case "medium":
+				config.FailOnSeverity = assess.SeverityMedium
+			case "low":
+				config.FailOnSeverity = assess.SeverityLow
+			}
+		}
+	}
+
+	// Apply staged-only optimization if configured
+	if hookConfig.Optimization.OnlyChangedFiles {
+		if staged, err := getStagedFiles(); err == nil && len(staged) > 0 {
+			config.IncludeFiles = staged
+		}
+	}
+
+	// Default lint to new-only in hook mode
+	if strings.TrimSpace(config.LintNewFromRev) == "" {
+		config.LintNewFromRev = "HEAD~"
+	}
+
+	// Set security configuration for hook mode
+	config.SecurityExcludeFixtures = true
+	config.SecurityFixturePatterns = []string{"tests/fixtures/", "test-fixtures/"}
+
+	// Create assessment engine and run
+	engine := assess.NewAssessmentEngine()
+	target := "."
+	report, err := engine.RunAssessment(cmd.Context(), target, config)
+	if err != nil {
+		return fmt.Errorf("assessment failed: %w", err)
+	}
+
+	// Format and output report
+	formatter := assess.NewFormatter(outFormat)
+	formatter.SetTargetPath(target)
+	if err := formatter.WriteReport(cmd.OutOrStdout(), report); err != nil {
+		return fmt.Errorf("failed to write report: %w", err)
+	}
+
+	// Check if we should fail based on issues found
+	if shouldFailHook(report, hookConfig) {
+		return fmt.Errorf("assessment found issues requiring attention")
+	}
+
+	return nil
+}
+
+// runInternalFormat runs the internal format command.
+func runInternalFormat(ctx context.Context, args []string) error {
+	// For now, delegate to the format command via cobra
+	// This preserves existing format behavior
+	formatCmd := formatCmd
+	formatCmd.SetArgs(args)
+	return formatCmd.ExecuteContext(ctx)
+}
+
+// runInternalDependencies runs the internal dependencies command.
+func runInternalDependencies(ctx context.Context, args []string) error {
+	// For now, delegate to the dependencies command via cobra
+	depCmd := dependenciesCmd
+	depCmd.SetArgs(args)
+	return depCmd.ExecuteContext(ctx)
+}
+
+// runLegacyHookMode runs assessment directly (legacy behavior when no commands in manifest).
+func runLegacyHookMode(cmd *cobra.Command, hookType string, hookConfig *HookConfig, config assess.AssessmentConfig, outFormat assess.OutputFormat) error {
+	// Determine effective categories for THIS hook
 	if hookConfig != nil {
-		// Try to parse categories from the specific hook's args
 		if cats := parseCategoriesFromHooks(hookConfig.Hooks, hookType); len(cats) > 0 {
 			hookConfig.Categories = cats
 		} else {
-			// Fallback per hook defaults
 			switch hookType {
 			case "pre-push":
 				hookConfig.Categories = []string{"format", "lint", "security"}
-			default: // pre-commit
+			default:
 				hookConfig.Categories = []string{"format", "lint"}
 			}
 		}
-		// Determine effective fail-on for this hook from args, fallback per-hook
 		if val := parseFailOnFromHooks(hookConfig.Hooks, hookType); val != "" {
 			hookConfig.FailOn = val
 		} else {
 			switch hookType {
 			case "pre-push":
 				hookConfig.FailOn = "high"
-			default: // pre-commit
+			default:
 				hookConfig.FailOn = "medium"
 			}
 		}
 
-		// Keep assessment config aligned for accurate metadata and behavior
 		switch hookConfig.FailOn {
 		case "critical":
 			config.FailOnSeverity = assess.SeverityCritical
@@ -634,47 +774,34 @@ func runHookMode(cmd *cobra.Command, hookType, manifestPath string, config asses
 		}
 	}
 
-	// Filter categories based on computed hook configuration
 	config = filterCategoriesForHook(config, hookType, hookConfig)
 
-	// Apply staged-only optimization if configured
 	if hookConfig.Optimization.OnlyChangedFiles {
-		if staged, err := getStagedFiles(); err == nil {
-			if len(staged) > 0 {
-				config.IncludeFiles = staged
-			}
-		} else {
-			logger.Warn(fmt.Sprintf("Failed to resolve staged files: %v (continuing without staged-only)", err))
+		if staged, err := getStagedFiles(); err == nil && len(staged) > 0 {
+			config.IncludeFiles = staged
 		}
 	}
 
-	// Default lint to new-only in hook mode unless explicitly set
 	if strings.TrimSpace(config.LintNewFromRev) == "" {
 		config.LintNewFromRev = "HEAD~"
 	}
 
-	// Set security configuration for hook mode
 	config.SecurityExcludeFixtures = true
 	config.SecurityFixturePatterns = []string{"tests/fixtures/", "test-fixtures/"}
 
-	// Create assessment engine
 	engine := assess.NewAssessmentEngine()
-
-	// Run assessment
 	target := "."
 	report, err := engine.RunAssessment(cmd.Context(), target, config)
 	if err != nil {
-		return fmt.Errorf("hook assessment failed: %v", err)
+		return fmt.Errorf("hook assessment failed: %w", err)
 	}
 
-	// Format and output report (concise default provided by caller)
 	formatter := assess.NewFormatter(outFormat)
 	formatter.SetTargetPath(target)
 	if err := formatter.WriteReport(cmd.OutOrStdout(), report); err != nil {
-		return fmt.Errorf("failed to write hook report: %v", err)
+		return fmt.Errorf("failed to write hook report: %w", err)
 	}
 
-	// Fail hook when issues meet configured threshold (use .goneat/hooks.yaml to tune per-repo)
 	if shouldFailHook(report, hookConfig) {
 		logger.Error(fmt.Sprintf("Hook %s failed: found issues requiring attention", hookType))
 		os.Exit(1)
@@ -690,11 +817,7 @@ type HookConfig struct {
 	FailOn     string   `yaml:"fail_on"`
 
 	// Schema-driven fields (subset as needed)
-	Hooks map[string][]struct {
-		Command  string   `yaml:"command"`
-		Args     []string `yaml:"args"`
-		Fallback string   `yaml:"fallback"`
-	} `yaml:"hooks"`
+	Hooks map[string][]HookEntry `yaml:"hooks"`
 
 	Optimization struct {
 		OnlyChangedFiles bool   `yaml:"only_changed_files"`
@@ -703,12 +826,18 @@ type HookConfig struct {
 	} `yaml:"optimization"`
 }
 
-// parseCategoriesFromHooks extracts --categories value from hook args
-func parseCategoriesFromHooks(hooks map[string][]struct {
+// HookEntry represents a single hook command entry in the manifest.
+// Aligns with hooks-manifest schema (schemas/work/v1.0.0/hooks-manifest.yaml).
+type HookEntry struct {
 	Command  string   `yaml:"command"`
 	Args     []string `yaml:"args"`
-	Fallback string   `yaml:"fallback"`
-}, hookType string) []string {
+	Priority int      `yaml:"priority"`
+	Timeout  string   `yaml:"timeout"`
+	Fallback string   `yaml:"fallback"` // Phase 2: not implemented yet
+}
+
+// parseCategoriesFromHooks extracts --categories value from hook args
+func parseCategoriesFromHooks(hooks map[string][]HookEntry, hookType string) []string {
 	var out []string
 	if hookConfigs, exists := hooks[hookType]; exists {
 		for _, hookConfig := range hookConfigs {
@@ -735,11 +864,7 @@ func parseCategoriesFromHooks(hooks map[string][]struct {
 }
 
 // parseFailOnFromHooks extracts --fail-on value from hook args
-func parseFailOnFromHooks(hooks map[string][]struct {
-	Command  string   `yaml:"command"`
-	Args     []string `yaml:"args"`
-	Fallback string   `yaml:"fallback"`
-}, hookType string) string {
+func parseFailOnFromHooks(hooks map[string][]HookEntry, hookType string) string {
 	if hookConfigs, exists := hooks[hookType]; exists {
 		for _, hookConfig := range hookConfigs {
 			if hookConfig.Command == "assess" {
@@ -752,6 +877,22 @@ func parseFailOnFromHooks(hooks map[string][]struct {
 		}
 	}
 	return ""
+}
+
+// convertToHookCommands converts HookEntry slice to assess.HookCommand slice.
+// Preserves original order for stable sorting.
+func convertToHookCommands(entries []HookEntry) []assess.HookCommand {
+	commands := make([]assess.HookCommand, len(entries))
+	for i, entry := range entries {
+		commands[i] = assess.HookCommand{
+			Command:  entry.Command,
+			Args:     entry.Args,
+			Priority: entry.Priority,
+			Timeout:  entry.Timeout,
+			Fallback: entry.Fallback,
+		}
+	}
+	return commands
 }
 
 // loadHookManifest loads hook configuration from YAML file

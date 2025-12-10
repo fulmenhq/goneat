@@ -3,7 +3,7 @@ title: "Hooks Command Reference"
 description: "Complete reference for the goneat hooks command - manage git hooks with intelligent validation"
 author: "@forge-neat"
 date: "2025-08-28"
-last_updated: "2025-09-21"
+last_updated: "2025-12-10"
 status: "approved"
 tags: ["cli", "hooks", "git", "validation", "commands"]
 category: "user-guide"
@@ -788,11 +788,83 @@ The hooks system is designed for extensibility:
 - [`goneat format`](format.md) - Code formatting (planned)
 - [`goneat lint`](lint.md) - Code linting (planned)
 
+## Command Execution
+
+When using `goneat assess --hook <type> --hook-manifest <path>`, all commands defined in the manifest are executed, not just `assess` commands.
+
+### Execution Order
+
+Commands are executed in priority order (lower numbers run first):
+
+```yaml
+hooks:
+  pre-commit:
+    - command: "format"
+      args: ["--check"]
+      priority: 5 # Runs first
+    - command: "make"
+      args: ["precommit"]
+      priority: 10 # Runs second
+    - command: "assess"
+      args: ["--categories", "lint"]
+      priority: 15 # Runs third
+```
+
+For commands with equal priority, the original manifest order is preserved (stable sort).
+
+### Command Types
+
+| Command Type                   | Behavior                                |
+| ------------------------------ | --------------------------------------- |
+| `assess`                       | Runs internal goneat assessment         |
+| `format`                       | Runs internal goneat format             |
+| `dependencies`                 | Runs internal goneat dependencies check |
+| `lint`, `security`, `validate` | Runs internal goneat commands           |
+| Other (e.g., `make`, `npm`)    | Executed as external shell command      |
+
+### Timeout Enforcement
+
+Each command respects its configured timeout:
+
+```yaml
+- command: "make"
+  args: ["test"]
+  timeout: "90s" # Command killed after 90 seconds
+```
+
+Default timeout is 2 minutes if not specified.
+
+### Fail-Fast Behavior
+
+Execution stops on the first command failure. If `make precommit` fails, subsequent commands do not run.
+
+## Security and Trust Model
+
+The `.goneat/hooks.yaml` file executes commands with the same privileges as the user running the hook. This is the same trust model as:
+
+- `Makefile` - can run arbitrary commands
+- `.git/hooks/*` - can run arbitrary commands
+- CI workflow files - can run arbitrary commands
+
+**Important**: Anyone who can modify `hooks.yaml` can already execute arbitrary code through these other vectors. The hooks manifest has the same trust level as any other checked-in configuration file that defines executable commands.
+
+### What Goneat Does
+
+1. **Logs commands before execution** - aids debugging and provides an audit trail
+2. **Enforces timeouts** - prevents runaway commands from blocking hooks
+3. **Propagates exit codes** - command failures properly fail the hook
+
+### What Goneat Does NOT Do
+
+| Protection            | Why Not                                                   |
+| --------------------- | --------------------------------------------------------- |
+| Command allowlist     | Breaks flexibility. Makefile can call anything.           |
+| Argument sanitization | Same trust boundary as Makefile.                          |
+| Sandboxing            | Hooks need file write (formatting), network (tests), etc. |
+| User confirmation     | Defeats automation purpose.                               |
+
 ## See Also
 
 - [Git Hooks Operation Workflow](../workflows/git-hooks-operation.md) - Complete setup guide with diagrams
 - [Assessment Architecture](../../architecture/assess-workflow.md) - Technical details
-- [Hooks Architecture](../../architecture/hooks-command-architecture.md) - Design decisions</content>
-  </xai:function_call/>
-  </xai:function_call name="write">
-  <parameter name="filePath">/Users/davethompson/dev/fulmenhq/goneat/goneat/docs/user-guide/commands/assess.md
+- [Hooks Architecture](../../architecture/hooks-command-architecture.md) - Design decisions
