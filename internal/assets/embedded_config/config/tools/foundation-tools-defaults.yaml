@@ -43,6 +43,16 @@ foundation_tools:
       linux: ["brew"]
       windows: ["scoop", "winget"]
     auto_install_safe: true
+  - name: minisign
+    description: "Minimal signing utility for release artifacts"
+    kind: "system"
+    detect_command: "minisign -v"
+    platforms: ["darwin", "linux", "windows"]
+    package_managers:
+      darwin: ["brew"]
+      linux: ["brew"]
+      windows: ["scoop"]
+    auto_install_safe: true
   - name: go
     description: "Go toolchain - required for Go projects"
     kind: "system"
@@ -92,6 +102,16 @@ foundation_tools:
     check_args: ["--help"]
     package_managers:
       all: ["go-install"]
+    auto_install_safe: true
+  - name: yamllint
+    description: "YAML syntax linting (GPL) - install only, never embedded"
+    kind: "system"
+    detect_command: "yamllint --version"
+    platforms: ["darwin", "linux", "windows"]
+    package_managers:
+      darwin: ["brew"]
+      linux: ["brew"]
+      windows: ["scoop"]
     auto_install_safe: true
 # Security tools (Go-based, use go-install)
 security_tools:
@@ -246,10 +266,12 @@ scopes:
       - ripgrep
       - jq
       - yq
+      - minisign
       - go # Only if Go repo detected
       - go-licenses # Only if Go repo detected
       - golangci-lint # Only if Go repo detected
       - yamlfmt
+      - yamllint
       - prettier # Used by goneat format for markdown, JSON, YAML
   security:
     description: "Security scanning tools"
@@ -277,10 +299,12 @@ scopes:
       - ripgrep
       - jq
       - yq
+      - minisign
       - go
       - go-licenses
       - golangci-lint
       - yamlfmt
+      - yamllint
       - prettier
       - gosec
       - govulncheck

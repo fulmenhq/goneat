@@ -23,6 +23,8 @@ scopes:
       - go-licenses
       - golangci-lint
       - yamlfmt
+      - yamllint
+      - minisign
       - prettier
       - gosec
       - govulncheck
@@ -45,6 +47,8 @@ scopes:
       - go-licenses
       - golangci-lint
       - yamlfmt
+      - yamllint
+      - minisign
       - prettier
   sbom:
     description: Software Bill of Materials (SBOM) generation tools
@@ -181,6 +185,22 @@ tools:
       windows:
         - scoop
         - winget
+  minisign:
+    name: minisign
+    description: Minimal cryptographic signing utility for release artifacts
+    kind: system
+    detect_command: minisign -v
+    platforms:
+      - darwin
+      - linux
+      - windows
+    installer_priority:
+      darwin:
+        - brew
+      linux:
+        - brew
+      windows:
+        - scoop
   prettier:
     name: prettier
     description: Opinionated code formatter
@@ -244,6 +264,22 @@ tools:
     installer_priority:
       all:
         - go-install
+  yamllint:
+    name: yamllint
+    description: YAML syntax linter (GPL) - install only, never embedded
+    kind: system
+    detect_command: yamllint --version
+    platforms:
+      - darwin
+      - linux
+      - windows
+    installer_priority:
+      darwin:
+        - brew
+      linux:
+        - brew
+      windows:
+        - scoop
   yq:
     name: yq
     description: YAML processor

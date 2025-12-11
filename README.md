@@ -534,7 +534,7 @@ goneat doctor tools --scope format --print-instructions
 
 Supported tools:
 
-- **Foundation** (v0.3.9): ripgrep, jq, yq, go, go-licenses, golangci-lint, yamlfmt, prettier
+- **Foundation** (v0.3.15): ripgrep, jq, yq, minisign, go, go-licenses, golangci-lint, yamlfmt, yamllint, prettier
 - **Security**: gosec, govulncheck, gitleaks
 - **Format**: goimports, gofmt (bundled with Go)
 

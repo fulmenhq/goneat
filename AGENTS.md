@@ -24,6 +24,82 @@
 
 ---
 
+## 🎯 Mission: Why Goneat Exists
+
+### Required Reading (MANDATORY before any work)
+
+Before working on goneat, you MUST read and internalize these documents:
+
+1. **[Fulmen Technical Manifesto](https://github.com/fulmenhq/crucible/blob/main/docs/architecture/fulmen-technical-manifesto.md)** - Core principles, especially "Be Persnickety About Code" and "Automate Everything"
+2. **[Fulmen Ecosystem Guide](https://github.com/fulmenhq/crucible/blob/main/docs/architecture/fulmen-ecosystem-guide.md)** - How layers compose, especially "Layer 3: DX/Dev Tools"
+
+### The Problem We're Solving
+
+Most software teams struggle with enterprise-class quality because the barriers are too high:
+
+- Most releases aren't signed (too hard to set up)
+- Most CI jobs are trivial or cheat (tool installation is fragile)
+- Most repos lack meaningful test coverage (testing infrastructure is painful)
+- Most teams skip security scanning (tooling is complex)
+
+**Result**: Only well-resourced teams achieve high security/maintainability. Everyone else cuts corners.
+
+### Goneat's Mission
+
+**Lower the barriers so MORE teams can perform at a HIGH level.**
+
+Goneat is Layer 3 (DX Tools) in the Fulmen ecosystem. Our job is to make formatting, linting, security scanning, and quality gates SO EASY that they become the default, not the exception.
+
+### The Leverage Principle
+
+**Fix problems ONCE at the right layer, leverage EVERYWHERE.**
+
+When you encounter a problem, ask:
+
+1. **Am I solving this at the right layer?** (Infrastructure problems need infrastructure solutions)
+2. **Will this solution work once and benefit every repo that uses goneat?**
+3. **Am I demonstrating real value or just hacking around friction?**
+
+#### Example: CI Tool Installation Friction
+
+❌ **Wrong approach**: Hack around install issues in each repo's CI workflow
+❌ **Wrong approach**: Skip tools that are hard to install
+❌ **Wrong approach**: Replace goneat with raw tools to avoid complexity
+
+✅ **Right approach**: The `goneat-tools` container (`ghcr.io/fulmenhq/goneat-tools:latest`)
+
+- Build the container ONCE with all foundation tools (prettier, yamlfmt, yamllint, minisign, jq, yq, rg)
+- Every repo that uses the container gets working tools instantly
+- CI runs in the container = proof that tools work everywhere
+- Zero install friction, consistent across all platforms and architectures
+
+### What We Prove, Not Just What We Pass
+
+When a goneat CI job passes, it should prove:
+
+1. **The container works** - Foundation tools are available without installation
+2. **Goneat works** - Our tool actually does what we claim
+3. **Real projects can use this** - Full `make build`, `make test`, `make lint` succeed
+4. **The DX is real** - Clone repo, use container, everything works
+
+**Never optimize for "make CI pass quickly" at the expense of proving real value.**
+
+If we cheat by hiding complexity or skipping our own tools, we're wasting everyone's time - including the AI agents and humans who spent 20+ hours debugging CI friction that goneat-tools was built to eliminate.
+
+### Decision Framework for Agents
+
+When facing any technical decision:
+
+| Question                                        | If YES  | If NO                     |
+| ----------------------------------------------- | ------- | ------------------------- |
+| Does this demonstrate goneat's value?           | Proceed | Reconsider approach       |
+| Is this solving the problem at the right layer? | Proceed | Move to correct layer     |
+| Will other repos benefit from this solution?    | Proceed | Consider generalizing     |
+| Are we using our own tools (dogfooding)?        | Proceed | Use goneat tools instead  |
+| Does this prove something works, not just pass? | Proceed | Add meaningful validation |
+
+---
+
 ## 🚨 CRITICAL: NEVER DO THESE THINGS
 
 ### ❌ NEVER COMMIT PLANS TO GIT

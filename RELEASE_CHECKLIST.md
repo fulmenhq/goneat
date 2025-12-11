@@ -245,8 +245,9 @@ git push origin main  # Push commits
 **4. Build Release Artifacts**
 
 ```bash
-make build-all    # Cross-platform binaries
-make package      # Create distribution archives (dist/release/*.tar.gz, *.zip, SHA256SUMS)
+make release-clean  # Optional but recommended: wipe dist/release before packaging
+make build-all      # Cross-platform binaries
+make package        # Create distribution archives (dist/release/*.tar.gz, *.zip, SHA256SUMS)
 # Note: make release-notes is automatically called by make release-upload
 ```
 
@@ -276,17 +277,24 @@ make test-integration-extended  # All 3 tiers (~2 minutes)
 **Signing Workflow:**
 
 ```bash
-# 1. Build and package artifacts
+# 1. Reset release artifacts, build, and package
+make release-clean  # Optional safety: start with empty dist/release
 make build-all
-make package  # Creates dist/release/*.tar.gz, *.zip, SHA256SUMS
+make package  # Creates dist/release/*.tar.gz, *.zip, SHA256SUMS (must run before uploading)
 
-# 2. Sign artifacts (manual - performed by release manager)
+# 2. Sign checksum manifests (manual - performed by release manager)
 cd dist/release
-for file in *.tar.gz *.zip SHA256SUMS; do
-  gpg --detach-sign --armor --output "${file}.asc" "${file}"
-done
+# Preferred helper (prompts for minisign key path or use --key/--pub flags)
+../../scripts/sign-checksums.sh --key ~/.minisign/fulmenhq-release.key --pub ~/.minisign/fulmenhq-release.pub
 
-# 3. Extract public key for distribution
+# Manual fallback if helper cannot be used:
+for sums in SHA256SUMS SHA512SUMS; do
+  gpg --detach-sign --armor --output "${sums}.asc" "${sums}"
+  minisign -S -s ~/.minisign/fulmenhq-release.key -m "${sums}" -x "${sums}.minisig"
+done
+cp ~/.minisign/fulmenhq-release.pub fulmenhq-release-minisign.pub
+
+# 3. Extract public key for distribution (GPG)
 gpg --armor --export security@fulmenhq.dev > fulmenhq-release-signing-key.asc
 
 # 4. CRITICAL: Verify PUBLIC key only (never upload private keys!)
@@ -304,11 +312,11 @@ gpg --armor --export security@fulmenhq.dev > fulmenhq-release-signing-key.asc
 # grep -i "PUBLIC KEY" fulmenhq-release-signing-key.asc   # Must find blocks
 # gpg --show-keys fulmenhq-release-signing-key.asc       # Must show "pub" not "sec"
 
-# 5. Verify signatures locally
-for asc in *.asc; do
+# 5. Verify signatures locally (skip standalone public key exports)
+for asc in SHA256SUMS.asc SHA512SUMS.asc; do
   gpg --verify "$asc" "${asc%.asc}"
 done
-# Should show "Good signature" for all
+# Should show "Good signature" for both checksum manifests
 
 # 6. Upload to GitHub release and update package manager formulas
 # IMPORTANT: Upload BOTH binaries and signatures, not just signatures!
@@ -321,17 +329,41 @@ gh release upload v<version> \
   goneat_v<version>_*.tar.gz \
   goneat_v<version>_*.zip \
   SHA256SUMS \
+  SHA512SUMS \
   --clobber
 gh release upload v<version> \
-  goneat_v<version>_*.asc \
   SHA256SUMS.asc \
+  SHA512SUMS.asc \
+  SHA256SUMS.minisig \
+  SHA512SUMS.minisig \
   fulmenhq-release-signing-key.asc \
+  fulmenhq-release-minisign.pub \
   --clobber
 gh release edit v<version> --notes-file release-notes-v<version>.md
 
 # Verify upload succeeded (should show 13 assets)
 gh release view v<version> --json assets --jq '.assets | length'
 gh release view v<version> --json assets --jq '.assets[].name'
+
+# 7. Re-verify GitHub-hosted artifacts before announcing (required)
+# Preferred: use the helper script to download the published artifacts, recompute
+# their hashes, and compare them (sorted) to dist/release/SHA256SUMS plus the
+# uploaded SHA256SUMS asset.
+scripts/verify-release-assets.sh v<version>
+
+# Manual fallback if scripting is unavailable:
+TMPDIR=$(mktemp -d)
+gh release download v<version> --dir "$TMPDIR" --pattern 'goneat_v<version>_*.tar.gz' --clobber
+gh release download v<version> --dir "$TMPDIR" --pattern 'goneat_v<version>_*.zip' --clobber
+(cd "$TMPDIR" && shasum -a 256 goneat_v<version>_*.tar.gz goneat_v<version>_*.zip | sort > SHA256SUMS.github)
+sort dist/release/SHA256SUMS > "$TMPDIR"/SHA256SUMS.local
+diff "$TMPDIR"/SHA256SUMS.local "$TMPDIR"/SHA256SUMS.github  # Must be empty before release is declared healthy
+gh release download v<version> --dir "$TMPDIR" --pattern SHA256SUMS --clobber
+sort "$TMPDIR"/SHA256SUMS > "$TMPDIR"/SHA256SUMS.remote
+diff "$TMPDIR"/SHA256SUMS.local "$TMPDIR"/SHA256SUMS.remote  # Validates uploaded checksum matches local copy
+# If any diff is non-empty, copy the new SHA256SUMS back into dist/release/SHA256SUMS, re-sign, and re-upload using the steps above.
+
+> ⚠️ Always rerun `make package` (after `make release-clean` if needed) before uploading replacements to ensure the SHA256SUMS file matches the artifacts you're distributing, and repeat step 7 after every upload.
 
 # If using Option B (manual upload), update Homebrew formula separately:
 make update-homebrew-formula  # Requires ../homebrew-tap
@@ -361,18 +393,24 @@ make update-homebrew-formula  # Requires ../homebrew-tap
 Download the FulmenHQ public key and verify artifacts:
 
 \`\`\`bash
-curl -LO https://github.com/fulmenhq/goneat/releases/download/v0.3.6/fulmenhq-release-signing-key.asc
+curl -LO https://github.com/fulmenhq/goneat/releases/download/v0.3.15/fulmenhq-release-signing-key.asc
+curl -LO https://github.com/fulmenhq/goneat/releases/download/v0.3.15/SHA256SUMS
+curl -LO https://github.com/fulmenhq/goneat/releases/download/v0.3.15/SHA256SUMS.asc
+curl -LO https://github.com/fulmenhq/goneat/releases/download/v0.3.15/fulmenhq-release-minisign.pub
+curl -LO https://github.com/fulmenhq/goneat/releases/download/v0.3.15/SHA256SUMS.minisig
 gpg --import fulmenhq-release-signing-key.asc
-gpg --verify goneat-linux-amd64.tar.gz.asc goneat-linux-amd64.tar.gz
+gpg --verify SHA256SUMS.asc SHA256SUMS
+minisign -Vm SHA256SUMS -p fulmenhq-release-minisign.pub
+shasum -a 256 --check SHA256SUMS
 \`\`\`
 ```
 
 **3. Upload Artifacts**
 
 - All platform binaries (`.tar.gz`, `.zip`)
-- All signature files (`.asc`)
-- Checksums: `SHA256SUMS`, `SHA256SUMS.asc`
-- Public key: `fulmenhq-release-signing-key.asc` (first release or key rotation)
+- Checksum signatures (`SHA256SUMS.asc`, `SHA512SUMS.asc`, `.minisig` companions)
+- Checksums: `SHA256SUMS`, `SHA512SUMS`
+- Public keys: `fulmenhq-release-signing-key.asc`, `fulmenhq-release-minisign.pub` (first release or key rotation)
 
 ### Go Module Verification
 

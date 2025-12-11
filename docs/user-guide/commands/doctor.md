@@ -4,7 +4,7 @@ Diagnostics and tooling checks to verify (and optionally install) external tools
 
 Available scopes:
 
-- **foundation**: Core development tools (ripgrep, jq, yq, prettier, yamlfmt, golangci-lint)
+- **foundation**: Core development tools (ripgrep, jq, yq, minisign, prettier, yamlfmt, yamllint, golangci-lint)
 - **security**: Security scanning tools (gosec, govulncheck, gitleaks)
 - **format**: Code formatting tools (goimports, gofmt)
 - **all**: All tools from all scopes
@@ -58,11 +58,11 @@ Check presence, versions, and version policy compliance of supported tools, prin
 
 ### Supported Tools by Scope
 
-| Scope          | Tools                                             | Purpose                                      |
-| -------------- | ------------------------------------------------- | -------------------------------------------- |
-| **foundation** | ripgrep, jq, yq, prettier, yamlfmt, golangci-lint | Core development and formatting tools        |
-| **security**   | gosec, govulncheck, gitleaks                      | Security scanning and vulnerability analysis |
-| **format**     | goimports, gofmt                                  | Code formatting and import management        |
+| Scope          | Tools                                                                 | Purpose                                      |
+| -------------- | --------------------------------------------------------------------- | -------------------------------------------- |
+| **foundation** | ripgrep, jq, yq, minisign, prettier, yamlfmt, yamllint, golangci-lint | Core development, signing, and formatting    |
+| **security**   | gosec, govulncheck, gitleaks                                          | Security scanning and vulnerability analysis |
+| **format**     | goimports, gofmt                                                      | Code formatting and import management        |
 
 ### Usage
 

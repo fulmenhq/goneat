@@ -44,7 +44,7 @@ LDFLAGS := -ldflags "\
 	-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
-.PHONY: help build hooks-ensure clean clean-release clean-all test fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites sync-crucible sync-ssot verify-crucible verify-crucible-clean bootstrap tools lint release-check release-prepare release-build check-all prepush precommit update-homebrew-formula verify-release-key local-ci-check local-ci
+.PHONY: help build hooks-ensure clean clean-release clean-all test fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites sync-crucible sync-ssot verify-crucible verify-crucible-clean bootstrap tools lint release-check release-prepare release-build release-clean check-all prepush precommit update-homebrew-formula verify-release-key local-ci-check local-ci
 
 # Default target
 all: clean build format-all
@@ -62,7 +62,12 @@ help: ## Show this help message
 	@echo ""
 
 # Build targets
-build: embed-assets ## Build the binary
+build: ## Build the binary (embeds by default unless skipped)
+	@if [ "$(SKIP_EMBED_ASSETS)" = "1" ]; then \
+			echo "⏩ Skipping embed-assets (SKIP_EMBED_ASSETS=1)"; \
+		else \
+			$(MAKE) embed-assets; \
+		fi
 	@echo "Building $(BINARY_NAME) $(VERSION)..."
 	@mkdir -p $(BUILD_DIR)
 	$(GOBUILD) $(BUILD_FLAGS) ./$(SRC_DIR)
@@ -233,6 +238,12 @@ clean: ## Clean build artifacts, test cache, and generated files
 	@echo "Cleaning backup files..."
 	@find . -name "*.backup" -type f -delete 2>/dev/null || true
 	@echo "✅ Clean completed"
+
+release-clean: ## Reset dist/release to avoid stale artifacts before packaging
+	@echo "🧹 Resetting dist/release directory..."
+	@rm -rf dist/release
+	@mkdir -p dist/release
+	@echo "✅ dist/release cleared (fresh packaging workspace)"
 
 clean-release: ## Clean old release artifacts (keeps current version), preserving dist/goneat binary
 	@echo "🧹 Cleaning old release artifacts from dist/release/..."
@@ -442,43 +453,52 @@ local-ci-all: local-ci-check ## Run all CI jobs locally via act
 	@echo "✅ All CI jobs completed"
 
 # Format targets
-fmt: build ## Format code using goneat (dogfooding)
+fmt: ## Format code using goneat (dogfooding)
 	@echo "Formatting code with goneat..."
 	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
-		$(BUILD_DIR)/$(BINARY_NAME) format cmd/ pkg/ main.go; \
+		"$(BUILD_DIR)/$(BINARY_NAME)" format cmd/ pkg/ main.go; \
 		echo "✅ Formatting completed with goneat"; \
+	elif command -v goneat >/dev/null 2>&1; then \
+		"$(shell command -v goneat)" format cmd/ pkg/ main.go; \
 	else \
-		echo "❌ goneat binary not found, falling back to go fmt"; \
-		go fmt ./cmd/... ./pkg/... ./main.go; \
+		echo "❌ goneat binary not found. Run 'make build' to generate dist/$(BINARY_NAME) first."; \
+		exit 1; \
 	fi
 
-format-docs: build ## Format documentation files using goneat (dogfooding)
+format-docs: ## Format documentation files using goneat (dogfooding)
 	@echo "Formatting documentation with goneat..."
 	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
-		$(BUILD_DIR)/$(BINARY_NAME) format --types yaml,json,markdown --folders docs/; \
+		"$(BUILD_DIR)/$(BINARY_NAME)" format --types yaml,json,markdown --folders docs/; \
 		echo "✅ Documentation formatting completed with goneat"; \
+	elif command -v goneat >/dev/null 2>&1; then \
+		"$(shell command -v goneat)" format --types yaml,json,markdown --folders docs/; \
 	else \
-		echo "❌ goneat binary not found, falling back to manual formatting"; \
-		echo "Please install yamlfmt, jq, and prettier for documentation formatting"; \
+		echo "❌ goneat binary not found. Run 'make build' to generate dist/$(BINARY_NAME) first."; \
+		exit 1; \
 	fi
 
-format-config: build ## Format configuration and schema files using goneat (dogfooding)
+format-config: ## Format configuration and schema files using goneat (dogfooding)
 	@echo "Formatting configuration and schema files with goneat..."
 	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
-		$(BUILD_DIR)/$(BINARY_NAME) format --types yaml,json --folders config/ schemas/; \
+		"$(BUILD_DIR)/$(BINARY_NAME)" format --types yaml,json --folders config/ schemas/; \
 		echo "✅ Configuration formatting completed with goneat"; \
+	elif command -v goneat >/dev/null 2>&1; then \
+		"$(shell command -v goneat)" format --types yaml,json --folders config/ schemas/; \
 	else \
-		echo "❌ goneat binary not found, cannot format config files"; \
-		echo "Please install yamlfmt and jq for configuration formatting"; \
+		echo "❌ goneat binary not found. Run 'make build' to generate dist/$(BINARY_NAME) first."; \
+		exit 1; \
 	fi
 
-format-root: build ## Format root-level markdown files (README, CHANGELOG, etc.)
+format-root: ## Format root-level markdown files (README, CHANGELOG, etc.)
 	@echo "Formatting root markdown files with goneat..."
 	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
-		$(BUILD_DIR)/$(BINARY_NAME) format --types markdown *.md .github/; \
+		"$(BUILD_DIR)/$(BINARY_NAME)" format --types markdown *.md .github/; \
 		echo "✅ Root markdown formatting completed with goneat"; \
+	elif command -v goneat >/dev/null 2>&1; then \
+		"$(shell command -v goneat)" format --types markdown *.md .github/; \
 	else \
-		echo "❌ goneat binary not found, cannot format root files"; \
+		echo "❌ goneat binary not found. Run 'make build' to generate dist/$(BINARY_NAME) first."; \
+		exit 1; \
 	fi
 
 format-all: fmt format-docs format-config format-root ## Format all code, documentation, and configuration files
@@ -525,8 +545,10 @@ license-audit: ## Audit dependencies for forbidden licenses; fail on detection
 update-licenses: license-inventory license-save ## Update license inventory and third-party texts
 
 # Hook targets (dogfooding)
-precommit: build test ## Run pre-commit hooks (stub for now)
+precommit: ## Run pre-commit hooks (uses existing binary, skips embeds)
 	@echo "Running pre-commit checks with goneat..."
+	@$(MAKE) SKIP_EMBED_ASSETS=1 build
+	@$(MAKE) test
 	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
 		$(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-commit; \
 		echo "✅ Pre-commit checks passed"; \
@@ -642,36 +664,53 @@ verify-release-key: ## Verify GPG public key for release signing (must run befor
 	fi
 	@./scripts/verify-public-key.sh dist/release/fulmenhq-release-signing-key.asc
 
-release-upload: release-notes verify-release-key ## Upload signed release artifacts to GitHub (requires dist/release/*.asc signatures)
+release-upload: release-notes verify-release-key ## Upload signed release artifacts to GitHub (requires checksum signatures)
 	@echo "📤 Uploading release artifacts to GitHub $(VERSION)..."
 	@echo "   ℹ️  Note: release-notes and verify-release-key targets run automatically (Makefile dependencies)"
-	@if [ ! -f "dist/release/goneat_$(VERSION)_darwin_arm64.tar.gz.asc" ]; then \
-		echo "❌ Error: Signature files not found in dist/release/"; \
-		echo "   Run signing workflow first (see RELEASE_CHECKLIST.md)"; \
-		exit 1; \
-	fi
-	@echo "   🔏 Verifying signatures are cryptographically valid..."
-	@for artifact in dist/release/goneat_$(VERSION)_*.tar.gz dist/release/goneat_$(VERSION)_*.zip dist/release/SHA256SUMS; do \
-		if ! gpg --verify "$${artifact}.asc" "$$artifact" 2>&1 | grep -q "Good signature"; then \
-			echo "❌ Error: Invalid signature for $$artifact"; \
+	@for file in SHA256SUMS SHA512SUMS SHA256SUMS.asc SHA512SUMS.asc SHA256SUMS.minisig SHA512SUMS.minisig fulmenhq-release-signing-key.asc fulmenhq-release-minisign.pub; do \
+		if [ ! -f "dist/release/$$file" ]; then \
+			echo "❌ Error: dist/release/$$file not found. Run scripts/sign-checksums.sh first."; \
 			exit 1; \
 		fi; \
-	done
-	@echo "   ✅ All signatures verified"
+	 done
+	@echo "   🔏 Verifying GPG checksum signatures..."
+	@for sums in SHA256SUMS SHA512SUMS; do \
+		if ! gpg --verify "dist/release/$$sums.asc" "dist/release/$$sums" >/dev/null 2>&1; then \
+			echo "❌ Error: Invalid GPG signature for $$sums"; \
+			exit 1; \
+		fi; \
+	 done
+	@if command -v minisign >/dev/null 2>&1; then \
+		echo "   🔐 Verifying minisign checksum signatures..."; \
+		for sums in SHA256SUMS SHA512SUMS; do \
+			if ! minisign -Vm "dist/release/$$sums" -p dist/release/fulmenhq-release-minisign.pub >/dev/null 2>&1; then \
+				echo "❌ Error: Invalid minisign signature for $$sums"; \
+				exit 1; \
+			fi; \
+		 done; \
+	else \
+		echo "   ⚠️  minisign not available; skipping local minisign verification"; \
+	fi
+	@echo "   ✅ Checksum signatures verified"
 	@echo "   Uploading binaries and checksums..."
 	cd dist/release && gh release upload $(VERSION) \
 		goneat_$(VERSION)_*.tar.gz \
 		goneat_$(VERSION)_*.zip \
 		SHA256SUMS \
+		SHA512SUMS \
 		--clobber
 	@echo "   Uploading signatures..."
 	cd dist/release && gh release upload $(VERSION) \
-		goneat_$(VERSION)_*.asc \
 		SHA256SUMS.asc \
+		SHA512SUMS.asc \
+		SHA256SUMS.minisig \
+		SHA512SUMS.minisig \
 		fulmenhq-release-signing-key.asc \
+		fulmenhq-release-minisign.pub \
 		--clobber
 	@echo "   Updating release notes..."
 	cd dist/release && gh release edit $(VERSION) --notes-file release-notes-$(VERSION).md
+
 	@echo "✅ Release artifacts uploaded to $(VERSION)"
 	@echo ""
 	@echo "🔍 Verify upload:"

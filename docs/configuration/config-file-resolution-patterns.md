@@ -42,7 +42,7 @@ configPath, found := resolver.ResolveConfigFile("dates")
 
 - `.goneat/dates.yaml` - Date validation rules
 - `.goneat/security.yaml` - Security assessment settings
-- `.goneat/lint.yaml` - Lint configuration overrides
+- `.goneat/assess.yaml` - Assessment overrides (e.g., yamllint scopes)
 
 ---
 
