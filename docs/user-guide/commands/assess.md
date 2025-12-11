@@ -183,10 +183,15 @@ Goneat assess supports multiple validation categories:
 
 ### Lint (`lint`)
 
-- **Purpose:** Code quality and best practices
-- **Tools:** golangci-lint, govet
-- **Typical Issues:** Unused variables, potential bugs, style violations
-- **Auto-fixable:** Partial (some linters support auto-fix)
+- **Purpose:** Code quality and best practices (Go, shell, Make, GitHub Actions)
+- **Tools:** golangci-lint, govet, shfmt (check/fix), shellcheck (verify-only, opt-in GPL), actionlint, checkmake
+- **Typical Issues:** Unused variables, style violations, shell hygiene, workflow bugs, Makefile hygiene
+- **Auto-fixable:** Partial (golangci limited; shfmt fix optional; others verify-only)
+
+#### Lint extensions (shell / Make / GitHub Actions)
+- Defaults: shfmt/actionlint/checkmake enabled; shellcheck disabled unless explicitly enabled and available.
+- Config: see `docs/assess/lint-shell-make-gha.md` for `.goneat/assess.yaml` examples (paths/excludes, shellcheck sidecar) and CI notes.
+- CLI toggles: `--lint-shell`, `--lint-shell-fix`, `--lint-shellcheck`, `--shellcheck-path`, `--lint-gha`, `--lint-make`, plus include/exclude overrides (`--lint-shell-paths`, `--lint-shell-exclude`, `--lint-gha-paths`, `--lint-gha-exclude`, `--lint-make-paths`, `--lint-make-exclude`).
 
 ### Security (`security`)
 
