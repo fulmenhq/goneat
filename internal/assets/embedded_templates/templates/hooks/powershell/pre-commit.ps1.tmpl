@@ -168,10 +168,6 @@ if ($StagedOnly) {
     $args += "--staged-only"
 }
 
-{{- range .Args }}
-$args += "{{ . }}"
-{{- end }}
-
 & $GONEAT_BIN @args
 
 if ($LASTEXITCODE -ne 0) {

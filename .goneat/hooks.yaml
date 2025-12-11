@@ -1,33 +1,13 @@
 version: "1.0.0"
 hooks:
   pre-commit:
-    - command: "make"
-      args: ["format-all"]
-      priority: 5
-      timeout: "60s"
-    - command: "dependencies"
-      args: ["--licenses", "--fail-on", "high"]
-      priority: 8
-      timeout: "30s"
     - command: "assess"
-      args: ["--categories", "format,lint,dates,tools", "--fail-on", "high"]
+      args: ["--categories", "format,lint,security", "--fail-on", "critical", "--package-mode"]
       priority: 10
       timeout: "90s"
   pre-push:
-    - command: "make"
-      args: ["format-all"]
-      priority: 5
-      timeout: "60s"
-    - command: "dependencies"
-      args: ["--licenses", "--cooling", "--fail-on", "high"]
-      priority: 7
-      timeout: "45s"
-    - command: "make"
-      args: ["verify-embeds"]
-      priority: 8
-      timeout: "30s"
     - command: "assess"
-      args: ["--categories", "format,lint,security,dependencies,dates,tools,maturity,repo-status", "--fail-on", "high"]
+      args: ["--categories", "format,lint,security,dependencies,dates,tools,maturity,repo-status", "--fail-on", "high", "--package-mode"]
       priority: 10
       timeout: "2m"
 optimization:

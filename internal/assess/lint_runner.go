@@ -182,6 +182,20 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 		}, nil
 	}
 
+	yamlIssues, yamlErr := r.runYamllintAssessment(target)
+	if yamlErr != nil {
+		return &AssessmentResult{
+			CommandName:   r.commandName,
+			Category:      CategoryLint,
+			Success:       false,
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
+			Error:         fmt.Sprintf("yamllint failed: %v", yamlErr),
+		}, nil
+	}
+	if len(yamlIssues) > 0 {
+		issues = append(issues, yamlIssues...)
+	}
+
 	modeStr := r.getModeString(config.Mode)
 	logger.Info(fmt.Sprintf("%s %s completed: %d issues found in %d files", r.toolName, modeStr, len(issues), len(goFiles)))
 
@@ -447,26 +461,14 @@ func (r *LintAssessmentRunner) detectPackagesFromFiles(goFiles []string) []strin
 
 // shouldUsePackageMode determines if we should use package mode instead of individual files
 func (r *LintAssessmentRunner) shouldUsePackageMode(goFiles []string, config AssessmentConfig) bool {
-	// If package mode is explicitly requested, use it
-	if config.PackageMode {
+	// Always prefer package mode when specific files are provided to avoid type-check
+	// failures from missing sibling files (e.g., staged-only runs on a single file).
+	if len(goFiles) > 0 {
 		return true
 	}
 
-	// If no files specified, don't use package mode
-	if len(goFiles) == 0 {
-		return false
-	}
-
-	// If only one file, don't need package mode
-	if len(goFiles) == 1 {
-		return false
-	}
-
-	// Detect packages from the files
-	packages := r.detectPackagesFromFiles(goFiles)
-
-	// If files are from different packages, use package mode
-	return len(packages) > 1
+	// Fallback: honor explicit package-mode flag
+	return config.PackageMode
 }
 
 // verifyGolangciConfig validates golangci-lint config file (Pattern 2: repo root only)

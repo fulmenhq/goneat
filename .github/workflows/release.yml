@@ -1,3 +1,5 @@
+---
+# yamllint disable rule:truthy
 name: Release binaries
 on:
   push:
@@ -7,7 +9,9 @@ permissions:
   contents: write
 jobs:
   build-and-release:
-    if: ${{ !github.event.repository.private || vars.ALLOW_PRIVATE_RELEASES == 'true' }}
+    if: >-
+      ${{ !github.event.repository.private ||
+          vars.ALLOW_PRIVATE_RELEASES == 'true' }}
     environment: public-release
     runs-on: ubuntu-latest
     steps:
@@ -20,7 +24,8 @@ jobs:
       - name: Install signing prerequisites
         run: |
           # Install GPG for future signing automation
-          # Note: Actual signing is manual for v0.3.3; this prepares CI for future automation
+          # Note: Actual signing is manual for v0.3.3
+          # This prepares CI for future automation
           sudo apt-get update
           sudo apt-get install -y gnupg2
           gpg --version

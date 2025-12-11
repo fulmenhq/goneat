@@ -497,6 +497,14 @@ goneat hooks generate
 goneat hooks install
 ```
 
+### Command Execution Safety (v0.3.15+)
+
+- Hooks now execute manifest commands in order (including `assess`, `dependencies`, and external commands).
+- Manifest changes take effect on the next hook run—no regenerate/install needed unless templates/guardian/optimization settings change; edit `.goneat/hooks.yaml` and rerun git operation.
+- Avoid invoking `make` targets that mutate the working tree (e.g., `format-all`, `verify-embeds`, custom builds) to prevent self-triggered loops in git hooks.
+- Prefer check-only invocations such as `assess --categories format,lint,security --fail-on critical --package-mode` for pre-commit and `--fail-on high` for pre-push. These run read-only assessments and keep the tree stable.
+- If you must run formatters, use staged-only/check flags (`format --staged-only --check --quiet`) instead of repo-wide mutate operations.
+
 ### Testing Hooks
 
 ```bash

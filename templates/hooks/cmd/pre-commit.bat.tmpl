@@ -143,10 +143,6 @@ set "ARGS=assess --hook pre-commit --hook-manifest "%REPO_ROOT%\.goneat\hooks.ya
 set "ARGS=%ARGS% --staged-only"
 {{- end }}
 
-{{- range .Args }}
-set "ARGS=%ARGS% {{ . }}"
-{{- end }}
-
 "%GONEAT_BIN%" %ARGS%
 
 if errorlevel 1 (

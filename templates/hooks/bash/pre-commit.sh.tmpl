@@ -116,6 +116,6 @@ echo "✅ Guardian approval satisfied"
 {{- end }}
 
 # Use goneat's orchestrated assessment (manifest-driven)
-"$GONEAT_BIN" assess --hook pre-commit --hook-manifest "$REPO_ROOT/.goneat/hooks.yaml"{{ if or .OptimizationSettings.OnlyChangedFiles (eq .OptimizationSettings.ContentSource "index") }} --staged-only{{ end }} --package-mode{{- range .Args }} {{ . }}{{- end }}
+"$GONEAT_BIN" assess --hook pre-commit --hook-manifest "$REPO_ROOT/.goneat/hooks.yaml"{{ if or .OptimizationSettings.OnlyChangedFiles (eq .OptimizationSettings.ContentSource "index") }} --staged-only{{ end }} --package-mode
 
-echo "✅ Pre-commit validation passed!"}
+echo "✅ Pre-commit validation passed!"

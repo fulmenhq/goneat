@@ -150,10 +150,6 @@ set "ARGS=assess --hook pre-push --hook-manifest "%REPO_ROOT%\.goneat\hooks.yaml
 set "ARGS=%ARGS% --staged-only"
 {{- end }}
 
-{{- range .Args }}
-set "ARGS=%ARGS% {{ . }}"
-{{- end }}
-
 "%GONEAT_BIN%" %ARGS%
 
 if errorlevel 1 (

@@ -1,3 +1,23 @@
+# Goneat v0.3.15 — Hook Command Execution (Draft)
+
+**Status**: Draft
+
+## Highlights
+
+- Hook manifests now execute all declared commands (including external ones) in priority order.
+- Git hook templates read the manifest directly; CLI args in generated scripts no longer override manifest categories.
+- Guidance added to avoid running stateful `make` targets from hooks to prevent self-triggered loops.
+
+## Upgrade Notes
+
+- Update `.goneat/hooks.yaml` to use assess-based, check-only steps for hooks. Example:
+  - `pre-commit`: `assess --categories format,lint,security --fail-on critical --package-mode`
+  - `pre-push`: `assess --categories format,lint,security,dependencies,dates,tools,maturity,repo-status --fail-on high --package-mode`
+- Regenerate hooks after updating the manifest: `goneat hooks generate && goneat hooks install`.
+- Avoid invoking `make format-all`, `make verify-embeds`, or other workspace-mutating targets from hooks; they can dirty the tree mid-hook and create perceived loops.
+
+---
+
 # Goneat v0.3.14 — Container-Based CI & ToolExecutor Infrastructure
 
 **Release Date**: 2025-12-08
@@ -30,6 +50,7 @@ bootstrap-probe  ← HIGHER friction, validates second
 ```
 
 **Why this matters for users**:
+
 - Container path is THE recommended approach for CI - validate it first
 - Don't waste cycles on package manager issues if container fails
 - Gives confidence: "If goneat CI passes, my container-based CI will work"
@@ -122,15 +143,15 @@ go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 
 ## Files Changed
 
-| Category | Files |
-|----------|-------|
-| CI Workflow | `.github/workflows/ci.yml` |
-| Makefile | `Makefile` (new local-ci targets) |
-| Version | `VERSION` |
-| Config | `config/tools/foundation-tools-defaults.yaml` |
-| New Package | `pkg/tools/executor*.go` (5 files) |
-| Documentation | `docs/cicd/local-runner.md` |
-| Config Templates | `config/cicd/` |
+| Category         | Files                                         |
+| ---------------- | --------------------------------------------- |
+| CI Workflow      | `.github/workflows/ci.yml`                    |
+| Makefile         | `Makefile` (new local-ci targets)             |
+| Version          | `VERSION`                                     |
+| Config           | `config/tools/foundation-tools-defaults.yaml` |
+| New Package      | `pkg/tools/executor*.go` (5 files)            |
+| Documentation    | `docs/cicd/local-runner.md`                   |
+| Config Templates | `config/cicd/`                                |
 
 ## Full Changelog
 

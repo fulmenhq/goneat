@@ -56,7 +56,7 @@ func init() {
 }
 
 func runToolsInit(cmd *cobra.Command, args []string) error {
-	configPath := ".goneat/tools.yaml"
+	configPath := filepath.Clean(".goneat/tools.yaml")
 
 	// Check if file already exists
 	if _, err := os.Stat(configPath); err == nil && !toolsInitForce {
@@ -97,6 +97,7 @@ func runToolsInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// Write to .goneat/tools.yaml
+	// #nosec G304 -- configPath is a repo-rooted, cleaned path (.goneat/tools.yaml)
 	if err := writeToolsConfig(configPath, toolsConfig); err != nil {
 		return fmt.Errorf("failed to write tools config: %w", err)
 	}
@@ -124,7 +125,7 @@ func runToolsInit(cmd *cobra.Command, args []string) error {
 
 func writeToolsConfig(path string, config *doctor.ToolsConfig) (err error) {
 	// Create file for writing
-	file, createErr := os.Create(path)
+	file, createErr := os.Create(path) // #nosec G304 -- path validated and repo-rooted (.goneat/tools.yaml)
 	if createErr != nil {
 		return fmt.Errorf("failed to create file: %w", createErr)
 	}
