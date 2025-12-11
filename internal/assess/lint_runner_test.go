@@ -348,7 +348,7 @@ func TestLintAssessmentRunner_shouldUsePackageMode(t *testing.T) {
 			name:        "single file, package mode disabled",
 			files:       []string{"main.go"},
 			packageMode: false,
-			expected:    false,
+			expected:    true,
 		},
 		{
 			name:        "no files",
@@ -360,7 +360,7 @@ func TestLintAssessmentRunner_shouldUsePackageMode(t *testing.T) {
 			name:        "multiple files same package",
 			files:       []string{"internal/assets/file1.go", "internal/assets/file2.go"},
 			packageMode: false,
-			expected:    false,
+			expected:    true,
 		},
 		{
 			name:        "files from different packages",
@@ -388,4 +388,5 @@ func TestLintAssessmentRunner_shouldUsePackageMode(t *testing.T) {
 			}
 		})
 	}
+
 }

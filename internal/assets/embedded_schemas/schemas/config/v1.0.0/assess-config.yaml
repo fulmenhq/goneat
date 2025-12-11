@@ -1,0 +1,39 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$schemaVersion: 1.0.0
+title: Goneat Assess Overrides
+description: Configure assess category overrides (currently lint-specific)
+type: object
+required:
+  - version
+properties:
+  version:
+    description: Schema version (must be 1)
+    type: integer
+    enum: [1]
+  lint:
+    type: object
+    description: Lint-specific overrides
+    properties:
+      yamllint:
+        type: object
+        description: Control yamllint integration
+        properties:
+          enabled:
+            type: boolean
+            description: Enable or disable yamllint integration (default true)
+          strict:
+            type: boolean
+            description: Run yamllint with --strict (default true)
+          paths:
+            type: array
+            description: Doublestar glob patterns to include
+            items:
+              type: string
+          ignore:
+            type: array
+            description: Doublestar glob patterns to exclude
+            items:
+              type: string
+        additionalProperties: false
+    additionalProperties: false
+additionalProperties: false
