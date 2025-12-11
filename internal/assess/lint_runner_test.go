@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -270,6 +271,61 @@ func TestResolveGolangciOutputArgs(t *testing.T) {
 
 func containsString(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || containsString(s[1:], substr) || (len(s) > 0 && s[:len(substr)] == substr))
+}
+
+func TestCollectFilesWithExcludesSkipsOrig(t *testing.T) {
+	dir := t.TempDir()
+	files := []string{
+		"scripts/build-all.sh",
+		"scripts/build-all.sh.orig",
+		"scripts/hooks/run.sh",
+		"scripts/hooks/run.sh.orig",
+	}
+	for _, f := range files {
+		path := filepath.Join(dir, filepath.FromSlash(f))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+		if err := os.WriteFile(path, []byte("echo test\n"), 0o644); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+	}
+
+	includes := []string{"**/*.sh", "scripts/**/*.sh"}
+	excludes := []string{"**/*.orig"}
+
+	result, err := collectFilesWithExcludes(dir, includes, excludes)
+	if err != nil {
+		t.Fatalf("collectFilesWithExcludes error: %v", err)
+	}
+
+	expect := map[string]struct{}{
+		"scripts/build-all.sh": {},
+		"scripts/hooks/run.sh": {},
+	}
+
+	if len(result) != len(expect) {
+		t.Fatalf("expected %d files, got %d: %v", len(expect), len(result), result)
+	}
+	for _, f := range result {
+		if _, ok := expect[f]; !ok {
+			t.Fatalf("unexpected file: %s", f)
+		}
+	}
+}
+
+func TestCollectFilesWithExcludesSkipsOrigInRepo(t *testing.T) {
+	includes := []string{"**/*.sh", "scripts/**/*.sh"}
+	excludes := []string{"**/*.orig", "**/node_modules/**", "**/.git/**", "**/vendor/**", "**/testdata/**", ".plans/**"}
+	result, err := collectFilesWithExcludes(".", includes, excludes)
+	if err != nil {
+		t.Fatalf("collectFilesWithExcludes error: %v", err)
+	}
+	for _, f := range result {
+		if strings.HasSuffix(f, ".orig") {
+			t.Fatalf("unexpected .orig file included: %s", f)
+		}
+	}
 }
 
 func TestLintAssessmentRunner_detectPackagesFromFiles(t *testing.T) {

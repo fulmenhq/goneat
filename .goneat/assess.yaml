@@ -16,11 +16,14 @@ lint:
       path: ""
     paths:
       - "**/*.sh"
-      - "scripts/**/*"
+      - "scripts/**/*.sh"
     ignore:
       - "**/node_modules/**"
       - "**/.git/**"
       - "**/vendor/**"
+      - "**/*.orig"
+      - "**/testdata/**"
+      - ".plans/**"
   github_actions:
     actionlint:
       enabled: true

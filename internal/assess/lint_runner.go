@@ -5,6 +5,7 @@ package assess
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -471,7 +472,7 @@ func (r *LintAssessmentRunner) runActionlintAssessment(target string, config Ass
 		return nil, nil
 	}
 
-	args := []string{"-format", "json"}
+	args := []string{"-format", "{{json .}}"}
 	args = append(args, files...)
 	ctx, cancel := context.WithTimeout(context.Background(), r.config.Timeout)
 	defer cancel()
@@ -481,32 +482,58 @@ func (r *LintAssessmentRunner) runActionlintAssessment(target string, config Ass
 	if err != nil && len(output) == 0 {
 		return nil, fmt.Errorf("actionlint failed: %v", err)
 	}
-
-	var actionIssues []struct {
-		Level   string `json:"level"`
-		Message string `json:"message"`
-		File    struct {
-			Name string `json:"name"`
-			Line int    `json:"line"`
-			Col  int    `json:"column"`
-		} `json:"file"`
+	issues, parseErr := parseActionlintOutput(output)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if len(output) == 0 {
+	return issues, nil
+}
+
+func parseActionlintOutput(output []byte) ([]Issue, error) {
+	trimmed := bytes.TrimSpace(output)
+	if len(trimmed) == 0 {
 		return nil, nil
 	}
-	if jsonErr := json.Unmarshal(output, &actionIssues); jsonErr != nil {
-		return nil, fmt.Errorf("failed to parse actionlint output: %v", jsonErr)
+
+	type actionlintResult struct {
+		Message  string `json:"message"`
+		Filepath string `json:"filepath"`
+		Line     int    `json:"line"`
+		Column   int    `json:"column"`
+		Level    string `json:"level"`
+		Kind     string `json:"kind"`
 	}
-	issues := make([]Issue, 0, len(actionIssues))
-	for _, iss := range actionIssues {
+
+	var parsed []actionlintResult
+	if err := json.Unmarshal(trimmed, &parsed); err != nil {
+		// Fallback: try line-delimited JSON objects
+		lines := bytes.Split(trimmed, []byte("\n"))
+		for _, ln := range lines {
+			ln = bytes.TrimSpace(ln)
+			if len(ln) == 0 {
+				continue
+			}
+			var item actionlintResult
+			if jsonErr := json.Unmarshal(ln, &item); jsonErr != nil {
+				return nil, fmt.Errorf("failed to parse actionlint output: %v", err)
+			}
+			parsed = append(parsed, item)
+		}
+	}
+
+	if len(parsed) == 0 {
+		return nil, nil
+	}
+	issues := make([]Issue, 0, len(parsed))
+	for _, iss := range parsed {
 		sev := SeverityMedium
 		if strings.EqualFold(iss.Level, "error") {
 			sev = SeverityHigh
 		}
 		issues = append(issues, Issue{
-			File:        filepath.ToSlash(iss.File.Name),
-			Line:        iss.File.Line,
-			Column:      iss.File.Col,
+			File:        filepath.ToSlash(iss.Filepath),
+			Line:        iss.Line,
+			Column:      iss.Column,
 			Severity:    sev,
 			Message:     iss.Message,
 			Category:    CategoryLint,
@@ -589,6 +616,7 @@ func collectFilesWithExcludes(root string, includes, excludes []string) ([]strin
 		return nil, nil
 	}
 	files := make([]string, 0)
+	seen := make(map[string]struct{})
 	for _, pattern := range includes {
 		absPattern := filepath.Join(root, filepath.FromSlash(pattern))
 		matches, err := doublestar.FilepathGlob(absPattern)
@@ -605,9 +633,16 @@ func collectFilesWithExcludes(root string, includes, excludes []string) ([]strin
 				continue
 			}
 			rel = filepath.ToSlash(rel)
+			if strings.HasSuffix(rel, ".orig") {
+				continue
+			}
 			if isExcluded(rel, excludes) {
 				continue
 			}
+			if _, ok := seen[rel]; ok {
+				continue
+			}
+			seen[rel] = struct{}{}
 			files = append(files, rel)
 		}
 	}
@@ -630,6 +665,7 @@ func issuesFromShfmtOutput(output string) []Issue {
 		line := scanner.Text()
 		if strings.HasPrefix(line, "--- ") {
 			name := strings.TrimSpace(strings.TrimPrefix(line, "--- "))
+			name = strings.TrimSuffix(name, ".orig")
 			files[name] = struct{}{}
 		}
 	}

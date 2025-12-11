@@ -151,8 +151,8 @@ func DefaultAssessmentConfig() AssessmentConfig {
 		// Lint extensions defaults
 		LintShellEnabled:      true,
 		LintShellFix:          false,
-		LintShellPaths:        []string{"**/*.sh", "scripts/**/*"},
-		LintShellExclude:      []string{"**/node_modules/**", "**/.git/**", "**/vendor/**"},
+		LintShellPaths:        []string{"**/*.sh", "scripts/**/*.sh"},
+		LintShellExclude:      []string{"**/node_modules/**", "**/.git/**", "**/vendor/**", "**/*.orig", "**/testdata/**", ".plans/**"},
 		LintShellcheckEnabled: false,
 		LintShellcheckPath:    "",
 		LintGHAEnabled:        true,
