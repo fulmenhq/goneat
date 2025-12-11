@@ -113,6 +113,47 @@ foundation_tools:
       linux: ["brew"]
       windows: ["scoop"]
     auto_install_safe: true
+  - name: shfmt
+    description: "Shell formatter (permissive license)"
+    kind: "go"
+    detect_command: "shfmt -version"
+    install_package: "mvdan.cc/sh/v3/cmd/shfmt@latest"
+    version_args: ["-version"]
+    check_args: ["-version"]
+    package_managers:
+      all: ["go-install"]
+    auto_install_safe: true
+  - name: actionlint
+    description: "GitHub Actions workflow linter (permissive license)"
+    kind: "go"
+    detect_command: "actionlint -version"
+    install_package: "github.com/rhysd/actionlint/cmd/actionlint@latest"
+    version_args: ["-version"]
+    check_args: ["-help"]
+    package_managers:
+      all: ["go-install"]
+    auto_install_safe: true
+  - name: checkmake
+    description: "Makefile linter (permissive license)"
+    kind: "go"
+    detect_command: "checkmake -v"
+    install_package: "github.com/mrtazz/checkmake@latest"
+    version_args: ["-v"]
+    check_args: ["-h"]
+    package_managers:
+      all: ["go-install"]
+    auto_install_safe: true
+  - name: shellcheck
+    description: "Shell script analyzer (GPL) - verify-only, opt-in"
+    kind: "system"
+    detect_command: "shellcheck --version"
+    platforms: ["darwin", "linux", "windows"]
+    package_managers:
+      darwin: ["brew"]
+      linux: ["brew"]
+      windows: ["scoop", "winget"]
+    auto_install_safe: false
+    verify_only: true
 # Security tools (Go-based, use go-install)
 security_tools:
   - name: gosec
