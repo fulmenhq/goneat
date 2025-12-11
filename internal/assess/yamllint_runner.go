@@ -24,7 +24,10 @@ type assessOverrides struct {
 }
 
 type lintOverrides struct {
-	Yamllint *yamllintOverrides `yaml:"yamllint"`
+	Yamllint      *yamllintOverrides   `yaml:"yamllint"`
+	Shell         *shellOverrides      `yaml:"shell"`
+	GitHubActions *githubActionsConfig `yaml:"github_actions"`
+	Make          *makeOverrides       `yaml:"make"`
 }
 
 type yamllintOverrides struct {
@@ -32,6 +35,47 @@ type yamllintOverrides struct {
 	Strict  *bool    `yaml:"strict"`
 	Paths   []string `yaml:"paths"`
 	Ignore  []string `yaml:"ignore"`
+}
+
+type shellOverrides struct {
+	Paths      []string          `yaml:"paths"`
+	Ignore     []string          `yaml:"ignore"`
+	Shfmt      *shfmtOverrides   `yaml:"shfmt"`
+	Shellcheck *shellcheckConfig `yaml:"shellcheck"`
+}
+
+type shfmtOverrides struct {
+	Enabled *bool    `yaml:"enabled"`
+	Fix     *bool    `yaml:"fix"`
+	Paths   []string `yaml:"paths"`
+	Ignore  []string `yaml:"ignore"`
+}
+
+type shellcheckConfig struct {
+	Enabled *bool    `yaml:"enabled"`
+	Path    string   `yaml:"path"`
+	Paths   []string `yaml:"paths"`
+	Ignore  []string `yaml:"ignore"`
+}
+
+type githubActionsConfig struct {
+	Actionlint *actionlintOverrides `yaml:"actionlint"`
+}
+
+type actionlintOverrides struct {
+	Enabled *bool    `yaml:"enabled"`
+	Paths   []string `yaml:"paths"`
+	Ignore  []string `yaml:"ignore"`
+}
+
+type makeOverrides struct {
+	Checkmake *checkmakeOverrides `yaml:"checkmake"`
+	Paths     []string            `yaml:"paths"`
+	Ignore    []string            `yaml:"ignore"`
+}
+
+type checkmakeOverrides struct {
+	Enabled *bool `yaml:"enabled"`
 }
 
 var assessConfigCache sync.Map
@@ -107,7 +151,14 @@ func (o *yamllintOverrides) ignorePatterns() []string {
 	return o.Ignore
 }
 
-func (r *LintAssessmentRunner) runYamllintAssessment(target string) ([]Issue, error) {
+func boolWithDefault(val *bool, def bool) bool {
+	if val == nil {
+		return def
+	}
+	return *val
+}
+
+func (r *LintAssessmentRunner) runYamllintAssessment(target string, overrides *assessOverrides) ([]Issue, error) {
 	yamllintBin := os.Getenv("GONEAT_YAMLLINT_BIN")
 	if yamllintBin == "" {
 		yamllintBin = "yamllint"
@@ -122,7 +173,6 @@ func (r *LintAssessmentRunner) runYamllintAssessment(target string) ([]Issue, er
 		}
 		useYamlfmtFallback = true
 	}
-	overrides := loadAssessOverrides(target)
 	var yamllintCfg *yamllintOverrides
 	if overrides != nil && overrides.Lint != nil {
 		yamllintCfg = overrides.Lint.yamllintConfig()

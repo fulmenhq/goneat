@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bmatcuk/doublestar/v4"
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/fulmenhq/goneat/pkg/versioning"
 )
@@ -182,7 +183,9 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 		}, nil
 	}
 
-	yamlIssues, yamlErr := r.runYamllintAssessment(target)
+	overrides := loadAssessOverrides(target)
+
+	yamlIssues, yamlErr := r.runYamllintAssessment(target, overrides)
 	if yamlErr != nil {
 		return &AssessmentResult{
 			CommandName:   r.commandName,
@@ -195,6 +198,54 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 	if len(yamlIssues) > 0 {
 		issues = append(issues, yamlIssues...)
 	}
+
+	shfmtIssues, shfmtErr := r.runShfmtAssessment(target, config, overrides)
+	if shfmtErr != nil {
+		return &AssessmentResult{
+			CommandName:   r.commandName,
+			Category:      CategoryLint,
+			Success:       false,
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
+			Error:         fmt.Sprintf("shfmt failed: %v", shfmtErr),
+		}, nil
+	}
+	issues = append(issues, shfmtIssues...)
+
+	scIssues, scErr := r.runShellcheckAssessment(target, config, overrides)
+	if scErr != nil {
+		return &AssessmentResult{
+			CommandName:   r.commandName,
+			Category:      CategoryLint,
+			Success:       false,
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
+			Error:         fmt.Sprintf("shellcheck failed: %v", scErr),
+		}, nil
+	}
+	issues = append(issues, scIssues...)
+
+	actionIssues, actionErr := r.runActionlintAssessment(target, config, overrides)
+	if actionErr != nil {
+		return &AssessmentResult{
+			CommandName:   r.commandName,
+			Category:      CategoryLint,
+			Success:       false,
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
+			Error:         fmt.Sprintf("actionlint failed: %v", actionErr),
+		}, nil
+	}
+	issues = append(issues, actionIssues...)
+
+	makeIssues, makeErr := r.runCheckmakeAssessment(target, config, overrides)
+	if makeErr != nil {
+		return &AssessmentResult{
+			CommandName:   r.commandName,
+			Category:      CategoryLint,
+			Success:       false,
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
+			Error:         fmt.Sprintf("checkmake failed: %v", makeErr),
+		}, nil
+	}
+	issues = append(issues, makeIssues...)
 
 	modeStr := r.getModeString(config.Mode)
 	logger.Info(fmt.Sprintf("%s %s completed: %d issues found in %d files", r.toolName, modeStr, len(issues), len(goFiles)))
@@ -219,6 +270,399 @@ func (r *LintAssessmentRunner) runGolangCILintFix(target string, config Assessme
 }
 
 // runGolangCILintWithMode runs golangci-lint with the specified mode
+func (r *LintAssessmentRunner) runShfmtAssessment(target string, config AssessmentConfig, overrides *assessOverrides) ([]Issue, error) {
+	if !config.LintShellEnabled {
+		return nil, nil
+	}
+	var ov *shellOverrides
+	if overrides != nil && overrides.Lint != nil {
+		ov = overrides.Lint.Shell
+	}
+	enabled := config.LintShellEnabled
+	if ov != nil && ov.Shfmt != nil {
+		enabled = boolWithDefault(ov.Shfmt.Enabled, enabled)
+	}
+	if !enabled {
+		return nil, nil
+	}
+
+	paths := config.LintShellPaths
+	exclude := append([]string{}, config.LintShellExclude...)
+	if ov != nil {
+		if len(ov.Paths) > 0 {
+			paths = ov.Paths
+		}
+		exclude = append(exclude, ov.Ignore...)
+		if ov.Shfmt != nil {
+			if len(ov.Shfmt.Paths) > 0 {
+				paths = ov.Shfmt.Paths
+			}
+			exclude = append(exclude, ov.Shfmt.Ignore...)
+		}
+	}
+
+	files, err := collectFilesWithExcludes(target, paths, exclude)
+	if err != nil {
+		return nil, err
+	}
+	if len(files) == 0 {
+		return nil, nil
+	}
+
+	args := []string{"-d"}
+	if config.LintShellFix || (ov != nil && ov.Shfmt != nil && boolWithDefault(ov.Shfmt.Fix, false)) || config.Mode == AssessmentModeFix {
+		args = []string{"-w"}
+	}
+	args = append(args, files...)
+
+	ctx, cancel := context.WithTimeout(context.Background(), r.config.Timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "shfmt", args...) // #nosec G204
+	cmd.Dir = target
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		if _, ok := err.(*exec.ExitError); ok {
+			// shfmt returns non-zero when diffs exist; treat as issues
+			if len(output) == 0 {
+				return issuesFromFiles(files, "shfmt reported formatting differences"), nil
+			}
+			return issuesFromShfmtOutput(string(output)), nil
+		}
+		return nil, fmt.Errorf("shfmt execution failed: %v", err)
+	}
+	if len(output) > 0 {
+		return issuesFromShfmtOutput(string(output)), nil
+	}
+	return nil, nil
+}
+
+func (r *LintAssessmentRunner) runShellcheckAssessment(target string, config AssessmentConfig, overrides *assessOverrides) ([]Issue, error) {
+	enabled := config.LintShellcheckEnabled
+	var ovShell *shellOverrides
+	if overrides != nil && overrides.Lint != nil {
+		ovShell = overrides.Lint.Shell
+	}
+	if ovShell != nil && ovShell.Shellcheck != nil {
+		enabled = boolWithDefault(ovShell.Shellcheck.Enabled, enabled)
+	}
+	if !enabled {
+		return nil, nil
+	}
+
+	bin := strings.TrimSpace(config.LintShellcheckPath)
+	if bin == "" && ovShell != nil && ovShell.Shellcheck != nil {
+		bin = strings.TrimSpace(ovShell.Shellcheck.Path)
+	}
+	if bin == "" {
+		bin = "shellcheck"
+	}
+	bin = filepath.Clean(bin)
+	if _, err := exec.LookPath(bin); err != nil {
+		logger.Info("shellcheck not found; skipping shellcheck lint")
+		return nil, nil
+	}
+
+	paths := config.LintShellPaths
+	exclude := append([]string{}, config.LintShellExclude...)
+	if ovShell != nil {
+		if len(ovShell.Paths) > 0 {
+			paths = ovShell.Paths
+		}
+		exclude = append(exclude, ovShell.Ignore...)
+		if ovShell.Shellcheck != nil {
+			if len(ovShell.Shellcheck.Paths) > 0 {
+				paths = ovShell.Shellcheck.Paths
+			}
+			exclude = append(exclude, ovShell.Shellcheck.Ignore...)
+		}
+	}
+
+	files, err := collectFilesWithExcludes(target, paths, exclude)
+	if err != nil {
+		return nil, err
+	}
+	if len(files) == 0 {
+		return nil, nil
+	}
+
+	args := []string{"--format", "json"}
+	args = append(args, files...)
+	ctx, cancel := context.WithTimeout(context.Background(), r.config.Timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bin, args...) // #nosec G204
+	cmd.Dir = target
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// shellcheck returns non-zero when issues found; still parse output
+		if len(output) == 0 {
+			return nil, fmt.Errorf("shellcheck failed: %v", err)
+		}
+	}
+
+	var scIssues []struct {
+		File    string `json:"file"`
+		Line    int    `json:"line"`
+		Column  int    `json:"column"`
+		Level   string `json:"level"`
+		Message string `json:"message"`
+	}
+	if len(output) == 0 {
+		return nil, nil
+	}
+	if jsonErr := json.Unmarshal(output, &scIssues); jsonErr != nil {
+		return nil, fmt.Errorf("failed to parse shellcheck output: %v", jsonErr)
+	}
+	issues := make([]Issue, 0, len(scIssues))
+	for _, iss := range scIssues {
+		sev := SeverityMedium
+		switch strings.ToLower(iss.Level) {
+		case "error":
+			sev = SeverityHigh
+		case "warning":
+			sev = SeverityMedium
+		case "info", "style":
+			sev = SeverityLow
+		}
+		issues = append(issues, Issue{
+			File:        filepath.ToSlash(iss.File),
+			Line:        iss.Line,
+			Column:      iss.Column,
+			Severity:    sev,
+			Message:     iss.Message,
+			Category:    CategoryLint,
+			SubCategory: "shell:shellcheck",
+		})
+	}
+	return issues, nil
+}
+
+func (r *LintAssessmentRunner) runActionlintAssessment(target string, config AssessmentConfig, overrides *assessOverrides) ([]Issue, error) {
+	enabled := config.LintGHAEnabled
+	var ov *githubActionsConfig
+	if overrides != nil && overrides.Lint != nil {
+		ov = overrides.Lint.GitHubActions
+	}
+	if ov != nil && ov.Actionlint != nil {
+		enabled = boolWithDefault(ov.Actionlint.Enabled, enabled)
+	}
+	if !enabled {
+		return nil, nil
+	}
+	paths := config.LintGHAPaths
+	exclude := append([]string{}, config.LintGHAExclude...)
+	if ov != nil && ov.Actionlint != nil {
+		if len(ov.Actionlint.Paths) > 0 {
+			paths = ov.Actionlint.Paths
+		}
+		exclude = append(exclude, ov.Actionlint.Ignore...)
+	}
+
+	files, err := collectFilesWithExcludes(target, paths, exclude)
+	if err != nil {
+		return nil, err
+	}
+	if len(files) == 0 {
+		return nil, nil
+	}
+
+	bin := "actionlint"
+	if _, err := exec.LookPath(bin); err != nil {
+		logger.Info("actionlint not found; skipping GitHub Actions lint")
+		return nil, nil
+	}
+
+	args := []string{"-format", "json"}
+	args = append(args, files...)
+	ctx, cancel := context.WithTimeout(context.Background(), r.config.Timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bin, args...) // #nosec G204
+	cmd.Dir = target
+	output, err := cmd.CombinedOutput()
+	if err != nil && len(output) == 0 {
+		return nil, fmt.Errorf("actionlint failed: %v", err)
+	}
+
+	var actionIssues []struct {
+		Level   string `json:"level"`
+		Message string `json:"message"`
+		File    struct {
+			Name string `json:"name"`
+			Line int    `json:"line"`
+			Col  int    `json:"column"`
+		} `json:"file"`
+	}
+	if len(output) == 0 {
+		return nil, nil
+	}
+	if jsonErr := json.Unmarshal(output, &actionIssues); jsonErr != nil {
+		return nil, fmt.Errorf("failed to parse actionlint output: %v", jsonErr)
+	}
+	issues := make([]Issue, 0, len(actionIssues))
+	for _, iss := range actionIssues {
+		sev := SeverityMedium
+		if strings.EqualFold(iss.Level, "error") {
+			sev = SeverityHigh
+		}
+		issues = append(issues, Issue{
+			File:        filepath.ToSlash(iss.File.Name),
+			Line:        iss.File.Line,
+			Column:      iss.File.Col,
+			Severity:    sev,
+			Message:     iss.Message,
+			Category:    CategoryLint,
+			SubCategory: "gha:actionlint",
+		})
+	}
+	return issues, nil
+}
+
+func (r *LintAssessmentRunner) runCheckmakeAssessment(target string, config AssessmentConfig, overrides *assessOverrides) ([]Issue, error) {
+	enabled := config.LintMakeEnabled
+	var ov *makeOverrides
+	if overrides != nil && overrides.Lint != nil {
+		ov = overrides.Lint.Make
+	}
+	if ov != nil && ov.Checkmake != nil {
+		enabled = boolWithDefault(ov.Checkmake.Enabled, enabled)
+	}
+	if !enabled {
+		return nil, nil
+	}
+
+	paths := config.LintMakePaths
+	exclude := append([]string{}, config.LintMakeExclude...)
+	if ov != nil {
+		if len(ov.Paths) > 0 {
+			paths = ov.Paths
+		}
+		exclude = append(exclude, ov.Ignore...)
+	}
+
+	files, err := collectFilesWithExcludes(target, paths, exclude)
+	if err != nil {
+		return nil, err
+	}
+	if len(files) == 0 {
+		return nil, nil
+	}
+
+	bin := "checkmake"
+	if _, err := exec.LookPath(bin); err != nil {
+		logger.Info("checkmake not found; skipping Makefile lint")
+		return nil, nil
+	}
+
+	issues := []Issue{}
+	for _, f := range files {
+		ctx, cancel := context.WithTimeout(context.Background(), r.config.Timeout)
+		cmd := exec.CommandContext(ctx, bin, f) // #nosec G204
+		cmd.Dir = target
+		output, err := cmd.CombinedOutput()
+		cancel()
+		if err != nil {
+			if len(output) == 0 {
+				return nil, fmt.Errorf("checkmake failed on %s: %v", f, err)
+			}
+		}
+		if len(output) == 0 {
+			continue
+		}
+		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+		for _, line := range lines {
+			if strings.TrimSpace(line) == "" {
+				continue
+			}
+			issues = append(issues, Issue{
+				File:        filepath.ToSlash(f),
+				Severity:    SeverityMedium,
+				Message:     line,
+				Category:    CategoryLint,
+				SubCategory: "make:checkmake",
+			})
+		}
+	}
+	return issues, nil
+}
+
+func collectFilesWithExcludes(root string, includes, excludes []string) ([]string, error) {
+	if len(includes) == 0 {
+		return nil, nil
+	}
+	files := make([]string, 0)
+	for _, pattern := range includes {
+		absPattern := filepath.Join(root, filepath.FromSlash(pattern))
+		matches, err := doublestar.FilepathGlob(absPattern)
+		if err != nil {
+			return nil, fmt.Errorf("invalid pattern %q: %w", pattern, err)
+		}
+		for _, m := range matches {
+			info, err := os.Stat(m)
+			if err != nil || info.IsDir() {
+				continue
+			}
+			rel, err := filepath.Rel(root, m)
+			if err != nil {
+				continue
+			}
+			rel = filepath.ToSlash(rel)
+			if isExcluded(rel, excludes) {
+				continue
+			}
+			files = append(files, rel)
+		}
+	}
+	return files, nil
+}
+
+func isExcluded(path string, excludes []string) bool {
+	for _, ex := range excludes {
+		if ok, _ := doublestar.PathMatch(ex, path); ok {
+			return true
+		}
+	}
+	return false
+}
+
+func issuesFromShfmtOutput(output string) []Issue {
+	files := make(map[string]struct{})
+	scanner := bufio.NewScanner(strings.NewReader(output))
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "--- ") {
+			name := strings.TrimSpace(strings.TrimPrefix(line, "--- "))
+			files[name] = struct{}{}
+		}
+	}
+	if len(files) == 0 {
+		return nil
+	}
+	issues := make([]Issue, 0, len(files))
+	for f := range files {
+		issues = append(issues, Issue{
+			File:        filepath.ToSlash(f),
+			Severity:    SeverityMedium,
+			Message:     "shfmt reported formatting differences",
+			Category:    CategoryLint,
+			SubCategory: "shell:shfmt",
+		})
+	}
+	return issues
+}
+
+func issuesFromFiles(files []string, message string) []Issue {
+	issues := make([]Issue, 0, len(files))
+	for _, f := range files {
+		issues = append(issues, Issue{
+			File:        filepath.ToSlash(f),
+			Severity:    SeverityMedium,
+			Message:     message,
+			Category:    CategoryLint,
+			SubCategory: "shell:shfmt",
+		})
+	}
+	return issues
+}
+
 func (r *LintAssessmentRunner) runGolangCILintWithMode(target string, config AssessmentConfig, env golangciLintEnvironment, fixMode bool) ([]Issue, error) {
 	// Clean paths to prevent path traversal issues
 	target = filepath.Clean(target)

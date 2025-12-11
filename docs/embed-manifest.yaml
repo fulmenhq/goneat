@@ -10,6 +10,7 @@ topics:
       - user-guide/workflows/dependency-protection.md
       - user-guide/workflows/dependency-gating.md
       - configuration/feature-gates.md
+      - assess/**/*.md
       - appnotes/**/*.md
       - guides/**/*.md
       - troubleshooting/**/*.md

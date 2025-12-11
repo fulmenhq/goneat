@@ -101,6 +101,20 @@ type AssessmentConfig struct {
 
 	// Lint new-only control (golangci-lint --new-from-rev)
 	LintNewFromRev string `json:"lint_new_from_rev,omitempty"`
+
+	// Lint extensions (shell/make/GHA)
+	LintShellEnabled      bool     `json:"lint_shell_enabled,omitempty"`
+	LintShellFix          bool     `json:"lint_shell_fix,omitempty"`
+	LintShellPaths        []string `json:"lint_shell_paths,omitempty"`
+	LintShellExclude      []string `json:"lint_shell_exclude,omitempty"`
+	LintShellcheckEnabled bool     `json:"lint_shellcheck_enabled,omitempty"`
+	LintShellcheckPath    string   `json:"lint_shellcheck_path,omitempty"`
+	LintGHAEnabled        bool     `json:"lint_gha_enabled,omitempty"`
+	LintGHAPaths          []string `json:"lint_gha_paths,omitempty"`
+	LintGHAExclude        []string `json:"lint_gha_exclude,omitempty"`
+	LintMakeEnabled       bool     `json:"lint_make_enabled,omitempty"`
+	LintMakePaths         []string `json:"lint_make_paths,omitempty"`
+	LintMakeExclude       []string `json:"lint_make_exclude,omitempty"`
 }
 
 // DefaultAssessmentConfig returns default assessment configuration
@@ -134,6 +148,19 @@ func DefaultAssessmentConfig() AssessmentConfig {
 		SchemaMapping:    SchemaMappingConfig{},
 		// Scoped discovery default off
 		Scope: false,
+		// Lint extensions defaults
+		LintShellEnabled:      true,
+		LintShellFix:          false,
+		LintShellPaths:        []string{"**/*.sh", "scripts/**/*"},
+		LintShellExclude:      []string{"**/node_modules/**", "**/.git/**", "**/vendor/**"},
+		LintShellcheckEnabled: false,
+		LintShellcheckPath:    "",
+		LintGHAEnabled:        true,
+		LintGHAPaths:          []string{".github/workflows/**/*.yml", ".github/workflows/**/*.yaml"},
+		LintGHAExclude:        []string{},
+		LintMakeEnabled:       true,
+		LintMakePaths:         []string{"**/Makefile"},
+		LintMakeExclude:       []string{},
 	}
 }
 

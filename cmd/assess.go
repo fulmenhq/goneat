@@ -87,6 +87,19 @@ var (
 	assessProfile        string
 	assessLintNewFromRev string
 	assessPackageMode    bool
+	// Lint extensions
+	assessLintShell       bool
+	assessLintShellFix    bool
+	assessLintShellcheck  bool
+	assessShellcheckPath  string
+	assessLintGHA         bool
+	assessLintMake        bool
+	assessLintShellPaths  []string
+	assessLintShellIgnore []string
+	assessLintGHAPaths    []string
+	assessLintGHAExclude  []string
+	assessLintMakePaths   []string
+	assessLintMakeExclude []string
 	// Extended output
 	assessExtended bool
 )
@@ -132,6 +145,18 @@ func setupAssessCommandFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&assessScope, "scope", false, "Limit traversal scope to include paths and force-include anchors")
 	// Lint controls
 	cmd.Flags().StringVar(&assessLintNewFromRev, "lint-new-from-rev", "", "Report only new lint issues since a given git rev (passes to golangci-lint --new-from-rev)")
+	cmd.Flags().BoolVar(&assessLintShell, "lint-shell", true, "Enable shell linting (shfmt/shellcheck per config)")
+	cmd.Flags().BoolVar(&assessLintShellFix, "lint-shell-fix", false, "Allow shfmt to apply fixes (otherwise check-only)")
+	cmd.Flags().BoolVar(&assessLintShellcheck, "lint-shellcheck", false, "Enable shellcheck (GPL, verify-only; requires shellcheck in PATH or provided via --shellcheck-path)")
+	cmd.Flags().StringVar(&assessShellcheckPath, "shellcheck-path", "", "Path to shellcheck binary (optional; defaults to PATH lookup)")
+	cmd.Flags().BoolVar(&assessLintGHA, "lint-gha", true, "Enable GitHub Actions linting (actionlint)")
+	cmd.Flags().BoolVar(&assessLintMake, "lint-make", true, "Enable Makefile linting (checkmake)")
+	cmd.Flags().StringSliceVar(&assessLintShellPaths, "lint-shell-paths", []string{}, "Override shell lint include globs (defaults apply if empty)")
+	cmd.Flags().StringSliceVar(&assessLintShellIgnore, "lint-shell-exclude", []string{}, "Shell lint exclude globs")
+	cmd.Flags().StringSliceVar(&assessLintGHAPaths, "lint-gha-paths", []string{}, "Override GitHub Actions lint include globs (defaults apply if empty)")
+	cmd.Flags().StringSliceVar(&assessLintGHAExclude, "lint-gha-exclude", []string{}, "GitHub Actions lint exclude globs")
+	cmd.Flags().StringSliceVar(&assessLintMakePaths, "lint-make-paths", []string{}, "Override Makefile lint include globs (defaults apply if empty)")
+	cmd.Flags().StringSliceVar(&assessLintMakeExclude, "lint-make-exclude", []string{}, "Makefile lint exclude globs")
 	// Concurrency
 	cmd.Flags().IntVar(&assessConcurrency, "concurrency", 0, "Number of concurrent runners (0 uses --concurrency-percent)")
 	cmd.Flags().IntVar(&assessConcurrencyPercent, "concurrency-percent", 50, "Percent of CPU cores to use for concurrency (1-100)")
@@ -298,15 +323,27 @@ func runAssess(cmd *cobra.Command, args []string) error {
 			MinConfidence: assessSchemaMappingMinConfidence,
 			Strict:        assessSchemaMappingStrict,
 		},
-		Scope:              assessScope,
-		PackageMode:        assessPackageMode,
-		Extended:           assessExtended,
-		PriorityString:     assessPriority,
-		FailOnSeverity:     failOnSeverity,
-		Concurrency:        assessConcurrency,
-		ConcurrencyPercent: assessConcurrencyPercent,
-		TrackSuppressions:  assessTrackSuppressions,
-		LintNewFromRev:     strings.TrimSpace(assessLintNewFromRev),
+		Scope:                 assessScope,
+		PackageMode:           assessPackageMode,
+		Extended:              assessExtended,
+		PriorityString:        assessPriority,
+		FailOnSeverity:        failOnSeverity,
+		Concurrency:           assessConcurrency,
+		ConcurrencyPercent:    assessConcurrencyPercent,
+		TrackSuppressions:     assessTrackSuppressions,
+		LintNewFromRev:        strings.TrimSpace(assessLintNewFromRev),
+		LintShellEnabled:      assessLintShell,
+		LintShellFix:          assessLintShellFix,
+		LintShellPaths:        assessLintShellPaths,
+		LintShellExclude:      assessLintShellIgnore,
+		LintShellcheckEnabled: assessLintShellcheck,
+		LintShellcheckPath:    strings.TrimSpace(assessShellcheckPath),
+		LintGHAEnabled:        assessLintGHA,
+		LintGHAPaths:          assessLintGHAPaths,
+		LintGHAExclude:        assessLintGHAExclude,
+		LintMakeEnabled:       assessLintMake,
+		LintMakePaths:         assessLintMakePaths,
+		LintMakeExclude:       assessLintMakeExclude,
 	}
 
 	// Add positional args to IncludeFiles
@@ -317,6 +354,27 @@ func runAssess(cmd *cobra.Command, args []string) error {
 	// Apply profile defaults (non-intrusive; does not override explicitly set flags)
 	if strings.TrimSpace(assessProfile) != "" {
 		applyAssessProfile(strings.ToLower(strings.TrimSpace(assessProfile)), flags, &config)
+	}
+
+	// Apply lint extension defaults when flags left empty
+	defaults := assess.DefaultAssessmentConfig()
+	if len(config.LintShellPaths) == 0 {
+		config.LintShellPaths = defaults.LintShellPaths
+	}
+	if len(config.LintShellExclude) == 0 {
+		config.LintShellExclude = defaults.LintShellExclude
+	}
+	if len(config.LintGHAPaths) == 0 {
+		config.LintGHAPaths = defaults.LintGHAPaths
+	}
+	if len(config.LintGHAExclude) == 0 {
+		config.LintGHAExclude = defaults.LintGHAExclude
+	}
+	if len(config.LintMakePaths) == 0 {
+		config.LintMakePaths = defaults.LintMakePaths
+	}
+	if len(config.LintMakeExclude) == 0 {
+		config.LintMakeExclude = defaults.LintMakeExclude
 	}
 
 	// If limited to staged files, populate IncludeFiles from git staged set

@@ -7,3 +7,30 @@ lint:
       - ".github/workflows/**/*.yml"
       - ".github/workflows/**/*.yaml"
     ignore: []
+  shell:
+    shfmt:
+      enabled: true
+      fix: false
+    shellcheck:
+      enabled: false
+      path: ""
+    paths:
+      - "**/*.sh"
+      - "scripts/**/*"
+    ignore:
+      - "**/node_modules/**"
+      - "**/.git/**"
+      - "**/vendor/**"
+  github_actions:
+    actionlint:
+      enabled: true
+      paths:
+        - ".github/workflows/**/*.yml"
+        - ".github/workflows/**/*.yaml"
+      ignore: []
+  make:
+    checkmake:
+      enabled: true
+    paths:
+      - "**/Makefile"
+    ignore: []

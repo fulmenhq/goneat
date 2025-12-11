@@ -35,5 +35,89 @@ properties:
             items:
               type: string
         additionalProperties: false
+      shell:
+        type: object
+        description: Control shell lint (shfmt/shellcheck)
+        properties:
+          paths:
+            type: array
+            items:
+              type: string
+          ignore:
+            type: array
+            items:
+              type: string
+          shfmt:
+            type: object
+            properties:
+              enabled:
+                type: boolean
+              fix:
+                type: boolean
+              paths:
+                type: array
+                items:
+                  type: string
+              ignore:
+                type: array
+                items:
+                  type: string
+            additionalProperties: false
+          shellcheck:
+            type: object
+            properties:
+              enabled:
+                type: boolean
+              path:
+                type: string
+              paths:
+                type: array
+                items:
+                  type: string
+              ignore:
+                type: array
+                items:
+                  type: string
+            additionalProperties: false
+        additionalProperties: false
+      github_actions:
+        type: object
+        description: Control GitHub Actions lint (actionlint)
+        properties:
+          actionlint:
+            type: object
+            properties:
+              enabled:
+                type: boolean
+              paths:
+                type: array
+                items:
+                  type: string
+              ignore:
+                type: array
+                items:
+                  type: string
+            additionalProperties: false
+        additionalProperties: false
+      make:
+        type: object
+        description: Control Makefile lint (checkmake)
+        properties:
+          checkmake:
+            type: object
+            properties:
+              enabled:
+                type: boolean
+            additionalProperties: false
+          paths:
+            type: array
+            items:
+              type: string
+          ignore:
+            type: array
+            items:
+              type: string
+        additionalProperties: false
     additionalProperties: false
-additionalProperties: false
+  additionalProperties: false
+
