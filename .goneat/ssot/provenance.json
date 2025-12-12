@@ -4,7 +4,7 @@
     "version": "v1",
     "url": "https://github.com/fulmenhq/crucible/schemas/content/ssot-provenance/v1.1.0/ssot-provenance.schema.json"
   },
-  "generated_at": "2025-12-12T14:17:08.90055Z",
+  "generated_at": "2025-12-12T21:08:31.893473Z",
   "sources": [
     {
       "name": "crucible",
