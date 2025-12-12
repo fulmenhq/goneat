@@ -1,4 +1,3 @@
----
 # yamllint disable rule:truthy
 name: License Audit
 on:

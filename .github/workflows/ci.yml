@@ -1,4 +1,3 @@
----
 # yamllint disable rule:truthy
 name: CI
 on:
@@ -38,7 +37,6 @@ jobs:
           name: goneat-linux
           path: dist/goneat
           retention-days: 1
-
   # =============================================================================
   # JOB 2: Container Probe (LOW friction - validates container path)
   # Proves: goneat works inside goneat-tools container
@@ -71,13 +69,12 @@ jobs:
           chmod +x ./bin/goneat
           echo "=== goneat doctor tools --scope foundation ==="
           ./bin/goneat doctor tools --scope foundation || true
-          echo "=== goneat format --check (dry-run) ==="
-          ./bin/goneat format --check . || echo "Format diffs (info)"
+          echo "=== goneat format --check (includes schemas/) ==="
+          ./bin/goneat format --check --folders . schemas/ || echo "Format diffs (info)"
       - name: Check YAML formatting
         run: yamlfmt -lint . || echo "YAML format diffs (info)"
       - name: Check Markdown/JSON formatting
         run: prettier --check "**/*.{md,json}" || echo "Prettier diffs (info)"
-
   # =============================================================================
   # JOB 3: Bootstrap Probe (HIGHER friction - validates package manager path)
   # Proves: goneat doctor tools --install works on fresh runners

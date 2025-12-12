@@ -1,4 +1,3 @@
----
 # yamllint disable rule:truthy
 name: Release binaries
 on:
@@ -11,6 +10,7 @@ jobs:
   build-and-release:
     if: >-
       ${{ !github.event.repository.private ||
+
           vars.ALLOW_PRIVATE_RELEASES == 'true' }}
     environment: public-release
     runs-on: ubuntu-latest

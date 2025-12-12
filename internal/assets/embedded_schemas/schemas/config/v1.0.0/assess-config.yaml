@@ -108,6 +108,21 @@ properties:
             properties:
               enabled:
                 type: boolean
+              config:
+                type: object
+                description: checkmake configuration overrides
+                properties:
+                  max_body_length:
+                    type: integer
+                    description: Maximum lines allowed in target body (default 5)
+                    minimum: 1
+                    maximum: 50
+                  min_phony_targets:
+                    type: array
+                    description: Required phony targets (default ["all"])
+                    items:
+                      type: string
+                additionalProperties: false
             additionalProperties: false
           paths:
             type: array
@@ -120,4 +135,3 @@ properties:
         additionalProperties: false
     additionalProperties: false
   additionalProperties: false
-

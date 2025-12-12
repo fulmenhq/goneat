@@ -44,7 +44,7 @@ LDFLAGS := -ldflags "\
 	-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
-.PHONY: help build hooks-ensure clean clean-release clean-all test fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites sync-crucible sync-ssot verify-crucible verify-crucible-clean bootstrap tools lint release-check release-prepare release-build release-clean check-all prepush precommit update-homebrew-formula verify-release-key local-ci-check local-ci
+.PHONY: help build hooks-ensure clean clean-release clean-all test fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites sync-crucible sync-ssot verify-crucible verify-crucible-clean bootstrap tools lint release-check release-prepare release-build release-clean check-all prepush precommit update-homebrew-formula verify-release-key local-ci-check local-ci all
 
 # Default target
 all: clean build format-all
@@ -147,13 +147,8 @@ tools: build ## Verify external tools are present; may be a no-op if none are re
 
 lint: build ## Run lint/format/style checks
 	@echo "🔍 Running lint checks..."
-	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
-		$(BUILD_DIR)/$(BINARY_NAME) assess --categories=lint; \
-		echo "✅ Lint checks completed"; \
-	else \
-		echo "❌ goneat binary not found, cannot run lint checks"; \
-		exit 1; \
-	fi
+	$(BUILD_DIR)/$(BINARY_NAME) assess --categories=lint
+	@echo "✅ Lint checks completed"
 
 install-probe: ## Opt-in package-manager/tool availability probe (requires network; uses build tag installprobe)
 	GONEAT_INSTALL_PROBE=1 go test -tags=installprobe ./internal/doctor
@@ -545,29 +540,15 @@ license-audit: ## Audit dependencies for forbidden licenses; fail on detection
 update-licenses: license-inventory license-save ## Update license inventory and third-party texts
 
 # Hook targets (dogfooding)
-precommit: ## Run pre-commit hooks (uses existing binary, skips embeds)
+precommit: build test ## Run pre-commit hooks (uses existing binary, skips embeds)
 	@echo "Running pre-commit checks with goneat..."
-	@$(MAKE) SKIP_EMBED_ASSETS=1 build
-	@$(MAKE) test
-	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
-		$(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-commit; \
-		echo "✅ Pre-commit checks passed"; \
-	else \
-		echo "❌ goneat binary not found, cannot run pre-commit checks"; \
-		exit 1; \
-	fi
+	$(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-commit
+	@echo "✅ Pre-commit checks passed"
 
-prepush: release-check ## Run comprehensive pre-push validation (prepare + check)
+prepush: release-check verify-crucible-clean build-all ## Run comprehensive pre-push validation
 	@echo "Running pre-push checks with goneat..."
-	$(MAKE) verify-crucible-clean
-	$(MAKE) build-all
-	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
-		GONEAT_OFFLINE_SCHEMA_VALIDATION=false $(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-push; \
-		echo "✅ Pre-push checks passed"; \
-	else \
-		echo "❌ goneat binary not found, cannot run pre-push checks"; \
-		exit 1; \
-	fi
+	GONEAT_OFFLINE_SCHEMA_VALIDATION=false $(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-push
+	@echo "✅ Pre-push checks passed"
 
 # Development setup
 prerequisites: ## Check and install required development tools using goneat
@@ -577,6 +558,21 @@ prerequisites: ## Check and install required development tools using goneat
 		$(MAKE) embed-assets; \
 		$(GOBUILD) $(BUILD_FLAGS) ./$(SRC_DIR); \
 	fi
+	@echo "📋 Checking Go toolchain..."
+	@if ! command -v go >/dev/null 2>&1; then \
+		echo "❌ Go toolchain not found in PATH"; \
+		exit 1; \
+	fi
+	@echo "📋 Checking Git..."
+	@if ! command -v git >/dev/null 2>&1; then \
+		echo "❌ Git not found in PATH"; \
+		exit 1; \
+	fi
+	@echo "📋 Checking goneat tools..."
+	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
+		$(BUILD_DIR)/$(BINARY_NAME) doctor tools --scope foundation; \
+	fi
+	@echo "✅ Prerequisites check completed"
 	@echo "📋 Checking Go toolchain..."
 	@if ! command -v go >/dev/null 2>&1; then \
 		echo "❌ Go toolchain not found in PATH"; \
@@ -756,14 +752,7 @@ update-homebrew-formula: ## Update Homebrew formula with new version and checksu
 
 release: release-prep release-tag release-push ## Complete release process
 	@echo "🎉 Release v$(VERSION) completed!"
-	@echo ""
-	@echo "📋 Next steps:"
-	@echo "   1. Sign artifacts: cd dist/release && gpg --detach-sign --armor *.tar.gz *.zip SHA256SUMS"
-	@echo "   2. Extract public key: gpg --armor --export security@fulmenhq.dev > fulmenhq-release-signing-key.asc"
-	@echo "   3. Verify public key: ../../scripts/verify-public-key.sh fulmenhq-release-signing-key.asc"
-	@echo "   4. Upload to GitHub: make release-upload"
-	@echo "   5. Update Homebrew tap (if applicable)"
-	@echo "   6. Announce release in relevant channels"
+	@echo "📋 Next steps: sign artifacts, upload to GitHub, announce release"
 
 # Future: goneat-based version management
 version-manage: build ## Use goneat for version management (future feature)

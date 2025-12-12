@@ -4,36 +4,36 @@ lint:
     enabled: true
     strict: true
     paths:
-      - ".github/workflows/**/*.yml"
-      - ".github/workflows/**/*.yaml"
+    - ".github/workflows/**/*.yml"
+    - ".github/workflows/**/*.yaml"
     ignore: []
   shell:
     shfmt:
       enabled: true
-      fix: false
+      fix: true
     shellcheck:
       enabled: false
       path: ""
     paths:
-      - "**/*.sh"
-      - "scripts/**/*.sh"
+    - "**/*.sh"
+    - "scripts/**/*.sh"
     ignore:
-      - "**/node_modules/**"
-      - "**/.git/**"
-      - "**/vendor/**"
-      - "**/*.orig"
-      - "**/testdata/**"
-      - ".plans/**"
+    - "**/node_modules/**"
+    - "**/.git/**"
+    - "**/vendor/**"
+    - "**/*.orig"
+    - "**/testdata/**"
+    - ".plans/**"
   github_actions:
     actionlint:
       enabled: true
       paths:
-        - ".github/workflows/**/*.yml"
-        - ".github/workflows/**/*.yaml"
+      - ".github/workflows/**/*.yml"
+      - ".github/workflows/**/*.yaml"
       ignore: []
   make:
     checkmake:
-      enabled: false
+      enabled: true
     paths:
-      - "**/Makefile"
+    - "**/Makefile"
     ignore: []

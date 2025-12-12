@@ -61,7 +61,7 @@ func TestDoctorTools_UnknownMultiple(t *testing.T) {
 func TestDoctorTools_KnownNames(t *testing.T) {
 	// This test only asserts that the known tool names are accepted by flag parsing layer.
 	// We do not assert presence/absence in PATH to keep tests environment-agnostic.
-	out, err := execDoctorTools(t, []string{"--tools", "gosec,govulncheck,gitleaks", "--print-instructions"})
+	out, err := execDoctorTools(t, []string{"--tools", "go,golangci-lint,jq", "--print-instructions"})
 	// The command may return nil or an error depending on environment (missing tools cause non-zero).
 	// Accept either, but ensure it did not error due to "unknown tool(s)".
 	if err != nil && strings.Contains(err.Error(), "unknown tool(s)") {
@@ -71,7 +71,7 @@ func TestDoctorTools_KnownNames(t *testing.T) {
 
 func TestDoctorTools_KnownNames_Format(t *testing.T) {
 	// Ensure format tool names are accepted now that doctor supports format scope.
-	out, err := execDoctorTools(t, []string{"--tools", "goimports,gofmt", "--print-instructions"})
+	out, err := execDoctorTools(t, []string{"--tools", "yamlfmt,yq", "--print-instructions"})
 	if err != nil && strings.Contains(err.Error(), "unknown tool(s)") {
 		t.Fatalf("did not expect unknown tools error for format tools; out=%q err=%v", out, err)
 	}

@@ -78,6 +78,67 @@ Image registry: `ghcr.io/fulmenhq/goneat-tools:latest` (or `:v1.0.0` for pinned 
 
 ---
 
+## Quality Gates and Linting
+
+Goneat includes comprehensive linting for multiple file types:
+
+### Makefile Validation (checkmake)
+
+Checkmake enforces Makefile best practices:
+
+### GitHub Actions Validation (actionlint)
+
+Actionlint validates workflow files for:
+
+- Syntax correctness
+- Action reference validity
+- Security best practices
+- Deprecated action detection
+- Job dependency validation
+
+### Severity-Based Enforcement
+
+- **CI Pipelines**: Use `--fail-on high` to catch critical Makefile issues (missing `.PHONY`, syntax errors) while allowing style improvements
+- **Pre-commit**: Use `--fail-on critical` for fast feedback on blocking issues
+- **Local development**: Use `--fail-on medium` for comprehensive checking
+
+### Checkmake Limitations
+
+The checkmake tool has hardcoded rules that cannot be customized:
+
+- **Maximum target body length**: 5 lines (encourages modular makefiles)
+- **Required phony targets**: `.PHONY` declarations for all non-file targets
+- **Style rules**: Various best practices for Makefile maintainability
+
+### Handling Complex Makefiles
+
+For complex build targets exceeding the 5-line limit:
+
+1. **Refactor into scripts**: Move complex logic to shell scripts called by make
+2. **Use include files**: Break large makefiles into smaller, included files
+3. **Accept violations**: Some CI/CD complexity legitimately needs more than 5 lines
+
+### Configuration
+
+Enable/disable linting tools in `.goneat/assess.yaml`:
+
+```yaml
+lint:
+  make:
+    checkmake:
+      enabled: true
+    paths:
+      - "**/Makefile"
+    ignore:
+      - "**/testdata/**" # Exclude test makefiles
+  github_actions:
+    actionlint:
+      enabled: true
+    paths:
+      - ".github/workflows/**/*.yml"
+    ignore: [] # No exclusions for security-critical workflows
+```
+
 ## Local CI Runner (Optional)
 
 Run GitHub Actions workflows locally using [nektos/act](https://github.com/nektos/act) for quick iteration.

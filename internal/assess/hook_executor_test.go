@@ -143,7 +143,7 @@ func TestExecuteHookCommands_FailFastOnError(t *testing.T) {
 
 	commands := []HookCommand{
 		{Command: "format", Args: []string{}, Priority: 1},
-		{Command: "assess", Args: []string{}, Priority: 2},  // This will fail
+		{Command: "assess", Args: []string{}, Priority: 2},       // This will fail
 		{Command: "dependencies", Args: []string{}, Priority: 3}, // Should not execute
 	}
 
