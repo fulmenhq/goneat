@@ -47,7 +47,24 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/fulmenhq/goneat-tools:latest
+      # ghcr.io/fulmenhq/goneat-tools runs as a non-root user.
+      # GitHub mounts runner temp/work directories into the container
+      # under /__w.
+      # Running as UID 1001 matches the hosted runner's ownership and
+      # avoids EACCES
+      # when actions (e.g., checkout) write state files under /__w/_temp.
+      options: --user 1001
     steps:
+      - name: Diagnostics (container mount permissions)
+        run: |
+          echo "=== Container identity ==="
+          id
+          whoami || true
+          echo "=== Runner-mounted directories ==="
+          ls -ld /__w /__w/_temp /__w/_temp/_runner_file_commands || true
+          stat -c "%n %U:%G %a" /__w /__w/_temp \
+            /__w/_temp/_runner_file_commands || true
+
       - name: Checkout
         uses: actions/checkout@v4
       - name: Download goneat binary
@@ -69,13 +86,9 @@ jobs:
           chmod +x ./bin/goneat
           echo "=== goneat doctor tools --scope foundation ==="
           ./bin/goneat doctor tools --scope foundation || true
-          echo "=== goneat format --check (includes schemas/) ==="
-          ./bin/goneat format --check --folders . schemas/ || \
-            echo "Format diffs (info)"
-      - name: Check YAML formatting
-        run: yamlfmt -lint . || echo "YAML format diffs (info)"
-      - name: Check Markdown/JSON formatting
-        run: prettier --check "**/*.{md,json}" || echo "Prettier diffs (info)"
+          echo "=== goneat assess (lint+format) ==="
+          ./bin/goneat assess --categories lint,format --fail-on high . || \
+            echo "goneat assess reported issues (info)"
   # =============================================================================
   # JOB 3: Bootstrap Probe (HIGHER friction - validates package manager path)
   # Proves: goneat doctor tools --install works on fresh runners

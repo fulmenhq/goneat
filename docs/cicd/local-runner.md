@@ -45,14 +45,21 @@ This isn't just for goneat development - **any project using goneat** can levera
 ```yaml
 # Your project's .github/workflows/ci.yml
 jobs:
-  format-check:
+  quality:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/fulmenhq/goneat-tools:latest
+      # Required: the container runs non-root, but GitHub mounts /__w from the host.
+      # UID 1001 matches the hosted runner's workspace ownership.
+      options: --user 1001
     steps:
       - uses: actions/checkout@v4
-      - run: prettier --check "**/*.{md,json,yml,yaml}"
-      - run: yamlfmt -lint .
+
+      # Install/bring your goneat binary into the job (example: download from release)
+      # - run: curl -fsSL "https://github.com/fulmenhq/goneat/releases/download/vX.Y.Z/goneat_vX.Y.Z_linux_amd64.tar.gz" | tar -xz
+      # - run: install -m 0755 goneat ./bin/goneat
+
+      - run: ./bin/goneat assess --categories lint,format --fail-on high .
 ```
 
 **What you get:**

@@ -50,6 +50,8 @@ lint:
 ## CI / container
 
 - goneat-tools container bundles shfmt, actionlint, checkmake.
+- GitHub Actions container jobs must ensure the container user can write to runner mounts under `/__w`.
+  - Recommended: `container.options: --user 1001` (matches GitHub-hosted runner workspace ownership).
 - shellcheck is not bundled (GPL); install in CI job or provide sidecar path.
 
 ## Troubleshooting
