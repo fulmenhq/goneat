@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.15] - 2025-12-11
+
+### Added
+- **Expanded Lint Coverage**: Added comprehensive linting for shell scripts (shfmt/shellcheck), Makefiles (checkmake), and GitHub Actions workflows (actionlint)
+- **Hook Manifest Execution**: `goneat assess --hook` now executes all commands defined in hooks.yaml, not just assess commands
+- **Yamllint Integration**: Added yamllint support with configurable paths and strict mode for YAML files
+- **Tool Defaults**: Added shfmt, actionlint, and checkmake to foundation tool defaults for local installation
+
+### Changed
+- **Hook Behavior**: Hook manifests now execute external commands (make, etc.) in priority order with timeout enforcement
+- **Lint Assessment**: Enhanced lint runner to handle multiple tool types with graceful skipping when tools are unavailable
+
+### Fixed
+- **assess command**: Prevent creation of poorly named output files when format names are used as filenames (e.g., `--output json` now shows helpful error suggesting `--format json`)
+- **Shell Lint**: Fixed shfmt diff name handling and improved fixture exclusion logic
+- **CI Cache**: Removed redundant Go cache step to prevent CI collisions
+
 ## [0.3.14] - 2025-12-08
 
 ### Added

@@ -219,6 +219,15 @@ func runAssess(cmd *cobra.Command, args []string) error {
 	assessFailOn, _ = flags.GetString("fail-on")
 	assessTimeout, _ = flags.GetDuration("timeout")
 	assessOutput, _ = flags.GetString("output")
+
+	// Prevent format names from being used as output filenames
+	validFormats := []string{"markdown", "json", "html", "both"}
+	for _, format := range validFormats {
+		if assessOutput == format {
+			return fmt.Errorf("invalid output filename '%s': this appears to be a format name\n\nUse --format %s to set output format, or --output <filename> for output file\n\nExample: goneat assess --format %s --output report.%s", assessOutput, assessOutput, assessOutput, assessOutput)
+		}
+	}
+
 	assessIncludeFiles, _ = flags.GetStringSlice("include")
 	assessExcludeFiles, _ = flags.GetStringSlice("exclude")
 	assessCategories, _ = flags.GetString("categories")

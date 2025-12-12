@@ -268,10 +268,41 @@ go install ./cmd/goneat            # ❌ Missing version context
 **DO**: Use make targets for consistent formatting
 
 ```bash
-make fmt            # ✅ Format all Go code
+make fmt            # ✅ Format code and documents
 make format         # ✅ Full format (Go + docs)
 ./dist/goneat format # ✅ Use built binary for formatting
 ```
+
+**DO NOT**: Use raw go fmt or other formatters
+
+```bash
+go fmt ./...                        # ❌ Inconsistent with project standards
+gofmt -w .                          # ❌ Missing project-specific rules
+prettier --write .                  # ❌ Use goneat format instead
+```
+
+##### Commit Message Formatting
+
+**DO**: Write commit messages with proper line breaks, not escaped newlines
+
+```bash
+# ✅ CORRECT: Use actual line breaks
+git commit -m "feat: add new feature
+
+- bullet point 1
+- bullet point 2
+
+🎯 Changes:
+- detailed change description
+
+📊 Quality Metrics:
+- test coverage maintained"
+
+# ❌ WRONG: Avoid escaped \n characters
+git commit -m "feat: add new feature\n\n- bullet point 1\n- bullet point 2\n\n🎯 Changes:\n- detailed change description"
+```
+
+**Why**: Escaped newlines (\n) appear literally in git log instead of creating proper line breaks, making commit messages harder to read.
 
 **DO NOT**: Use raw go fmt or other formatters
 

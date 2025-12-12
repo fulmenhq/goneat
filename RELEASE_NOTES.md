@@ -18,6 +18,69 @@
 
 ---
 
+# Goneat v0.3.15 — Lint Expansion & Hook Execution
+
+**Release Date**: 2025-12-11
+**Status**: Release
+
+## TL;DR
+
+- **Expanded Lint Coverage**: Added shell script (shfmt/shellcheck), Makefile (checkmake), and GitHub Actions (actionlint) linting
+- **Hook Manifest Execution**: `goneat assess --hook` now executes ALL commands in hooks.yaml (make, assess, etc.) in priority order
+- **Yamllint Integration**: Configurable YAML linting with strict mode for workflows and configs
+- **DX Improvements**: Better error messages and graceful tool handling
+
+## What's New
+
+### Expanded Lint Capabilities
+
+The `goneat assess --categories lint` command now includes comprehensive linting for:
+
+- **Shell Scripts**: `shfmt` (BSD-3, format+fix) and `shellcheck` (GPL-3, verify-only)
+- **Makefiles**: `checkmake` (MIT, comprehensive Makefile validation)
+- **GitHub Actions**: `actionlint` (MIT, workflow validation)
+- **YAML Files**: `yamllint` with configurable paths and strict mode
+
+Tools are bundled in the goneat-tools container for CI environments. Local development can install them via `goneat doctor tools --install --tools shfmt,actionlint,checkmake,yamllint`.
+
+### Hook Manifest Execution
+
+**BREAKING CHANGE FOR HOOK USERS**: Hook manifests now execute ALL commands, not just assess commands.
+
+Previously, hooks.yaml entries like:
+```yaml
+hooks:
+  pre-commit:
+    - command: "make"
+      args: ["format-all"]
+      priority: 5
+```
+
+Were silently ignored. Now they execute in priority order with timeout enforcement.
+
+**Migration**: Update hooks to use check-only commands:
+- `make format-all` → `make format-check`
+- `make test` → `make test-fast`
+
+### Yamllint Integration
+
+Added configurable YAML linting:
+- Default paths: `.github/workflows/**/*.yml`
+- Configurable via `.goneat/assess.yaml`
+- Strict mode for CI compliance
+
+### Developer Experience Improvements
+
+- **Helpful Error Messages**: `--output json` shows clear guidance to use `--format json`
+- **Graceful Tool Skipping**: Missing tools skip with informative messages rather than failing
+- **Container-Ready**: All new tools pre-installed in goneat-tools container
+
+## Breaking Changes
+
+None. All changes are additive and backwards compatible.
+
+---
+
 # Goneat v0.3.14 — Container-Based CI & ToolExecutor Infrastructure
 
 **Release Date**: 2025-12-08
