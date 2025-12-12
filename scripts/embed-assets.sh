@@ -16,20 +16,20 @@ echo "📦 Embedding assets from SSOT (templates/, schemas/, config/)..."
 mkdir -p "$DST_TEMPLATES" "$DST_SCHEMAS" "$DST_CONFIG"
 
 sync_dir() {
-  local src="$1"
-  local dst="$2"
-  if [ -d "$src" ]; then
-    if command -v rsync >/dev/null 2>&1; then
-      rsync -a --delete "$src"/ "$dst"/
-    else
-      rm -rf "$dst"/*
-      (cd "$src" && find . -type d -print0 | xargs -0 -I{} mkdir -p "$dst/{}")
-      (cd "$src" && find . -type f -print0 | xargs -0 -I{} cp -f "$src/{}" "$dst/{}")
-    fi
-    echo "✅ Synced $(basename "$src") -> $dst"
-  else
-    echo "ℹ️  Source not found: $src (skipping)"
-  fi
+	local src="$1"
+	local dst="$2"
+	if [ -d "$src" ]; then
+		if command -v rsync >/dev/null 2>&1; then
+			rsync -a --delete "$src"/ "$dst"/
+		else
+			rm -rf "$dst"/*
+			(cd "$src" && find . -type d -print0 | xargs -0 -I{} mkdir -p "$dst/{}")
+			(cd "$src" && find . -type f -print0 | xargs -0 -I{} cp -f "$src/{}" "$dst/{}")
+		fi
+		echo "✅ Synced $(basename "$src") -> $dst"
+	else
+		echo "ℹ️  Source not found: $src (skipping)"
+	fi
 }
 
 sync_dir "$SRC_TEMPLATES" "$DST_TEMPLATES"
@@ -42,7 +42,7 @@ echo "📦 Embedding curated docs (docs/ -> internal/assets/embedded_docs/docs v
 DOCS_TARGET="$ROOT_DIR/internal/assets/embedded_docs/docs"
 mkdir -p "$DOCS_TARGET"
 (cd "$ROOT_DIR" && go run . content embed --manifest docs/embed-manifest.yaml --root docs --target "$DOCS_TARGET" --json >/dev/null) || {
-  echo "⚠️  Content embedding failed; leaving docs mirror unchanged" >&2
+	echo "⚠️  Content embedding failed; leaving docs mirror unchanged" >&2
 }
 
 echo "✅ Embed assets sync complete"

@@ -10,18 +10,18 @@ echo "🧪 Running unit tests..."
 TIMEOUT="60s"
 
 # Run unit tests only (skip integration tests for speed)
-if command -v go &> /dev/null; then
-    # Run tests with short flag to skip long-running tests
-    if ! go test ./cmd/... ./internal/... -short -timeout "$TIMEOUT" -v; then
-        echo "❌ Unit tests failed"
-        echo "💡 Fix: go test ./cmd/... ./internal/..."
-        echo "💡 For faster iteration: go test ./cmd/... ./internal/... -short"
-        exit 1
-    fi
-    echo "✅ Unit tests passed"
+if command -v go &>/dev/null; then
+	# Run tests with short flag to skip long-running tests
+	if ! go test ./cmd/... ./internal/... -short -timeout "$TIMEOUT" -v; then
+		echo "❌ Unit tests failed"
+		echo "💡 Fix: go test ./cmd/... ./internal/..."
+		echo "💡 For faster iteration: go test ./cmd/... ./internal/... -short"
+		exit 1
+	fi
+	echo "✅ Unit tests passed"
 else
-    echo "⚠️  Go not found, skipping test check"
-    exit 0
+	echo "⚠️  Go not found, skipping test check"
+	exit 0
 fi
 
 # Optional: Check test coverage if desired

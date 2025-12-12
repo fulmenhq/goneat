@@ -7,14 +7,14 @@ NOTES_FILE="$ROOT_DIR/RELEASE_NOTES.md"
 OUT_DIR="$ROOT_DIR/dist/release"
 
 if [[ ! -f "$VERSION_FILE" ]]; then
-  echo "VERSION file not found" >&2
-  exit 1
+	echo "VERSION file not found" >&2
+	exit 1
 fi
 VERSION=$(cat "$VERSION_FILE")
 
 if [[ ! -f "$NOTES_FILE" ]]; then
-  echo "RELEASE_NOTES.md not found" >&2
-  exit 1
+	echo "RELEASE_NOTES.md not found" >&2
+	exit 1
 fi
 
 mkdir -p "$OUT_DIR"
@@ -24,7 +24,7 @@ OUT_FILE="$OUT_DIR/release-notes-v${VERSION_CLEAN}.md"
 
 # Simple sanity: ensure notes mention the version
 if ! grep -qi "${VERSION}" "$NOTES_FILE"; then
-  echo "Warning: RELEASE_NOTES.md does not mention version ${VERSION}" >&2
+	echo "Warning: RELEASE_NOTES.md does not mention version ${VERSION}" >&2
 fi
 
 cp "$NOTES_FILE" "$OUT_FILE"

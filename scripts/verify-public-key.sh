@@ -14,17 +14,17 @@ set -euo pipefail
 
 # Check arguments
 if [ $# -ne 1 ]; then
-  echo "❌ Usage: $0 <key-file>"
-  echo "   Example: $0 dist/release/fulmenhq-release-signing-key.asc"
-  exit 1
+	echo "❌ Usage: $0 <key-file>"
+	echo "   Example: $0 dist/release/fulmenhq-release-signing-key.asc"
+	exit 1
 fi
 
 KEY_FILE="$1"
 
 # Check file exists
 if [ ! -f "$KEY_FILE" ]; then
-  echo "❌ FATAL: Key file not found: $KEY_FILE"
-  exit 1
+	echo "❌ FATAL: Key file not found: $KEY_FILE"
+	exit 1
 fi
 
 echo "🔍 Verifying key file: $KEY_FILE"
@@ -33,65 +33,65 @@ echo ""
 # === NEGATIVE CHECK: Ensure NO private key material anywhere in file ===
 echo "🛡️  Checking for private key material (must be absent)..."
 if grep -qi "PRIVATE KEY" "$KEY_FILE"; then
-  echo ""
-  echo "❌❌❌ FATAL: PRIVATE KEY DETECTED IN FILE! ❌❌❌"
-  echo ""
-  echo "The file contains private key material and MUST NOT be uploaded."
-  echo "Detected blocks:"
-  grep -i "PRIVATE KEY" "$KEY_FILE" || true
-  echo ""
-  echo "🚨 DO NOT UPLOAD THIS FILE 🚨"
-  echo "Review key export command and try again."
-  exit 1
+	echo ""
+	echo "❌❌❌ FATAL: PRIVATE KEY DETECTED IN FILE! ❌❌❌"
+	echo ""
+	echo "The file contains private key material and MUST NOT be uploaded."
+	echo "Detected blocks:"
+	grep -i "PRIVATE KEY" "$KEY_FILE" || true
+	echo ""
+	echo "🚨 DO NOT UPLOAD THIS FILE 🚨"
+	echo "Review key export command and try again."
+	exit 1
 fi
 echo "   ✅ No private key blocks found"
 
 # === POSITIVE CHECK: Ensure PUBLIC key exists ===
 echo "🔑 Checking for public key material (must be present)..."
 if ! grep -qi "PUBLIC KEY" "$KEY_FILE"; then
-  echo ""
-  echo "❌ FATAL: No public key found in file!"
-  echo ""
-  echo "The file does not contain expected public key blocks."
-  echo "This may indicate an export error or corrupted file."
-  exit 1
+	echo ""
+	echo "❌ FATAL: No public key found in file!"
+	echo ""
+	echo "The file does not contain expected public key blocks."
+	echo "This may indicate an export error or corrupted file."
+	exit 1
 fi
 echo "   ✅ Public key blocks found"
 
 # === GPG VERIFICATION: Parse key with GPG and verify no secret keys ===
 echo "🔐 Verifying with GPG (gpg --show-keys)..."
-if ! command -v gpg &> /dev/null; then
-  echo "   ⚠️  WARNING: gpg command not found, skipping GPG verification"
+if ! command -v gpg &>/dev/null; then
+	echo "   ⚠️  WARNING: gpg command not found, skipping GPG verification"
 else
-  # Capture GPG output
-  GPG_OUTPUT=$(gpg --show-keys "$KEY_FILE" 2>&1 || true)
+	# Capture GPG output
+	GPG_OUTPUT=$(gpg --show-keys "$KEY_FILE" 2>&1 || true)
 
-  # Check for secret key indicators
-  if echo "$GPG_OUTPUT" | grep -q "^sec "; then
-    echo ""
-    echo "❌❌❌ FATAL: SECRET KEY DETECTED BY GPG! ❌❌❌"
-    echo ""
-    echo "GPG identifies secret (private) key material in this file:"
-    echo "$GPG_OUTPUT"
-    echo ""
-    echo "🚨 DO NOT UPLOAD THIS FILE 🚨"
-    exit 1
-  fi
+	# Check for secret key indicators
+	if echo "$GPG_OUTPUT" | grep -q "^sec "; then
+		echo ""
+		echo "❌❌❌ FATAL: SECRET KEY DETECTED BY GPG! ❌❌❌"
+		echo ""
+		echo "GPG identifies secret (private) key material in this file:"
+		echo "$GPG_OUTPUT"
+		echo ""
+		echo "🚨 DO NOT UPLOAD THIS FILE 🚨"
+		exit 1
+	fi
 
-  # Verify public key is present
-  if ! echo "$GPG_OUTPUT" | grep -q "^pub "; then
-    echo ""
-    echo "❌ FATAL: GPG did not identify any public keys in file!"
-    echo ""
-    echo "GPG output:"
-    echo "$GPG_OUTPUT"
-    exit 1
-  fi
+	# Verify public key is present
+	if ! echo "$GPG_OUTPUT" | grep -q "^pub "; then
+		echo ""
+		echo "❌ FATAL: GPG did not identify any public keys in file!"
+		echo ""
+		echo "GPG output:"
+		echo "$GPG_OUTPUT"
+		exit 1
+	fi
 
-  echo "   ✅ GPG confirms: public keys only (no secret keys)"
-  echo ""
-  echo "   Key details:"
-  echo "$GPG_OUTPUT" | sed 's/^/      /'
+	echo "   ✅ GPG confirms: public keys only (no secret keys)"
+	echo ""
+	echo "   Key details:"
+	echo "$GPG_OUTPUT" | sed 's/^/      /'
 fi
 
 # === FINAL VERIFICATION SUMMARY ===

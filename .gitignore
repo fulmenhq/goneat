@@ -108,3 +108,4 @@ test-override.md
 
 # Backup files in .goneat directory
 .goneat/*.backup
+json
