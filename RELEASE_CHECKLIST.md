@@ -137,7 +137,7 @@ make version-set-prerelease VERSION_SET=v0.3.6-rc.1
 ### Cross-Platform Build Validation
 
 ```bash
-make build-all  # Builds 6 platform targets
+make build-all  # Builds 6 platform targets (for inspection - CI builds actual release artifacts)
 
 # Platforms:
 # - Linux AMD64/ARM64
@@ -147,6 +147,8 @@ make build-all  # Builds 6 platform targets
 ```
 
 Binary testing is automatic for compatible platforms. Non-compatible platforms (e.g., Windows on macOS) will show test warnings but still produce binaries.
+
+**Note**: Release artifacts are built by CI, not local `make build-all`. Use `make build-all` for pre-release inspection and validation only.
 
 ### Documentation Requirements
 
@@ -266,7 +268,9 @@ make test-integration-extended  # All 3 tiers (~2 minutes)
 
 ### Cryptographic Signing (v0.3.4+)
 
-**Current Status**: Manual signing workflow operational. Automated signing planned for future releases.
+**Current Status**: Manual signing workflow operational using CI-built artifacts. Automated signing planned for future releases.
+
+**Artifact Strategy**: Sign CI-built artifacts (not local builds) to ensure signatures match what users download. Use `make build-all` for pre-release inspection only.
 
 **Prerequisites:**
 
@@ -274,64 +278,138 @@ make test-integration-extended  # All 3 tiers (~2 minutes)
 - `gpg --card-status` shows signing subkey available
 - `gpg --list-secret-keys security@fulmenhq.dev` accessible
 
-**Signing Workflow:**
+## Signing Workflow
+
+> **CRITICAL: One-Way Sequence**
+>
+> The signing workflow is a ONE-WAY sequence. Once you sign (step 5), you MUST NOT
+> regenerate checksums (step 3). Doing so invalidates all signatures and requires
+> re-signing. The Makefile includes guards to prevent accidental checksum regeneration
+> after signing.
+
+### 1. Wait for CI to complete and build artifacts
+
+After tagging, wait for GitHub Actions to build and upload artifacts to draft release.
 
 ```bash
-# 1. Reset release artifacts, build, and package
-make release-clean  # Optional safety: start with empty dist/release
-make build-all
-make package  # Creates dist/release/*.tar.gz, *.zip, SHA256SUMS (must run before uploading)
+RELEASE_TAG=v0.3.15  # Set to current release version
+echo "Waiting for CI completion for $RELEASE_TAG..."
+gh run list --workflow=ci.yml --limit=1 --json status,conclusion | jq -r '.[0] | select(.status == "completed" and .conclusion == "success") | "CI completed successfully"'
+```
 
-# 2. Sign checksum manifests (manual - performed by release manager)
-cd dist/release
-# Preferred helper (prompts for minisign key path or use --key/--pub flags)
-../../scripts/sign-checksums.sh --key ~/.minisign/fulmenhq-release.key --pub ~/.minisign/fulmenhq-release.pub
+Or monitor: https://github.com/fulmenhq/goneat/actions
 
-# Manual fallback if helper cannot be used:
-for sums in SHA256SUMS SHA512SUMS; do
-  gpg --detach-sign --armor --output "${sums}.asc" "${sums}"
-  minisign -S -s ~/.minisign/fulmenhq-release.key -m "${sums}" -x "${sums}.minisig"
-done
-cp ~/.minisign/fulmenhq-release.pub fulmenhq-release-minisign.pub
+### 2. Download CI-built artifacts (sign what users actually get)
 
-# 3. Extract public key for distribution (GPG)
-gpg --armor --export security@fulmenhq.dev > fulmenhq-release-signing-key.asc
+```bash
+make release-clean     # Clean any local artifacts
+RELEASE_TAG=$RELEASE_TAG make release-download  # Download CI-built artifacts (requires gh CLI)
+```
 
-# 4. CRITICAL: Verify PUBLIC key only (never upload private keys!)
-# Before first use: Inspect scripts/verify-public-key.sh to understand checks performed
-# The script performs three independent verifications:
-#   - Negative check: grep entire file for "PRIVATE KEY" blocks (must be absent)
-#   - Positive check: grep entire file for "PUBLIC KEY" blocks (must be present)
-#   - GPG verification: gpg --show-keys must show "pub" entries only (never "sec")
-# All three checks must pass or script exits with error and blocks upload
+### 3. Generate checksums from downloaded artifacts
 
-./scripts/verify-public-key.sh fulmenhq-release-signing-key.asc
+> **WARNING**: Do NOT run this step again after signing! Regenerating checksums
+> invalidates signatures. The Makefile will block this if signatures exist.
 
-# Manual verification (optional - script automates these checks):
-# grep -i "PRIVATE KEY" fulmenhq-release-signing-key.asc  # Must return nothing
-# grep -i "PUBLIC KEY" fulmenhq-release-signing-key.asc   # Must find blocks
-# gpg --show-keys fulmenhq-release-signing-key.asc       # Must show "pub" not "sec"
+```bash
+RELEASE_TAG=$RELEASE_TAG make release-checksums # Generate SHA256SUMS and SHA512SUMS
+```
 
-# 5. Verify signatures locally (skip standalone public key exports)
+### 3a. (Optional) Verify checksums match artifacts
+
+Use this to verify checksum integrity without regenerating (safe to run anytime):
+
+```bash
+RELEASE_TAG=$RELEASE_TAG make release-verify-checksums  # Non-destructive verification
+```
+
+### 4. Set signing environment variables
+
+Set these environment variables (temporary - do not export to avoid shell pollution):
+
+```bash
+PGP_KEY_ID=$(gpg --list-secret-keys --keyid-format=long security@fulmenhq.dev | grep '^sec' | head -1 | awk '{print $2}' | cut -d'/' -f2)
+MINISIGN_KEY=~/.minisign/fulmenhq-release.key
+MINISIGN_PUB=~/.minisign/fulmenhq-release.pub
+GPG_HOMEDIR=${GNUPGHOME:-~/.gnupg}  # Use GNUPGHOME if set, fallback to default
+```
+
+### 5. Sign checksum manifests
+
+```bash
+RELEASE_TAG=$RELEASE_TAG make release-sign  # Sign with GPG and minisign
+```
+
+This target automatically:
+- Uses sign-checksums.sh helper if available
+- Falls back to manual GPG + minisign signing
+- Copies minisign public key for distribution
+- Extracts GPG public key for distribution
+
+### 6. Verify signatures and key safety
+
+```bash
+RELEASE_TAG=$RELEASE_TAG make release-verify-signatures  # Verify GPG + minisign signatures
+RELEASE_TAG=$RELEASE_TAG make release-verify-key         # Verify GPG key is public-only
+```
+
+#### Manual verification (fallback)
+
+GPG signatures:
+```bash
 for asc in SHA256SUMS.asc SHA512SUMS.asc; do
-  gpg --verify "$asc" "${asc%.asc}"
+  gpg --homedir "$GPG_HOMEDIR" --verify "$asc" "${asc%.asc}"
 done
-# Should show "Good signature" for both checksum manifests
+```
 
-# 6. Upload to GitHub release and update package manager formulas
-# IMPORTANT: Upload BOTH binaries and signatures, not just signatures!
-# Option A: Use make target (recommended - includes Homebrew formula update)
+Minisign signatures:
+```bash
+for sig in SHA256SUMS.minisig SHA512SUMS.minisig; do
+  minisign -Vm "${sig%.minisig}" -p fulmenhq-release-minisign.pub
+done
+```
+
+Key safety:
+```bash
+./scripts/verify-public-key.sh fulmenhq-release-signing-key.asc
+```
+
+### 7. Prepare for upload
+
+All signature and key files are now ready in `dist/release/`:
+- Checksums: `SHA256SUMS`, `SHA512SUMS`
+- GPG signatures: `SHA256SUMS.asc`, `SHA512SUMS.asc`
+- Minisign signatures: `SHA256SUMS.minisig`, `SHA512SUMS.minisig`
+- Public keys: `fulmenhq-release-signing-key.asc`, `fulmenhq-release-minisign.pub`
+
+## Upload to GitHub Release
+
+**IMPORTANT:** Upload BOTH binaries and signatures, not just signatures!
+
+### Option A: Automated Upload (Recommended)
+
+Includes automatic Homebrew formula updates.
+
+```bash
 cd ../..  # Return to repo root
+# CRITICAL: Ensure GPG_HOMEDIR matches what was used during signing
+export GPG_HOMEDIR=${GNUPGHOME:-~/.gnupg}  # Use same value as signing step
 make release-upload  # Uploads artifacts AND updates ../homebrew-tap formula
+```
 
-# Option B: Manual upload
-gh release upload v<version> \
-  goneat_v<version>_*.tar.gz \
-  goneat_v<version>_*.zip \
+### Option B: Manual Upload
+
+```bash
+# Upload binaries and checksums
+gh release upload $RELEASE_TAG \
+  goneat_${RELEASE_TAG}_*.tar.gz \
+  goneat_${RELEASE_TAG}_*.zip \
   SHA256SUMS \
   SHA512SUMS \
   --clobber
-gh release upload v<version> \
+
+# Upload signatures and keys
+gh release upload $RELEASE_TAG \
   SHA256SUMS.asc \
   SHA512SUMS.asc \
   SHA256SUMS.minisig \
@@ -339,39 +417,57 @@ gh release upload v<version> \
   fulmenhq-release-signing-key.asc \
   fulmenhq-release-minisign.pub \
   --clobber
-gh release edit v<version> --notes-file release-notes-v<version>.md
 
-# Verify upload succeeded (should show 13 assets)
-gh release view v<version> --json assets --jq '.assets | length'
-gh release view v<version> --json assets --jq '.assets[].name'
+# Update release notes
+gh release edit $RELEASE_TAG --notes-file release-notes-${RELEASE_TAG}.md
 
-# 7. Re-verify GitHub-hosted artifacts before announcing (required)
-# Preferred: use the helper script to download the published artifacts, recompute
-# their hashes, and compare them (sorted) to dist/release/SHA256SUMS plus the
-# uploaded SHA256SUMS asset.
-scripts/verify-release-assets.sh v<version>
+# CRITICAL: If using Option B, you must manually verify signatures before upload
+# The automated target does this verification automatically
+```
 
-# Manual fallback if scripting is unavailable:
+### Verify Upload Success
+
+```bash
+# Should show 13 assets total
+gh release view $RELEASE_TAG --json assets --jq '.assets | length'
+gh release view $RELEASE_TAG --json assets --jq '.assets[].name'
+```
+
+## Post-Upload Verification
+
+### Automated Verification (Recommended)
+
+```bash
+scripts/verify-release-assets.sh $RELEASE_TAG
+```
+
+### Manual Verification (Fallback)
+
+```bash
 TMPDIR=$(mktemp -d)
-gh release download v<version> --dir "$TMPDIR" --pattern 'goneat_v<version>_*.tar.gz' --clobber
-gh release download v<version> --dir "$TMPDIR" --pattern 'goneat_v<version>_*.zip' --clobber
-(cd "$TMPDIR" && shasum -a 256 goneat_v<version>_*.tar.gz goneat_v<version>_*.zip | sort > SHA256SUMS.github)
+gh release download $RELEASE_TAG --dir "$TMPDIR" --pattern "goneat_${RELEASE_TAG}_*.tar.gz" --clobber
+gh release download $RELEASE_TAG --dir "$TMPDIR" --pattern "goneat_${RELEASE_TAG}_*.zip" --clobber
+(cd "$TMPDIR" && shasum -a 256 goneat_${RELEASE_TAG}_*.tar.gz goneat_${RELEASE_TAG}_*.zip | sort > SHA256SUMS.github)
 sort dist/release/SHA256SUMS > "$TMPDIR"/SHA256SUMS.local
 diff "$TMPDIR"/SHA256SUMS.local "$TMPDIR"/SHA256SUMS.github  # Must be empty before release is declared healthy
-gh release download v<version> --dir "$TMPDIR" --pattern SHA256SUMS --clobber
+gh release download $RELEASE_TAG --dir "$TMPDIR" --pattern SHA256SUMS --clobber
 sort "$TMPDIR"/SHA256SUMS > "$TMPDIR"/SHA256SUMS.remote
 diff "$TMPDIR"/SHA256SUMS.local "$TMPDIR"/SHA256SUMS.remote  # Validates uploaded checksum matches local copy
-# If any diff is non-empty, copy the new SHA256SUMS back into dist/release/SHA256SUMS, re-sign, and re-upload using the steps above.
+```
 
-> ⚠️ Always rerun `make package` (after `make release-clean` if needed) before uploading replacements to ensure the SHA256SUMS file matches the artifacts you're distributing, and repeat step 7 after every upload.
+> ⚠️ Since we sign CI-built artifacts, any checksum mismatches indicate CI build problems, not local packaging issues. Always verify CI builds are consistent before signing.
 
-# If using Option B (manual upload), update Homebrew formula separately:
+### Update Package Manager Formulas
+
+If using Option B (manual upload), update Homebrew formula separately:
+
+```bash
 make update-homebrew-formula  # Requires ../homebrew-tap
 ```
 
 **Note**: `make release-upload` (Option A) automatically generates release notes (`make release-notes`) and calls `make update-homebrew-formula` after uploading artifacts. If using Option B (manual upload), run these targets separately.
 
-**See**: `docs/security/release-signing.md` for detailed signing procedures.
+**See**: [`docs/security/release-signing.md`](docs/security/release-signing.md) for detailed signing procedures.
 
 ### GitHub Release Creation
 
@@ -393,14 +489,24 @@ make update-homebrew-formula  # Requires ../homebrew-tap
 Download the FulmenHQ public key and verify artifacts:
 
 \`\`\`bash
-curl -LO https://github.com/fulmenhq/goneat/releases/download/v0.3.15/fulmenhq-release-signing-key.asc
-curl -LO https://github.com/fulmenhq/goneat/releases/download/v0.3.15/SHA256SUMS
-curl -LO https://github.com/fulmenhq/goneat/releases/download/v0.3.15/SHA256SUMS.asc
-curl -LO https://github.com/fulmenhq/goneat/releases/download/v0.3.15/fulmenhq-release-minisign.pub
-curl -LO https://github.com/fulmenhq/goneat/releases/download/v0.3.15/SHA256SUMS.minisig
+# Set version variable for convenience
+VERSION=v0.3.15
+
+# Download artifacts
+curl -LO "https://github.com/fulmenhq/goneat/releases/download/${VERSION}/fulmenhq-release-signing-key.asc"
+curl -LO "https://github.com/fulmenhq/goneat/releases/download/${VERSION}/SHA256SUMS"
+curl -LO "https://github.com/fulmenhq/goneat/releases/download/${VERSION}/SHA256SUMS.asc"
+curl -LO "https://github.com/fulmenhq/goneat/releases/download/${VERSION}/fulmenhq-release-minisign.pub"
+curl -LO "https://github.com/fulmenhq/goneat/releases/download/${VERSION}/SHA256SUMS.minisig"
+
+# Import and verify GPG signature
 gpg --import fulmenhq-release-signing-key.asc
 gpg --verify SHA256SUMS.asc SHA256SUMS
+
+# Verify minisign signature
 minisign -Vm SHA256SUMS -p fulmenhq-release-minisign.pub
+
+# Verify checksums
 shasum -a 256 --check SHA256SUMS
 \`\`\`
 ```
@@ -497,6 +603,45 @@ git commit -m "revert: rollback to v0.3.5 due to critical issue"
 - Inform all stakeholders
 - Create hotfix branch if needed
 - Re-run full validation before re-release
+
+### Invalid Signature Recovery
+
+**Symptom**: `make release-upload` fails with "Invalid GPG signature for SHA256SUMS"
+
+**Cause**: Checksums were regenerated AFTER signing, invalidating signatures. This can happen if:
+
+- `make release-checksums` was run after `make release-sign`
+- Artifacts were modified after signing
+- Workflow steps were run out of order
+
+**Diagnosis**: Check timestamps - signatures should be NEWER than checksums:
+
+```bash
+ls -la dist/release/SHA256SUMS dist/release/SHA256SUMS.asc
+# .asc file MUST have a timestamp >= SHA256SUMS timestamp
+
+# Verify checksums match artifacts (non-destructive)
+RELEASE_TAG=vX.Y.Z make release-verify-checksums
+```
+
+**Recovery**:
+
+```bash
+# Option 1: Re-sign existing checksums (if checksums are correct)
+cd dist/release
+rm -f *.asc *.minisig  # Remove invalid signatures
+cd ../..
+RELEASE_TAG=vX.Y.Z make release-sign  # Re-sign
+
+# Option 2: Full reset (if unsure about checksum integrity)
+make release-clean
+RELEASE_TAG=vX.Y.Z make release-download
+RELEASE_TAG=vX.Y.Z make release-checksums
+RELEASE_TAG=vX.Y.Z make release-sign
+RELEASE_TAG=vX.Y.Z make release-verify-signatures
+```
+
+**Prevention**: The Makefile now guards against running `release-checksums` when signatures exist.
 
 ## Git Hooks and Automation
 

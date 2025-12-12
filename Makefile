@@ -44,7 +44,7 @@ LDFLAGS := -ldflags "\
 	-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
-.PHONY: help build hooks-ensure clean clean-release clean-all test fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites sync-crucible sync-ssot verify-crucible verify-crucible-clean bootstrap tools lint release-check release-prepare release-build release-clean check-all prepush precommit update-homebrew-formula verify-release-key local-ci-check local-ci all
+.PHONY: help build hooks-ensure clean clean-release clean-all test fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites sync-crucible sync-ssot verify-crucible verify-crucible-clean bootstrap tools lint release-check release-prepare release-build release-clean release-verify-checksums check-all prepush precommit update-homebrew-formula verify-release-key local-ci-check local-ci all
 
 # Default target
 all: clean build format-all
@@ -239,6 +239,203 @@ release-clean: ## Reset dist/release to avoid stale artifacts before packaging
 	@rm -rf dist/release
 	@mkdir -p dist/release
 	@echo "✅ dist/release cleared (fresh packaging workspace)"
+
+release-download: ## Download CI-built release artifacts from GitHub (requires gh CLI)
+	@echo "📥 Downloading CI-built artifacts for $(RELEASE_TAG)..."
+	@if [ -z "$(RELEASE_TAG)" ]; then \
+		echo "❌ RELEASE_TAG not set. Use: make release-download RELEASE_TAG=vX.Y.Z"; \
+		exit 1; \
+	fi
+	@if [ "$(RELEASE_TAG)" != "$(VERSION)" ]; then \
+		echo "⚠️  RELEASE_TAG ($(RELEASE_TAG)) differs from VERSION ($(VERSION))"; \
+		echo "   This is normal for pre-release testing, but verify you're signing the right artifacts."; \
+	fi
+	@if ! command -v gh >/dev/null 2>&1; then \
+		echo "❌ gh CLI not found. Install GitHub CLI: https://cli.github.com/"; \
+		exit 1; \
+	fi
+	@if [ -d "dist/release" ] && [ "$$(find dist/release -type f | wc -l)" -gt 0 ]; then \
+		echo "⚠️  dist/release already contains files. Consider running 'make release-clean' first."; \
+		echo "   Continuing with download (existing files will be overwritten via --clobber)..."; \
+	fi
+	@mkdir -p dist/release
+	@cd dist/release && gh release download $(RELEASE_TAG) \
+		--pattern 'goneat_$(RELEASE_TAG)_*.tar.gz' \
+		--pattern 'goneat_$(RELEASE_TAG)_*.zip' \
+		--clobber
+	@echo "✅ CI artifacts downloaded to dist/release/ for $(RELEASE_TAG)"
+
+release-checksums: ## Generate SHA256SUMS and SHA512SUMS from downloaded artifacts
+	@echo "🔢 Generating checksums for $(RELEASE_TAG) artifacts..."
+	@if [ -z "$(RELEASE_TAG)" ]; then \
+		echo "❌ RELEASE_TAG not set. Use: make release-checksums RELEASE_TAG=vX.Y.Z"; \
+		exit 1; \
+	fi
+	@if [ "$(RELEASE_TAG)" != "$(VERSION)" ]; then \
+		echo "⚠️  RELEASE_TAG ($(RELEASE_TAG)) differs from VERSION ($(VERSION))"; \
+		echo "   This is normal for pre-release testing, but verify you're signing the right artifacts."; \
+	fi
+	@if [ ! -d "dist/release" ]; then \
+		echo "❌ dist/release directory not found. Run 'make release-download RELEASE_TAG=$(RELEASE_TAG)' first."; \
+		exit 1; \
+	fi
+	@# Guard: Warn if signatures already exist (would be invalidated by regenerating checksums)
+	@if [ -f "dist/release/SHA256SUMS.asc" ] || [ -f "dist/release/SHA256SUMS.minisig" ]; then \
+		echo ""; \
+		echo "⚠️  WARNING: Signature files already exist in dist/release/"; \
+		echo "   Regenerating checksums will INVALIDATE existing signatures!"; \
+		echo ""; \
+		echo "   Existing signatures:"; \
+		ls -la dist/release/*.asc dist/release/*.minisig 2>/dev/null || true; \
+		echo ""; \
+		echo "   If you need to regenerate checksums, first remove signatures:"; \
+		echo "     rm -f dist/release/*.asc dist/release/*.minisig"; \
+		echo "   Then re-run this target, followed by 'make release-sign'"; \
+		echo ""; \
+		exit 1; \
+	fi
+	@cd dist/release && \
+		(for file in $$(ls goneat_$(RELEASE_TAG)_*.tar.gz goneat_$(RELEASE_TAG)_*.zip | sort); do \
+			shasum -a 256 "$$file"; \
+		done) > SHA256SUMS && \
+		(for file in $$(ls goneat_$(RELEASE_TAG)_*.tar.gz goneat_$(RELEASE_TAG)_*.zip | sort); do \
+			shasum -a 512 "$$file"; \
+		done) > SHA512SUMS
+	@echo "✅ Checksums generated (SHA256SUMS, SHA512SUMS) for $(RELEASE_TAG)"
+
+release-verify-checksums: ## Verify SHA256SUMS/SHA512SUMS match actual artifacts (non-destructive)
+	@echo "🔍 Verifying checksums for $(RELEASE_TAG) artifacts..."
+	@if [ -z "$(RELEASE_TAG)" ]; then \
+		echo "❌ RELEASE_TAG not set. Use: make release-verify-checksums RELEASE_TAG=vX.Y.Z"; \
+		exit 1; \
+	fi
+	@if [ ! -d "dist/release" ]; then \
+		echo "❌ dist/release directory not found."; \
+		exit 1; \
+	fi
+	@if [ ! -f "dist/release/SHA256SUMS" ]; then \
+		echo "❌ SHA256SUMS not found. Run 'make release-checksums' first."; \
+		exit 1; \
+	fi
+	@echo "   Verifying SHA256 checksums..."
+	@cd dist/release && \
+		if shasum -a 256 --check SHA256SUMS; then \
+			echo "   ✅ All SHA256 checksums verified"; \
+		else \
+			echo "   ❌ SHA256 checksum verification FAILED"; \
+			echo "   This indicates artifacts have changed since checksums were generated."; \
+			echo "   Either re-download artifacts or regenerate checksums:"; \
+			echo "     rm -f dist/release/*.asc dist/release/*.minisig"; \
+			echo "     RELEASE_TAG=$(RELEASE_TAG) make release-checksums"; \
+			exit 1; \
+		fi
+	@if [ -f "dist/release/SHA512SUMS" ]; then \
+		echo "   Verifying SHA512 checksums..."; \
+		cd dist/release && \
+		if shasum -a 512 --check SHA512SUMS; then \
+			echo "   ✅ All SHA512 checksums verified"; \
+		else \
+			echo "   ❌ SHA512 checksum verification FAILED"; \
+			exit 1; \
+		fi; \
+	fi
+	@echo "✅ All checksums verified for $(RELEASE_TAG)"
+
+release-sign: ## Sign checksum manifests with GPG and minisign (requires signing keys)
+	@echo "🔐 Signing checksum manifests for $(RELEASE_TAG)..."
+	@if [ -z "$(RELEASE_TAG)" ]; then \
+		echo "❌ RELEASE_TAG not set. Use: make release-sign RELEASE_TAG=vX.Y.Z"; \
+		exit 1; \
+	fi
+	@if [ ! -d "dist/release" ] || [ ! -f "dist/release/SHA256SUMS" ]; then \
+		echo "❌ Checksums not found. Run 'make release-checksums RELEASE_TAG=$(RELEASE_TAG)' first."; \
+		exit 1; \
+	fi
+	@cd dist/release && \
+		if [ -f "../scripts/sign-checksums.sh" ]; then \
+			echo "📝 Using sign-checksums.sh helper..."; \
+			../scripts/sign-checksums.sh --key "$$MINISIGN_KEY" --pub "$$MINISIGN_PUB"; \
+		else \
+			echo "📝 Manual signing (sign-checksums.sh not found)..."; \
+			for sums in SHA256SUMS SHA512SUMS; do \
+				echo "  Signing $$sums with GPG..."; \
+				gpg --homedir "$$GPG_HOMEDIR" --detach-sign --armor --output "$${sums}.asc" "$$sums"; \
+				echo "  Signing $$sums with minisign..."; \
+				minisign -S -s "$$MINISIGN_KEY" -m "$$sums" -x "$${sums}.minisig"; \
+			done; \
+			if [ -f "$$MINISIGN_PUB" ]; then \
+				cp "$$MINISIGN_PUB" fulmenhq-release-minisign.pub; \
+			else \
+				echo "⚠️  MINISIGN_PUB not found, skipping minisign public key copy"; \
+			fi; \
+		fi; \
+		echo "🔑 Extracting GPG public key..."; \
+		gpg --homedir "$$GPG_HOMEDIR" --armor --export "$$PGP_KEY_ID" > fulmenhq-release-signing-key.asc
+	@echo "✅ Checksum manifests signed for $(RELEASE_TAG)"
+
+release-verify-signatures: ## Verify signatures on checksum manifests
+	@echo "🔍 Verifying signatures for $(RELEASE_TAG)..."
+	@if [ -z "$(RELEASE_TAG)" ]; then \
+		echo "❌ RELEASE_TAG not set. Use: make release-verify-signatures RELEASE_TAG=vX.Y.Z"; \
+		exit 1; \
+	fi
+	@if [ ! -d "dist/release" ]; then \
+		echo "❌ dist/release directory not found."; \
+		exit 1; \
+	fi
+	@cd dist/release && \
+		echo "🔐 Verifying GPG signatures..."; \
+		for asc in SHA256SUMS.asc SHA512SUMS.asc; do \
+			if [ -f "$$asc" ]; then \
+				gpg --homedir "$$GPG_HOMEDIR" --verify "$$asc" "$${asc%.asc}" && \
+				echo "  ✅ $$asc - Good signature"; \
+			else \
+				echo "  ⚠️  $$asc - Signature file not found"; \
+			fi; \
+		done; \
+		echo "🔏 Verifying minisign signatures..."; \
+		for sig in SHA256SUMS.minisig SHA512SUMS.minisig; do \
+			if [ -f "$$sig" ] && [ -f "fulmenhq-release-minisign.pub" ]; then \
+				minisign -Vm "$${sig%.minisig}" -p fulmenhq-release-minisign.pub && \
+				echo "  ✅ $$sig - Good signature"; \
+			else \
+				echo "  ⚠️  $$sig - Signature or public key file not found"; \
+			fi; \
+		done
+	@echo "✅ Signature verification completed for $(RELEASE_TAG)"
+
+release-verify-key: ## Verify GPG public key is safe to upload (no private keys)
+	@echo "🛡️  Verifying GPG public key safety..."
+	@if [ ! -f "dist/release/fulmenhq-release-signing-key.asc" ]; then \
+		echo "❌ Public key not found. Run 'make release-sign' first."; \
+		exit 1; \
+	fi
+	@./scripts/verify-public-key.sh dist/release/fulmenhq-release-signing-key.asc
+	@echo "✅ GPG public key verified safe for upload"
+
+release-export-minisign-key: ## Export minisign public key for distribution
+	@echo "🔑 Exporting minisign public key..."
+	@mkdir -p dist/release
+	@if [ -f "dist/release/fulmenhq-release-minisign.pub" ]; then \
+		echo "✅ Minisign public key already exists in dist/release/"; \
+	elif [ -n "$(MINISIGN_PUB)" ] && [ -f "$(MINISIGN_PUB)" ]; then \
+		cp "$(MINISIGN_PUB)" dist/release/fulmenhq-release-minisign.pub; \
+		echo "✅ Minisign public key exported from MINISIGN_PUB"; \
+	elif [ -n "$(MINISIGN_KEY)" ]; then \
+		PUB_KEY=$$(echo "$(MINISIGN_KEY)" | sed 's/\.key$$/.pub/'); \
+		if [ -f "$$PUB_KEY" ]; then \
+			cp "$$PUB_KEY" dist/release/fulmenhq-release-minisign.pub; \
+			echo "✅ Minisign public key exported from derived path: $$PUB_KEY"; \
+		else \
+			echo "❌ Minisign public key not found at derived path: $$PUB_KEY"; \
+			exit 1; \
+		fi; \
+	else \
+		echo "❌ Neither MINISIGN_PUB nor MINISIGN_KEY set."; \
+		echo "   Set MINISIGN_PUB=path/to/key.pub or MINISIGN_KEY=path/to/key.key"; \
+		exit 1; \
+	fi
+	@echo "✅ Minisign public key available at dist/release/fulmenhq-release-minisign.pub"
 
 clean-release: ## Clean old release artifacts (keeps current version), preserving dist/goneat binary
 	@echo "🧹 Cleaning old release artifacts from dist/release/..."
@@ -665,14 +862,19 @@ release-upload: release-notes verify-release-key ## Upload signed release artifa
 	@echo "   ℹ️  Note: release-notes and verify-release-key targets run automatically (Makefile dependencies)"
 	@for file in SHA256SUMS SHA512SUMS SHA256SUMS.asc SHA512SUMS.asc SHA256SUMS.minisig SHA512SUMS.minisig fulmenhq-release-signing-key.asc fulmenhq-release-minisign.pub; do \
 		if [ ! -f "dist/release/$$file" ]; then \
-			echo "❌ Error: dist/release/$$file not found. Run scripts/sign-checksums.sh first."; \
+			echo "❌ Error: dist/release/$$file not found. Run make release-sign first."; \
 			exit 1; \
 		fi; \
 	 done
 	@echo "   🔏 Verifying GPG checksum signatures..."
-	@for sums in SHA256SUMS SHA512SUMS; do \
-		if ! gpg --verify "dist/release/$$sums.asc" "dist/release/$$sums" >/dev/null 2>&1; then \
+	@GPG_HOMEDIR_FLAG=""; \
+	if [ -n "$${GPG_HOMEDIR:-}" ]; then \
+		GPG_HOMEDIR_FLAG="--homedir $$GPG_HOMEDIR"; \
+	fi; \
+	for sums in SHA256SUMS SHA512SUMS; do \
+		if ! gpg $$GPG_HOMEDIR_FLAG --verify "dist/release/$$sums.asc" "dist/release/$$sums" >/dev/null 2>&1; then \
 			echo "❌ Error: Invalid GPG signature for $$sums"; \
+			echo "   Make sure GPG_HOMEDIR is set to the same value used during signing"; \
 			exit 1; \
 		fi; \
 	 done
@@ -695,7 +897,7 @@ release-upload: release-notes verify-release-key ## Upload signed release artifa
 		SHA256SUMS \
 		SHA512SUMS \
 		--clobber
-	@echo "   Uploading signatures..."
+	@echo "   Uploading signatures and release notes..."
 	cd dist/release && gh release upload $(VERSION) \
 		SHA256SUMS.asc \
 		SHA512SUMS.asc \
@@ -703,8 +905,9 @@ release-upload: release-notes verify-release-key ## Upload signed release artifa
 		SHA512SUMS.minisig \
 		fulmenhq-release-signing-key.asc \
 		fulmenhq-release-minisign.pub \
+		release-notes-$(VERSION).md \
 		--clobber
-	@echo "   Updating release notes..."
+	@echo "   Setting release body from notes..."
 	cd dist/release && gh release edit $(VERSION) --notes-file release-notes-$(VERSION).md
 
 	@echo "✅ Release artifacts uploaded to $(VERSION)"
