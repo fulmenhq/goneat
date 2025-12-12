@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -263,15 +264,42 @@ func buildProvenance(sources []SourceMetadata) *Provenance {
 	}
 }
 
+func provenanceEqualIgnoringGeneratedAt(existing *Provenance, candidate *Provenance) bool {
+	if existing == nil || candidate == nil {
+		return false
+	}
+
+	existingCopy := *existing
+	candidateCopy := *candidate
+
+	existingCopy.GeneratedAt = time.Time{}
+	candidateCopy.GeneratedAt = time.Time{}
+
+	return reflect.DeepEqual(existingCopy, candidateCopy)
+}
+
 // writeAggregateProvenance writes the aggregate provenance manifest
 func writeAggregateProvenance(provenance *Provenance, outputPath string, dryRun bool) error {
 	if outputPath == "" {
 		outputPath = ".goneat/ssot/provenance.json"
 	}
+	outputPath = filepath.Clean(outputPath)
 
 	if dryRun {
 		logger.Info(fmt.Sprintf("[DRY RUN] Would write aggregate provenance to %s", outputPath))
 		return nil
+	}
+
+	// #nosec G304 -- outputPath is controlled by repo SSOT config; we only read the file we write
+	// to avoid rewriting when only timestamps change.
+	if existingData, err := os.ReadFile(outputPath); err == nil {
+		var existingProv Provenance
+		if json.Unmarshal(existingData, &existingProv) == nil {
+			if provenanceEqualIgnoringGeneratedAt(&existingProv, provenance) {
+				logger.Info(fmt.Sprintf("SSOT provenance unchanged: %s", outputPath))
+				return nil
+			}
+		}
 	}
 
 	// Ensure directory exists
@@ -321,11 +349,7 @@ func writePerSourceMirror(source *SourceMetadata, format string, sourceConfig *S
 		return nil
 	}
 
-	// Ensure directory exists
-	dir := filepath.Dir(mirrorPath)
-	if err := os.MkdirAll(dir, 0750); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
-	}
+	mirrorPath = filepath.Clean(mirrorPath)
 
 	// Create single-source provenance wrapper
 	singleSource := &Provenance{
@@ -336,6 +360,29 @@ func writePerSourceMirror(source *SourceMetadata, format string, sourceConfig *S
 		},
 		GeneratedAt: time.Now().UTC(),
 		Sources:     []SourceMetadata{*source},
+	}
+
+	// #nosec G304 -- mirrorPath is controlled by repo SSOT config; we only read the mirror file
+	// to avoid rewriting when only timestamps change.
+	if existingData, err := os.ReadFile(mirrorPath); err == nil {
+		var existingMirror Provenance
+		var decodeErr error
+		if format == "json" {
+			decodeErr = json.Unmarshal(existingData, &existingMirror)
+		} else {
+			decodeErr = yaml.Unmarshal(existingData, &existingMirror)
+		}
+		if decodeErr == nil {
+			if provenanceEqualIgnoringGeneratedAt(&existingMirror, singleSource) {
+				return nil
+			}
+		}
+	}
+
+	// Ensure directory exists
+	dir := filepath.Dir(mirrorPath)
+	if err := os.MkdirAll(dir, 0750); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	var data []byte

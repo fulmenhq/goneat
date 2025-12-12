@@ -226,6 +226,42 @@ func TestWriteAggregateProvenance(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "test", decoded.Sources[0].Name)
 	})
+
+	t.Run("idempotent write (ignore generated_at)", func(t *testing.T) {
+		first := &Provenance{
+			Schema: SchemaDescriptor{
+				Name:    "goneat.ssot.provenance",
+				Version: "v1",
+				URL:     "https://github.com/fulmenhq/crucible/schemas/content/ssot-provenance/v1.1.0/ssot-provenance.schema.json",
+			},
+			GeneratedAt: mustParseTime("2025-10-27T18:00:00Z"),
+			Sources:     []SourceMetadata{{Name: "test", Slug: "test", Method: "local_path"}},
+		}
+		second := &Provenance{
+			Schema: SchemaDescriptor{
+				Name:    "goneat.ssot.provenance",
+				Version: "v1",
+				URL:     "https://github.com/fulmenhq/crucible/schemas/content/ssot-provenance/v1.1.0/ssot-provenance.schema.json",
+			},
+			GeneratedAt: mustParseTime("2025-10-27T19:00:00Z"),
+			Sources:     []SourceMetadata{{Name: "test", Slug: "test", Method: "local_path"}},
+		}
+
+		tmpDir := t.TempDir()
+		outputPath := filepath.Join(tmpDir, ".goneat/ssot/provenance.json")
+
+		err := writeAggregateProvenance(first, outputPath, false)
+		require.NoError(t, err)
+		before, err := os.ReadFile(outputPath)
+		require.NoError(t, err)
+
+		err = writeAggregateProvenance(second, outputPath, false)
+		require.NoError(t, err)
+		after, err := os.ReadFile(outputPath)
+		require.NoError(t, err)
+
+		assert.Equal(t, string(before), string(after), "expected idempotent write when only generated_at changes")
+	})
 }
 
 func TestWritePerSourceMirror(t *testing.T) {
@@ -256,6 +292,30 @@ func TestWritePerSourceMirror(t *testing.T) {
 		mirrorPath := ".crucible/metadata/metadata.yaml"
 		_, err = os.Stat(mirrorPath)
 		require.NoError(t, err)
+	})
+
+	t.Run("idempotent write (ignore generated_at)", func(t *testing.T) {
+		origDir, err := os.Getwd()
+		require.NoError(t, err)
+		defer os.Chdir(origDir) // nolint: errcheck
+
+		tmpDir := t.TempDir()
+		err = os.Chdir(tmpDir)
+		require.NoError(t, err)
+
+		mirrorPath := ".crucible/metadata/metadata.yaml"
+
+		err = writePerSourceMirror(source, "yaml", nil, false)
+		require.NoError(t, err)
+		before, err := os.ReadFile(mirrorPath)
+		require.NoError(t, err)
+
+		err = writePerSourceMirror(source, "yaml", nil, false)
+		require.NoError(t, err)
+		after, err := os.ReadFile(mirrorPath)
+		require.NoError(t, err)
+
+		assert.Equal(t, string(before), string(after), "expected idempotent mirror write")
 	})
 
 	t.Run("dry run", func(t *testing.T) {
