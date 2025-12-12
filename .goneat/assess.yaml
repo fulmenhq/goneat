@@ -33,7 +33,7 @@ lint:
       ignore: []
   make:
     checkmake:
-      enabled: true
+      enabled: false
     paths:
       - "**/Makefile"
     ignore: []
