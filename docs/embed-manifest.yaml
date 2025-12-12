@@ -4,6 +4,7 @@ topics:
     tags: [install, setup, cli]
     include:
       - user-guide/install.md
+      - user-guide/bootstrap/**/*.md
       - user-guide/commands/**/*.md
       - user-guide/tutorials/**/*.md
       - user-guide/workflows/assess-code.md

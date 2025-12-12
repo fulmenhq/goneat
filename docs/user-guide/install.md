@@ -1,4 +1,5 @@
 ---
+---
 title: "Install Goneat"
 description: "Installation options for macOS, Linux, and Windows"
 author: "@arch-eagle"
@@ -10,68 +11,56 @@ tags: ["install", "brew", "scoop", "linux", "windows"]
 
 # Install Goneat
 
-Goneat is distributed as signed binaries via GitHub Releases and common package managers. Choose the method for your platform.
+Goneat is distributed as signed binaries via GitHub Releases and common package managers.
 
-## macOS
+## Recommended installs
 
-- Homebrew (recommended once tap is published):
-
-```bash
-brew tap 3leaps/tap
-brew install goneat
-```
-
-- Direct (curl):
+### Homebrew (macOS/Linux)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/3leaps/goneat/main/scripts/install.sh | bash
+brew install fulmenhq/tap/goneat
 ```
 
-## Linux
-
-- Homebrew on Linux:
-
-```bash
-brew tap 3leaps/tap
-brew install goneat
-```
-
-- Direct (curl):
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/3leaps/goneat/main/scripts/install.sh | bash
-```
-
-- Arch Linux (AUR, coming soon):
-
-```bash
-yay -S goneat-bin
-```
-
-## Windows
-
-- Scoop (coming soon):
+### Scoop (Windows)
 
 ```powershell
-scoop bucket add 3leaps https://github.com/3leaps/scoop-bucket
+scoop bucket add fulmenhq https://github.com/fulmenhq/scoop-bucket
 scoop install goneat
 ```
 
-- Direct (PowerShell):
+### Secure direct download (recommended when not using a package manager)
 
-```powershell
-irm https://raw.githubusercontent.com/3leaps/goneat/main/scripts/install.ps1 | iex
+Use `sfetch` to download the correct release asset and verify signatures + checksums automatically:
+
+```bash
+# Install sfetch first
+curl -sSfL https://github.com/3leaps/sfetch/releases/latest/download/install-sfetch.sh | bash
+
+# Install goneat (chooses correct asset for your platform)
+sfetch --repo fulmenhq/goneat --latest --dest-dir ~/.local/bin
+
+goneat version
 ```
+
+For repo-local, pinned installs:
+
+```bash
+mkdir -p ./bin
+sfetch --repo fulmenhq/goneat --tag v0.3.16 --dest-dir ./bin
+./bin/goneat version
+```
+
+See `docs/user-guide/bootstrap/sfetch.md` for the full bootstrap pattern.
 
 ## Verify installation
 
 ```bash
-goneat --version
+goneat version
 ```
 
-If your shell cannot find `goneat`, ensure its installation directory is on your PATH.
+If your shell cannot find `goneat`, ensure its installation directory is on your `PATH`.
 
 ## Security & verification
 
-- All release artifacts include SHA-256 checksums. The install scripts verify checksums and will abort on mismatch.
-- When GPG is available, signatures on `SHA256SUMS` will be verified against the Fulmen release key.
+- Prefer `sfetch` for direct downloads: it verifies signed checksum manifests when available.
+- Homebrew/Scoop installs rely on their own distribution and integrity mechanisms.

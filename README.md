@@ -13,6 +13,7 @@ We bring a smooth DX layer to the business of making neat code at scale. We wrap
 1. **Install goneat** (pick one):
    - **Homebrew (recommended)**: `brew install fulmenhq/tap/goneat`
    - **Go install**: `go install github.com/fulmenhq/goneat@latest`
+   - **Secure direct download (recommended if not using a package manager)**: `sfetch --repo fulmenhq/goneat --latest --dest-dir ~/.local/bin`
    - **Release archives**: download from [GitHub Releases](https://github.com/fulmenhq/goneat/releases) and place the binary on your `PATH`
    - Verify with `goneat version`
 
@@ -90,6 +91,18 @@ scoop install goneat
 ### Release archives
 
 Download artifacts from [GitHub Releases](https://github.com/fulmenhq/goneat/releases), extract, and place `goneat` on your `PATH`.
+
+For a high-confidence direct download (automatic signature + checksum verification), use `sfetch`:
+
+```bash
+# Install sfetch
+curl -sSfL https://github.com/3leaps/sfetch/releases/latest/download/install-sfetch.sh | bash
+
+# Install goneat
+sfetch --repo fulmenhq/goneat --latest --dest-dir ~/.local/bin
+```
+
+See `docs/user-guide/bootstrap/sfetch.md`.
 
 ### After installing (required)
 

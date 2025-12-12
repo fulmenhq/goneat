@@ -6,7 +6,11 @@ set -e
 
 # Get version from VERSION file (already contains 'v' prefix)
 VERSION=$(cat VERSION)
+BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+GIT_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 echo "🔨 Building goneat $VERSION for all platforms..."
+echo "   Build time: $BUILD_TIME"
+echo "   Git commit: ${GIT_COMMIT:0:8}"
 
 # Ensure embedded assets are synced from SSOT
 echo "📦 Syncing embedded assets (templates/, schemas/)..."
@@ -38,9 +42,13 @@ for target in "${TARGETS[@]}"; do
 		EXT=".exe"
 	fi
 
-	# Build with version information embedded
+	# Build with version information embedded via ldflags
+	# Must match pkg/buildinfo/buildinfo.go variable paths
 	GOOS=$GOOS GOARCH=$GOARCH go build \
-		-ldflags "-X 'main.Version=$VERSION'" \
+		-ldflags "\
+			-X 'github.com/fulmenhq/goneat/pkg/buildinfo.BinaryVersion=$VERSION' \
+			-X 'github.com/fulmenhq/goneat/pkg/buildinfo.BuildTime=$BUILD_TIME' \
+			-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$GIT_COMMIT'" \
 		-o "bin/goneat-$GOOS-$GOARCH$EXT" \
 		.
 

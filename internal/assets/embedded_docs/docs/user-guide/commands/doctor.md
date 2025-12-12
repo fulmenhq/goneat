@@ -28,14 +28,17 @@ The `goneat-tools` container includes all foundation tools pre-installed. No pac
 ```yaml
 # .github/workflows/ci.yml
 jobs:
-  format-check:
+  quality:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/fulmenhq/goneat-tools:latest
+      # Required: the container runs non-root, but GitHub mounts /__w from the host.
+      # UID 1001 matches the hosted runner's workspace ownership.
+      options: --user 1001
     steps:
       - uses: actions/checkout@v4
       - run: |
-          goneat format --check .
+          goneat assess --categories lint,format --fail-on high .
           yamlfmt -lint .
           prettier --check "**/*.{md,json}"
 ```

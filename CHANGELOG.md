@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.16] - 2025-12-12
+
+### Fixed
+
+- **CRITICAL: Release Build Version Embedding**: Fixed ldflags in `scripts/build-all.sh` targeting non-existent variable `main.Version` instead of `github.com/fulmenhq/goneat/pkg/buildinfo.BinaryVersion`
+  - Root cause: Release binaries reported `goneat dev` instead of actual version (e.g., `goneat v0.3.16`)
+  - All three buildinfo variables now correctly embedded: `BinaryVersion`, `BuildTime`, `GitCommit`
+  - Aligns release builds with Makefile patterns
+
+- **Release Signature Invalidation**: Added safeguards preventing checksum regeneration after signing
+  - Guard in `release-checksums` target blocks regeneration if `.asc` or `.minisig` files exist
+  - New `release-verify-checksums` target for non-destructive checksum validation
+  - Updated RELEASE_CHECKLIST.md with one-way sequence warning and recovery procedures
+
+### Added
+
+- **VERSION/Tag Validation**: Release workflow now fails fast if VERSION file doesn't match git tag
+  - Prevents publishing releases where VERSION and tag diverge
+  - Clear error message guides maintainers to fix before tagging
+
+- **Bootstrap Documentation**: New and updated bootstrap guides
+  - `docs/user-guide/bootstrap/sfetch.md` - Secure fetch bootstrap guide
+  - Updated `docs/user-guide/install.md` with streamlined instructions
+  - Enhanced `docs/appnotes/bootstrap-patterns.md` with current patterns
+
+- **Release Scripts**: New scripts for release management
+  - `scripts/upload-release-assets.sh` - Automated release asset upload
+
+### Changed
+
+- **Makefile Cleanup**: Simplified release-related targets and removed redundant code
+- **Embedded Docs Sync**: Bootstrap and install documentation synced to embedded assets
+
 ## [v0.3.15] - 2025-12-11
 
 ### Added

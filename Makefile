@@ -860,58 +860,15 @@ verify-release-key: ## Verify GPG public key for release signing (must run befor
 release-upload: release-notes verify-release-key ## Upload signed release artifacts to GitHub (requires checksum signatures)
 	@echo "📤 Uploading release artifacts to GitHub $(VERSION)..."
 	@echo "   ℹ️  Note: release-notes and verify-release-key targets run automatically (Makefile dependencies)"
-	@for file in SHA256SUMS SHA512SUMS SHA256SUMS.asc SHA512SUMS.asc SHA256SUMS.minisig SHA512SUMS.minisig fulmenhq-release-signing-key.asc fulmenhq-release-minisign.pub; do \
+	@for file in SHA256SUMS SHA512SUMS SHA256SUMS.asc SHA512SUMS.asc SHA256SUMS.minisig SHA512SUMS.minisig fulmenhq-release-signing-key.asc fulmenhq-release-minisign.pub release-notes-$(VERSION).md; do \
 		if [ ! -f "dist/release/$$file" ]; then \
 			echo "❌ Error: dist/release/$$file not found. Run make release-sign first."; \
 			exit 1; \
 		fi; \
 	 done
-	@echo "   🔏 Verifying GPG checksum signatures..."
-	@GPG_HOMEDIR_FLAG=""; \
-	if [ -n "$${GPG_HOMEDIR:-}" ]; then \
-		GPG_HOMEDIR_FLAG="--homedir $$GPG_HOMEDIR"; \
-	fi; \
-	for sums in SHA256SUMS SHA512SUMS; do \
-		if ! gpg $$GPG_HOMEDIR_FLAG --verify "dist/release/$$sums.asc" "dist/release/$$sums" >/dev/null 2>&1; then \
-			echo "❌ Error: Invalid GPG signature for $$sums"; \
-			echo "   Make sure GPG_HOMEDIR is set to the same value used during signing"; \
-			exit 1; \
-		fi; \
-	 done
-	@if command -v minisign >/dev/null 2>&1; then \
-		echo "   🔐 Verifying minisign checksum signatures..."; \
-		for sums in SHA256SUMS SHA512SUMS; do \
-			if ! minisign -Vm "dist/release/$$sums" -p dist/release/fulmenhq-release-minisign.pub >/dev/null 2>&1; then \
-				echo "❌ Error: Invalid minisign signature for $$sums"; \
-				exit 1; \
-			fi; \
-		 done; \
-	else \
-		echo "   ⚠️  minisign not available; skipping local minisign verification"; \
-	fi
-	@echo "   ✅ Checksum signatures verified"
-	@echo "   Uploading binaries and checksums..."
-	cd dist/release && gh release upload $(VERSION) \
-		goneat_$(VERSION)_*.tar.gz \
-		goneat_$(VERSION)_*.zip \
-		SHA256SUMS \
-		SHA512SUMS \
-		--clobber
-	@echo "   Uploading signatures and release notes..."
-	cd dist/release && gh release upload $(VERSION) \
-		SHA256SUMS.asc \
-		SHA512SUMS.asc \
-		SHA256SUMS.minisig \
-		SHA512SUMS.minisig \
-		fulmenhq-release-signing-key.asc \
-		fulmenhq-release-minisign.pub \
-		release-notes-$(VERSION).md \
-		--clobber
-	@echo "   Setting release body from notes..."
-	cd dist/release && gh release edit $(VERSION) --notes-file release-notes-$(VERSION).md
+	@chmod +x scripts/upload-release-assets.sh
+	@./scripts/upload-release-assets.sh "$(VERSION)" dist/release
 
-	@echo "✅ Release artifacts uploaded to $(VERSION)"
-	@echo ""
 	@echo "🔍 Verify upload:"
 	@echo "   gh release view $(VERSION)"
 	@echo ""

@@ -29,10 +29,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gnupg2
           gpg --version
-      - name: Show version
+      - name: Validate VERSION matches tag
         run: |
-          echo "Tag: $GITHUB_REF_NAME"
-          cat VERSION || true
+          VERSION_FILE=$(cat VERSION)
+          echo "Git tag:      $GITHUB_REF_NAME"
+          echo "VERSION file: $VERSION_FILE"
+          if [ "$VERSION_FILE" != "$GITHUB_REF_NAME" ]; then
+            echo "❌ VERSION mismatch: file=$VERSION_FILE tag=$GITHUB_REF_NAME"
+            echo "   Fix: update VERSION before tagging"
+            exit 1
+          fi
+          echo "✅ VERSION matches tag"
       - name: Build all platforms
         run: |
           chmod +x scripts/build-all.sh

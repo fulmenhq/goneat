@@ -183,9 +183,9 @@ jobs:
 
 ---
 
-## Pattern A: Shell Script Bootstrap (Recommended for Simple Projects)
+## Pattern A: sfetch Bootstrap (Recommended for Simple Projects)
 
-Best for: Projects without existing Go bootstrap infrastructure.
+Best for: Projects without existing bootstrap infrastructure, and projects that want **high-confidence downloads** without maintaining bespoke checksum scripts.
 
 **Example**: forge-workhorse-groningen
 
@@ -194,13 +194,13 @@ Best for: Projects without existing Go bootstrap infrastructure.
 ```
 my-repo/
 ├── .goneat/
-│   └── tools.yaml          # Created by goneat doctor tools init
+│   └── tools.yaml              # Created by goneat doctor tools init
 ├── scripts/
-│   └── install-goneat.sh   # Downloads goneat, calls doctor tools
+│   └── bootstrap-dx.sh          # Installs sfetch (if missing), then installs goneat
 └── Makefile
 ```
 
-### install-goneat.sh
+### bootstrap-dx.sh (concept)
 
 ```bash
 #!/usr/bin/env bash
@@ -208,28 +208,23 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN_DIR="${ROOT_DIR}/bin"
-GONEAT_VERSION="v0.3.10"
 
-# SHA256 checksums (update when changing version)
-case "$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)" in
-  darwin-arm64) EXPECTED_SHA="<sha256>" ;;
-  darwin-x86_64) EXPECTED_SHA="<sha256>" ;;
-  linux-x86_64) EXPECTED_SHA="<sha256>" ;;
-  linux-aarch64) EXPECTED_SHA="<sha256>" ;;
-  *) EXPECTED_SHA="" ;;
-esac
-
-# Download and verify
 mkdir -p "${BIN_DIR}"
-# ... (download, checksum verify, extract)
 
-# Initialize goneat tools config if needed
-if [[ ! -f "${ROOT_DIR}/.goneat/tools.yaml" ]] || ! grep -q "^scopes:" "${ROOT_DIR}/.goneat/tools.yaml"; then
+# 1) Ensure sfetch is available (high-trust bootstrap)
+if ! command -v sfetch >/dev/null 2>&1; then
+  curl -sSfL https://github.com/3leaps/sfetch/releases/latest/download/install-sfetch.sh | bash
+fi
+
+# 2) Install goneat repo-locally (pinned)
+sfetch --repo fulmenhq/goneat --tag vX.Y.Z --dest-dir "${BIN_DIR}"
+
+# 3) Initialize goneat tools config if needed
+if [[ ! -f "${ROOT_DIR}/.goneat/tools.yaml" ]] || ! grep -q "^scopes:" "${ROOT_DIR}/.goneat/tools.yaml" 2>/dev/null; then
   "${BIN_DIR}/goneat" doctor tools init --force
 fi
 
-# Install foundation tools
-# --no-cooling: Skip package age verification (required for CI/offline environments)
+# 4) Install foundation tools
 "${BIN_DIR}/goneat" doctor tools --scope foundation --install --yes --no-cooling
 ```
 
@@ -237,8 +232,16 @@ fi
 
 ```makefile
 bootstrap:
-	@./scripts/install-goneat.sh
+	@./scripts/bootstrap-dx.sh
 ```
+
+### Why this is preferred
+
+- `sfetch` verifies signed checksum manifests (minisign/PGP) and then verifies checksums.
+- Repos no longer maintain per-platform SHA pins in ad-hoc scripts.
+- The same bootstrap logic applies to non-Go repos and CI runners.
+
+> Note: The legacy `install-goneat.sh` pattern (manual curl + hardcoded SHA256 values) is deprecated and should be avoided for new repos.
 
 ---
 

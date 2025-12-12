@@ -61,6 +61,9 @@ if [[ ${#remote_files[@]} -eq 0 ]]; then
 	exit 4
 fi
 
+# Sort remote files to ensure consistent ordering with local checksums
+mapfile -t remote_files < <(printf '%s\n' "${remote_files[@]}" | sort)
+
 compute_hash_line() {
 	local algo=$1
 	local file=$2
@@ -105,10 +108,13 @@ LOCAL_SHA512_SORTED="$TMP_DIR/SHA512SUMS.local"
 
 >"$REMOTE_SHA256_SORTED"
 >"$REMOTE_SHA512_SORTED"
+# Compute hashes from TMP_DIR since remote_files contains relative paths
+cd "$TMP_DIR"
 for file in "${remote_files[@]}"; do
 	compute_hash_line 256 "$file" >>"$REMOTE_SHA256_SORTED"
 	compute_hash_line 512 "$file" >>"$REMOTE_SHA512_SORTED"
 done
+cd "$REPO_ROOT" # Return to repo root
 
 sort "$LOCAL_SHA" >"$LOCAL_SHA256_SORTED"
 LOCAL_SHA512="$DIST_RELEASE/SHA512SUMS"

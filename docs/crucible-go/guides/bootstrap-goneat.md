@@ -34,10 +34,17 @@ directly rather than assuming `./bin/goneat`.
 
 You can also manually download and place in a folder that is in your machine's `$PATH` as well.
 
-## 2. Bootstrap Fallback (Manual Download)
+## 2. Bootstrap Fallback (Pinned / Repo-Local)
 
-Until package managers are ready—or when you need a pinned binary—use the repository bootstrap script hosted at
-`scripts/bootstrap-tools.ts`.
+When you need a pinned binary (especially in CI) or want repo-local installs (`./bin/goneat`), prefer using `sfetch` to download and verify the release artifacts.
+
+- `sfetch` selects the correct platform asset
+- verifies signed checksum manifests (when present)
+- verifies checksums
+
+See `docs/user-guide/bootstrap/sfetch.md` for the recommended pattern.
+
+If your repo already uses the legacy Bun-based bootstrap script (`scripts/bootstrap-tools.ts`), you can continue to use it, but it requires maintaining checksum values in manifests.
 
 ### 2.1 Requirements
 
