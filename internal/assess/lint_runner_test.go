@@ -328,6 +328,74 @@ func TestCollectFilesWithExcludesSkipsOrigInRepo(t *testing.T) {
 	}
 }
 
+func TestIssuesFromShfmtOutput_ParseErrors(t *testing.T) {
+	output := strings.Join([]string{
+		"scripts/push-to-remotes.sh:89:32: > must be followed by a word",
+		"scripts/sign-checksums.sh:115:1: \"fi\" can only be used to end an if",
+	}, "\n")
+
+	issues := issuesFromShfmtOutput(output)
+	if len(issues) != 2 {
+		t.Fatalf("expected 2 issues, got %d: %#v", len(issues), issues)
+	}
+
+	expect := map[string]struct {
+		line   int
+		column int
+		msg    string
+	}{
+		"scripts/push-to-remotes.sh": {line: 89, column: 32, msg: "> must be followed by a word"},
+		"scripts/sign-checksums.sh":  {line: 115, column: 1, msg: "\"fi\" can only be used to end an if"},
+	}
+
+	for _, iss := range issues {
+		exp, ok := expect[iss.File]
+		if !ok {
+			t.Fatalf("unexpected file %q", iss.File)
+		}
+		if iss.Line != exp.line || iss.Column != exp.column {
+			t.Fatalf("%s expected %d:%d, got %d:%d", iss.File, exp.line, exp.column, iss.Line, iss.Column)
+		}
+		if iss.Message != exp.msg {
+			t.Fatalf("%s expected message %q, got %q", iss.File, exp.msg, iss.Message)
+		}
+		if iss.SubCategory != "shell:shfmt" {
+			t.Fatalf("%s expected subcategory shell:shfmt, got %q", iss.File, iss.SubCategory)
+		}
+		if iss.Severity != SeverityHigh {
+			t.Fatalf("%s expected severity high, got %v", iss.File, iss.Severity)
+		}
+	}
+}
+
+func TestIssuesFromShfmtOutput_ParsesDiffHeaders(t *testing.T) {
+	output := strings.Join([]string{
+		"diff -u scripts/foo.sh.orig scripts/foo.sh",
+		"--- scripts/foo.sh.orig",
+		"+++ scripts/foo.sh",
+		"@@ -1 +1 @@",
+		"-echo  hi",
+		"+echo hi",
+	}, "\n")
+
+	issues := issuesFromShfmtOutput(output)
+	if len(issues) != 1 {
+		t.Fatalf("expected 1 issue, got %d: %#v", len(issues), issues)
+	}
+	if issues[0].File != "scripts/foo.sh" {
+		t.Fatalf("expected scripts/foo.sh, got %q", issues[0].File)
+	}
+	if issues[0].Message != "shfmt reported formatting differences" {
+		t.Fatalf("expected diff message, got %q", issues[0].Message)
+	}
+	if issues[0].SubCategory != "shell:shfmt" {
+		t.Fatalf("expected subcategory shell:shfmt, got %q", issues[0].SubCategory)
+	}
+	if issues[0].Severity != SeverityMedium {
+		t.Fatalf("expected severity medium, got %v", issues[0].Severity)
+	}
+}
+
 func TestLintAssessmentRunner_detectPackagesFromFiles(t *testing.T) {
 	runner := NewLintAssessmentRunner()
 

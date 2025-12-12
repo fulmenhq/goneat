@@ -327,12 +327,20 @@ func (r *LintAssessmentRunner) runShfmtAssessment(target string, config Assessme
 			if len(output) == 0 {
 				return issuesFromFiles(files, "shfmt reported formatting differences"), nil
 			}
-			return issuesFromShfmtOutput(string(output)), nil
+			parsed := issuesFromShfmtOutput(string(output))
+			if len(parsed) == 0 {
+				return issuesFromFiles(files, "shfmt reported issues"), nil
+			}
+			return parsed, nil
 		}
 		return nil, fmt.Errorf("shfmt execution failed: %v", err)
 	}
 	if len(output) > 0 {
-		return issuesFromShfmtOutput(string(output)), nil
+		parsed := issuesFromShfmtOutput(string(output))
+		if len(parsed) == 0 {
+			return issuesFromFiles(files, "shfmt reported issues"), nil
+		}
+		return parsed, nil
 	}
 	return nil, nil
 }
@@ -659,22 +667,69 @@ func isExcluded(path string, excludes []string) bool {
 }
 
 func issuesFromShfmtOutput(output string) []Issue {
-	files := make(map[string]struct{})
+	// shfmt output can be:
+	// - unified diffs ("diff -u" / "--- <file>.orig")
+	// - parse/validation errors ("file:line:col: message")
+	//
+	// We parse both formats into Issues to avoid silent skips.
+	shfmtErrorPattern := regexp.MustCompile(`^([^:]+):(\d+):(\d+):\s+(.*)$`)
+
+	issues := make([]Issue, 0)
+	diffFiles := make(map[string]struct{})
+
 	scanner := bufio.NewScanner(strings.NewReader(output))
 	for scanner.Scan() {
-		line := scanner.Text()
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+
+		if match := shfmtErrorPattern.FindStringSubmatch(line); match != nil {
+			ln, _ := strconv.Atoi(match[2])
+			col, _ := strconv.Atoi(match[3])
+			issues = append(issues, Issue{
+				File:        filepath.ToSlash(match[1]),
+				Line:        ln,
+				Column:      col,
+				Severity:    SeverityHigh,
+				Message:     match[4],
+				Category:    CategoryLint,
+				SubCategory: "shell:shfmt",
+			})
+			continue
+		}
+
+		// Diff format can include:
+		//   diff -u scripts/foo.sh.orig scripts/foo.sh
+		if strings.HasPrefix(line, "diff -u ") {
+			parts := strings.Fields(line)
+			if len(parts) >= 4 {
+				name := strings.TrimSuffix(parts[len(parts)-1], ".orig")
+				diffFiles[name] = struct{}{}
+			}
+			continue
+		}
+
+		// Or the classic unified header:
+		//   --- scripts/foo.sh.orig
 		if strings.HasPrefix(line, "--- ") {
 			name := strings.TrimSpace(strings.TrimPrefix(line, "--- "))
 			name = strings.TrimSuffix(name, ".orig")
-			files[name] = struct{}{}
+			diffFiles[name] = struct{}{}
+			continue
 		}
 	}
-	if len(files) == 0 {
+
+	if len(issues) > 0 {
+		return issues
+	}
+	if len(diffFiles) == 0 {
 		return nil
 	}
-	issues := make([]Issue, 0, len(files))
-	for f := range files {
-		issues = append(issues, Issue{
+
+	out := make([]Issue, 0, len(diffFiles))
+	for f := range diffFiles {
+		out = append(out, Issue{
 			File:        filepath.ToSlash(f),
 			Severity:    SeverityMedium,
 			Message:     "shfmt reported formatting differences",
@@ -682,7 +737,7 @@ func issuesFromShfmtOutput(output string) []Issue {
 			SubCategory: "shell:shfmt",
 		})
 	}
-	return issues
+	return out
 }
 
 func issuesFromFiles(files []string, message string) []Issue {
