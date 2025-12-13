@@ -1,4 +1,36 @@
-# Goneat v0.3.16 — Release Build Integrity
+# Goneat v0.3.17 — Unified Ignore Scope for Lint Sidecars
+
+**Release Date**: 2025-12-13
+**Status**: Release
+
+## TL;DR
+
+- **Less DRY + More Predictable**: Lint sidecars now respect `.gitignore` + `.goneatignore` by default
+- **Force Include Works Everywhere**: `--force-include` applies consistently across lint integrations
+- **Better Foundations for Future Sidecars**: Establishes scope contract for upcoming biome/ruff integrations
+
+## What Changed
+
+### Unified Ignore Scope
+
+The glob-based lint integrations (shell, Makefile, GitHub Actions, YAML) previously relied on `.goneat/assess.yaml` exclude globs and could require duplicating ignore patterns that already exist in `.gitignore`/`.goneatignore`.
+
+v0.3.17 makes path scope consistent:
+
+- Files ignored by `.gitignore`/`.goneatignore` are not scanned by sidecars
+- `goneat assess --force-include <glob>` can re-include ignored paths when needed
+- `.goneat/assess.yaml` `ignore:` remains available as a tool-specific, additive exclusion layer
+
+Affected integrations:
+
+- shfmt / shellcheck
+- actionlint
+- checkmake
+- yamllint target resolution
+
+---
+
+# Goneat v0.3.16 — Release Signing Dogfooding Fixes
 
 **Release Date**: 2025-12-12
 **Status**: Release
@@ -105,60 +137,6 @@ The `goneat assess --categories lint` command now includes comprehensive linting
 ## Breaking Changes
 
 None. All changes are additive and backwards compatible.
-
----
-
-# Goneat v0.3.14 — Container-Based CI & ToolExecutor Infrastructure
-
-**Release Date**: 2025-12-08
-**Status**: Release
-
-## TL;DR
-
-- **Two-Path CI Validation**: Validates both container path (LOW friction) and package manager path (HIGHER friction)
-- **Container-Probe**: Proves goneat works inside `ghcr.io/fulmenhq/goneat-tools` container (HIGH confidence)
-- **Bootstrap-Probe**: Validates package manager installation (only runs if container passes)
-- **Infrastructure**: New ToolExecutor package for future Docker-based tool execution
-- **golangci-lint v2**: Updated to v2 install path and minimum version
-
-## What's New
-
-### Two-Path CI Validation
-
-goneat now validates **two approaches** for tool availability with explicit dependency ordering:
-
-```
-build-test-lint
-       ↓ (uploads goneat binary as artifact)
-container-probe  ← LOW friction, validates first
-       ↓ (only runs if container passes)
-bootstrap-probe  ← HIGHER friction, validates second
-```
-
-### Container-Probe (Recommended for CI)
-
-The `container-probe` job downloads the goneat binary and validates it works inside the container:
-
-- **Proves goneat integration** - not just that tools exist (`--version`)
-- **Same image everywhere** = same behavior (container IS the contract)
-- **Pre-built tools**: prettier, yamlfmt, jq, yq, rg, git, bash
-
-### ToolExecutor Package (Phase 1)
-
-New infrastructure in `pkg/tools/executor*.go` for future Docker-based tool execution:
-
-- `executor.go` - Interface and factory pattern
-- `executor_local.go` - Local tool execution (existing behavior)
-- `executor_docker.go` - Docker-based execution via goneat-tools
-- `executor_auto.go` - Smart mode selection (CI → docker, local → local)
-
-### golangci-lint v2
-
-Updated install path for golangci-lint v2. Minimum version updated from 1.54.0 to 2.0.0.
-
-## Breaking Changes
-
-None. This is a feature/infrastructure release, fully backwards compatible.
 
 ---
 

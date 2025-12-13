@@ -34,6 +34,8 @@ node_modules/
 	goneatignoreContent := `# Test goneatignore
 *.backup
 test-data/
+docs/
+!docs/README.md
 `
 	goneatignorePath := filepath.Join(tempDir, ".goneatignore")
 	if err := os.WriteFile(goneatignorePath, []byte(goneatignoreContent), 0644); err != nil {
@@ -82,6 +84,8 @@ test-data/
 		// .goneatignore patterns
 		{"data.backup", true, "*.backup pattern from goneatignore"},
 		{"test-data/file.txt", true, "test-data/ pattern from goneatignore"},
+		{"docs/guide.md", true, "docs/ pattern from goneatignore"},
+		{"docs/README.md", false, "negation pattern !docs/README.md from goneatignore"},
 
 		// Files that should not be ignored
 		{"main.go", false, "regular go file"},

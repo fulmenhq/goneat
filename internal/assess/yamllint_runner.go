@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/bmatcuk/doublestar/v4"
+	"github.com/fulmenhq/goneat/pkg/ignore"
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"gopkg.in/yaml.v3"
 )
@@ -158,7 +159,7 @@ func boolWithDefault(val *bool, def bool) bool {
 	return *val
 }
 
-func (r *LintAssessmentRunner) runYamllintAssessment(target string, overrides *assessOverrides) ([]Issue, error) {
+func (r *LintAssessmentRunner) runYamllintAssessment(target string, config AssessmentConfig, overrides *assessOverrides) ([]Issue, error) {
 	yamllintBin := os.Getenv("GONEAT_YAMLLINT_BIN")
 	if yamllintBin == "" {
 		yamllintBin = "yamllint"
@@ -181,7 +182,7 @@ func (r *LintAssessmentRunner) runYamllintAssessment(target string, overrides *a
 		return nil, nil
 	}
 
-	files, err := resolveYamllintTargets(target, yamllintCfg)
+	files, err := resolveYamllintTargets(target, config, yamllintCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -225,12 +226,20 @@ func (r *LintAssessmentRunner) runYamllintAssessment(target string, overrides *a
 	return issues, nil
 }
 
-func resolveYamllintTargets(root string, cfg *yamllintOverrides) ([]string, error) {
+func resolveYamllintTargets(root string, config AssessmentConfig, cfg *yamllintOverrides) ([]string, error) {
 	patterns := defaultYamllintPatterns
 	if cfg != nil && len(cfg.Paths) > 0 {
 		patterns = cfg.Paths
 	}
-	ignore := cfg.ignorePatterns()
+	ignorePatterns := cfg.ignorePatterns()
+
+	var matcher *ignore.Matcher
+	if !config.NoIgnore {
+		m, err := ignore.NewMatcher(root)
+		if err == nil {
+			matcher = m
+		}
+	}
 
 	fileSet := make(map[string]struct{})
 	for _, pattern := range patterns {
@@ -249,7 +258,13 @@ func resolveYamllintTargets(root string, cfg *yamllintOverrides) ([]string, erro
 				continue
 			}
 			rel = filepath.ToSlash(rel)
-			if shouldIgnoreYAML(rel, ignore) {
+			if strings.HasSuffix(rel, ".orig") {
+				continue
+			}
+			if matcher != nil && matcher.IsIgnoredRel(rel) && !matchesForceInclude(rel, config.ForceInclude) {
+				continue
+			}
+			if shouldIgnoreYAML(rel, ignorePatterns) {
 				continue
 			}
 			fileSet[rel] = struct{}{}

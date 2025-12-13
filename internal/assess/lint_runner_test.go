@@ -273,7 +273,7 @@ func containsString(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || containsString(s[1:], substr) || (len(s) > 0 && s[:len(substr)] == substr))
 }
 
-func TestCollectFilesWithExcludesSkipsOrig(t *testing.T) {
+func TestCollectFilesWithScopeSkipsOrig(t *testing.T) {
 	dir := t.TempDir()
 	files := []string{
 		"scripts/build-all.sh",
@@ -293,10 +293,12 @@ func TestCollectFilesWithExcludesSkipsOrig(t *testing.T) {
 
 	includes := []string{"**/*.sh", "scripts/**/*.sh"}
 	excludes := []string{"**/*.orig"}
+	cfg := DefaultAssessmentConfig()
+	cfg.NoIgnore = true
 
-	result, err := collectFilesWithExcludes(dir, includes, excludes)
+	result, err := collectFilesWithScope(dir, includes, excludes, cfg)
 	if err != nil {
-		t.Fatalf("collectFilesWithExcludes error: %v", err)
+		t.Fatalf("collectFilesWithScope error: %v", err)
 	}
 
 	expect := map[string]struct{}{
@@ -314,17 +316,43 @@ func TestCollectFilesWithExcludesSkipsOrig(t *testing.T) {
 	}
 }
 
-func TestCollectFilesWithExcludesSkipsOrigInRepo(t *testing.T) {
-	includes := []string{"**/*.sh", "scripts/**/*.sh"}
-	excludes := []string{"**/*.orig", "**/node_modules/**", "**/.git/**", "**/vendor/**", "**/testdata/**", ".plans/**"}
-	result, err := collectFilesWithExcludes(".", includes, excludes)
-	if err != nil {
-		t.Fatalf("collectFilesWithExcludes error: %v", err)
+func TestCollectFilesWithScopeRespectsGitignoreAndForceInclude(t *testing.T) {
+	dir := t.TempDir()
+	gitignoreContent := "ignored/**\n!ignored/keep.sh\n"
+	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte(gitignoreContent), 0o644); err != nil {
+		t.Fatalf("write .gitignore: %v", err)
 	}
-	for _, f := range result {
-		if strings.HasSuffix(f, ".orig") {
-			t.Fatalf("unexpected .orig file included: %s", f)
+
+	paths := []string{"ignored/run.sh", "ignored/keep.sh"}
+	for _, p := range paths {
+		full := filepath.Join(dir, filepath.FromSlash(p))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatalf("mkdir: %v", err)
 		}
+		if err := os.WriteFile(full, []byte("echo test\n"), 0o644); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+	}
+
+	includes := []string{"**/*.sh"}
+	cfg := DefaultAssessmentConfig()
+	cfg.NoIgnore = false
+
+	result, err := collectFilesWithScope(dir, includes, nil, cfg)
+	if err != nil {
+		t.Fatalf("collectFilesWithScope error: %v", err)
+	}
+	if len(result) != 1 || result[0] != "ignored/keep.sh" {
+		t.Fatalf("expected only ignored/keep.sh, got %v", result)
+	}
+
+	cfg.ForceInclude = []string{"ignored/run.sh"}
+	result, err = collectFilesWithScope(dir, includes, nil, cfg)
+	if err != nil {
+		t.Fatalf("collectFilesWithScope error: %v", err)
+	}
+	if len(result) != 2 {
+		t.Fatalf("expected 2 files with force include, got %v", result)
 	}
 }
 

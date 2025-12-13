@@ -23,7 +23,7 @@ func TestResolveYamllintTargets_DefaultPatterns(t *testing.T) {
 		}
 	}
 
-	files, err := resolveYamllintTargets(tdir, nil)
+	files, err := resolveYamllintTargets(tdir, DefaultAssessmentConfig(), nil)
 	if err != nil {
 		t.Fatalf("resolveYamllintTargets error: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestResolveYamllintTargets_WithOverrides(t *testing.T) {
 		Paths:  []string{"workflows/*.yaml"},
 		Ignore: []string{"**/skip.yaml"},
 	}
-	result, err := resolveYamllintTargets(tdir, cfg)
+	result, err := resolveYamllintTargets(tdir, DefaultAssessmentConfig(), cfg)
 	if err != nil {
 		t.Fatalf("resolve error: %v", err)
 	}

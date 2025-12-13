@@ -14,11 +14,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bmatcuk/doublestar/v4"
+	"github.com/fulmenhq/goneat/pkg/ignore"
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/fulmenhq/goneat/pkg/versioning"
 )
@@ -132,8 +134,8 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 		}, nil
 	}
 
-	// Filter out files that match .goneatignore patterns
-	goFiles = r.filterFilesRespectingIgnores(goFiles, target)
+	// Filter out files that match repo ignore patterns (gitignore + goneatignore)
+	goFiles = r.filterFilesRespectingIgnores(goFiles, target, config)
 
 	if len(goFiles) == 0 {
 		logger.Info("No Go files found for lint assessment")
@@ -186,7 +188,7 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 
 	overrides := loadAssessOverrides(target)
 
-	yamlIssues, yamlErr := r.runYamllintAssessment(target, overrides)
+	yamlIssues, yamlErr := r.runYamllintAssessment(target, config, overrides)
 	if yamlErr != nil {
 		return &AssessmentResult{
 			CommandName:   r.commandName,
@@ -302,7 +304,7 @@ func (r *LintAssessmentRunner) runShfmtAssessment(target string, config Assessme
 		}
 	}
 
-	files, err := collectFilesWithExcludes(target, paths, exclude)
+	files, err := collectFilesWithScope(target, paths, exclude, config)
 	if err != nil {
 		return nil, err
 	}
@@ -386,7 +388,7 @@ func (r *LintAssessmentRunner) runShellcheckAssessment(target string, config Ass
 		}
 	}
 
-	files, err := collectFilesWithExcludes(target, paths, exclude)
+	files, err := collectFilesWithScope(target, paths, exclude, config)
 	if err != nil {
 		return nil, err
 	}
@@ -466,7 +468,7 @@ func (r *LintAssessmentRunner) runActionlintAssessment(target string, config Ass
 		exclude = append(exclude, ov.Actionlint.Ignore...)
 	}
 
-	files, err := collectFilesWithExcludes(target, paths, exclude)
+	files, err := collectFilesWithScope(target, paths, exclude, config)
 	if err != nil {
 		return nil, err
 	}
@@ -573,7 +575,7 @@ func (r *LintAssessmentRunner) runCheckmakeAssessment(target string, config Asse
 		exclude = append(exclude, ov.Ignore...)
 	}
 
-	files, err := collectFilesWithExcludes(target, paths, exclude)
+	files, err := collectFilesWithScope(target, paths, exclude, config)
 	if err != nil {
 		return nil, err
 	}
@@ -619,10 +621,19 @@ func (r *LintAssessmentRunner) runCheckmakeAssessment(target string, config Asse
 	return issues, nil
 }
 
-func collectFilesWithExcludes(root string, includes, excludes []string) ([]string, error) {
+func collectFilesWithScope(root string, includes, excludes []string, config AssessmentConfig) ([]string, error) {
 	if len(includes) == 0 {
 		return nil, nil
 	}
+
+	var matcher *ignore.Matcher
+	if !config.NoIgnore {
+		m, err := ignore.NewMatcher(root)
+		if err == nil {
+			matcher = m
+		}
+	}
+
 	files := make([]string, 0)
 	seen := make(map[string]struct{})
 	for _, pattern := range includes {
@@ -631,17 +642,21 @@ func collectFilesWithExcludes(root string, includes, excludes []string) ([]strin
 		if err != nil {
 			return nil, fmt.Errorf("invalid pattern %q: %w", pattern, err)
 		}
-		for _, m := range matches {
-			info, err := os.Stat(m)
+		for _, match := range matches {
+			info, err := os.Stat(match)
 			if err != nil || info.IsDir() {
 				continue
 			}
-			rel, err := filepath.Rel(root, m)
+			rel, err := filepath.Rel(root, match)
 			if err != nil {
 				continue
 			}
 			rel = filepath.ToSlash(rel)
 			if strings.HasSuffix(rel, ".orig") {
+				continue
+			}
+
+			if matcher != nil && matcher.IsIgnoredRel(rel) && !matchesForceInclude(rel, config.ForceInclude) {
 				continue
 			}
 			if isExcluded(rel, excludes) {
@@ -654,7 +669,43 @@ func collectFilesWithExcludes(root string, includes, excludes []string) ([]strin
 			files = append(files, rel)
 		}
 	}
+
+	sort.Strings(files)
 	return files, nil
+}
+
+func matchesForceInclude(rel string, patterns []string) bool {
+	if len(patterns) == 0 {
+		return false
+	}
+	rel = filepath.ToSlash(rel)
+	base := filepath.Base(rel)
+
+	for _, raw := range patterns {
+		pat := filepath.ToSlash(strings.TrimSpace(raw))
+		if pat == "" {
+			continue
+		}
+		for strings.HasPrefix(pat, "./") {
+			pat = strings.TrimPrefix(pat, "./")
+		}
+
+		if strings.HasSuffix(pat, "/**") {
+			prefix := strings.TrimSuffix(pat, "/**")
+			if rel == prefix || strings.HasPrefix(rel, prefix+"/") {
+				return true
+			}
+			continue
+		}
+
+		if ok, _ := doublestar.PathMatch(pat, rel); ok {
+			return true
+		}
+		if ok, _ := doublestar.PathMatch(pat, base); ok {
+			return true
+		}
+	}
+	return false
 }
 
 func isExcluded(path string, excludes []string) bool {
@@ -1422,78 +1473,30 @@ func (r *LintAssessmentRunner) estimateLintFixTime(linterName, message string) t
 }
 
 // filterFilesRespectingIgnores filters files to respect .goneatignore patterns
-func (r *LintAssessmentRunner) filterFilesRespectingIgnores(files []string, target string) []string {
-	if len(files) == 0 {
+func (r *LintAssessmentRunner) filterFilesRespectingIgnores(files []string, target string, config AssessmentConfig) []string {
+	if len(files) == 0 || config.NoIgnore {
+		return files
+	}
+	matcher, err := ignore.NewMatcher(target)
+	if err != nil {
 		return files
 	}
 
-	var filtered []string
+	filtered := make([]string, 0, len(files))
 	for _, file := range files {
-		if !r.matchesGoneatIgnore(file, target) {
-			filtered = append(filtered, file)
+		rel := file
+		if filepath.IsAbs(file) {
+			if r, err := filepath.Rel(target, file); err == nil {
+				rel = r
+			}
 		}
-	}
-	return filtered
-}
-
-// matchesGoneatIgnore checks if a file path matches .goneatignore patterns
-func (r *LintAssessmentRunner) matchesGoneatIgnore(filePath, target string) bool {
-	// Check if we're processing test fixture files
-	if strings.Contains(filePath, "fixtures/") {
-		// This is a test fixture - it should be ignored
-		return true
-	}
-
-	// Check repo-level .goneatignore
-	repoIgnorePath := filepath.Join(target, ".goneatignore")
-	if r.matchesIgnoreFile(filePath, repoIgnorePath) {
-		return true
-	}
-
-	// Check user-level .goneatignore
-	if homeDir, err := os.UserHomeDir(); err == nil {
-		userIgnorePath := filepath.Join(homeDir, ".goneatignore")
-		if r.matchesIgnoreFile(filePath, userIgnorePath) {
-			return true
-		}
-		// Also check ~/.goneat/.goneatignore
-		userGoneatIgnorePath := filepath.Join(homeDir, ".goneat", ".goneatignore")
-		if r.matchesIgnoreFile(filePath, userGoneatIgnorePath) {
-			return true
-		}
-	}
-
-	return false
-}
-
-// matchesIgnoreFile checks if a path matches patterns in an ignore file
-func (r *LintAssessmentRunner) matchesIgnoreFile(filePath, ignoreFilePath string) bool {
-	// #nosec G304 -- ignoreFilePath is constructed from controlled paths (target + ".goneatignore", etc.)
-	file, err := os.Open(ignoreFilePath)
-	if err != nil {
-		return false // Ignore file doesn't exist, no matches
-	}
-	defer func() {
-		_ = file.Close() // Ignore close error as we're only reading
-	}()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		// Skip empty lines and comments
-		if line == "" || strings.HasPrefix(line, "#") {
+		rel = filepath.ToSlash(rel)
+		if matcher.IsIgnoredRel(rel) && !matchesForceInclude(rel, config.ForceInclude) {
 			continue
 		}
-		// Check if the file path matches this pattern
-		if matched, _ := filepath.Match(line, filePath); matched {
-			return true
-		}
-		// Also check if the pattern matches when treating it as a path prefix
-		if strings.HasSuffix(line, "/") && strings.HasPrefix(filePath, strings.TrimSuffix(line, "/")+"/") {
-			return true
-		}
+		filtered = append(filtered, file)
 	}
-	return false
+	return filtered
 }
 
 // init registers the lint assessment runner

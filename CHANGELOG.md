@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.17] - 2025-12-13
+
+### Added
+
+- **Unified Ignore Scope for Lint Sidecars**: Shell/Makefile/GitHub Actions/YAML lint runners now respect `.gitignore` + `.goneatignore` by default
+  - Applies to shfmt, shellcheck, actionlint, checkmake, and yamllint target resolution
+  - `--force-include` can re-include ignored paths for targeted runs
+  - Reduces DRY duplication of ignores between `.gitignore` and `.goneat/assess.yaml`
+
+### Changed
+
+- **Ignore Matcher APIs**: Added repo-root-relative matching helpers to make ignore behavior deterministic across runners
+  - Supports `!pattern` negation in `.goneatignore` consistently for sidecar tooling
+
 ## [v0.3.16] - 2025-12-12
 
 ### Fixed

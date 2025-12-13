@@ -13,7 +13,8 @@ import (
 
 // Matcher provides gitignore-based file filtering
 type Matcher struct {
-	matcher gitignore.Matcher
+	matcher  gitignore.Matcher
+	repoRoot string
 }
 
 // NewMatcher creates a matcher with layered ignore files:
@@ -21,7 +22,11 @@ type Matcher struct {
 // 2. .goneatignore (repo overrides)
 // 3. ~/.goneat/.goneatignore (user overrides)
 func NewMatcher(repoRoot string) (*Matcher, error) {
-	fs := osfs.New(repoRoot)
+	absRoot, err := filepath.Abs(repoRoot)
+	if err != nil {
+		absRoot = repoRoot
+	}
+	fs := osfs.New(absRoot)
 
 	// Load patterns with layered approach
 	var allPatterns []gitignore.Pattern
@@ -39,14 +44,23 @@ func NewMatcher(repoRoot string) (*Matcher, error) {
 	}
 
 	// Layer 2: Manually read .goneatignore patterns (repo overrides)
-	if goneatPatterns, err := readIgnoreFile(filepath.Join(repoRoot, ".goneatignore")); err == nil {
+	if goneatPatterns, err := readIgnoreFile(filepath.Join(absRoot, ".goneatignore")); err == nil {
 		for _, pattern := range goneatPatterns {
 			allPatterns = append(allPatterns, gitignore.ParsePattern(pattern, nil))
 		}
 	}
 
-	// Layer 3: Manually read user-level ~/.goneat/.goneatignore patterns (user overrides)
+	// Layer 3: Manually read user-level ignore patterns (user overrides)
 	if homeDir, err := os.UserHomeDir(); err == nil {
+		// Legacy location: ~/.goneatignore
+		legacyIgnorePath := filepath.Join(homeDir, ".goneatignore")
+		if userPatterns, err := readIgnoreFile(legacyIgnorePath); err == nil {
+			for _, pattern := range userPatterns {
+				allPatterns = append(allPatterns, gitignore.ParsePattern(pattern, nil))
+			}
+		}
+
+		// Preferred location: ~/.goneat/.goneatignore
 		userIgnorePath := filepath.Join(homeDir, ".goneat", ".goneatignore")
 		if userPatterns, err := readIgnoreFile(userIgnorePath); err == nil {
 			for _, pattern := range userPatterns {
@@ -56,7 +70,8 @@ func NewMatcher(repoRoot string) (*Matcher, error) {
 	}
 
 	return &Matcher{
-		matcher: gitignore.NewMatcher(allPatterns),
+		matcher:  gitignore.NewMatcher(allPatterns),
+		repoRoot: absRoot,
 	}, nil
 }
 
@@ -88,56 +103,71 @@ func readIgnoreFile(path string) ([]string, error) {
 	return patterns, nil
 }
 
-// IsIgnored checks if a file path should be ignored
-func (m *Matcher) IsIgnored(path string) bool {
-	// Convert path to relative path from working directory
-	wd, err := os.Getwd()
-	if err != nil {
-		return false
-	}
-
-	relPath, err := filepath.Rel(wd, path)
-	if err != nil {
-		relPath = path
-	}
-
-	// Convert to forward slashes for gitignore matching
+// IsIgnoredRel checks if a repo-root-relative path should be ignored.
+//
+// relPath must be a repo-root relative path ("foo/bar.txt"), using either OS
+// separators or forward slashes. It is normalized internally.
+func (m *Matcher) IsIgnoredRel(relPath string) bool {
 	relPath = filepath.ToSlash(relPath)
-
-	// Split path into components for go-git matcher
 	pathParts := splitPath(relPath)
 	if len(pathParts) == 0 {
 		return false
 	}
-
-	// Check if file matches ignore patterns
 	return m.matcher.Match(pathParts, false)
 }
 
+// IsIgnored checks if a file path should be ignored.
+//
+// This method is best-effort and attempts to convert the provided path into a
+// repo-root-relative path for matching. Prefer IsIgnoredRel when you already
+// have a repo-relative path.
+func (m *Matcher) IsIgnored(path string) bool {
+	cleaned := filepath.Clean(path)
+
+	relPath, err := filepath.Rel(m.repoRoot, cleaned)
+	if err != nil {
+		// Fallback to working directory relative conversion.
+		wd, wdErr := os.Getwd()
+		if wdErr != nil {
+			return false
+		}
+		relPath, err = filepath.Rel(wd, cleaned)
+		if err != nil {
+			relPath = cleaned
+		}
+	}
+
+	return m.IsIgnoredRel(relPath)
+}
+
 // IsIgnoredDir checks if a directory should be ignored (and thus skipped during traversal)
-func (m *Matcher) IsIgnoredDir(path string) bool {
-	// Convert path to relative path from working directory
-	wd, err := os.Getwd()
-	if err != nil {
-		return false
-	}
-
-	relPath, err := filepath.Rel(wd, path)
-	if err != nil {
-		relPath = path
-	}
-
-	// Convert to forward slashes for gitignore matching
+// IsIgnoredDirRel checks if a repo-root-relative directory should be ignored.
+func (m *Matcher) IsIgnoredDirRel(relPath string) bool {
 	relPath = filepath.ToSlash(relPath)
-
-	// Split path into components for go-git matcher
 	pathParts := splitPath(relPath)
 	if len(pathParts) == 0 {
 		return false
 	}
+	return m.matcher.Match(pathParts, true)
+}
 
-	// Check if directory matches ignore patterns
-	return m.matcher.Match(pathParts, true) // isDir=true for directory matching
+// IsIgnoredDir checks if a directory should be ignored (and thus skipped during traversal).
+func (m *Matcher) IsIgnoredDir(path string) bool {
+	cleaned := filepath.Clean(path)
+
+	relPath, err := filepath.Rel(m.repoRoot, cleaned)
+	if err != nil {
+		wd, wdErr := os.Getwd()
+		if wdErr != nil {
+			return false
+		}
+		relPath, err = filepath.Rel(wd, cleaned)
+		if err != nil {
+			relPath = cleaned
+		}
+	}
+
+	return m.IsIgnoredDirRel(relPath)
 }
 
 // splitPath converts a slash-separated path into components for go-git matching
