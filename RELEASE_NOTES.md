@@ -1,5 +1,3 @@
-# Goneat v0.3.17 — Unified Ignore Scope for Lint Sidecars
-
 # Goneat v0.3.18 — Checkmake Config Overrides (MVP)
 
 **Release Date**: 2025-12-13
@@ -118,50 +116,6 @@ None. This is a fix release.
 ## Upgrade Notes
 
 No action required. Download new binaries for correct version reporting.
-
----
-
-# Goneat v0.3.15 — Lint Expansion & Hook Execution
-
-**Release Date**: 2025-12-11
-**Status**: Release
-
-## TL;DR
-
-- **Expanded Lint Coverage**: Added shell script (shfmt/shellcheck), Makefile (checkmake), and GitHub Actions (actionlint) linting
-- **Hook Manifest Execution**: `goneat assess --hook` now executes ALL commands in hooks.yaml (make, assess, etc.) in priority order
-- **Yamllint Integration**: Configurable YAML linting with strict mode for workflows and configs
-- **DX Improvements**: Better error messages and graceful tool handling
-
-## What's New
-
-### Expanded Lint Capabilities
-
-The `goneat assess --categories lint` command now includes comprehensive linting for:
-
-- **Shell Scripts**: `shfmt` (BSD-3, format+fix) and `shellcheck` (GPL-3, verify-only)
-- **Makefiles**: `checkmake` (MIT, comprehensive Makefile validation)
-- **GitHub Actions**: `actionlint` (MIT, workflow validation)
-- **YAML Files**: `yamllint` with configurable paths and strict mode
-
-### Hook Manifest Execution
-
-**BREAKING CHANGE FOR HOOK USERS**: Hook manifests now execute ALL commands, not just assess commands.
-
-**Migration**: Update hooks to use check-only commands:
-
-- `make format-all` → `make format-check`
-- `make test` → `make test-fast`
-
-### Developer Experience Improvements
-
-- **Helpful Error Messages**: Using `--output json` now shows clear error message guiding users to `--format json` instead
-- **Graceful Tool Skipping**: Missing tools skip with informative messages rather than failing
-- **Container-Ready**: All new tools pre-installed in goneat-tools container
-
-## Breaking Changes
-
-None. All changes are additive and backwards compatible.
 
 ---
 

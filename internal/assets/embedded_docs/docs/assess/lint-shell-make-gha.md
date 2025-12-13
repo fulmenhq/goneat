@@ -13,7 +13,8 @@ version: 1
 lint:
   shell:
     paths: ["**/*.sh", "scripts/**/*"]
-    ignore: ["**/node_modules/**", "**/.git/**", "**/vendor/**"]
+    # Note: .gitignore/.goneatignore define default scope (v0.3.17+)
+    ignore: []
     shfmt:
       enabled: true
       fix: false # set true to allow write
@@ -28,6 +29,9 @@ lint:
   make:
     checkmake:
       enabled: true
+      config:
+        max_body_length: 15
+        min_phony_targets: ["all", "clean", "test"]
     paths: ["**/Makefile"]
     ignore: []
 ```

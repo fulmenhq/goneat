@@ -109,13 +109,22 @@ Actionlint validates workflow files for:
 - **Pre-commit**: Use `--fail-on critical` for fast feedback on blocking issues
 - **Local development**: Use `--fail-on medium` for comprehensive checking
 
-### Checkmake Limitations
+### Checkmake Configuration & Limitations
 
-The checkmake tool has hardcoded rules that cannot be customized:
+As of goneat v0.3.18, goneat can generate a temporary checkmake config file from `.goneat/assess.yaml` and pass it via `checkmake --config`.
 
-- **Maximum target body length**: 5 lines (encourages modular makefiles)
-- **Required phony targets**: `.PHONY` declarations for all non-file targets
-- **Style rules**: Various best practices for Makefile maintainability
+Supported overrides:
+
+- **Maximum target body length**: `lint.make.checkmake.config.max_body_length`
+- **Required phony targets**: `lint.make.checkmake.config.min_phony_targets`
+
+Other checkmake rules remain tool-defined and may not be configurable.
+
+### Container Filesystems (EXDEV)
+
+In containerized CI, `/tmp`, the workspace, and `$HOME` may be different mounts. Goneat’s tool installer avoids cross-device rename failures by writing temporary files adjacent to their final destination (same filesystem) before renaming.
+
+No special `TMPDIR` handling is required for `goneat doctor tools` installs in typical container setups.
 
 ### Handling Complex Makefiles
 
