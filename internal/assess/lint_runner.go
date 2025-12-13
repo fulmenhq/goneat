@@ -553,6 +553,53 @@ func parseActionlintOutput(output []byte) ([]Issue, error) {
 	return issues, nil
 }
 
+func writeCheckmakeConfig(cfg *checkmakeConfigOptions) (string, error) {
+	if cfg == nil {
+		return "", nil
+	}
+	if cfg.MaxBodyLength == nil && len(cfg.MinPhonyTargets) == 0 {
+		return "", nil
+	}
+
+	var b strings.Builder
+	if cfg.MaxBodyLength != nil {
+		fmt.Fprintf(&b, "[maxbodylength]\nmaxBodyLength=%d\n\n", *cfg.MaxBodyLength)
+	}
+	if len(cfg.MinPhonyTargets) > 0 {
+		cleanTargets := make([]string, 0, len(cfg.MinPhonyTargets))
+		for _, t := range cfg.MinPhonyTargets {
+			t = strings.TrimSpace(t)
+			if t == "" {
+				continue
+			}
+			cleanTargets = append(cleanTargets, t)
+		}
+		if len(cleanTargets) > 0 {
+			fmt.Fprintf(&b, "[minphony]\nrequired=%s\n\n", strings.Join(cleanTargets, ","))
+		}
+	}
+
+	contents := strings.TrimSpace(b.String()) + "\n"
+	if strings.TrimSpace(contents) == "" {
+		return "", nil
+	}
+
+	f, err := os.CreateTemp("", "goneat-checkmake-*.ini")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp checkmake config: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	if err := f.Chmod(0600); err != nil {
+		return "", fmt.Errorf("failed to chmod temp checkmake config: %w", err)
+	}
+	if _, err := f.WriteString(contents); err != nil {
+		return "", fmt.Errorf("failed to write temp checkmake config: %w", err)
+	}
+
+	return f.Name(), nil
+}
+
 func (r *LintAssessmentRunner) runCheckmakeAssessment(target string, config AssessmentConfig, overrides *assessOverrides) ([]Issue, error) {
 	enabled := config.LintMakeEnabled
 	var ov *makeOverrides
@@ -589,10 +636,26 @@ func (r *LintAssessmentRunner) runCheckmakeAssessment(target string, config Asse
 		return nil, nil
 	}
 
+	var configPath string
+	if ov != nil && ov.Checkmake != nil {
+		configPath, err = writeCheckmakeConfig(ov.Checkmake.Config)
+		if err != nil {
+			return nil, err
+		}
+		if configPath != "" {
+			defer func() { _ = os.Remove(configPath) }()
+		}
+	}
+
 	issues := []Issue{}
 	for _, f := range files {
+		args := []string{}
+		if configPath != "" {
+			args = append(args, "--config", configPath)
+		}
+		args = append(args, f)
 		ctx, cancel := context.WithTimeout(context.Background(), r.config.Timeout)
-		cmd := exec.CommandContext(ctx, bin, f) // #nosec G204
+		cmd := exec.CommandContext(ctx, bin, args...) // #nosec G204
 		cmd.Dir = target
 		output, err := cmd.CombinedOutput()
 		cancel()

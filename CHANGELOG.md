@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.18] - 2025-12-13
+
+### Added
+
+- **Checkmake Config Overrides (MVP)**: `.goneat/assess.yaml` can now generate a checkmake config for rules that support it
+  - `lint.make.checkmake.config.max_body_length`
+  - `lint.make.checkmake.config.min_phony_targets`
+
 ## [v0.3.17] - 2025-12-13
 
 ### Added

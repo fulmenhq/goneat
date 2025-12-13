@@ -1,5 +1,30 @@
 # Goneat v0.3.17 — Unified Ignore Scope for Lint Sidecars
 
+# Goneat v0.3.18 — Checkmake Config Overrides (MVP)
+
+**Release Date**: 2025-12-13
+**Status**: Draft
+
+## TL;DR
+
+- **Less Noise**: Configure checkmake rules via `.goneat/assess.yaml`
+- **MVP Scope**: Supports `max_body_length` and `min_phony_targets`
+
+## What Changed
+
+### checkmake configuration
+
+`.goneat/assess.yaml` now supports generating a temporary checkmake config file and passing it via `checkmake --config`.
+
+Supported settings:
+
+- `lint.make.checkmake.config.max_body_length`
+- `lint.make.checkmake.config.min_phony_targets`
+
+---
+
+# Goneat v0.3.17 — Unified Ignore Scope for Lint Sidecars
+
 **Release Date**: 2025-12-13
 **Status**: Release
 

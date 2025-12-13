@@ -316,6 +316,42 @@ func TestCollectFilesWithScopeSkipsOrig(t *testing.T) {
 	}
 }
 
+func TestWriteCheckmakeConfig(t *testing.T) {
+	maxLen := 15
+	cfg := &checkmakeConfigOptions{
+		MaxBodyLength:   &maxLen,
+		MinPhonyTargets: []string{"all", "clean", "test"},
+	}
+	path, err := writeCheckmakeConfig(cfg)
+	if err != nil {
+		t.Fatalf("writeCheckmakeConfig error: %v", err)
+	}
+	if path == "" {
+		t.Fatalf("expected config file path")
+	}
+	defer func() { _ = os.Remove(path) }()
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read config file: %v", err)
+	}
+	text := string(data)
+	if !strings.Contains(text, "[maxbodylength]") || !strings.Contains(text, "maxBodyLength=15") {
+		t.Fatalf("unexpected maxbodylength section: %s", text)
+	}
+	if !strings.Contains(text, "[minphony]") || !strings.Contains(text, "required=all,clean,test") {
+		t.Fatalf("unexpected minphony section: %s", text)
+	}
+
+	path2, err := writeCheckmakeConfig(&checkmakeConfigOptions{})
+	if err != nil {
+		t.Fatalf("writeCheckmakeConfig error: %v", err)
+	}
+	if path2 != "" {
+		t.Fatalf("expected empty config path for empty config, got %q", path2)
+	}
+}
+
 func TestCollectFilesWithScopeRespectsGitignoreAndForceInclude(t *testing.T) {
 	dir := t.TempDir()
 	gitignoreContent := "ignored/**\n!ignored/keep.sh\n"

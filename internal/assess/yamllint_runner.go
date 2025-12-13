@@ -76,7 +76,13 @@ type makeOverrides struct {
 }
 
 type checkmakeOverrides struct {
-	Enabled *bool `yaml:"enabled"`
+	Enabled *bool                   `yaml:"enabled"`
+	Config  *checkmakeConfigOptions `yaml:"config"`
+}
+
+type checkmakeConfigOptions struct {
+	MaxBodyLength   *int     `yaml:"max_body_length"`
+	MinPhonyTargets []string `yaml:"min_phony_targets"`
 }
 
 var assessConfigCache sync.Map
