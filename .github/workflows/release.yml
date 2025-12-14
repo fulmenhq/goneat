@@ -45,6 +45,24 @@ jobs:
         run: |
           chmod +x scripts/build-all.sh
           ./scripts/build-all.sh
+
+      - name: Smoke test linux binary (musl + glibc)
+        run: |
+          set -euo pipefail
+          test -x "./bin/goneat-linux-amd64"
+
+          echo "Running in Alpine (musl)..."
+          docker run --rm \
+            -v "$PWD/bin:/work" \
+            alpine:3.21 \
+            /work/goneat-linux-amd64 version
+
+          echo "Running in Debian (glibc)..."
+          docker run --rm \
+            -v "$PWD/bin:/work" \
+            debian:bookworm-slim \
+            /work/goneat-linux-amd64 version
+
       - name: Package artifacts
         run: |
           chmod +x scripts/package-artifacts.sh

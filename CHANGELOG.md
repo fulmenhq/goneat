@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.19] - 2025-12-14
+
+### Fixed
+
+- **Linux Release Compatibility (musl/glibc)**: Build Linux release artifacts with `CGO_ENABLED=0` to avoid glibc-only linkage
+  - Prevents `invalid cross-device link`-style libc relocation failures in Alpine/musl containers
+  - Adds a release workflow smoke test running the linux binary in both Alpine (musl) and Debian (glibc)
+
 ## [v0.3.18] - 2025-12-13
 
 ### Added

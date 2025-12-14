@@ -44,19 +44,41 @@ for target in "${TARGETS[@]}"; do
 
 	# Build with version information embedded via ldflags
 	# Must match pkg/buildinfo/buildinfo.go variable paths
-	GOOS=$GOOS GOARCH=$GOARCH go build \
-		-ldflags "\
-			-X 'github.com/fulmenhq/goneat/pkg/buildinfo.BinaryVersion=$VERSION' \
-			-X 'github.com/fulmenhq/goneat/pkg/buildinfo.BuildTime=$BUILD_TIME' \
-			-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$GIT_COMMIT'" \
-		-o "bin/goneat-$GOOS-$GOARCH$EXT" \
-		.
+	#
+	# Linux release artifacts must run in both glibc and musl environments (e.g. Alpine).
+	# Build Linux binaries with CGO disabled to avoid libc linkage.
+	if [ "$GOOS" = "linux" ]; then
+		CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build \
+			-ldflags "\
+				-X 'github.com/fulmenhq/goneat/pkg/buildinfo.BinaryVersion=$VERSION' \
+				-X 'github.com/fulmenhq/goneat/pkg/buildinfo.BuildTime=$BUILD_TIME' \
+				-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$GIT_COMMIT'" \
+			-o "bin/goneat-$GOOS-$GOARCH$EXT" \
+			.
+	else
+		GOOS=$GOOS GOARCH=$GOARCH go build \
+			-ldflags "\
+				-X 'github.com/fulmenhq/goneat/pkg/buildinfo.BinaryVersion=$VERSION' \
+				-X 'github.com/fulmenhq/goneat/pkg/buildinfo.BuildTime=$BUILD_TIME' \
+				-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$GIT_COMMIT'" \
+			-o "bin/goneat-$GOOS-$GOARCH$EXT" \
+			.
+	fi
 
 	# Verify the binary was created and is executable
 	if [ -f "bin/goneat-$GOOS-$GOARCH$EXT" ]; then
 		echo "✅ Built bin/goneat-$GOOS-$GOARCH$EXT"
 
-		# Quick test to ensure binary works
+		# For Linux, assert no dynamic libc linkage (prevents musl container failures)
+		if [ "$GOOS" = "linux" ]; then
+			if file "bin/goneat-$GOOS-$GOARCH$EXT" | grep -q "dynamically linked"; then
+				echo "❌ Linux binary is dynamically linked (glibc/musl incompatibility risk)"
+				file "bin/goneat-$GOOS-$GOARCH$EXT"
+				exit 1
+			fi
+		fi
+
+		# Quick test to ensure binary works (native platforms only)
 		if "./bin/goneat-$GOOS-$GOARCH$EXT" version >/dev/null 2>&1; then
 			echo "🧪 Binary functional: $GOOS/$GOARCH"
 		else
