@@ -85,6 +85,10 @@ package() {
 	cp "$bin" "$tmpdir/$bin_name"
 	chmod +x "$tmpdir/$bin_name"
 
+	# Include licensing files alongside the binary
+	cp "LICENSE" "$tmpdir/LICENSE"
+	cp "NOTICE" "$tmpdir/NOTICE"
+
 	case "$archive_ext" in
 	tar.gz)
 		(cd "$tmpdir" && tar -czf "$OUT_DIR_ABS/$archive_name" "$bin_name")

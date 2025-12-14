@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.20] - 2025-12-14
+
+### Added
+
+- **NOTICE for Distribution**: Added a top-level `NOTICE` file and include `LICENSE`/`NOTICE` in packaged release archives
+- **ADR**: Documented the Linux `CGO_ENABLED=0` (musl/glibc compatible) release artifact policy
+- **Docs**: Documented checkmake rule override keys for `.goneat/assess.yaml`
+
 ## [v0.3.19] - 2025-12-14
 
 ### Fixed

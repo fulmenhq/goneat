@@ -1,0 +1,20 @@
+goneat
+
+Copyright 2025 3 Leaps, LLC
+
+This product is licensed under the Apache License, Version 2.0. See LICENSE.
+
+Third-party notices
+
+This product includes software developed by third parties.
+
+Third-party license texts are tracked in the source repository under `docs/licenses/third-party/`.
+Where upstream projects provide NOTICE files, we preserve them under the same tree.
+
+Trademark notice
+
+"goneat™" and "FulmenHQ" are trademarks of 3 Leaps, LLC.
+Use of these marks is governed by the trademark terms in `LICENSE` and the 3 Leaps OSS trademark policy.
+For details see: https://github.com/3leaps/oss-policies/blob/main/TRADEMARK-POLICY.md
+
+For trademark questions, contact legal@3leaps.net.

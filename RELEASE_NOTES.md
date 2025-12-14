@@ -1,7 +1,33 @@
-# Goneat v0.3.19 — Linux Release Artifacts (musl/glibc compatible)
+# Goneat v0.3.20 — NOTICE for Distribution
 
 **Release Date**: 2025-12-14
 **Status**: Draft
+
+## TL;DR
+
+- **NOTICE shipped in archives**: Release archives now include `LICENSE` and `NOTICE`
+- **Documented libc policy**: ADR added for the Linux `CGO_ENABLED=0` musl/glibc compatibility decision
+- **Docs polish**: `assess` docs now explicitly call out checkmake override keys
+
+## What Changed
+
+### NOTICE + packaging
+
+- Added a top-level `NOTICE` file.
+- Release archives now include `LICENSE` and `NOTICE` alongside the `goneat` binary.
+
+### Documentation
+
+- Documented checkmake config override keys supported via `.goneat/assess.yaml`:
+  - `lint.make.checkmake.config.max_body_length`
+  - `lint.make.checkmake.config.min_phony_targets`
+
+---
+
+# Goneat v0.3.19 — Linux Release Artifacts (musl/glibc compatible)
+
+**Release Date**: 2025-12-14
+**Status**: Release
 
 ## TL;DR
 
@@ -12,7 +38,7 @@
 
 ### Linux builds: CGO disabled
 
-Linux release artifacts are now built with `CGO_ENABLED=0` to produce a binary that runs in both:
+Linux release artifacts are built with `CGO_ENABLED=0` to produce a binary that runs in both:
 
 - glibc-based environments (Ubuntu/Debian)
 - musl-based environments (Alpine)
@@ -23,12 +49,10 @@ This prevents runtime failures like:
 
 ### Release workflow smoke test
 
-The GitHub release workflow now executes `goneat version` inside:
+The GitHub release workflow executes `goneat version` inside:
 
 - `alpine:3.21`
 - `debian:bookworm-slim`
-
-This makes the musl/glibc compatibility guarantee concrete.
 
 ---
 
@@ -52,38 +76,6 @@ Supported settings:
 
 - `lint.make.checkmake.config.max_body_length`
 - `lint.make.checkmake.config.min_phony_targets`
-
----
-
-# Goneat v0.3.17 — Unified Ignore Scope for Lint Sidecars
-
-**Release Date**: 2025-12-13
-**Status**: Release
-
-## TL;DR
-
-- **Less DRY + More Predictable**: Lint sidecars now respect `.gitignore` + `.goneatignore` by default
-- **Force Include Works Everywhere**: `--force-include` applies consistently across lint integrations
-- **Better Foundations for Future Sidecars**: Establishes scope contract for upcoming biome/ruff integrations
-
-## What Changed
-
-### Unified Ignore Scope
-
-The glob-based lint integrations (shell, Makefile, GitHub Actions, YAML) previously relied on `.goneat/assess.yaml` exclude globs and could require duplicating ignore patterns that already exist in `.gitignore`/`.goneatignore`.
-
-v0.3.17 makes path scope consistent:
-
-- Files ignored by `.gitignore`/`.goneatignore` are not scanned by sidecars
-- `goneat assess --force-include <glob>` can re-include ignored paths when needed
-- `.goneat/assess.yaml` `ignore:` remains available as a tool-specific, additive exclusion layer
-
-Affected integrations:
-
-- shfmt / shellcheck
-- actionlint
-- checkmake
-- yamllint target resolution
 
 ---
 
