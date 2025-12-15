@@ -130,15 +130,24 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 		}
 
 		analysisConfig := dependencies.AnalysisConfig{
-			PolicyPath: policyPath,
-			EngineType: depsCfg.Engine.Type,
-			Languages:  []dependencies.Language{lang},
-			Target:     target,
+			PolicyPath:    policyPath,
+			EngineType:    depsCfg.Engine.Type,
+			Languages:     []dependencies.Language{lang},
+			Target:        target,
+			CheckLicenses: licensesFlag,
+			CheckCooling:  coolingFlag,
+			Config:        &depsCfg,
 		}
 
 		result, err := analyzer.Analyze(context.Background(), target, analysisConfig)
 		if err != nil {
 			return err
+		}
+		if result.Dependencies == nil {
+			result.Dependencies = []dependencies.Dependency{}
+		}
+		if result.Issues == nil {
+			result.Issues = []dependencies.Issue{}
 		}
 
 		// Analyzer now handles all policy checks internally

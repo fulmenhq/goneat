@@ -51,7 +51,14 @@ type AnalysisConfig struct {
 	EngineType string
 	Languages  []Language
 	Target     string
-	Config     *config.DependenciesConfig // Thread config for overrides
+
+	// CheckLicenses controls whether license detection/policy is evaluated.
+	// If both CheckLicenses and CheckCooling are false, analyzers may default to
+	// legacy behavior (both enabled).
+	CheckLicenses bool
+	CheckCooling  bool
+
+	Config *config.DependenciesConfig // Thread config for overrides
 }
 
 // AnalysisResult holds the result of analysis

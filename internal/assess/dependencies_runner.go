@@ -81,11 +81,13 @@ func (r *DependenciesRunner) Assess(ctx context.Context, target string, assessCo
 
 	// Run analysis
 	analysisConfig := dependencies.AnalysisConfig{
-		PolicyPath: depsCfg.PolicyPath,
-		EngineType: depsCfg.Engine.Type,
-		Languages:  []dependencies.Language{lang},
-		Target:     target,
-		Config:     &depsCfg,
+		PolicyPath:    depsCfg.PolicyPath,
+		EngineType:    depsCfg.Engine.Type,
+		Languages:     []dependencies.Language{lang},
+		Target:        target,
+		CheckLicenses: true,
+		CheckCooling:  true,
+		Config:        &depsCfg,
 	}
 
 	result, err := r.analyzer.Analyze(ctx, target, analysisConfig)
