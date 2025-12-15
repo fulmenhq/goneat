@@ -204,6 +204,8 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 		30*time.Second,
 	)
 	metadataRegistry.RegisterFetcher("github", githubFetcher)
+	pypiFetcher := metadata.NewPyPIFetcher(30 * time.Second)
+	metadataRegistry.RegisterFetcher("pypi", pypiFetcher)
 
 	// Foundation scope validation - proactive checks for common issues
 	if flagDoctorScope == "foundation" {

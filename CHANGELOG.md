@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.21] - 2025-12-15
+
+### Added
+
+- **Cooling Policy Metadata**: `doctor tools` can now resolve upstream metadata for more tool install types
+  - Infer GitHub repo for `kind: go` tools from `install_package` (e.g. actionlint)
+  - Support PyPI metadata (`pypi:<package>`) for Python-installed tools (e.g. yamllint)
+
 ## [v0.3.20] - 2025-12-14
 
 ### Added

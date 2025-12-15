@@ -1,3 +1,21 @@
+# Goneat v0.3.21 — Cooling Policy Metadata for Tools
+
+**Release Date**: 2025-12-15
+**Status**: Draft
+
+## TL;DR
+
+- **Better cooling checks**: `goneat doctor tools` can evaluate cooling for more tools (fewer "metadata unavailable" failures)
+- **Go tool repo inference**: derive GitHub repo from `install_package` for GitHub-hosted Go tools
+- **PyPI support**: fetch release publish dates from PyPI for tools installed via uv/pip (e.g. yamllint)
+
+## What Changed
+
+- Added a PyPI metadata fetcher for cooling policy evaluation.
+- Added repo inference for Go-installed tools hosted on GitHub.
+
+---
+
 # Goneat v0.3.20 — NOTICE for Distribution
 
 **Release Date**: 2025-12-14

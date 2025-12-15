@@ -99,6 +99,100 @@ func CheckToolCoolingPolicy(tool Tool, disableCooling bool, reg *metadata.Regist
 	}
 }
 
+func inferRepoFromGoInstallPackage(installPackage string) string {
+	// Examples:
+	// - github.com/rhysd/actionlint/cmd/actionlint@latest -> rhysd/actionlint
+	// - github.com/google/go-licenses@latest -> google/go-licenses
+	installPackage = strings.TrimSpace(installPackage)
+	if installPackage == "" {
+		return ""
+	}
+
+	// Strip @version suffix
+	if at := strings.Index(installPackage, "@"); at >= 0 {
+		installPackage = installPackage[:at]
+	}
+
+	installPackage = strings.TrimPrefix(installPackage, "https://")
+	installPackage = strings.TrimPrefix(installPackage, "http://")
+	if !strings.HasPrefix(installPackage, "github.com/") {
+		return ""
+	}
+	installPackage = strings.TrimPrefix(installPackage, "github.com/")
+
+	parts := strings.Split(installPackage, "/")
+	if len(parts) < 2 {
+		return ""
+	}
+	owner := parts[0]
+	repo := parts[1]
+	if owner == "" || repo == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s/%s", owner, repo)
+}
+
+func inferRepoFromPythonInstall(installCommands map[string]string) string {
+	if len(installCommands) == 0 {
+		return ""
+	}
+
+	packageName := ""
+	for _, cmd := range installCommands {
+		cmd = strings.TrimSpace(cmd)
+		if cmd == "" {
+			continue
+		}
+
+		// uv tool install yamllint
+		if strings.Contains(cmd, "uv tool install ") {
+			parts := strings.Fields(cmd)
+			for i := 0; i < len(parts)-1; i++ {
+				if parts[i] != "install" {
+					continue
+				}
+				for j := i + 1; j < len(parts); j++ {
+					if strings.HasPrefix(parts[j], "-") {
+						continue
+					}
+					packageName = parts[j]
+					break
+				}
+				break
+			}
+		}
+
+		// pip install yamllint
+		if packageName == "" && strings.Contains(cmd, "pip install ") {
+			parts := strings.Fields(cmd)
+			for i := 0; i < len(parts)-1; i++ {
+				if parts[i] != "install" {
+					continue
+				}
+				for j := i + 1; j < len(parts); j++ {
+					if strings.HasPrefix(parts[j], "-") {
+						continue
+					}
+					packageName = parts[j]
+					break
+				}
+				break
+			}
+		}
+
+		if packageName != "" {
+			break
+		}
+	}
+
+	packageName = strings.TrimSpace(packageName)
+	packageName = strings.Trim(packageName, "\"'")
+	if packageName == "" {
+		return ""
+	}
+	return fmt.Sprintf("pypi:%s", packageName)
+}
+
 // fetchToolMetadata fetches release metadata for a tool using shared registry
 // Attempts to determine repo from tool artifacts or name
 // Uses GetLatestMetadata when version is unavailable
@@ -111,7 +205,19 @@ func fetchToolMetadata(tool Tool, reg *metadata.Registry) (*metadata.Metadata, e
 		repo, version = extractRepoFromArtifacts(tool.Artifacts)
 	}
 
-	// If we couldn't extract from artifacts, try common patterns based on tool name
+	// Infer repo from install identity
+	if repo == "" {
+		if goRepo := inferRepoFromGoInstallPackage(tool.InstallPackage); goRepo != "" {
+			repo = goRepo
+		}
+	}
+	if repo == "" {
+		if pypiRepo := inferRepoFromPythonInstall(tool.InstallCommands); pypiRepo != "" {
+			repo = pypiRepo
+		}
+	}
+
+	// If we couldn't infer, try common patterns based on tool name
 	if repo == "" {
 		repo = guessRepoFromToolName(tool.Name)
 	}
