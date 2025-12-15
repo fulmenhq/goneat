@@ -44,7 +44,7 @@ LDFLAGS := -ldflags "\
 	-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
-.PHONY: help build hooks-ensure clean clean-release clean-all test fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites sync-crucible sync-ssot verify-crucible verify-crucible-clean bootstrap tools lint release-check release-prepare release-build release-clean release-verify-checksums check-all prepush precommit update-homebrew-formula verify-release-key local-ci-check local-ci all
+.PHONY: help build hooks-ensure clean clean-go clean-testcache clean-vendor clean-coverage clean-os-metadata clean-backups clean-release clean-all test fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites prerequisites-build-goneat prerequisites-check-go prerequisites-check-git prerequisites-check-tools prerequisites-install-tools sync-crucible sync-ssot verify-crucible verify-crucible-clean bootstrap tools lint release-check release-prepare release-build release-clean release-verify-checksums check-all prepush precommit update-homebrew-formula verify-release-key local-ci-check local-ci all
 
 # Default target
 all: clean build format-all
@@ -216,23 +216,35 @@ build-windows-amd64: ## Build for Windows AMD64
 # NOTE: internal/assets/embedded_* directories are NOT cleaned - they contain embedded assets
 # that allow `goneat docs list/show` to display docs/schemas/config without requiring the repo.
 # These directories are committed to git and synced via `make embed-assets` from SSOT sources.
-clean: ## Clean build artifacts, test cache, and generated files
+clean: clean-go clean-testcache clean-vendor clean-coverage clean-os-metadata clean-backups ## Clean build artifacts, test cache, and generated files
+	@echo "✅ Clean completed"
+
+clean-go:
 	@echo "Cleaning build artifacts..."
 	$(GOCLEAN)
 	rm -rf $(BUILD_DIR)
+
+clean-testcache:
 	@echo "Cleaning test cache..."
 	go clean -testcache
+
+clean-vendor:
 	@echo "Cleaning vendor directory..."
 	rm -rf vendor/
+
+clean-coverage:
 	@echo "Cleaning coverage files..."
 	@find . -name "coverage.out" -type f -delete 2>/dev/null || true
 	@find . -name "*.test" -type f -delete 2>/dev/null || true
 	@rm -f coverage.out
+
+clean-os-metadata:
 	@echo "Cleaning OS metadata files..."
 	@find . -name ".DS_Store" -type f -delete 2>/dev/null || true
+
+clean-backups:
 	@echo "Cleaning backup files..."
 	@find . -name "*.backup" -type f -delete 2>/dev/null || true
-	@echo "✅ Clean completed"
 
 release-clean: ## Reset dist/release to avoid stale artifacts before packaging
 	@echo "🧹 Resetting dist/release directory..."
@@ -748,28 +760,21 @@ prepush: release-check verify-crucible-clean build-all ## Run comprehensive pre-
 	@echo "✅ Pre-push checks passed"
 
 # Development setup
-prerequisites: ## Check and install required development tools using goneat
+prerequisites: prerequisites-build-goneat prerequisites-check-go prerequisites-check-git prerequisites-check-tools prerequisites-install-tools ## Check and install required development tools using goneat
+	@echo "✅ Prerequisites check complete"
+	@echo "💡 If tools were installed but not found, you may need to:"
+	@echo "   export PATH=\"$$PATH:$$(go env GOPATH)/bin\""
+	@echo "   source ~/.zshrc  # or ~/.bashrc on Linux"
+
+prerequisites-build-goneat:
 	@echo "🔧 Checking development prerequisites..."
 	@if [ ! -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
 		echo "⚠️  goneat binary not found, building first..."; \
 		$(MAKE) embed-assets; \
 		$(GOBUILD) $(BUILD_FLAGS) ./$(SRC_DIR); \
 	fi
-	@echo "📋 Checking Go toolchain..."
-	@if ! command -v go >/dev/null 2>&1; then \
-		echo "❌ Go toolchain not found in PATH"; \
-		exit 1; \
-	fi
-	@echo "📋 Checking Git..."
-	@if ! command -v git >/dev/null 2>&1; then \
-		echo "❌ Git not found in PATH"; \
-		exit 1; \
-	fi
-	@echo "📋 Checking goneat tools..."
-	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
-		$(BUILD_DIR)/$(BINARY_NAME) doctor tools --scope foundation; \
-	fi
-	@echo "✅ Prerequisites check completed"
+
+prerequisites-check-go:
 	@echo "📋 Checking Go toolchain..."
 	@if ! command -v go >/dev/null 2>&1; then \
 		echo "❌ Go toolchain not found in PATH"; \
@@ -779,12 +784,23 @@ prerequisites: ## Check and install required development tools using goneat
 		echo "🔄 After installing Go, restart your shell and re-run this command"; \
 		exit 1; \
 	fi
+
+prerequisites-check-git:
+	@echo "📋 Checking Git..."
+	@if ! command -v git >/dev/null 2>&1; then \
+		echo "❌ Git not found in PATH"; \
+		exit 1; \
+	fi
+
+prerequisites-check-tools:
+	@echo "📋 Checking goneat tools..."
+	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
+		$(BUILD_DIR)/$(BINARY_NAME) doctor tools --scope foundation; \
+	fi
+
+prerequisites-install-tools:
 	@echo "📦 Installing development tools using goneat..."
 	@$(BUILD_DIR)/$(BINARY_NAME) doctor tools --scope all --install --yes || true
-	@echo "✅ Prerequisites check complete"
-	@echo "💡 If tools were installed but not found, you may need to:"
-	@echo "   export PATH=\"$$PATH:$$(go env GOPATH)/bin\""
-	@echo "   source ~/.zshrc  # or ~/.bashrc on Linux"
 
 dev: prerequisites ## Set up development environment
 	@echo "Setting up development environment..."
