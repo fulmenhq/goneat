@@ -188,7 +188,7 @@ make build
 
 ## Status
 
-- Release: v0.3.18 (see `VERSION`)
+- Release: see `VERSION`
 - Lifecycle Phase: Alpha (see `LIFECYCLE_PHASE`)
 - Release Phase: Release (see `RELEASE_PHASE`)
 - Repo Visibility: Public

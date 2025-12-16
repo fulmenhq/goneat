@@ -18,6 +18,9 @@ lint:
     shfmt:
       enabled: true
       fix: false # set true to allow write
+      # Optional: ensure lint agrees with your repo's shfmt style
+      # (goneat controls -d/-w; only put style flags here)
+      args: ["-i", "4", "-ci"]
     shellcheck:
       enabled: false # opt-in
       path: "" # optional explicit path

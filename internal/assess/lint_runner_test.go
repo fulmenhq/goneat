@@ -392,6 +392,23 @@ func TestCollectFilesWithScopeRespectsGitignoreAndForceInclude(t *testing.T) {
 	}
 }
 
+func TestSanitizeShfmtArgs(t *testing.T) {
+	args := sanitizeShfmtArgs([]string{"-i", "4", "-ci", "-sr"})
+	if len(args) != 4 {
+		t.Fatalf("expected 4 args, got %v", args)
+	}
+
+	args = sanitizeShfmtArgs([]string{"-d", "-i", "4"})
+	if len(args) != 2 || args[0] != "-i" || args[1] != "4" {
+		t.Fatalf("expected -d to be dropped, got %v", args)
+	}
+
+	args = sanitizeShfmtArgs([]string{"scripts/foo.sh"})
+	if len(args) != 0 {
+		t.Fatalf("expected path-looking args to be dropped, got %v", args)
+	}
+}
+
 func TestIssuesFromShfmtOutput_ParseErrors(t *testing.T) {
 	output := strings.Join([]string{
 		"scripts/push-to-remotes.sh:89:32: > must be followed by a word",

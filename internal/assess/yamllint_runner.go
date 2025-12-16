@@ -48,6 +48,7 @@ type shellOverrides struct {
 type shfmtOverrides struct {
 	Enabled *bool    `yaml:"enabled"`
 	Fix     *bool    `yaml:"fix"`
+	Args    []string `yaml:"args"`
 	Paths   []string `yaml:"paths"`
 	Ignore  []string `yaml:"ignore"`
 }

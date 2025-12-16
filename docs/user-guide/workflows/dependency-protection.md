@@ -18,7 +18,7 @@ Goneat v0.3.0 introduces enterprise-grade dependency protection with:
 
 - **License Compliance**: Multi-language license detection and policy enforcement
 - **Package Cooling**: Supply chain attack mitigation via age/download thresholds
-- **SBOM Generation**: CycloneDX format artifacts for compliance reporting
+- **SBOM Generation**: CycloneDX SBOM artifacts for compliance reporting (SPDX generation supported; some summary metadata is CycloneDX-only today)
 - **OPA Integration**: Policy-as-code evaluation with Rego policies
 - **Assessment Integration**: Seamless workflow integration via `goneat assess`
 
@@ -110,7 +110,9 @@ Example cooling violation:
 
 ### 3. SBOM Generation
 
-Generate CycloneDX SBOMs for compliance and vulnerability management:
+Generate SBOMs for compliance and vulnerability management.
+
+Note: SBOM generation does not currently drive license policy enforcement; `--licenses` uses language-native analyzers (Go: `go-licenses`). SBOM-to-license-inventory ingestion is planned (v0.3.22+).
 
 ```bash
 # Generate SBOM to file

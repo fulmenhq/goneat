@@ -192,6 +192,8 @@ Goneat assess supports multiple validation categories:
 
 - Defaults: shfmt/actionlint/checkmake enabled; shellcheck disabled unless explicitly enabled and available.
 - Config: see `docs/assess/lint-shell-make-gha.md` for `.goneat/assess.yaml` examples (paths/excludes, shellcheck sidecar) and CI notes.
+- Shell shfmt args override (v0.3.21+):
+  - `lint.shell.shfmt.args` (e.g. `["-i", "4", "-ci"]`)
 - Checkmake rule overrides (v0.3.18+):
   - `lint.make.checkmake.config.max_body_length`
   - `lint.make.checkmake.config.min_phony_targets`

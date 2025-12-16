@@ -99,7 +99,9 @@ cooling:
 
 ### 3. SBOM Generation
 
-Generate Software Bill of Materials for compliance and security:
+Generate Software Bill of Materials for compliance and security.
+
+Note: SBOM generation produces inventory artifacts, but license policy enforcement is currently based on language-native analyzers (Go: `go-licenses`). SBOM-to-license-inventory ingestion is planned (v0.3.22+).
 
 ```bash
 # Generate SBOM in CycloneDX format

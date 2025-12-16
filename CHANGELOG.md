@@ -14,6 +14,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Cooling Policy Metadata**: `doctor tools` can now resolve upstream metadata for more tool install types
   - Infer GitHub repo for `kind: go` tools from `install_package` (e.g. actionlint)
   - Support PyPI metadata (`pypi:<package>`) for Python-installed tools (e.g. yamllint)
+- **shfmt Style Args Override**: Shell lint can now pass repo-specific `shfmt` style flags via `.goneat/assess.yaml` (`lint.shell.shfmt.args`)
+
+### Fixed
+
+- **Go 1.25 Dependencies Regression**: `goneat dependencies` no longer fails on stdlib "module info" errors from go-licenses
+  - Cooling/policy evaluation uses `go list -deps -json` module discovery (stdlib skipped)
+  - go-licenses runs only when `--licenses` is requested; falls back to module-dir license file presence when degraded
+  - Ensures JSON output matches schema (arrays never serialize as null)
+
+### Changed
+
+- **Lint Debt Cleanup**: Resolved Makefile checkmake backlog without raising thresholds
+  - Set repo `lint.make.checkmake.config.max_body_length: 15`
+  - Refactored large Makefile targets into helper targets
 
 ## [v0.3.20] - 2025-12-14
 

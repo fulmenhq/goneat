@@ -54,6 +54,11 @@ properties:
                 type: boolean
               fix:
                 type: boolean
+              args:
+                type: array
+                description: Extra args to pass to shfmt (e.g. ["-i", "4", "-ci"]); -d/-w are controlled by goneat
+                items:
+                  type: string
               paths:
                 type: array
                 items:

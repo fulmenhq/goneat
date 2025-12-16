@@ -11,7 +11,9 @@ category: "user-guide"
 
 # Dependencies Command
 
-The `dependencies` command analyzes project dependencies for license compliance, supply chain security (cooling policy), and SBOM generation. It supports multiple languages including Go, TypeScript/JavaScript, Python, Rust, and C#.
+The `dependencies` command analyzes project dependencies for license compliance, supply chain security (cooling policy), and SBOM generation.
+
+Note: License compliance is currently strongest for Go projects (via `go-licenses`). SBOM generation uses Syft and can inventory polyglot repos and container images, but SBOM-to-license-inventory ingestion is planned (v0.3.22+).
 
 ## Usage
 
@@ -27,6 +29,8 @@ goneat dependencies [flags] [target]
 
 ### License Compliance (Wave 1 ✅)
 
+**Important:** `--licenses` evaluates licenses using language-native analyzers (for Go: `go-licenses`). It does **not** currently ingest an SBOM file and derive license policy results from SBOM license fields.
+
 Detect and validate software licenses against your policy:
 
 ```bash
@@ -37,8 +41,9 @@ goneat dependencies --licenses .
 
 - Automatic license type detection
 - Forbidden license enforcement (GPL, AGPL, etc.)
-- Multi-language support via language-specific analyzers
 - Integration with `go-licenses` for Go projects
+
+**Monorepos / nested Go modules:** Some repos place `go.mod` in a subdirectory (e.g. `server/`) but keep `LICENSE*` at the repo root. In these cases `go-licenses` may report the local module’s license as `Unknown`. Goneat includes that local module for context (`is_local: true`) but policy gating is intended to focus on third-party dependencies.
 
 ### Cooling Policy (Wave 2 Phase 2)
 
@@ -81,7 +86,7 @@ goneat dependencies --sbom --sbom-platform linux/amd64 .
 
 **Features:**
 
-- **Format**: CycloneDX JSON (industry standard)
+- **Format**: CycloneDX JSON (fully supported); SPDX JSON generation is supported but some goneat metadata (package counts / dependency graph summary) is currently CycloneDX-only
 - **Tool**: Syft (Anchore) with SHA256-verified installation
 - **Metadata**: Package counts, tool version, generation timestamp
 - **Platform Support**: Cross-platform with managed binary installation
@@ -156,7 +161,7 @@ For workflow guidance see [Dependency Gating Workflow](../workflows/dependency-g
 
 ### SBOM Options
 
-- `--sbom-format string`: SBOM format (cyclonedx-json) (default: "cyclonedx-json")
+- `--sbom-format string`: SBOM format (`cyclonedx-json` or `spdx-json`) (default: "cyclonedx-json")
 - `--sbom-output string`: Output file path (default: "sbom/goneat-<timestamp>.cdx.json")
 - `--sbom-stdout`: Output SBOM to stdout instead of file (default: false)
 - `--sbom-platform string`: Target platform for SBOM (e.g., linux/amd64)

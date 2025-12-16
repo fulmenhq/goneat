@@ -196,9 +196,11 @@ policy_engine:
 #   # Default: sbom/ in project root
 #   output_dir: sbom
 #   
-#   # SBOM format (currently only CycloneDX supported)
-#   # Future: spdx, syft-json
+#   # SBOM format
+#   # - cyclonedx-json: fully supported (goneat extracts counts/graph metadata)
+#   # - spdx-json: generation supported; some summary metadata is CycloneDX-only today
 #   format: cyclonedx-json
+
 #   
 #   # Include development dependencies in SBOM
 #   # true: Include test frameworks, build tools, etc.

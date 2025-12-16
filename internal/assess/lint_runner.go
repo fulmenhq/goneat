@@ -316,6 +316,9 @@ func (r *LintAssessmentRunner) runShfmtAssessment(target string, config Assessme
 	if config.LintShellFix || (ov != nil && ov.Shfmt != nil && boolWithDefault(ov.Shfmt.Fix, false)) || config.Mode == AssessmentModeFix {
 		args = []string{"-w"}
 	}
+	if ov != nil && ov.Shfmt != nil {
+		args = append(args, sanitizeShfmtArgs(ov.Shfmt.Args)...)
+	}
 	args = append(args, files...)
 
 	ctx, cancel := context.WithTimeout(context.Background(), r.config.Timeout)
@@ -778,6 +781,37 @@ func isExcluded(path string, excludes []string) bool {
 		}
 	}
 	return false
+}
+
+func sanitizeShfmtArgs(raw []string) []string {
+	if len(raw) == 0 {
+		return nil
+	}
+
+	out := make([]string, 0, len(raw))
+	for _, arg := range raw {
+		arg = strings.TrimSpace(arg)
+		if arg == "" {
+			continue
+		}
+
+		// We control diff/write mode explicitly. If a repo adds these,
+		// drop them to avoid confusing behavior.
+		switch arg {
+		case "-d", "-w":
+			logger.Warn(fmt.Sprintf("Ignoring shfmt arg %q (mode is controlled by goneat)", arg))
+			continue
+		}
+
+		// Refuse path-y tokens from config; shfmt file targets are appended after args.
+		if strings.Contains(arg, "/") || strings.Contains(arg, "\\") {
+			logger.Warn(fmt.Sprintf("Ignoring shfmt arg %q (looks like a path)", arg))
+			continue
+		}
+
+		out = append(out, arg)
+	}
+	return out
 }
 
 func issuesFromShfmtOutput(output string) []Issue {

@@ -341,6 +341,7 @@ RELEASE_TAG=$RELEASE_TAG make release-sign  # Sign with GPG and minisign
 ```
 
 This target automatically:
+
 - Uses sign-checksums.sh helper if available
 - Falls back to manual GPG + minisign signing
 - Copies minisign public key for distribution
@@ -356,6 +357,7 @@ RELEASE_TAG=$RELEASE_TAG make release-verify-key         # Verify GPG key is pub
 #### Manual verification (fallback)
 
 GPG signatures:
+
 ```bash
 for asc in SHA256SUMS.asc SHA512SUMS.asc; do
   gpg --homedir "$GPG_HOMEDIR" --verify "$asc" "${asc%.asc}"
@@ -363,6 +365,7 @@ done
 ```
 
 Minisign signatures:
+
 ```bash
 for sig in SHA256SUMS.minisig SHA512SUMS.minisig; do
   minisign -Vm "${sig%.minisig}" -p fulmenhq-release-minisign.pub
@@ -370,6 +373,7 @@ done
 ```
 
 Key safety:
+
 ```bash
 ./scripts/verify-public-key.sh fulmenhq-release-signing-key.asc
 ```
@@ -377,6 +381,7 @@ Key safety:
 ### 7. Prepare for upload
 
 All signature and key files are now ready in `dist/release/`:
+
 - Checksums: `SHA256SUMS`, `SHA512SUMS`
 - GPG signatures: `SHA256SUMS.asc`, `SHA512SUMS.asc`
 - Minisign signatures: `SHA256SUMS.minisig`, `SHA512SUMS.minisig`
@@ -489,10 +494,13 @@ make update-homebrew-formula  # Requires ../homebrew-tap
 Download the FulmenHQ public key and verify artifacts:
 
 \`\`\`bash
+
 # Set version variable for convenience
+
 VERSION=v0.3.15
 
 # Download artifacts
+
 curl -LO "https://github.com/fulmenhq/goneat/releases/download/${VERSION}/fulmenhq-release-signing-key.asc"
 curl -LO "https://github.com/fulmenhq/goneat/releases/download/${VERSION}/SHA256SUMS"
 curl -LO "https://github.com/fulmenhq/goneat/releases/download/${VERSION}/SHA256SUMS.asc"
@@ -500,13 +508,16 @@ curl -LO "https://github.com/fulmenhq/goneat/releases/download/${VERSION}/fulmen
 curl -LO "https://github.com/fulmenhq/goneat/releases/download/${VERSION}/SHA256SUMS.minisig"
 
 # Import and verify GPG signature
+
 gpg --import fulmenhq-release-signing-key.asc
 gpg --verify SHA256SUMS.asc SHA256SUMS
 
 # Verify minisign signature
+
 minisign -Vm SHA256SUMS -p fulmenhq-release-minisign.pub
 
 # Verify checksums
+
 shasum -a 256 --check SHA256SUMS
 \`\`\`
 ```
