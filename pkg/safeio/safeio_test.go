@@ -179,6 +179,98 @@ func TestWriteFilePreservePermsError(t *testing.T) {
 	}
 }
 
+func TestReadFileContained(t *testing.T) {
+	// Create temporary directory structure for testing
+	tempDir := t.TempDir()
+
+	// Create a subdirectory and a file inside it
+	subDir := filepath.Join(tempDir, "subdir")
+	err := os.MkdirAll(subDir, 0o755)
+	if err != nil {
+		t.Fatalf("Failed to create subdirectory: %v", err)
+	}
+
+	testFile := filepath.Join(subDir, "test.txt")
+	testData := []byte("test data for safe reading")
+	err = os.WriteFile(testFile, testData, 0o644)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Create a file outside the base directory for traversal tests
+	outsideFile := filepath.Join(filepath.Dir(tempDir), "outside.txt")
+	outsideData := []byte("outside data")
+	err = os.WriteFile(outsideFile, outsideData, 0o644)
+	if err != nil {
+		t.Fatalf("Failed to create outside file: %v", err)
+	}
+	defer func() {
+		if err := os.Remove(outsideFile); err != nil {
+			t.Logf("Warning: failed to remove outside file: %v", err)
+		}
+	}()
+
+	tests := []struct {
+		name      string
+		baseDir   string
+		filePath  string
+		wantError bool
+		wantData  []byte
+	}{
+		{
+			name:      "file within baseDir",
+			baseDir:   tempDir,
+			filePath:  testFile,
+			wantError: false,
+			wantData:  testData,
+		},
+		{
+			name:      "file in subdirectory",
+			baseDir:   tempDir,
+			filePath:  filepath.Join(tempDir, "subdir", "test.txt"),
+			wantError: false,
+			wantData:  testData,
+		},
+		{
+			name:      "path traversal attempt",
+			baseDir:   subDir,
+			filePath:  filepath.Join(subDir, "..", "..", "outside.txt"),
+			wantError: true,
+		},
+		{
+			name:      "file outside baseDir",
+			baseDir:   tempDir,
+			filePath:  outsideFile,
+			wantError: true,
+		},
+		{
+			name:      "non-existent file within baseDir",
+			baseDir:   tempDir,
+			filePath:  filepath.Join(tempDir, "nonexistent.txt"),
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, err := ReadFileContained(tt.baseDir, tt.filePath)
+
+			if tt.wantError {
+				if err == nil {
+					t.Errorf("ReadFileContained(%q, %q) expected error but got none", tt.baseDir, tt.filePath)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("ReadFileContained(%q, %q) unexpected error: %v", tt.baseDir, tt.filePath, err)
+				}
+				if string(data) != string(tt.wantData) {
+					t.Errorf("ReadFileContained(%q, %q) = %q, expected %q", tt.baseDir, tt.filePath, string(data), string(tt.wantData))
+				}
+			}
+		})
+	}
+}
+
 func TestIntegration(t *testing.T) {
 	// Test that CleanUserPath and WriteFilePreservePerms work together
 	tempDir := t.TempDir()

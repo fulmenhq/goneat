@@ -18,6 +18,7 @@ import (
 	"github.com/fulmenhq/goneat/pkg/dependencies/policy"
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/fulmenhq/goneat/pkg/registry"
+	"github.com/fulmenhq/goneat/pkg/safeio"
 	"github.com/google/go-licenses/licenses"
 	"gopkg.in/yaml.v3"
 )
@@ -157,7 +158,8 @@ func (a *GoAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisCon
 					continue
 				}
 				licenseType := "Unknown"
-				if data, err := os.ReadFile(lp); err == nil {
+				// Use safe read to ensure license file is contained within module directory
+				if data, err := safeio.ReadFileContained(moduleDir, lp); err == nil {
 					licenseType = detectLicenseType(string(data))
 				}
 				dep.License = &License{Name: filepath.Base(lp), Type: licenseType, URL: getLicenseURL(licenseType)}
