@@ -4,6 +4,10 @@
 
 set -euo pipefail
 
+# Disable glob expansion to prevent accidental arg explosion
+# when hooks.yaml contains patterns like .cache/**.
+set -f
+
 # Establish repository root for reliable relative paths
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 

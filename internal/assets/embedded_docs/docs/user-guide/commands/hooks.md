@@ -17,6 +17,17 @@ The `goneat hooks` command provides comprehensive git hook management with nativ
 
 Goneat hooks transform git's basic hook system into an intelligent validation platform that:
 
+### Related Configuration
+
+- Hook policy lives in `.goneat/hooks.yaml`.
+- Lint rule tuning for what `assess` reports (and fixes) lives in `.goneat/assess.yaml`.
+
+To scaffold a starter `.goneat/assess.yaml`, run:
+
+```bash
+goneat doctor assess init
+```
+
 - **Orchestrates multiple tools** through goneat's assess engine
 - **Provides unified reporting** with actionable feedback
 - **Enables parallel execution** for faster validation

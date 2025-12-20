@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -140,6 +141,10 @@ func init() {
 	hooksCmd.AddCommand(hooksUpgradeCmd)
 	hooksCmd.AddCommand(hooksInspectCmd)
 	hooksCmd.AddCommand(hooksConfigureCmd)
+
+	// Output format flags
+	hooksValidateCmd.Flags().String("format", "text", "Output format: text|json")
+	hooksInspectCmd.Flags().String("format", "text", "Output format: text|json")
 
 	// hooks remove flags (define before registration to avoid duplicate init)
 	hooksRemoveCmd.Flags().BoolVar(&removeNoRestore, "no-restore", false, "Do not restore original hooks from backups; remove hooks completely")
@@ -773,8 +778,351 @@ func copyFile(src, dst string) error {
 	return os.WriteFile(dst, data, 0700) // #nosec G306 - Git hooks require execute permissions
 }
 
+type hooksManifestForInspection struct {
+	Version string                          `yaml:"version"`
+	Hooks   map[string][]hooksManifestEntry `yaml:"hooks"`
+	Opt     map[string]any                  `yaml:"optimization,omitempty"`
+}
+
+type hooksManifestEntry struct {
+	Command    string   `yaml:"command"`
+	Args       []string `yaml:"args"`
+	StageFixed bool     `yaml:"stage_fixed,omitempty"`
+	Priority   int      `yaml:"priority,omitempty"`
+	Timeout    string   `yaml:"timeout,omitempty"`
+}
+
+type hooksOptimizationSnapshot struct {
+	OnlyChangedFiles bool   `json:"only_changed_files"`
+	ContentSource    string `json:"content_source"`
+	Parallel         string `json:"parallel"`
+	CacheResults     bool   `json:"cache_results"`
+}
+
+type hooksCommandAnalysis struct {
+	Command         string   `json:"command"`
+	Args            []string `json:"args"`
+	Kind            string   `json:"kind"` // internal|external
+	StageFixed      bool     `json:"stage_fixed,omitempty"`
+	Priority        int      `json:"priority,omitempty"`
+	Timeout         string   `json:"timeout,omitempty"`
+	IsMutator       bool     `json:"is_mutator"`
+	MutatorReasons  []string `json:"mutator_reasons,omitempty"`
+	WarningMessages []string `json:"warnings,omitempty"`
+}
+
+type hooksHookAnalysis struct {
+	Hook         string                    `json:"hook"`
+	Optimization hooksOptimizationSnapshot `json:"optimization"`
+	Wrapper      string                    `json:"wrapper"`
+	Commands     []hooksCommandAnalysis    `json:"commands"`
+	Warnings     []string                  `json:"warnings,omitempty"`
+}
+
+type hooksInspectionReport struct {
+	ConfigFound        bool                         `json:"config_found"`
+	GeneratedFound     bool                         `json:"generated_found"`
+	InstalledFound     bool                         `json:"installed_found"`
+	PreCommitGenerated bool                         `json:"pre_commit_generated"`
+	PrePushGenerated   bool                         `json:"pre_push_generated"`
+	PreCommitInstalled bool                         `json:"pre_commit_installed"`
+	PrePushInstalled   bool                         `json:"pre_push_installed"`
+	HealthScore        int                          `json:"health_score"`
+	HealthMax          int                          `json:"health_max"`
+	HealthStatus       string                       `json:"health_status"`
+	Hooks              map[string]hooksHookAnalysis `json:"hooks,omitempty"`
+	Errors             []string                     `json:"errors,omitempty"`
+}
+
+func loadHooksManifestForInspection(path string) (*hooksManifestForInspection, error) {
+	path = filepath.Clean(path)
+	if strings.Contains(path, "..") {
+		return nil, fmt.Errorf("invalid manifest path: contains path traversal")
+	}
+	data, err := os.ReadFile(path) // #nosec G304 -- path cleaned and traversal rejected above
+	if err != nil {
+		return nil, fmt.Errorf("failed to read hooks manifest: %w", err)
+	}
+	if err := validateHooksManifestSchema(data); err != nil {
+		return nil, err
+	}
+	var manifest hooksManifestForInspection
+	if err := yaml.Unmarshal(data, &manifest); err != nil {
+		return nil, fmt.Errorf("failed to parse hooks manifest: %w", err)
+	}
+	if manifest.Hooks == nil {
+		manifest.Hooks = make(map[string][]hooksManifestEntry)
+	}
+	if manifest.Opt == nil {
+		manifest.Opt = make(map[string]any)
+	}
+	return &manifest, nil
+}
+
+func hooksGetBool(m map[string]any, key string, def bool) bool {
+	if m == nil {
+		return def
+	}
+	if v, ok := m[key].(bool); ok {
+		return v
+	}
+	return def
+}
+
+func hooksGetString(m map[string]any, key, def string) string {
+	if m == nil {
+		return def
+	}
+	if v, ok := m[key].(string); ok {
+		vv := strings.TrimSpace(v)
+		if vv != "" {
+			return vv
+		}
+	}
+	return def
+}
+
+func hooksGetOptimizationSnapshot(opt map[string]any) hooksOptimizationSnapshot {
+	return hooksOptimizationSnapshot{
+		OnlyChangedFiles: hooksGetBool(opt, "only_changed_files", false),
+		ContentSource:    hooksGetString(opt, "content_source", "index"),
+		Parallel:         hooksGetString(opt, "parallel", "auto"),
+		CacheResults:     hooksGetBool(opt, "cache_results", false),
+	}
+}
+
+func hooksExtractFlagValue(args []string, flag string) string {
+	for i, arg := range args {
+		if arg == flag && i+1 < len(args) {
+			return strings.TrimSpace(args[i+1])
+		}
+	}
+	return ""
+}
+
+func hooksExtractCategories(args []string) []string {
+	raw := hooksExtractFlagValue(args, "--categories")
+	if raw == "" {
+		return nil
+	}
+	return splitAndTrim(raw)
+}
+
+func hooksFormatWrapperInvocation(hook string, opt hooksOptimizationSnapshot) string {
+	wrapper := fmt.Sprintf("goneat assess --hook %s --hook-manifest .goneat/hooks.yaml", hook)
+	if opt.OnlyChangedFiles || opt.ContentSource == "index" {
+		wrapper += " --staged-only"
+	}
+	wrapper += " --package-mode"
+	return wrapper
+}
+
+func hooksGetOutputFormat(cmd *cobra.Command) string {
+	if cmd == nil {
+		return "text"
+	}
+	if cmd.Flags().Lookup("format") == nil {
+		return "text"
+	}
+	val, err := cmd.Flags().GetString("format")
+	if err != nil {
+		return "text"
+	}
+	val = strings.ToLower(strings.TrimSpace(val))
+	switch val {
+	case "json":
+		return "json"
+	default:
+		return "text"
+	}
+}
+
+func hooksWriteJSON(out io.Writer, value any) error {
+	b, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(out, string(b))
+	return err
+}
+
+func hooksIsInternalCommand(name string) bool {
+	switch strings.TrimSpace(name) {
+	case "assess", "format", "dependencies":
+		return true
+	default:
+		return false
+	}
+}
+
+func hooksIsMutator(entry hooksManifestEntry) (bool, []string, []string) {
+	cmd := strings.TrimSpace(entry.Command)
+	args := entry.Args
+	isInternal := hooksIsInternalCommand(cmd)
+
+	mutator := false
+	var reasons []string
+	var warnings []string
+
+	if entry.StageFixed {
+		mutator = true
+		reasons = append(reasons, "stage_fixed")
+		warnings = append(warnings, "stage_fixed is enabled; this hook may modify files and re-stage them")
+	}
+
+	if cmd == "format" {
+		mutator = true
+		reasons = append(reasons, "format")
+		warnings = append(warnings, "format will modify files; prefer check-only in hooks")
+	}
+
+	if cmd == "assess" {
+		for i, arg := range args {
+			if arg == "--fix" {
+				mutator = true
+				reasons = append(reasons, "assess_fix")
+				warnings = append(warnings, "assess --fix will modify files")
+				break
+			}
+			if arg == "--mode" && i+1 < len(args) && strings.TrimSpace(args[i+1]) == "fix" {
+				mutator = true
+				reasons = append(reasons, "assess_mode_fix")
+				warnings = append(warnings, "assess --mode fix will modify files")
+				break
+			}
+		}
+	}
+
+	if !isInternal {
+		if cmd == "make" {
+			warnings = append(warnings, "anti-pattern: running make in hooks can mutate the tree and cause confusing drift; prefer a direct assess invocation")
+			for _, a := range args {
+				aa := strings.ToLower(strings.TrimSpace(a))
+				if strings.Contains(aa, "format") || strings.Contains(aa, "fmt") || strings.Contains(aa, "precommit") || strings.Contains(aa, "version") || strings.Contains(aa, "sync") {
+					mutator = true
+					reasons = append(reasons, "make_target_mutator")
+					break
+				}
+			}
+		}
+		if cmd == "goneat" && len(args) > 0 {
+			sub := strings.ToLower(strings.TrimSpace(args[0]))
+			if sub == "format" || strings.HasPrefix(sub, "version") || sub == "ssot" {
+				mutator = true
+				reasons = append(reasons, "goneat_subcommand_mutator")
+				warnings = append(warnings, "external goneat command in hooks may mutate the tree; prefer internal hook orchestration")
+			}
+		}
+	}
+
+	return mutator, reasons, warnings
+}
+
+func hooksAnalyzeHook(manifest *hooksManifestForInspection, hook string) hooksHookAnalysis {
+	entries := manifest.Hooks[hook]
+	opt := hooksGetOptimizationSnapshot(manifest.Opt)
+
+	analysis := hooksHookAnalysis{
+		Hook:         hook,
+		Optimization: opt,
+		Wrapper:      hooksFormatWrapperInvocation(hook, opt),
+		Commands:     make([]hooksCommandAnalysis, 0, len(entries)),
+	}
+
+	if len(entries) == 0 {
+		analysis.Warnings = append(analysis.Warnings, "no commands configured")
+		return analysis
+	}
+
+	assessFound := false
+	externalFound := false
+
+	for _, entry := range entries {
+		isInternal := hooksIsInternalCommand(entry.Command)
+		kind := "external"
+		if isInternal {
+			kind = "internal"
+		} else {
+			externalFound = true
+		}
+
+		mutator, reasons, warns := hooksIsMutator(entry)
+		analysis.Commands = append(analysis.Commands, hooksCommandAnalysis{
+			Command:         entry.Command,
+			Args:            entry.Args,
+			Kind:            kind,
+			StageFixed:      entry.StageFixed,
+			Priority:        entry.Priority,
+			Timeout:         entry.Timeout,
+			IsMutator:       mutator,
+			MutatorReasons:  reasons,
+			WarningMessages: warns,
+		})
+
+		if strings.TrimSpace(entry.Command) == "assess" {
+			assessFound = true
+		}
+	}
+
+	if !assessFound {
+		analysis.Warnings = append(analysis.Warnings, "no assess command configured")
+	}
+	if externalFound {
+		analysis.Warnings = append(analysis.Warnings, "contains external commands")
+	}
+
+	return analysis
+}
+
+func hooksReportEffectiveHook(cmd *cobra.Command, manifest *hooksManifestForInspection, hook string) {
+	out := cmd.OutOrStdout()
+	analysis := hooksAnalyzeHook(manifest, hook)
+
+	fmt.Fprintf(out, "\n🧩 %s policy\n", hook)                                                                                                                                                                                                                       //nolint:errcheck // CLI output
+	fmt.Fprintf(out, "   Optimization: only_changed_files=%v, content_source=%s, parallel=%s, cache_results=%v\n", analysis.Optimization.OnlyChangedFiles, analysis.Optimization.ContentSource, analysis.Optimization.Parallel, analysis.Optimization.CacheResults) //nolint:errcheck // CLI output
+	fmt.Fprintf(out, "   Hook wrapper: %s\n", analysis.Wrapper)                                                                                                                                                                                                     //nolint:errcheck // CLI output
+
+	if len(analysis.Commands) == 0 {
+		fmt.Fprintf(out, "   ⚠️  No commands configured for %s\n", hook) //nolint:errcheck // CLI output
+		return
+	}
+
+	for _, c := range analysis.Commands {
+		fmt.Fprintf(out, "   - %s: %s %s\n", c.Kind, c.Command, strings.Join(c.Args, " ")) //nolint:errcheck // CLI output
+		if c.Command == "assess" {
+			cats := hooksExtractCategories(c.Args)
+			failOn := hooksExtractFlagValue(c.Args, "--fail-on")
+			if len(cats) > 0 {
+				fmt.Fprintf(out, "     categories: %s\n", strings.Join(cats, ",")) //nolint:errcheck // CLI output
+			}
+			if failOn != "" {
+				fmt.Fprintf(out, "     fail-on: %s\n", failOn) //nolint:errcheck // CLI output
+			}
+		}
+		for _, w := range c.WarningMessages {
+			fmt.Fprintf(out, "     ⚠️  %s\n", w) //nolint:errcheck // CLI output
+		}
+		if c.IsMutator {
+			fmt.Fprintf(out, "     ⚠️  mutator detected: %s\n", strings.Join(c.MutatorReasons, ",")) //nolint:errcheck // CLI output
+		}
+	}
+
+	for _, w := range analysis.Warnings {
+		if w == "contains external commands" {
+			fmt.Fprintf(out, "   ⚠️  %s contains external commands; prefer internal goneat commands for predictability\n", hook) //nolint:errcheck // CLI output
+			continue
+		}
+		if w == "no assess command configured" {
+			fmt.Fprintf(out, "   ⚠️  No assess command configured for %s; hooks will not enforce goneat assessments\n", hook) //nolint:errcheck // CLI output
+			continue
+		}
+		fmt.Fprintf(out, "   ⚠️  %s\n", w) //nolint:errcheck // CLI output
+	}
+}
+
 func runHooksValidate(cmd *cobra.Command, args []string) error {
-	fmt.Println("🔍 Validating hook configuration...")
+	out := cmd.OutOrStdout()
+	format := hooksGetOutputFormat(cmd)
 
 	// Check if hooks.yaml exists
 	hooksConfigPath := ".goneat/hooks.yaml"
@@ -782,51 +1130,126 @@ func runHooksValidate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("hooks configuration not found at %s", hooksConfigPath)
 	}
 
-	// Check if generated hooks exist
+	manifest, err := loadHooksManifestForInspection(hooksConfigPath)
+	if err != nil {
+		return err
+	}
+
+	// Status snapshot
 	hooksDir := ".goneat/hooks"
-	if _, err := os.Stat(hooksDir); os.IsNotExist(err) {
-		fmt.Println("⚠️  No generated hooks found - run 'goneat hooks generate'")
-	} else {
-		// Check for hook files
-		preCommitPath := filepath.Join(hooksDir, "pre-commit")
-		prePushPath := filepath.Join(hooksDir, "pre-push")
-
-		if _, err := os.Stat(preCommitPath); err == nil {
-			fmt.Println("✅ Pre-commit hook generated")
-		} else {
-			fmt.Println("⚠️  Pre-commit hook not found")
+	generatedFound := false
+	preCommitGenerated := false
+	prePushGenerated := false
+	if _, err := os.Stat(hooksDir); err == nil {
+		generatedFound = true
+		if _, err := os.Stat(filepath.Join(hooksDir, "pre-commit")); err == nil {
+			preCommitGenerated = true
 		}
-
-		if _, err := os.Stat(prePushPath); err == nil {
-			fmt.Println("✅ Pre-push hook generated")
-		} else {
-			fmt.Println("⚠️  Pre-push hook not found")
+		if _, err := os.Stat(filepath.Join(hooksDir, "pre-push")); err == nil {
+			prePushGenerated = true
 		}
 	}
 
-	// Check if installed hooks exist
 	gitHooksDir := ".git/hooks"
-	if _, err := os.Stat(gitHooksDir); os.IsNotExist(err) {
-		fmt.Println("⚠️  .git/hooks directory not found - not in a git repository?")
-	} else {
-		preCommitInstalled := filepath.Join(gitHooksDir, "pre-commit")
-		prePushInstalled := filepath.Join(gitHooksDir, "pre-push")
-
-		if info, err := os.Stat(preCommitInstalled); err == nil && (info.Mode()&0111) != 0 {
-			fmt.Println("✅ Pre-commit hook installed and executable")
-		} else {
-			fmt.Println("⚠️  Pre-commit hook not properly installed")
+	installedFound := false
+	preCommitInstalled := false
+	prePushInstalled := false
+	if _, err := os.Stat(gitHooksDir); err == nil {
+		installedFound = true
+		pc := filepath.Join(gitHooksDir, "pre-commit")
+		pp := filepath.Join(gitHooksDir, "pre-push")
+		if info, err := os.Stat(pc); err == nil && (info.Mode()&0111) != 0 {
+			preCommitInstalled = true
 		}
-
-		if info, err := os.Stat(prePushInstalled); err == nil && (info.Mode()&0111) != 0 {
-			fmt.Println("✅ Pre-push hook installed and executable")
-		} else {
-			fmt.Println("⚠️  Pre-push hook not properly installed")
+		if info, err := os.Stat(pp); err == nil && (info.Mode()&0111) != 0 {
+			prePushInstalled = true
 		}
 	}
 
-	fmt.Println("✅ Hook configuration validation complete")
-	fmt.Println("🎉 Ready to commit with intelligent validation!")
+	if format == "json" {
+		report := hooksInspectionReport{
+			ConfigFound:        true,
+			GeneratedFound:     generatedFound,
+			InstalledFound:     installedFound,
+			PreCommitGenerated: preCommitGenerated,
+			PrePushGenerated:   prePushGenerated,
+			PreCommitInstalled: preCommitInstalled,
+			PrePushInstalled:   prePushInstalled,
+			HealthMax:          7,
+			Hooks:              map[string]hooksHookAnalysis{},
+		}
+		report.HealthScore = 0
+		if report.ConfigFound {
+			report.HealthScore++
+		}
+		if report.GeneratedFound {
+			report.HealthScore++
+		}
+		if report.InstalledFound {
+			report.HealthScore++
+		}
+		if report.PreCommitGenerated {
+			report.HealthScore++
+		}
+		if report.PrePushGenerated {
+			report.HealthScore++
+		}
+		if report.PreCommitInstalled {
+			report.HealthScore++
+		}
+		if report.PrePushInstalled {
+			report.HealthScore++
+		}
+		switch {
+		case report.HealthScore >= 5:
+			report.HealthStatus = "good"
+		case report.HealthScore >= 3:
+			report.HealthStatus = "needs_attention"
+		default:
+			report.HealthStatus = "critical"
+		}
+		report.Hooks["pre-commit"] = hooksAnalyzeHook(manifest, "pre-commit")
+		report.Hooks["pre-push"] = hooksAnalyzeHook(manifest, "pre-push")
+		return hooksWriteJSON(out, report)
+	}
+
+	fmt.Fprintln(out, "🔍 Validating hook configuration...") //nolint:errcheck // CLI output
+
+	if !generatedFound {
+		fmt.Fprintln(out, "⚠️  No generated hooks found - run 'goneat hooks generate'") //nolint:errcheck // CLI output
+	} else {
+		if preCommitGenerated {
+			fmt.Fprintln(out, "✅ Pre-commit hook generated") //nolint:errcheck // CLI output
+		} else {
+			fmt.Fprintln(out, "⚠️  Pre-commit hook not found") //nolint:errcheck // CLI output
+		}
+		if prePushGenerated {
+			fmt.Fprintln(out, "✅ Pre-push hook generated") //nolint:errcheck // CLI output
+		} else {
+			fmt.Fprintln(out, "⚠️  Pre-push hook not found") //nolint:errcheck // CLI output
+		}
+	}
+
+	if !installedFound {
+		fmt.Fprintln(out, "⚠️  .git/hooks directory not found - not in a git repository?") //nolint:errcheck // CLI output
+	} else {
+		if preCommitInstalled {
+			fmt.Fprintln(out, "✅ Pre-commit hook installed and executable") //nolint:errcheck // CLI output
+		} else {
+			fmt.Fprintln(out, "⚠️  Pre-commit hook not properly installed") //nolint:errcheck // CLI output
+		}
+		if prePushInstalled {
+			fmt.Fprintln(out, "✅ Pre-push hook installed and executable") //nolint:errcheck // CLI output
+		} else {
+			fmt.Fprintln(out, "⚠️  Pre-push hook not properly installed") //nolint:errcheck // CLI output
+		}
+	}
+
+	hooksReportEffectiveHook(cmd, manifest, "pre-commit")
+	hooksReportEffectiveHook(cmd, manifest, "pre-push")
+
+	fmt.Fprintln(out, "\n✅ Hook configuration validation complete")     //nolint:errcheck // CLI output
+	fmt.Fprintln(out, "🎉 Ready to commit with intelligent validation!") //nolint:errcheck // CLI output
 
 	return nil
 }
@@ -933,92 +1356,160 @@ func runHooksUpgrade(cmd *cobra.Command, args []string) error {
 }
 
 func runHooksInspect(cmd *cobra.Command, args []string) error {
-	fmt.Println("🔍 Inspecting hook configuration and status...")
+	out := cmd.OutOrStdout()
+	format := hooksGetOutputFormat(cmd)
 
-	// Check configuration file
 	hooksConfigPath := ".goneat/hooks.yaml"
-	configStatus := "❌ Not found"
+	configFound := false
 	if _, err := os.Stat(hooksConfigPath); err == nil {
-		configStatus = "✅ Found"
+		configFound = true
 	}
 
-	// Check generated hooks
 	hooksDir := ".goneat/hooks"
-	generatedStatus := "❌ Not found"
-	preCommitGenerated := "❌ Missing"
-	prePushGenerated := "❌ Missing"
-
+	generatedFound := false
+	preCommitGenerated := false
+	prePushGenerated := false
 	if _, err := os.Stat(hooksDir); err == nil {
-		generatedStatus = "✅ Found"
+		generatedFound = true
 		if _, err := os.Stat(filepath.Join(hooksDir, "pre-commit")); err == nil {
-			preCommitGenerated = "✅ Present"
+			preCommitGenerated = true
 		}
 		if _, err := os.Stat(filepath.Join(hooksDir, "pre-push")); err == nil {
-			prePushGenerated = "✅ Present"
+			prePushGenerated = true
 		}
 	}
 
-	// Check installed hooks
 	gitHooksDir := ".git/hooks"
-	installedStatus := "❌ Not found"
-	preCommitInstalled := "❌ Missing"
-	prePushInstalled := "❌ Missing"
-
+	installedFound := false
+	preCommitInstalled := false
+	prePushInstalled := false
 	if _, err := os.Stat(gitHooksDir); err == nil {
-		installedStatus = "✅ Found"
-		preCommitPath := filepath.Join(gitHooksDir, "pre-commit")
-		prePushPath := filepath.Join(gitHooksDir, "pre-push")
-
-		if info, err := os.Stat(preCommitPath); err == nil && (info.Mode()&0111) != 0 {
-			preCommitInstalled = "✅ Installed & executable"
+		installedFound = true
+		pc := filepath.Join(gitHooksDir, "pre-commit")
+		pp := filepath.Join(gitHooksDir, "pre-push")
+		if info, err := os.Stat(pc); err == nil && (info.Mode()&0111) != 0 {
+			preCommitInstalled = true
 		}
-		if info, err := os.Stat(prePushPath); err == nil && (info.Mode()&0111) != 0 {
-			prePushInstalled = "✅ Installed & executable"
+		if info, err := os.Stat(pp); err == nil && (info.Mode()&0111) != 0 {
+			prePushInstalled = true
 		}
 	}
 
-	// Display status
-	fmt.Println("📊 Current Hook Status:")
-	fmt.Printf("├── Configuration: %s\n", configStatus)
-	fmt.Printf("├── Generated Hooks: %s\n", generatedStatus)
-	fmt.Printf("│   ├── Pre-commit: %s\n", preCommitGenerated)
-	fmt.Printf("│   └── Pre-push: %s\n", prePushGenerated)
-	fmt.Printf("├── Installed Hooks: %s\n", installedStatus)
-	fmt.Printf("│   ├── Pre-commit: %s\n", preCommitInstalled)
-	fmt.Printf("│   └── Pre-push: %s\n", prePushInstalled)
-
-	// Overall health assessment
 	healthScore := 0
-	if configStatus == "✅ Found" {
+	if configFound {
 		healthScore++
 	}
-	if generatedStatus == "✅ Found" {
+	if generatedFound {
 		healthScore++
 	}
-	if installedStatus == "✅ Found" {
+	if installedFound {
 		healthScore++
 	}
-	if preCommitGenerated == "✅ Present" {
+	if preCommitGenerated {
 		healthScore++
 	}
-	if prePushGenerated == "✅ Present" {
+	if prePushGenerated {
 		healthScore++
 	}
-	if preCommitInstalled == "✅ Installed & executable" {
+	if preCommitInstalled {
 		healthScore++
 	}
-	if prePushInstalled == "✅ Installed & executable" {
+	if prePushInstalled {
 		healthScore++
 	}
 
-	healthStatus := "❌ Critical"
-	if healthScore >= 5 {
-		healthStatus = "✅ Good"
-	} else if healthScore >= 3 {
-		healthStatus = "⚠️  Needs attention"
+	healthStatus := "critical"
+	switch {
+	case healthScore >= 5:
+		healthStatus = "good"
+	case healthScore >= 3:
+		healthStatus = "needs_attention"
 	}
 
-	fmt.Printf("└── System Health: %s (%d/7)\n", healthStatus, healthScore)
+	if format == "json" {
+		report := hooksInspectionReport{
+			ConfigFound:        configFound,
+			GeneratedFound:     generatedFound,
+			InstalledFound:     installedFound,
+			PreCommitGenerated: preCommitGenerated,
+			PrePushGenerated:   prePushGenerated,
+			PreCommitInstalled: preCommitInstalled,
+			PrePushInstalled:   prePushInstalled,
+			HealthScore:        healthScore,
+			HealthMax:          7,
+			HealthStatus:       healthStatus,
+			Hooks:              map[string]hooksHookAnalysis{},
+		}
+		if configFound {
+			manifest, err := loadHooksManifestForInspection(hooksConfigPath)
+			if err != nil {
+				report.Errors = append(report.Errors, err.Error())
+			} else {
+				report.Hooks["pre-commit"] = hooksAnalyzeHook(manifest, "pre-commit")
+				report.Hooks["pre-push"] = hooksAnalyzeHook(manifest, "pre-push")
+			}
+		}
+		return hooksWriteJSON(out, report)
+	}
+
+	fmt.Fprintln(out, "🔍 Inspecting hook configuration and status...") //nolint:errcheck // CLI output
+
+	configStatus := "❌ Not found"
+	if configFound {
+		configStatus = "✅ Found"
+	}
+	generatedStatus := "❌ Not found"
+	if generatedFound {
+		generatedStatus = "✅ Found"
+	}
+	installedStatus := "❌ Not found"
+	if installedFound {
+		installedStatus = "✅ Found"
+	}
+	preCommitGeneratedStatus := "❌ Missing"
+	if preCommitGenerated {
+		preCommitGeneratedStatus = "✅ Present"
+	}
+	prePushGeneratedStatus := "❌ Missing"
+	if prePushGenerated {
+		prePushGeneratedStatus = "✅ Present"
+	}
+	preCommitInstalledStatus := "❌ Missing"
+	if preCommitInstalled {
+		preCommitInstalledStatus = "✅ Installed & executable"
+	}
+	prePushInstalledStatus := "❌ Missing"
+	if prePushInstalled {
+		prePushInstalledStatus = "✅ Installed & executable"
+	}
+
+	fmt.Fprintln(out, "📊 Current Hook Status:")                            //nolint:errcheck // CLI output
+	fmt.Fprintf(out, "├── Configuration: %s\n", configStatus)              //nolint:errcheck // CLI output
+	fmt.Fprintf(out, "├── Generated Hooks: %s\n", generatedStatus)         //nolint:errcheck // CLI output
+	fmt.Fprintf(out, "│   ├── Pre-commit: %s\n", preCommitGeneratedStatus) //nolint:errcheck // CLI output
+	fmt.Fprintf(out, "│   └── Pre-push: %s\n", prePushGeneratedStatus)     //nolint:errcheck // CLI output
+	fmt.Fprintf(out, "├── Installed Hooks: %s\n", installedStatus)         //nolint:errcheck // CLI output
+	fmt.Fprintf(out, "│   ├── Pre-commit: %s\n", preCommitInstalledStatus) //nolint:errcheck // CLI output
+	fmt.Fprintf(out, "│   └── Pre-push: %s\n", prePushInstalledStatus)     //nolint:errcheck // CLI output
+
+	prettyHealth := "❌ Critical"
+	switch healthStatus {
+	case "good":
+		prettyHealth = "✅ Good"
+	case "needs_attention":
+		prettyHealth = "⚠️  Needs attention"
+	}
+	fmt.Fprintf(out, "└── System Health: %s (%d/7)\n", prettyHealth, healthScore) //nolint:errcheck // CLI output
+
+	if configFound {
+		manifest, err := loadHooksManifestForInspection(hooksConfigPath)
+		if err != nil {
+			fmt.Fprintf(out, "\n⚠️  Failed to parse %s: %v\n", hooksConfigPath, err) //nolint:errcheck // CLI output
+			return nil
+		}
+		hooksReportEffectiveHook(cmd, manifest, "pre-commit")
+		hooksReportEffectiveHook(cmd, manifest, "pre-push")
+	}
 
 	return nil
 }

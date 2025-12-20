@@ -14,6 +14,20 @@ category: "user-guide"
 
 The `goneat assess` command provides comprehensive codebase assessment with intelligent validation, workflow planning, and unified reporting across all supported tools and categories.
 
+## Project Configuration Files
+
+Goneat uses a small set of repo-local configuration files under `.goneat/`:
+
+- `.goneat/hooks.yaml` - Git hook orchestration (what runs on pre-commit/pre-push)
+- `.goneat/assess.yaml` - Lint/assessment tuning for `assess` (shell, Makefiles, GitHub Actions)
+- `.goneat/tools.yaml` - Tools manifest used by `goneat doctor tools`
+
+To scaffold a starter `.goneat/assess.yaml`, run:
+
+```bash
+goneat doctor assess init
+```
+
 ## Overview
 
 Goneat assess is the core intelligence engine that:

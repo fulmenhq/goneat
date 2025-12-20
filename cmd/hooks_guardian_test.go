@@ -71,17 +71,30 @@ hooks:
 		t.Fatalf("runHooksGenerate failed: %v", err)
 	}
 
-	prePushPath := filepath.Join(".goneat", "hooks", "pre-push")
-	data, err := os.ReadFile(prePushPath)
-	if err != nil {
-		t.Fatalf("read pre-push failed: %v", err)
+	paths := []string{
+		filepath.Join(".goneat", "hooks", "pre-commit"),
+		filepath.Join(".goneat", "hooks", "pre-push"),
 	}
-	content := string(data)
-	if !strings.Contains(content, "guardian check \"$GUARDIAN_SCOPE\" \"$GUARDIAN_OPERATION\"") {
-		t.Fatalf("guardian command not embedded in pre-push hook:\n%s", content)
-	}
-	if !strings.Contains(content, "Risk level: critical") {
-		t.Errorf("expected risk level rendering in hook")
+	for _, p := range paths {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatalf("read %s failed: %v", p, err)
+		}
+		content := string(data)
+		if strings.Contains(p, "pre-push") {
+			if !strings.Contains(content, "guardian check \"$GUARDIAN_SCOPE\" \"$GUARDIAN_OPERATION\"") {
+				t.Fatalf("guardian command not embedded in pre-push hook:\n%s", content)
+			}
+			if !strings.Contains(content, "Risk level: critical") {
+				t.Errorf("expected risk level rendering in hook")
+			}
+		}
+		if !strings.Contains(content, "set -f") {
+			t.Fatalf("expected generated hook to disable glob expansion (set -f):\n%s", content)
+		}
+		if strings.Contains(content, "passed!\"}") || strings.Contains(content, "passed!}") {
+			t.Fatalf("unexpected stray brace appended to echo line:\n%s", content)
+		}
 	}
 }
 

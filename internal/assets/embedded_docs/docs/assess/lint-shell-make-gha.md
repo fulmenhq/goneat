@@ -5,6 +5,7 @@
 - Adds lint coverage for shell (shfmt + optional shellcheck), Makefiles (checkmake), and GitHub Actions workflows (actionlint).
 - Defaults: shfmt/actionlint/checkmake enabled; shellcheck disabled (GPL verify-only).
 - Configure via `.goneat/assess.yaml` or CLI flags.
+- Scaffold a starter file with `goneat doctor assess init`.
 
 ## Configuration (`.goneat/assess.yaml`)
 

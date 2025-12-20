@@ -13,12 +13,18 @@ func TestGetTemplatesFS(t *testing.T) {
 	}
 
 	// Test reading a known template file
-	data, err := fs.ReadFile(fsys, "hooks/bash/pre-commit.sh.tmpl")
+	data, err := fs.ReadFile(fsys, "templates/hooks/bash/pre-commit.sh.tmpl")
 	if err != nil {
 		t.Fatalf("Failed to read pre-commit template: %v", err)
 	}
 	if len(data) == 0 {
 		t.Error("Pre-commit template is empty")
+	}
+	if bytes.Contains(data, []byte("passed!\"}")) || bytes.Contains(data, []byte("passed!}")) {
+		t.Fatalf("pre-commit template contains unexpected trailing brace")
+	}
+	if !bytes.Contains(data, []byte("set -f")) {
+		t.Fatalf("pre-commit template should disable glob expansion (set -f)")
 	}
 }
 
@@ -128,7 +134,7 @@ func TestGetEmbeddedAsset(t *testing.T) {
 		path     string
 		wantData bool
 	}{
-		{"valid template", "embedded_templates/hooks/bash/pre-commit.sh.tmpl", true},
+		{"valid template", "embedded_templates/templates/hooks/bash/pre-commit.sh.tmpl", true},
 		{"valid schema", "embedded_schemas/config/goneat-config-v1.0.0.yaml", true},
 		{"invalid path", "nonexistent/file.txt", false},
 	}
