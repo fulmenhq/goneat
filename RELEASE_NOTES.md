@@ -1,3 +1,42 @@
+# Goneat v0.3.22 — Assess Scaffolding + Hooks UX + Safer Hook Generation
+
+**Release Date**: 2025-12-20
+**Status**: Draft
+
+## TL;DR
+
+- **Scaffold assess config**: `goneat doctor assess init` generates a starter `.goneat/assess.yaml`
+- **Hooks transparency**: `goneat hooks validate/inspect` now show effective behavior + warn on mutators
+- **Machine-readable output**: `--format json` for `hooks validate` and `hooks inspect`
+- **Safer hook scripts**: bash hooks disable glob expansion (`set -f`)
+
+## What Changed
+
+### Doctor: `.goneat/assess.yaml` scaffolding
+
+`goneat doctor assess init` seeds a starter `.goneat/assess.yaml` tailored to your repo type.
+
+### Hooks: inspection + warnings
+
+Hooks commands now help answer: “What will my hooks actually do?”
+
+- effective wrapper invocation
+- internal vs external command classification
+- mutator detection (e.g., `format`, `assess --fix`, `stage_fixed`, `make precommit`)
+
+### Hooks: JSON output
+
+Use JSON output for automation and CI policy checks:
+
+- `goneat hooks inspect --format json`
+- `goneat hooks validate --format json`
+
+### Hooks generation: glob safety
+
+Generated bash hooks now include `set -f` to prevent glob patterns from expanding into many arguments.
+
+---
+
 # Goneat v0.3.21 — Dependencies Reliability + Tool Cooling Metadata
 
 **Release Date**: 2025-12-15

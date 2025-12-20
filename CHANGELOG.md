@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.22] - 2025-12-20
+
+### Added
+
+- **Assess config scaffolding**: `goneat doctor assess init` can generate a starter `.goneat/assess.yaml` based on repo type
+- **Hooks UX**: `goneat hooks validate` and `goneat hooks inspect` now show the effective hook wrapper invocation and classify internal vs external commands
+- **Hooks JSON output**: `goneat hooks validate --format json` and `goneat hooks inspect --format json`
+
+### Fixed
+
+- **Bash hook glob expansion**: generated bash hooks now include `set -f` to prevent unquoted glob patterns (e.g., `.cache/**`) from exploding into many args
+
+### Changed
+
+- **Embedded hooks template layout**: standardized on canonical embedded templates under `embedded_templates/templates/hooks/...` (legacy embedded path removed)
+
 ## [v0.3.21] - 2025-12-15
 
 ### Added
