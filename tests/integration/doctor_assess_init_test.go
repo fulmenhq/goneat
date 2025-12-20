@@ -32,9 +32,13 @@ func TestDoctorAssessInitWorkflow(t *testing.T) {
 	if _, err := os.Stat(binPath); os.IsNotExist(err) {
 		t.Skip("goneat binary not found, skipping integration test")
 	}
+	absBinPath, err := filepath.Abs(binPath)
+	if err != nil {
+		t.Fatalf("failed to resolve binary path: %v", err)
+	}
 
 	tmpDir := t.TempDir()
-	cmd := exec.Command(binPath, "doctor", "assess", "init", "--language", "go", "--force")
+	cmd := exec.Command(absBinPath, "doctor", "assess", "init", "--language", "go", "--force")
 	cmd.Dir = tmpDir
 
 	output, err := cmd.CombinedOutput()
