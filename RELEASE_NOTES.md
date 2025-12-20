@@ -1,4 +1,4 @@
-# Goneat v0.3.22 — Assess Scaffolding + Hooks UX + Safer Hook Generation
+# Goneat v0.3.22 — Assess Scaffolding + Hooks UX + Offline Schema Refs
 
 **Release Date**: 2025-12-20
 **Status**: Draft
@@ -31,6 +31,10 @@ Use JSON output for automation and CI policy checks:
 
 - `goneat hooks inspect --format json`
 - `goneat hooks validate --format json`
+
+### Validate: offline `$ref` resolution
+
+`goneat validate data --ref-dir` can preload local schema directories so absolute `$ref` URLs resolve without a live schema registry.
 
 ### Hooks generation: glob safety
 
