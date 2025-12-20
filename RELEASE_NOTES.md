@@ -9,6 +9,7 @@
 - **Hooks transparency**: `goneat hooks validate/inspect` now show effective behavior + warn on mutators
 - **Machine-readable output**: `--format json` for `hooks validate` and `hooks inspect`
 - **Safer hook scripts**: bash hooks disable glob expansion (`set -f`)
+- **Offline schema refs**: `goneat validate data --ref-dir` resolves remote `$ref` URLs from local schema directories
 
 ## What Changed
 

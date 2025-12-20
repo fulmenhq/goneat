@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Assess config scaffolding**: `goneat doctor assess init` can generate a starter `.goneat/assess.yaml` based on repo type
 - **Hooks UX**: `goneat hooks validate` and `goneat hooks inspect` now show the effective hook wrapper invocation and classify internal vs external commands
 - **Hooks JSON output**: `goneat hooks validate --format json` and `goneat hooks inspect --format json`
+- **Offline $ref resolution**: `goneat validate data --ref-dir` can preload local schemas to resolve remote `$ref` URLs without a live schema registry
 
 ### Fixed
 

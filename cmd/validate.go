@@ -32,9 +32,12 @@ var (
 	validateEnableMeta   bool
 	validateScope        bool
 	validateListSchemas  bool
-	validateSchemaFile   string
-	validateDataSchema   string
-	validateDataFile     string
+
+	// Data validation flags
+	validateDataSchema    string
+	validateSchemaFile    string
+	validateSchemaRefDirs []string
+	validateDataFile      string
 )
 
 var validateCmd = &cobra.Command{
@@ -78,6 +81,7 @@ func init() {
 	validateCmd.AddCommand(validateDataCmd)
 	validateDataCmd.Flags().StringVar(&validateDataSchema, "schema", "", "Schema name to validate against (use with --data; mutually exclusive with --schema-file)")
 	validateDataCmd.Flags().StringVar(&validateSchemaFile, "schema-file", "", "Path to arbitrary schema file (JSON/YAML; overrides --schema)")
+	validateDataCmd.Flags().StringSliceVar(&validateSchemaRefDirs, "ref-dir", []string{}, "Directory containing schema files used to resolve remote $ref URLs (repeatable)")
 	validateDataCmd.Flags().StringVar(&validateDataFile, "data", "", "Data file to validate (required)")
 	if err := validateDataCmd.MarkFlagRequired("data"); err != nil {
 		panic(fmt.Sprintf("failed to mark data flag as required: %v", err))
@@ -255,8 +259,8 @@ func runValidateData(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to read schema file %s: %w", validateSchemaFile, err)
 		}
-		// Use ValidateFromBytes for arbitrary schema files
-		result, err = schema.ValidateFromBytes(schemaBytes, doc)
+		// Use ValidateFromBytesWithRefDirs for arbitrary schema files
+		result, err = schema.ValidateFromBytesWithRefDirs(schemaBytes, doc, validateSchemaRefDirs)
 		if err != nil {
 			return fmt.Errorf("validation failed: %w", err)
 		}

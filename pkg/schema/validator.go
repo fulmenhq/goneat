@@ -327,6 +327,135 @@ func ValidateFromBytes(schemaBytes []byte, data interface{}) (*Result, error) {
 	return validator.Validate(data)
 }
 
+// ValidateFromBytesWithRefDirs validates data against schema bytes, preloading additional
+// schemas from the provided directories to resolve remote $ref URLs offline.
+//
+// This is intended for early-stage ecosystems where schemas use absolute HTTP(S) $id/$ref
+// URIs before a schema registry host is live.
+func ValidateFromBytesWithRefDirs(schemaBytes []byte, data interface{}, refDirs []string) (*Result, error) {
+	if len(refDirs) == 0 {
+		return ValidateFromBytes(schemaBytes, data)
+	}
+	if err := ensureSupportedDraft(schemaBytes); err != nil {
+		return nil, err
+	}
+
+	sch, err := compileSchemaBytesWithRefDirs(schemaBytes, refDirs)
+	if err != nil {
+		return nil, err
+	}
+	return validateWithCompiled(sch, data)
+}
+
+func compileSchemaBytesWithRefDirs(rootSchemaBytes []byte, refDirs []string) (*gojsonschema.Schema, error) {
+	stripSchema := isOfflineMode() || len(refDirs) > 0
+
+	schemaLoader := gojsonschema.NewSchemaLoader()
+	// Ensure we only resolve via preloaded schemas (no implicit guessing)
+	schemaLoader.AutoDetect = false
+
+	seenIDs := make(map[string]struct{})
+
+	for _, dir := range refDirs {
+		cleanDir, err := safeio.CleanUserPath(dir)
+		if err != nil {
+			return nil, fmt.Errorf("invalid ref-dir %s: %w", dir, err)
+		}
+		info, err := os.Stat(cleanDir)
+		if err != nil {
+			return nil, fmt.Errorf("ref-dir %s: %w", cleanDir, err)
+		}
+		if !info.IsDir() {
+			return nil, fmt.Errorf("ref-dir %s is not a directory", cleanDir)
+		}
+
+		err = filepath.WalkDir(cleanDir, func(path string, d fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if d.IsDir() {
+				return nil
+			}
+
+			ext := strings.ToLower(filepath.Ext(path))
+			switch ext {
+			case ".json", ".yaml", ".yml":
+				// ok
+			default:
+				return nil
+			}
+
+			bytes, err := os.ReadFile(path) // #nosec G304 -- path is discovered by walking a sanitized directory
+			if err != nil {
+				return fmt.Errorf("read ref schema %s: %w", path, err)
+			}
+
+			id, normalized, err := extractAndNormalizeSchema(bytes, stripSchema)
+			if err != nil {
+				// Ignore non-schema files in the directory tree (e.g., *.data.json) by treating parse errors as non-fatal.
+				return nil
+			}
+			if id == "" {
+				return nil
+			}
+			if _, ok := seenIDs[id]; ok {
+				return nil
+			}
+			seenIDs[id] = struct{}{}
+
+			if err := schemaLoader.AddSchema(id, gojsonschema.NewBytesLoader(normalized)); err != nil {
+				return fmt.Errorf("register schema %s (%s): %w", path, id, err)
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	_, normalizedRoot, err := extractAndNormalizeSchema(rootSchemaBytes, stripSchema)
+	if err != nil {
+		return nil, err
+	}
+
+	schema, err := schemaLoader.Compile(gojsonschema.NewBytesLoader(normalizedRoot))
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile schema with ref-dirs: %w", err)
+	}
+	return schema, nil
+}
+
+func extractAndNormalizeSchema(schemaBytes []byte, stripSchema bool) (string, []byte, error) {
+	var tmp any
+	if err := yaml.Unmarshal(schemaBytes, &tmp); err != nil {
+		if err := json.Unmarshal(schemaBytes, &tmp); err != nil {
+			return "", nil, fmt.Errorf("invalid schema format (must be valid YAML or JSON): %w", err)
+		}
+	}
+
+	if m, ok := tmp.(map[string]any); ok {
+		if stripSchema {
+			delete(m, "$schema")
+		}
+		id, _ := m["$id"].(string)
+		if id == "" {
+			id, _ = m["id"].(string)
+		}
+		id = strings.TrimSpace(id)
+		jb, err := json.Marshal(m)
+		if err != nil {
+			return "", nil, fmt.Errorf("failed to encode schema to JSON: %w", err)
+		}
+		return id, jb, nil
+	}
+
+	jb, err := json.Marshal(tmp)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to encode schema to JSON: %w", err)
+	}
+	return "", jb, nil
+}
+
 func ensureSupportedDraft(schemaBytes []byte) error {
 	var schemaDoc map[string]interface{}
 	if err := yaml.Unmarshal(schemaBytes, &schemaDoc); err != nil {

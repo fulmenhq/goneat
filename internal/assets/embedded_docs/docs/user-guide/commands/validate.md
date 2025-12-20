@@ -36,6 +36,7 @@ goneat validate data --schema SCHEMA --data FILE
 
 - `--schema`: Schema name for embedded (required if no --schema-file, e.g., goneat-config-v1.0.0)
 - `--schema-file`: Path to arbitrary schema file (JSON/YAML; overrides --schema)
+- `--ref-dir`: Directory containing schema files used to resolve remote `$ref` URLs (repeatable)
 - `--data`: Data file to validate (required, YAML/JSON)
 - `--format`: Output format (markdown, json)
 
@@ -57,7 +58,11 @@ Note: Only Draft-07 and Draft-2020-12 supported. Use `goneat validate --list-sch
 goneat validate data --schema goneat-config-v1.0.0 --data .goneat.yaml --format json
 
 # Arbitrary JSON schema file
-goneat validate data --schema-file my-schema.json --data data.yaml
+ goneat validate data --schema-file my-schema.json --data data.yaml
+
+# Offline $ref resolution using local schemas directory
+ goneat validate data --schema-file schemas/v1.0.0/configuration/recipe.schema.json --ref-dir schemas --data examples/recipe.yaml
+
 
 # Arbitrary YAML schema file
 goneat validate data --schema-file my-schema.yaml --data data.json
