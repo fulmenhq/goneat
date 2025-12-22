@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -354,7 +355,20 @@ func compileSchemaBytesWithRefDirs(rootSchemaBytes []byte, refDirs []string) (*g
 	// Ensure we only resolve via preloaded schemas (no implicit guessing)
 	schemaLoader.AutoDetect = false
 
-	seenIDs := make(map[string]struct{})
+	rootID, normalizedRoot, err := extractAndNormalizeSchema(rootSchemaBytes, stripSchema)
+	if err != nil {
+		return nil, err
+	}
+
+	type registeredSchema struct {
+		normalized []byte
+		source     string
+	}
+
+	registered := make(map[string]registeredSchema)
+	if rootID != "" {
+		registered[rootID] = registeredSchema{normalized: normalizedRoot, source: "root schema"}
+	}
 
 	for _, dir := range refDirs {
 		cleanDir, err := safeio.CleanUserPath(dir)
@@ -385,12 +399,12 @@ func compileSchemaBytesWithRefDirs(rootSchemaBytes []byte, refDirs []string) (*g
 				return nil
 			}
 
-			bytes, err := os.ReadFile(path) // #nosec G304 -- path is discovered by walking a sanitized directory
+			fileBytes, err := os.ReadFile(path) // #nosec G304 -- path is discovered by walking a sanitized directory
 			if err != nil {
 				return fmt.Errorf("read ref schema %s: %w", path, err)
 			}
 
-			id, normalized, err := extractAndNormalizeSchema(bytes, stripSchema)
+			id, normalized, err := extractAndNormalizeSchema(fileBytes, stripSchema)
 			if err != nil {
 				// Ignore non-schema files in the directory tree (e.g., *.data.json) by treating parse errors as non-fatal.
 				return nil
@@ -398,24 +412,28 @@ func compileSchemaBytesWithRefDirs(rootSchemaBytes []byte, refDirs []string) (*g
 			if id == "" {
 				return nil
 			}
-			if _, ok := seenIDs[id]; ok {
-				return nil
+
+			if existing, ok := registered[id]; ok {
+				if bytes.Equal(existing.normalized, normalized) {
+					return nil
+				}
+				return fmt.Errorf(
+					"duplicate schema $id %q: %s differs from %s",
+					id,
+					path,
+					existing.source,
+				)
 			}
-			seenIDs[id] = struct{}{}
 
 			if err := schemaLoader.AddSchema(id, gojsonschema.NewBytesLoader(normalized)); err != nil {
 				return fmt.Errorf("register schema %s (%s): %w", path, id, err)
 			}
+			registered[id] = registeredSchema{normalized: normalized, source: path}
 			return nil
 		})
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	_, normalizedRoot, err := extractAndNormalizeSchema(rootSchemaBytes, stripSchema)
-	if err != nil {
-		return nil, err
 	}
 
 	schema, err := schemaLoader.Compile(gojsonschema.NewBytesLoader(normalizedRoot))

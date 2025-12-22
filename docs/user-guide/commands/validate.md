@@ -28,7 +28,7 @@ goneat validate [target]
 
 ## Data Validation Subcommand
 
-Validate a data file against a specific schema:
+Validate a single data file against a specific schema:
 
 ```bash
 goneat validate data --schema SCHEMA --data FILE
@@ -36,9 +36,80 @@ goneat validate data --schema SCHEMA --data FILE
 
 - `--schema`: Schema name for embedded (required if no --schema-file, e.g., goneat-config-v1.0.0)
 - `--schema-file`: Path to arbitrary schema file (JSON/YAML; overrides --schema)
-- `--ref-dir`: Directory containing schema files used to resolve remote `$ref` URLs (repeatable)
+- `--ref-dir`: Directory tree of schema files used to resolve absolute `$ref` URLs offline (repeatable). Safe if it also contains `--schema-file`
 - `--data`: Data file to validate (required, YAML/JSON)
 - `--format`: Output format (markdown, json)
+
+## Suite Validation Subcommand (Bulk)
+
+Validate many data files in one run, mapped to schemas via a schema mapping manifest. This is the recommended workflow for schema ecosystems with example suites.
+
+```bash
+goneat validate suite --data DIR --manifest .goneat/schema-mappings.yaml --format json
+```
+
+Common flags:
+
+- `--data`: Root directory of data/examples to validate (required)
+- `--manifest`: Schema mapping manifest path (defaults to `.goneat/schema-mappings.yaml`)
+- `--ref-dir`: Directory tree of schema files used to resolve absolute `$ref` URLs offline (repeatable)
+- `--expect-fail`: Glob of files expected to fail (repeatable)
+- `--skip`: Glob of files to skip (repeatable)
+- `--workers`: Max parallel workers (defaults to CPU count)
+- `--format`: Output format (markdown, json)
+
+### Example: Offline `$ref` resolution for a full examples suite
+
+```bash
+goneat validate suite \
+  --data examples/v1.0.0 \
+  --manifest .goneat/schema-mappings.yaml \
+  --ref-dir schemas/v1.0.0 \
+  --expect-fail "**/invalid/**" \
+  --format json
+```
+
+This enables friction-free validation when schemas use canonical `$id` / absolute `$ref` URLs but the schema registry host is offline or not deployed yet.
+
+Note: JSON Schema catches structural issues (types, required fields). It will not catch taxonomy/slug semantics unless those are encoded into the schema.
+
+### Writing a manifest for local schemas
+
+The schema mapping manifest lives at `.goneat/schema-mappings.yaml` by default.
+
+**Simplest (recommended): use `schema_path` in mappings**
+
+```yaml
+version: "1.0.0"
+
+mappings:
+  - pattern: "**/recipe*.yaml"
+    schema_path: schemas/v1.0.0/configuration/recipe.schema.json
+    priority: high
+
+  - pattern: "**/inventory*.yaml"
+    schema_path: schemas/v1.0.0/state/inventory.schema.json
+    priority: high
+```
+
+**Canonical IDs (optional): use `overrides` + `schema_id`**
+
+Use this when you want stable names like `enact-recipe-v1.0.0` in output.
+
+```yaml
+version: "1.0.0"
+
+overrides:
+  - schema_id: enact-recipe-v1.0.0
+    source: local
+    path: schemas/v1.0.0/configuration/recipe.schema.json
+
+mappings:
+  - pattern: "**/recipe*.yaml"
+    schema_id: enact-recipe-v1.0.0
+    source: local
+    priority: high
+```
 
 ### Supported Schemas
 

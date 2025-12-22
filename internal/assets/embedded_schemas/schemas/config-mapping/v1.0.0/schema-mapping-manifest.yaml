@@ -64,6 +64,9 @@ definitions:
         $ref: "#/definitions/pattern"
       schema_id:
         type: string
+      schema_path:
+        type: string
+        description: "Path to a local schema file (shorthand for local schema mappings)"
       inference_method:
         type: string
         enum: [content, meta-schema, none]

@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
+	"time"
 )
 
 // helper to run root with args and capture stdout/stderr
@@ -37,6 +39,23 @@ func execRoot(t *testing.T, args []string) (string, error) {
 	contentInitInclude = nil
 	contentInitExclude = nil
 	contentInitOverwrite = false
+
+	// Reset validate suite flags to avoid cross-test bleed
+	validateSuiteDataRoot = ""
+	validateSuiteSchemasRoot = ""
+	validateSuiteManifestPath = ".goneat/schema-mappings.yaml"
+	validateSuiteRefDirs = nil
+	validateSuiteNoIgnore = false
+	validateSuiteForceInclude = nil
+	validateSuiteExclude = nil
+	validateSuiteSkip = nil
+	validateSuiteExpectFail = nil
+	validateSuiteStrict = false
+	validateSuiteEnableMeta = false
+	validateSuiteMaxWorkers = runtime.NumCPU()
+	validateSuiteTimeout = 3 * time.Minute
+	validateSuiteFormat = "markdown"
+	validateSuiteFailOnUnmapped = true
 
 	// Create a fresh root command instance per test to prevent command tree pollution
 	cmd := newRootCommand()

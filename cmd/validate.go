@@ -81,7 +81,7 @@ func init() {
 	validateCmd.AddCommand(validateDataCmd)
 	validateDataCmd.Flags().StringVar(&validateDataSchema, "schema", "", "Schema name to validate against (use with --data; mutually exclusive with --schema-file)")
 	validateDataCmd.Flags().StringVar(&validateSchemaFile, "schema-file", "", "Path to arbitrary schema file (JSON/YAML; overrides --schema)")
-	validateDataCmd.Flags().StringSliceVar(&validateSchemaRefDirs, "ref-dir", []string{}, "Directory containing schema files used to resolve remote $ref URLs (repeatable)")
+	validateDataCmd.Flags().StringSliceVar(&validateSchemaRefDirs, "ref-dir", []string{}, "Directory tree of schema files used to resolve absolute $ref URLs offline (repeatable). Safe if it also contains --schema-file")
 	validateDataCmd.Flags().StringVar(&validateDataFile, "data", "", "Data file to validate (required)")
 	if err := validateDataCmd.MarkFlagRequired("data"); err != nil {
 		panic(fmt.Sprintf("failed to mark data flag as required: %v", err))

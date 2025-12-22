@@ -1,12 +1,22 @@
 # goneat
 
 [![Release](https://img.shields.io/github/v/release/fulmenhq/goneat?display_name=tag&sort=semver&logo=github)](https://github.com/fulmenhq/goneat/releases)
+[![CI](https://github.com/fulmenhq/goneat/actions/workflows/ci.yml/badge.svg)](https://github.com/fulmenhq/goneat/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/fulmenhq/goneat)](go.mod)
+[![Lifecycle](https://img.shields.io/badge/lifecycle-alpha-orange)](docs/status/lifecycle.md)
 
-All about smoothly delivering neat code at scale
+All about smoothly delivering neat code at scale.
 
-We bring a smooth DX layer to the business of making neat code at scale. We wrap language-specific tool chains for formatting, linting, security scanning and other similar functions. Written in Go for speed and scale, we include in the package some of our additions as well, goneat enables you to solve common code and document quality problems across even large repositories.
+We bring a smooth DX layer to the business of making neat code at scale. We wrap language-specific tool chains for formatting, linting, security scanning, and similar functions. Written in Go for speed and scale, goneat enables you to solve common code and document quality problems across even large repositories.
+
+## Highlights
+
+- **Schema validation at scale**: `goneat validate suite` (bulk), `schema_path` mappings, and offline `$ref` resolution via `--ref-dir`
+- **Supply-chain protection**: package cooling, license compliance, and SBOM generation (`goneat dependencies`)
+- **Multi-format formatting**: Go/Markdown/YAML/JSON + finalizer (EOF/trailing whitespace)
+- **Hook automation**: intelligent hooks generation + optional Guardian approvals for protected operations
+- **Offline docs**: `goneat docs show release-notes` and `goneat docs show releases/latest`
 
 ## Quick Start (TL;DR)
 
@@ -16,6 +26,7 @@ We bring a smooth DX layer to the business of making neat code at scale. We wrap
    - **Secure direct download (recommended if not using a package manager)**: `sfetch --repo fulmenhq/goneat --latest --dest-dir ~/.local/bin`
    - **Release archives**: download from [GitHub Releases](https://github.com/fulmenhq/goneat/releases) and place the binary on your `PATH`
    - Verify with `goneat version`
+   - Latest release notes: `goneat docs show releases/latest`
 
 2. **Initialize tooling config** (required in v0.3.7+):
 
@@ -32,8 +43,10 @@ We bring a smooth DX layer to the business of making neat code at scale. We wrap
    ```bash
    goneat --help
    goneat docs list
-   goneat docs show user-guide/getting-started
-   goneat docs show user-guide/commands/assess
+   goneat docs show user-guide/install
+   goneat docs show user-guide/commands/validate
+   goneat docs show release-notes
+   goneat docs show releases/latest
    ```
 
 4. **Assess your repo**:
@@ -57,7 +70,7 @@ We bring a smooth DX layer to the business of making neat code at scale. We wrap
    goneat hooks install
    ```
 
-Hooks automatically detect and configure format capabilities (make format-all, prettier, etc.) and include maturity validation, dirty repository protection, and optional guardian security approval workflows. See [Release quality checking](#release-quality-checking) and [Guardian Security](#guardian-security) for details.
+Hooks automatically detect and configure format capabilities (make format-all, prettier, etc.) and include maturity validation, dirty repository protection, and optional guardian security approval workflows. See [Release Quality Management](#release-quality-management) and [Guardian Security](#guardian-security) for details.
 
 **Notes:**
 
@@ -247,24 +260,6 @@ goneat dependencies --sbom
 
 ---
 
-## Highlights
-
-- **Dependency Protection (NEW v0.3.0)**: Supply chain security with package cooling, license compliance, and SBOM generation ([see above](#-new-in-v030-dependency-protection-))
-- **Multi-function text formatter**: handles Go code files, markdown, YAML, JSON with a general text mode for EOF and whitespace trimming at EOL
-- **Intelligent hooks**: auto-detects format capabilities, one manifest, one command, instant DX ([see below](#intelligent-hooks))
-- **Guardian security**: approval workflows for protected git operations with browser-based authentication ([see below](#guardian-security))
-- **ASCII terminal calibration**: complete toolkit for handling Unicode width issues across different terminal emulators ([see below](#ascii-terminal-calibration))
-- **Zero‑friction tooling**: automatic tool detection and installation
-- **JSON‑first SSOT**: one structured output for CI and humans (markdown/html derived)
-- **Enterprise‑scale**: sharded parallelism, multi-module awareness, .goneatignore filtering
-- **Extensible**: add languages, tools, and policies without changing your hook scripts
-- **Diff‑Aware Assessment**: prioritizes and highlights issues in your current change set
-- **Maturity Validation**: prevents version/phase mismatches and ensures release readiness ([see below](#release-quality-management))
-- **Dirty Repository Protection**: blocks pushes with unstaged changes to prevent careless releases ([see below](#release-quality-management))
-- **Smart Semantic Validation** (planned): detect and validate schemas beyond file extensions
-- **Suppression Insights**: top rules/files with rich summaries for governance
-- **Library Functions**: Reusable Go packages for schema validation and path resolution, enabling integration into custom tools without separate installation.
-
 ## Developer Libraries
 
 Goneat provides reusable Go libraries for common DX patterns. See the [libraries guide](docs/user-guide/libraries.md) for details on available packages, integration patterns, and API documentation.
@@ -299,22 +294,22 @@ Goneat's schema package provides fast, offline JSON Schema validation (Draft-07/
 - Key Features: Validator rework for performance, schema discovery via patterns.
 - Reminder: No separate `go install` needed—use as library in your Go projects via `go get github.com/fulmenhq/goneat`.
 
-### Pathfinder _(Experimental until v0.3.0)_
+### Pathfinder _(Experimental during alpha)_
 
 Pathfinder handles file discovery and resolution with loaders for multi-module repos and hierarchical ignores (like .goneatignore). Optimizes large-repo scans with glob patterns and directory traversal.
 
 - Import: `github.com/fulmenhq/goneat/pkg/pathfinder`
 - Key Features: Loaders for configs/tools, absolute/relative path handling, integration with ignore files.
-- ⚠️ **Experimental**: API may change before v0.3.0 stabilization.
+- ⚠️ **Experimental**: API may change during alpha.
 
-### Maturity Validation _(Experimental until v0.3.0)_
+### Maturity Validation _(Experimental during alpha)_
 
 The maturity package provides release lifecycle management and version consistency validation. Enables programmatic checking of repository phases and deployment readiness.
 
 - Import: `github.com/fulmenhq/goneat/internal/maturity`
 - Key Features: Phase file validation, version syntax checking, release readiness assessment.
 - Usage: Integrate into CI/CD pipelines for automated release gate checks.
-- ⚠️ **Experimental**: API may change before v0.3.0 stabilization.
+- ⚠️ **Experimental**: API may change during alpha.
 
 ### Assessment Runners
 
@@ -712,7 +707,7 @@ make sync-schemas
 
 Project configuration (preview): see `docs/configuration/schema-config.md` for configuring discovery patterns and auto-detect.
 
-## Roadmap (v0.1.x)
+## Roadmap (Alpha)
 
 - Deeper finalizer capabilities and shared sharding utilities
 - Secrets scanning (gitleaks) and multi-ecosystem dependency scanners (osv-scanner)
@@ -730,13 +725,18 @@ goneat docs list --format json | jq '.[].slug'
 goneat docs show user-guide/commands/format --format markdown | less
 
 # Quick alias for command help
-goneat docs help format | less
+   goneat docs help format | less
+
+# Recent release notes
+   goneat docs show release-notes --format markdown | less
+   goneat docs show releases/latest --format markdown | less
+
 
 # Render to HTML (raw markdown wrapped in HTML)
 goneat docs show user-guide/commands/hooks --format html > hooks.html
 ```
 
-Tip: Use `goneat docs` to learn about hooks, commands, tutorialsdocs/user-guide/workflows/release-readiness.md, and workflows without leaving your terminal.
+Tip: Use `goneat docs` to learn about hooks, commands, tutorials, and workflows without leaving your terminal.
 
 ## Diff‑Aware Assessment (Change‑Set Intelligence)
 

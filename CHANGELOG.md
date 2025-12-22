@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.23] - 2025-12-21
+
+### Added
+
+- **Validate suite (bulk)**: `goneat validate suite` validates many YAML/JSON files in one run with parallel workers and JSON output
+- **Schema mapping shorthand**: `schema_path` in `.goneat/schema-mappings.yaml` to map directly to local schema files
+- **Embedded release docs**: `goneat docs show release-notes` and `goneat docs show releases/latest`
+
+### Fixed
+
+- **Offline ref-dir duplicates**: `validate data --ref-dir` no longer fails when the root schema is also present in the ref-dir tree
+- **Validate suite local schema path resolution**: local `schema_id` mappings now honor `overrides.path` and include resolved `schema.path` in JSON output
+
+### Changed
+
+- **Validate docs**: expanded `validate` docs with bulk validation and local schema examples
+
 ## [v0.3.22] - 2025-12-20
 
 ### Added

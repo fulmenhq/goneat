@@ -62,13 +62,21 @@ func (r *Resolver) Resolve(relPath string) (Resolution, bool) {
 			continue
 		}
 
-		if rule.SchemaID == "" {
+		resolvedID := strings.TrimSpace(rule.SchemaID)
+		resolvedPath := strings.TrimSpace(rule.SchemaPath)
+		if resolvedID == "" && resolvedPath == "" {
 			// For now we do not implement inference methods.
 			continue
 		}
+		if resolvedID == "" {
+			resolvedID = resolvedPath
+			if rule.Source == "" {
+				rule.Source = SourceLocal
+			}
+		}
 
 		res := Resolution{
-			SchemaID:   rule.SchemaID,
+			SchemaID:   resolvedID,
 			Source:     rule.Source,
 			Rule:       &rule,
 			Confidence: 1.0,

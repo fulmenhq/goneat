@@ -69,6 +69,7 @@ type ConfigSettings struct {
 type MappingRule struct {
 	Pattern         string          `json:"pattern" yaml:"pattern"`
 	SchemaID        string          `json:"schema_id,omitempty" yaml:"schema_id,omitempty"`
+	SchemaPath      string          `json:"schema_path,omitempty" yaml:"schema_path,omitempty"`
 	InferenceMethod InferenceMethod `json:"inference_method,omitempty" yaml:"inference_method,omitempty"`
 	FallbackSchema  string          `json:"fallback_schema,omitempty" yaml:"fallback_schema,omitempty"`
 	Source          SchemaSource    `json:"source,omitempty" yaml:"source,omitempty"`
