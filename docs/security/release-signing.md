@@ -6,7 +6,14 @@
 
 ## Overview
 
-All Goneat release artifacts are cryptographically signed using PGP/GPG to ensure authenticity and integrity. This document describes the signing process, key management, and verification procedures for both maintainers and users.
+Goneat releases are authenticated via **signed checksum manifests**:
+
+- `SHA256SUMS` and `SHA512SUMS` are generated over the published release archives.
+- The checksum manifests are signed (minisign required; PGP optional).
+
+Users verify the signature on the checksum manifest, then verify checksums for the downloaded archives.
+
+This document describes the signing process, key management, and verification procedures for both maintainers and users.
 
 ## Trust Model
 
@@ -128,30 +135,42 @@ scoop install gpg
 choco install gnupg
 ```
 
-### Verification Steps
+### Verification Steps (recommended)
 
-1. **Import the FulmenHQ public key**:
+Goneat publishes release archives plus signed checksum manifests.
+
+1. **Download the checksum manifest + signing material**:
 
 ```bash
-# Download from GitHub (replace with actual URL after key generation)
-curl -L https://github.com/fulmenhq/goneat/releases/download/v0.3.3/fulmenhq-release-signing-key.asc | gpg --import
+RELEASE_VERSION="v0.3.23"  # example
 
-# Verify fingerprint matches documentation
-gpg --fingerprint security@fulmenhq.dev
+curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/SHA256SUMS"
+curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/SHA256SUMS.minisig"
+curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/fulmenhq-release-minisign.pub"
+
+# Optional (PGP verification)
+curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/SHA256SUMS.asc"
+curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/fulmenhq-release-signing-key.asc"
 ```
 
-2. **Download release artifacts**:
+2. **Verify the checksum manifest signature**:
 
 ```bash
-# Example for macOS ARM64
-curl -LO https://github.com/fulmenhq/goneat/releases/download/v0.3.3/goneat-darwin-arm64.tar.gz
-curl -LO https://github.com/fulmenhq/goneat/releases/download/v0.3.3/goneat-darwin-arm64.tar.gz.asc
+# Minisign (required verification path)
+minisign -Vm SHA256SUMS -p fulmenhq-release-minisign.pub
+
+# PGP (optional verification path)
+gpg --import fulmenhq-release-signing-key.asc
+gpg --verify SHA256SUMS.asc SHA256SUMS
 ```
 
-3. **Verify the signature**:
+3. **Download the archive for your platform and verify checksums**:
 
 ```bash
-gpg --verify goneat-darwin-arm64.tar.gz.asc goneat-darwin-arm64.tar.gz
+curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/goneat_${RELEASE_VERSION}_darwin_arm64.tar.gz"
+
+# Verifies *all* downloaded archives that appear in SHA256SUMS
+shasum -a 256 --check SHA256SUMS
 ```
 
 **Expected output**:
@@ -217,9 +236,16 @@ gpg --card-status
 gpg --list-secret-keys security@fulmenhq.dev
 ```
 
-### Signing Workflow (v0.3.3 Manual Process)
+### Signing Workflow (checksum-manifest signing)
 
-**⚠️ Critical Timing**: Perform Steps 1-4 (build, package, sign, verify) **BEFORE pushing** to validate the workflow works. Steps 5-6 happen **AFTER tagging** the release.
+**⚠️ Critical Timing**: Generate checksums, sign, and verify **before** uploading signatures.
+
+In practice, maintainers should follow `RELEASE_CHECKLIST.md` and use the Makefile targets:
+
+- `make release-download` (download CI-built artifacts)
+- `make release-checksums` (generate SHA256SUMS/SHA512SUMS)
+- `make release-sign` (sign checksum manifests)
+- `make release-verify-signatures` + `make release-verify-key` (verify signatures + key safety)
 
 #### Pre-Push Validation (Before git push)
 
@@ -242,21 +268,28 @@ make package
 - `make build-all`: Creates raw binaries in `bin/` (goneat-{os}-{arch})
 - `make package`: Packages binaries from `bin/` into `dist/release/` (.tar.gz/.zip archives + SHA256SUMS)
 
-**Alternative**: Use `make release-build` to run both `build-all` and `package` in one command
+**Alternative**: Use `make release-build` to run both `build-all` and `package` in one command.
+
+Note: The recommended release flow signs the *CI-built* archives (what users actually download) by using `make release-download`, then checksums + signs those artifacts.
 
 **Step 2: Generate Checksums**
 
+Prefer the Makefile target (it is aware of the CI artifact naming convention):
+
 ```bash
-cd dist/release
-
-# Generate SHA256 checksums for all artifacts
-sha256sum *.tar.gz *.zip > SHA256SUMS
-
-# Verify checksums file
-cat SHA256SUMS
+RELEASE_TAG=vX.Y.Z make release-checksums
 ```
 
-**Step 3: Sign All Artifacts**
+**Step 3: Sign checksum manifests**
+
+```bash
+RELEASE_TAG=vX.Y.Z \
+GONEAT_MINISIGN_KEY="$HOME/.minisign/fulmenhq-release.key" \
+GONEAT_MINISIGN_PUB="$HOME/.minisign/fulmenhq-release.pub" \
+GONEAT_PGP_KEY_ID="<signing-subkey-id-or-email>" \
+GONEAT_GPG_HOMEDIR="${GNUPGHOME:-$HOME/.gnupg}" \
+make release-sign
+```
 
 Before signing, verify you're using the correct subkey:
 
@@ -269,47 +302,19 @@ gpg --list-keys --keyid-format LONG security@fulmenhq.dev
 # sub   ed25519/45342521E9536A31 ... [S]  ← CI signing (second [S] subkey)
 ```
 
-Now sign all artifacts with the **manual signing subkey**:
+Goneat signs the checksum manifests (not each archive individually). The signing helper:
 
-```bash
-# Sign each artifact (detached signature)
-# Creates ${file}.asc for each artifact
-# IMPORTANT: Use explicit subkey ID with '!' to force use of manual signing subkey
-# 448A539320A397AF = Manual signing subkey (YubiKey-backed, use for v0.3.3)
-# 45342521E9536A31 = CI signing subkey (reserved for future automation)
-for file in *.tar.gz *.zip SHA256SUMS; do
-    echo "Signing $file..."
-    gpg --detach-sign --armor --local-user 448A539320A397AF! "$file"
-done
-
-# Verify signatures were created
-ls -lh *.asc
-
-# Export public key for distribution (always fresh for each release)
-gpg --armor --export security@fulmenhq.dev > fulmenhq-release-signing-key.asc
-
-# Verify public key was exported correctly (should show PGP PUBLIC KEY BLOCK)
-echo "Public key exported:"
-head -5 fulmenhq-release-signing-key.asc
-```
+- writes `SHA256SUMS.asc` / `SHA512SUMS.asc` (PGP)
+- writes `SHA256SUMS.minisig` / `SHA512SUMS.minisig` (minisign)
+- exports `fulmenhq-release-signing-key.asc` into `dist/release/`
 
 **Step 4: Verify Signatures Locally**
 
 ```bash
-# Test verification before upload
-for file in *.tar.gz *.zip SHA256SUMS; do
-    echo "Verifying $file..."
-    gpg --verify "${file}.asc" "$file" || exit 1
-done
-
-# Verify correct subkey was used (should show 448A539320A397AF for manual signing)
-echo ""
-echo "Checking which subkey was used for signing..."
-gpg --verify SHA256SUMS.asc SHA256SUMS 2>&1 | grep "using.*key"
-
-echo "✅ All signatures verified successfully"
-echo "⚠️  Confirm the key ID above is 448A539320A397AF (manual signing subkey)"
+RELEASE_TAG=vX.Y.Z make release-verify-signatures
+RELEASE_TAG=vX.Y.Z make release-verify-key
 ```
+
 
 **✅ If Steps 1-4 succeed**: Proceed with git push and tagging
 **❌ If any step fails**: Fix issues before pushing
@@ -355,20 +360,28 @@ Add to release notes:
 ```markdown
 ## Signature Verification
 
-All artifacts are cryptographically signed. Verify with:
+Goneat releases publish signed checksum manifests. Verify the checksum manifest signature first, then verify archive checksums.
 
 \`\`\`bash
+RELEASE_VERSION=vX.Y.Z
 
-# Import public key
+# Minisign verification (required)
+curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/SHA256SUMS"
+curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/SHA256SUMS.minisig"
+curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/fulmenhq-release-minisign.pub"
+minisign -Vm SHA256SUMS -p fulmenhq-release-minisign.pub
 
-curl -L https://github.com/fulmenhq/goneat/releases/download/v0.3.3/fulmenhq-release-signing-key.asc | gpg --import
+# PGP verification
+curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/SHA256SUMS.asc"
+curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/fulmenhq-release-signing-key.asc"
+gpg --import fulmenhq-release-signing-key.asc
+gpg --verify SHA256SUMS.asc SHA256SUMS
 
-# Verify artifact
-
-gpg --verify goneat-darwin-arm64.tar.gz.asc goneat-darwin-arm64.tar.gz
+# Download archives, then validate checksums
+shasum -a 256 --check SHA256SUMS
 \`\`\`
 
-Key fingerprint: [fingerprint here]
+Key fingerprint: see the Trust Model section at the top of this document.
 ```
 
 ### Complete Release Sequence

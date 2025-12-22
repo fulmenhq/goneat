@@ -353,7 +353,7 @@ release-verify-checksums: ## Verify SHA256SUMS/SHA512SUMS match actual artifacts
 	fi
 	@echo "✅ All checksums verified for $(RELEASE_TAG)"
 
-release-sign: ## Sign checksum manifests with GPG and minisign (requires signing keys)
+release-sign: ## Sign checksum manifests (minisign + PGP required for releases)
 	@echo "🔐 Signing checksum manifests for $(RELEASE_TAG)..."
 	@if [ -z "$(RELEASE_TAG)" ]; then \
 		echo "❌ RELEASE_TAG not set. Use: make release-sign RELEASE_TAG=vX.Y.Z"; \
@@ -363,26 +363,25 @@ release-sign: ## Sign checksum manifests with GPG and minisign (requires signing
 		echo "❌ Checksums not found. Run 'make release-checksums RELEASE_TAG=$(RELEASE_TAG)' first."; \
 		exit 1; \
 	fi
-	@cd dist/release && \
-		if [ -f "../scripts/sign-checksums.sh" ]; then \
-			echo "📝 Using sign-checksums.sh helper..."; \
-			../scripts/sign-checksums.sh --key "$$MINISIGN_KEY" --pub "$$MINISIGN_PUB"; \
-		else \
-			echo "📝 Manual signing (sign-checksums.sh not found)..."; \
-			for sums in SHA256SUMS SHA512SUMS; do \
-				echo "  Signing $$sums with GPG..."; \
-				gpg --homedir "$$GPG_HOMEDIR" --detach-sign --armor --output "$${sums}.asc" "$$sums"; \
-				echo "  Signing $$sums with minisign..."; \
-				minisign -S -s "$$MINISIGN_KEY" -m "$$sums" -x "$${sums}.minisig"; \
-			done; \
-			if [ -f "$$MINISIGN_PUB" ]; then \
-				cp "$$MINISIGN_PUB" fulmenhq-release-minisign.pub; \
-			else \
-				echo "⚠️  MINISIGN_PUB not found, skipping minisign public key copy"; \
-			fi; \
-		fi; \
-		echo "🔑 Extracting GPG public key..."; \
-		gpg --homedir "$$GPG_HOMEDIR" --armor --export "$$PGP_KEY_ID" > fulmenhq-release-signing-key.asc
+	@if [ -z "$${GONEAT_MINISIGN_KEY:-$$MINISIGN_KEY}" ]; then \
+		echo "❌ GONEAT_MINISIGN_KEY not set (required)"; \
+		exit 1; \
+	fi
+	@if [ -z "$${GONEAT_PGP_KEY_ID:-$$PGP_KEY_ID}" ]; then \
+		echo "❌ GONEAT_PGP_KEY_ID not set (required for releases)"; \
+		exit 1; \
+	fi
+	@if [ -z "$${GONEAT_GPG_HOMEDIR:-$$GPG_HOMEDIR}" ]; then \
+		echo "❌ GONEAT_GPG_HOMEDIR not set (required for releases)"; \
+		exit 1; \
+	fi
+	@if [ ! -f "./scripts/sign-release-manifests.sh" ]; then \
+		echo "❌ scripts/sign-release-manifests.sh not found"; \
+		exit 1; \
+	fi
+	@echo "📝 Using sign-release-manifests.sh (preferred)"
+	@SIGNING_ENV_PREFIX=GONEAT SIGNING_APP_NAME=goneat \
+		./scripts/sign-release-manifests.sh "$(RELEASE_TAG)" "dist/release"
 	@echo "✅ Checksum manifests signed for $(RELEASE_TAG)"
 
 release-verify-signatures: ## Verify signatures on checksum manifests
@@ -396,11 +395,17 @@ release-verify-signatures: ## Verify signatures on checksum manifests
 		exit 1; \
 	fi
 	@cd dist/release && \
+		GPG_HOMEDIR_EFF="$$GONEAT_GPG_HOMEDIR"; \
+		if [ -z "$$GPG_HOMEDIR_EFF" ]; then GPG_HOMEDIR_EFF="$$GPG_HOMEDIR"; fi; \
 		echo "🔐 Verifying GPG signatures..."; \
 		for asc in SHA256SUMS.asc SHA512SUMS.asc; do \
 			if [ -f "$$asc" ]; then \
-				gpg --homedir "$$GPG_HOMEDIR" --verify "$$asc" "$${asc%.asc}" && \
-				echo "  ✅ $$asc - Good signature"; \
+				if [ -n "$$GPG_HOMEDIR_EFF" ]; then \
+					gpg --homedir "$$GPG_HOMEDIR_EFF" --verify "$$asc" "$${asc%.asc}" && \
+					echo "  ✅ $$asc - Good signature"; \
+				else \
+					echo "  ⚠️  $$asc - GPG_HOMEDIR not set; skipping verification"; \
+				fi; \
 			else \
 				echo "  ⚠️  $$asc - Signature file not found"; \
 			fi; \
@@ -430,11 +435,14 @@ release-export-minisign-key: ## Export minisign public key for distribution
 	@mkdir -p dist/release
 	@if [ -f "dist/release/fulmenhq-release-minisign.pub" ]; then \
 		echo "✅ Minisign public key already exists in dist/release/"; \
+	elif [ -n "$(GONEAT_MINISIGN_PUB)" ] && [ -f "$(GONEAT_MINISIGN_PUB)" ]; then \
+		cp "$(GONEAT_MINISIGN_PUB)" dist/release/fulmenhq-release-minisign.pub; \
+		echo "✅ Minisign public key exported from GONEAT_MINISIGN_PUB"; \
 	elif [ -n "$(MINISIGN_PUB)" ] && [ -f "$(MINISIGN_PUB)" ]; then \
 		cp "$(MINISIGN_PUB)" dist/release/fulmenhq-release-minisign.pub; \
-		echo "✅ Minisign public key exported from MINISIGN_PUB"; \
-	elif [ -n "$(MINISIGN_KEY)" ]; then \
-		PUB_KEY=$$(echo "$(MINISIGN_KEY)" | sed 's/\.key$$/.pub/'); \
+		echo "✅ Minisign public key exported from MINISIGN_PUB (legacy)"; \
+	elif [ -n "$(GONEAT_MINISIGN_KEY)" ]; then \
+		PUB_KEY=$$(echo "$(GONEAT_MINISIGN_KEY)" | sed 's/\.key$$/.pub/'); \
 		if [ -f "$$PUB_KEY" ]; then \
 			cp "$$PUB_KEY" dist/release/fulmenhq-release-minisign.pub; \
 			echo "✅ Minisign public key exported from derived path: $$PUB_KEY"; \
@@ -442,9 +450,18 @@ release-export-minisign-key: ## Export minisign public key for distribution
 			echo "❌ Minisign public key not found at derived path: $$PUB_KEY"; \
 			exit 1; \
 		fi; \
+	elif [ -n "$(MINISIGN_KEY)" ]; then \
+		PUB_KEY=$$(echo "$(MINISIGN_KEY)" | sed 's/\.key$$/.pub/'); \
+		if [ -f "$$PUB_KEY" ]; then \
+			cp "$$PUB_KEY" dist/release/fulmenhq-release-minisign.pub; \
+			echo "✅ Minisign public key exported from derived path: $$PUB_KEY (legacy)"; \
+		else \
+			echo "❌ Minisign public key not found at derived path: $$PUB_KEY"; \
+			exit 1; \
+		fi; \
 	else \
-		echo "❌ Neither MINISIGN_PUB nor MINISIGN_KEY set."; \
-		echo "   Set MINISIGN_PUB=path/to/key.pub or MINISIGN_KEY=path/to/key.key"; \
+		echo "❌ Neither GONEAT_MINISIGN_PUB nor GONEAT_MINISIGN_KEY set."; \
+		echo "   Set GONEAT_MINISIGN_PUB=path/to/key.pub or GONEAT_MINISIGN_KEY=path/to/key.key"; \
 		exit 1; \
 	fi
 	@echo "✅ Minisign public key available at dist/release/fulmenhq-release-minisign.pub"

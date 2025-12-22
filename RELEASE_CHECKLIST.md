@@ -325,27 +325,40 @@ RELEASE_TAG=$RELEASE_TAG make release-verify-checksums  # Non-destructive verifi
 
 ### 4. Set signing environment variables
 
-Set these environment variables (temporary - do not export to avoid shell pollution):
+Set signing environment variables.
+
+Preferred convention is `GONEAT_*` (Fulmen standard). Pass them inline to `make` to avoid shell pollution.
 
 ```bash
-PGP_KEY_ID=$(gpg --list-secret-keys --keyid-format=long security@fulmenhq.dev | grep '^sec' | head -1 | awk '{print $2}' | cut -d'/' -f2)
-MINISIGN_KEY=~/.minisign/fulmenhq-release.key
-MINISIGN_PUB=~/.minisign/fulmenhq-release.pub
-GPG_HOMEDIR=${GNUPGHOME:-~/.gnupg}  # Use GNUPGHOME if set, fallback to default
+# Prefer absolute paths (avoid ~ which does not always expand in Make/env)
+GONEAT_PGP_KEY_ID=$(gpg --list-secret-keys --keyid-format=long security@fulmenhq.dev | grep '^sec' | head -1 | awk '{print $2}' | cut -d'/' -f2)
+GONEAT_GPG_HOMEDIR="${GNUPGHOME:-$HOME/.gnupg}"
+GONEAT_MINISIGN_KEY="$HOME/.minisign/fulmenhq-release.key"
+# Optional (if unset, will be derived from MINISIGN_KEY by replacing .key -> .pub when possible)
+GONEAT_MINISIGN_PUB="$HOME/.minisign/fulmenhq-release.pub"
 ```
+
+Notes:
+- Minisign signing is required.
+- PGP signing is required for goneat releases (the Makefile enforces this).
 
 ### 5. Sign checksum manifests
 
 ```bash
-RELEASE_TAG=$RELEASE_TAG make release-sign  # Sign with GPG and minisign
+RELEASE_TAG="$RELEASE_TAG" \
+GONEAT_MINISIGN_KEY="$HOME/.minisign/fulmenhq-release.key" \
+GONEAT_MINISIGN_PUB="$HOME/.minisign/fulmenhq-release.pub" \
+GONEAT_PGP_KEY_ID="$GONEAT_PGP_KEY_ID" \
+GONEAT_GPG_HOMEDIR="${GNUPGHOME:-$HOME/.gnupg}" \
+make release-sign
 ```
 
-This target automatically:
+This target uses `scripts/sign-release-manifests.sh` (preferred) which:
 
-- Uses sign-checksums.sh helper if available
-- Falls back to manual GPG + minisign signing
-- Copies minisign public key for distribution
-- Extracts GPG public key for distribution
+- Signs `SHA256SUMS` and `SHA512SUMS` with minisign
+- Signs the same manifests with PGP
+- Copies minisign public key into `dist/release/` (if provided or derivable)
+- Exports the PGP public key into `dist/release/fulmenhq-release-signing-key.asc`
 
 ### 6. Verify signatures and key safety
 
@@ -360,7 +373,7 @@ GPG signatures:
 
 ```bash
 for asc in SHA256SUMS.asc SHA512SUMS.asc; do
-  gpg --homedir "$GPG_HOMEDIR" --verify "$asc" "${asc%.asc}"
+  gpg --homedir "${GONEAT_GPG_HOMEDIR:-$GPG_HOMEDIR}" --verify "$asc" "${asc%.asc}"
 done
 ```
 
@@ -397,8 +410,8 @@ Includes automatic Homebrew formula updates.
 
 ```bash
 cd ../..  # Return to repo root
-# CRITICAL: Ensure GPG_HOMEDIR matches what was used during signing
-export GPG_HOMEDIR=${GNUPGHOME:-~/.gnupg}  # Use same value as signing step
+# CRITICAL: Ensure GONEAT_GPG_HOMEDIR matches what was used during signing (PGP only)
+export GONEAT_GPG_HOMEDIR=${GNUPGHOME:-$HOME/.gnupg}
 make release-upload  # Uploads artifacts AND updates ../homebrew-tap formula
 ```
 
