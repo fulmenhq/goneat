@@ -126,6 +126,12 @@ Architectural decisions affecting the entire ecosystem are documented in [decisi
 
 See [decisions/README.md](decisions/README.md) for the complete ADR index.
 
+## Domain Architecture
+
+- [Enact Overview](enact/overview.md) - What Enact is and how it works.
+- [Enact Schema Architecture](enact/schema-architecture.md) - Layer model + schema tree map.
+- [Enact Schema Examples](enact/schema-examples.md) - Example instance documents.
+
 ## Module Documentation
 
 Standards for specific library modules (Config Path API, Crucible Shim, Docscribe, etc.) are in [modules/](modules/README.md).

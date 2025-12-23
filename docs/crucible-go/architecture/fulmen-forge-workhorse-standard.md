@@ -3,7 +3,7 @@ title: "Fulmen Forge Workhorse Standard"
 description: "Standard structure and capabilities for Fulmen Workhorse forges - production-ready templates for robust, general-purpose applications"
 author: "Fulmen Enterprise Architect (@fulmen-ea-steward)"
 date: "2025-10-20"
-last_updated: "2025-10-20"
+last_updated: "2025-12-18"
 status: "draft"
 tags: ["architecture", "forge", "workhorse", "template", "2025.10.2"]
 ---
@@ -43,6 +43,8 @@ Workhorse forges MUST integrate these Fulmen helper library modules to ensure ec
    - **Helper API**: `app_identity.load()` → AppIdentity object
    - **Addresses Gap**: Binary name parameterization (see percheron workhorse-standard-gaps.md)
    - **CDRL Workflow**: Users update `.fulmen/app.yaml` FIRST, then run `make validate-app-identity` to find hardcoded references
+   - **Distributed artifact requirement**: Workhorse forges MUST embed identity for standalone binaries (see [App Identity Module](../standards/library/modules/app-identity.md))
+   - **Required Make targets**: forges MUST provide `make sync-embedded-identity` and `make verify-embedded-identity` (see [Fulmen Template CDRL Standard](fulmen-template-cdrl-standard.md))
 
 2. **Crucible Shim Module** (REQUIRED)
    - **Purpose**: Access Crucible SSOT assets (schemas, standards, documentation, configs, taxonomies) without direct sync

@@ -247,20 +247,27 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 			paths = []string{"."}
 		}
 
+		forceInclude := append([]string(nil), explicitFiles...)
+		// Also treat positional args as explicit targets (avoid ignore surprises for .goneat/, etc.)
+		if len(folders) == 0 {
+			forceInclude = append(forceInclude, args...)
+		}
+
 		// Create planner configuration
 		plannerConfig = work.PlannerConfig{
-			Command:            "format",
-			Paths:              paths,
-			IncludePatterns:    patterns, // Use new patterns flag
-			ContentTypes:       contentTypes,
-			MaxDepth:           maxDepth,
-			ExecutionStrategy:  strategy,
-			GroupBySize:        groupBySize,
-			GroupByContentType: groupByType,
-			IgnoreFile:         ".goneatignore",                           // Enable .goneatignore support
-			EnableFinalizer:    finalizeEOF || finalizeTrimTrailingSpaces, // Enable finalizer support
-			Verbose:            verbose,                                   // Enable verbose logging
-			IncludeConfigDirs:  includeConfigDirs,                         // Include config directories like .claude
+			Command:              "format",
+			Paths:                paths,
+			IncludePatterns:      patterns, // Use new patterns flag
+			ContentTypes:         contentTypes,
+			MaxDepth:             maxDepth,
+			ExecutionStrategy:    strategy,
+			GroupBySize:          groupBySize,
+			GroupByContentType:   groupByType,
+			IgnoreFile:           ".goneatignore",                           // Enable .goneatignore support
+			EnableFinalizer:      finalizeEOF || finalizeTrimTrailingSpaces, // Enable finalizer support
+			Verbose:              verbose,                                   // Enable verbose logging
+			IncludeConfigDirs:    includeConfigDirs,                         // Include config directories like .claude
+			ForceIncludePatterns: forceInclude,
 		}
 	}
 

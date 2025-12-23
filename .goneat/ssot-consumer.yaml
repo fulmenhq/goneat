@@ -12,36 +12,34 @@
 #   4. ssot-consumer.yaml (this file, committed)
 #   5. Convention-based (../<source>) - only if .local.yaml exists
 version: v1.1.0
-
 sources:
-   - name: crucible
-     repo: fulmenhq/crucible
-     ref: v0.2.22
-     # Without .local.yaml, goneat clones from GitHub (force-remote friendly)
-     force_remote: true
-     sync_path_base: .
-     # NOTE: Crucible no longer exports a dedicated lang/go mirror. We sync from repo root for now,
-     # but may switch to consuming gofulmen (or embedding Crucible directly) in a future release.
-     assets:
-       - type: config
-         source_path: config
-         paths:
-           - '**/*'
-         subdir: config/crucible-go
-       - type: doc
-         source_path: docs
-         paths:
-           - standards/**
-           - architecture/**
-           - guides/**
-           - sop/**
-         subdir: docs/crucible-go
-       - type: schema
-         source_path: schemas
-         paths:
-           - '**/*'
-         subdir: schemas/crucible-go
-
+  - name: crucible
+    repo: fulmenhq/crucible
+    ref: v0.2.27
+    # Without .local.yaml, goneat clones from GitHub (force-remote friendly)
+    force_remote: true
+    sync_path_base: .
+    # NOTE: Crucible no longer exports a dedicated lang/go mirror. We sync from repo root for now,
+    # but may switch to consuming gofulmen (or embedding Crucible directly) in a future release.
+    assets:
+      - type: config
+        source_path: config
+        paths:
+          - "**/*"
+        subdir: config/crucible-go
+      - type: doc
+        source_path: docs
+        paths:
+          - standards/**
+          - architecture/**
+          - guides/**
+          - sop/**
+        subdir: docs/crucible-go
+      - type: schema
+        source_path: schemas
+        paths:
+          - "**/*"
+        subdir: schemas/crucible-go
 strategy:
   on_conflict: overwrite
   prune_stale: true

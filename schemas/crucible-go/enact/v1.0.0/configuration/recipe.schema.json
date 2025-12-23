@@ -1,0 +1,397 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.fulmenhq.dev/enact/v1.0.0/configuration/recipe.schema.json",
+  "title": "Enact Recipe",
+  "description": "Complete deployment specification for an Enact deployment. The recipe defines what you want to build - which components, which provider, which variant.",
+  "$defs": {
+    "componentConfig": {
+      "type": "object",
+      "description": "Configuration for a specific component",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether this component is enabled"
+        },
+        "implementation": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/slug",
+          "description": "Implementation slug (e.g., 'caddy', 'authentik', 'tutor')"
+        },
+        "version": {
+          "type": "string",
+          "description": "Specific version to deploy (overrides default)"
+        },
+        "config": {
+          "type": "object",
+          "description": "Implementation-specific configuration",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "computeConfig": {
+      "type": "object",
+      "description": "Compute instance configuration",
+      "properties": {
+        "size": {
+          "type": "string",
+          "description": "Provider-specific size slug",
+          "examples": [
+            "s-2vcpu-4gb",
+            "s-4vcpu-8gb"
+          ]
+        },
+        "image": {
+          "type": "string",
+          "description": "OS image slug",
+          "default": "ubuntu-24-04-x64"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "description": "Number of instances"
+        },
+        "ssh_keys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "SSH key names or fingerprints"
+        },
+        "tags": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/tagList"
+        },
+        "user_data": {
+          "type": "string",
+          "description": "Cloud-init user data script"
+        }
+      },
+      "additionalProperties": false
+    },
+    "databaseConfig": {
+      "type": "object",
+      "description": "Database configuration",
+      "properties": {
+        "engine": {
+          "type": "string",
+          "enum": [
+            "pg",
+            "mysql"
+          ],
+          "default": "pg"
+        },
+        "version": {
+          "type": "string",
+          "description": "Database version",
+          "examples": [
+            "16",
+            "15",
+            "8.0"
+          ]
+        },
+        "size": {
+          "type": "string",
+          "description": "Provider-specific size slug",
+          "examples": [
+            "db-s-1vcpu-1gb",
+            "db-s-2vcpu-4gb"
+          ]
+        },
+        "nodes": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "description": "Number of nodes (for HA)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "storageConfig": {
+      "type": "object",
+      "description": "Object storage configuration",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Bucket name"
+        },
+        "acl": {
+          "type": "string",
+          "enum": [
+            "private",
+            "public-read"
+          ],
+          "default": "private"
+        },
+        "cors_enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "cdn_enabled": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "dnsConfig": {
+      "type": "object",
+      "description": "DNS configuration",
+      "properties": {
+        "provider": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/slug",
+          "description": "DNS provider slug",
+          "default": "cloudflare"
+        },
+        "zone": {
+          "type": "string",
+          "description": "DNS zone name (domain)",
+          "examples": [
+            "example.com",
+            "learn.example.org"
+          ]
+        },
+        "zone_id": {
+          "type": "string",
+          "description": "Provider-specific zone ID (if known)"
+        },
+        "subdomains": {
+          "type": "object",
+          "description": "Subdomain assignments for services",
+          "properties": {
+            "lms": {
+              "type": "string",
+              "default": "lms"
+            },
+            "studio": {
+              "type": "string",
+              "default": "studio"
+            },
+            "auth": {
+              "type": "string",
+              "default": "auth"
+            },
+            "cms": {
+              "type": "string",
+              "default": "cms"
+            },
+            "api": {
+              "type": "string",
+              "default": "api"
+            }
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "proxied": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use Cloudflare proxy (orange cloud)"
+        }
+      },
+      "required": [
+        "zone"
+      ],
+      "additionalProperties": false
+    },
+    "tlsConfig": {
+      "type": "object",
+      "description": "TLS certificate configuration",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "lets-encrypt",
+            "self-signed",
+            "provided",
+            "cloudflare"
+          ],
+          "default": "lets-encrypt"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Email for Let's Encrypt notifications"
+        },
+        "staging": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use Let's Encrypt staging (for testing)"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/schemaVersion"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Recipe metadata",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Deployment name (used for resource naming)",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "maxLength": 32,
+          "examples": [
+            "insight92-prod",
+            "acme-learning-dev"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description"
+        },
+        "owner": {
+          "type": "string",
+          "description": "Owner/team responsible"
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "dev",
+            "staging",
+            "prod"
+          ],
+          "description": "Deployment environment"
+        },
+        "tags": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/tagList"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "deployment": {
+      "type": "object",
+      "description": "Deployment-wide settings",
+      "properties": {
+        "variant": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/slug",
+          "description": "System variant (minimal, standard, ha, enterprise)",
+          "default": "standard"
+        },
+        "provider": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/slug",
+          "description": "Primary infrastructure provider",
+          "default": "digitalocean"
+        },
+        "region": {
+          "type": "string",
+          "description": "Provider region slug",
+          "examples": [
+            "nyc3",
+            "fra1",
+            "us-east-1"
+          ]
+        },
+        "base_domain": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/domainName",
+          "description": "Base domain for all services"
+        }
+      },
+      "required": [
+        "variant",
+        "provider",
+        "region",
+        "base_domain"
+      ],
+      "additionalProperties": false
+    },
+    "infrastructure": {
+      "type": "object",
+      "description": "Infrastructure resource configuration",
+      "properties": {
+        "compute": {
+          "$ref": "#/$defs/computeConfig"
+        },
+        "database": {
+          "$ref": "#/$defs/databaseConfig"
+        },
+        "storage": {
+          "$ref": "#/$defs/storageConfig"
+        },
+        "dns": {
+          "$ref": "#/$defs/dnsConfig"
+        },
+        "tls": {
+          "$ref": "#/$defs/tlsConfig"
+        }
+      },
+      "additionalProperties": false
+    },
+    "components": {
+      "type": "object",
+      "description": "Component configurations keyed by component slug",
+      "properties": {
+        "reverse-proxy": {
+          "$ref": "#/$defs/componentConfig"
+        },
+        "identity": {
+          "$ref": "#/$defs/componentConfig"
+        },
+        "lms": {
+          "$ref": "#/$defs/componentConfig"
+        },
+        "database": {
+          "$ref": "#/$defs/componentConfig"
+        },
+        "cache": {
+          "$ref": "#/$defs/componentConfig"
+        },
+        "object-storage": {
+          "$ref": "#/$defs/componentConfig"
+        },
+        "cms": {
+          "$ref": "#/$defs/componentConfig"
+        },
+        "monitoring": {
+          "$ref": "#/$defs/componentConfig"
+        },
+        "backup": {
+          "$ref": "#/$defs/componentConfig"
+        }
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/componentConfig"
+      }
+    },
+    "secrets_ref": {
+      "type": "string",
+      "description": "Path to secrets file (relative to recipe)",
+      "default": "secrets.env.gpg",
+      "examples": [
+        "secrets.env.gpg",
+        "environments/prod/secrets.env.gpg"
+      ]
+    },
+    "overrides": {
+      "type": "object",
+      "description": "Environment-specific overrides (merged on top)",
+      "additionalProperties": true
+    },
+    "features": {
+      "type": "object",
+      "description": "Feature flags",
+      "additionalProperties": {
+        "type": "boolean"
+      }
+    },
+    "notes": {
+      "type": "string",
+      "description": "Operator notes about this recipe"
+    }
+  },
+  "required": [
+    "schema_version",
+    "metadata",
+    "deployment"
+  ],
+  "additionalProperties": false
+}

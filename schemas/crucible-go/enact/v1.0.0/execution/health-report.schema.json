@@ -1,0 +1,445 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.fulmenhq.dev/enact/v1.0.0/execution/health-report.schema.json",
+  "title": "Enact Health Report",
+  "description": "Captures results from health checks. Produced by 'Enact check' command. Used for monitoring, drift detection, and operational awareness.",
+  "$defs": {
+    "checkResult": {
+      "type": "object",
+      "description": "Result of a single health check",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Check name"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "dns",
+            "tls",
+            "connectivity",
+            "service",
+            "resource",
+            "integration",
+            "performance"
+          ],
+          "description": "Check category"
+        },
+        "status": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/healthStatus"
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable result message"
+        },
+        "details": {
+          "type": "object",
+          "description": "Check-specific details",
+          "additionalProperties": true
+        },
+        "target": {
+          "type": "string",
+          "description": "What was checked (URL, hostname, service name)"
+        },
+        "expected": {
+          "type": "string",
+          "description": "Expected value or condition"
+        },
+        "actual": {
+          "type": "string",
+          "description": "Actual value or condition"
+        },
+        "response_ms": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/durationMilliseconds"
+        },
+        "checked_at": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/timestamp"
+        },
+        "component": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/slug",
+          "description": "Related component"
+        },
+        "remediation": {
+          "type": "string",
+          "description": "Suggested fix if failed"
+        },
+        "docs_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Link to troubleshooting docs"
+        }
+      },
+      "required": [
+        "name",
+        "category",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "dnsCheck": {
+      "type": "object",
+      "description": "DNS resolution check details",
+      "properties": {
+        "hostname": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/hostname"
+        },
+        "record_type": {
+          "type": "string",
+          "enum": [
+            "A",
+            "AAAA",
+            "CNAME",
+            "MX",
+            "TXT"
+          ]
+        },
+        "expected_value": {
+          "type": "string"
+        },
+        "resolved_value": {
+          "type": "string"
+        },
+        "ttl": {
+          "type": "integer"
+        },
+        "nameserver": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "tlsCheck": {
+      "type": "object",
+      "description": "TLS certificate check details",
+      "properties": {
+        "hostname": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/hostname"
+        },
+        "port": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/port",
+          "default": 443
+        },
+        "issuer": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "san": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Subject Alternative Names"
+        },
+        "not_before": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/timestamp"
+        },
+        "not_after": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/timestamp"
+        },
+        "days_until_expiry": {
+          "type": "integer"
+        },
+        "chain_valid": {
+          "type": "boolean"
+        },
+        "protocol_version": {
+          "type": "string",
+          "examples": [
+            "TLSv1.2",
+            "TLSv1.3"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "serviceCheck": {
+      "type": "object",
+      "description": "Service health check details",
+      "properties": {
+        "service": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/slug"
+        },
+        "endpoint": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/url"
+        },
+        "http_status": {
+          "type": "integer"
+        },
+        "response_body_contains": {
+          "type": "string"
+        },
+        "container_status": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/serviceStatus"
+        },
+        "uptime_seconds": {
+          "type": "integer"
+        },
+        "memory_mb": {
+          "type": "number"
+        },
+        "cpu_percent": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/percentage"
+        }
+      },
+      "additionalProperties": false
+    },
+    "resourceCheck": {
+      "type": "object",
+      "description": "Infrastructure resource check details",
+      "properties": {
+        "resource_type": {
+          "type": "string"
+        },
+        "provider_id": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/providerId"
+        },
+        "provider_status": {
+          "type": "string"
+        },
+        "disk_used_percent": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/percentage"
+        },
+        "memory_used_percent": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/percentage"
+        },
+        "cpu_used_percent": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/percentage"
+        }
+      },
+      "additionalProperties": false
+    },
+    "checkSuite": {
+      "type": "object",
+      "description": "A suite of related checks",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/checkResult"
+          }
+        },
+        "status": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/healthStatus",
+          "description": "Aggregate status of all checks in suite"
+        },
+        "pass_count": {
+          "type": "integer"
+        },
+        "fail_count": {
+          "type": "integer"
+        },
+        "warn_count": {
+          "type": "integer"
+        },
+        "skip_count": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "checks",
+        "status"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/schemaVersion"
+    },
+    "report": {
+      "type": "object",
+      "description": "Report metadata",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique report identifier"
+        },
+        "generated_at": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/timestamp"
+        },
+        "duration_ms": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/durationMilliseconds"
+        },
+        "runner_version": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/semver"
+        },
+        "triggered_by": {
+          "type": "string",
+          "enum": [
+            "manual",
+            "scheduled",
+            "post-apply",
+            "alert"
+          ],
+          "description": "What triggered this health check"
+        }
+      },
+      "required": [
+        "generated_at"
+      ],
+      "additionalProperties": false
+    },
+    "deployment": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "variant": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/slug"
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "dev",
+            "staging",
+            "prod"
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "overall_status": {
+      "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/healthStatus",
+      "description": "Aggregate health status"
+    },
+    "suites": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/checkSuite"
+      },
+      "description": "Check suites organized by category"
+    },
+    "summary": {
+      "type": "object",
+      "description": "Check summary statistics",
+      "properties": {
+        "total_checks": {
+          "type": "integer"
+        },
+        "passed": {
+          "type": "integer"
+        },
+        "failed": {
+          "type": "integer"
+        },
+        "warnings": {
+          "type": "integer"
+        },
+        "skipped": {
+          "type": "integer"
+        },
+        "pass_rate": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/percentage"
+        }
+      },
+      "additionalProperties": false
+    },
+    "critical_issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "check_name": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "remediation": {
+            "type": "string"
+          },
+          "component": {
+            "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/slug"
+          }
+        },
+        "required": [
+          "check_name",
+          "message"
+        ]
+      },
+      "description": "Failed checks requiring immediate attention"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "check_name": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "remediation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "check_name",
+          "message"
+        ]
+      },
+      "description": "Warnings that should be addressed"
+    },
+    "comparison": {
+      "type": "object",
+      "description": "Comparison with previous health check",
+      "properties": {
+        "previous_report_id": {
+          "type": "string"
+        },
+        "previous_status": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/healthStatus"
+        },
+        "status_change": {
+          "type": "string",
+          "enum": [
+            "improved",
+            "degraded",
+            "unchanged"
+          ]
+        },
+        "new_failures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "resolved_failures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "next_check": {
+      "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/timestamp",
+      "description": "When next scheduled check will run"
+    }
+  },
+  "required": [
+    "schema_version",
+    "report",
+    "deployment",
+    "overall_status",
+    "suites",
+    "summary"
+  ],
+  "additionalProperties": false
+}

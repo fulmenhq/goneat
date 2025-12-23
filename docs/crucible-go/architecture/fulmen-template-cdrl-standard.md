@@ -3,7 +3,7 @@ title: "Fulmen Template CDRL Standard"
 description: "Architectural standard for Clone → Degit → Refit → Launch (CDRL) workflow compliance in Fulmen forge templates"
 author: "Schema Cartographer (supervised by @3leapsdave)"
 date: "2025-11-07"
-last_updated: "2025-11-07"
+last_updated: "2025-12-18"
 status: "approved"
 tags: ["architecture", "cdrl", "templates", "forge", "workhorse", "codex"]
 ---
@@ -120,6 +120,7 @@ version: 1.0.0 # Application version (independent of Crucible)
 - Helper library MUST load identity via `app_identity.load()`
 - All parameterization points MUST derive from identity fields
 - No hardcoded breed/site names in codebase (except `.fulmen/app.yaml`)
+- **Distributed artifacts MUST embed identity** and support the embedded fallback behavior defined in the [App Identity Module](../standards/library/modules/app-identity.md) standard
 
 **Why This Matters**: Single-file customization reduces refit errors from ~30% to <5% (observed in Groningen pilot).
 
@@ -170,6 +171,38 @@ Templates MUST provide Makefile targets for CDRL validation:
 ```bash
 grep -r "groningen" --exclude-dir=".fulmen" --exclude="*.md" src/
 ```
+
+#### `make sync-embedded-identity`
+
+**Purpose**: Create/update the embedded identity mirror for distributed artifacts
+
+**Behavior**:
+
+- Copy `.fulmen/app.yaml` → an embeddable mirror path (language-specific)
+- Fail if `.fulmen/app.yaml` is missing
+- Do not mutate formatting/content (byte-for-byte intent)
+
+#### `make verify-embedded-identity`
+
+**Purpose**: Prevent identity drift between source and embedded mirror
+
+**Behavior**:
+
+- Fail if `.fulmen/app.yaml` differs from the embedded mirror
+- SHOULD run as part of `make test`, `make precommit`, and CI
+
+#### Acceptance Criteria (App/Template Layer)
+
+- **AC1 — Standalone binary works outside repo**
+  - `make build`
+  - `cp ./bin/<tool> /tmp/<tool>`
+  - `/tmp/<tool> version`
+  - Must succeed without any `.fulmen/app.yaml` on disk.
+- **AC2 — `--help` must not depend on external identity**
+  - same copy-to-`/tmp` pattern, run `/tmp/<tool> --help`
+- **AC3 — Drift prevention**
+  - `.fulmen/app.yaml` and the embedded mirror must be identical
+  - `make verify-embedded-identity` must fail when they differ
 
 #### `make doctor` (or `make validate-cdrl-ready`)
 

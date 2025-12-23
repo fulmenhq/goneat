@@ -3,9 +3,9 @@ title: "Fulmen Forge Codex Standard"
 description: "Standard architecture and capabilities for Fulmen Codex forges – documentation-first templates for canonical knowledge bases"
 author: "Fulmen Enterprise Architect (@fulmen-ea-steward)"
 date: "2025-10-31"
-last_updated: "2025-10-31"
+last_updated: "2025-12-20"
 status: "draft"
-tags: ["architecture", "forge", "codex", "template", "2025.10.3"]
+tags: ["architecture", "forge", "codex", "template", "v0.2.26"]
 ---
 
 # Fulmen Forge Codex Standard
@@ -14,7 +14,9 @@ Codex forges are Fulmen’s documentation-first starters: opinionated static sit
 
 ## Scope
 
-Applies to repositories named `fulmen-codex-forge-*` and downstream forks derived via CDRL (Clone → Degit → Refit → Launch). Codex forges target documentation portals, schema registries, reference manuals, and developer hubs. They are **not** generic marketing sites; compliance requires integration with Fulmen helper tooling, schema governance, and publishing automation.
+Applies to repositories named `fulmen-codex-forge-*` and downstream forks derived via CDRL (Clone → Degit → Refit → Launch). Codex forges target documentation portals, reference manuals, developer hubs, and browsable spec viewers. They are **not** generic marketing sites; compliance requires integration with Fulmen helper tooling, schema governance, and publishing automation.
+
+> **Note on Spec Hosting**: For machine-first specification artifact hosting (where canonical URL resolution is the primary concern), see the [`spec-host` category](../standards/repository-category/spec-host/README.md). Codex sites may layer human-friendly browsing UI over a spec-host corpus.
 
 ## Tooling Baseline
 
@@ -53,10 +55,12 @@ Exception requests require Architecture Committee sign-off and MUST include a ro
 Codex investments now span multiple tiers of complexity. Categorising a project up front clarifies expectations and ensures the appropriate standard applies.
 
 - **Codex Forge (Full Experience)** – Comprehensive documentation hubs or knowledge portals. Must satisfy this entire standard and ship the Seven Pillars end to end (e.g., future `fulmen-codex-forge-aurora`).
-- **Codex Registry** – Schema-heavy sites such as the forthcoming Fulmen/specomate registry. Still adhere to this standard, but content ingestion recipes and schema surfacing take priority over marketing surfaces.
-- **Headless Utility Registry** – Minimal static exports (for example `ppgate`) that primarily serve machine-readable data or redirects. These MAY omit portions of the forge standard, but MUST document which pillars are intentionally deferred and provide an upgrade path when evolving into a full codex.
+- **Codex Spec Browser** – Human-friendly browsing UI layered over a spec-host corpus. Adheres to this standard but prioritizes schema surfacing, search, and navigation over marketing surfaces. The underlying spec artifacts are hosted via a [`spec-host`](../standards/repository-category/spec-host/README.md) repository implementing the [Spec Publishing Standard](../standards/publishing/spec-publishing.md).
+- **Headless Utility Site** – Minimal static exports (for example `ppgate`) that primarily serve machine-readable data or redirects. These MAY omit portions of the forge standard, but MUST document which pillars are intentionally deferred and provide an upgrade path when evolving into a full codex.
 
-Whenever a repository graduates from “utility registry” to a “codex registry” or full forge, the maintainers must update `.plans/` with the migration strategy and rerun architecture review.
+Whenever a repository graduates from "utility site" to a "spec browser" or full forge, the maintainers must update `.plans/` with the migration strategy and rerun architecture review.
+
+> **Spec-Host vs Codex**: Machine-first spec hosting (where `$id` URLs must resolve) belongs in the [`spec-host`](../standards/repository-category/spec-host/README.md) category. Human-first browsing UI belongs in `codex`. A common pattern is: spec-host provides the resolvable canonical URLs, codex layers a browsable interface on top.
 
 > **Helper Libraries:** Codex forges MUST depend on the language-specific Fulmen helper library (e.g., `tsfulmen` for TypeScript) and expose all Crucible assets via helper APIs rather than bundling raw schema/config copies. Helper library updates should be pinned via lockfiles and surfaced in release notes.
 
@@ -77,6 +81,8 @@ Codex forges MUST integrate these Fulmen helper library modules to ensure ecosys
      - `config_name`: Config directory name for build-time settings
    - **Helper API**: `app_identity.load()` → AppIdentity object
    - **CDRL Workflow**: Users update `.fulmen/app.yaml` during site customization
+   - **Distributed artifact requirement**: Codex forges MUST embed identity so build outputs work outside the repo (see [App Identity Module](../standards/library/modules/app-identity.md))
+   - **Required Make targets**: forges MUST provide `make sync-embedded-identity` and `make verify-embedded-identity` (see [Fulmen Template CDRL Standard](fulmen-template-cdrl-standard.md))
 
 2. **Crucible Shim Module** (REQUIRED)
    - **Purpose**: Access Crucible SSOT assets (schemas, standards, documentation, configs, taxonomies) for ingestion pipelines

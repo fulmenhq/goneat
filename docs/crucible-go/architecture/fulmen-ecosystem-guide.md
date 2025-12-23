@@ -3,9 +3,9 @@ title: "Fulmen Ecosystem Guide"
 description: "How the Fulmen ecosystem fits together—from schemas and tooling to libraries, forges, and operational standards"
 author: "Schema Cartographer"
 date: "2025-10-10"
-last_updated: "2025-11-09"
+last_updated: "2025-12-20"
 status: "draft"
-tags: ["fulmen", "architecture", "ecosystem", "2025.10.2"]
+tags: ["fulmen", "architecture", "ecosystem", "v0.2.26"]
 ---
 
 # Fulmen Ecosystem Guide
@@ -20,10 +20,12 @@ Fulmen empowers teams to build enterprise systems that start fast and scale effo
 
 1. **Helper Libraries (\*fulmen)**: Idiomatic implementations of core data and utilities wrapping Crucible assets. Solves cross-project pains like config paths, schema validation, observability, and Foundry catalogs (countries, HTTP statuses, patterns). Current: `gofulmen`, `pyfulmen`, `tsfulmen`; planned: `rsfulmen` (Rust), `csfulmen` (C#) as ecosystem needs evolve.
 
-2. **Templates (Fulmens)**: Proven, production-ready starters embodying CRDL (Clone → Degit → Refit → Launch). Three specialized template types for different use cases:
+2. **Templates (Fulmens)**: Proven, production-ready starters embodying CRDL (Clone → Degit → Refit → Launch). Five specialized template types for different use cases:
    - **Workhorse**: General-purpose applications (servers, workers, long-running processes) - Examples: `forge-workhorse-groningen` (Go backend), `forge-workhorse-percheron` (Python backend)
-   - **Codex**: Documentation-first static sites and knowledge hubs - Examples: `forge-codex-aurora` (Astro-based documentation portal)
+   - **Codex**: Human-first documentation sites and knowledge hubs - Examples: `forge-codex-pulsar` (Astro-based documentation portal)
    - **Microtool**: Ultra-narrow, single-purpose CLI tools - Examples: `forge-microtool-anvil` (fixture deployment), `forge-microtool-chisel` (config synchronization)
+   - **Spec-Host**: Machine-first static hosting for specification artifacts (JSON Schema, OpenAPI, AsyncAPI) with canonical URL resolution - Examples: (planned) `forge-spec-host-crucible`
+   - **Missive**: Single-page promotional/CTA sites with minimal dependencies - Examples: (planned) `forge-missive-*`
      Gymnasiums (e.g., TUI experiments) modularize for future integration.
 
 3. **DX/Dev Tools**: Automation layer for governance and productivity. CLI-driven validation, formatting, sync, approvals, and orchestration. Key tools:
@@ -121,23 +123,37 @@ graph TD
 
 ### 2. Templates (Fulmens)
 
-Three specialized template categories, each optimized for different use cases:
+Five specialized template categories, each optimized for different use cases:
 
 - **Workhorse Templates**: General-purpose applications (servers, workers, long-running processes)
   - **Current**: `forge-workhorse-groningen` (Go backend), `forge-workhorse-percheron` (Python backend)
   - **Binary naming**: Uses horse breed names (groningen, percheron, clydesdale)
   - **Use cases**: APIs, workers, services requiring reliable tooling out-of-the-box
 
-- **Codex Templates**: Documentation-first static sites and knowledge hubs
+- **Codex Templates**: Human-first documentation sites and knowledge hubs
   - **Current**: `forge-codex-pulsar` (TypeScript/Astro documentation portal)
-  - **Use cases**: Schema registries, API docs, developer hubs, knowledge portals
+  - **Use cases**: API docs, developer hubs, knowledge portals, browsable spec viewers
   - **Features**: Multi-version support, schema ingestion, i18n-ready, lighthouse benchmarks
+  - **Note**: Codex may layer browsable UI over a spec-host corpus for human consumption
 
 - **Microtool Templates**: Ultra-narrow, single-purpose CLI tools
   - **Current**: `forge-microtool-anvil` (fixture deployment), `forge-microtool-chisel` (config sync)
   - **Binary naming**: Uses tool/instrument names (anvil, chisel, grinder)
   - **Use cases**: Fixture deployment, config synchronization, asset management
   - **Philosophy**: One-way dependency flow (microtool → helper → SSOT, prevents circular dependencies)
+
+- **Spec-Host Templates**: Machine-first static hosting for specification artifacts
+  - **Planned**: `forge-spec-host-crucible` (Crucible schema hosting)
+  - **Use cases**: JSON Schema hosting, OpenAPI spec distribution, AsyncAPI catalogs
+  - **Philosophy**: Canonical URL resolution as primary invariant; no build, CDN-first
+  - **Key requirement**: Every `$id` or `x-fulmen-id` MUST resolve over HTTPS
+  - **See also**: [Spec Publishing Standard](../standards/publishing/spec-publishing.md)
+
+- **Missive Templates**: Single-page promotional/CTA sites with minimal dependencies
+  - **Planned**: `forge-missive-*` templates
+  - **Use cases**: Event announcements, charity fundraisers, product launches
+  - **Philosophy**: Vanilla HTML/CSS first; escalate to SSG only when justified
+  - **Escalation**: Migrate to Codex when multi-page, search, or content collections needed
 
 - **Gymnasiums**: Experimental playgrounds (TUIs, metrics analyzers); e.g., "forge-gymnasium-ginkgo" for modular components.
 
@@ -163,17 +179,17 @@ Three specialized template categories, each optimized for different use cases:
 
 The flywheel: Layer 0 refines → Layer 1 embeds → Layer 2 scaffolds → Layer 3 automates → Layer 4 deploys/iterates.
 
-| Source (Layer)      | Target Layers                | Mechanism                                        | Notes                                                   |
-| ------------------- | ---------------------------- | ------------------------------------------------ | ------------------------------------------------------- |
-| Crucible (0)        | 1 (Libraries), 2 (Templates) | `bun run sync:to-lang`; pull scripts             | Assets (schemas/docs/config) propagate via CalVer tags. |
-| Libraries (1)       | 2 (Templates), 4 (Apps)      | Package deps (go get, bun add)                   | Idiomatic APIs; embed for zero-runtime deps.            |
-| Tools (3)           | All upper layers             | CLI integration (goneat hooks, fulward policies) | Automate governance; e.g., precommit syncs Layer 0.     |
-| Templates (2)       | 4 (Apps)                     | CRDL (degit/clone) + refit                       | Bootstraps with Layers 0-3; gyms for experiments.       |
-| Future: Cosmography | Layer 0 extensions           | Sync pipelines (planned)                         | Data modeling/topology SSOT.                            |
+| Source (Layer)      | Target Layers                | Mechanism                                        | Notes                                                      |
+| ------------------- | ---------------------------- | ------------------------------------------------ | ---------------------------------------------------------- |
+| Crucible (0)        | 1 (Libraries), 2 (Templates) | `bun run sync:to-lang`; pull scripts             | Assets (schemas/docs/config) propagate via versioned tags. |
+| Libraries (1)       | 2 (Templates), 4 (Apps)      | Package deps (go get, bun add)                   | Idiomatic APIs; embed for zero-runtime deps.               |
+| Tools (3)           | All upper layers             | CLI integration (goneat hooks, fulward policies) | Automate governance; e.g., precommit syncs Layer 0.        |
+| Templates (2)       | 4 (Apps)                     | CRDL (degit/clone) + refit                       | Bootstraps with Layers 0-3; gyms for experiments.          |
+| Future: Cosmography | Layer 0 extensions           | Sync pipelines (planned)                         | Data modeling/topology SSOT.                               |
 
 ## Working Across the Ecosystem
 
-1. **Author standards in Crucible** → run `make check-all` → release (CalVer) → generate
+1. **Author standards in Crucible** → run `make check-all` → release (versioned tag) → generate
    release notes.
 2. **Sync language wrappers** → cut releases of `*fulmen` libraries once they pass their
    own `make check-all`.

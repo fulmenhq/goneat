@@ -339,6 +339,7 @@ GONEAT_MINISIGN_PUB="$HOME/.minisign/fulmenhq-release.pub"
 ```
 
 Notes:
+
 - Minisign signing is required.
 - PGP signing is required for goneat releases (the Makefile enforces this).
 

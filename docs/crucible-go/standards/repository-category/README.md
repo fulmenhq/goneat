@@ -3,9 +3,9 @@ title: "Repository Category Standards"
 description: "Category-specific standards for Fulmen repository types"
 author: "Schema Cartographer"
 date: "2025-11-03"
-last_updated: "2025-11-03"
+last_updated: "2025-12-20"
 status: "active"
-tags: ["standards", "repository-category", "organization", "v0.2.3"]
+tags: ["standards", "repository-category", "organization", "v0.2.26"]
 ---
 
 # Repository Category Standards
@@ -18,12 +18,18 @@ This directory contains standards, configuration schemas, and documentation spec
 
 Repository categories are defined in the taxonomy: `schemas/taxonomy/repository-category/v1.0.0/category-key.schema.json`
 
+Current categories: `cli`, `codex`, `library`, `microtool`, `missive`, `pipeline`, `sdk`, `service`, `spec-host`, `workhorse`
+
 ## Structure
 
 ```
 repository-category/
 ├── codex/
 │   └── config-standard.md          # Codex configuration schema standard
+├── missive/
+│   └── README.md                   # Missive category requirements
+├── spec-host/
+│   └── README.md                   # Spec-host category requirements
 ├── workhorse/
 │   └── (future workhorse-specific standards)
 ├── helper-library/
@@ -54,7 +60,9 @@ This creates symmetry between schemas and documentation:
 
 ### Codex
 
-**Category**: `codex` (documentation sites, schema registries, knowledge hubs)
+**Category**: `codex` (human-first documentation sites and knowledge hubs)
+
+**Summary**: Documentation-first static sites with rich browsing, search, and navigation. For machine-first spec hosting, see spec-host.
 
 **Standards**:
 
@@ -73,6 +81,46 @@ This creates symmetry between schemas and documentation:
 - Forge Codex Pulsar (active)
 - Future codex templates (Aurora, Nebula, etc.)
 
+**Note**: Codex sites may layer browsable UI over a spec-host corpus.
+
+### Spec-Host
+
+**Category**: `spec-host` (machine-first specification artifact hosting)
+
+**Summary**: Static hosting for versioned specification artifacts (JSON Schema, OpenAPI, AsyncAPI) with canonical URL resolution as the primary invariant.
+
+**Standards**:
+
+- [Spec-Host Category Standards](spec-host/README.md) - Category requirements
+- [Spec Publishing Standard](../publishing/spec-publishing.md) - Publishing workflow contract
+
+**Key Invariant**: Every `$id` (JSON Schema) or `x-fulmen-id` (OpenAPI/AsyncAPI) MUST resolve over HTTPS.
+
+**Applies To**:
+
+- Crucible schema publishing (planned)
+- Enact spec hosting (planned)
+- Future `forge-spec-host-*` templates
+
+### Missive
+
+**Category**: `missive` (single-page promotional/CTA sites)
+
+**Summary**: Lightweight single-page sites for event announcements, fundraisers, product launches. Vanilla HTML/CSS first; escalate to Codex when scope grows.
+
+**Standards**:
+
+- [Missive Category Standards](missive/README.md) - Category requirements
+
+**Key Principle**: Start with zero build; add complexity only when justified.
+
+**Applies To**:
+
+- Event announcement pages
+- Charity fundraiser sites
+- Product launch pages
+- Future `forge-missive-*` templates
+
 ## Future Standards (Planned)
 
 ### Workhorse
@@ -88,7 +136,7 @@ This creates symmetry between schemas and documentation:
 
 ### Helper Library
 
-**Category**: `helper-library` (language-specific helper libraries)
+**Category**: `library` (language-specific helper libraries)
 
 **Potential Standards**:
 
@@ -101,7 +149,7 @@ This creates symmetry between schemas and documentation:
 
 Use category-specific standards when:
 
-1. **Specialized Requirements**: Requirements unique to a category (e.g., codex config, workhorse deployment)
+1. **Specialized Requirements**: Requirements unique to a category (e.g., codex config, spec-host publishing)
 2. **Clear Scope**: Applies to all repositories in a category, not just one instance
 3. **Schema-Driven**: Configuration or validation schemas that enforce category standards
 4. **Governance Value**: Standardization benefits ecosystem consistency
@@ -117,12 +165,12 @@ Use category-specific standards when:
 **Ecosystem-Wide Standards** (`docs/standards/`):
 
 - Apply to ALL repositories regardless of category
-- Examples: coding standards, observability, error handling
+- Examples: coding standards, observability, error handling, publishing
 
 **Category-Specific Standards** (`docs/standards/repository-category/`):
 
 - Apply to all repositories in a specific category
-- Examples: codex config, workhorse deployment
+- Examples: codex config, spec-host publishing requirements, missive constraints
 
 **Repository-Specific Documentation** (in each repo):
 
@@ -143,12 +191,14 @@ Use category-specific standards when:
 
 ## Related Documentation
 
-- [Repository Category Taxonomy](../../schemas/taxonomy/repository-category/v1.0.0/category-key.schema.json) - Canonical category definitions
+- [Repository Category Taxonomy](../../../schemas/taxonomy/repository-category/v1.0.0/category-key.schema.json) - Canonical category definitions
+- [Repository Categories Config](../../../config/taxonomy/repository-categories.yaml) - Category metadata
 - [Fulmen Ecosystem Guide](../../architecture/fulmen-ecosystem-guide.md) - Overview of repository types
 - [Repository Structure Standards](../repository-structure/README.md) - Directory structure patterns by language
+- [Publishing Standards](../publishing/README.md) - Artifact publishing standards
 
 ---
 
-**Status**: Active (v0.2.3+)
+**Status**: Active (v0.2.26+)
 
 **Maintainers**: Crucible Team

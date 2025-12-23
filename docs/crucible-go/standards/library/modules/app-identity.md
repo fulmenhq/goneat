@@ -3,7 +3,7 @@ title: "Application Identity Module Standard"
 description: "Standardized application identity metadata for Fulmen ecosystem projects"
 author: "Schema Cartographer"
 date: "2025-11-03"
-last_updated: "2025-11-03"
+last_updated: "2025-12-23"
 status: "approved"
 version: "v1.0.0"
 tags: ["app-identity", "modules", "configuration", "standards"]
@@ -62,10 +62,12 @@ The App Identity module solves this by providing a canonical metadata file that 
 | Field         | Type   | Pattern                          | Description                                               |
 | ------------- | ------ | -------------------------------- | --------------------------------------------------------- |
 | `binary_name` | string | `^[a-z][a-z0-9-]{0,62}[a-z0-9]$` | Lowercase kebab-case binary/executable name               |
-| `vendor`      | string | `^[a-z][a-z0-9]{0,62}[a-z0-9]$`  | Lowercase alphanumeric vendor namespace (no hyphens)      |
+| `vendor`      | string | `^[a-z0-9]{2,64}$`               | Lowercase alphanumeric vendor namespace (no hyphens)      |
 | `env_prefix`  | string | `^[A-Z][A-Z0-9_]*_$`             | Uppercase environment variable prefix (must end with `_`) |
 | `config_name` | string | `^[a-z][a-z0-9-]{0,62}[a-z0-9]$` | Filesystem-safe config directory name                     |
 | `description` | string | 10-200 chars                     | One-line application description                          |
+
+**Vendor Pattern Note**: The `vendor` field permits leading digits (e.g., `3leaps`, `37signals`, `8x8`) because vendor names are used for filesystem paths and configuration directories—not as language-specific package identifiers. See [Vendor Pattern Cross-Language Safety](#vendor-pattern-cross-language-safety) for details.
 
 **Optional Fields** (`metadata` object):
 
@@ -133,17 +135,55 @@ Helper libraries MUST follow this discovery order:
    - Use case: CI/CD, containers, deployment overrides
    - Behavior: Error if file doesn't exist
 
-3. **Nearest ancestor search**: Walk upward from CWD
+3. **Filesystem discovery**: Walk upward from CWD
    - Third priority: Search from `os.Getcwd()` / `process.cwd()` upward
    - Stop at first `.fulmen/app.yaml` found
    - Walk to filesystem root (or max 20 levels)
    - Behavior: Error if not found (list searched paths)
+   - Optional: Implementations MAY include an executable-directory fallback as part of filesystem discovery, but it MUST run after the CWD ancestor walk.
 
-4. **Test/fixture injection**: Via test utilities only
+4. **Embedded identity fallback** (REQUIRED for distributed artifacts)
+   - Used only when explicit path/env var are not set and filesystem discovery fails
+   - Ensures standalone binaries/packages know their identity outside the repo
+
+5. **Test/fixture injection**: Via test utilities only
    - `WithIdentity(ctx, fixture)` (Go)
    - `override_identity(fixture)` (Python)
    - `withTestIdentity(fixture, fn)` (TypeScript)
    - Never used in production code
+
+## Embedded Identity Fallback (Distributed Artifacts)
+
+### Requirements
+
+- `.fulmen/app.yaml` MUST NOT contain secrets.
+- Helper libraries MUST support an embedded identity fallback mechanism for distributed artifacts (binaries, packages, container entrypoints).
+- Applications/templates MUST embed identity at build/package time.
+- Embedded identity MUST be treated as build-time provenance and read-only at runtime.
+
+### Drift Prevention (Required for Templates)
+
+Templates MUST provide build targets to keep the embedded mirror in sync:
+
+- `make sync-embedded-identity`
+  - Copies `.fulmen/app.yaml` to an embeddable mirror path (language-specific)
+  - Fails if `.fulmen/app.yaml` is missing
+- `make verify-embedded-identity`
+  - Fails if the embedded mirror differs from `.fulmen/app.yaml`
+  - SHOULD run as part of `make test`, `make precommit`, and CI
+
+### Acceptance Criteria (App/Template Layer)
+
+- **AC1 — Standalone binary works outside repo**
+  - `make build`
+  - `cp ./bin/<tool> /tmp/<tool>`
+  - `/tmp/<tool> version`
+  - Must succeed without any `.fulmen/app.yaml` on disk.
+- **AC2 — `--help` must not depend on external identity**
+  - same copy-to-`/tmp` pattern, run `/tmp/<tool> --help`
+- **AC3 — Drift prevention**
+  - `.fulmen/app.yaml` and the embedded mirror (e.g., `internal/assets/appidentity/app.yaml`) must be identical
+  - `make verify-embedded-identity` must fail when they differ
 
 ## Dependency Layering
 
@@ -472,6 +512,55 @@ Error: Invalid app identity: /path/to/.fulmen/app.yaml
 
 **All references stay synchronized automatically.**
 
+## Vendor Pattern Cross-Language Safety
+
+The `vendor` field pattern (`^[a-z0-9]{2,64}$`) permits leading digits. This section documents why this is safe across all supported languages.
+
+### Why Leading Digits Are Safe
+
+The `vendor` field is used for:
+
+1. **Filesystem paths**: `~/.config/<vendor>/` - All filesystems accept leading digits
+2. **Configuration directories**: No language restrictions apply
+3. **Namespace grouping**: Organizational identifier, not a code symbol
+
+The `vendor` field is **NOT** used for:
+
+- Go package names (use `binary_name` or module path)
+- Python import identifiers (use `metadata.python.package_name`)
+- TypeScript/npm package names (use separate package.json configuration)
+
+### Language-Specific Analysis
+
+| Language   | Concern                              | Vendor Impact | Notes                               |
+| ---------- | ------------------------------------ | ------------- | ----------------------------------- |
+| Go         | Module paths can start with digits   | Safe          | `github.com/3leaps/pkg` works       |
+| Python     | Identifiers cannot start with digits | Safe          | Vendor not used as import name      |
+| TypeScript | npm scopes can start with digits     | Safe          | `@3leaps/pkg` is valid              |
+| Rust       | Crate names can start with digits    | Safe          | Cargo accepts numeric prefixes      |
+| Filesystem | All platforms accept leading digits  | Safe          | `~/.config/3leaps/` works on all OS |
+
+### Real-World Examples
+
+Valid vendor names with leading digits:
+
+- `3leaps` - 3 Leaps, LLC
+- `37signals` - Basecamp/HEY creators
+- `8x8` - Communications platform
+- `1password` - Password manager vendor
+
+### Related Fields
+
+Fields that **do** require alphabetic first character:
+
+| Field                          | Pattern                          | Reason                         |
+| ------------------------------ | -------------------------------- | ------------------------------ |
+| `binary_name`                  | `^[a-z][a-z0-9-]{0,62}[a-z0-9]$` | Shell command conventions      |
+| `env_prefix`                   | `^[A-Z][A-Z0-9_]*_$`             | Environment variable standards |
+| `config_name`                  | `^[a-z][a-z0-9-]{0,62}[a-z0-9]$` | Consistent with binary_name    |
+| `metadata.python.package_name` | `^[a-z][a-z0-9_]{0,62}[a-z0-9]$` | Python identifier requirements |
+| `metadata.telemetry_namespace` | `^[a-z][a-z0-9_]{0,62}[a-z0-9]$` | Metrics system compatibility   |
+
 ## Security Considerations
 
 1. **Path traversal protection**: Validate paths, no `../` escapes
@@ -526,4 +615,4 @@ Error: Invalid app identity: /path/to/.fulmen/app.yaml
 
 **Maintainers**: Schema Cartographer, Crucible Team
 
-**Last Updated**: 2025-11-03
+**Last Updated**: 2025-12-23
