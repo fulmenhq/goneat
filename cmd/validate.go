@@ -34,10 +34,11 @@ var (
 	validateListSchemas  bool
 
 	// Data validation flags
-	validateDataSchema    string
-	validateSchemaFile    string
-	validateSchemaRefDirs []string
-	validateDataFile      string
+	validateDataSchema           string
+	validateSchemaFile           string
+	validateSchemaRefDirs        []string
+	validateDataFile             string
+	validateDataSchemaResolution string
 )
 
 var validateCmd = &cobra.Command{
@@ -82,6 +83,7 @@ func init() {
 	validateDataCmd.Flags().StringVar(&validateDataSchema, "schema", "", "Schema name to validate against (use with --data; mutually exclusive with --schema-file)")
 	validateDataCmd.Flags().StringVar(&validateSchemaFile, "schema-file", "", "Path to arbitrary schema file (JSON/YAML; overrides --schema)")
 	validateDataCmd.Flags().StringSliceVar(&validateSchemaRefDirs, "ref-dir", []string{}, "Directory tree of schema files used to resolve absolute $ref URLs offline (repeatable). Safe if it also contains --schema-file")
+	validateDataCmd.Flags().StringVar(&validateDataSchemaResolution, "schema-resolution", "prefer-id", "Schema resolution strategy for schema IDs (prefer-id, id-strict, path-only)")
 	validateDataCmd.Flags().StringVar(&validateDataFile, "data", "", "Data file to validate (required)")
 	if err := validateDataCmd.MarkFlagRequired("data"); err != nil {
 		panic(fmt.Sprintf("failed to mark data flag as required: %v", err))
@@ -252,6 +254,19 @@ func runValidateData(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unsupported data format: %s (use .yaml/.yml or .json)", ext)
 	}
 
+	if err := validateSchemaResolution(validateDataSchemaResolution); err != nil {
+		return err
+	}
+
+	var idIndex *schema.IDIndex
+	if validateDataSchemaResolution != string(schemaResolutionPathOnly) && len(validateSchemaRefDirs) > 0 {
+		idx, err := schema.BuildIDIndexFromRefDirs(validateSchemaRefDirs)
+		if err != nil {
+			return err
+		}
+		idIndex = idx
+	}
+
 	// Load schema (embedded or file)
 	var result *schema.Result
 	if validateSchemaFile != "" {
@@ -259,13 +274,29 @@ func runValidateData(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to read schema file %s: %w", validateSchemaFile, err)
 		}
-		// Use ValidateFromBytesWithRefDirs for arbitrary schema files
-		result, err = schema.ValidateFromBytesWithRefDirs(schemaBytes, doc, validateSchemaRefDirs)
+		if idIndex != nil {
+			result, err = schema.ValidateFromBytesWithIDIndex(schemaBytes, doc, idIndex)
+		} else {
+			// Use ValidateFromBytesWithRefDirs for arbitrary schema files
+			result, err = schema.ValidateFromBytesWithRefDirs(schemaBytes, doc, validateSchemaRefDirs)
+		}
 		if err != nil {
 			return fmt.Errorf("validation failed: %w", err)
 		}
 	} else if validateDataSchema != "" {
-		result, err = schema.Validate(doc, validateDataSchema)
+		schemaID := strings.TrimSpace(validateDataSchema)
+		if isSchemaIDURL(schemaID) && validateDataSchemaResolution != string(schemaResolutionPathOnly) {
+			if idIndex == nil {
+				return fmt.Errorf("cannot resolve schema_id %q without --ref-dir", schemaID)
+			}
+			entry, ok := idIndex.Get(schemaID)
+			if !ok {
+				return fmt.Errorf("schema_id not found in --ref-dir index: %q", schemaID)
+			}
+			result, err = schema.ValidateFromBytesWithIDIndex(entry.Normalized, doc, idIndex)
+		} else {
+			result, err = schema.Validate(doc, validateDataSchema)
+		}
 		if err != nil {
 			return fmt.Errorf("validation failed: %w", err)
 		}

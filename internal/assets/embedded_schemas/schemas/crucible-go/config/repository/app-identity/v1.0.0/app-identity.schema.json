@@ -29,10 +29,10 @@
         },
         "vendor": {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9]{0,62}[a-z0-9]$",
+          "pattern": "^[a-z0-9]{2,64}$",
           "minLength": 2,
           "maxLength": 64,
-          "description": "Lowercase vendor namespace (no hyphens, alphanumeric only)"
+          "description": "Lowercase vendor namespace (alphanumeric only, no hyphens). Leading digits permitted - vendor is used for filesystem paths and config directories, not language-specific package imports. Examples: 'fulmenhq', '3leaps', '37signals'."
         },
         "env_prefix": {
           "type": "string",

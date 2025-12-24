@@ -1,0 +1,583 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.fulmenhq.dev/enact/v1.0.0/state/inventory.schema.json",
+  "title": "Enact Inventory",
+  "description": "Captures actual deployed infrastructure and service state. The inventory is the source of truth for what exists - human-readable documentation that also enables the runner to compute diffs.",
+  "$defs": {
+    "computeInstance": {
+      "type": "object",
+      "description": "A compute instance (droplet, VM, etc.)",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Instance name"
+        },
+        "provider_id": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/providerId"
+        },
+        "size": {
+          "type": "string",
+          "description": "Instance size slug"
+        },
+        "image": {
+          "type": "string",
+          "description": "OS image"
+        },
+        "vcpus": {
+          "type": "integer",
+          "description": "Number of vCPUs"
+        },
+        "memory_gb": {
+          "type": "number",
+          "description": "RAM in GB"
+        },
+        "disk_gb": {
+          "type": "integer",
+          "description": "Primary disk size in GB"
+        },
+        "ipv4_public": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/ipv4Address"
+        },
+        "ipv4_private": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/ipv4Address"
+        },
+        "ipv6": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/ipv6Address"
+        },
+        "ssh_keys": {
+          "type": "array",
+          "items": {
+            "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/sshPublicKeyFingerprint"
+          }
+        },
+        "tags": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/tagList"
+        },
+        "created_at": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/timestamp"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "off",
+            "archive"
+          ],
+          "description": "Instance status"
+        }
+      },
+      "required": [
+        "name",
+        "provider_id"
+      ],
+      "additionalProperties": false
+    },
+    "databaseCluster": {
+      "type": "object",
+      "description": "A managed database cluster",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "provider_id": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/providerId"
+        },
+        "engine": {
+          "type": "string",
+          "enum": [
+            "pg",
+            "mysql",
+            "redis"
+          ]
+        },
+        "version": {
+          "type": "string"
+        },
+        "size": {
+          "type": "string"
+        },
+        "nodes": {
+          "type": "integer"
+        },
+        "host": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/hostname"
+        },
+        "port": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/port"
+        },
+        "database": {
+          "type": "string",
+          "description": "Default database name"
+        },
+        "ssl_mode": {
+          "type": "string",
+          "enum": [
+            "disable",
+            "allow",
+            "prefer",
+            "require",
+            "verify-ca",
+            "verify-full"
+          ]
+        },
+        "connection_pool_mode": {
+          "type": "string",
+          "enum": [
+            "transaction",
+            "session",
+            "statement"
+          ]
+        },
+        "created_at": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/timestamp"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "creating",
+            "online",
+            "resizing",
+            "migrating",
+            "forking"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "provider_id",
+        "engine",
+        "host",
+        "port"
+      ],
+      "additionalProperties": false
+    },
+    "storageBucket": {
+      "type": "object",
+      "description": "An object storage bucket",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "provider_id": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/providerId"
+        },
+        "region": {
+          "type": "string"
+        },
+        "endpoint": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/hostname"
+        },
+        "cdn_enabled": {
+          "type": "boolean"
+        },
+        "cdn_endpoint": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/hostname"
+        },
+        "acl": {
+          "type": "string"
+        },
+        "created_at": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/timestamp"
+        }
+      },
+      "required": [
+        "name",
+        "provider_id",
+        "endpoint"
+      ],
+      "additionalProperties": false
+    },
+    "dnsRecord": {
+      "type": "object",
+      "description": "A DNS record",
+      "properties": {
+        "name": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/hostname"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "A",
+            "AAAA",
+            "CNAME",
+            "MX",
+            "TXT",
+            "SRV",
+            "CAA"
+          ]
+        },
+        "value": {
+          "type": "string"
+        },
+        "ttl": {
+          "type": "integer",
+          "description": "TTL in seconds"
+        },
+        "proxied": {
+          "type": "boolean",
+          "description": "Cloudflare proxy enabled"
+        },
+        "priority": {
+          "type": "integer",
+          "description": "For MX records"
+        },
+        "record_id": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/providerId"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "firewallRule": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "type": "string",
+          "enum": [
+            "tcp",
+            "udp",
+            "icmp"
+          ]
+        },
+        "ports": {
+          "type": "string",
+          "description": "Port or port range",
+          "examples": [
+            "22",
+            "80",
+            "8000-9000"
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/cidrBlock"
+          }
+        }
+      },
+      "required": [
+        "protocol",
+        "ports",
+        "sources"
+      ],
+      "additionalProperties": false
+    },
+    "firewall": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "provider_id": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/providerId"
+        },
+        "inbound_rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/firewallRule"
+          }
+        },
+        "outbound_rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/firewallRule"
+          }
+        },
+        "droplet_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "provider_id"
+      ],
+      "additionalProperties": false
+    },
+    "serviceEndpoint": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/url"
+        },
+        "purpose": {
+          "type": "string",
+          "description": "What this endpoint is for"
+        },
+        "internal": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this is internal-only"
+        }
+      },
+      "required": [
+        "url",
+        "purpose"
+      ],
+      "additionalProperties": false
+    },
+    "serviceState": {
+      "type": "object",
+      "description": "State of a deployed service",
+      "properties": {
+        "status": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/serviceStatus"
+        },
+        "container_id": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/containerId"
+        },
+        "image": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/dockerImage"
+        },
+        "version": {
+          "type": "string"
+        },
+        "config_path": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/filePath"
+        },
+        "config_hash": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/sha256Hash"
+        },
+        "ports": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Port mappings (host:container)"
+        },
+        "endpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/serviceEndpoint"
+          }
+        },
+        "volumes": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/filePath"
+          }
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Non-sensitive environment variables"
+        },
+        "last_restart": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/timestamp"
+        },
+        "uptime_seconds": {
+          "type": "integer"
+        },
+        "health_endpoint": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/url"
+        },
+        "containers": {
+          "type": "object",
+          "description": "For multi-container services",
+          "additionalProperties": {
+            "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/serviceStatus"
+          }
+        },
+        "extra": {
+          "type": "object",
+          "description": "Service-specific additional data",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "healthCheckResult": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/healthStatus"
+        },
+        "details": {
+          "type": "string"
+        },
+        "response_ms": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/durationMilliseconds"
+        },
+        "checked_at": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/timestamp"
+        },
+        "extra": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/schemaVersion"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "last_updated": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/timestamp"
+        },
+        "updated_by": {
+          "type": "string",
+          "description": "Tool or operator that last updated"
+        },
+        "last_run_ref": {
+          "type": "string",
+          "description": "Path to last runlog that modified this inventory"
+        }
+      },
+      "additionalProperties": false
+    },
+    "deployment": {
+      "type": "object",
+      "description": "Deployment identity",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "recipe_version": {
+          "type": "string"
+        },
+        "variant": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/slug"
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "dev",
+            "staging",
+            "prod"
+          ]
+        },
+        "created_at": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/timestamp"
+        }
+      },
+      "required": [
+        "name",
+        "variant"
+      ],
+      "additionalProperties": false
+    },
+    "provider": {
+      "type": "object",
+      "description": "Provider configuration",
+      "properties": {
+        "compute": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/slug"
+        },
+        "dns": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/slug"
+        },
+        "storage": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/slug"
+        },
+        "region": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "infrastructure": {
+      "type": "object",
+      "description": "Infrastructure resources",
+      "properties": {
+        "compute": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/computeInstance"
+          }
+        },
+        "database": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/databaseCluster"
+          }
+        },
+        "storage": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/storageBucket"
+          }
+        },
+        "firewall": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/firewall"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "dns": {
+      "type": "object",
+      "description": "DNS configuration",
+      "properties": {
+        "provider": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/slug"
+        },
+        "zone_id": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/providerId"
+        },
+        "zone_name": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/domainName"
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dnsRecord"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "services": {
+      "type": "object",
+      "description": "Deployed services keyed by component slug",
+      "additionalProperties": {
+        "$ref": "#/$defs/serviceState"
+      }
+    },
+    "checks": {
+      "type": "object",
+      "description": "Last health check results",
+      "properties": {
+        "last_run": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/timestamp"
+        },
+        "next_scheduled": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/timestamp"
+        },
+        "results": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/healthCheckResult"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "deployment"
+  ],
+  "additionalProperties": false
+}

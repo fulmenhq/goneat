@@ -1,3 +1,29 @@
+# Goneat v0.3.24 — Offline Canonical ID Lookup + Spec-Host CI Guidance
+
+**Release Date**: 2025-12-23
+**Status**: Draft
+
+## TL;DR
+
+- **Canonical ID mode (offline-first)**: resolve URL `schema_id` values from `--ref-dir` with `--schema-resolution id-strict`
+- **Scalable schema validation**: `validate suite` now supports canonical URL IDs (registry-like manifests) without network
+- **CI guidance**: dual-run strategy (offline strict pre-deploy + post-deploy spec-host probe)
+- **Crucible SSOT sync**: updated embedded Crucible docs/schemas/config to v0.2.27
+
+## What Changed
+
+### Canonical `$id` lookup (no-network CI)
+
+- `validate suite` can resolve `schema_id: https://...` (with `source: external`) from local `--ref-dir` schema trees.
+- `validate data --schema https://...` can resolve canonical IDs from `--ref-dir` as well.
+
+### CI strategy: pre-deploy vs post-deploy
+
+- Pre-deploy: run `--schema-resolution id-strict` offline against the corpus.
+- Post-deploy: probe the live spec-host to ensure canonical URLs resolve (operationally critical).
+
+---
+
 # Goneat v0.3.23 — Bulk Validate Suite + Local Schema DX + Offline Refs
 
 **Release Date**: 2025-12-21
@@ -84,7 +110,7 @@ Generated bash hooks now include `set -f` to prevent glob patterns from expandin
 
 ---
 
-# Goneat v0.3.21 — Dependencies Reliability + Tool Cooling Metadata
+**Previous Releases**: See `docs/releases/` for older release notes.
 
 **Release Date**: 2025-12-15
 **Status**: Draft

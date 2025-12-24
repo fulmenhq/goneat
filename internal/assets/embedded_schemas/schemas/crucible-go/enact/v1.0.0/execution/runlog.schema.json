@@ -1,0 +1,418 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.fulmenhq.dev/enact/v1.0.0/execution/runlog.schema.json",
+  "title": "Enact Runlog",
+  "description": "Execution transcript capturing what the runner did. Each run produces a timestamped log with commands, outputs, and state changes. Serves as audit trail, troubleshooting guide, and documentation.",
+  "$defs": {
+    "commandExecution": {
+      "type": "object",
+      "description": "A single command execution",
+      "properties": {
+        "command": {
+          "type": "string",
+          "description": "The command that was executed"
+        },
+        "working_dir": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/filePath"
+        },
+        "host": {
+          "type": "string",
+          "description": "Host where command ran (local or SSH target)"
+        },
+        "started_at": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/timestamp"
+        },
+        "completed_at": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/timestamp"
+        },
+        "duration_ms": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/durationMilliseconds"
+        },
+        "exit_code": {
+          "type": "integer"
+        },
+        "stdout": {
+          "type": "string",
+          "description": "Standard output (may be truncated)"
+        },
+        "stderr": {
+          "type": "string",
+          "description": "Standard error (may be truncated)"
+        },
+        "truncated": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether output was truncated"
+        },
+        "sensitive": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether output contains sensitive data (redacted)"
+        }
+      },
+      "required": [
+        "command",
+        "exit_code"
+      ],
+      "additionalProperties": false
+    },
+    "resourceChange": {
+      "type": "object",
+      "description": "A change to a resource",
+      "properties": {
+        "resource_type": {
+          "type": "string",
+          "description": "Type of resource",
+          "examples": [
+            "droplet",
+            "dns_record",
+            "database",
+            "container"
+          ]
+        },
+        "resource_id": {
+          "type": "string",
+          "description": "Resource identifier"
+        },
+        "action": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/changeAction"
+        },
+        "provider_id": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/providerId"
+        },
+        "before": {
+          "type": "object",
+          "description": "State before change",
+          "additionalProperties": true
+        },
+        "after": {
+          "type": "object",
+          "description": "State after change",
+          "additionalProperties": true
+        },
+        "diff": {
+          "type": "string",
+          "description": "Human-readable diff"
+        }
+      },
+      "required": [
+        "resource_type",
+        "action"
+      ],
+      "additionalProperties": false
+    },
+    "phaseExecution": {
+      "type": "object",
+      "description": "Execution of a runbook phase",
+      "properties": {
+        "phase": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/slug",
+          "description": "Phase slug"
+        },
+        "name": {
+          "type": "string",
+          "description": "Phase display name"
+        },
+        "status": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/statusEnum"
+        },
+        "started_at": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/timestamp"
+        },
+        "completed_at": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/timestamp"
+        },
+        "duration_ms": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/durationMilliseconds"
+        },
+        "skipped_reason": {
+          "type": "string",
+          "description": "If skipped, why"
+        },
+        "commands": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/commandExecution"
+          }
+        },
+        "changes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/resourceChange"
+          }
+        },
+        "error": {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string"
+            },
+            "details": {
+              "type": "string"
+            },
+            "recoverable": {
+              "type": "boolean"
+            }
+          }
+        },
+        "notes": {
+          "type": "string",
+          "description": "Operator or runner notes"
+        }
+      },
+      "required": [
+        "phase",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "inventoryDiff": {
+      "type": "object",
+      "description": "Summary of inventory changes from this run",
+      "properties": {
+        "before_hash": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/sha256Hash"
+        },
+        "after_hash": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/sha256Hash"
+        },
+        "changes_summary": {
+          "type": "object",
+          "properties": {
+            "created": {
+              "type": "integer"
+            },
+            "updated": {
+              "type": "integer"
+            },
+            "deleted": {
+              "type": "integer"
+            },
+            "unchanged": {
+              "type": "integer"
+            }
+          }
+        },
+        "diff_text": {
+          "type": "string",
+          "description": "Unified diff of inventory YAML"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/schemaVersion"
+    },
+    "run": {
+      "type": "object",
+      "description": "Run identification",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique run identifier",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}(-[a-z0-9]+)?$",
+          "examples": [
+            "2024-12-16T14-30-00",
+            "2024-12-16T14-30-00-abc123"
+          ]
+        },
+        "started_at": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/timestamp"
+        },
+        "completed_at": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/timestamp"
+        },
+        "duration_ms": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/durationMilliseconds"
+        },
+        "status": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/statusEnum"
+        },
+        "command": {
+          "type": "string",
+          "description": "The Enact command that was run",
+          "examples": [
+            "apply",
+            "apply --phase dns-network",
+            "check"
+          ]
+        },
+        "operator": {
+          "type": "string",
+          "description": "Who initiated this run"
+        },
+        "hostname": {
+          "type": "string",
+          "description": "Machine where runner executed"
+        },
+        "runner_version": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/semver"
+        }
+      },
+      "required": [
+        "id",
+        "started_at",
+        "status",
+        "command"
+      ],
+      "additionalProperties": false
+    },
+    "context": {
+      "type": "object",
+      "description": "Execution context",
+      "properties": {
+        "recipe_path": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/filePath"
+        },
+        "recipe_hash": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/sha256Hash"
+        },
+        "deployment_name": {
+          "type": "string"
+        },
+        "variant": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/slug"
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "dev",
+            "staging",
+            "prod"
+          ]
+        },
+        "dry_run": {
+          "type": "boolean",
+          "default": false
+        },
+        "phases_requested": {
+          "type": "array",
+          "items": {
+            "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/slug"
+          },
+          "description": "Phases explicitly requested (empty = all)"
+        }
+      },
+      "required": [
+        "deployment_name",
+        "variant"
+      ],
+      "additionalProperties": false
+    },
+    "plan": {
+      "type": "object",
+      "description": "The plan that was generated",
+      "properties": {
+        "phases_to_run": {
+          "type": "array",
+          "items": {
+            "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/slug"
+          }
+        },
+        "phases_skipped": {
+          "type": "array",
+          "items": {
+            "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/slug"
+          }
+        },
+        "estimated_changes": {
+          "type": "object",
+          "properties": {
+            "create": {
+              "type": "integer"
+            },
+            "update": {
+              "type": "integer"
+            },
+            "delete": {
+              "type": "integer"
+            },
+            "unchanged": {
+              "type": "integer"
+            }
+          }
+        },
+        "estimated_duration_seconds": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "phases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/phaseExecution"
+      },
+      "description": "Executed phases in order"
+    },
+    "inventory_diff": {
+      "$ref": "#/$defs/inventoryDiff"
+    },
+    "summary": {
+      "type": "object",
+      "description": "Execution summary",
+      "properties": {
+        "phases_completed": {
+          "type": "integer"
+        },
+        "phases_failed": {
+          "type": "integer"
+        },
+        "phases_skipped": {
+          "type": "integer"
+        },
+        "commands_executed": {
+          "type": "integer"
+        },
+        "resources_created": {
+          "type": "integer"
+        },
+        "resources_updated": {
+          "type": "integer"
+        },
+        "resources_deleted": {
+          "type": "integer"
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "phase": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "next_steps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Suggested next actions for operator"
+    }
+  },
+  "required": [
+    "schema_version",
+    "run",
+    "context",
+    "phases",
+    "summary"
+  ],
+  "additionalProperties": false
+}

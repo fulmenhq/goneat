@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.24] - 2025-12-23
+
+### Added
+
+- **Offline canonical ID lookup**: `validate data` and `validate suite` can resolve canonical URL `schema_id` values from local `--ref-dir` trees (no-network CI)
+- **Schema resolution mode**: `--schema-resolution prefer-id|id-strict|path-only`
+- **Offline $id index**: internal registry for collision-safe `$id` → schema bytes/path indexing
+
+### Changed
+
+- **Validate docs**: documented dual-run CI strategy (offline strict pre-deploy + post-deploy spec-host probe)
+- **Crucible SSOT**: synced to Crucible v0.2.27
+
+### Fixed
+
+- **Format dogfooding**: `goneat format <explicit-file>` force-includes targets even if ignored by `.goneatignore`
+
 ## [v0.3.23] - 2025-12-21
 
 ### Added

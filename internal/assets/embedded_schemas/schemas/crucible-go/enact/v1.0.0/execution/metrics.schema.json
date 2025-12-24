@@ -1,0 +1,541 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.fulmenhq.dev/enact/v1.0.0/execution/metrics.schema.json",
+  "title": "Enact Metrics Definition",
+  "description": "Defines metrics exposed by Enact deployments for Prometheus/Grafana observability. Includes metric definitions, label conventions, and alert rules.",
+  "$defs": {
+    "metricType": {
+      "type": "string",
+      "enum": [
+        "counter",
+        "gauge",
+        "histogram",
+        "summary"
+      ],
+      "description": "Prometheus metric type"
+    },
+    "metricUnit": {
+      "type": "string",
+      "enum": [
+        "seconds",
+        "milliseconds",
+        "bytes",
+        "kilobytes",
+        "megabytes",
+        "gigabytes",
+        "percent",
+        "ratio",
+        "count",
+        "requests",
+        "connections",
+        "errors",
+        "celsius",
+        "info"
+      ],
+      "description": "Unit of measurement (follows Prometheus naming conventions)"
+    },
+    "labelDefinition": {
+      "type": "object",
+      "description": "Definition of a metric label",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Label name (snake_case)"
+        },
+        "description": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean",
+          "default": false
+        },
+        "cardinality": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "description": "Expected cardinality (affects storage)"
+        },
+        "example_values": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "description"
+      ],
+      "additionalProperties": false
+    },
+    "metricDefinition": {
+      "type": "object",
+      "description": "Definition of a single metric",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^Enact_[a-z][a-z0-9_]*$",
+          "description": "Metric name with Enact_ prefix"
+        },
+        "type": {
+          "$ref": "#/$defs/metricType"
+        },
+        "unit": {
+          "$ref": "#/$defs/metricUnit"
+        },
+        "description": {
+          "type": "string",
+          "description": "HELP text for the metric"
+        },
+        "component": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/slug",
+          "description": "Component this metric relates to"
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/labelDefinition"
+          },
+          "description": "Labels attached to this metric"
+        },
+        "buckets": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "For histograms: bucket boundaries"
+        },
+        "objectives": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "For summaries: quantile objectives"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "description"
+      ],
+      "additionalProperties": false
+    },
+    "alertSeverity": {
+      "type": "string",
+      "enum": [
+        "info",
+        "warning",
+        "critical",
+        "page"
+      ],
+      "description": "Alert severity level"
+    },
+    "alertRule": {
+      "type": "object",
+      "description": "Prometheus alerting rule",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Z][a-zA-Z0-9]*$",
+          "description": "Alert name (PascalCase)"
+        },
+        "expr": {
+          "type": "string",
+          "description": "PromQL expression"
+        },
+        "for": {
+          "type": "string",
+          "pattern": "^[0-9]+[smhd]$",
+          "description": "Duration before firing",
+          "examples": [
+            "5m",
+            "15m",
+            "1h"
+          ]
+        },
+        "severity": {
+          "$ref": "#/$defs/alertSeverity"
+        },
+        "summary": {
+          "type": "string",
+          "description": "Alert summary template"
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description template"
+        },
+        "runbook_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Link to runbook for this alert"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Additional labels to attach"
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Additional annotations"
+        }
+      },
+      "required": [
+        "name",
+        "expr",
+        "severity",
+        "summary"
+      ],
+      "additionalProperties": false
+    },
+    "recordingRule": {
+      "type": "object",
+      "description": "Prometheus recording rule for pre-computed aggregations",
+      "properties": {
+        "record": {
+          "type": "string",
+          "pattern": "^Enact:[a-z][a-z0-9_:]*$",
+          "description": "Name of the recorded metric"
+        },
+        "expr": {
+          "type": "string",
+          "description": "PromQL expression"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "record",
+        "expr"
+      ],
+      "additionalProperties": false
+    },
+    "dashboardPanel": {
+      "type": "object",
+      "description": "Grafana dashboard panel specification",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "graph",
+            "stat",
+            "gauge",
+            "table",
+            "heatmap",
+            "logs",
+            "alert-list"
+          ],
+          "description": "Panel visualization type"
+        },
+        "description": {
+          "type": "string"
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Metric names used in this panel"
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "expr": {
+                "type": "string"
+              },
+              "legend": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "thresholds": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "value": {
+                "type": "number"
+              },
+              "color": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "title",
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "dashboardRow": {
+      "type": "object",
+      "description": "A row of panels in a dashboard",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "collapsed": {
+          "type": "boolean",
+          "default": false
+        },
+        "panels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dashboardPanel"
+          }
+        }
+      },
+      "required": [
+        "title",
+        "panels"
+      ],
+      "additionalProperties": false
+    },
+    "dashboard": {
+      "type": "object",
+      "description": "Grafana dashboard definition",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Unique dashboard identifier"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "tags": {
+          "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/tagList"
+        },
+        "refresh": {
+          "type": "string",
+          "description": "Auto-refresh interval",
+          "examples": [
+            "30s",
+            "1m",
+            "5m"
+          ]
+        },
+        "time_range": {
+          "type": "string",
+          "description": "Default time range",
+          "examples": [
+            "1h",
+            "6h",
+            "24h",
+            "7d"
+          ]
+        },
+        "variables": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "query",
+                  "custom",
+                  "constant",
+                  "datasource"
+                ]
+              },
+              "query": {
+                "type": "string"
+              },
+              "multi": {
+                "type": "boolean"
+              },
+              "include_all": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dashboardRow"
+          }
+        }
+      },
+      "required": [
+        "uid",
+        "title",
+        "rows"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "$ref": "https://schemas.fulmenhq.dev/enact/v1.0.0/foundation/types.schema.json#/$defs/schemaVersion"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "prometheus_version": {
+          "type": "string",
+          "description": "Minimum Prometheus version required"
+        },
+        "grafana_version": {
+          "type": "string",
+          "description": "Minimum Grafana version required"
+        }
+      },
+      "additionalProperties": false
+    },
+    "label_conventions": {
+      "type": "object",
+      "description": "Standard labels applied to all metrics",
+      "properties": {
+        "standard_labels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/labelDefinition"
+          },
+          "description": "Labels present on all Enact metrics"
+        },
+        "reserved_labels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Label names reserved for system use"
+        }
+      },
+      "additionalProperties": false
+    },
+    "metrics": {
+      "type": "object",
+      "description": "Metric definitions grouped by category",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/metricDefinition"
+        }
+      }
+    },
+    "recording_rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/recordingRule"
+      },
+      "description": "Pre-computed metric aggregations"
+    },
+    "alert_rules": {
+      "type": "object",
+      "description": "Alert rules grouped by severity or category",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/alertRule"
+        }
+      }
+    },
+    "dashboards": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dashboard"
+      },
+      "description": "Grafana dashboard definitions"
+    },
+    "scrape_configs": {
+      "type": "array",
+      "description": "Prometheus scrape configuration templates",
+      "items": {
+        "type": "object",
+        "properties": {
+          "job_name": {
+            "type": "string"
+          },
+          "metrics_path": {
+            "type": "string",
+            "default": "/metrics"
+          },
+          "scheme": {
+            "type": "string",
+            "enum": [
+              "http",
+              "https"
+            ]
+          },
+          "scrape_interval": {
+            "type": "string"
+          },
+          "static_configs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "targets": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "labels": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "relabel_configs": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "job_name"
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "metrics"
+  ],
+  "additionalProperties": false
+}

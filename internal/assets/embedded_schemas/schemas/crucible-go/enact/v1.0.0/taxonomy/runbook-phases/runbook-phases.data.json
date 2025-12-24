@@ -1,0 +1,702 @@
+{
+  "schema_version": "1.0.0",
+  "taxonomy": "runbook-phases",
+  "title": "Enact Runbook Phases",
+  "description": "Execution phases for Enact deployments - ordered steps from prerequisites through verification",
+  "phases": [
+    {
+      "slug": "prerequisites",
+      "order": 0,
+      "name": "Prerequisites",
+      "description": "Verify tools, credentials, and environment before starting",
+      "category": "prerequisites",
+      "depends_on": [],
+      "actions": [
+        {
+          "slug": "check-tools",
+          "name": "Verify CLI Tools",
+          "description": "Ensure required CLI tools are installed and accessible",
+          "idempotent": true,
+          "reversible": false
+        },
+        {
+          "slug": "check-credentials",
+          "name": "Verify Credentials",
+          "description": "Test provider API credentials are valid",
+          "idempotent": true,
+          "reversible": false
+        },
+        {
+          "slug": "validate-recipe",
+          "name": "Validate Recipe",
+          "description": "Validate recipe against schemas and taxonomies",
+          "idempotent": true,
+          "reversible": false
+        },
+        {
+          "slug": "load-secrets",
+          "name": "Load Secrets",
+          "description": "Decrypt and load secrets via fulsecrets",
+          "idempotent": true,
+          "reversible": false
+        }
+      ],
+      "required_tools": [
+        "gpg"
+      ],
+      "estimated_duration_seconds": 30,
+      "human_intervention": true
+    },
+    {
+      "slug": "dns-network",
+      "order": 10,
+      "name": "DNS & Network",
+      "description": "Configure DNS zones, records, and network foundations",
+      "category": "infrastructure",
+      "depends_on": [
+        "prerequisites"
+      ],
+      "components": [
+        "reverse-proxy"
+      ],
+      "actions": [
+        {
+          "slug": "verify-dns-zone",
+          "name": "Verify DNS Zone",
+          "description": "Confirm DNS zone exists and is accessible",
+          "idempotent": true,
+          "reversible": false
+        },
+        {
+          "slug": "create-dns-records",
+          "name": "Create DNS Records",
+          "description": "Create or update DNS A/AAAA/CNAME records",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 10
+        }
+      ],
+      "required_tools": [
+        "cloudflare"
+      ],
+      "estimated_duration_seconds": 60
+    },
+    {
+      "slug": "compute",
+      "order": 20,
+      "name": "Compute Resources",
+      "description": "Provision and configure compute instances (droplets, VMs)",
+      "category": "infrastructure",
+      "depends_on": [
+        "dns-network"
+      ],
+      "actions": [
+        {
+          "slug": "create-droplet",
+          "name": "Create Compute Instance",
+          "description": "Provision compute instance with specified size and image",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 120
+        },
+        {
+          "slug": "configure-ssh",
+          "name": "Configure SSH Access",
+          "description": "Set up SSH keys and verify connectivity",
+          "idempotent": true,
+          "reversible": false,
+          "estimated_duration_seconds": 30
+        },
+        {
+          "slug": "configure-firewall",
+          "name": "Configure Firewall",
+          "description": "Set up firewall rules for the instance",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 30
+        },
+        {
+          "slug": "assign-floating-ip",
+          "name": "Assign Floating IP",
+          "description": "Assign stable public IP to instance",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 15
+        }
+      ],
+      "required_tools": [
+        "doctl",
+        "ssh"
+      ],
+      "estimated_duration_seconds": 300,
+      "skip_conditions": [
+        "provider:external-compute"
+      ]
+    },
+    {
+      "slug": "storage",
+      "order": 30,
+      "name": "Storage",
+      "description": "Configure object storage buckets and block storage",
+      "category": "infrastructure",
+      "depends_on": [
+        "compute"
+      ],
+      "components": [
+        "object-storage"
+      ],
+      "actions": [
+        {
+          "slug": "create-bucket",
+          "name": "Create Object Storage Bucket",
+          "description": "Create S3-compatible bucket for media and backups",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 15
+        },
+        {
+          "slug": "configure-cors",
+          "name": "Configure CORS",
+          "description": "Set CORS policy for web access",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 10
+        },
+        {
+          "slug": "configure-cdn",
+          "name": "Configure CDN",
+          "description": "Enable and configure CDN endpoint",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 30
+        }
+      ],
+      "required_tools": [
+        "doctl",
+        "s3cmd"
+      ],
+      "estimated_duration_seconds": 120,
+      "skip_conditions": [
+        "component:object-storage:disabled"
+      ]
+    },
+    {
+      "slug": "database",
+      "order": 40,
+      "name": "Database",
+      "description": "Provision and configure database services",
+      "category": "infrastructure",
+      "depends_on": [
+        "compute"
+      ],
+      "components": [
+        "database"
+      ],
+      "actions": [
+        {
+          "slug": "create-database-cluster",
+          "name": "Create Database Cluster",
+          "description": "Provision managed database cluster",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 300
+        },
+        {
+          "slug": "configure-trusted-sources",
+          "name": "Configure Trusted Sources",
+          "description": "Allow connections from compute instances",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 30
+        },
+        {
+          "slug": "create-databases",
+          "name": "Create Application Databases",
+          "description": "Create databases for each application",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 30
+        },
+        {
+          "slug": "create-users",
+          "name": "Create Database Users",
+          "description": "Create application-specific database users",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 30
+        }
+      ],
+      "required_tools": [
+        "doctl",
+        "psql"
+      ],
+      "estimated_duration_seconds": 480
+    },
+    {
+      "slug": "cache",
+      "order": 50,
+      "name": "Cache",
+      "description": "Deploy cache and message broker services",
+      "category": "infrastructure",
+      "depends_on": [
+        "compute"
+      ],
+      "components": [
+        "cache"
+      ],
+      "actions": [
+        {
+          "slug": "deploy-redis",
+          "name": "Deploy Redis",
+          "description": "Deploy Redis container or managed service",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 60
+        },
+        {
+          "slug": "verify-redis",
+          "name": "Verify Redis Connection",
+          "description": "Test Redis connectivity from application hosts",
+          "idempotent": true,
+          "reversible": false,
+          "estimated_duration_seconds": 10
+        }
+      ],
+      "required_tools": [
+        "ssh",
+        "docker",
+        "redis-cli"
+      ],
+      "estimated_duration_seconds": 120,
+      "skip_conditions": [
+        "component:cache:disabled"
+      ]
+    },
+    {
+      "slug": "reverse-proxy",
+      "order": 60,
+      "name": "Reverse Proxy",
+      "description": "Deploy and configure reverse proxy with TLS",
+      "category": "platform",
+      "depends_on": [
+        "dns-network",
+        "compute"
+      ],
+      "components": [
+        "reverse-proxy"
+      ],
+      "actions": [
+        {
+          "slug": "deploy-caddy",
+          "name": "Deploy Reverse Proxy",
+          "description": "Deploy Caddy/nginx container",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 60
+        },
+        {
+          "slug": "configure-routes",
+          "name": "Configure Routes",
+          "description": "Set up routing rules for services",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 30
+        },
+        {
+          "slug": "provision-certificates",
+          "name": "Provision TLS Certificates",
+          "description": "Obtain Let's Encrypt certificates",
+          "idempotent": true,
+          "reversible": false,
+          "estimated_duration_seconds": 60
+        },
+        {
+          "slug": "verify-tls",
+          "name": "Verify TLS",
+          "description": "Confirm HTTPS is working for all domains",
+          "idempotent": true,
+          "reversible": false,
+          "estimated_duration_seconds": 30
+        }
+      ],
+      "required_tools": [
+        "ssh",
+        "docker",
+        "curl"
+      ],
+      "estimated_duration_seconds": 240
+    },
+    {
+      "slug": "identity",
+      "order": 70,
+      "name": "Identity Provider",
+      "description": "Deploy and configure identity/SSO services",
+      "category": "platform",
+      "depends_on": [
+        "reverse-proxy",
+        "database",
+        "cache"
+      ],
+      "components": [
+        "identity"
+      ],
+      "actions": [
+        {
+          "slug": "deploy-authentik",
+          "name": "Deploy Identity Provider",
+          "description": "Deploy Authentik/Keycloak containers",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 120
+        },
+        {
+          "slug": "configure-admin",
+          "name": "Configure Admin User",
+          "description": "Set up initial admin account",
+          "idempotent": true,
+          "reversible": false,
+          "estimated_duration_seconds": 30
+        },
+        {
+          "slug": "configure-providers",
+          "name": "Configure OAuth Providers",
+          "description": "Set up OAuth2/OIDC provider configurations",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 60
+        },
+        {
+          "slug": "verify-sso",
+          "name": "Verify SSO",
+          "description": "Test SSO login flow",
+          "idempotent": true,
+          "reversible": false,
+          "estimated_duration_seconds": 30
+        }
+      ],
+      "required_tools": [
+        "ssh",
+        "docker",
+        "curl"
+      ],
+      "estimated_duration_seconds": 360,
+      "human_intervention": true
+    },
+    {
+      "slug": "lms",
+      "order": 80,
+      "name": "Learning Management System",
+      "description": "Deploy and configure the LMS platform",
+      "category": "application",
+      "depends_on": [
+        "identity",
+        "database",
+        "cache",
+        "storage"
+      ],
+      "components": [
+        "lms"
+      ],
+      "actions": [
+        {
+          "slug": "install-tutor",
+          "name": "Install Tutor",
+          "description": "Install Tutor CLI on host",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 60
+        },
+        {
+          "slug": "configure-tutor",
+          "name": "Configure Tutor",
+          "description": "Set Tutor configuration values",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 60
+        },
+        {
+          "slug": "launch-tutor",
+          "name": "Launch Open edX",
+          "description": "Start Open edX containers",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 300
+        },
+        {
+          "slug": "configure-sso",
+          "name": "Configure LMS SSO",
+          "description": "Connect LMS to identity provider",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 60
+        },
+        {
+          "slug": "create-admin",
+          "name": "Create Admin User",
+          "description": "Create LMS superuser account",
+          "idempotent": true,
+          "reversible": false,
+          "estimated_duration_seconds": 30
+        }
+      ],
+      "required_tools": [
+        "ssh",
+        "docker",
+        "tutor"
+      ],
+      "estimated_duration_seconds": 900,
+      "human_intervention": true
+    },
+    {
+      "slug": "cms",
+      "order": 90,
+      "name": "Content Management System",
+      "description": "Deploy headless CMS for content management",
+      "category": "application",
+      "depends_on": [
+        "reverse-proxy",
+        "database"
+      ],
+      "components": [
+        "cms"
+      ],
+      "actions": [
+        {
+          "slug": "deploy-directus",
+          "name": "Deploy CMS",
+          "description": "Deploy Directus/Strapi container",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 60
+        },
+        {
+          "slug": "configure-cms",
+          "name": "Configure CMS",
+          "description": "Set up CMS schema and permissions",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 120
+        },
+        {
+          "slug": "configure-cms-sso",
+          "name": "Configure CMS SSO",
+          "description": "Connect CMS to identity provider",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 60
+        }
+      ],
+      "required_tools": [
+        "ssh",
+        "docker"
+      ],
+      "estimated_duration_seconds": 300,
+      "skip_conditions": [
+        "component:cms:disabled"
+      ]
+    },
+    {
+      "slug": "monitoring",
+      "order": 100,
+      "name": "Monitoring",
+      "description": "Deploy monitoring and observability stack",
+      "category": "application",
+      "depends_on": [
+        "reverse-proxy",
+        "compute"
+      ],
+      "components": [
+        "monitoring"
+      ],
+      "actions": [
+        {
+          "slug": "deploy-prometheus",
+          "name": "Deploy Prometheus",
+          "description": "Deploy Prometheus for metrics collection",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 60
+        },
+        {
+          "slug": "deploy-grafana",
+          "name": "Deploy Grafana",
+          "description": "Deploy Grafana for dashboards",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 60
+        },
+        {
+          "slug": "configure-dashboards",
+          "name": "Configure Dashboards",
+          "description": "Import Enact dashboard templates",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 30
+        },
+        {
+          "slug": "configure-alerts",
+          "name": "Configure Alerts",
+          "description": "Set up alerting rules",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 30
+        }
+      ],
+      "required_tools": [
+        "ssh",
+        "docker"
+      ],
+      "estimated_duration_seconds": 240,
+      "skip_conditions": [
+        "component:monitoring:disabled",
+        "variant:minimal"
+      ]
+    },
+    {
+      "slug": "backup",
+      "order": 110,
+      "name": "Backup Configuration",
+      "description": "Configure automated backup and recovery",
+      "category": "application",
+      "depends_on": [
+        "lms",
+        "database",
+        "storage"
+      ],
+      "components": [
+        "backup"
+      ],
+      "actions": [
+        {
+          "slug": "deploy-restic",
+          "name": "Deploy Backup Tool",
+          "description": "Install and configure restic",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 60
+        },
+        {
+          "slug": "configure-schedules",
+          "name": "Configure Backup Schedules",
+          "description": "Set up cron jobs for automated backups",
+          "idempotent": true,
+          "reversible": true,
+          "estimated_duration_seconds": 30
+        },
+        {
+          "slug": "verify-backup",
+          "name": "Verify Backup",
+          "description": "Run test backup and verify restore",
+          "idempotent": true,
+          "reversible": false,
+          "estimated_duration_seconds": 300
+        }
+      ],
+      "required_tools": [
+        "ssh",
+        "restic"
+      ],
+      "estimated_duration_seconds": 480,
+      "skip_conditions": [
+        "component:backup:disabled",
+        "variant:minimal"
+      ]
+    },
+    {
+      "slug": "verification",
+      "order": 200,
+      "name": "Verification",
+      "description": "Run comprehensive health checks and verification",
+      "category": "verification",
+      "depends_on": [
+        "lms"
+      ],
+      "actions": [
+        {
+          "slug": "check-dns",
+          "name": "DNS Resolution Check",
+          "description": "Verify all DNS records resolve correctly",
+          "idempotent": true,
+          "reversible": false,
+          "estimated_duration_seconds": 10
+        },
+        {
+          "slug": "check-tls",
+          "name": "TLS Certificate Check",
+          "description": "Verify TLS certificates are valid and not expiring",
+          "idempotent": true,
+          "reversible": false,
+          "estimated_duration_seconds": 10
+        },
+        {
+          "slug": "check-services",
+          "name": "Service Health Check",
+          "description": "Verify all services respond to health endpoints",
+          "idempotent": true,
+          "reversible": false,
+          "estimated_duration_seconds": 30
+        },
+        {
+          "slug": "check-sso",
+          "name": "SSO Flow Check",
+          "description": "Verify SSO authentication works end-to-end",
+          "idempotent": true,
+          "reversible": false,
+          "estimated_duration_seconds": 30
+        },
+        {
+          "slug": "check-connectivity",
+          "name": "Service Connectivity Check",
+          "description": "Verify services can communicate with each other",
+          "idempotent": true,
+          "reversible": false,
+          "estimated_duration_seconds": 30
+        }
+      ],
+      "required_tools": [
+        "curl",
+        "dig",
+        "openssl"
+      ],
+      "estimated_duration_seconds": 180
+    },
+    {
+      "slug": "documentation",
+      "order": 210,
+      "name": "Documentation",
+      "description": "Generate deployment documentation and handoff materials",
+      "category": "verification",
+      "depends_on": [
+        "verification"
+      ],
+      "actions": [
+        {
+          "slug": "generate-inventory",
+          "name": "Generate Inventory",
+          "description": "Create/update inventory.yaml with actual state",
+          "idempotent": true,
+          "reversible": false,
+          "estimated_duration_seconds": 30
+        },
+        {
+          "slug": "generate-runbook",
+          "name": "Generate Runbook",
+          "description": "Create operator runbook documentation",
+          "idempotent": true,
+          "reversible": false,
+          "estimated_duration_seconds": 30
+        },
+        {
+          "slug": "generate-access-docs",
+          "name": "Generate Access Documentation",
+          "description": "Document URLs, credentials, and access procedures",
+          "idempotent": true,
+          "reversible": false,
+          "estimated_duration_seconds": 30
+        }
+      ],
+      "required_tools": [],
+      "estimated_duration_seconds": 120
+    }
+  ]
+}

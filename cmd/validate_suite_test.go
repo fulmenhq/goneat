@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -247,5 +248,95 @@ mappings:
 	}
 	if res.Summary.Passed != 1 {
 		t.Fatalf("expected passed=1, got %d", res.Summary.Passed)
+	}
+}
+
+func TestValidateSuite_JSON_ResolvesCanonicalSchemaIDFromRefDir(t *testing.T) {
+	repo := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repo, ".git"), 0o755); err != nil {
+		t.Fatalf("create fake .git: %v", err)
+	}
+
+	canonicalID := "https://example.invalid/schemas/root.schema.json"
+
+	manifestPath := filepath.Join(repo, "schema-mappings.yaml")
+	if err := os.WriteFile(manifestPath, []byte(`version: "1.0.0"
+mappings:
+  - pattern: "**/*.yaml"
+    schema_id: "`+canonicalID+`"
+    source: external
+`), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	schemasDir := filepath.Join(repo, "schemas")
+	if err := os.MkdirAll(schemasDir, 0o755); err != nil {
+		t.Fatalf("mkdir schemas: %v", err)
+	}
+
+	refSchema := []byte(`{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/schemas/types.schema.json",
+  "$defs": {
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    }
+  }
+}`)
+	if err := os.WriteFile(filepath.Join(schemasDir, "types.schema.json"), refSchema, 0o644); err != nil {
+		t.Fatalf("write ref schema: %v", err)
+	}
+
+	rootSchema := []byte(`{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "` + canonicalID + `",
+  "type": "object",
+  "properties": {
+    "implementation": {
+      "$ref": "https://example.invalid/schemas/types.schema.json#/$defs/slug"
+    }
+  },
+  "required": ["implementation"],
+  "additionalProperties": false
+}`)
+	if err := os.WriteFile(filepath.Join(schemasDir, "root.schema.json"), rootSchema, 0o644); err != nil {
+		t.Fatalf("write root schema: %v", err)
+	}
+
+	examplesDir := filepath.Join(repo, "examples")
+	if err := os.MkdirAll(examplesDir, 0o755); err != nil {
+		t.Fatalf("mkdir examples: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(examplesDir, "good.yaml"), []byte("implementation: nextcloud\n"), 0o644); err != nil {
+		t.Fatalf("write good example: %v", err)
+	}
+
+	out, err := execRoot(t, []string{
+		"validate", "suite",
+		"--data", examplesDir,
+		"--manifest", "schema-mappings.yaml",
+		"--ref-dir", schemasDir,
+		"--format", "json",
+	})
+	if err != nil {
+		t.Fatalf("expected suite to pass, got error: %v\n%s", err, out)
+	}
+
+	var res validateSuiteResult
+	if uerr := json.Unmarshal([]byte(out), &res); uerr != nil {
+		t.Fatalf("expected JSON output, got parse error: %v\n%s", uerr, out)
+	}
+	if res.Summary.Passed != 1 {
+		t.Fatalf("expected passed=1, got %d", res.Summary.Passed)
+	}
+	if len(res.Files) != 1 || res.Files[0].Schema == nil {
+		t.Fatalf("expected schema info in output")
+	}
+	if res.Files[0].Schema.ID != canonicalID {
+		t.Fatalf("expected schema id %q, got %q", canonicalID, res.Files[0].Schema.ID)
+	}
+	if !strings.Contains(res.Files[0].Schema.Path, "root.schema.json") {
+		t.Fatalf("expected schema.path to include root.schema.json, got %q", res.Files[0].Schema.Path)
 	}
 }

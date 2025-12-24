@@ -1,0 +1,289 @@
+{
+  "schema_version": "1.0.0",
+  "taxonomy": "system-variants",
+  "title": "Enact System Variants",
+  "description": "Deployment variants for Enact - from minimal development setups to enterprise-grade high-availability configurations",
+  "variants": [
+    {
+      "slug": "minimal",
+      "name": "Minimal",
+      "description": "Single-node development and testing configuration. Not for production use.",
+      "order": 0,
+      "use_cases": [
+        "Local development",
+        "Feature testing",
+        "Training and demos",
+        "Proof of concept"
+      ],
+      "not_for": [
+        "Production workloads",
+        "Any external users",
+        "Data that matters"
+      ],
+      "requirements": {
+        "min_nodes": 1,
+        "min_vcpus_per_node": 2,
+        "min_memory_gb_per_node": 8,
+        "min_storage_gb_per_node": 50,
+        "total_min_vcpus": 2,
+        "total_min_memory_gb": 8,
+        "load_balancer": false,
+        "managed_database": false,
+        "managed_cache": false,
+        "shared_storage": false,
+        "multi_region": false
+      },
+      "cost_estimate": {
+        "currency": "USD",
+        "min_monthly": 24,
+        "typical_monthly": 48,
+        "max_monthly": 96,
+        "notes": "Single small droplet, no managed services"
+      },
+      "sla_target": {
+        "availability_percent": 95.0,
+        "rpo_hours": 24,
+        "rto_hours": 24
+      },
+      "capacity": {
+        "concurrent_users": "1-10",
+        "total_users": "<100",
+        "courses": "<10"
+      },
+      "features_enabled": [
+        "lms-core",
+        "basic-auth"
+      ],
+      "features_disabled": [
+        "monitoring",
+        "backup",
+        "ha",
+        "sso"
+      ],
+      "phases_skipped": [
+        "monitoring",
+        "backup"
+      ],
+      "recommended_providers": [
+        "digitalocean",
+        "hetzner"
+      ],
+      "tags": [
+        "development",
+        "testing",
+        "low-cost"
+      ]
+    },
+    {
+      "slug": "standard",
+      "name": "Standard",
+      "description": "Production-ready single-node configuration with managed database. Suitable for most small to medium deployments.",
+      "order": 10,
+      "use_cases": [
+        "Small organizations (<500 users)",
+        "Single course or program",
+        "Internal training",
+        "Pilot programs"
+      ],
+      "not_for": [
+        "High-traffic public sites",
+        "Mission-critical with SLA requirements",
+        "Large concurrent user loads"
+      ],
+      "requirements": {
+        "min_nodes": 1,
+        "min_vcpus_per_node": 4,
+        "min_memory_gb_per_node": 16,
+        "min_storage_gb_per_node": 100,
+        "total_min_vcpus": 4,
+        "total_min_memory_gb": 16,
+        "load_balancer": false,
+        "managed_database": true,
+        "managed_cache": false,
+        "shared_storage": false,
+        "multi_region": false
+      },
+      "cost_estimate": {
+        "currency": "USD",
+        "min_monthly": 100,
+        "typical_monthly": 200,
+        "max_monthly": 400,
+        "notes": "Compute + managed database + storage"
+      },
+      "sla_target": {
+        "availability_percent": 99.0,
+        "rpo_hours": 4,
+        "rto_hours": 4
+      },
+      "capacity": {
+        "concurrent_users": "50-200",
+        "total_users": "500-5000",
+        "courses": "10-100"
+      },
+      "features_enabled": [
+        "lms-core",
+        "sso",
+        "monitoring",
+        "backup",
+        "cms"
+      ],
+      "features_disabled": [
+        "ha",
+        "multi-region"
+      ],
+      "phases_skipped": [],
+      "recommended_providers": [
+        "digitalocean",
+        "hetzner",
+        "aws"
+      ],
+      "tags": [
+        "production",
+        "recommended",
+        "balanced"
+      ]
+    },
+    {
+      "slug": "ha",
+      "name": "High Availability",
+      "description": "Multi-node configuration with load balancing and redundancy. For production workloads requiring uptime guarantees.",
+      "order": 20,
+      "use_cases": [
+        "Medium to large organizations",
+        "Public-facing learning portals",
+        "SLA-bound deployments",
+        "High concurrent usage"
+      ],
+      "not_for": [
+        "Budget-constrained projects",
+        "Simple internal training"
+      ],
+      "requirements": {
+        "min_nodes": 2,
+        "min_vcpus_per_node": 4,
+        "min_memory_gb_per_node": 16,
+        "min_storage_gb_per_node": 100,
+        "total_min_vcpus": 8,
+        "total_min_memory_gb": 32,
+        "load_balancer": true,
+        "managed_database": true,
+        "managed_cache": true,
+        "shared_storage": true,
+        "multi_region": false
+      },
+      "cost_estimate": {
+        "currency": "USD",
+        "min_monthly": 400,
+        "typical_monthly": 800,
+        "max_monthly": 1500,
+        "notes": "Multiple nodes + load balancer + managed services"
+      },
+      "sla_target": {
+        "availability_percent": 99.9,
+        "rpo_hours": 1,
+        "rto_hours": 1
+      },
+      "capacity": {
+        "concurrent_users": "200-2000",
+        "total_users": "5000-50000",
+        "courses": "100-1000"
+      },
+      "features_enabled": [
+        "lms-core",
+        "sso",
+        "monitoring",
+        "backup",
+        "cms",
+        "ha",
+        "auto-scaling"
+      ],
+      "features_disabled": [
+        "multi-region"
+      ],
+      "phases_skipped": [],
+      "recommended_providers": [
+        "digitalocean",
+        "aws",
+        "gcp"
+      ],
+      "tags": [
+        "production",
+        "high-availability",
+        "scalable"
+      ]
+    },
+    {
+      "slug": "enterprise",
+      "name": "Enterprise",
+      "description": "Full enterprise configuration with multi-region capability, advanced security, and comprehensive compliance features.",
+      "order": 30,
+      "use_cases": [
+        "Large enterprises",
+        "Multi-regional deployments",
+        "Compliance-heavy industries",
+        "Government and education institutions"
+      ],
+      "not_for": [
+        "Small organizations",
+        "Cost-sensitive projects",
+        "Simple use cases"
+      ],
+      "requirements": {
+        "min_nodes": 4,
+        "min_vcpus_per_node": 8,
+        "min_memory_gb_per_node": 32,
+        "min_storage_gb_per_node": 200,
+        "total_min_vcpus": 32,
+        "total_min_memory_gb": 128,
+        "load_balancer": true,
+        "managed_database": true,
+        "managed_cache": true,
+        "shared_storage": true,
+        "multi_region": true
+      },
+      "cost_estimate": {
+        "currency": "USD",
+        "min_monthly": 2000,
+        "typical_monthly": 5000,
+        "max_monthly": 15000,
+        "notes": "Multi-region infrastructure, premium support recommended"
+      },
+      "sla_target": {
+        "availability_percent": 99.99,
+        "rpo_hours": 0.25,
+        "rto_hours": 0.5
+      },
+      "capacity": {
+        "concurrent_users": "2000+",
+        "total_users": "50000+",
+        "courses": "unlimited"
+      },
+      "features_enabled": [
+        "lms-core",
+        "sso",
+        "monitoring",
+        "backup",
+        "cms",
+        "ha",
+        "auto-scaling",
+        "multi-region",
+        "advanced-analytics",
+        "audit-logging",
+        "compliance-reporting"
+      ],
+      "features_disabled": [],
+      "phases_skipped": [],
+      "recommended_providers": [
+        "aws",
+        "gcp",
+        "azure"
+      ],
+      "tags": [
+        "enterprise",
+        "multi-region",
+        "compliance",
+        "premium"
+      ]
+    }
+  ]
+}

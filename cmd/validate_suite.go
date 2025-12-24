@@ -25,21 +25,22 @@ import (
 )
 
 var (
-	validateSuiteDataRoot       string
-	validateSuiteSchemasRoot    string
-	validateSuiteManifestPath   string
-	validateSuiteRefDirs        []string
-	validateSuiteNoIgnore       bool
-	validateSuiteForceInclude   []string
-	validateSuiteExclude        []string
-	validateSuiteSkip           []string
-	validateSuiteExpectFail     []string
-	validateSuiteStrict         bool
-	validateSuiteEnableMeta     bool
-	validateSuiteMaxWorkers     int
-	validateSuiteFormat         string
-	validateSuiteTimeout        time.Duration
-	validateSuiteFailOnUnmapped bool
+	validateSuiteDataRoot         string
+	validateSuiteSchemasRoot      string
+	validateSuiteManifestPath     string
+	validateSuiteRefDirs          []string
+	validateSuiteNoIgnore         bool
+	validateSuiteForceInclude     []string
+	validateSuiteExclude          []string
+	validateSuiteSkip             []string
+	validateSuiteExpectFail       []string
+	validateSuiteStrict           bool
+	validateSuiteEnableMeta       bool
+	validateSuiteMaxWorkers       int
+	validateSuiteFormat           string
+	validateSuiteTimeout          time.Duration
+	validateSuiteFailOnUnmapped   bool
+	validateSuiteSchemaResolution string
 )
 
 var validateSuiteCmd = &cobra.Command{
@@ -51,24 +52,25 @@ var validateSuiteCmd = &cobra.Command{
 }
 
 type validateSuiteMetadata struct {
-	Tool           string   `json:"tool"`
-	Version        string   `json:"version"`
-	GeneratedAt    string   `json:"generated_at"`
-	Duration       string   `json:"duration"`
-	RepoRoot       string   `json:"repo_root"`
-	DataRoot       string   `json:"data_root"`
-	SchemasRoot    string   `json:"schemas_root,omitempty"`
-	ManifestPath   string   `json:"manifest_path"`
-	RefDirs        []string `json:"ref_dirs,omitempty"`
-	MaxWorkers     int      `json:"max_workers"`
-	NoIgnore       bool     `json:"no_ignore"`
-	ForceInclude   []string `json:"force_include,omitempty"`
-	Exclude        []string `json:"exclude,omitempty"`
-	Skip           []string `json:"skip,omitempty"`
-	ExpectFail     []string `json:"expect_fail,omitempty"`
-	EnableMeta     bool     `json:"enable_meta"`
-	Strict         bool     `json:"strict"`
-	FailOnUnmapped bool     `json:"fail_on_unmapped"`
+	Tool             string   `json:"tool"`
+	Version          string   `json:"version"`
+	GeneratedAt      string   `json:"generated_at"`
+	Duration         string   `json:"duration"`
+	RepoRoot         string   `json:"repo_root"`
+	DataRoot         string   `json:"data_root"`
+	SchemasRoot      string   `json:"schemas_root,omitempty"`
+	ManifestPath     string   `json:"manifest_path"`
+	RefDirs          []string `json:"ref_dirs,omitempty"`
+	SchemaResolution string   `json:"schema_resolution"`
+	MaxWorkers       int      `json:"max_workers"`
+	NoIgnore         bool     `json:"no_ignore"`
+	ForceInclude     []string `json:"force_include,omitempty"`
+	Exclude          []string `json:"exclude,omitempty"`
+	Skip             []string `json:"skip,omitempty"`
+	ExpectFail       []string `json:"expect_fail,omitempty"`
+	EnableMeta       bool     `json:"enable_meta"`
+	Strict           bool     `json:"strict"`
+	FailOnUnmapped   bool     `json:"fail_on_unmapped"`
 }
 
 type validateSuiteSummary struct {
@@ -126,6 +128,7 @@ func init() {
 
 	validateSuiteCmd.Flags().BoolVar(&validateSuiteStrict, "strict", false, "Fail if any files are unmapped or excluded")
 	validateSuiteCmd.Flags().BoolVar(&validateSuiteFailOnUnmapped, "fail-on-unmapped", true, "Fail the suite if any files have no schema mapping")
+	validateSuiteCmd.Flags().StringVar(&validateSuiteSchemaResolution, "schema-resolution", "prefer-id", "Schema resolution strategy (prefer-id, id-strict, path-only)")
 	validateSuiteCmd.Flags().IntVar(&validateSuiteMaxWorkers, "workers", runtime.NumCPU(), "Max parallel workers")
 	validateSuiteCmd.Flags().DurationVar(&validateSuiteTimeout, "timeout", 3*time.Minute, "Validation timeout")
 	validateSuiteCmd.Flags().StringVar(&validateSuiteFormat, "format", "markdown", "Output format (markdown, json)")
@@ -141,6 +144,10 @@ func runValidateSuite(cmd *cobra.Command, _ []string) error {
 
 	ctx, cancel := contextWithTimeout(cmd.Context(), validateSuiteTimeout)
 	defer cancel()
+
+	if err := validateSchemaResolution(validateSuiteSchemaResolution); err != nil {
+		return err
+	}
 
 	resolver, loadResult, err := loadSuiteMapping(repoRoot, validateSuiteManifestPath)
 	if err != nil {
@@ -163,6 +170,15 @@ func runValidateSuite(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
+	var idIndex *schema.IDIndex
+	if validateSuiteSchemaResolution != string(schemaResolutionPathOnly) && len(validateSuiteRefDirs) > 0 {
+		idx, err := schema.BuildIDIndexFromRefDirs(validateSuiteRefDirs)
+		if err != nil {
+			return err
+		}
+		idIndex = idx
+	}
+
 	results := make([]validateSuiteFileResult, 0, len(files))
 	resultsMu := &sync.Mutex{}
 
@@ -177,7 +193,7 @@ func runValidateSuite(cmd *cobra.Command, _ []string) error {
 	for _, file := range files {
 		file := file
 		g.Go(func() error {
-			res := validateSuiteOne(gctx, repoRoot, file, loadResult, resolver)
+			res := validateSuiteOne(gctx, repoRoot, file, loadResult, resolver, idIndex, validateSuiteSchemaResolution)
 
 			resultsMu.Lock()
 			results = append(results, res)
@@ -216,24 +232,25 @@ func runValidateSuite(cmd *cobra.Command, _ []string) error {
 
 	suiteRes := validateSuiteResult{
 		Metadata: validateSuiteMetadata{
-			Tool:           "goneat",
-			Version:        buildinfo.BinaryVersion,
-			GeneratedAt:    time.Now().UTC().Format(time.RFC3339),
-			Duration:       time.Since(start).String(),
-			RepoRoot:       repoRoot,
-			DataRoot:       validateSuiteDataRoot,
-			SchemasRoot:    validateSuiteSchemasRoot,
-			ManifestPath:   validateSuiteManifestPath,
-			RefDirs:        append([]string(nil), validateSuiteRefDirs...),
-			MaxWorkers:     validateSuiteMaxWorkers,
-			NoIgnore:       validateSuiteNoIgnore,
-			ForceInclude:   append([]string(nil), validateSuiteForceInclude...),
-			Exclude:        append([]string(nil), validateSuiteExclude...),
-			Skip:           append([]string(nil), validateSuiteSkip...),
-			ExpectFail:     append([]string(nil), validateSuiteExpectFail...),
-			EnableMeta:     validateSuiteEnableMeta,
-			Strict:         validateSuiteStrict,
-			FailOnUnmapped: validateSuiteFailOnUnmapped,
+			Tool:             "goneat",
+			Version:          buildinfo.BinaryVersion,
+			GeneratedAt:      time.Now().UTC().Format(time.RFC3339),
+			Duration:         time.Since(start).String(),
+			RepoRoot:         repoRoot,
+			DataRoot:         validateSuiteDataRoot,
+			SchemasRoot:      validateSuiteSchemasRoot,
+			ManifestPath:     validateSuiteManifestPath,
+			RefDirs:          append([]string(nil), validateSuiteRefDirs...),
+			SchemaResolution: validateSuiteSchemaResolution,
+			MaxWorkers:       validateSuiteMaxWorkers,
+			NoIgnore:         validateSuiteNoIgnore,
+			ForceInclude:     append([]string(nil), validateSuiteForceInclude...),
+			Exclude:          append([]string(nil), validateSuiteExclude...),
+			Skip:             append([]string(nil), validateSuiteSkip...),
+			ExpectFail:       append([]string(nil), validateSuiteExpectFail...),
+			EnableMeta:       validateSuiteEnableMeta,
+			Strict:           validateSuiteStrict,
+			FailOnUnmapped:   validateSuiteFailOnUnmapped,
 		},
 		MetaValidation: metaRes,
 		Mapping:        loadResult,
@@ -387,7 +404,7 @@ func runSuiteMetaValidation(ctx context.Context, repoRoot, schemasRoot string) *
 	return res
 }
 
-func validateSuiteOne(ctx context.Context, repoRoot, file string, loadResult *mapping.LoadResult, resolver *mapping.Resolver) validateSuiteFileResult {
+func validateSuiteOne(ctx context.Context, repoRoot, file string, loadResult *mapping.LoadResult, resolver *mapping.Resolver, idIndex *schema.IDIndex, schemaResolution string) validateSuiteFileResult {
 	start := time.Now()
 
 	normPath := filepath.Clean(file)
@@ -475,7 +492,37 @@ func validateSuiteOne(ctx context.Context, repoRoot, file string, loadResult *ma
 		if err != nil {
 			return validateSuiteFileResult{Path: rel, Schema: schemaRef, Status: "fail", Valid: false, Error: err.Error(), Duration: time.Since(start).String()}
 		}
-		result, err = schema.ValidateFromBytesWithRefDirs(schemaBytes, doc, validateSuiteRefDirs)
+		if idIndex != nil {
+			result, err = schema.ValidateFromBytesWithIDIndex(schemaBytes, doc, idIndex)
+		} else {
+			result, err = schema.ValidateFromBytesWithRefDirs(schemaBytes, doc, validateSuiteRefDirs)
+		}
+		if err != nil {
+			return validateSuiteFileResult{Path: rel, Schema: schemaRef, Status: "fail", Valid: false, Error: err.Error(), Duration: time.Since(start).String()}
+		}
+	case mapping.SourceExternal:
+		schemaID := strings.TrimSpace(resolution.SchemaID)
+		if !isSchemaIDURL(schemaID) {
+			return validateSuiteFileResult{Path: rel, Schema: schemaRef, Status: "fail", Valid: false, Error: fmt.Sprintf("external schema_id must be an absolute URL: %q", schemaID), Duration: time.Since(start).String()}
+		}
+		if schemaResolutionMode(strings.ToLower(schemaResolution)) == schemaResolutionPathOnly {
+			return validateSuiteFileResult{Path: rel, Schema: schemaRef, Status: "fail", Valid: false, Error: fmt.Sprintf("schema-resolution=path-only cannot resolve external schema_id %q", schemaID), Duration: time.Since(start).String()}
+		}
+		if idIndex == nil {
+			return validateSuiteFileResult{Path: rel, Schema: schemaRef, Status: "fail", Valid: false, Error: fmt.Sprintf("cannot resolve external schema_id %q without --ref-dir", schemaID), Duration: time.Since(start).String()}
+		}
+		entry, ok := idIndex.Get(schemaID)
+		if !ok {
+			return validateSuiteFileResult{Path: rel, Schema: schemaRef, Status: "fail", Valid: false, Error: fmt.Sprintf("schema_id not found in --ref-dir index: %q", schemaID), Duration: time.Since(start).String()}
+		}
+
+		schemaRef.Path = entry.Path
+
+		doc, err := parseDataBytes(fullPath, dataBytes)
+		if err != nil {
+			return validateSuiteFileResult{Path: rel, Schema: schemaRef, Status: "fail", Valid: false, Error: err.Error(), Duration: time.Since(start).String()}
+		}
+		result, err = schema.ValidateFromBytesWithIDIndex(entry.Normalized, doc, idIndex)
 		if err != nil {
 			return validateSuiteFileResult{Path: rel, Schema: schemaRef, Status: "fail", Valid: false, Error: err.Error(), Duration: time.Since(start).String()}
 		}

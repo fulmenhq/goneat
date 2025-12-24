@@ -2,19 +2,23 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.fulmenhq.dev/taxonomy/repository-category/v1.0.0/category-key.schema.json",
   "title": "Fulmen Repository Category Key",
-  "description": "Enum of canonical Fulmen repository category identifiers",
+  "description": "Enum of canonical Fulmen repository category identifiers. Keys are opaque strings; hyphenated keys normalize to camelCase (spec-host → specHost) or SCREAMING_SNAKE (spec-host → SPEC_HOST) for code generation.",
   "type": "string",
   "enum": [
     "cli",
-    "microtool",
-    "workhorse",
-    "service",
-    "library",
-    "pipeline",
     "codex",
-    "sdk"
+    "library",
+    "microtool",
+    "missive",
+    "pipeline",
+    "sdk",
+    "service",
+    "spec-host",
+    "workhorse"
   ],
   "examples": [
-    "workhorse"
+    "workhorse",
+    "spec-host",
+    "missive"
   ]
 }

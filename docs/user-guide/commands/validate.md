@@ -53,6 +53,7 @@ Common flags:
 - `--data`: Root directory of data/examples to validate (required)
 - `--manifest`: Schema mapping manifest path (defaults to `.goneat/schema-mappings.yaml`)
 - `--ref-dir`: Directory tree of schema files used to resolve absolute `$ref` URLs offline (repeatable)
+- `--schema-resolution`: `prefer-id|id-strict|path-only` (controls how canonical schema IDs are resolved offline)
 - `--expect-fail`: Glob of files expected to fail (repeatable)
 - `--skip`: Glob of files to skip (repeatable)
 - `--workers`: Max parallel workers (defaults to CPU count)
@@ -72,6 +73,56 @@ goneat validate suite \
 This enables friction-free validation when schemas use canonical `$id` / absolute `$ref` URLs but the schema registry host is offline or not deployed yet.
 
 Note: JSON Schema catches structural issues (types, required fields). It will not catch taxonomy/slug semantics unless those are encoded into the schema.
+
+## Recommended CI Strategy (Dual-Run)
+
+Canonical schema IDs are a *contract*. In many ecosystems the canonical spec-host may be offline, not deployed yet, or CI may be intentionally no-network.
+
+Goneat recommends a two-phase validation strategy:
+
+### 1) Pre-deploy (required): offline `id-strict` against the corpus
+
+This proves your schema corpus is internally consistent and that canonical `$id` values can be resolved **without network**.
+
+```bash
+goneat validate suite \
+  --data examples/v1.0.0 \
+  --ref-dir schemas/v1.0.0 \
+  --schema-resolution id-strict \
+  --format json
+```
+
+### 2) Post-deploy (optional for build correctness; critical operationally): verify the live spec-host
+
+After you publish the corpus to your spec-host (staging or production), run a separate job to prove the **deployed** canonical URLs actually resolve.
+
+- This is optional from the standpoint of “is the build artifact OK?”
+- This is critical to know the spec-host is up and serving the intended content
+
+A simple starting point is to `curl` a few canonical URLs and verify a `200` response.
+
+Example minimal post-deploy probe (copy/paste):
+
+```bash
+set -euo pipefail
+
+# Base URL for your deployed spec-host (staging or prod)
+SPEC_HOST_BASE_URL="https://schemas.example.org"
+
+# A few canonical IDs you expect to resolve post-deploy
+CANONICAL_IDS=(
+  "${SPEC_HOST_BASE_URL}/v1.0.0/configuration/recipe.schema.json"
+  "${SPEC_HOST_BASE_URL}/v1.0.0/state/inventory.schema.json"
+)
+
+for url in "${CANONICAL_IDS[@]}"; do
+  echo "Probing: $url"
+  curl -fsSIL "$url" >/dev/null
+  echo "  ✅ 200 OK"
+done
+```
+
+> Future: goneat can provide a first-class `spec-host probe` command, but the dual-run strategy remains the same.
 
 ### Writing a manifest for local schemas
 
@@ -95,6 +146,29 @@ mappings:
 **Canonical IDs (optional): use `overrides` + `schema_id`**
 
 Use this when you want stable names like `enact-recipe-v1.0.0` in output.
+
+**Canonical URL IDs (offline registry mode): use `schema_id` + `source: external`**
+
+Use this when you want the manifest to look like a real schema registry (canonical URL IDs), but still run in no-network CI using `--ref-dir`.
+
+```yaml
+version: "1.0.0"
+
+mappings:
+  - pattern: "**/recipe*.yaml"
+    schema_id: "https://schemas.example.org/v1.0.0/configuration/recipe.schema.json"
+    source: external
+```
+
+Run:
+
+```bash
+goneat validate suite \
+  --data examples/v1.0.0 \
+  --ref-dir schemas/v1.0.0 \
+  --schema-resolution id-strict \
+  --format json
+```
 
 ```yaml
 version: "1.0.0"

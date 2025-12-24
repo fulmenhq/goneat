@@ -348,6 +348,23 @@ func ValidateFromBytesWithRefDirs(schemaBytes []byte, data interface{}, refDirs 
 	return validateWithCompiled(sch, data)
 }
 
+// ValidateFromBytesWithIDIndex validates data against schema bytes, preloading schemas from an
+// offline $id index.
+func ValidateFromBytesWithIDIndex(schemaBytes []byte, data interface{}, idx *IDIndex) (*Result, error) {
+	if idx == nil || idx.Len() == 0 {
+		return ValidateFromBytes(schemaBytes, data)
+	}
+	if err := ensureSupportedDraft(schemaBytes); err != nil {
+		return nil, err
+	}
+
+	sch, err := compileSchemaBytesWithIDIndex(schemaBytes, idx)
+	if err != nil {
+		return nil, err
+	}
+	return validateWithCompiled(sch, data)
+}
+
 func compileSchemaBytesWithRefDirs(rootSchemaBytes []byte, refDirs []string) (*gojsonschema.Schema, error) {
 	stripSchema := isOfflineMode() || len(refDirs) > 0
 
@@ -439,6 +456,53 @@ func compileSchemaBytesWithRefDirs(rootSchemaBytes []byte, refDirs []string) (*g
 	schema, err := schemaLoader.Compile(gojsonschema.NewBytesLoader(normalizedRoot))
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile schema with ref-dirs: %w", err)
+	}
+	return schema, nil
+}
+
+func compileSchemaBytesWithIDIndex(rootSchemaBytes []byte, idx *IDIndex) (*gojsonschema.Schema, error) {
+	stripSchema := isOfflineMode() || (idx != nil && idx.Len() > 0)
+
+	schemaLoader := gojsonschema.NewSchemaLoader()
+	// Ensure we only resolve via preloaded schemas (no implicit guessing)
+	schemaLoader.AutoDetect = false
+
+	rootID, normalizedRoot, err := extractAndNormalizeSchema(rootSchemaBytes, stripSchema)
+	if err != nil {
+		return nil, err
+	}
+
+	type registeredSchema struct {
+		normalized []byte
+		source     string
+	}
+
+	registered := make(map[string]registeredSchema)
+	if rootID != "" {
+		registered[rootID] = registeredSchema{normalized: normalizedRoot, source: "root schema"}
+	}
+
+	for _, entry := range idx.entries {
+		id := entry.ID
+		normalized := entry.Normalized
+		path := entry.Path
+
+		if existing, ok := registered[id]; ok {
+			if bytes.Equal(existing.normalized, normalized) {
+				continue
+			}
+			return nil, fmt.Errorf("duplicate schema $id %q: %s differs from %s", id, path, existing.source)
+		}
+
+		if err := schemaLoader.AddSchema(id, gojsonschema.NewBytesLoader(normalized)); err != nil {
+			return nil, fmt.Errorf("register schema %s (%s): %w", path, id, err)
+		}
+		registered[id] = registeredSchema{normalized: normalized, source: path}
+	}
+
+	schema, err := schemaLoader.Compile(gojsonschema.NewBytesLoader(normalizedRoot))
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile schema with id-index: %w", err)
 	}
 	return schema, nil
 }
