@@ -9,7 +9,7 @@ set -euo pipefail
 #
 # Security notes:
 # - Verifies checksum manifest signatures before uploading
-# - Uses GPG_HOMEDIR if provided (does not require using the user's default keyring)
+# - Uses GONEAT_GPG_HOMEDIR (preferred) or GPG_HOMEDIR if provided (does not require using the user's default keyring)
 #
 # Usage:
 #   scripts/upload-release-assets.sh <version> [release_dir]
@@ -55,16 +55,19 @@ for file in "${REQUIRED_FILES[@]}"; do
 	fi
 done
 
+GPG_HOMEDIR_EFF="${GONEAT_GPG_HOMEDIR:-${GPG_HOMEDIR:-}}"
+
+# shellcheck disable=SC2034
 GPG_HOMEDIR_FLAG=()
-if [ -n "${GPG_HOMEDIR:-}" ]; then
-	GPG_HOMEDIR_FLAG=(--homedir "$GPG_HOMEDIR")
+if [ -n "${GPG_HOMEDIR_EFF}" ]; then
+	GPG_HOMEDIR_FLAG=(--homedir "$GPG_HOMEDIR_EFF")
 fi
 
 echo "   🔏 Verifying GPG checksum signatures..."
 for sums in SHA256SUMS SHA512SUMS; do
-	if ! gpg "${GPG_HOMEDIR_FLAG[@]}" --verify "${sums}.asc" "$sums" >/dev/null 2>&1; then
+	if ! gpg "${GPG_HOMEDIR_FLAG[@]:-}" --verify "${sums}.asc" "$sums" >/dev/null 2>&1; then
 		echo "❌ Error: Invalid GPG signature for $sums" >&2
-		echo "   Make sure GPG_HOMEDIR matches what was used during signing" >&2
+		echo "   Make sure GONEAT_GPG_HOMEDIR (preferred) or GPG_HOMEDIR matches what was used during signing" >&2
 		exit 1
 	fi
 done
