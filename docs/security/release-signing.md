@@ -270,7 +270,7 @@ make package
 
 **Alternative**: Use `make release-build` to run both `build-all` and `package` in one command.
 
-Note: The recommended release flow signs the *CI-built* archives (what users actually download) by using `make release-download`, then checksums + signs those artifacts.
+Note: The recommended release flow signs the _CI-built_ archives (what users actually download) by using `make release-download`, then checksums + signs those artifacts.
 
 **Step 2: Generate Checksums**
 
@@ -314,7 +314,6 @@ Goneat signs the checksum manifests (not each archive individually). The signing
 RELEASE_TAG=vX.Y.Z make release-verify-signatures
 RELEASE_TAG=vX.Y.Z make release-verify-key
 ```
-
 
 **✅ If Steps 1-4 succeed**: Proceed with git push and tagging
 **❌ If any step fails**: Fix issues before pushing
@@ -366,18 +365,21 @@ Goneat releases publish signed checksum manifests. Verify the checksum manifest 
 RELEASE_VERSION=vX.Y.Z
 
 # Minisign verification (required)
+
 curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/SHA256SUMS"
 curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/SHA256SUMS.minisig"
 curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/fulmenhq-release-minisign.pub"
 minisign -Vm SHA256SUMS -p fulmenhq-release-minisign.pub
 
 # PGP verification
+
 curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/SHA256SUMS.asc"
 curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/fulmenhq-release-signing-key.asc"
 gpg --import fulmenhq-release-signing-key.asc
 gpg --verify SHA256SUMS.asc SHA256SUMS
 
 # Download archives, then validate checksums
+
 shasum -a 256 --check SHA256SUMS
 \`\`\`
 

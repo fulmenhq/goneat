@@ -56,6 +56,15 @@ func execRoot(t *testing.T, args []string) (string, error) {
 	validateSuiteTimeout = 3 * time.Minute
 	validateSuiteFormat = "markdown"
 	validateSuiteFailOnUnmapped = true
+	validateSuiteSchemaResolution = "prefer-id"
+
+	// Reset validate data flags to avoid cross-test bleed
+	validateDataSchema = ""
+	validateSchemaFile = ""
+	validateSchemaRefDirs = nil
+	validateDataFile = ""
+	validateDataSchemaResolution = "prefer-id"
+	validateFormat = "markdown"
 
 	// Create a fresh root command instance per test to prevent command tree pollution
 	cmd := newRootCommand()

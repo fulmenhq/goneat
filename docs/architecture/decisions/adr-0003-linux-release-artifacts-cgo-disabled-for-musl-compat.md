@@ -5,13 +5,15 @@ date: "2025-12-14"
 last_updated: "2025-12-14"
 status: "approved"
 tags:
-  - "infrastructure"
-  - "release"
-  - "linux"
-  - "musl"
-  - "glibc"
-  - "cgo"
-category: "infrastructure"
+
+- "infrastructure"
+- "release"
+- "linux"
+- "musl"
+- "glibc"
+- "cgo"
+  category: "infrastructure"
+
 ---
 
 # ADR-0003: Linux Release Artifacts - CGO Disabled for musl/glibc Compatibility
@@ -68,9 +70,11 @@ We will build Linux release artifacts with `CGO_ENABLED=0`.
 ### Alternative 1: Switch the tooling container to Debian/Ubuntu (glibc)
 
 **Pros**:
+
 - Simple for the specific container image
 
 **Cons**:
+
 - Does not help users running goneat in other musl environments
 - Increases base image size
 
@@ -79,9 +83,11 @@ We will build Linux release artifacts with `CGO_ENABLED=0`.
 ### Alternative 2: Publish separate `linux_musl_*` release assets
 
 **Pros**:
+
 - Works even if CGO is required
 
 **Cons**:
+
 - Doubles Linux artifact surface area (packaging, checksums, signatures)
 - Bootstrappers must detect libc and select correct asset
 
@@ -90,9 +96,11 @@ We will build Linux release artifacts with `CGO_ENABLED=0`.
 ### Alternative 3: Bundle/Install glibc into Alpine containers
 
 **Pros**:
+
 - Can run existing glibc-linked binaries
 
 **Cons**:
+
 - Operationally brittle and varies by environment
 
 **Rejected because**: it increases complexity and weakens the portability story.

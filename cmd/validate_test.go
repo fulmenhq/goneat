@@ -19,6 +19,8 @@ security:
 `)
 	defer func() { _ = os.Remove(tmpData) }()
 
+	validateSchemaRefDirs = nil
+	validateDataSchemaResolution = "prefer-id"
 	validateDataFile = tmpData
 	validateDataSchema = "goneat-config-v1.0.0"
 	validateFormat = "markdown"
@@ -44,6 +46,8 @@ security:
 `)
 	defer func() { _ = os.Remove(tmpData) }()
 
+	validateSchemaRefDirs = nil
+	validateDataSchemaResolution = "prefer-id"
 	validateDataFile = tmpData
 	validateDataSchema = "goneat-config-v1.0.0"
 	validateFormat = "markdown"
@@ -69,6 +73,8 @@ security:
 `)
 	defer func() { _ = os.Remove(tmpData) }()
 
+	validateSchemaRefDirs = nil
+	validateDataSchemaResolution = "prefer-id"
 	validateDataFile = tmpData
 	validateDataSchema = "goneat-config-v1.0.0"
 	validateFormat = "json"
@@ -84,6 +90,8 @@ security:
 }
 
 func TestValidateData_MissingFlags(t *testing.T) {
+	validateSchemaRefDirs = nil
+	validateDataSchemaResolution = "prefer-id"
 	validateDataSchema = ""
 	err := runValidateData(&cobra.Command{}, []string{})
 	if err == nil || !strings.Contains(err.Error(), "required") {

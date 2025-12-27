@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.25] - 2025-12-27
+
+### Fixed
+
+- **Checkmake discovery**: `assess --categories lint` now reliably finds and lints root-level `Makefile` targets (no more silent skip)
+- **Release upload homedir**: `make release-upload` now honors `GONEAT_GPG_HOMEDIR` (legacy `GPG_HOMEDIR` still supported)
+- **Cmd test isolation**: reset validate globals to prevent cross-test state bleed
+
 ## [v0.3.24] - 2025-12-23
 
 ### Added

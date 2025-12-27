@@ -76,7 +76,7 @@ Note: JSON Schema catches structural issues (types, required fields). It will no
 
 ## Recommended CI Strategy (Dual-Run)
 
-Canonical schema IDs are a *contract*. In many ecosystems the canonical spec-host may be offline, not deployed yet, or CI may be intentionally no-network.
+Canonical schema IDs are a _contract_. In many ecosystems the canonical spec-host may be offline, not deployed yet, or CI may be intentionally no-network.
 
 Goneat recommends a two-phase validation strategy:
 

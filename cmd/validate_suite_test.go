@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestValidateSuite_JSON_PassesWithExpectedFailures(t *testing.T) {
@@ -101,6 +102,25 @@ mappings:
 
 func execRootSplit(t *testing.T, args []string) (string, string, error) {
 	t.Helper()
+
+	// Mirror execRoot() resets to prevent cross-test bleed
+	validateSuiteDataRoot = ""
+	validateSuiteSchemasRoot = ""
+	validateSuiteManifestPath = ".goneat/schema-mappings.yaml"
+	validateSuiteRefDirs = nil
+	validateSuiteNoIgnore = false
+	validateSuiteForceInclude = nil
+	validateSuiteExclude = nil
+	validateSuiteSkip = nil
+	validateSuiteExpectFail = nil
+	validateSuiteStrict = false
+	validateSuiteEnableMeta = false
+	validateSuiteMaxWorkers = 2
+	validateSuiteTimeout = 3 * time.Minute
+	validateSuiteFormat = "markdown"
+	validateSuiteFailOnUnmapped = true
+	validateSuiteSchemaResolution = "prefer-id"
+	validateSchemaRefDirs = nil
 
 	cmd := newRootCommand()
 	registerSubcommands(cmd)

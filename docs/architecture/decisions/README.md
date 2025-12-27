@@ -37,10 +37,10 @@ See [`adr-template.md`](adr-template.md) for the standard template.
 
 ## Active ADRs
 
-| Number                                                         | Title                                             | Status   | Date       | Tags                                   |
-| -------------------------------------------------------------- | ------------------------------------------------- | -------- | ---------- | -------------------------------------- |
-| [0001](adr-0001-opa-v1-rego-v1-migration.md)                   | OPA v1 and Rego v1 Syntax Migration               | Approved | 2025-10-10 | policy, opa, rego, dependencies        |
-| [0002](adr-0002-ssot-dirty-detection.md)                       | SSOT Dirty Detection: Repo vs Global Gitignore    | Approved | 2025-10-28 | architecture, ssot, git, provenance    |
+| Number                                                                   | Title                                                              | Status   | Date       | Tags                                             |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------ | -------- | ---------- | ------------------------------------------------ |
+| [0001](adr-0001-opa-v1-rego-v1-migration.md)                             | OPA v1 and Rego v1 Syntax Migration                                | Approved | 2025-10-10 | policy, opa, rego, dependencies                  |
+| [0002](adr-0002-ssot-dirty-detection.md)                                 | SSOT Dirty Detection: Repo vs Global Gitignore                     | Approved | 2025-10-28 | architecture, ssot, git, provenance              |
 | [0003](adr-0003-linux-release-artifacts-cgo-disabled-for-musl-compat.md) | Linux Release Artifacts: CGO Disabled for musl/glibc Compatibility | Approved | 2025-12-14 | infrastructure, release, linux, musl, glibc, cgo |
 
 ## ADR Statuses

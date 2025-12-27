@@ -159,7 +159,7 @@ func DefaultAssessmentConfig() AssessmentConfig {
 		LintGHAPaths:          []string{".github/workflows/**/*.yml", ".github/workflows/**/*.yaml"},
 		LintGHAExclude:        []string{},
 		LintMakeEnabled:       true,
-		LintMakePaths:         []string{"**/Makefile"},
+		LintMakePaths:         []string{"Makefile", "**/Makefile"},
 		LintMakeExclude:       []string{},
 	}
 }

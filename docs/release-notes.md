@@ -1,3 +1,27 @@
+# Goneat v0.3.25 — Checkmake Makefile Discovery Fix
+
+**Release Date**: 2025-12-27
+**Status**: Draft
+
+## TL;DR
+
+- **Makefile linting works by default**: checkmake now reliably runs on root-level `Makefile` targets
+- **Release upload homedir**: `make release-upload` honors `GONEAT_GPG_HOMEDIR`
+- **Release upload homedir**: `make release-upload` honors `GONEAT_GPG_HOMEDIR`
+
+## What Changed
+
+### Lint: checkmake now discovers root `Makefile`
+
+Previously, patterns like `**/Makefile` could fail to match a root-level `Makefile`, causing checkmake to silently skip.
+
+v0.3.25 fixes Makefile discovery so:
+
+- default Makefile lint paths include both `Makefile` and `**/Makefile`
+- `**/Makefile` patterns now work reliably for root-level Makefiles
+
+---
+
 # Goneat v0.3.24 — Offline Canonical ID Lookup + Spec-Host CI Guidance
 
 **Release Date**: 2025-12-23
@@ -6,21 +30,9 @@
 ## TL;DR
 
 - **Canonical ID mode (offline-first)**: resolve URL `schema_id` values from `--ref-dir` with `--schema-resolution id-strict`
-- **Scalable schema validation**: `validate suite` now supports canonical URL IDs (registry-like manifests) without network
+- **Scalable schema validation**: `validate suite` supports canonical URL IDs (registry-like manifests) without network
 - **CI guidance**: dual-run strategy (offline strict pre-deploy + post-deploy spec-host probe)
 - **Crucible SSOT sync**: updated embedded Crucible docs/schemas/config to v0.2.27
-
-## What Changed
-
-### Canonical `$id` lookup (no-network CI)
-
-- `validate suite` can resolve `schema_id: https://...` (with `source: external`) from local `--ref-dir` schema trees.
-- `validate data --schema https://...` can resolve canonical IDs from `--ref-dir` as well.
-
-### CI strategy: pre-deploy vs post-deploy
-
-- Pre-deploy: run `--schema-resolution id-strict` offline against the corpus.
-- Post-deploy: probe the live spec-host to ensure canonical URLs resolve (operationally critical).
 
 ---
 
@@ -36,124 +48,6 @@
 - **Local schema DX**: `schema_path` in `.goneat/schema-mappings.yaml` maps patterns directly to local schema files
 - **Offline-first**: `--ref-dir` resolves absolute `$ref` URLs without a live schema registry
 - **Release docs in CLI**: `goneat docs show release-notes` and `goneat docs show releases/latest`
-
-## What Changed
-
-### Validate: new `suite` subcommand (bulk)
-
-`goneat validate suite` validates many files in one run, with:
-
-- `--workers` for parallelism
-- `--expect-fail` and `--skip` globs for invalid/taxonomy fixtures
-- stable JSON output for CI + AI parsing
-
-### Validate suite: local schema workflow
-
-Two supported ways to route files to local schemas:
-
-- **Recommended**: `schema_path` shorthand in `mappings`
-- **Optional**: `overrides.path` + `schema_id` for stable, canonical identifiers
-
-### Offline `$ref` resolution (friction-free)
-
-- `validate data --ref-dir` handles root-vs-ref-dir duplicate `$id` collisions correctly
-- `validate suite --ref-dir` supports offline `$ref` resolution for schema ecosystems before a registry exists
-
-### Docs: release notes available via `goneat docs`
-
-- `goneat docs show release-notes` shows the curated recent release notes.
-- `goneat docs show releases/latest` shows the current release note.
-
----
-
-# Goneat v0.3.22 — Assess Scaffolding + Hooks UX + Offline Schema Refs
-
-**Release Date**: 2025-12-20
-**Status**: Draft
-
-## TL;DR
-
-- **Scaffold assess config**: `goneat doctor assess init` generates a starter `.goneat/assess.yaml`
-- **Hooks transparency**: `goneat hooks validate/inspect` now show effective behavior + warn on mutators
-- **Machine-readable output**: `--format json` for `hooks validate` and `hooks inspect`
-- **Safer hook scripts**: bash hooks disable glob expansion (`set -f`)
-- **Offline schema refs**: `goneat validate data --ref-dir` resolves remote `$ref` URLs from local schema directories
-
-## What Changed
-
-### Doctor: `.goneat/assess.yaml` scaffolding
-
-`goneat doctor assess init` seeds a starter `.goneat/assess.yaml` tailored to your repo type.
-
-### Hooks: inspection + warnings
-
-Hooks commands now help answer: “What will my hooks actually do?”
-
-- effective wrapper invocation
-- internal vs external command classification
-- mutator detection (e.g., `format`, `assess --fix`, `stage_fixed`, `make precommit`)
-
-### Hooks: JSON output
-
-Use JSON output for automation and CI policy checks:
-
-- `goneat hooks inspect --format json`
-- `goneat hooks validate --format json`
-
-### Validate: offline `$ref` resolution
-
-`goneat validate data --ref-dir` can preload local schema directories so absolute `$ref` URLs resolve without a live schema registry.
-
-### Hooks generation: glob safety
-
-Generated bash hooks now include `set -f` to prevent glob patterns from expanding into many arguments.
-
----
-
-**Previous Releases**: See `docs/releases/` for older release notes.
-
-**Release Date**: 2025-12-15
-**Status**: Draft
-
-## TL;DR
-
-- **Go 1.25 compatibility**: `goneat dependencies` no longer fails on stdlib “module info” errors
-- **Better cooling checks**: `goneat doctor tools` can evaluate cooling for more tools (fewer "metadata unavailable" failures)
-- **Shell lint compatibility**: shfmt lint can match repo style via `lint.shell.shfmt.args`
-- **Repo lint debt cleanup**: checkmake backlog cleared without raising thresholds
-
-## What Changed
-
-### Dependencies: Go 1.25 stdlib module-info failures fixed
-
-Some Go 1.25.x environments hit repeated stdlib errors originating from go-licenses:
-
-- `Package <stdlib> does not have module info. Non go modules projects are no longer supported.`
-
-v0.3.21 decouples dependency discovery from go-licenses:
-
-- Cooling/policy module discovery uses `go list -deps -json` and skips stdlib packages.
-- go-licenses runs only when `--licenses` is requested.
-- If license extraction is degraded, goneat falls back to best-effort license file detection from module directories.
-
-### Doctor tools: cooling metadata for more install types
-
-`goneat doctor tools` now resolves upstream metadata for more tools:
-
-- GitHub repo inference for `kind: go` tools via `install_package`
-- PyPI metadata for tools installed via uv/pip (e.g. yamllint)
-
-### Lint: shfmt style args override
-
-Forge repos commonly standardize `shfmt` flags (indentation, continuation indentation). v0.3.21 adds an opt-in override so `goneat assess --categories lint` can apply the same style:
-
-- `.goneat/assess.yaml`: `lint.shell.shfmt.args: ["-i", "4", "-ci"]`
-- goneat still controls `-d`/`-w` (check vs fix mode)
-
-### Lint: Makefile checkmake backlog cleared
-
-- Repo config sets `lint.make.checkmake.config.max_body_length: 15`
-- Refactored large Make targets into helper targets to stay within limit
 
 ---
 

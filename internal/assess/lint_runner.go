@@ -703,36 +703,46 @@ func collectFilesWithScope(root string, includes, excludes []string, config Asse
 	files := make([]string, 0)
 	seen := make(map[string]struct{})
 	for _, pattern := range includes {
-		absPattern := filepath.Join(root, filepath.FromSlash(pattern))
-		matches, err := doublestar.FilepathGlob(absPattern)
-		if err != nil {
-			return nil, fmt.Errorf("invalid pattern %q: %w", pattern, err)
+		patterns := []string{pattern}
+		// Doublestar patterns like "**/Makefile" are expected to match a root-level
+		// Makefile, but this is not consistently true across environments.
+		// Add a compatibility fallback for the common "**/" prefix.
+		if strings.HasPrefix(pattern, "**/") {
+			patterns = append(patterns, strings.TrimPrefix(pattern, "**/"))
 		}
-		for _, match := range matches {
-			info, err := os.Stat(match)
-			if err != nil || info.IsDir() {
-				continue
-			}
-			rel, err := filepath.Rel(root, match)
-			if err != nil {
-				continue
-			}
-			rel = filepath.ToSlash(rel)
-			if strings.HasSuffix(rel, ".orig") {
-				continue
-			}
 
-			if matcher != nil && matcher.IsIgnoredRel(rel) && !matchesForceInclude(rel, config.ForceInclude) {
-				continue
+		for _, pat := range patterns {
+			absPattern := filepath.Join(root, filepath.FromSlash(pat))
+			matches, err := doublestar.FilepathGlob(absPattern)
+			if err != nil {
+				return nil, fmt.Errorf("invalid pattern %q: %w", pat, err)
 			}
-			if isExcluded(rel, excludes) {
-				continue
+			for _, match := range matches {
+				info, err := os.Stat(match)
+				if err != nil || info.IsDir() {
+					continue
+				}
+				rel, err := filepath.Rel(root, match)
+				if err != nil {
+					continue
+				}
+				rel = filepath.ToSlash(rel)
+				if strings.HasSuffix(rel, ".orig") {
+					continue
+				}
+
+				if matcher != nil && matcher.IsIgnoredRel(rel) && !matchesForceInclude(rel, config.ForceInclude) {
+					continue
+				}
+				if isExcluded(rel, excludes) {
+					continue
+				}
+				if _, ok := seen[rel]; ok {
+					continue
+				}
+				seen[rel] = struct{}{}
+				files = append(files, rel)
 			}
-			if _, ok := seen[rel]; ok {
-				continue
-			}
-			seen[rel] = struct{}{}
-			files = append(files, rel)
 		}
 	}
 

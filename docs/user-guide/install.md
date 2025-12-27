@@ -1,5 +1,6 @@
 ---
 ---
+
 title: "Install Goneat"
 description: "Installation options for macOS, Linux, and Windows"
 author: "@arch-eagle"
@@ -7,6 +8,7 @@ date: "2025-09-02"
 last_updated: "2025-09-02"
 status: "draft"
 tags: ["install", "brew", "scoop", "linux", "windows"]
+
 ---
 
 # Install Goneat
