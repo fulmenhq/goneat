@@ -7,7 +7,6 @@
 
 - **Makefile linting works by default**: checkmake now reliably runs on root-level `Makefile` targets
 - **Release upload homedir**: `make release-upload` honors `GONEAT_GPG_HOMEDIR`
-- **Release upload homedir**: `make release-upload` honors `GONEAT_GPG_HOMEDIR`
 
 ## What Changed
 
