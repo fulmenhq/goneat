@@ -191,16 +191,25 @@ Goneat assess supports multiple validation categories:
 ### Format (`format`)
 
 - **Purpose:** Code formatting and style consistency
-- **Tools:** gofmt, goimports
+- **Tools:**
+  - Go: gofmt (structural checks) + goneat finalizer normalization
+  - Python (if `ruff` is present): `ruff format`
+  - JS/TS (if `biome` is present): `biome format`
 - **Typical Issues:** Indentation, import organization, whitespace
 - **Auto-fixable:** Yes (most issues)
 
 ### Lint (`lint`)
 
-- **Purpose:** Code quality and best practices (Go, shell, Make, GitHub Actions)
-- **Tools:** golangci-lint, govet, shfmt (check/fix), shellcheck (verify-only, opt-in GPL), actionlint, checkmake
+- **Purpose:** Code quality and best practices
+- **Tools:**
+  - Go (only when Go is detected and `golangci-lint` is present): `golangci-lint`
+  - Python (if `ruff` is present): `ruff check`
+  - JS/TS (if `biome` is present): `biome lint`
+  - Shell: shfmt (check/fix), shellcheck (verify-only, opt-in GPL)
+  - GitHub Actions: actionlint
+  - Make: checkmake
 - **Typical Issues:** Unused variables, style violations, shell hygiene, workflow bugs, Makefile hygiene
-- **Auto-fixable:** Partial (golangci limited; shfmt fix optional; others verify-only)
+- **Auto-fixable:** Partial (tool-dependent; no unsafe fixes)
 
 #### Lint extensions (shell / Make / GitHub Actions)
 

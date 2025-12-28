@@ -98,6 +98,34 @@ func (r *FormatAssessmentRunner) Assess(ctx context.Context, target string, conf
 		}
 	}
 
+	// Language-aware format tools (only when tool present)
+	pyFiles := filterByExtensions(supportedFiles, []string{".py"})
+	jsFiles := filterByExtensions(supportedFiles, []string{".js", ".jsx", ".ts", ".tsx"})
+
+	ruffFmtIssues, ruffFmtErr := runRuffFormat(target, config, pyFiles)
+	if ruffFmtErr != nil {
+		return &AssessmentResult{
+			CommandName:   r.commandName,
+			Category:      CategoryFormat,
+			Success:       false,
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
+			Error:         fmt.Sprintf("ruff format failed: %v", ruffFmtErr),
+		}, nil
+	}
+	allIssues = append(allIssues, ruffFmtIssues...)
+
+	biomeFmtIssues, biomeFmtErr := runBiomeFormat(target, config, jsFiles)
+	if biomeFmtErr != nil {
+		return &AssessmentResult{
+			CommandName:   r.commandName,
+			Category:      CategoryFormat,
+			Success:       false,
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
+			Error:         fmt.Sprintf("biome format failed: %v", biomeFmtErr),
+		}, nil
+	}
+	allIssues = append(allIssues, biomeFmtIssues...)
+
 	// Normalization policy for assess: enforce LF, single EOF, trim trailing whitespace, remove BOM
 	for _, filePath := range supportedFiles {
 		// Validate file path to prevent path traversal

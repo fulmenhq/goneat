@@ -93,36 +93,49 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 	startTime := time.Now()
 
 	modeDescription := r.getModeDescription(config.Mode)
-	logger.Info(fmt.Sprintf("Running %s assessment on %s (%s)", r.toolName, target, modeDescription))
+	logger.Info(fmt.Sprintf("Running lint assessment on %s (%s)", target, modeDescription))
 
-	// Check if golangci-lint is available
-	if !r.IsAvailable() {
+	var issues []Issue
+
+	// Language-aware lint tools
+	langFiles, err := collectLanguageFiles(target, config)
+	if err != nil {
 		return &AssessmentResult{
 			CommandName:   r.commandName,
 			Category:      CategoryLint,
 			Success:       false,
 			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
-			Error:         fmt.Sprintf("%s command not found in PATH", r.toolName),
+			Error:         fmt.Sprintf("failed to discover language files: %v", err),
 		}, nil
 	}
 
-	env := r.detectGolangciLintEnvironment()
-	if env.detectErr != nil {
-		logger.Warn(fmt.Sprintf("golangci-lint version detection failed: %v", env.detectErr))
-	}
-
-	// 🔧 Preflight: Verify golangci-lint configuration using detected version context
-	if err := r.verifyGolangciConfig(target, env); err != nil {
+	pyIssues, pyErr := runRuffCheck(target, config, langFiles.Python)
+	if pyErr != nil {
 		return &AssessmentResult{
 			CommandName:   r.commandName,
 			Category:      CategoryLint,
 			Success:       false,
 			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
-			Error:         err.Error(),
+			Error:         fmt.Sprintf("ruff check failed: %v", pyErr),
 		}, nil
 	}
+	issues = append(issues, pyIssues...)
 
-	// Find Go files to assess
+	jsFiles := append([]string{}, langFiles.JS...)
+	jsFiles = append(jsFiles, langFiles.TS...)
+	jsIssues, jsErr := runBiomeLint(target, config, jsFiles)
+	if jsErr != nil {
+		return &AssessmentResult{
+			CommandName:   r.commandName,
+			Category:      CategoryLint,
+			Success:       false,
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
+			Error:         fmt.Sprintf("biome lint failed: %v", jsErr),
+		}, nil
+	}
+	issues = append(issues, jsIssues...)
+
+	// Go lint: only if Go is detected and golangci-lint is present
 	goFiles, err := r.findGoFiles(target, config)
 	if err != nil {
 		return &AssessmentResult{
@@ -133,57 +146,57 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 			Error:         fmt.Sprintf("failed to find Go files: %v", err),
 		}, nil
 	}
-
-	// Filter out files that match repo ignore patterns (gitignore + goneatignore)
 	goFiles = r.filterFilesRespectingIgnores(goFiles, target, config)
 
-	if len(goFiles) == 0 {
-		logger.Info("No Go files found for lint assessment")
-		return &AssessmentResult{
-			CommandName:   r.commandName,
-			Category:      CategoryLint,
-			Success:       true,
-			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
-			Issues:        []Issue{},
-		}, nil
-	}
+	if len(goFiles) > 0 {
+		if !r.IsAvailable() {
+			logger.Info("golangci-lint not found; skipping Go lint")
+		} else {
+			env := r.detectGolangciLintEnvironment()
+			if env.detectErr != nil {
+				logger.Warn(fmt.Sprintf("golangci-lint version detection failed: %v", env.detectErr))
+			}
+			if err := r.verifyGolangciConfig(target, env); err != nil {
+				return &AssessmentResult{
+					CommandName:   r.commandName,
+					Category:      CategoryLint,
+					Success:       false,
+					ExecutionTime: HumanReadableDuration(time.Since(startTime)),
+					Error:         err.Error(),
+				}, nil
+			}
 
-	// Run golangci-lint based on mode
-	var issues []Issue
-	var runErr error
-
-	switch config.Mode {
-	case AssessmentModeNoOp:
-		// No-op mode: just log what would be done
-		logger.Info(fmt.Sprintf("[NO-OP] Would run %s on %d files", r.toolName, len(goFiles)))
-		issues = []Issue{} // No issues to report in no-op mode
-
-	case AssessmentModeCheck:
-		// Check mode: run linting and report issues
-		issues, runErr = r.runGolangCILintCheck(target, config, env)
-
-	case AssessmentModeFix:
-		// Fix mode: run linting with auto-fix
-		issues, runErr = r.runGolangCILintFix(target, config, env)
-
-	default:
-		return &AssessmentResult{
-			CommandName:   r.commandName,
-			Category:      CategoryLint,
-			Success:       false,
-			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
-			Error:         fmt.Sprintf("unsupported assessment mode: %s", config.Mode),
-		}, nil
-	}
-
-	if runErr != nil {
-		return &AssessmentResult{
-			CommandName:   r.commandName,
-			Category:      CategoryLint,
-			Success:       false,
-			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
-			Error:         fmt.Sprintf("lint operation failed: %v", runErr),
-		}, nil
+			var goIssues []Issue
+			var runErr error
+			switch config.Mode {
+			case AssessmentModeNoOp:
+				logger.Info(fmt.Sprintf("[NO-OP] Would run %s on %d files", r.toolName, len(goFiles)))
+			case AssessmentModeCheck:
+				goIssues, runErr = r.runGolangCILintCheck(target, config, env)
+			case AssessmentModeFix:
+				goIssues, runErr = r.runGolangCILintFix(target, config, env)
+			default:
+				return &AssessmentResult{
+					CommandName:   r.commandName,
+					Category:      CategoryLint,
+					Success:       false,
+					ExecutionTime: HumanReadableDuration(time.Since(startTime)),
+					Error:         fmt.Sprintf("unsupported assessment mode: %s", config.Mode),
+				}, nil
+			}
+			if runErr != nil {
+				return &AssessmentResult{
+					CommandName:   r.commandName,
+					Category:      CategoryLint,
+					Success:       false,
+					ExecutionTime: HumanReadableDuration(time.Since(startTime)),
+					Error:         fmt.Sprintf("lint operation failed: %v", runErr),
+				}, nil
+			}
+			issues = append(issues, goIssues...)
+		}
+	} else {
+		logger.Debug("No Go files found; skipping Go lint")
 	}
 
 	overrides := loadAssessOverrides(target)
@@ -251,7 +264,7 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 	issues = append(issues, makeIssues...)
 
 	modeStr := r.getModeString(config.Mode)
-	logger.Info(fmt.Sprintf("%s %s completed: %d issues found in %d files", r.toolName, modeStr, len(issues), len(goFiles)))
+	logger.Info(fmt.Sprintf("lint %s completed: %d issues found", modeStr, len(issues)))
 
 	return &AssessmentResult{
 		CommandName:   r.commandName,
