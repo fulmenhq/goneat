@@ -87,6 +87,9 @@ Thumbs.db
 # Claude Code settings
 .claude/settings.local.json
 
+# Local agent instructions (never commit)
+AGENTS.local.md
+
 # Log files
 *.log
 
