@@ -1,7 +1,7 @@
 ---
 title: "Environment Variables"
 description: "Single source of truth for goneat environment variables"
-author: "@forge-neat"
+author: "goneat contributors"
 date: "2025-08-30"
 last_updated: "2025-08-30"
 status: "approved"

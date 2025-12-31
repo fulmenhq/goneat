@@ -1,7 +1,7 @@
 ---
 title: "Lifecycle & Release Phase Standard"
 status: "approved"
-author: "@code-scout"
+author: "goneat contributors"
 last_updated: "2025-09-06"
 category: "standards"
 ---

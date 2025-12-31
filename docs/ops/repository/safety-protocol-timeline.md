@@ -1,7 +1,7 @@
 # Safety Protocol Implementation Timeline
 
 **Status**: Active Implementation
-**Owner**: Forge Neat (@forge-neat)
+**Owner**: goneat contributors
 **Supervisor**: @3leapsdave
 **Start Date**: [Current Date]
 

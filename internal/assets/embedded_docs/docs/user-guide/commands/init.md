@@ -1,7 +1,7 @@
 ---
 title: "Init Command Reference"
 description: "Complete reference for the goneat init command - intelligent .goneatignore generation with language-aware patterns"
-author: "@forge-neat"
+author: "goneat contributors"
 date: "2025-09-10"
 last_updated: "2025-09-10"
 status: "approved"
@@ -783,7 +783,7 @@ Planned improvements for the init command:
 
 **Command Status**: ✅ Implemented and tested
 **Last Updated**: 2025-09-10
-**Author**: @forge-neat
+**Author**: goneat contributors
 **Supported Languages**: 8+ languages
 **Performance**: Sub-second initialization
 **Templates**: Embedded for consistency

@@ -1,7 +1,7 @@
 ---
 title: "Dependency Protection Workflow"
 description: "Complete workflow for using goneat's dependency protection features including license compliance, cooling policies, and SBOM generation"
-author: "Forge Neat"
+author: "goneat contributors"
 date: "2025-10-22"
 last_updated: "2025-10-22"
 status: "active"

@@ -1,7 +1,7 @@
 ---
 title: "Release Process"
 status: "draft"
-author: "@code-scout"
+author: "goneat contributors"
 last_updated: "2025-09-06"
 category: "ops/repository"
 ---

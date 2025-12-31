@@ -1,7 +1,7 @@
 ---
 title: "Command Taxonomy Validation Architecture"
 description: "Architectural decision record for implementing hybrid taxonomy validation system"
-author: "@code-scout"
+author: "goneat contributors"
 date: "2025-08-29"
 last_updated: "2025-08-29"
 status: "approved"

@@ -1,7 +1,7 @@
 ---
 title: "Hooks Command Reference"
 description: "Complete reference for the goneat hooks command - manage git hooks with intelligent validation"
-author: "@forge-neat"
+author: "goneat contributors"
 date: "2025-08-28"
 last_updated: "2025-12-10"
 status: "approved"

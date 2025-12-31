@@ -1,7 +1,7 @@
 ---
 title: "Format Command Reference"
 description: "Complete reference for the goneat format command - comprehensive code formatting with extended file operations and unified detection logic"
-author: "@forge-neat"
+author: "goneat contributors"
 date: "2025-08-31"
 last_updated: "2025-09-15"
 status: "approved"
@@ -847,7 +847,7 @@ Planned improvements for the format command:
 
 **Command Status**: ✅ Implemented and tested with unified detection logic
 **Last Updated**: 2025-09-15
-**Author**: @forge-neat
+**Author**: goneat contributors
 **Supported File Types**: 15+ extensions with consistent finalizer support
 **Performance**: Sub-millisecond per file
 **DX Rating**: ⭐⭐⭐⭐⭐ (Unified format/assess commands)

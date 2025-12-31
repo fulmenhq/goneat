@@ -1,7 +1,7 @@
 ---
 title: "Release & Lifecycle Governance"
 status: "draft"
-author: "@code-scout"
+author: "goneat contributors"
 date: "2025-09-06"
 category: "ops/repository"
 ---

@@ -1,7 +1,7 @@
 ---
 title: "Content Command Reference"
 description: "Curate and embed selected assets (docs, schemas, examples, etc.) for offline use in the goneat binary"
-author: "@code-scout"
+author: "goneat contributors"
 date: "2025-09-08"
 last_updated: "2025-09-29"
 status: "approved"

@@ -1,7 +1,7 @@
 ---
 title: "Format Library Reference"
 description: "Detailed reference for the goneat format library - reusable formatting utilities for custom commands"
-author: "@forge-neat"
+author: "goneat contributors"
 date: "2025-09-29"
 last_updated: "2025-09-29"
 status: "approved"

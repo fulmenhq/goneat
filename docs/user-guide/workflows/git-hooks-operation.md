@@ -1,7 +1,7 @@
 ---
 title: "Git Hooks Operation Workflow"
 description: "Complete guide to setting up and operating goneat git hooks with visual diagrams and step-by-step instructions"
-author: "@forge-neat"
+author: "goneat contributors"
 date: "2025-08-28"
 last_updated: "2025-09-01"
 status: "approved"

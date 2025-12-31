@@ -1,7 +1,7 @@
 ---
 title: "Feature Gates (Configuration)"
 description: "Scalable, per-command behavioral toggles with clear precedence and safe defaults"
-author: "@forge-neat"
+author: "goneat contributors"
 date: "2025-09-01"
 last_updated: "2025-09-01"
 status: "draft"

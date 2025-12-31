@@ -51,7 +51,13 @@ See [docs/user-guide/commands/assess.md](docs/user-guide/commands/assess.md) for
 1. **Install goneat** (pick one):
    - **Homebrew (recommended)**: `brew install fulmenhq/tap/goneat`
    - **Go install**: `go install github.com/fulmenhq/goneat@latest`
-   - **Secure direct download (recommended if not using a package manager)**: `sfetch --repo fulmenhq/goneat --latest --dest-dir ~/.local/bin`
+   - **sfetch trust anchor** (secure bootstrap without package manager):
+     ```bash
+     # Step 1: Install sfetch (one-time trust anchor)
+     curl -sSfL https://github.com/3leaps/sfetch/releases/latest/download/install-sfetch.sh | bash
+     # Step 2: Use sfetch to install goneat with signature verification
+     sfetch --repo fulmenhq/goneat --latest --dest-dir ~/.local/bin
+     ```
    - **Release archives**: download from [GitHub Releases](https://github.com/fulmenhq/goneat/releases) and place the binary on your `PATH`
    - Verify with `goneat version`
    - Latest release notes: `goneat docs show releases/latest`

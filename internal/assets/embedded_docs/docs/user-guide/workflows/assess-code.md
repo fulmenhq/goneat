@@ -1,7 +1,7 @@
 ---
 title: "Assess Code Workflow Guide"
 description: "Comprehensive workflow guide for using goneat assess in development, CI/CD, and team collaboration scenarios"
-author: "@forge-neat"
+author: "goneat contributors"
 date: "2025-08-28"
 last_updated: "2025-08-28"
 status: "approved"

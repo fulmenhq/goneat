@@ -1,7 +1,7 @@
 ---
 title: "SSOT Dirty Detection: Repository vs Global Gitignore"
 description: "Architectural decision to use repository .gitignore only for SSOT dirty state detection"
-author: "@code-scout"
+author: "goneat contributors"
 date: "2025-10-28"
 last_updated: "2025-10-28"
 status: "approved"

@@ -1,6 +1,6 @@
 title: "Linux Release Artifacts: CGO Disabled for musl/glibc Compatibility"
 description: "Ship Linux release binaries with CGO_ENABLED=0 to run on both musl (Alpine) and glibc (Debian/Ubuntu)"
-author: "@forge-neat"
+author: "goneat contributors"
 date: "2025-12-14"
 last_updated: "2025-12-14"
 status: "approved"
@@ -141,5 +141,5 @@ We will build Linux release artifacts with `CGO_ENABLED=0`.
 ---
 
 **Decision made by**: @3leapsdave
-**Documented by**: @forge-neat
+**Documented by**: goneat contributors
 **Implementation**: v0.3.19

@@ -1,7 +1,7 @@
 ---
 title: "Intelligent Tool Installation Strategy"
 description: "Advanced cross-platform tool installation with ranked choice methods, language-native approaches, and zero-sudo strategies for development environments"
-author: "Forge Neat (@forge-neat)"
+author: "goneat contributors"
 date: "2025-09-15"
 last_updated: "2025-09-15"
 version: "v0.2.5"
