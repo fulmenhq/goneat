@@ -44,11 +44,12 @@ func TestDefaultDatesConfig(t *testing.T) {
 func TestDatesRunner_Assess(t *testing.T) {
 	tempDir := t.TempDir()
 
+	// Use far-future dates (2099) to ensure tests remain stable for decades
 	testFiles := map[string]string{
-		"CHANGELOG.md":           "## [v1.0.0] - 2025-12-31\n## [v0.9.0] - 2025-09-09",
-		"README.md":              "Updated: 2025-12-31",
-		"docs/releases/1.0.0.md": "Release date: 2025-12-31",
-		"ignored.txt":            "Date: 2025-12-31",
+		"CHANGELOG.md":           "## [v1.0.0] - 2099-12-31\n## [v0.9.0] - 2099-09-09",
+		"README.md":              "Updated: 2099-12-31",
+		"docs/releases/1.0.0.md": "Release date: 2099-12-31",
+		"ignored.txt":            "Date: 2099-12-31",
 	}
 
 	for file, content := range testFiles {
@@ -124,12 +125,12 @@ rules:
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
-	// Create test files
+	// Create test files with far-future dates (2099) for temporal stability
 	testFiles := map[string]string{
-		"CUSTOM_CHANGELOG.md":    "## [v1.0.0] - 2025-12-31",
-		"docs/custom/release.md": "Release: 2025-12-31",
-		"ignore/file.md":         "Date: 2025-12-31",
-		"README.md":              "Date: 2025-12-31",
+		"CUSTOM_CHANGELOG.md":    "## [v1.0.0] - 2099-12-31",
+		"docs/custom/release.md": "Release: 2099-12-31",
+		"ignore/file.md":         "Date: 2099-12-31",
+		"README.md":              "Date: 2099-12-31",
 	}
 
 	for file, content := range testFiles {
@@ -210,7 +211,7 @@ rules:
 
 	// Create a test file with dates (should be ignored when disabled)
 	testFile := filepath.Join(tempDir, "CHANGELOG.md")
-	if err := os.WriteFile(testFile, []byte("## [v1.0.0] - 2025-12-31"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("## [v1.0.0] - 2099-12-31"), 0644); err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
 

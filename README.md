@@ -10,6 +10,34 @@ All about smoothly delivering neat code at scale.
 
 We bring a smooth DX layer to the business of making neat code at scale. We wrap language-specific tool chains for formatting, linting, security scanning, and similar functions. Written in Go for speed and scale, goneat enables you to solve common code and document quality problems across even large repositories.
 
+## Language Support
+
+Goneat provides **language-aware assessment** with automatic tool detection. When supported tools are installed, goneat seamlessly integrates them into lint and format workflows.
+
+| Language | Lint | Format | Tool | Install |
+|----------|------|--------|------|---------|
+| **Go** | ✅ | ✅ | golangci-lint, gofmt | `brew install golangci-lint` |
+| **Python** | ✅ | ✅ | [ruff](https://docs.astral.sh/ruff/) | `brew install ruff` |
+| **JavaScript/TypeScript** | ✅ | ✅ | [biome](https://biomejs.dev/) | `brew install biome` |
+| **YAML** | ✅ | ✅ | yamllint, yamlfmt | `brew install yamllint yamlfmt` |
+| **Markdown** | — | ✅ | prettier | `npm install -g prettier` |
+| **JSON** | — | ✅ | prettier | `npm install -g prettier` |
+| **Shell** | ✅ | — | shellcheck | `brew install shellcheck` |
+| _Rust_ | 🔜 | 🔜 | _planned_ | — |
+| _C#_ | 🔜 | 🔜 | _planned_ | — |
+
+**Tool-present gating**: Goneat gracefully skips tools that aren't installed—no errors, just informational logs. Install only what you need.
+
+```bash
+# Check tool availability
+goneat doctor tools --scope foundation
+
+# Run language-aware assessment
+goneat assess --categories lint,format
+```
+
+See [docs/user-guide/commands/assess.md](docs/user-guide/commands/assess.md) for detailed configuration options.
+
 ## Highlights
 
 - **Schema validation at scale**: `goneat validate suite` (bulk), `schema_path` mappings, and offline `$ref` resolution via `--ref-dir`

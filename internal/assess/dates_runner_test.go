@@ -161,10 +161,10 @@ func TestDatesRunner_Assess(t *testing.T) {
 
 	// Create test files
 	testFiles := map[string]string{
-		"CHANGELOG.md":           "## [v1.0.0] - 2025-12-31\n## [v0.9.0] - 2025-09-09",
-		"README.md":              "Updated: 2025-12-31",
-		"docs/releases/1.0.0.md": "Release date: 2025-12-31",
-		"ignored.txt":            "Date: 2025-12-31", // Should be ignored if excluded
+		"CHANGELOG.md":           "## [v1.0.0] - 2099-12-31\n## [v0.9.0] - 2099-09-09",
+		"README.md":              "Updated: 2099-12-31",
+		"docs/releases/1.0.0.md": "Release date: 2099-12-31",
+		"ignored.txt":            "Date: 2099-12-31", // Should be ignored if excluded
 	}
 
 	for file, content := range testFiles {
@@ -234,10 +234,10 @@ rules:
 
 	// Create test files
 	testFiles := map[string]string{
-		"CUSTOM_CHANGELOG.md":    "## [v1.0.0] - 2025-12-31",
-		"docs/custom/release.md": "Release: 2025-12-31",
-		"ignore/file.md":         "Date: 2025-12-31",
-		"README.md":              "Date: 2025-12-31",
+		"CUSTOM_CHANGELOG.md":    "## [v1.0.0] - 2099-12-31",
+		"docs/custom/release.md": "Release: 2099-12-31",
+		"ignore/file.md":         "Date: 2099-12-31",
+		"README.md":              "Date: 2099-12-31",
 	}
 
 	for file, content := range testFiles {
