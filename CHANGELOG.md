@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.4.0] - 2025-12-31
+
+### Added
+
+- **Python lint/format**: Language-aware assessment via [ruff](https://docs.astral.sh/ruff/) for Python files
+- **JavaScript/TypeScript lint/format**: Language-aware assessment via [biome](https://biomejs.dev/) for JS/TS files
+- **Tool-present gating**: Gracefully skip tools that aren't installed (no errors, informational logs)
+- **Language support table**: README.md now documents supported languages with install commands
+
+### Changed
+
+- **Agentic attribution v2**: Migrated from named agents (Forge Neat, Code Scout) to role-based attribution (devlead, secrev, releng) per [3leaps crucible](https://crucible.3leaps.dev/) standards
+- **AGENTS.md**: Simplified to role-based operating model (568 → 199 lines)
+- **Session protocol**: Updated for role-based workflow
+
+### Fixed
+
+- **Dates tests**: Fixed temporal stability by using far-future test dates (2099-12-31)
+
 ## [v0.3.25] - 2025-12-27
 
 ### Fixed

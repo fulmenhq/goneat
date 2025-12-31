@@ -1,9 +1,9 @@
 ---
 title: "Assess Command Reference"
 description: "Complete reference for the goneat assess command - comprehensive codebase assessment and workflow planning"
-author: "@forge-neat"
+author: "goneat contributors"
 date: "2025-08-28"
-last_updated: "2025-10-22"
+last_updated: "2025-12-31"
 status: "approved"
 tags:
   ["cli", "assessment", "validation", "reporting", "commands", "dependencies"]
