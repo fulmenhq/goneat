@@ -273,6 +273,39 @@ python_tools:
       all: ["uv", "pip"]
     auto_install_safe: true
     required_for_languages: ["python"]
+# Rust tools (verify-only in v0.4.x; cargo-install support planned for v0.5.0)
+# Install manually: cargo install <tool> --locked
+rust_tools:
+  - name: cargo-deny
+    description: "Rust dependency license, advisory, and ban checks"
+    kind: "system"
+    detect_command: "cargo deny --version"
+    platforms: ["darwin", "linux", "windows"]
+    version_args: ["--version"]
+    check_args: ["--help"]
+    package_managers:
+      all: []
+    auto_install_safe: false
+    verify_only: true
+    required_for_languages: ["rust"]
+    version_scheme: "semver"
+    minimum_version: "0.14.0"
+    recommended_version: "0.16.0"
+  - name: cargo-audit
+    description: "Rust security vulnerability scanner (RustSec advisories)"
+    kind: "system"
+    detect_command: "cargo audit --version"
+    platforms: ["darwin", "linux", "windows"]
+    version_args: ["--version"]
+    check_args: ["--help"]
+    package_managers:
+      all: []
+    auto_install_safe: false
+    verify_only: true
+    required_for_languages: ["rust"]
+    version_scheme: "semver"
+    minimum_version: "0.18.0"
+    recommended_version: "0.21.0"
 # TypeScript/Node tools
 typescript_tools:
   - name: prettier
@@ -334,6 +367,11 @@ scopes:
     tools:
       - docker # verify-only prerequisite
       - act # installable via package managers
+  rust:
+    description: "Rust development and security tools"
+    tools:
+      - cargo-deny
+      - cargo-audit
   all:
     description: "All tools from all scopes"
     tools:
@@ -353,5 +391,7 @@ scopes:
       - goimports
       - gofmt
       - syft
+      - cargo-deny
+      - cargo-audit
       - docker
       - act

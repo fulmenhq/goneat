@@ -107,9 +107,43 @@ Committer-of-Record: @3leapsdave
 - Skip quality gates
 - Commit secrets or credentials
 - Use raw `go build` (missing embeds)
-- Edit `internal/assets/embedded*` directly
+- Edit `internal/assets/embedded*` directly (see below)
 - Commit `.plans/` directory (gitignored)
 - Touch code outside task scope
+
+### Embedded Assets - Critical Warning
+
+**NEVER edit files in `internal/assets/embedded*/`** - these are generated from source directories.
+
+The embedding system syncs from SOURCE → DESTINATION:
+
+| Source (edit here)    | Destination (never edit)                  |
+| --------------------- | ----------------------------------------- |
+| `config/`             | `internal/assets/embedded_config/config/` |
+| `templates/`          | `internal/assets/embedded_templates/`     |
+| `schemas/`            | `internal/assets/embedded_schemas/`       |
+| `docs/` (curated)     | `internal/assets/embedded_docs/`          |
+
+**Example - Adding Rust tools config:**
+
+```bash
+# CORRECT - edit the source file:
+vim config/tools/foundation-tools-defaults.yaml
+
+# WRONG - this will be overwritten by make build:
+vim internal/assets/embedded_config/config/tools/foundation-tools-defaults.yaml
+```
+
+**Why this matters:**
+- `make build` runs `embed-assets.sh` which syncs source → destination
+- Any edits to `internal/assets/embedded*` are **silently overwritten**
+- The binary embeds from `internal/assets/` so changes must flow through the sync
+
+**Verification:**
+```bash
+make embed-assets  # Sync sources to embedded
+git diff           # Check which files changed
+```
 
 ## Critical Rules
 

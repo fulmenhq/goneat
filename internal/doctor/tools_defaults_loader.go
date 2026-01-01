@@ -17,6 +17,7 @@ type ToolsDefaultsConfig struct {
 	SbomTools       []ToolDefinition           `yaml:"sbom_tools"`
 	PythonTools     []ToolDefinition           `yaml:"python_tools"`
 	TypeScriptTools []ToolDefinition           `yaml:"typescript_tools"`
+	RustTools       []ToolDefinition           `yaml:"rust_tools"`
 	Scopes          map[string]ScopeDefinition `yaml:"scopes"`
 }
 
@@ -69,6 +70,7 @@ func (c *ToolsDefaultsConfig) GetAllTools() []ToolDefinition {
 	allTools = append(allTools, c.SbomTools...)
 	allTools = append(allTools, c.PythonTools...)
 	allTools = append(allTools, c.TypeScriptTools...)
+	allTools = append(allTools, c.RustTools...)
 	return allTools
 }
 
@@ -231,7 +233,7 @@ func ConvertToToolsConfigWithAllScopes(defaultsConfig *ToolsDefaultsConfig, lang
 	}
 
 	// Define standard scopes to generate
-	standardScopes := []string{"foundation", "security", "format", "sbom", "all"}
+	standardScopes := []string{"foundation", "security", "format", "sbom", "rust", "all"}
 
 	// Collect all unique tools across all scopes
 	allToolDefs := make(map[string]ToolDefinition)

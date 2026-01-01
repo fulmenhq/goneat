@@ -1,0 +1,39 @@
+# Example: Rust Development Tools
+#
+# Rust security and quality tools for goneat assess integration.
+# These tools are verify-only in v0.4.x (manual install required).
+#
+# Usage:
+#   goneat doctor tools --scope rust    # Check tool presence
+#
+# Manual installation:
+#   cargo install cargo-deny --locked
+#   cargo install cargo-audit --locked
+#
+# Note: cargo-install support planned for v0.5.0
+
+scopes:
+  rust:
+    description: "Rust development and security tools"
+    tools: ["cargo-deny", "cargo-audit"]
+
+tools:
+  cargo-deny:
+    name: cargo-deny
+    kind: system
+    description: "Rust dependency license, advisory, and ban checks"
+    detect_command: "cargo deny --version"
+    platforms: ["darwin", "linux", "windows"]
+    version_scheme: semver
+    minimum_version: "0.14.0"
+    recommended_version: "0.16.0"
+
+  cargo-audit:
+    name: cargo-audit
+    kind: system
+    description: "Rust security vulnerability scanner (RustSec advisories)"
+    detect_command: "cargo audit --version"
+    platforms: ["darwin", "linux", "windows"]
+    version_scheme: semver
+    minimum_version: "0.18.0"
+    recommended_version: "0.21.0"

@@ -41,6 +41,19 @@ Demonstrates installing CLI tools via Scoop:
 goneat doctor tools --config .goneat/examples/tools-scoop.yaml --scope example-scoop
 ```
 
+### Rust (cargo install)
+**File**: `tools-rust.yaml`
+
+Demonstrates installing Rust security and quality tools via cargo:
+- cargo-deny (license, advisory, ban checks)
+- cargo-audit (RustSec vulnerability scanner)
+
+**Usage**:
+```bash
+goneat doctor tools --scope rust
+goneat doctor tools --scope rust --install
+```
+
 ## Testing Examples
 
 Validate manifests:

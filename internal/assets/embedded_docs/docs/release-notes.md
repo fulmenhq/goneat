@@ -1,3 +1,15 @@
+# Goneat v0.4.1 — Patch Dependency Updates
+
+**Release Date**: 2025-12-31
+**Status**: Stable
+
+## TL;DR
+
+- **Dependency refresh**: go-git v5.16.4, cobra v1.10.2, go-runewidth v0.0.19
+- **Indirect update**: `github.com/clipperhouse/uax29/v2` added via go-runewidth
+
+---
+
 # Goneat v0.4.0 — Language-Aware Assessment for Python & JavaScript/TypeScript
 
 **Release Date**: 2025-12-31
