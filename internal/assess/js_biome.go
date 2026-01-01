@@ -2,7 +2,6 @@ package assess
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -94,26 +93,7 @@ func runBiomeLint(target string, config AssessmentConfig, files []string) ([]Iss
 	return issues, nil
 }
 
-// runToolStdoutOnly captures only stdout (not stderr) for tools that mix formats
-func runToolStdoutOnly(target, bin string, args []string, timeout time.Duration) ([]byte, error) {
-	tctx := context.Background()
-	if timeout > 0 {
-		var cancel context.CancelFunc
-		tctx, cancel = context.WithTimeout(context.Background(), timeout)
-		defer cancel()
-	}
-	cmd := exec.CommandContext(tctx, bin, args...) // #nosec G204
-	cmd.Dir = target
-	out, err := cmd.Output() // Only stdout, stderr is discarded
-	if err != nil {
-		// Non-zero exit is expected when issues are found
-		if _, ok := err.(*exec.ExitError); ok {
-			return out, nil
-		}
-		return nil, fmt.Errorf("%s execution failed: %w", bin, err)
-	}
-	return out, nil
-}
+// runToolStdoutOnly is now in tool_runner.go
 
 func runBiomeFormat(target string, config AssessmentConfig, files []string) ([]Issue, error) {
 	if len(files) == 0 {
