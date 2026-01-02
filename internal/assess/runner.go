@@ -102,6 +102,11 @@ type AssessmentConfig struct {
 	// Lint new-only control (golangci-lint --new-from-rev)
 	LintNewFromRev string `json:"lint_new_from_rev,omitempty"`
 
+	// Incremental checking (cross-tool: golangci-lint, biome)
+	// When NewIssuesOnly is true, only issues introduced since NewIssuesBase are reported
+	NewIssuesOnly bool   `json:"new_issues_only,omitempty"`
+	NewIssuesBase string `json:"new_issues_base,omitempty"`
+
 	// Lint extensions (shell/make/GHA)
 	LintShellEnabled      bool     `json:"lint_shell_enabled,omitempty"`
 	LintShellFix          bool     `json:"lint_shell_fix,omitempty"`

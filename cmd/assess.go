@@ -87,6 +87,9 @@ var (
 	assessProfile        string
 	assessLintNewFromRev string
 	assessPackageMode    bool
+	// Incremental checking (cross-tool)
+	assessNewIssuesOnly bool
+	assessNewIssuesBase string
 	// Lint extensions
 	assessLintShell       bool
 	assessLintShellFix    bool
@@ -145,6 +148,9 @@ func setupAssessCommandFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&assessScope, "scope", false, "Limit traversal scope to include paths and force-include anchors")
 	// Lint controls
 	cmd.Flags().StringVar(&assessLintNewFromRev, "lint-new-from-rev", "", "Report only new lint issues since a given git rev (passes to golangci-lint --new-from-rev)")
+	// Incremental checking (cross-tool)
+	cmd.Flags().BoolVar(&assessNewIssuesOnly, "new-issues-only", false, "Only report issues introduced since base reference (applies to golangci-lint, biome)")
+	cmd.Flags().StringVar(&assessNewIssuesBase, "new-issues-base", "HEAD~", "Git reference for baseline comparison (requires --new-issues-only)")
 	cmd.Flags().BoolVar(&assessLintShell, "lint-shell", true, "Enable shell linting (shfmt/shellcheck per config)")
 	cmd.Flags().BoolVar(&assessLintShellFix, "lint-shell-fix", false, "Allow shfmt to apply fixes (otherwise check-only)")
 	cmd.Flags().BoolVar(&assessLintShellcheck, "lint-shellcheck", false, "Enable shellcheck (GPL, verify-only; requires shellcheck in PATH or provided via --shellcheck-path)")
@@ -341,6 +347,8 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		ConcurrencyPercent:    assessConcurrencyPercent,
 		TrackSuppressions:     assessTrackSuppressions,
 		LintNewFromRev:        strings.TrimSpace(assessLintNewFromRev),
+		NewIssuesOnly:         assessNewIssuesOnly,
+		NewIssuesBase:         strings.TrimSpace(assessNewIssuesBase),
 		LintShellEnabled:      assessLintShell,
 		LintShellFix:          assessLintShellFix,
 		LintShellPaths:        assessLintShellPaths,
@@ -353,6 +361,11 @@ func runAssess(cmd *cobra.Command, args []string) error {
 		LintMakeEnabled:       assessLintMake,
 		LintMakePaths:         assessLintMakePaths,
 		LintMakeExclude:       assessLintMakeExclude,
+	}
+
+	// Warn if --new-issues-base is set without --new-issues-only (no-op scenario)
+	if config.NewIssuesBase != "" && config.NewIssuesBase != "HEAD~" && !config.NewIssuesOnly {
+		logger.Warn("--new-issues-base has no effect without --new-issues-only; base reference will be ignored")
 	}
 
 	// Add positional args to IncludeFiles
@@ -434,14 +447,6 @@ func runAssess(cmd *cobra.Command, args []string) error {
 			}
 		}
 		return runHookMode(cmd, assessHook, assessHookManifest, config, format)
-	}
-
-	// Hook defaults: lint new-only for pre-commit and pre-push unless overridden
-	if assessHook != "" {
-		if strings.TrimSpace(config.LintNewFromRev) == "" {
-			// Default to HEAD~ for new-only gating
-			config.LintNewFromRev = "HEAD~"
-		}
 	}
 
 	// Suppress logs for JSON output to keep clean
@@ -720,9 +725,18 @@ func createInternalCommandHandler(cmd *cobra.Command, hookType string, hookConfi
 
 // runInternalAssess runs the internal assessment logic for hook mode.
 func runInternalAssess(cmd *cobra.Command, hookType string, hookConfig *HookConfig, config assess.AssessmentConfig, outFormat assess.OutputFormat, args []string) error {
-	// Parse categories and fail-on from args if provided
+	// Parse flags from args (supports both --flag value and --flag=value syntax)
 	for i, arg := range args {
-		if arg == "--categories" && i+1 < len(args) {
+		// Handle --flag=value syntax
+		if strings.HasPrefix(arg, "--categories=") {
+			parts := strings.Split(strings.TrimPrefix(arg, "--categories="), ",")
+			config.SelectedCategories = make([]string, 0, len(parts))
+			for _, p := range parts {
+				if pp := strings.TrimSpace(p); pp != "" {
+					config.SelectedCategories = append(config.SelectedCategories, pp)
+				}
+			}
+		} else if arg == "--categories" && i+1 < len(args) {
 			parts := strings.Split(args[i+1], ",")
 			config.SelectedCategories = make([]string, 0, len(parts))
 			for _, p := range parts {
@@ -731,9 +745,15 @@ func runInternalAssess(cmd *cobra.Command, hookType string, hookConfig *HookConf
 				}
 			}
 		}
-		if arg == "--fail-on" && i+1 < len(args) {
-			failOnValue := args[i+1]
-			// Sync to hookConfig so shouldFailHook uses the correct threshold
+
+		// Handle --fail-on
+		var failOnValue string
+		if strings.HasPrefix(arg, "--fail-on=") {
+			failOnValue = strings.TrimPrefix(arg, "--fail-on=")
+		} else if arg == "--fail-on" && i+1 < len(args) {
+			failOnValue = args[i+1]
+		}
+		if failOnValue != "" {
 			hookConfig.FailOn = failOnValue
 			switch failOnValue {
 			case "critical":
@@ -746,6 +766,27 @@ func runInternalAssess(cmd *cobra.Command, hookType string, hookConfig *HookConf
 				config.FailOnSeverity = assess.SeverityLow
 			}
 		}
+
+		// Parse --new-issues-only flag (opt-in incremental checking)
+		// Supports: --new-issues-only, --new-issues-only=true, --new-issues-only=false
+		if arg == "--new-issues-only" {
+			config.NewIssuesOnly = true
+		} else if strings.HasPrefix(arg, "--new-issues-only=") {
+			val := strings.TrimPrefix(arg, "--new-issues-only=")
+			config.NewIssuesOnly = val == "true" || val == "1"
+		}
+
+		// Parse --new-issues-base flag
+		if strings.HasPrefix(arg, "--new-issues-base=") {
+			config.NewIssuesBase = strings.TrimPrefix(arg, "--new-issues-base=")
+		} else if arg == "--new-issues-base" && i+1 < len(args) {
+			config.NewIssuesBase = args[i+1]
+		}
+	}
+
+	// Warn if --new-issues-base is set without --new-issues-only (no-op scenario)
+	if config.NewIssuesBase != "" && !config.NewIssuesOnly {
+		logger.Warn("--new-issues-base has no effect without --new-issues-only; base reference will be ignored")
 	}
 
 	// Apply staged-only optimization if configured
@@ -753,11 +794,6 @@ func runInternalAssess(cmd *cobra.Command, hookType string, hookConfig *HookConf
 		if staged, err := getStagedFiles(); err == nil && len(staged) > 0 {
 			config.IncludeFiles = staged
 		}
-	}
-
-	// Default lint to new-only in hook mode
-	if strings.TrimSpace(config.LintNewFromRev) == "" {
-		config.LintNewFromRev = "HEAD~"
 	}
 
 	// Set security configuration for hook mode
@@ -847,10 +883,6 @@ func runLegacyHookMode(cmd *cobra.Command, hookType string, hookConfig *HookConf
 		if staged, err := getStagedFiles(); err == nil && len(staged) > 0 {
 			config.IncludeFiles = staged
 		}
-	}
-
-	if strings.TrimSpace(config.LintNewFromRev) == "" {
-		config.LintNewFromRev = "HEAD~"
 	}
 
 	config.SecurityExcludeFixtures = true

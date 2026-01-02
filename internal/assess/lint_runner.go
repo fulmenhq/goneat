@@ -951,7 +951,15 @@ func (r *LintAssessmentRunner) runGolangCILintWithMode(target string, config Ass
 	}
 
 	// Limit to new issues only when requested
-	if config.LintNewFromRev != "" {
+	// NewIssuesOnly (cross-tool flag) takes precedence over LintNewFromRev (golangci-lint specific)
+	if config.NewIssuesOnly {
+		base := config.NewIssuesBase
+		if base == "" {
+			base = "HEAD~" // Default base reference
+		}
+		args = append(args, "--new-from-rev", base)
+	} else if config.LintNewFromRev != "" {
+		// Backward compatibility: honor explicit --lint-new-from-rev flag
 		args = append(args, "--new-from-rev", config.LintNewFromRev)
 	}
 
@@ -1037,10 +1045,11 @@ func (r *LintAssessmentRunner) runGolangCILintWithMode(target string, config Ass
 			exitCode = exitErr.ExitCode()
 		}
 		// Exit code 1: issues found (normal for check mode)
-		// Exit code 5: no go files to analyze (treat as no issues when running new-from-rev)
+		// Exit code 5: no go files to analyze (treat as no issues when running incremental mode)
 		if exitCode == 1 {
 			// proceed to parse output for issues
-		} else if exitCode == 5 && config.LintNewFromRev != "" {
+		} else if exitCode == 5 && (config.NewIssuesOnly || config.LintNewFromRev != "") {
+			// No new issues to analyze in incremental mode - this is expected
 			return []Issue{}, nil
 		} else {
 			return nil, fmt.Errorf("golangci-lint execution failed: %v, output: %s", err, string(output))
