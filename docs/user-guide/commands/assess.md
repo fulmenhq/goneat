@@ -148,6 +148,17 @@ goneat assess --include "*.go" --exclude "vendor/**"
 | `--scope`              | boolean | Limit traversal to include/force anchors | `--scope`                             |
 | `--schema-enable-meta` | boolean | Attempt schema meta validation           | `--schema-enable-meta`                |
 
+### Incremental Lint Flags
+
+| Flag               | Type   | Default | Description                                          | Example                        |
+| ------------------ | ------ | ------- | ---------------------------------------------------- | ------------------------------ |
+| `--new-issues-only` | bool   | `false` | Only report issues introduced since base reference   | `--new-issues-only`            |
+| `--new-issues-base` | string | `HEAD~` | Git reference for baseline comparison                | `--new-issues-base main`       |
+
+**Note:** `--new-issues-base` has no effect without `--new-issues-only`.
+
+See [Incremental Lint Checking](../../appnotes/assess/incremental-lint-checking.md) for detailed guidance.
+
 ### Hook Integration Flags
 
 | Flag              | Type   | Description        | Example                              |
@@ -625,7 +636,13 @@ goneat assess --categories format
 # Check multiple categories
 goneat assess --categories "format,lint"
 
-# Lint new issues only against the previous commit
+# Lint new issues only against the previous commit (recommended)
+goneat assess --categories lint --new-issues-only --format concise
+
+# Lint new issues only against main branch
+goneat assess --categories lint --new-issues-only --new-issues-base main
+
+# Legacy: Lint new issues only (deprecated, use --new-issues-only instead)
 goneat assess --categories lint --lint-new-from-rev HEAD~ --format concise
 
 # Security-focused assessment

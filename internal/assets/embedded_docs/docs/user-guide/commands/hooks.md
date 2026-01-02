@@ -454,6 +454,26 @@ optimization:
   parallel: "auto"
 ```
 
+### Incremental Lint Checking (v0.4.1+)
+
+By default, hook mode reports **all lint issues**. To report only issues introduced since a baseline reference, add `--new-issues-only` to your hooks.yaml args:
+
+```yaml
+hooks:
+  pre-commit:
+    - command: "assess"
+      # Only report NEW lint issues since previous commit
+      args: ["--categories", "format,lint", "--fail-on", "high", "--new-issues-only"]
+  pre-push:
+    - command: "assess"
+      # Only report NEW lint issues since main branch
+      args: ["--categories", "lint,security", "--fail-on", "high", "--new-issues-only", "--new-issues-base", "main"]
+```
+
+**Note:** Prior to v0.4.1, hook mode implicitly applied incremental checking. This has been changed to explicit opt-in for consistency and transparency.
+
+See [Incremental Lint Checking](../../appnotes/assess/incremental-lint-checking.md) for detailed guidance on when and how to use this feature.
+
 ### Configuration Options
 
 #### Hook Commands
