@@ -55,10 +55,21 @@ definitions:
         examples: ["assess", "format", "lint", "gofmt"]
       args:
         type: array
-        description: Arguments to pass to the command
+        description: |
+          Arguments to pass to the command. For assess commands, common args include:
+          - --categories: Comma-separated assessment categories (format,lint,security,etc.)
+          - --fail-on: Severity threshold (critical,high,medium,low)
+          - --new-issues-only: Only report issues introduced since base reference (opt-in)
+          - --new-issues-base: Git reference for baseline comparison (default: HEAD~)
+          Note: --new-issues-base has no effect without --new-issues-only
         items:
           type: string
-        examples: [["--categories", "format,lint"], ["--check"], ["./..."]]
+        examples:
+          - ["--categories", "format,lint"]
+          - ["--categories", "lint", "--new-issues-only"]
+          - ["--categories", "lint", "--new-issues-only", "--new-issues-base", "main"]
+          - ["--check"]
+          - ["./..."]
       fallback:
         type: string
         description: Fallback command if primary command fails
@@ -111,35 +122,40 @@ required:
   - version
   - hooks
 examples:
+  # Standard configuration (reports ALL lint issues)
   - version: "1.0.0"
     hooks:
       pre-commit:
         - command: "assess"
-          args: ["--categories", "format,lint", "--fail-on", "error"]
+          args: ["--categories", "format,lint", "--fail-on", "high"]
           stage_fixed: true
           priority: 10
-        - command: "format"
-          args: ["--check", "--quiet"]
-          fallback: "go fmt ./..."
-          when:
-            - files_match: "*.go"
-          timeout: "30s"
-        - command: "lint"
-          args: ["--check", "--quiet"]
-          fallback: "golangci-lint run --quiet"
-          when:
-            - files_match: "*.go"
-          skip: ["merge", "rebase"]
           timeout: "2m"
       pre-push:
         - command: "assess"
-          args: ["--full", "--format", "json", "--output", "$GONEAT_HOME/reports/pre-push.json"]
+          args: ["--categories", "format,lint,security,maturity,repo-status", "--fail-on", "high"]
           priority: 10
-        - command: "security"
-          args: ["--scan"]
-          priority: 8
           timeout: "3m"
     optimization:
-      only_changed_files: true
+      only_changed_files: false
+      cache_results: true
+      parallel: "auto"
+  # Incremental lint configuration (reports only NEW issues since base)
+  # Use --new-issues-only for faster feedback on large codebases with existing lint debt
+  - version: "1.0.0"
+    hooks:
+      pre-commit:
+        - command: "assess"
+          args: ["--categories", "format,lint", "--fail-on", "high", "--new-issues-only"]
+          stage_fixed: true
+          priority: 10
+          timeout: "2m"
+      pre-push:
+        - command: "assess"
+          args: ["--categories", "format,lint,security", "--fail-on", "high", "--new-issues-only", "--new-issues-base", "main"]
+          priority: 10
+          timeout: "3m"
+    optimization:
+      only_changed_files: false
       cache_results: true
       parallel: "auto"
