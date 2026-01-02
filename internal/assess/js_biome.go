@@ -50,7 +50,23 @@ func runBiomeLint(target string, config AssessmentConfig, files []string) ([]Iss
 		}
 	}
 
-	args := append([]string{"lint", "--reporter", "json"}, files...)
+	args := []string{"lint", "--reporter", "json"}
+
+	// Add incremental checking flags when NewIssuesOnly is enabled
+	// biome requires both --changed and --since=REF for incremental lint
+	// When using --changed, biome determines file list from git; skip explicit files
+	if config.NewIssuesOnly {
+		base := config.NewIssuesBase
+		if base == "" {
+			base = "HEAD~" // Default base reference
+		}
+		args = append(args, "--changed", "--since="+base)
+		logger.Debug(fmt.Sprintf("biome lint: incremental mode enabled (since=%s)", base))
+		// Let biome determine changed files; don't pass explicit file list
+	} else {
+		args = append(args, files...)
+	}
+
 	out, err := runToolStdoutOnly(target, "biome", args, config.Timeout)
 	if err != nil {
 		return nil, err
