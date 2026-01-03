@@ -24,7 +24,7 @@ func TestLoadToolsDefaultsConfig(t *testing.T) {
 	}
 
 	// Verify expected scopes
-	expectedScopes := []string{"foundation", "security", "format", "all"}
+	expectedScopes := []string{"foundation", "security", "format", "rust", "all"}
 	for _, scope := range expectedScopes {
 		if _, exists := config.Scopes[scope]; !exists {
 			t.Errorf("Expected scope %s not found", scope)
@@ -84,6 +84,7 @@ func TestGetToolsForScope(t *testing.T) {
 		{"foundation", false, 5},
 		{"security", false, 2},
 		{"format", false, 2},
+		{"rust", false, 2},
 		{"all", false, 10},
 		{"nonexistent", true, 0},
 	}

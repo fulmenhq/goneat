@@ -283,6 +283,10 @@ rust_tools:
     platforms: ["darwin", "linux", "windows"]
     version_args: ["--version"]
     check_args: ["--help"]
+    install_commands:
+      manual: "cargo install cargo-deny --locked"
+    installer_priority:
+      all: ["manual"]
     package_managers:
       all: []
     auto_install_safe: false
@@ -298,6 +302,10 @@ rust_tools:
     platforms: ["darwin", "linux", "windows"]
     version_args: ["--version"]
     check_args: ["--help"]
+    install_commands:
+      manual: "cargo install cargo-audit --locked"
+    installer_priority:
+      all: ["manual"]
     package_managers:
       all: []
     auto_install_safe: false

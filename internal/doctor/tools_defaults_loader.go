@@ -23,20 +23,22 @@ type ToolsDefaultsConfig struct {
 
 // ToolDefinition represents a tool definition from the defaults config
 type ToolDefinition struct {
-	Name                 string      `yaml:"name"`
-	Description          string      `yaml:"description"`
-	Kind                 string      `yaml:"kind"`
-	DetectCommand        string      `yaml:"detect_command"`
-	Platforms            []string    `yaml:"platforms,omitempty"`
-	PackageManagers      interface{} `yaml:"package_managers"` // can be map[string][]string or simple
-	AutoInstallSafe      bool        `yaml:"auto_install_safe"`
-	RequiredForLanguages []string    `yaml:"required_for_languages,omitempty"`
-	InstallPackage       string      `yaml:"install_package,omitempty"`
-	VersionArgs          []string    `yaml:"version_args,omitempty"`
-	CheckArgs            []string    `yaml:"check_args,omitempty"`
-	VersionScheme        string      `yaml:"version_scheme,omitempty"`
-	MinimumVersion       string      `yaml:"minimum_version,omitempty"`
-	RecommendedVersion   string      `yaml:"recommended_version,omitempty"`
+	Name                 string              `yaml:"name"`
+	Description          string              `yaml:"description"`
+	Kind                 string              `yaml:"kind"`
+	DetectCommand        string              `yaml:"detect_command"`
+	Platforms            []string            `yaml:"platforms,omitempty"`
+	PackageManagers      interface{}         `yaml:"package_managers"` // can be map[string][]string or simple
+	AutoInstallSafe      bool                `yaml:"auto_install_safe"`
+	RequiredForLanguages []string            `yaml:"required_for_languages,omitempty"`
+	InstallPackage       string              `yaml:"install_package,omitempty"`
+	VersionArgs          []string            `yaml:"version_args,omitempty"`
+	CheckArgs            []string            `yaml:"check_args,omitempty"`
+	InstallCommands      map[string]string   `yaml:"install_commands,omitempty"`
+	InstallerPriority    map[string][]string `yaml:"installer_priority,omitempty"`
+	VersionScheme        string              `yaml:"version_scheme,omitempty"`
+	MinimumVersion       string              `yaml:"minimum_version,omitempty"`
+	RecommendedVersion   string              `yaml:"recommended_version,omitempty"`
 }
 
 // ScopeDefinition represents a scope definition from the defaults config
@@ -184,14 +186,17 @@ func ConvertToToolsConfig(tools []ToolDefinition, scopeName string, scopeDescrip
 			InstallPackage:     toolDef.InstallPackage,
 			VersionArgs:        toolDef.VersionArgs,
 			CheckArgs:          toolDef.CheckArgs,
+			InstallCommands:    toolDef.InstallCommands,
 			VersionScheme:      toolDef.VersionScheme,
 			MinimumVersion:     toolDef.MinimumVersion,
 			RecommendedVersion: toolDef.RecommendedVersion,
 		}
 
-		// Handle package_managers field - convert to installer_priority
-		// foundation-tools-defaults.yaml uses package_managers, but .goneat/tools.yaml uses installer_priority
-		if toolDef.PackageManagers != nil {
+		if len(toolDef.InstallerPriority) > 0 {
+			tool.InstallerPriority = toolDef.InstallerPriority
+		} else if toolDef.PackageManagers != nil {
+			// Handle package_managers field - convert to installer_priority
+			// foundation-tools-defaults.yaml uses package_managers, but .goneat/tools.yaml uses installer_priority
 			switch pm := toolDef.PackageManagers.(type) {
 			case map[string]interface{}:
 				tool.InstallerPriority = make(map[string][]string)
