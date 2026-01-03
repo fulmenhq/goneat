@@ -36,6 +36,24 @@ sync_dir "$SRC_TEMPLATES" "$DST_TEMPLATES"
 sync_dir "$SRC_SCHEMAS" "$DST_SCHEMAS"
 sync_dir "$SRC_CONFIG" "$DST_CONFIG"
 
+# Copy only if content would change (idempotent - avoids noisy diffs on every build)
+copy_if_changed() {
+	local src="$1"
+	local dst="$2"
+	local label="${3:-$(basename "$dst")}"
+	if [ ! -f "$src" ]; then
+		return 1
+	fi
+	if [ -f "$dst" ]; then
+		if diff -q "$src" "$dst" >/dev/null 2>&1; then
+			echo "ℹ️  $label unchanged, skipping"
+			return 0
+		fi
+	fi
+	cp -f "$src" "$dst"
+	echo "✅ Updated $label"
+}
+
 generate_release_doc_aliases() {
 	local version=""
 	if [ -f "$ROOT_DIR/VERSION" ]; then
@@ -47,19 +65,23 @@ generate_release_doc_aliases() {
 	fi
 
 	# Expose curated recent release notes via embedded docs.
-	if [ -f "$ROOT_DIR/RELEASE_NOTES.md" ]; then
-		cp -f "$ROOT_DIR/RELEASE_NOTES.md" "$ROOT_DIR/docs/release-notes.md"
-	fi
+	copy_if_changed "$ROOT_DIR/RELEASE_NOTES.md" "$ROOT_DIR/docs/release-notes.md" "docs/release-notes.md"
 
 	# Stable slug for the current release notes.
+	# Only update latest.md when a version-specific doc exists for the current VERSION.
+	# This prevents regenerating latest.md on every build during development when
+	# VERSION has been bumped but release notes haven't been written yet.
 	mkdir -p "$ROOT_DIR/docs/releases"
 	local versionDoc="$ROOT_DIR/docs/releases/${version}.md"
 	local latestDoc="$ROOT_DIR/docs/releases/latest.md"
 	if [ -f "$versionDoc" ]; then
-		cp -f "$versionDoc" "$latestDoc"
+		copy_if_changed "$versionDoc" "$latestDoc" "docs/releases/latest.md"
+	elif [ ! -f "$latestDoc" ]; then
+		# Only create latest.md from RELEASE_NOTES.md if it doesn't exist at all.
+		# This handles initial bootstrap; otherwise keep existing latest.md.
+		copy_if_changed "$ROOT_DIR/docs/release-notes.md" "$latestDoc" "docs/releases/latest.md (bootstrap)"
 	else
-		# Fall back to the curated release notes if a versioned doc hasn't been generated yet.
-		cp -f "$ROOT_DIR/docs/release-notes.md" "$latestDoc" 2>/dev/null || true
+		echo "ℹ️  docs/releases/latest.md preserved (no $version.md yet)"
 	fi
 }
 
