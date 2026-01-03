@@ -7,6 +7,7 @@ Available scopes:
 - **foundation**: Core development tools (ripgrep, jq, yq, minisign, prettier, yamlfmt, yamllint, golangci-lint)
 - **security**: Security scanning tools (gosec, govulncheck, gitleaks)
 - **format**: Code formatting tools (goimports, gofmt)
+- **rust**: Rust development tools (cargo-deny, cargo-audit)
 - **all**: All tools from all scopes
 
 - Command: `goneat doctor`
@@ -66,6 +67,7 @@ Check presence, versions, and version policy compliance of supported tools, prin
 | **foundation** | ripgrep, jq, yq, minisign, prettier, yamlfmt, yamllint, golangci-lint | Core development, signing, and formatting    |
 | **security**   | gosec, govulncheck, gitleaks                                          | Security scanning and vulnerability analysis |
 | **format**     | goimports, gofmt                                                      | Code formatting and import management        |
+| **rust**       | cargo-deny, cargo-audit                                               | Rust dependency security and licensing       |
 
 ### Usage
 
@@ -92,7 +94,7 @@ Before using `doctor tools`, initialize the tools configuration:
 - Force re-initialization:
   - `goneat doctor tools init --force`
 
-This creates `.goneat/tools.yaml` with all standard scopes (foundation, security, format, all).
+This creates `.goneat/tools.yaml` with all standard scopes (foundation, security, format, rust, all).
 
 #### Installation & Dry Run
 
@@ -118,7 +120,7 @@ This creates `.goneat/tools.yaml` with all standard scopes (foundation, security
 
 #### Core Flags
 
-- `--scope foundation|security|format|all`
+- `--scope foundation|security|format|rust|all`
   Select the tool scope (default: `foundation`). Use `foundation` for core development tools.
 
 - `--tools string[,string]`

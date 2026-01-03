@@ -23,7 +23,7 @@ Goneat provides **language-aware assessment** with automatic tool detection. Whe
 | **Markdown** | — | ✅ | prettier | `npm install -g prettier` |
 | **JSON** | — | ✅ | prettier | `npm install -g prettier` |
 | **Shell** | ✅ | — | shellcheck | `brew install shellcheck` |
-| _Rust_ | 🔜 | 🔜 | _planned_ | — |
+| **Rust** | ✅ | — | cargo-clippy | `rustup component add clippy` |
 | _C#_ | 🔜 | 🔜 | _planned_ | — |
 
 **Tool-present gating**: Goneat gracefully skips tools that aren't installed—no errors, just informational logs. Install only what you need.
