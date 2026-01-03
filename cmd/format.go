@@ -435,26 +435,31 @@ func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignore
 		if finalizer.IsSupportedExtension(ext) {
 			if ferr := applyFinalizer(file, checkOnly, options); ferr != nil {
 				// If finalizer made changes, it takes precedence over primary formatter
-				if ferr.Error() == "finalized" {
-					// Finalizer made changes - this takes precedence over "already formatted"
+				if ferr.Error() == "finalized" || ferr.Error() == "needs formatting" {
+					// Finalizer found issues - return needs formatting
 					return fmt.Errorf("needs formatting")
+				}
+				// If primary formatter said "needs formatting", that takes precedence
+				// over finalizer saying "already formatted"
+				if err != nil && err.Error() == "needs formatting" {
+					return err
 				}
 				// If primary formatter said "already formatted" but finalizer found changes,
 				// the finalizer result takes precedence
 				if err != nil && err.Error() == "already formatted" {
 					return ferr
 				}
-				// If primary formatter had other errors, return the finalizer error
+				// If primary formatter had other errors, return the primary error
 				if err != nil {
-					return ferr
+					return err
 				}
 				// If primary formatter succeeded but finalizer found issues, return finalizer error
 				return ferr
 			}
-			// If finalizer succeeded and primary formatter said "already formatted",
-			// we should indicate that changes were made
-			if err != nil && err.Error() == "already formatted" {
-				return fmt.Errorf("needs formatting")
+			// Finalizer says file is OK ("already formatted" in check mode, nil in format mode)
+			// If primary formatter said "needs formatting", that takes precedence
+			if err != nil && err.Error() == "needs formatting" {
+				return err
 			}
 		}
 	}

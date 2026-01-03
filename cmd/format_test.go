@@ -6,6 +6,7 @@ package cmd
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -139,6 +140,51 @@ func TestFormatCommand_CheckOnly(t *testing.T) {
 
 	// This test would verify check-only functionality
 	// For now, we focus on the core formatting functionality that works
+}
+
+// TestFormatCommand_CheckMode_YAMLPrimaryFormatterPrecedence verifies that when
+// the primary formatter (yamlfmt) detects formatting issues, the check mode
+// correctly reports "needs formatting" even if the finalizer says the file is OK.
+// This tests the fix for a bug where finalizer's "already formatted" would
+// incorrectly override yamlfmt's "needs formatting" result.
+func TestFormatCommand_CheckMode_YAMLPrimaryFormatterPrecedence(t *testing.T) {
+	// Skip if yamlfmt not available
+	if _, err := exec.LookPath("yamlfmt"); err != nil {
+		t.Skip("yamlfmt not available")
+	}
+
+	tempDir := t.TempDir()
+
+	// YAML with formatting issues yamlfmt will catch (blank lines, extra spaces),
+	// but clean for finalizer (correct EOF with single newline, no trailing whitespace)
+	yamlContent := `version: v1
+
+key: value
+
+nested:
+  item1: one      # extra spaces before comment
+  item2: two
+`
+	yamlFile := filepath.Join(tempDir, "test.yaml")
+	if err := os.WriteFile(yamlFile, []byte(yamlContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run goneat format --check as a subprocess to properly test exit code
+	// since the command uses os.Exit() internally
+	cmd := exec.Command("go", "run", ".", "format", "--check", yamlFile)
+	cmd.Dir = ".."
+	output, err := cmd.CombinedOutput()
+
+	// Should return non-zero exit code because yamlfmt detects formatting issues
+	if err == nil {
+		t.Errorf("Expected format --check to fail on YAML with formatting issues, but it passed.\nOutput: %s", output)
+	}
+
+	// Verify the output indicates formatting is needed
+	if !strings.Contains(string(output), "need-format=1") && !strings.Contains(string(output), "needs formatting") {
+		t.Errorf("Expected output to indicate formatting needed, got: %s", output)
+	}
 }
 
 // TestFormatCommand_QuietMode tests quiet mode functionality
