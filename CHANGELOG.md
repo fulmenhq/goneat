@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.4.1] - 2026-01-02
+
+### Added
+
+- **Explicit incremental lint checking**: New `--new-issues-only` and `--new-issues-base` flags for `goneat assess`
+  - `--new-issues-only`: Only report issues introduced since a baseline git reference (opt-in)
+  - `--new-issues-base`: Git reference for baseline comparison (default: `HEAD~`)
+  - Supports golangci-lint (`--new-from-rev`) and biome (`--changed --since`)
+  - Documentation: `docs/appnotes/assess/incremental-lint-checking.md`
+
+### Changed
+
+- **Hook mode behavior**: Removed implicit incremental lint checking from hook mode
+  - **Before v0.4.1**: Hook mode implicitly applied `--lint-new-from-rev HEAD~`
+  - **After v0.4.1**: Hook mode reports ALL lint issues by default (consistent with direct assess)
+  - To restore previous behavior, add `--new-issues-only` to hooks.yaml args
+- **Patch dependency updates**: go-git v5.16.4, cobra v1.10.2, go-runewidth v0.0.19
+- **Indirect dependency update**: added `github.com/clipperhouse/uax29/v2` via go-runewidth
+
 ## [v0.4.0] - 2025-12-31
 
 ### Added

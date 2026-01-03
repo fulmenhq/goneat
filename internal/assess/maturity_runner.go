@@ -50,7 +50,7 @@ func (r *MaturityRunner) Assess(ctx context.Context, target string, config Asses
 				File:     "RELEASE_PHASE",
 				Line:     0,
 				Severity: SeverityHigh,
-				Message:  fmt.Sprintf("Invalid RELEASE_PHASE: '%s' (valid: dev, rc, release, hotfix)", releasePhaseStr),
+				Message:  fmt.Sprintf("Invalid RELEASE_PHASE: '%s' (valid: %s)", releasePhaseStr, maturity.ValidReleasePhasesString()),
 				Category: r.GetCategory(),
 			})
 		}
@@ -75,7 +75,7 @@ func (r *MaturityRunner) Assess(ctx context.Context, target string, config Asses
 				File:     "LIFECYCLE_PHASE",
 				Line:     0,
 				Severity: SeverityHigh,
-				Message:  fmt.Sprintf("Invalid LIFECYCLE_PHASE: '%s' (valid: alpha, beta, ga, maintenance)", lifecyclePhaseStr),
+				Message:  fmt.Sprintf("Invalid LIFECYCLE_PHASE: '%s' (valid: %s)", lifecyclePhaseStr, maturity.ValidLifecyclePhasesString()),
 				Category: r.GetCategory(),
 			})
 		}
@@ -112,10 +112,11 @@ func (r *MaturityRunner) Assess(ctx context.Context, target string, config Asses
 			}
 		}
 
-		// Git state check for strict phases
+		// Git state check for strict phases (rc and ga/release require clean git)
 		if releasePhaseContent != nil {
 			releasePhaseStr := strings.TrimSpace(string(releasePhaseContent))
-			if releasePhaseStr == "rc" || releasePhaseStr == "release" || releasePhaseStr == "hotfix" {
+			releasePhase := maturity.ReleasePhase(releasePhaseStr)
+			if releasePhase == maturity.ReleaseRC || releasePhase == maturity.ReleaseGA || releasePhase == maturity.ReleaseRelease {
 				repo, err := git.PlainOpenWithOptions(target, &git.PlainOpenOptions{DetectDotGit: true})
 				if err == nil {
 					wt, err := repo.Worktree()

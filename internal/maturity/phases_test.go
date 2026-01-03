@@ -11,8 +11,8 @@ func TestReleasePhase_IsValid(t *testing.T) {
 	}{
 		{ReleaseDev, true},
 		{ReleaseRC, true},
-		{ReleaseRelease, true},
-		{ReleaseHotfix, true},
+		{ReleaseGA, true},
+		{ReleaseRelease, true}, // Alias for ga
 		{ReleasePhase("invalid"), false},
 		{ReleasePhase(""), false},
 	}
@@ -34,8 +34,8 @@ func TestReleasePhase_String(t *testing.T) {
 	}{
 		{ReleaseDev, "dev"},
 		{ReleaseRC, "rc"},
+		{ReleaseGA, "ga"},
 		{ReleaseRelease, "release"},
-		{ReleaseHotfix, "hotfix"},
 	}
 
 	for _, tt := range tests {
@@ -50,7 +50,8 @@ func TestReleasePhase_String(t *testing.T) {
 
 func TestValidReleasePhases(t *testing.T) {
 	phases := ValidReleasePhases()
-	expected := []ReleasePhase{ReleaseDev, ReleaseRC, ReleaseRelease, ReleaseHotfix}
+	// Per crucible schema: dev, rc, ga (release is alias)
+	expected := []ReleasePhase{ReleaseDev, ReleaseRC, ReleaseGA, ReleaseRelease}
 
 	if len(phases) != len(expected) {
 		t.Fatalf("ValidReleasePhases() len = %d, want %d", len(phases), len(expected))
@@ -68,12 +69,15 @@ func TestLifecyclePhase_IsValid(t *testing.T) {
 		phase    LifecyclePhase
 		expected bool
 	}{
+		{LifecycleExperimental, true},
 		{LifecycleAlpha, true},
 		{LifecycleBeta, true},
+		{LifecycleRC, true},
 		{LifecycleGA, true},
-		{LifecycleMaintenance, true},
+		{LifecycleLTS, true},
 		{LifecyclePhase("invalid"), false},
 		{LifecyclePhase(""), false},
+		{LifecyclePhase("maintenance"), false}, // Removed in crucible schema alignment
 	}
 
 	for _, tt := range tests {
@@ -91,10 +95,12 @@ func TestLifecyclePhase_String(t *testing.T) {
 		phase    LifecyclePhase
 		expected string
 	}{
+		{LifecycleExperimental, "experimental"},
 		{LifecycleAlpha, "alpha"},
 		{LifecycleBeta, "beta"},
+		{LifecycleRC, "rc"},
 		{LifecycleGA, "ga"},
-		{LifecycleMaintenance, "maintenance"},
+		{LifecycleLTS, "lts"},
 	}
 
 	for _, tt := range tests {
@@ -109,7 +115,8 @@ func TestLifecyclePhase_String(t *testing.T) {
 
 func TestValidLifecyclePhases(t *testing.T) {
 	phases := ValidLifecyclePhases()
-	expected := []LifecyclePhase{LifecycleAlpha, LifecycleBeta, LifecycleGA, LifecycleMaintenance}
+	// Per crucible schema: experimental, alpha, beta, rc, ga, lts
+	expected := []LifecyclePhase{LifecycleExperimental, LifecycleAlpha, LifecycleBeta, LifecycleRC, LifecycleGA, LifecycleLTS}
 
 	if len(phases) != len(expected) {
 		t.Fatalf("ValidLifecyclePhases() len = %d, want %d", len(phases), len(expected))
@@ -225,15 +232,15 @@ func TestGetDefaultReleaseRules(t *testing.T) {
 		},
 		{
 			ReleaseRC,
-			PhaseRules{AllowedSuffixes: []string{"-rc.1", "-rc.2"}, MinCoverage: 75, AllowDirtyGit: false, CoverageExceptions: map[string]int{"node_modules/**": 0}},
+			PhaseRules{AllowedSuffixes: []string{"-rc.1", "-rc.2"}, MinCoverage: 70, AllowDirtyGit: false, CoverageExceptions: map[string]int{"node_modules/**": 0}},
 		},
 		{
-			ReleaseRelease,
-			PhaseRules{AllowedSuffixes: []string{}, MinCoverage: 90, AllowDirtyGit: false, CoverageExceptions: map[string]int{"docs/**": 100}},
+			ReleaseGA,
+			PhaseRules{AllowedSuffixes: []string{}, MinCoverage: 75, AllowDirtyGit: false, CoverageExceptions: map[string]int{"docs/**": 100}},
 		},
 		{
-			ReleaseHotfix,
-			PhaseRules{AllowedSuffixes: []string{"-hotfix.1"}, MinCoverage: 80, AllowDirtyGit: false},
+			ReleaseRelease, // Alias for ga
+			PhaseRules{AllowedSuffixes: []string{}, MinCoverage: 75, AllowDirtyGit: false, CoverageExceptions: map[string]int{"docs/**": 100}},
 		},
 	}
 
@@ -256,20 +263,28 @@ func TestGetDefaultLifecycleRules(t *testing.T) {
 		expected PhaseRules
 	}{
 		{
+			LifecycleExperimental,
+			PhaseRules{MinCoverage: 0, AllowDirtyGit: true},
+		},
+		{
 			LifecycleAlpha,
-			PhaseRules{MinCoverage: 50, CoverageExceptions: map[string]int{"prototypes/**": 0}},
+			PhaseRules{MinCoverage: 30, CoverageExceptions: map[string]int{"prototypes/**": 0}},
 		},
 		{
 			LifecycleBeta,
-			PhaseRules{MinCoverage: 75},
+			PhaseRules{MinCoverage: 60},
+		},
+		{
+			LifecycleRC,
+			PhaseRules{MinCoverage: 70},
 		},
 		{
 			LifecycleGA,
-			PhaseRules{MinCoverage: 90},
+			PhaseRules{MinCoverage: 75},
 		},
 		{
-			LifecycleMaintenance,
-			PhaseRules{MinCoverage: 80, SupportDuration: "P1Y"},
+			LifecycleLTS,
+			PhaseRules{MinCoverage: 80, SupportDuration: "P3Y"},
 		},
 	}
 
@@ -305,5 +320,21 @@ func TestApplyDefaults(t *testing.T) {
 	}
 	if len(result.LifecyclePhases) != len(input.LifecyclePhases) {
 		t.Errorf("applyDefaults() changed LifecyclePhases count: got %d, want %d", len(result.LifecyclePhases), len(input.LifecyclePhases))
+	}
+}
+
+func TestValidReleasePhasesString(t *testing.T) {
+	result := ValidReleasePhasesString()
+	expected := "dev, rc, ga, release"
+	if result != expected {
+		t.Errorf("ValidReleasePhasesString() = %q, want %q", result, expected)
+	}
+}
+
+func TestValidLifecyclePhasesString(t *testing.T) {
+	result := ValidLifecyclePhasesString()
+	expected := "experimental, alpha, beta, rc, ga, lts"
+	if result != expected {
+		t.Errorf("ValidLifecyclePhasesString() = %q, want %q", result, expected)
 	}
 }

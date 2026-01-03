@@ -1,105 +1,113 @@
-# Goneat v0.4.1 — Rust Toolchain Detection (Phase 0)
+# Goneat v0.4.1 — Explicit Incremental Lint Checking
 
-**Release Date**: TBD
-**Status**: In Development
+**Release Date**: 2026-01-02
+**Status**: Stable
 
 ## TL;DR
 
-- **Rust project detection**: automatic Cargo.toml and workspace detection
-- **Rust tools scope**: `goneat doctor tools --scope rust` for cargo-deny, cargo-audit
-- **Verify-only mode**: tools detected but not auto-installed (manual install via cargo)
+- **New flags**: `--new-issues-only` and `--new-issues-base` for incremental lint checking
+- **Behavior change**: Hook mode no longer implicitly applies incremental checking
+- **Tool support**: golangci-lint and biome integration for incremental mode
 
 ## What Changed
 
-### Rust Toolchain Support (Foundation)
+### Explicit Incremental Lint Checking
 
-Goneat now detects Rust projects and integrates Rust security tools into the doctor tooling system:
+New flags for `goneat assess` enable opt-in incremental lint checking:
 
-| Tool         | Purpose                          | Min Version | Install Command                   |
-| ------------ | -------------------------------- | ----------- | --------------------------------- |
-| cargo-deny   | License, advisory, ban checks    | 0.14.0      | `cargo install cargo-deny --locked` |
-| cargo-audit  | RustSec vulnerability scanning   | 0.18.0      | `cargo install cargo-audit --locked` |
-
-#### Rust Project Detection
-
-Goneat automatically detects Rust projects via:
-
-1. **Primary**: `Cargo.toml` at target path or in parent directories
-2. **Workspace-aware**: correctly identifies workspace roots vs members
-3. **Fallback**: `.rs` files without Cargo.toml (rare non-Cargo Rust)
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--new-issues-only` | `false` | Only report issues since base reference |
+| `--new-issues-base` | `HEAD~` | Git reference for baseline comparison |
 
 ```bash
-# Detect Rust tools
-goneat doctor tools --scope rust
+# Report only NEW lint issues since previous commit
+goneat assess --categories lint --new-issues-only
 
-# Expected output (tools not installed):
-# cargo-deny: not found (minimum: 0.14.0)
-# cargo-audit: not found (minimum: 0.18.0)
+# Report only NEW issues since main branch
+goneat assess --categories lint --new-issues-only --new-issues-base main
 ```
 
-#### Verify-Only Mode
+### Tool Support
 
-Rust tools use **verify-only** mode in v0.4.x:
+Incremental checking works with tools that have native git-aware diffing:
 
-- Tools are detected and version-checked
-- **No auto-install** (cargo install compiles from source, slow)
-- Manual installation required
+| Tool | Language | Native Flag | Support |
+|------|----------|-------------|---------|
+| golangci-lint | Go | `--new-from-rev REF` | Full |
+| biome | JS/TS | `--changed --since=REF` | Full |
+| ruff | Python | N/A | None (file-scoped only) |
+| gosec | Go | N/A | None (full scan always) |
 
-This is intentional—most Rust developers prefer explicit `cargo install` commands.
+Tools without incremental support run full scans regardless of flag setting.
 
-#### Future: cargo-install Support (v0.5.0)
+### Hook Mode Behavior Change
 
-Full `cargo-install` integration planned for v0.5.0:
+**Before v0.4.1**: Hook mode implicitly applied `--lint-new-from-rev HEAD~`, reporting only new issues. This caused:
 
-- Schema extension for `cargo` tool kind
-- `goneat doctor tools --scope rust --install` support
-- Automated cargo install with `--locked` flag
+- Inconsistent results between `goneat assess` and `goneat assess --hook pre-commit`
+- Silent accumulation of lint debt when commits bypassed hooks with `--no-verify`
 
-### Developer Experience
+**After v0.4.1**: Hook mode reports ALL lint issues by default (consistent with direct assess).
 
-#### Embedded Assets Warning
+**To restore previous behavior**, add `--new-issues-only` to your `.goneat/hooks.yaml`:
 
-Added explicit guidance in AGENTS.md about embedded asset directories:
+```yaml
+hooks:
+  pre-commit:
+    - command: assess
+      args: ["--categories", "format,lint", "--fail-on", "high", "--new-issues-only"]
+  pre-push:
+    - command: assess
+      args: ["--categories", "lint,security", "--fail-on", "high", "--new-issues-only", "--new-issues-base", "main"]
+```
 
-| Source (edit here) | Destination (never edit)                  |
-| ------------------ | ----------------------------------------- |
-| `config/`          | `internal/assets/embedded_config/config/` |
-| `templates/`       | `internal/assets/embedded_templates/`     |
-| `schemas/`         | `internal/assets/embedded_schemas/`       |
+### Hooks Schema Update
 
-Edits to `internal/assets/embedded*/` are silently overwritten by `make build`.
+The hooks-manifest schema (`schemas/work/v1.0.0/hooks-manifest.yaml`) now documents `--new-issues-only` and `--new-issues-base` as valid args, with examples showing both standard and incremental configurations.
 
 ## Upgrade Notes
 
 ### From v0.4.0
 
-No breaking changes. Rust detection and tooling are additive.
+**Behavioral change**: If your hooks relied on implicit incremental checking, you may see more lint issues after upgrading. This is intentional—incremental checking is now opt-in for transparency and consistency.
 
-### Installing Rust Tools
+**Migration steps**:
 
-If you work with Rust projects and want goneat to check for security issues:
+1. If you want incremental checking, add `--new-issues-only` to your hooks.yaml
+2. Regenerate and reinstall hooks: `goneat hooks generate && goneat hooks install`
 
-```bash
-# Install tools
-cargo install cargo-deny --locked
-cargo install cargo-audit --locked
+### Flag Dependency
 
-# Verify installation
-goneat doctor tools --scope rust
+Note: `--new-issues-base` has no effect without `--new-issues-only`. If used alone, a warning is emitted:
+
+```
+WARN: --new-issues-base has no effect without --new-issues-only; base reference will be ignored
 ```
 
-## Known Limitations
+## When to Use Incremental Checking
 
-1. **Rust assess integration not yet implemented** — Phase 1 (security category) coming in subsequent v0.4.x releases
-2. **No auto-install** — Rust tools require manual `cargo install`
-3. **clippy integration deferred** — cargo-clippy for lint category planned for later phase
+**Use incremental checking when:**
 
-## What's Next
+- You have existing lint debt that cannot be fixed immediately
+- You want faster feedback in pre-commit/pre-push hooks
+- You want to prevent new issues without blocking on existing ones
 
-- **Phase 1**: Security category integration (cargo-audit, cargo-deny advisories)
-- **Phase 2**: Dependencies category integration (cargo-deny licenses, bans)
-- **Phase 3**: Lint category integration (cargo-clippy)
+**Use full checking (default) when:**
 
----
+- You want to see all issues in the codebase
+- Running comprehensive CI/CD quality gates
+- Your codebase has minimal or zero lint debt
 
-*For detailed implementation plans, see `.plans/active/v0.4.1/`*
+## Documentation
+
+- **Appnote**: `docs/appnotes/assess/incremental-lint-checking.md` (comprehensive guide)
+- **Assess flags**: `docs/user-guide/commands/assess.md`
+- **Hooks config**: `docs/user-guide/commands/hooks.md`
+
+## Dependency Updates
+
+- go-git v5.16.4
+- cobra v1.10.2
+- go-runewidth v0.0.19
+- Added `github.com/clipperhouse/uax29/v2` (indirect via go-runewidth)

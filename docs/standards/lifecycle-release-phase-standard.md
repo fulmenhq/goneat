@@ -2,7 +2,7 @@
 title: "Lifecycle & Release Phase Standard"
 status: "approved"
 author: "goneat contributors"
-last_updated: "2025-09-06"
+last_updated: "2026-01-02"
 category: "standards"
 ---
 
@@ -10,15 +10,18 @@ category: "standards"
 
 This standard defines the allowed values, purpose, and usage of the repository phase files used for quality gates and operational policy.
 
-## Files (SSOT)
+## Files (SSOT: Crucible Schemas)
 
-- `LIFECYCLE_PHASE`: product maturity phase
+Phase validation follows **crucible schemas** as the single source of truth. These schemas are synced from [fulmenhq/crucible](https://github.com/fulmenhq/crucible) and embedded in goneat.
+
+- `LIFECYCLE_PHASE`: product maturity phase (repo-level, shared across FulmenHQ tools)
   - Allowed: `experimental`, `alpha`, `beta`, `rc`, `ga`, `lts`
-  - Schema: `schemas/config/lifecycle-phase-v1.0.0.json`
+  - Schema: `schemas/crucible-go/config/repository/v1.0.0/lifecycle-phase.json`
 
-- `RELEASE_PHASE`: distribution cadence phase
-  - Allowed: `dev`, `rc`, `ga`
-  - Schema: `schemas/config/release-phase-v1.0.0.json`
+- `RELEASE_PHASE`: distribution cadence phase (goneat-specific deployment gates)
+  - Allowed: `dev`, `rc`, `ga`, `release`
+  - Schema: `schemas/crucible-go/config/goneat/v1.0.0/release-phase.json`
+  - Note: `release` is equivalent to `ga`
   - Optional file. When present, CI/Makefile should consider both values and use the stricter gate.
 
 ## Purpose
@@ -40,11 +43,14 @@ This standard defines the allowed values, purpose, and usage of the repository p
 
 - Integration tests validate that `LIFECYCLE_PHASE` and `RELEASE_PHASE` (if present) contain allowed values:
   - `tests/integration/phase_files_test.go`
+- Code validation uses `internal/maturity/phases.go` which derives valid values from crucible schemas
 
 ## Change Control
 
-- Proposed changes must update both the JSON Schemas and the integration test.
-- Changes require approval by the project lead.
+- **SSOT**: Crucible schemas define allowed values; goneat follows
+- Proposed changes to allowed values must be made in crucible first
+- After crucible update, goneat picks up changes on next sync/rebuild
+- Local changes require approval by the project lead
 
 ---
 

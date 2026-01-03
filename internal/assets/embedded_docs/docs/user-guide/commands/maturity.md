@@ -6,6 +6,21 @@ The `maturity` commands provide read-only validation of your repository's health
 
 The `maturity` group is part of the **neat** category under validation. It integrates with the `assess` command for automated checks and git hooks for pre-commit/pre-push gates. Use these in CI/CD to enforce standards without mutating your repo.
 
+## Phase Values (SSOT: Crucible Schemas)
+
+Phase validation follows **crucible schemas** as the single source of truth:
+
+| Phase File | Schema Path | Valid Values |
+|------------|-------------|--------------|
+| `LIFECYCLE_PHASE` | `schemas/crucible-go/config/repository/v1.0.0/lifecycle-phase.json` | `experimental`, `alpha`, `beta`, `rc`, `ga`, `lts` |
+| `RELEASE_PHASE` | `schemas/crucible-go/config/goneat/v1.0.0/release-phase.json` | `dev`, `rc`, `ga`, `release` |
+
+**Schema distinction:**
+- **lifecycle-phase**: Repo-level concept (product maturity) - shared across all FulmenHQ tools
+- **release-phase**: Tool-specific (goneat deployment gates) - `release` is equivalent to `ga`
+
+These schemas are synced from [fulmenhq/crucible](https://github.com/fulmenhq/crucible) and embedded in goneat. When crucible schemas are updated, goneat will automatically reflect the changes upon rebuild.
+
 ## Synopsis
 
 ```
@@ -74,7 +89,7 @@ goneat maturity validate --json
 **Synopsis**:
 
 ```
-goneat maturity release-check --phase [dev|rc|release|hotfix] [flags]
+goneat maturity release-check --phase [dev|rc|ga|release] [flags]
 ```
 
 **Flags**:
@@ -93,7 +108,7 @@ goneat maturity release-check --phase rc
 goneat maturity release-check --phase release --strict
 
 # JSON output
-goneat maturity release-check --phase hotfix --json
+goneat maturity release-check --phase ga --json
 
 # Output example:
 Release check for rc: ❌ Not ready (2 issues)
@@ -111,8 +126,8 @@ Release check for rc: ❌ Not ready (2 issues)
 
 **Integration**:
 
-- Release Scripts: `goneat maturity release-check --phase release --strict || echo "Fix issues before release"`
-- Hooks: Pre-push for hotfix: `goneat maturity release-check --phase hotfix --level error`
+- Release Scripts: `goneat maturity release-check --phase ga --strict || echo "Fix issues before release"`
+- Hooks: Pre-push for RC: `goneat maturity release-check --phase rc --level error`
 - With Phases: Automatically uses current phase from `repository phase show` if --phase omitted in future.
 
 ## Configuration
