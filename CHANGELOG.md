@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Crucible SSOT**: synced to Crucible v0.3.0
+- **Lifecycle phases**: Added experimental, rc, lts; removed maintenance (per crucible schema)
+- **Release phases**: Added ga; deferred hotfix to crucible v1.1.0
 - **Hook mode behavior**: Removed implicit incremental lint checking from hook mode
   - **Before v0.4.1**: Hook mode implicitly applied `--lint-new-from-rev HEAD~`
   - **After v0.4.1**: Hook mode reports ALL lint issues by default (consistent with direct assess)

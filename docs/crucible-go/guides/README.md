@@ -6,6 +6,20 @@ Practical guides for integrating Crucible into your projects, bootstrapping tool
 
 ### Integration & Setup
 
+#### [Agentic Interface Adoption Guide](agentic-interface-adoption.md)
+
+How to adopt Crucible's v0.3.0 agentic role catalog and attribution baseline.
+
+**Topics**:
+
+- Role catalog migration (YAML roles)
+- Commit attribution format adoption
+- AGENTS.md updates
+- Role selection by repository type
+- Validation and CI integration
+
+**When to use**: Migrating from inline prompts to schema-validated roles, adopting attribution baseline.
+
 #### [Integration Guide](integration-guide.md)
 
 Complete guide to integrating Crucible into your project.
@@ -56,6 +70,7 @@ Comprehensive guide to creating new Fulmen helper libraries following ecosystem 
 
 ### By Task
 
+- **Adopting agentic interface**: Start with [Agentic Interface Adoption Guide](agentic-interface-adoption.md)
 - **Integrating Crucible**: Start with [Integration Guide](integration-guide.md)
 - **Setting up formatting/linting**: See [Bootstrap goneat](bootstrap-goneat.md)
 - **Creating a new library**: Follow [Fulmen Library Bootstrap Guide](fulmen-library-bootstrap-guide.md)
@@ -66,11 +81,13 @@ Comprehensive guide to creating new Fulmen helper libraries following ecosystem 
 
 1. [Integration Guide](integration-guide.md) - Add Crucible to your project
 2. [Bootstrap goneat](bootstrap-goneat.md) - Set up quality tooling
+3. [Agentic Interface Adoption Guide](agentic-interface-adoption.md) - Adopt role catalog and attribution
 
 **Library Maintainer**:
 
 1. [Fulmen Library Bootstrap Guide](fulmen-library-bootstrap-guide.md) - Create conformant libraries
 2. [Integration Guide](integration-guide.md) - Sync strategies for helper libraries
+3. [Agentic Interface Adoption Guide](agentic-interface-adoption.md) - Adopt role catalog and attribution
 
 **Crucible Maintainer**:
 

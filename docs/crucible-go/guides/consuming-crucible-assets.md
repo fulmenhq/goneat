@@ -208,3 +208,9 @@ If you alter the schema locally, you must:
 - Crucible maintainers: keep this guide updated as new helper commands or validation tooling ship.
 
 For questions or suggestions, open an issue in Crucible and cc @schema-cartographer.
+
+## See Also
+
+- [Agentic Interface Adoption Guide](agentic-interface-adoption.md) - Adopting role catalog and attribution baseline
+- [Fulmen Library Bootstrap Guide](fulmen-library-bootstrap-guide.md) - Creating new helper libraries
+- [Integration Guide](integration-guide.md) - Crucible integration patterns

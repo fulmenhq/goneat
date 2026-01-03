@@ -2,16 +2,20 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.3leaps.net/goneat/config/release-phase-v1.0.0.json",
   "title": "Release Phase",
-  "description": "Release cadence phase for distribution pipelines and policy gating.",
+  "description": "Release cadence phase for distribution pipelines and policy gating. Tracks current deployment cycle state of a repository branch.",
   "type": "string",
   "enum": [
     "dev",
     "rc",
-    "ga"
+    "ga",
+    "release",
+    "hotfix"
   ],
   "examples": [
+    "dev",
     "rc",
-    "ga"
+    "ga",
+    "release"
   ],
-  "$comment": "Intended to drive CI thresholds and publishing behavior."
+  "$comment": "Intended to drive CI thresholds and publishing behavior. 'release' is semantically equivalent to 'ga' - tooling should normalize 'release' to 'ga' when comparing. 'hotfix' indicates urgent production fix state."
 }

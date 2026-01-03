@@ -15,7 +15,7 @@ version: v1.1.0
 sources:
   - name: crucible
     repo: fulmenhq/crucible
-    ref: v0.2.27
+    ref: v0.3.0
     # Without .local.yaml, goneat clones from GitHub (force-remote friendly)
     force_remote: true
     sync_path_base: .

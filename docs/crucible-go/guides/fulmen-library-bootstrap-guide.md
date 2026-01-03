@@ -707,6 +707,7 @@ See respective repositories for complete working examples.
 ## See Also
 
 - [Bootstrap Goneat Guide](bootstrap-goneat.md) - Installing goneat tooling
+- [Agentic Interface Adoption Guide](agentic-interface-adoption.md) - Adopting role catalog and attribution baseline
 - [Sync Model Architecture](../architecture/sync-model.md) - How Crucible distribution works
 - [Makefile Standard](../standards/makefile-standard.md) - Required targets
 - [Repository Versioning](../standards/repository-versioning.md) - CalVer vs SemVer

@@ -8,13 +8,30 @@ whenever possible.
 
 ## Available Schemas
 
-| Schema                                        | Purpose                                                          |
-| --------------------------------------------- | ---------------------------------------------------------------- |
-| `goneat-config.yaml`                          | Core goneat CLI configuration (toolchain sources, telemetry opt) |
-| `dates.yaml`                                  | Date formatting conventions for release automation               |
-| `security-policy.yaml`                        | Security scanning and suppression policy                         |
-| `lifecycle-phase.json` / `release-phase.json` | Lifecycle metadata used by release automation                    |
-| `version-policy.schema.yaml`                  | Version SSOT propagation policy (new in v0.3.0)                  |
+| Schema                       | Purpose                                                          |
+| ---------------------------- | ---------------------------------------------------------------- |
+| `goneat-config.yaml`         | Core goneat CLI configuration (toolchain sources, telemetry opt) |
+| `dates.yaml`                 | Date formatting conventions for release automation               |
+| `security-policy.yaml`       | Security scanning and suppression policy                         |
+| `release-phase.json`         | Release cadence phase for CI thresholds and publishing           |
+| `version-policy.schema.yaml` | Version SSOT propagation policy (new in v0.3.0)                  |
+
+## Phase Schema Locations
+
+Goneat uses two distinct phase concepts:
+
+| Concept         | Schema Location                                         | Purpose                               |
+| --------------- | ------------------------------------------------------- | ------------------------------------- |
+| Lifecycle Phase | `schemas/config/repository/v1.0.0/lifecycle-phase.json` | Product maturity (experimental → lts) |
+| Release Phase   | `schemas/config/goneat/v1.0.0/release-phase.json`       | Deployment cycle (dev → ga/release)   |
+
+**Lifecycle Phase** tracks code maturity and rarely changes (e.g., alpha → beta → ga).
+Values: `experimental`, `alpha`, `beta`, `rc`, `ga`, `lts`
+
+**Release Phase** tracks deployment cycle state and changes with each release.
+Values: `dev`, `rc`, `ga`, `release`, `hotfix`
+
+Note: `release` is semantically equivalent to `ga`. Tooling normalizes `release` → `ga` for comparison.
 
 ## Version Policy (`version-policy.schema.yaml`)
 

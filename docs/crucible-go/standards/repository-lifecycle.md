@@ -40,10 +40,26 @@ Repositories MAY surface the phase in additional metadata (badges, docs, build i
 3. **README/Docs** SHOULD reference the current phase to set contributor/user expectations.
 4. **Release Notes** SHOULD mention lifecycle transitions (e.g., “project entering GA”).
 
-## Relationship to Release Cadence
+## Relationship to Release Phase
 
-- `RELEASE_PHASE` files are deprecated for new repositories. SemVer suffices to signal dev/rc states; CalVer repos should communicate release cadence in documentation.
-- Existing repositories using `RELEASE_PHASE` MAY keep it temporarily, but MUST still maintain `LIFECYCLE_PHASE` and SHOULD migrate to documentation-based release signalling.
+Lifecycle phase and release phase serve distinct purposes:
+
+| Aspect      | Lifecycle Phase                                         | Release Phase                                     |
+| ----------- | ------------------------------------------------------- | ------------------------------------------------- |
+| **Tracks**  | Product/code maturity                                   | Deployment cycle state                            |
+| **Changes** | Rarely (project matures over time)                      | Frequently (each release cycle)                   |
+| **Scope**   | Repository-level                                        | Branch/release-level                              |
+| **File**    | `LIFECYCLE_PHASE`                                       | Typically in CI/tooling config                    |
+| **Schema**  | `schemas/config/repository/v1.0.0/lifecycle-phase.json` | `schemas/config/goneat/v1.0.0/release-phase.json` |
+| **Values**  | experimental, alpha, beta, rc, ga, lts                  | dev, rc, ga, release, hotfix                      |
+
+**Note:** `release` is semantically equivalent to `ga` in release phase. Tooling normalizes `release` → `ga` for comparison. The `hotfix` value indicates urgent production fix state.
+
+### Migration Guidance
+
+- `RELEASE_PHASE` files are deprecated for new repositories. Use CI/tooling configuration or SemVer prerelease suffixes to signal release state.
+- Existing repositories using `RELEASE_PHASE` files MAY keep them temporarily, but MUST maintain `LIFECYCLE_PHASE` as the source of truth for maturity.
+- For smaller projects that don't change release phase frequently, `ga` or `release` is typically sufficient.
 
 ## Tooling Integration
 

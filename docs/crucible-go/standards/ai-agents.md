@@ -1,77 +1,258 @@
 ---
 title: "AI Agent Collaboration Standard"
-description: "Required documentation and identity conventions for AI assistants working in Fulmen repositories"
-author: "Codex Assistant"
+description: "Operating model and identity conventions for AI assistants working in Fulmen repositories"
+author: "entarch"
+author_of_record: "Dave Thompson (https://github.com/3leapsdave)"
+supervised_by: "@3leapsdave"
 date: "2025-10-02"
-last_updated: "2025-10-02"
-status: "draft"
-tags: ["standards", "ai", "agents", "collaboration"]
+last_updated: "2026-01-01"
+status: "approved"
+tags: ["standards", "ai", "agents", "collaboration", "roles"]
 ---
 
 # AI Agent Collaboration Standard
 
 ## Purpose
 
-Define the documentation, identity, and communication requirements that allow Fulmen AI assistants to collaborate safely alongside human maintainers.
+Define the operating model, role configuration, and attribution requirements that allow AI assistants to collaborate safely alongside human maintainers in Fulmen repositories.
+
+## Operating Modes
+
+### Supervised Mode
+
+Human reviews and approves before commit:
+
+| Aspect          | Description                  |
+| --------------- | ---------------------------- |
+| Accountability  | Human (Committer-of-Record)  |
+| GitHub Account  | Uses human's credentials     |
+| Review Required | Yes, before every commit     |
+| Use Case        | Default for all repositories |
+
+### Autonomous Mode
+
+Agent operates independently within defined boundaries:
+
+| Aspect          | Description                             |
+| --------------- | --------------------------------------- |
+| Accountability  | Organization via Escalation-Contact     |
+| GitHub Account  | Dedicated `@<org>-agent-<role>` account |
+| Review Required | Post-commit audit                       |
+| Use Case        | CI/CD automation, scheduled tasks       |
+
+**Note**: Account presence implies autonomous capability. Repositories using supervised mode only do not configure autonomous agent accounts.
+
+## Role-Based Identity
+
+Agents operate in **roles**, not named personalities. Roles define:
+
+- What the agent is responsible for
+- How to approach problems (mindset)
+- When to escalate
+- What's out of scope
+
+### Available Roles
+
+| Role                  | Identifier | Scope                                      |
+| --------------------- | ---------- | ------------------------------------------ |
+| Development Lead      | `devlead`  | Implementation, architecture, feature work |
+| Development Reviewer  | `devrev`   | Code review, bug finding, four-eyes audit  |
+| Information Architect | `infoarch` | Documentation, schemas, standards          |
+| Enterprise Architect  | `entarch`  | Cross-repo coordination, API parity        |
+| CI/CD Automation      | `cicd`     | Pipelines, builds, automation              |
+| Security Review       | `secrev`   | Security analysis, vulnerability review    |
+| Data Engineering      | `dataeng`  | Database design, data pipelines            |
+
+See [Role Catalog](../catalog/agentic/roles/README.md) for complete role definitions.
+
+### Role vs Named Identity
+
+**Previous approach** (deprecated):
+
+- Named personalities: "Schema Cartographer", "Pipeline Architect"
+- Emoji identifiers
+- Persistent handles: `@schema-cartographer`
+- Risk of anthropomorphization
+
+**Current approach** (role-based):
+
+- Functional roles: `infoarch`, `cicd`, `devlead`
+- Model name in attribution: "Claude Opus 4.5"
+- Role context per session
+- Clear separation of model, interface, and function
 
 ## Required Artifacts
 
-Every repository MUST include the following root-level files:
+Every repository MUST include:
 
-| File                             | Purpose                                                                                                                                                                    |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AGENTS.md`                      | Startup guide for AI assistants. Lists available agentic interfaces, initialization steps, session protocols, and links to additional resources.                           |
-| `MAINTAINERS.md`                 | Canonical registry of human maintainers **and** AI co-maintainers (with emoji + handle). Identifies supervision relationships and attribution formats.                     |
-| `REPOSITORY_SAFETY_PROTOCOLS.md` | (Recommended) Safety boundaries, guardrails, and escalation paths for high-impact operations. May be omitted for trivial repos but should be added once automation begins. |
+| File             | Purpose                                                   |
+| ---------------- | --------------------------------------------------------- |
+| `AGENTS.md`      | Operating model, role configuration, session protocol     |
+| `MAINTAINERS.md` | Human maintainers, autonomous agents (if any), governance |
 
-### AGENTS.md Expectations
+### Optional Artifacts
 
-- Begin with a short “Read First” section linking to interface adapters (e.g., `CLAUDE.md`, `CODEX.md`, `.cline/rules/PROJECT.md`).
-- Summarize known agentic interfaces and the definitive prompt file for each.
-- Provide onboarding steps, session initialization requirements, and links to SOPs (e.g., session protocols, quality gates).
-- Reinforce that agent identity assignments come from `MAINTAINERS.md`.
+| File                                         | Purpose                                         |
+| -------------------------------------------- | ----------------------------------------------- |
+| `REPOSITORY_SAFETY_PROTOCOLS.md`             | Safety boundaries, guardrails, escalation paths |
+| Interface adapters (`CLAUDE.md`, `CODEX.md`) | Interface-specific configuration                |
 
-### MAINTAINERS.md Expectations
+## AGENTS.md Structure
 
-- Separate sections for human maintainers and AI co-maintainers.
-- For each AI agent include: emoji, identity name, canonical handle (e.g., `@forge-neat`), specialization, supervising human, established date, attribution template, and organization email (`noreply@3leaps.net` for internal agents).
-- Note any cross-repo responsibilities and the upcoming Mattermost channel(s) for inter-agent communication.
+```markdown
+# Repository – AI Agents Startup Guide
 
-### Safety Protocols
+## Read First
 
-`REPOSITORY_SAFETY_PROTOCOLS.md` documents dangerous operations, required approvals, rollback steps, and infrastructure guardrails. When omitted, the maintainer team MUST justify its absence in `README.md` or `MAINTAINERS.md`.
+1. Check AGENTS.local.md if it exists
+2. Read MAINTAINERS.md for contacts
+3. Read REPOSITORY_SAFETY_PROTOCOLS.md
+4. Understand project scope before changes
 
-## Identity & Communication Rules
+## Operating Model
 
-- **Canonical Handle**: Each AI agent must have a stable handle (`@code-scout`, `@arch-eagle`, etc.) recorded in `MAINTAINERS.md`. Handles double as Mattermost usernames for inter-agent communication.
-- **Emoji Identifier**: Pair every agent with an emoji to aid quick recognition in chat threads and attribution lines.
-- **Mattermost Readiness**: Agents should list their default Mattermost channel (e.g., `#agents-crucible`) once collaboration hubs are established.
-- **Attribution**: Follow the [Agentic Attribution Standard](agentic-attribution.md) for commit messages, Co-Authored-By lines, and supervision references.
+| Aspect         | Setting                                  |
+| -------------- | ---------------------------------------- | ------------------ | --------------- |
+| Mode           | Supervised (human reviews before commit) |
+| Classification | <code-substantive                        | security-sensitive | data-integrity> |
+| Role Required  | Yes                                      |
 
-## Interface Adapter Files
+## Roles
 
-Repositories may provide interface-specific adapters (e.g., `CLAUDE.md`, `CODEX.md`, `.cline/rules/PROJECT.md`). Each adapter should:
+| Role      | Prompt                           | Notes       |
+| --------- | -------------------------------- | ----------- |
+| `devlead` | [devlead.md](path/to/devlead.md) | Development |
+| `secrev`  | [secrev.md](path/to/secrev.md)   | Security    |
 
-1. Point back to `AGENTS.md` and `MAINTAINERS.md`.
-2. Describe any interface-specific constraints (token budgets, command allowlists, etc.).
-3. Emphasize that agent identity is sourced from `MAINTAINERS.md` regardless of interface.
+## Commit Attribution
 
-## Folder Conventions
+[Attribution format and examples]
 
-- `.plans/` remains gitignored for local planning between agents and humans.
-- Interface configuration (e.g., `.cline/rules/`) may sit in hidden directories so long as they link back to the AGENTS standard.
+## Session Protocol
 
-## Adoption Checklist
+[Before changes, before committing, quality gates]
+```
 
-- [ ] `AGENTS.md` created with interface table + onboarding steps
-- [ ] `MAINTAINERS.md` lists human + AI maintainers (emoji + handle)
-- [ ] `REPOSITORY_SAFETY_PROTOCOLS.md` created or documented as intentionally absent
-- [ ] Interface adapters reference `AGENTS.md`
-- [ ] Agent handles registered in Mattermost (or placeholder noted)
+## MAINTAINERS.md Structure
+
+```markdown
+# Repository – Maintainers
+
+## Human Maintainers
+
+| Name | GitHub  | Email | Role            |
+| ---- | ------- | ----- | --------------- |
+| Name | @handle | email | Lead maintainer |
+
+## Autonomous Agents
+
+_None configured. This repository uses supervised mode only._
+
+OR (if autonomous agents are configured):
+
+| Account         | Role | Escalation Contact |
+| --------------- | ---- | ------------------ |
+| @org-agent-cicd | cicd | @human-maintainer  |
+
+## AI-Assisted Development
+
+This repository uses AI assistants in **supervised mode**.
+See [AGENTS.md](AGENTS.md) for configuration.
+```
+
+## Attribution Format
+
+### Commit Attribution
+
+```
+<type>(<scope>): <subject>
+
+<body>
+
+Changes:
+- <change 1>
+- <change 2>
+
+Generated by <Model> via <Interface> under supervision of @<maintainer>
+
+Co-Authored-By: <Model> <noreply@3leaps.net>
+Role: <role>
+Committer-of-Record: <Human> <email> [@handle]
+```
+
+### Required Elements
+
+1. **Model**: Claude Opus 4.5, Claude Sonnet, GPT-5.2
+2. **Interface**: Claude Code, Cursor, Codex CLI
+3. **Role**: devlead, infoarch, secrev, etc.
+4. **Committer-of-Record**: Human accountable for the commit
+
+See [Agentic Attribution Standard](agentic-attribution.md) for full specification.
+
+## Four-Eyes Pattern
+
+Use `devlead` + `devrev` for code review:
+
+- `devlead`: Writes implementation ("build the solution")
+- `devrev`: Reviews for correctness ("find the problems")
+- `secrev`: Reviews for security (for security-sensitive changes)
+
+Different models can fill different roles in the same workflow.
+
+## Interface Adapters
+
+Repositories may provide interface-specific configuration:
+
+| Interface   | Config File               | Notes                    |
+| ----------- | ------------------------- | ------------------------ |
+| Claude Code | `CLAUDE.md`               | Primary for FulmenHQ     |
+| Codex CLI   | `CODEX.md`                |                          |
+| Cursor      | `AGENTS.md`               |                          |
+| Cline       | `.cline/rules/PROJECT.md` | Must reference AGENTS.md |
+| OpenCode    | `AGENTS.md`               |                          |
+
+Each adapter should reference `AGENTS.md` for role configuration.
+
+## Session Protocol
+
+1. **Context Review**: Read MAINTAINERS.md, understand operating model
+2. **Role Selection**: Confirm which role applies to the task
+3. **Quality Gates**: Run `make precommit` before commits
+4. **Attribution**: Include proper trailers with role
+
+## Migration from Named Identities
+
+Repositories migrating from named identities:
+
+| Previous            | New Role   |
+| ------------------- | ---------- |
+| Schema Cartographer | `infoarch` |
+| Pipeline Architect  | `cicd`     |
+| EA Steward          | `entarch`  |
+| Code Scout          | `devlead`  |
+
+### Elements to Remove
+
+- Emoji assignments
+- Named identity @handles
+- "Established" dates
+- "AI Co-Maintainers" section in MAINTAINERS.md
+
+### Elements to Keep
+
+- Model name in attribution
+- Human supervision relationships
+- Quality protocols
+- Interface adapter documentation
 
 ## Related Documents
 
-- [Agentic Attribution Standard](agentic-attribution.md)
-- [Repository Structure SOP](../sop/repository-structure.md)
-- [Release Checklist Standard](release-checklist-standard.md)
-- `AGENTS.md`/`MAINTAINERS.md` templates in long-lived repos (e.g., `goneat`, `brooklyn-mcp`)
+- [Role Catalog](../catalog/agentic/roles/README.md) - Role definitions
+- [Git Commit Attribution](../catalog/agentic/attribution/git-commit.md) - Commit template
+- [Agentic Attribution Standard](agentic-attribution.md) - Full attribution spec
+- [Frontmatter Standard](frontmatter-standard.md) - Document metadata
+
+---
+
+**Standard Version**: 2.0.0
+**Status**: Approved - Role-based identity model
