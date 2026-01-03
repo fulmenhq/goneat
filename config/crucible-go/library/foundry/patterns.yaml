@@ -135,7 +135,7 @@ patterns:
     pattern: '^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$'
     description: 'JWT compact serialization (header.payload.signature).'
     examples:
-      - 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+      - 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U'
   - id: strict-iso-date
     name: ISO Date (YYYY-MM-DD)
     kind: regex
@@ -157,7 +157,7 @@ patterns:
     pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
     description: 'RFC 4122 version 4 UUID.'
     examples:
-      - '123e4567-e89b-12d3-a456-426614174000'
+      - '123e4567-e89b-42d3-a456-426614174000'
   - id: ulid
     name: ULID
     kind: regex

@@ -11,6 +11,12 @@ Goneat v0.3.0 introduces comprehensive dependency protection capabilities that h
 3. **Track Software Composition** - Generate SBOMs (Software Bill of Materials) for transparency
 4. **Automate Security Gates** - Integrate checks into git hooks and CI/CD pipelines
 
+## Requirements
+
+> **Policy File Required**: To enforce license compliance, you must create a `.goneat/dependencies.yaml` file that defines your forbidden/allowed licenses. Without this file, `goneat assess --categories dependencies` will scan dependencies but **will not flag license violations** — there's no default forbidden list.
+>
+> See [Quick Start Guide](#quick-start-guide) below for a template.
+
 ## Why Do You Need This?
 
 ### The Supply Chain Attack Problem
@@ -121,7 +127,9 @@ goneat dependencies --sbom
 
 ## Quick Start Guide
 
-### 1. Configure Your Policy (2 minutes)
+### 1. Configure Your Policy (Required)
+
+**This step is mandatory.** Without a policy file, license violations will not be detected.
 
 Create `.goneat/dependencies.yaml`:
 

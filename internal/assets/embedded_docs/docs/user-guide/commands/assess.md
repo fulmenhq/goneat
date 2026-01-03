@@ -216,6 +216,7 @@ Goneat assess supports multiple validation categories:
   - Go (only when Go is detected and `golangci-lint` is present): `golangci-lint`
   - Python (if `ruff` is present): `ruff check`
   - JS/TS (if `biome` is present): `biome lint`
+  - Rust (if `cargo-clippy` is present): `cargo clippy`
   - Shell: shfmt (check/fix), shellcheck (verify-only, opt-in GPL)
   - GitHub Actions: actionlint
   - Make: checkmake
@@ -237,13 +238,14 @@ Goneat assess supports multiple validation categories:
 
 - **Purpose:** Security vulnerability detection
 - **Tools:** gosec, custom security scanners
+- **Rust tools (when present):** `cargo-audit`, `cargo-deny` (advisories, sources)
 - **Typical Issues:** SQL injection, hardcoded secrets, unsafe operations
 - **Auto-fixable:** No (requires manual review)
 
 ### Dependencies (`dependencies`)
 
 - **Purpose:** Supply-chain security and license compliance
-- **Tools:** License analyzer, cooling policy validator, SBOM generator
+- **Tools:** License analyzer, cooling policy validator, SBOM generator, `cargo-deny` (licenses, bans)
 - **Typical Issues:** Forbidden licenses, newly published packages (cooling violations), missing SBOM
 - **Auto-fixable:** No (requires policy review and dependency updates)
 - **Network:** May require network access for cooling policy (package registry queries)

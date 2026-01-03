@@ -29,8 +29,7 @@ For cross-file references in Crucible schemas, **use absolute URLs pointing to t
 
 ## Status
 
-- Applied to: `schemas/observability/logging/v1.0.0/logger-config.schema.json` (middleware reference).
-- To be applied: Any remaining cross-file references in other schema sets when touched.
+- **Implemented**: The decision has been fully implemented. All cross-file schema references now use absolute `$id` URLs, and the gofulmen validator has been updated to correctly handle these references.
 
 ## Consequences
 

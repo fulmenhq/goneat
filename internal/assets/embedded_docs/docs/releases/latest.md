@@ -1,113 +1,33 @@
-# Goneat v0.4.1 — Explicit Incremental Lint Checking
+# Goneat v0.4.2 — Build & Dependencies Improvements
 
-**Release Date**: 2026-01-02
+**Release Date**: 2026-01-03
 **Status**: Stable
 
 ## TL;DR
 
-- **New flags**: `--new-issues-only` and `--new-issues-base` for incremental lint checking
-- **Behavior change**: Hook mode no longer implicitly applies incremental checking
-- **Tool support**: golangci-lint and biome integration for incremental mode
+- **Idempotent release doc embedding**: `docs/releases/latest.md` no longer regenerates on every build
+- **Dependencies fix**: License detection no longer reports false "degraded" warnings
+- **Format check fix**: `goneat format --check` correctly detects yamlfmt formatting issues
+- **Rust lint**: `cargo-clippy` now runs under `assess --categories lint` when present
+- **Doctor rust scope**: manual cargo install hints for `cargo-deny` and `cargo-audit`
+- **Docs clarification**: Policy file requirement for license enforcement now prominently documented
 
 ## What Changed
 
-### Explicit Incremental Lint Checking
+### Build System
 
-New flags for `goneat assess` enable opt-in incremental lint checking:
+- **Idempotent release doc embedding**: `docs/releases/latest.md` no longer regenerates on every build; only updates when version-specific release notes change (see `scripts/embed-assets.sh`)
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--new-issues-only` | `false` | Only report issues since base reference |
-| `--new-issues-base` | `HEAD~` | Git reference for baseline comparison |
+### Dependencies
 
-```bash
-# Report only NEW lint issues since previous commit
-goneat assess --categories lint --new-issues-only
+- **Suppress stdlib noise**: License detection no longer reports "degraded" due to harmless go-licenses warnings about Go standard library packages lacking module info
+- **Documentation**: Added prominent note to dependency-protection-overview.md clarifying that `.goneat/dependencies.yaml` policy file is **required** for license violation detection
 
-# Report only NEW issues since main branch
-goneat assess --categories lint --new-issues-only --new-issues-base main
-```
+### Format
 
-### Tool Support
+- **Check mode fix**: `goneat format --check` now correctly reports files needing formatting when the primary formatter (e.g., yamlfmt for YAML) detects issues, even when the finalizer (EOF/whitespace normalization) says the file is OK. Previously, the finalizer result could incorrectly override the primary formatter's "needs formatting" status.
 
-Incremental checking works with tools that have native git-aware diffing:
+### Rust Tooling
 
-| Tool | Language | Native Flag | Support |
-|------|----------|-------------|---------|
-| golangci-lint | Go | `--new-from-rev REF` | Full |
-| biome | JS/TS | `--changed --since=REF` | Full |
-| ruff | Python | N/A | None (file-scoped only) |
-| gosec | Go | N/A | None (full scan always) |
-
-Tools without incremental support run full scans regardless of flag setting.
-
-### Hook Mode Behavior Change
-
-**Before v0.4.1**: Hook mode implicitly applied `--lint-new-from-rev HEAD~`, reporting only new issues. This caused:
-
-- Inconsistent results between `goneat assess` and `goneat assess --hook pre-commit`
-- Silent accumulation of lint debt when commits bypassed hooks with `--no-verify`
-
-**After v0.4.1**: Hook mode reports ALL lint issues by default (consistent with direct assess).
-
-**To restore previous behavior**, add `--new-issues-only` to your `.goneat/hooks.yaml`:
-
-```yaml
-hooks:
-  pre-commit:
-    - command: assess
-      args: ["--categories", "format,lint", "--fail-on", "high", "--new-issues-only"]
-  pre-push:
-    - command: assess
-      args: ["--categories", "lint,security", "--fail-on", "high", "--new-issues-only", "--new-issues-base", "main"]
-```
-
-### Hooks Schema Update
-
-The hooks-manifest schema (`schemas/work/v1.0.0/hooks-manifest.yaml`) now documents `--new-issues-only` and `--new-issues-base` as valid args, with examples showing both standard and incremental configurations.
-
-## Upgrade Notes
-
-### From v0.4.0
-
-**Behavioral change**: If your hooks relied on implicit incremental checking, you may see more lint issues after upgrading. This is intentional—incremental checking is now opt-in for transparency and consistency.
-
-**Migration steps**:
-
-1. If you want incremental checking, add `--new-issues-only` to your hooks.yaml
-2. Regenerate and reinstall hooks: `goneat hooks generate && goneat hooks install`
-
-### Flag Dependency
-
-Note: `--new-issues-base` has no effect without `--new-issues-only`. If used alone, a warning is emitted:
-
-```
-WARN: --new-issues-base has no effect without --new-issues-only; base reference will be ignored
-```
-
-## When to Use Incremental Checking
-
-**Use incremental checking when:**
-
-- You have existing lint debt that cannot be fixed immediately
-- You want faster feedback in pre-commit/pre-push hooks
-- You want to prevent new issues without blocking on existing ones
-
-**Use full checking (default) when:**
-
-- You want to see all issues in the codebase
-- Running comprehensive CI/CD quality gates
-- Your codebase has minimal or zero lint debt
-
-## Documentation
-
-- **Appnote**: `docs/appnotes/assess/incremental-lint-checking.md` (comprehensive guide)
-- **Assess flags**: `docs/user-guide/commands/assess.md`
-- **Hooks config**: `docs/user-guide/commands/hooks.md`
-
-## Dependency Updates
-
-- go-git v5.16.4
-- cobra v1.10.2
-- go-runewidth v0.0.19
-- Added `github.com/clipperhouse/uax29/v2` (indirect via go-runewidth)
+- **Lint integration**: `cargo-clippy` runs as part of `goneat assess --categories lint` when available, mapping clippy warnings to medium severity.
+- **Doctor scope**: `goneat doctor tools --scope rust` now surfaces manual install commands for `cargo-deny` and `cargo-audit` (cargo install with `--locked`).
