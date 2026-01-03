@@ -336,10 +336,19 @@ func collectLicenses(ctx context.Context) (map[string]*License, bool, error) {
 
 	libraries, err := licenses.Libraries(ctx, classifier, false, nil, "./...")
 	if err != nil {
+		// Stdlib module info errors are harmless - go-licenses logs warnings about
+		// standard library packages not having module info, but these packages are
+		// covered by Go's BSD license and don't affect third-party license detection.
 		if isStdlibModuleInfoError(err) {
+			// If we got library results despite the stdlib noise, proceed normally.
+			// Only fail if we truly have no results.
+			if len(libraries) == 0 {
+				return nil, true, err
+			}
+			// Fall through with valid results - ignore stdlib noise
+		} else {
 			return nil, true, err
 		}
-		return nil, true, err
 	}
 
 	out := map[string]*License{}
