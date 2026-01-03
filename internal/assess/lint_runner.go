@@ -135,6 +135,18 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 	}
 	issues = append(issues, jsIssues...)
 
+	rustIssues, rustErr := runCargoClippyLint(target, config)
+	if rustErr != nil {
+		return &AssessmentResult{
+			CommandName:   r.commandName,
+			Category:      CategoryLint,
+			Success:       false,
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
+			Error:         fmt.Sprintf("cargo-clippy failed: %v", rustErr),
+		}, nil
+	}
+	issues = append(issues, rustIssues...)
+
 	// Go lint: only if Go is detected and golangci-lint is present
 	goFiles, err := r.findGoFiles(target, config)
 	if err != nil {
