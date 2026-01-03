@@ -253,13 +253,13 @@ release-clean: ## Reset dist/release to avoid stale artifacts before packaging
 	@echo "✅ dist/release cleared (fresh packaging workspace)"
 
 release-download: ## Download CI-built release artifacts from GitHub (requires gh CLI)
-	@echo "📥 Downloading CI-built artifacts for $(RELEASE_TAG)..."
-	@if [ -z "$(RELEASE_TAG)" ]; then \
-		echo "❌ RELEASE_TAG not set. Use: make release-download RELEASE_TAG=vX.Y.Z"; \
+	@echo "📥 Downloading CI-built artifacts for $(GONEAT_RELEASE_TAG)..."
+	@if [ -z "$(GONEAT_RELEASE_TAG)" ]; then \
+		echo "❌ GONEAT_RELEASE_TAG not set. Use: make release-download GONEAT_RELEASE_TAG=vX.Y.Z"; \
 		exit 1; \
 	fi
-	@if [ "$(RELEASE_TAG)" != "$(VERSION)" ]; then \
-		echo "⚠️  RELEASE_TAG ($(RELEASE_TAG)) differs from VERSION ($(VERSION))"; \
+	@if [ "$(GONEAT_RELEASE_TAG)" != "$(VERSION)" ]; then \
+		echo "⚠️  GONEAT_RELEASE_TAG ($(GONEAT_RELEASE_TAG)) differs from VERSION ($(VERSION))"; \
 		echo "   This is normal for pre-release testing, but verify you're signing the right artifacts."; \
 	fi
 	@if ! command -v gh >/dev/null 2>&1; then \
@@ -271,24 +271,24 @@ release-download: ## Download CI-built release artifacts from GitHub (requires g
 		echo "   Continuing with download (existing files will be overwritten via --clobber)..."; \
 	fi
 	@mkdir -p dist/release
-	@cd dist/release && gh release download $(RELEASE_TAG) \
-		--pattern 'goneat_$(RELEASE_TAG)_*.tar.gz' \
-		--pattern 'goneat_$(RELEASE_TAG)_*.zip' \
+	@cd dist/release && gh release download $(GONEAT_RELEASE_TAG) \
+		--pattern 'goneat_$(GONEAT_RELEASE_TAG)_*.tar.gz' \
+		--pattern 'goneat_$(GONEAT_RELEASE_TAG)_*.zip' \
 		--clobber
-	@echo "✅ CI artifacts downloaded to dist/release/ for $(RELEASE_TAG)"
+	@echo "✅ CI artifacts downloaded to dist/release/ for $(GONEAT_RELEASE_TAG)"
 
 release-checksums: ## Generate SHA256SUMS and SHA512SUMS from downloaded artifacts
-	@echo "🔢 Generating checksums for $(RELEASE_TAG) artifacts..."
-	@if [ -z "$(RELEASE_TAG)" ]; then \
-		echo "❌ RELEASE_TAG not set. Use: make release-checksums RELEASE_TAG=vX.Y.Z"; \
+	@echo "🔢 Generating checksums for $(GONEAT_RELEASE_TAG) artifacts..."
+	@if [ -z "$(GONEAT_RELEASE_TAG)" ]; then \
+		echo "❌ GONEAT_RELEASE_TAG not set. Use: make release-checksums GONEAT_RELEASE_TAG=vX.Y.Z"; \
 		exit 1; \
 	fi
-	@if [ "$(RELEASE_TAG)" != "$(VERSION)" ]; then \
-		echo "⚠️  RELEASE_TAG ($(RELEASE_TAG)) differs from VERSION ($(VERSION))"; \
+	@if [ "$(GONEAT_RELEASE_TAG)" != "$(VERSION)" ]; then \
+		echo "⚠️  GONEAT_RELEASE_TAG ($(GONEAT_RELEASE_TAG)) differs from VERSION ($(VERSION))"; \
 		echo "   This is normal for pre-release testing, but verify you're signing the right artifacts."; \
 	fi
 	@if [ ! -d "dist/release" ]; then \
-		echo "❌ dist/release directory not found. Run 'make release-download RELEASE_TAG=$(RELEASE_TAG)' first."; \
+		echo "❌ dist/release directory not found. Run 'make release-download GONEAT_RELEASE_TAG=$(GONEAT_RELEASE_TAG)' first."; \
 		exit 1; \
 	fi
 	@# Guard: Warn if signatures already exist (would be invalidated by regenerating checksums)
@@ -307,18 +307,18 @@ release-checksums: ## Generate SHA256SUMS and SHA512SUMS from downloaded artifac
 		exit 1; \
 	fi
 	@cd dist/release && \
-		(for file in $$(ls goneat_$(RELEASE_TAG)_*.tar.gz goneat_$(RELEASE_TAG)_*.zip | sort); do \
+		(for file in $$(ls goneat_$(GONEAT_RELEASE_TAG)_*.tar.gz goneat_$(GONEAT_RELEASE_TAG)_*.zip | sort); do \
 			shasum -a 256 "$$file"; \
 		done) > SHA256SUMS && \
-		(for file in $$(ls goneat_$(RELEASE_TAG)_*.tar.gz goneat_$(RELEASE_TAG)_*.zip | sort); do \
+		(for file in $$(ls goneat_$(GONEAT_RELEASE_TAG)_*.tar.gz goneat_$(GONEAT_RELEASE_TAG)_*.zip | sort); do \
 			shasum -a 512 "$$file"; \
 		done) > SHA512SUMS
-	@echo "✅ Checksums generated (SHA256SUMS, SHA512SUMS) for $(RELEASE_TAG)"
+	@echo "✅ Checksums generated (SHA256SUMS, SHA512SUMS) for $(GONEAT_RELEASE_TAG)"
 
 release-verify-checksums: ## Verify SHA256SUMS/SHA512SUMS match actual artifacts (non-destructive)
-	@echo "🔍 Verifying checksums for $(RELEASE_TAG) artifacts..."
-	@if [ -z "$(RELEASE_TAG)" ]; then \
-		echo "❌ RELEASE_TAG not set. Use: make release-verify-checksums RELEASE_TAG=vX.Y.Z"; \
+	@echo "🔍 Verifying checksums for $(GONEAT_RELEASE_TAG) artifacts..."
+	@if [ -z "$(GONEAT_RELEASE_TAG)" ]; then \
+		echo "❌ GONEAT_RELEASE_TAG not set. Use: make release-verify-checksums GONEAT_RELEASE_TAG=vX.Y.Z"; \
 		exit 1; \
 	fi
 	@if [ ! -d "dist/release" ]; then \
@@ -338,7 +338,7 @@ release-verify-checksums: ## Verify SHA256SUMS/SHA512SUMS match actual artifacts
 			echo "   This indicates artifacts have changed since checksums were generated."; \
 			echo "   Either re-download artifacts or regenerate checksums:"; \
 			echo "     rm -f dist/release/*.asc dist/release/*.minisig"; \
-			echo "     RELEASE_TAG=$(RELEASE_TAG) make release-checksums"; \
+			echo "     GONEAT_RELEASE_TAG=$(GONEAT_RELEASE_TAG) make release-checksums"; \
 			exit 1; \
 		fi
 	@if [ -f "dist/release/SHA512SUMS" ]; then \
@@ -351,16 +351,16 @@ release-verify-checksums: ## Verify SHA256SUMS/SHA512SUMS match actual artifacts
 			exit 1; \
 		fi; \
 	fi
-	@echo "✅ All checksums verified for $(RELEASE_TAG)"
+	@echo "✅ All checksums verified for $(GONEAT_RELEASE_TAG)"
 
 release-sign: ## Sign checksum manifests (minisign + PGP required for releases)
-	@echo "🔐 Signing checksum manifests for $(RELEASE_TAG)..."
-	@if [ -z "$(RELEASE_TAG)" ]; then \
-		echo "❌ RELEASE_TAG not set. Use: make release-sign RELEASE_TAG=vX.Y.Z"; \
+	@echo "🔐 Signing checksum manifests for $(GONEAT_RELEASE_TAG)..."
+	@if [ -z "$(GONEAT_RELEASE_TAG)" ]; then \
+		echo "❌ GONEAT_RELEASE_TAG not set. Use: make release-sign GONEAT_RELEASE_TAG=vX.Y.Z"; \
 		exit 1; \
 	fi
 	@if [ ! -d "dist/release" ] || [ ! -f "dist/release/SHA256SUMS" ]; then \
-		echo "❌ Checksums not found. Run 'make release-checksums RELEASE_TAG=$(RELEASE_TAG)' first."; \
+		echo "❌ Checksums not found. Run 'make release-checksums GONEAT_RELEASE_TAG=$(GONEAT_RELEASE_TAG)' first."; \
 		exit 1; \
 	fi
 	@if [ -z "$${GONEAT_MINISIGN_KEY:-$$MINISIGN_KEY}" ]; then \
@@ -381,13 +381,13 @@ release-sign: ## Sign checksum manifests (minisign + PGP required for releases)
 	fi
 	@echo "📝 Using sign-release-manifests.sh (preferred)"
 	@SIGNING_ENV_PREFIX=GONEAT SIGNING_APP_NAME=goneat \
-		./scripts/sign-release-manifests.sh "$(RELEASE_TAG)" "dist/release"
-	@echo "✅ Checksum manifests signed for $(RELEASE_TAG)"
+		./scripts/sign-release-manifests.sh "$(GONEAT_RELEASE_TAG)" "dist/release"
+	@echo "✅ Checksum manifests signed for $(GONEAT_RELEASE_TAG)"
 
 release-verify-signatures: ## Verify signatures on checksum manifests
-	@echo "🔍 Verifying signatures for $(RELEASE_TAG)..."
-	@if [ -z "$(RELEASE_TAG)" ]; then \
-		echo "❌ RELEASE_TAG not set. Use: make release-verify-signatures RELEASE_TAG=vX.Y.Z"; \
+	@echo "🔍 Verifying signatures for $(GONEAT_RELEASE_TAG)..."
+	@if [ -z "$(GONEAT_RELEASE_TAG)" ]; then \
+		echo "❌ GONEAT_RELEASE_TAG not set. Use: make release-verify-signatures GONEAT_RELEASE_TAG=vX.Y.Z"; \
 		exit 1; \
 	fi
 	@if [ ! -d "dist/release" ]; then \
@@ -419,7 +419,7 @@ release-verify-signatures: ## Verify signatures on checksum manifests
 				echo "  ⚠️  $$sig - Signature or public key file not found"; \
 			fi; \
 		done
-	@echo "✅ Signature verification completed for $(RELEASE_TAG)"
+	@echo "✅ Signature verification completed for $(GONEAT_RELEASE_TAG)"
 
 release-verify-key: ## Verify GPG public key is safe to upload (no private keys)
 	@echo "🛡️  Verifying GPG public key safety..."

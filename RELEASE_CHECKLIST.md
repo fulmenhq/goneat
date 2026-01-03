@@ -292,8 +292,8 @@ make test-integration-extended  # All 3 tiers (~2 minutes)
 After tagging, wait for GitHub Actions to build and upload artifacts to draft release.
 
 ```bash
-RELEASE_TAG=v0.3.15  # Set to current release version
-echo "Waiting for CI completion for $RELEASE_TAG..."
+GONEAT_RELEASE_TAG=v0.3.15  # Set to current release version
+echo "Waiting for CI completion for $GONEAT_RELEASE_TAG..."
 gh run list --workflow=ci.yml --limit=1 --json status,conclusion | jq -r '.[0] | select(.status == "completed" and .conclusion == "success") | "CI completed successfully"'
 ```
 
@@ -303,7 +303,7 @@ Or monitor: https://github.com/fulmenhq/goneat/actions
 
 ```bash
 make release-clean     # Clean any local artifacts
-RELEASE_TAG=$RELEASE_TAG make release-download  # Download CI-built artifacts (requires gh CLI)
+GONEAT_RELEASE_TAG=$GONEAT_RELEASE_TAG make release-download  # Download CI-built artifacts (requires gh CLI)
 ```
 
 ### 3. Generate checksums from downloaded artifacts
@@ -312,7 +312,7 @@ RELEASE_TAG=$RELEASE_TAG make release-download  # Download CI-built artifacts (r
 > invalidates signatures. The Makefile will block this if signatures exist.
 
 ```bash
-RELEASE_TAG=$RELEASE_TAG make release-checksums # Generate SHA256SUMS and SHA512SUMS
+GONEAT_RELEASE_TAG=$GONEAT_RELEASE_TAG make release-checksums # Generate SHA256SUMS and SHA512SUMS
 ```
 
 ### 3a. (Optional) Verify checksums match artifacts
@@ -320,7 +320,7 @@ RELEASE_TAG=$RELEASE_TAG make release-checksums # Generate SHA256SUMS and SHA512
 Use this to verify checksum integrity without regenerating (safe to run anytime):
 
 ```bash
-RELEASE_TAG=$RELEASE_TAG make release-verify-checksums  # Non-destructive verification
+GONEAT_RELEASE_TAG=$GONEAT_RELEASE_TAG make release-verify-checksums  # Non-destructive verification
 ```
 
 ### 4. Set signing environment variables
@@ -346,7 +346,7 @@ Notes:
 ### 5. Sign checksum manifests
 
 ```bash
-RELEASE_TAG="$RELEASE_TAG" \
+GONEAT_RELEASE_TAG="$GONEAT_RELEASE_TAG" \
 GONEAT_MINISIGN_KEY="$HOME/.minisign/fulmenhq-release.key" \
 GONEAT_MINISIGN_PUB="$HOME/.minisign/fulmenhq-release.pub" \
 GONEAT_PGP_KEY_ID="$GONEAT_PGP_KEY_ID" \
@@ -364,8 +364,8 @@ This target uses `scripts/sign-release-manifests.sh` (preferred) which:
 ### 6. Verify signatures and key safety
 
 ```bash
-RELEASE_TAG=$RELEASE_TAG make release-verify-signatures  # Verify GPG + minisign signatures
-RELEASE_TAG=$RELEASE_TAG make release-verify-key         # Verify GPG key is public-only
+GONEAT_RELEASE_TAG=$GONEAT_RELEASE_TAG make release-verify-signatures  # Verify GPG + minisign signatures
+GONEAT_RELEASE_TAG=$GONEAT_RELEASE_TAG make release-verify-key         # Verify GPG key is public-only
 ```
 
 #### Manual verification (fallback)
@@ -420,15 +420,15 @@ make release-upload  # Uploads artifacts AND updates ../homebrew-tap formula
 
 ```bash
 # Upload binaries and checksums
-gh release upload $RELEASE_TAG \
-  goneat_${RELEASE_TAG}_*.tar.gz \
-  goneat_${RELEASE_TAG}_*.zip \
+gh release upload $GONEAT_RELEASE_TAG \
+  goneat_${GONEAT_RELEASE_TAG}_*.tar.gz \
+  goneat_${GONEAT_RELEASE_TAG}_*.zip \
   SHA256SUMS \
   SHA512SUMS \
   --clobber
 
 # Upload signatures and keys
-gh release upload $RELEASE_TAG \
+gh release upload $GONEAT_RELEASE_TAG \
   SHA256SUMS.asc \
   SHA512SUMS.asc \
   SHA256SUMS.minisig \
@@ -438,7 +438,7 @@ gh release upload $RELEASE_TAG \
   --clobber
 
 # Update release notes
-gh release edit $RELEASE_TAG --notes-file release-notes-${RELEASE_TAG}.md
+gh release edit $GONEAT_RELEASE_TAG --notes-file release-notes-${GONEAT_RELEASE_TAG}.md
 
 # CRITICAL: If using Option B, you must manually verify signatures before upload
 # The automated target does this verification automatically
@@ -448,8 +448,8 @@ gh release edit $RELEASE_TAG --notes-file release-notes-${RELEASE_TAG}.md
 
 ```bash
 # Should show 13 assets total
-gh release view $RELEASE_TAG --json assets --jq '.assets | length'
-gh release view $RELEASE_TAG --json assets --jq '.assets[].name'
+gh release view $GONEAT_RELEASE_TAG --json assets --jq '.assets | length'
+gh release view $GONEAT_RELEASE_TAG --json assets --jq '.assets[].name'
 ```
 
 ## Post-Upload Verification
@@ -457,19 +457,19 @@ gh release view $RELEASE_TAG --json assets --jq '.assets[].name'
 ### Automated Verification (Recommended)
 
 ```bash
-scripts/verify-release-assets.sh $RELEASE_TAG
+scripts/verify-release-assets.sh $GONEAT_RELEASE_TAG
 ```
 
 ### Manual Verification (Fallback)
 
 ```bash
 TMPDIR=$(mktemp -d)
-gh release download $RELEASE_TAG --dir "$TMPDIR" --pattern "goneat_${RELEASE_TAG}_*.tar.gz" --clobber
-gh release download $RELEASE_TAG --dir "$TMPDIR" --pattern "goneat_${RELEASE_TAG}_*.zip" --clobber
-(cd "$TMPDIR" && shasum -a 256 goneat_${RELEASE_TAG}_*.tar.gz goneat_${RELEASE_TAG}_*.zip | sort > SHA256SUMS.github)
+gh release download $GONEAT_RELEASE_TAG --dir "$TMPDIR" --pattern "goneat_${GONEAT_RELEASE_TAG}_*.tar.gz" --clobber
+gh release download $GONEAT_RELEASE_TAG --dir "$TMPDIR" --pattern "goneat_${GONEAT_RELEASE_TAG}_*.zip" --clobber
+(cd "$TMPDIR" && shasum -a 256 goneat_${GONEAT_RELEASE_TAG}_*.tar.gz goneat_${GONEAT_RELEASE_TAG}_*.zip | sort > SHA256SUMS.github)
 sort dist/release/SHA256SUMS > "$TMPDIR"/SHA256SUMS.local
 diff "$TMPDIR"/SHA256SUMS.local "$TMPDIR"/SHA256SUMS.github  # Must be empty before release is declared healthy
-gh release download $RELEASE_TAG --dir "$TMPDIR" --pattern SHA256SUMS --clobber
+gh release download $GONEAT_RELEASE_TAG --dir "$TMPDIR" --pattern SHA256SUMS --clobber
 sort "$TMPDIR"/SHA256SUMS > "$TMPDIR"/SHA256SUMS.remote
 diff "$TMPDIR"/SHA256SUMS.local "$TMPDIR"/SHA256SUMS.remote  # Validates uploaded checksum matches local copy
 ```
@@ -646,7 +646,7 @@ ls -la dist/release/SHA256SUMS dist/release/SHA256SUMS.asc
 # .asc file MUST have a timestamp >= SHA256SUMS timestamp
 
 # Verify checksums match artifacts (non-destructive)
-RELEASE_TAG=vX.Y.Z make release-verify-checksums
+GONEAT_RELEASE_TAG=vX.Y.Z make release-verify-checksums
 ```
 
 **Recovery**:
@@ -656,14 +656,14 @@ RELEASE_TAG=vX.Y.Z make release-verify-checksums
 cd dist/release
 rm -f *.asc *.minisig  # Remove invalid signatures
 cd ../..
-RELEASE_TAG=vX.Y.Z make release-sign  # Re-sign
+GONEAT_RELEASE_TAG=vX.Y.Z make release-sign  # Re-sign
 
 # Option 2: Full reset (if unsure about checksum integrity)
 make release-clean
-RELEASE_TAG=vX.Y.Z make release-download
-RELEASE_TAG=vX.Y.Z make release-checksums
-RELEASE_TAG=vX.Y.Z make release-sign
-RELEASE_TAG=vX.Y.Z make release-verify-signatures
+GONEAT_RELEASE_TAG=vX.Y.Z make release-download
+GONEAT_RELEASE_TAG=vX.Y.Z make release-checksums
+GONEAT_RELEASE_TAG=vX.Y.Z make release-sign
+GONEAT_RELEASE_TAG=vX.Y.Z make release-verify-signatures
 ```
 
 **Prevention**: The Makefile now guards against running `release-checksums` when signatures exist.

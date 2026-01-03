@@ -277,13 +277,13 @@ Note: The recommended release flow signs the _CI-built_ archives (what users act
 Prefer the Makefile target (it is aware of the CI artifact naming convention):
 
 ```bash
-RELEASE_TAG=vX.Y.Z make release-checksums
+GONEAT_RELEASE_TAG=vX.Y.Z make release-checksums
 ```
 
 **Step 3: Sign checksum manifests**
 
 ```bash
-RELEASE_TAG=vX.Y.Z \
+GONEAT_RELEASE_TAG=vX.Y.Z \
 GONEAT_MINISIGN_KEY="$HOME/.minisign/fulmenhq-release.key" \
 GONEAT_MINISIGN_PUB="$HOME/.minisign/fulmenhq-release.pub" \
 GONEAT_PGP_KEY_ID="<signing-subkey-id-or-email>" \
@@ -311,8 +311,8 @@ Goneat signs the checksum manifests (not each archive individually). The signing
 **Step 4: Verify Signatures Locally**
 
 ```bash
-RELEASE_TAG=vX.Y.Z make release-verify-signatures
-RELEASE_TAG=vX.Y.Z make release-verify-key
+GONEAT_RELEASE_TAG=vX.Y.Z make release-verify-signatures
+GONEAT_RELEASE_TAG=vX.Y.Z make release-verify-key
 ```
 
 **✅ If Steps 1-4 succeed**: Proceed with git push and tagging
