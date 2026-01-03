@@ -106,10 +106,27 @@ func (r *DependenciesRunner) Assess(ctx context.Context, target string, assessCo
 	// Convert to assessment issues
 	issues := r.convertToAssessmentIssues(result)
 
+	// For Rust projects, run cargo-deny license and bans checks directly
+	// (RustAnalyzer is a stub to avoid import cycles)
+	if lang == dependencies.LanguageRust {
+		rustIssues, rustErr := RunCargoDenyDependencyChecks(target, assessConfig.Timeout)
+		if rustErr != nil {
+			logger.Warn(fmt.Sprintf("cargo-deny dependency check failed: %v", rustErr))
+		} else if rustIssues != nil {
+			issues = append(issues, rustIssues...)
+			logger.Info(fmt.Sprintf("cargo-deny found %d dependency issues", len(rustIssues)))
+		}
+	}
+
 	// Determine success based on fail threshold
 	success := r.shouldPass(issues, assessConfig.FailOnSeverity)
 
 	logger.Info(fmt.Sprintf("Dependencies assessment completed: %d issues found, passed: %t", len(issues), success))
+
+	// Build metrics using the final combined issues list (not just analyzer result)
+	// This ensures Rust cargo-deny issues are reflected in metrics
+	metrics := r.buildMetrics(result, target)
+	r.updateMetricsFromIssues(metrics, issues)
 
 	return &AssessmentResult{
 		CommandName:   "dependencies",
@@ -117,7 +134,7 @@ func (r *DependenciesRunner) Assess(ctx context.Context, target string, assessCo
 		Success:       success,
 		ExecutionTime: HumanReadableDuration(time.Since(startTime)),
 		Issues:        issues,
-		Metrics:       r.buildMetrics(result, target),
+		Metrics:       metrics,
 	}, nil
 }
 
@@ -233,6 +250,31 @@ func (r *DependenciesRunner) countIssuesByType(issues []dependencies.Issue, issu
 		}
 	}
 	return count
+}
+
+// updateMetricsFromIssues updates metrics based on the final combined issues list.
+// This ensures metrics reflect all issues including cargo-deny findings for Rust.
+// Note: Does NOT override analysis_passed - that reflects the underlying analyzer result.
+// The assessment pass/fail based on --fail-on threshold is in AssessmentResult.Success.
+func (r *DependenciesRunner) updateMetricsFromIssues(metrics map[string]interface{}, issues []Issue) {
+	// Count license and bans violations from assessment issues
+	licenseCount := 0
+	bansCount := 0
+	for _, issue := range issues {
+		switch issue.SubCategory {
+		case "license", "rust:cargo-deny:license":
+			licenseCount++
+		case "rust:cargo-deny:bans":
+			bansCount++
+		}
+	}
+
+	// Update metrics with final counts
+	// Note: license_violations is overwritten to include cargo-deny license issues
+	metrics["license_violations"] = licenseCount
+	metrics["bans_violations"] = bansCount
+	// analysis_passed intentionally NOT updated - preserves original analyzer result
+	// Assessment threshold pass/fail is captured in AssessmentResult.Success
 }
 
 // findExistingSBOM looks for existing SBOM files in standard locations

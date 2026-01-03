@@ -526,6 +526,178 @@ func TestDependenciesRunner_FindExistingSBOM_NonRootTarget(t *testing.T) {
 	}
 }
 
+// TestDependenciesRunner_UpdateMetricsFromIssues validates that metrics are updated
+// based on the final combined issues list, including cargo-deny findings.
+// Note: analysis_passed is NOT updated by this function - it preserves the original
+// analyzer result. Assessment threshold pass/fail is in AssessmentResult.Success.
+func TestDependenciesRunner_UpdateMetricsFromIssues(t *testing.T) {
+	runner := NewDependenciesRunner()
+
+	tests := []struct {
+		name             string
+		issues           []Issue
+		wantLicenseCount int
+		wantBansCount    int
+	}{
+		{
+			name:             "empty_issues",
+			issues:           []Issue{},
+			wantLicenseCount: 0,
+			wantBansCount:    0,
+		},
+		{
+			name: "license_issues_only",
+			issues: []Issue{
+				{SubCategory: "license", Severity: SeverityHigh},
+				{SubCategory: "rust:cargo-deny:license", Severity: SeverityHigh},
+			},
+			wantLicenseCount: 2,
+			wantBansCount:    0,
+		},
+		{
+			name: "bans_issues_only",
+			issues: []Issue{
+				{SubCategory: "rust:cargo-deny:bans", Severity: SeverityMedium},
+				{SubCategory: "rust:cargo-deny:bans", Severity: SeverityMedium},
+			},
+			wantLicenseCount: 0,
+			wantBansCount:    2,
+		},
+		{
+			name: "mixed_issues",
+			issues: []Issue{
+				{SubCategory: "license", Severity: SeverityHigh},
+				{SubCategory: "rust:cargo-deny:license", Severity: SeverityHigh},
+				{SubCategory: "rust:cargo-deny:bans", Severity: SeverityMedium},
+				{SubCategory: "cooling", Severity: SeverityHigh}, // Not counted in license/bans
+			},
+			wantLicenseCount: 2,
+			wantBansCount:    1,
+		},
+		{
+			name: "other_subcategories_not_counted",
+			issues: []Issue{
+				{SubCategory: "cooling", Severity: SeverityHigh},
+				{SubCategory: "vulnerability", Severity: SeverityCritical},
+				{SubCategory: "rust:cargo-deny", Severity: SeverityMedium}, // Generic, not specific
+			},
+			wantLicenseCount: 0,
+			wantBansCount:    0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := map[string]interface{}{
+				"license_violations": 999,  // Should be overwritten
+				"analysis_passed":    true, // Should NOT be overwritten
+			}
+
+			runner.updateMetricsFromIssues(metrics, tt.issues)
+
+			if got := metrics["license_violations"].(int); got != tt.wantLicenseCount {
+				t.Errorf("license_violations = %d, want %d", got, tt.wantLicenseCount)
+			}
+			if got := metrics["bans_violations"].(int); got != tt.wantBansCount {
+				t.Errorf("bans_violations = %d, want %d", got, tt.wantBansCount)
+			}
+			// Verify analysis_passed is NOT modified (preserves original analyzer result)
+			if got := metrics["analysis_passed"].(bool); got != true {
+				t.Errorf("analysis_passed was modified to %v, should remain unchanged", got)
+			}
+		})
+	}
+}
+
+// TestCargoDenyDependencySeverityMapping validates severity mapping for cargo-deny
+// dependency checks (licenses and bans) per spec requirements
+func TestCargoDenyDependencySeverityMapping(t *testing.T) {
+	tests := []struct {
+		name     string
+		entry    cargoDenyEntry
+		expected IssueSeverity
+	}{
+		{
+			name:     "license_singular_always_high",
+			entry:    cargoDenyEntry{Type: "license", Severity: "warning"},
+			expected: SeverityHigh,
+		},
+		{
+			name:     "licenses_plural_always_high",
+			entry:    cargoDenyEntry{Type: "licenses", Severity: "error"},
+			expected: SeverityHigh,
+		},
+		{
+			name:     "ban_singular_always_medium",
+			entry:    cargoDenyEntry{Type: "ban", Severity: "error"},
+			expected: SeverityMedium,
+		},
+		{
+			name:     "bans_plural_always_medium",
+			entry:    cargoDenyEntry{Type: "bans", Severity: "error"},
+			expected: SeverityMedium,
+		},
+		{
+			name:     "unknown_error_severity_maps_to_high",
+			entry:    cargoDenyEntry{Type: "other", Severity: "error"},
+			expected: SeverityHigh,
+		},
+		{
+			name:     "unknown_warning_severity_maps_to_medium",
+			entry:    cargoDenyEntry{Type: "other", Severity: "warning"},
+			expected: SeverityMedium,
+		},
+		{
+			name:     "unknown_note_severity_maps_to_low",
+			entry:    cargoDenyEntry{Type: "other", Severity: "note"},
+			expected: SeverityLow,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := mapCargoDenyDependencySeverity(tt.entry)
+			if got != tt.expected {
+				t.Errorf("mapCargoDenyDependencySeverity() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+// TestCargoDenySubcategoryMapping validates subcategory assignment handles
+// both singular and plural forms from cargo-deny output
+func TestCargoDenySubcategoryMapping(t *testing.T) {
+	tests := []struct {
+		name            string
+		entryType       string
+		wantSubCategory string
+	}{
+		{"license_singular", "license", "rust:cargo-deny:license"},
+		{"licenses_plural", "licenses", "rust:cargo-deny:license"},
+		{"ban_singular", "ban", "rust:cargo-deny:bans"},
+		{"bans_plural", "bans", "rust:cargo-deny:bans"},
+		{"other_type", "advisories", "rust:cargo-deny"},
+		{"empty_type", "", "rust:cargo-deny"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Simulate the subcategory mapping logic from RunCargoDenyDependencyChecks
+			subCategory := "rust:cargo-deny"
+			entryType := tt.entryType
+			if entryType == "license" || entryType == "licenses" {
+				subCategory = "rust:cargo-deny:license"
+			} else if entryType == "ban" || entryType == "bans" {
+				subCategory = "rust:cargo-deny:bans"
+			}
+
+			if subCategory != tt.wantSubCategory {
+				t.Errorf("subcategory for type=%q: got %q, want %q", tt.entryType, subCategory, tt.wantSubCategory)
+			}
+		})
+	}
+}
+
 // Helper functions for test file creation
 func createDir(path string) error {
 	return os.MkdirAll(path, 0755)

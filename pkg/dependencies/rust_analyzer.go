@@ -10,7 +10,9 @@ import (
 	"github.com/fulmenhq/goneat/pkg/logger"
 )
 
-// RustAnalyzer implements Analyzer for Rust dependencies (stub)
+// RustAnalyzer implements Analyzer for Rust dependencies.
+// Note: The actual cargo-deny integration is handled in DependenciesRunner
+// to avoid import cycles between internal/assess and pkg/dependencies.
 type RustAnalyzer struct{}
 
 // NewRustAnalyzer creates a new Rust dependency analyzer
@@ -18,9 +20,10 @@ func NewRustAnalyzer() Analyzer {
 	return &RustAnalyzer{}
 }
 
-// Analyze implements Analyzer.Analyze for Rust (stub implementation)
+// Analyze implements Analyzer.Analyze for Rust.
+// Returns empty result as cargo-deny checks are handled directly by DependenciesRunner.
 func (a *RustAnalyzer) Analyze(ctx context.Context, target string, config AnalysisConfig) (*AnalysisResult, error) {
-	logger.Info("Rust dependency analyzer is a stub (not yet implemented)")
+	logger.Debug("Rust dependency analysis delegated to cargo-deny in DependenciesRunner")
 	return &AnalysisResult{
 		Dependencies: []Dependency{},
 		Issues:       []Issue{},

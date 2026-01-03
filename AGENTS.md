@@ -145,6 +145,20 @@ make embed-assets  # Sync sources to embedded
 git diff           # Check which files changed
 ```
 
+**Release Notes Embedding:**
+
+The `docs/releases/latest.md` file is intentionally embedded into the binary for `goneat docs list` / `goneat docs show` commands. This is by design - not every release note should be embedded, only the latest.
+
+When you see `docs/releases/latest.md` and `internal/assets/embedded_docs/docs/releases/latest.md` modified after `make build`, this is the embedding system working correctly. The content flows:
+
+1. Source: `docs/releases/latest.md` (edit here when creating new release notes)
+2. Destination: `internal/assets/embedded_docs/docs/releases/latest.md` (auto-generated)
+
+If both files show as modified in git status after a build, restore them:
+```bash
+git restore docs/releases/latest.md internal/assets/embedded_docs/docs/releases/latest.md
+```
+
 ## Critical Rules
 
 ### Never Push Without Approval
