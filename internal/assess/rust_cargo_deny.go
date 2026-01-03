@@ -237,10 +237,10 @@ func RunCargoDenyDependencyChecks(target string, timeout time.Duration) ([]Issue
 		// Map entry type to subcategory
 		// cargo-deny uses plural type values: "licenses", "bans", "advisories", "sources"
 		subCategory := "rust:cargo-deny"
-		entryType := strings.ToLower(entry.Type)
-		if entryType == "license" || entryType == "licenses" {
+		switch strings.ToLower(entry.Type) {
+		case "license", "licenses":
 			subCategory = "rust:cargo-deny:license"
-		} else if entryType == "ban" || entryType == "bans" {
+		case "ban", "bans":
 			subCategory = "rust:cargo-deny:bans"
 		}
 

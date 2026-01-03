@@ -684,10 +684,10 @@ func TestCargoDenySubcategoryMapping(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Simulate the subcategory mapping logic from RunCargoDenyDependencyChecks
 			subCategory := "rust:cargo-deny"
-			entryType := tt.entryType
-			if entryType == "license" || entryType == "licenses" {
+			switch tt.entryType {
+			case "license", "licenses":
 				subCategory = "rust:cargo-deny:license"
-			} else if entryType == "ban" || entryType == "bans" {
+			case "ban", "bans":
 				subCategory = "rust:cargo-deny:bans"
 			}
 
