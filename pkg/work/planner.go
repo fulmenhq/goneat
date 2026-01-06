@@ -89,7 +89,7 @@ type PlannerConfig struct {
 	IncludePatterns    []string
 	ExcludePatterns    []string
 	MaxDepth           int
-	ContentTypes       []string
+	ContentTypes       []string // Filter to only these content types during discovery
 	ExecutionStrategy  string
 	GroupBySize        bool
 	GroupByContentType bool
@@ -100,6 +100,8 @@ type PlannerConfig struct {
 	NoIgnore             bool     // Disable .goneatignore/.gitignore matching entirely
 	ForceIncludePatterns []string // Paths/globs to force-include even if ignored
 	IncludeConfigDirs    bool     // Include common configuration directories (.claude, .vscode, etc.)
+	// Parallel execution support
+	SupportedContentTypes []string // Only include files with these content types (for parallel processor compatibility)
 }
 
 // Planner handles work planning and manifest generation
@@ -463,6 +465,14 @@ func (p *Planner) eliminateRedundancies(files []string) ([]string, []string) {
 func (p *Planner) createWorkItems(files []string) []WorkItem {
 	var workItems []WorkItem
 
+	// Build supported content types map for fast lookup
+	supportedTypes := make(map[string]bool)
+	if len(p.config.SupportedContentTypes) > 0 {
+		for _, ct := range p.config.SupportedContentTypes {
+			supportedTypes[ct] = true
+		}
+	}
+
 	for _, file := range files {
 		// Validate that file path contains a path separator or extension
 		// to catch corrupted paths like just "json"
@@ -478,6 +488,15 @@ func (p *Planner) createWorkItems(files []string) []WorkItem {
 		}
 
 		contentType := p.getContentType(strings.ToLower(filepath.Ext(file)))
+
+		// Skip unsupported content types when SupportedContentTypes is configured
+		if len(supportedTypes) > 0 && !supportedTypes[contentType] {
+			if p.config.Verbose {
+				logger.Debug(fmt.Sprintf("Skipping %s: content type '%s' not in supported types %v", file, contentType, p.config.SupportedContentTypes))
+			}
+			continue
+		}
+
 		size := stat.Size()
 
 		// Generate unique ID using SHA-256 for better security

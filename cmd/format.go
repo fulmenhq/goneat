@@ -268,6 +268,8 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 			Verbose:              verbose,                                   // Enable verbose logging
 			IncludeConfigDirs:    includeConfigDirs,                         // Include config directories like .claude
 			ForceIncludePatterns: forceInclude,
+			// For parallel execution, filter to only content types the FormatProcessor supports
+			SupportedContentTypes: []string{"go", "yaml", "json", "markdown"},
 		}
 	}
 
@@ -345,25 +347,25 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 		logger.Info(fmt.Sprintf("Processing %d files using %s strategy", len(filesToProcess), strategy))
 	}
 
+	// Create normalization options
+	options := finalizer.NormalizationOptions{
+		EnsureEOF:                  finalizeEOF,
+		TrimTrailingWhitespace:     finalizeTrimTrailingSpaces,
+		NormalizeLineEndings:       finalizeLineEndings,
+		RemoveUTF8BOM:              finalizeRemoveBOM,
+		PreserveMarkdownHardBreaks: preserveMd,
+		EncodingPolicy:             textEncodingPolicy,
+	}
+
 	// Execute based on strategy
 	if strategy == "parallel" && !dryRun && !planOnly && !stagedOnly {
 		if useGoimports {
 			logger.Warn("use-goimports is enabled but parallel processor does not apply goimports yet; skipping import alignment in parallel mode")
 		}
-		return executeParallel(filesToProcess, cfg, quiet, noOp)
-	} else {
-		// Create normalization options
-		options := finalizer.NormalizationOptions{
-			EnsureEOF:                  finalizeEOF,
-			TrimTrailingWhitespace:     finalizeTrimTrailingSpaces,
-			NormalizeLineEndings:       finalizeLineEndings,
-			RemoveUTF8BOM:              finalizeRemoveBOM,
-			PreserveMarkdownHardBreaks: preserveMd,
-			EncodingPolicy:             textEncodingPolicy,
-		}
-
-		return executeSequentialWithOptions(filesToProcess, checkOnly || noOp, quiet, cfg, ignoreMissingTools, options, useGoimports, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB, xmlIndent, xmlIndentCount, xmlSizeWarningMB)
+		return executeParallel(filesToProcess, cfg, quiet, checkOnly, noOp, ignoreMissingTools, options, jsonIndent, jsonIndentCount, jsonSizeWarningMB)
 	}
+
+	return executeSequentialWithOptions(filesToProcess, checkOnly || noOp, quiet, cfg, ignoreMissingTools, options, useGoimports, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB, xmlIndent, xmlIndentCount, xmlSizeWarningMB)
 }
 
 // removed unused findSupportedFiles helper
@@ -1114,14 +1116,33 @@ func getStagedFilesFormat() ([]string, error) {
 }
 
 // executeParallel executes work items in parallel using the dispatcher
-func executeParallel(files []string, cfg *config.Config, quiet bool, noOp bool) error {
-	// Create a simple manifest for the files
-	workItems := make([]work.WorkItem, len(files))
+func executeParallel(files []string, cfg *config.Config, quiet bool, checkOnly bool, noOp bool, ignoreMissingTools bool, options finalizer.NormalizationOptions, jsonIndent string, jsonIndentCount int, jsonSizeWarningMB int) error {
+	// Supported content types for parallel processing
+	supportedTypes := map[string]bool{
+		"go":       true,
+		"yaml":     true,
+		"json":     true,
+		"markdown": true,
+	}
+
+	// Create work items, filtering to only supported content types
+	var workItems []work.WorkItem
+	skippedCount := 0
 	for i, file := range files {
 		contentType := getContentTypeFromPath(file)
+
+		// Skip unsupported content types
+		if !supportedTypes[contentType] {
+			if !quiet {
+				logger.Debug(fmt.Sprintf("Skipping %s: unsupported content type '%s' for parallel processing", file, contentType))
+			}
+			skippedCount++
+			continue
+		}
+
 		size := getFileSize(file)
 
-		workItems[i] = work.WorkItem{
+		workItems = append(workItems, work.WorkItem{
 			ID:            fmt.Sprintf("file_%d", i),
 			Path:          file,
 			ContentType:   contentType,
@@ -1129,7 +1150,24 @@ func executeParallel(files []string, cfg *config.Config, quiet bool, noOp bool) 
 			Priority:      1,
 			EstimatedTime: 1.0, // Simplified
 			Metadata:      make(map[string]interface{}),
+		})
+	}
+
+	if skippedCount > 0 && !quiet {
+		logger.Info(fmt.Sprintf("Skipped %d files with unsupported content types for parallel processing", skippedCount))
+	}
+
+	if len(workItems) == 0 {
+		if !quiet {
+			logger.Info("No supported files for parallel processing")
 		}
+		return nil
+	}
+
+	// Create work item IDs slice
+	workItemIDs := make([]string, len(workItems))
+	for i := range workItems {
+		workItemIDs[i] = workItems[i].ID
 	}
 
 	// Create a simple group
@@ -1137,12 +1175,9 @@ func executeParallel(files []string, cfg *config.Config, quiet bool, noOp bool) 
 		ID:                         "all_files",
 		Name:                       "All Files",
 		Strategy:                   "parallel",
-		WorkItemIDs:                make([]string, len(workItems)),
+		WorkItemIDs:                workItemIDs,
 		EstimatedTotalTime:         float64(len(workItems)),
 		RecommendedParallelization: runtime.NumCPU(),
-	}
-	for i := range workItems {
-		group.WorkItemIDs[i] = workItems[i].ID
 	}
 
 	// Create manifest
@@ -1152,7 +1187,7 @@ func executeParallel(files []string, cfg *config.Config, quiet bool, noOp bool) 
 			Timestamp:         time.Now(),
 			WorkingDirectory:  ".",
 			TotalFiles:        len(files),
-			FilteredFiles:     len(files),
+			FilteredFiles:     len(workItems),
 			ExecutionStrategy: "parallel",
 		},
 		WorkItems: workItems,
@@ -1161,17 +1196,27 @@ func executeParallel(files []string, cfg *config.Config, quiet bool, noOp bool) 
 
 	// Create processor and dispatcher
 	workers := runtime.NumCPU()
-	processor := work.NewFormatProcessor(cfg)
+	processor := work.NewFormatProcessorWithOptions(cfg, work.FormatProcessorOptions{
+		FinalizerOptions:  options,
+		IgnoreMissingTools: ignoreMissingTools,
+		JSONIndent:        jsonIndent,
+		JSONIndentCount:   jsonIndentCount,
+		JSONSizeWarningMB: jsonSizeWarningMB,
+		ToolPaths: work.FormatProcessorToolPaths{
+			Yamlfmt:  findToolPath("yamlfmt"),
+			Prettier: findToolPath("prettier"),
+		},
+	})
 
 	// Progress tracking for parallel execution
 	var processedCount int32
-	totalFiles := len(files)
+	totalFiles := len(workItems)
 	showProgress := totalFiles > 10 && !quiet
 
 	dispatcher := work.NewDispatcher(work.DispatcherConfig{
 		MaxWorkers: workers,
 		DryRun:     false,
-		NoOp:       noOp,
+		NoOp:       checkOnly || noOp, // Check mode uses NoOp to prevent modifications
 		ProgressCallback: func(result work.ExecutionResult) {
 			processed := int(atomic.AddInt32(&processedCount, 1))
 

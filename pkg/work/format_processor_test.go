@@ -9,7 +9,25 @@ import (
 	"time"
 
 	"github.com/fulmenhq/goneat/pkg/config"
+	"github.com/fulmenhq/goneat/pkg/format/finalizer"
 )
+
+func newTestProcessor(cfg *config.Config) *FormatProcessor {
+	return NewFormatProcessorWithOptions(cfg, FormatProcessorOptions{
+		FinalizerOptions: finalizer.NormalizationOptions{
+			EnsureEOF:                  true,
+			TrimTrailingWhitespace:     true,
+			NormalizeLineEndings:       "",
+			RemoveUTF8BOM:              false,
+			PreserveMarkdownHardBreaks: true,
+			EncodingPolicy:             "utf8-only",
+		},
+		IgnoreMissingTools: true,
+		JSONIndent:         "  ",
+		JSONIndentCount:    2,
+		JSONSizeWarningMB:  500,
+	})
+}
 
 func TestNewFormatProcessor(t *testing.T) {
 	cfg := &config.Config{}
@@ -26,7 +44,7 @@ func TestNewFormatProcessor(t *testing.T) {
 
 func TestFormatProcessor_ProcessWorkItem_DryRun(t *testing.T) {
 	cfg := &config.Config{}
-	processor := NewFormatProcessor(cfg)
+	processor := newTestProcessor(cfg)
 
 	item := &WorkItem{
 		ID:          "test-item",
@@ -54,47 +72,70 @@ func TestFormatProcessor_ProcessWorkItem_DryRun(t *testing.T) {
 
 func TestFormatProcessor_ProcessWorkItem_NoOp(t *testing.T) {
 	cfg := &config.Config{}
-	processor := NewFormatProcessor(cfg)
+	processor := newTestProcessor(cfg)
+
+	// Create a temporary directory for test files
+	tempDir, err := os.MkdirTemp("", "noop_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Errorf("Failed to clean up temp dir: %v", err)
+		}
+	}()
 
 	tests := []struct {
 		name        string
 		contentType string
+		content     []byte
 		expectError bool
 	}{
 		{
 			name:        "go file check",
 			contentType: "go",
+			content:     []byte("package main\n\nfunc main() {\n}\n"),
 			expectError: false,
 		},
 		{
 			name:        "yaml file check",
 			contentType: "yaml",
+			content:     []byte("key: value\n"),
 			expectError: false,
 		},
 		{
 			name:        "json file check",
 			contentType: "json",
+			content:     []byte("{\n  \"key\": \"value\"\n}\n"),
 			expectError: false,
 		},
 		{
 			name:        "markdown file check",
 			contentType: "markdown",
-			expectError: true, // Will fail because file doesn't exist
+			content:     []byte("# Header\n\nContent\n"),
+			expectError: false,
 		},
 		{
 			name:        "unsupported content type",
 			contentType: "unsupported",
+			content:     []byte("test"),
 			expectError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Create test file with appropriate content
+			testFile := filepath.Join(tempDir, fmt.Sprintf("test.%s", tt.contentType))
+			if err := os.WriteFile(testFile, tt.content, 0644); err != nil {
+				t.Fatalf("Failed to create test file: %v", err)
+			}
+
 			item := &WorkItem{
 				ID:          "test-item",
-				Path:        "test.file",
+				Path:        testFile,
 				ContentType: tt.contentType,
-				Size:        1024,
+				Size:        int64(len(tt.content)),
 			}
 
 			ctx := context.Background()
@@ -111,7 +152,7 @@ func TestFormatProcessor_ProcessWorkItem_NoOp(t *testing.T) {
 				if !result.Success {
 					t.Errorf("expected success for %s, got failure: %s", tt.contentType, result.Error)
 				}
-				expectedOutput := "Check passed for test.file"
+				expectedOutput := "Check passed for " + testFile
 				if result.Output != expectedOutput {
 					t.Errorf("expected output '%s', got '%s'", expectedOutput, result.Output)
 				}
@@ -122,36 +163,42 @@ func TestFormatProcessor_ProcessWorkItem_NoOp(t *testing.T) {
 
 func TestFormatProcessor_ProcessWorkItem_Format(t *testing.T) {
 	cfg := &config.Config{}
-	processor := NewFormatProcessor(cfg)
+	processor := newTestProcessor(cfg)
 
 	tests := []struct {
 		name        string
 		contentType string
+		content     []byte
 		expectError bool
 	}{
 		{
 			name:        "go file format",
 			contentType: "go",
-			expectError: true, // Currently not implemented, so expect error
+			content:     []byte("package main\n\nfunc main() {\n}\n"),
+			expectError: false, // Go formatting is now implemented
 		},
 		{
 			name:        "yaml file format",
 			contentType: "yaml",
+			content:     []byte("key: value\n"),
 			expectError: false, // YAML formatting returns nil
 		},
 		{
 			name:        "json file format",
 			contentType: "json",
+			content:     []byte("{\n  \"key\": \"value\"\n}\n"),
 			expectError: false, // JSON formatting returns nil
 		},
 		{
 			name:        "markdown file format",
 			contentType: "markdown",
+			content:     []byte("# Header\n\nContent\n"),
 			expectError: false, // Should work with finalizer
 		},
 		{
 			name:        "unsupported content type",
 			contentType: "unsupported",
+			content:     []byte("test content"),
 			expectError: true,
 		},
 	}
@@ -169,9 +216,9 @@ func TestFormatProcessor_ProcessWorkItem_Format(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create test file
+			// Create test file with appropriate content
 			testFile := filepath.Join(tempDir, "test."+tt.contentType)
-			if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
+			if err := os.WriteFile(testFile, tt.content, 0644); err != nil {
 				t.Fatalf("Failed to create test file: %v", err)
 			}
 
@@ -179,7 +226,7 @@ func TestFormatProcessor_ProcessWorkItem_Format(t *testing.T) {
 				ID:          "test-item",
 				Path:        testFile,
 				ContentType: tt.contentType,
-				Size:        12,
+				Size:        int64(len(tt.content)),
 			}
 
 			ctx := context.Background()
@@ -207,7 +254,7 @@ func TestFormatProcessor_ProcessWorkItem_Format(t *testing.T) {
 
 func TestFormatProcessor_ProcessWorkItem_Context_Cancellation(t *testing.T) {
 	cfg := &config.Config{}
-	processor := NewFormatProcessor(cfg)
+	processor := newTestProcessor(cfg)
 
 	item := &WorkItem{
 		ID:          "test-item",
@@ -238,7 +285,7 @@ func TestFormatProcessor_ProcessWorkItem_Context_Cancellation(t *testing.T) {
 
 func TestFormatProcessor_GetSupportedContentTypes(t *testing.T) {
 	cfg := &config.Config{}
-	processor := NewFormatProcessor(cfg)
+	processor := newTestProcessor(cfg)
 
 	supportedTypes := processor.GetSupportedContentTypes()
 
@@ -264,7 +311,7 @@ func TestFormatProcessor_GetSupportedContentTypes(t *testing.T) {
 
 func TestFormatProcessor_CheckMethods(t *testing.T) {
 	cfg := &config.Config{}
-	processor := NewFormatProcessor(cfg)
+	processor := newTestProcessor(cfg)
 
 	// Create a temporary directory and files for testing
 	tempDir, err := os.MkdirTemp("", "check_methods_test")
@@ -337,7 +384,7 @@ func TestFormatProcessor_CheckMethods(t *testing.T) {
 
 func TestFormatProcessor_FormatMethods(t *testing.T) {
 	cfg := &config.Config{}
-	processor := NewFormatProcessor(cfg)
+	processor := newTestProcessor(cfg)
 
 	// Create a temporary directory and files for testing
 	tempDir, err := os.MkdirTemp("", "format_methods_test")
@@ -360,7 +407,7 @@ func TestFormatProcessor_FormatMethods(t *testing.T) {
 			name:        "format go file",
 			fileName:    "test.go",
 			method:      processor.formatGoFile,
-			expectError: true, // Currently not implemented
+			expectError: false, // Go formatting is now implemented
 		},
 		{
 			name:        "format yaml file",
@@ -390,15 +437,15 @@ func TestFormatProcessor_FormatMethods(t *testing.T) {
 			var content []byte
 			switch filepath.Ext(tt.fileName) {
 			case ".go":
-				content = []byte("package main\nfunc main(){}\n") // Improperly formatted
+				content = []byte("package main\n\nfunc main() {\n}\n") // Properly formatted Go
 			case ".yaml":
-				content = []byte("key:value\n") // Missing space
+				content = []byte("key: value\n") // Valid YAML
 			case ".json":
-				content = []byte(`{"key":"value"}`) // No pretty formatting
+				content = []byte("{\n  \"key\": \"value\"\n}\n") // Pretty formatted JSON
 			case ".md":
-				content = []byte("# Header\n\nContent  \n\n\n") // Extra whitespace and newlines
+				content = []byte("# Header\n\nContent\n") // Properly formatted markdown
 			default:
-				content = []byte("test content  \n\n")
+				content = []byte("test content\n")
 			}
 
 			if err := os.WriteFile(filePath, content, 0644); err != nil {
@@ -422,7 +469,7 @@ func TestFormatProcessor_FormatMethods(t *testing.T) {
 
 func TestFormatProcessor_WorkItem_Integration(t *testing.T) {
 	cfg := &config.Config{}
-	processor := NewFormatProcessor(cfg)
+	processor := newTestProcessor(cfg)
 
 	// Create a temporary directory with test files
 	tempDir, err := os.MkdirTemp("", "integration_test")
@@ -485,7 +532,7 @@ func TestFormatProcessor_WorkItem_Integration(t *testing.T) {
 
 func TestFormatProcessor_Performance(t *testing.T) {
 	cfg := &config.Config{}
-	processor := NewFormatProcessor(cfg)
+	processor := newTestProcessor(cfg)
 
 	// Create multiple work items to test performance characteristics
 	items := make([]*WorkItem, 10)
@@ -554,7 +601,7 @@ func TestFormatProcessor_ConfigIntegration(t *testing.T) {
 	// cfg.YAML.Indent = 4
 	// cfg.YAML.LineLength = 120
 
-	processor := NewFormatProcessor(cfg)
+	processor := newTestProcessor(cfg)
 
 	if processor.config != cfg {
 		t.Error("processor should maintain reference to provided config")
@@ -569,7 +616,7 @@ func TestFormatProcessor_ConfigIntegration(t *testing.T) {
 
 func TestFormatProcessor_ValidateWorkItem(t *testing.T) {
 	cfg := &config.Config{}
-	processor := NewFormatProcessor(cfg)
+	processor := newTestProcessor(cfg)
 
 	tests := []struct {
 		name        string
@@ -636,7 +683,7 @@ func TestFormatProcessor_ValidateWorkItem(t *testing.T) {
 
 func TestFormatProcessor_EstimateProcessingTime(t *testing.T) {
 	cfg := &config.Config{}
-	processor := NewFormatProcessor(cfg)
+	processor := newTestProcessor(cfg)
 
 	tests := []struct {
 		name        string
@@ -710,7 +757,7 @@ func TestFormatProcessor_EstimateProcessingTime(t *testing.T) {
 
 func TestFormatProcessor_GetProcessorInfo(t *testing.T) {
 	cfg := &config.Config{}
-	processor := NewFormatProcessor(cfg)
+	processor := newTestProcessor(cfg)
 
 	info := processor.GetProcessorInfo()
 
