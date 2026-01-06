@@ -89,6 +89,20 @@ goneat assess --categories format file.md                       # ✅ "0 issues 
 - **Markdown**: prettier + finalizer options
 - **Text files**: Generic normalization + finalizer options
 
+**YAML Formatting Alignment (.yamlfmt)**
+
+goneat runs `yamlfmt` for YAML formatting. To keep local runs, CI, and `goneat format` aligned, add a repo-level `.yamlfmt` with your required settings. The most important settings are indentation and line endings:
+
+```yaml
+---
+formatter:
+  type: basic
+  indent: 2
+  line_ending: lf
+```
+
+For linting, this repo disables the `document-start` rule by default in `.yamllint`. If your team prefers `---` document starts, re-enable that rule in your own `.yamllint`.
+
 **Impact**
 
 - ✅ Eliminates false positive formatting issues
