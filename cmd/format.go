@@ -269,7 +269,7 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 			IncludeConfigDirs:    includeConfigDirs,                         // Include config directories like .claude
 			ForceIncludePatterns: forceInclude,
 			// For parallel execution, filter to only content types the FormatProcessor supports
-			SupportedContentTypes: []string{"go", "yaml", "json", "markdown"},
+			SupportedContentTypes: []string{"go", "yaml", "json", "markdown", "python", "javascript", "typescript"},
 		}
 	}
 
@@ -362,7 +362,7 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 		if useGoimports {
 			logger.Warn("use-goimports is enabled but parallel processor does not apply goimports yet; skipping import alignment in parallel mode")
 		}
-		return executeParallel(filesToProcess, cfg, quiet, checkOnly, noOp, ignoreMissingTools, options, jsonIndent, jsonIndentCount, jsonSizeWarningMB)
+		return executeParallel(filesToProcess, cfg, quiet, checkOnly, noOp, ignoreMissingTools, options, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB)
 	}
 
 	return executeSequentialWithOptions(filesToProcess, checkOnly || noOp, quiet, cfg, ignoreMissingTools, options, useGoimports, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB, xmlIndent, xmlIndentCount, xmlSizeWarningMB)
@@ -411,6 +411,24 @@ func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignore
 		}
 		err = formatMarkdownFile(file, checkOnly, cfg, options)
 
+	case ".py", ".pyi":
+		if ignoreMissingTools {
+			if !toolExists("ruff") {
+				logger.Warn("ruff not found; skipping Python formatting for this file")
+				break
+			}
+		}
+		err = formatPythonFile(file, checkOnly, cfg, options, ignoreMissingTools)
+
+	case ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts":
+		if ignoreMissingTools {
+			if !toolExists("biome") {
+				logger.Warn("biome not found; skipping JavaScript/TypeScript formatting for this file")
+				break
+			}
+		}
+		err = formatJavaScriptFile(file, checkOnly, cfg, options, ignoreMissingTools)
+
 	default:
 		// Check if file is XML by content (starts with <?xml)
 		if isXMLFile(file) {
@@ -425,7 +443,7 @@ func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignore
 					return applyFinalizer(file, checkOnly, options)
 				}
 			}
-			supportedExts := []string{".go", ".yaml", ".yml", ".json", ".xml", ".md", ".markdown"}
+			supportedExts := []string{".go", ".yaml", ".yml", ".json", ".xml", ".md", ".markdown", ".py", ".pyi", ".js", ".jsx", ".ts", ".tsx"}
 			return fmt.Errorf("unsupported file type '%s' for file %s. Supported extensions: %v. Use --types flag to filter specific content types", ext, file, supportedExts)
 		}
 	}
@@ -1019,6 +1037,162 @@ func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config, options
 	return os.WriteFile(file, []byte(formatted), 0600)
 }
 
+// formatPythonFile formats a Python file using ruff format
+func formatPythonFile(file string, checkOnly bool, _ *config.Config, options finalizer.NormalizationOptions, ignoreMissingTools bool) error {
+	// Validate file path to prevent path traversal
+	file = filepath.Clean(file)
+	if strings.Contains(file, "..") {
+		return fmt.Errorf("invalid file path: contains path traversal")
+	}
+
+	// Find ruff
+	ruffPath := findToolPath("ruff")
+	if ruffPath == "" {
+		if ignoreMissingTools {
+			// Fall back to finalizer-only
+			return applyFinalizer(file, checkOnly, options)
+		}
+		return fmt.Errorf("ruff not found. Install with: pip install ruff")
+	}
+
+	// Read the original content
+	originalContent, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+
+	if checkOnly {
+		// Use ruff check --select=I --diff to check formatting
+		// #nosec G204 - ruffPath comes from findToolPath which validates paths
+		cmd := exec.Command(ruffPath, "format", "--check", file)
+		output, err := cmd.CombinedOutput()
+
+		if err != nil {
+			// ruff returns exit code 1 if formatting is needed
+			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+				return fmt.Errorf("needs formatting")
+			}
+			return fmt.Errorf("ruff format check failed: %v\nOutput: %s", err, string(output))
+		}
+		// Exit code 0 means file is already formatted
+		return fmt.Errorf("already formatted")
+	}
+
+	// Format the file
+	// #nosec G204 - ruffPath comes from findToolPath which validates paths
+	cmd := exec.Command(ruffPath, "format", file)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("ruff format failed: %v\nOutput: %s", err, string(output))
+	}
+
+	// Re-read formatted content
+	formattedContent, err := os.ReadFile(file)
+	if err != nil {
+		return fmt.Errorf("failed to re-read file after ruff format: %v", err)
+	}
+
+	// Apply finalizer
+	if options.EnsureEOF || options.TrimTrailingWhitespace || options.NormalizeLineEndings != "" || options.RemoveUTF8BOM {
+		finalized, changed, err := finalizer.ComprehensiveFileNormalization(formattedContent, options)
+		if err != nil {
+			return fmt.Errorf("finalizer error: %v", err)
+		}
+		if changed {
+			if err := os.WriteFile(file, finalized, 0600); err != nil {
+				return fmt.Errorf("failed to write finalized file: %v", err)
+			}
+			formattedContent = finalized
+		}
+	}
+
+	// Check if content changed
+	if bytes.Equal(originalContent, formattedContent) {
+		return fmt.Errorf("already formatted")
+	}
+
+	logger.Info(fmt.Sprintf("Applying Python formatting changes to %s", file))
+	return nil
+}
+
+// formatJavaScriptFile formats a JavaScript/TypeScript file using biome format
+func formatJavaScriptFile(file string, checkOnly bool, _ *config.Config, options finalizer.NormalizationOptions, ignoreMissingTools bool) error {
+	// Validate file path to prevent path traversal
+	file = filepath.Clean(file)
+	if strings.Contains(file, "..") {
+		return fmt.Errorf("invalid file path: contains path traversal")
+	}
+
+	// Find biome
+	biomePath := findToolPath("biome")
+	if biomePath == "" {
+		if ignoreMissingTools {
+			// Fall back to finalizer-only
+			return applyFinalizer(file, checkOnly, options)
+		}
+		return fmt.Errorf("biome not found. Install with: npm install -g @biomejs/biome")
+	}
+
+	// Read the original content
+	originalContent, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+
+	if checkOnly {
+		// Use biome format --check to check formatting
+		// #nosec G204 - biomePath comes from findToolPath which validates paths
+		cmd := exec.Command(biomePath, "format", "--check", file)
+		output, err := cmd.CombinedOutput()
+
+		if err != nil {
+			// biome returns exit code 1 if formatting is needed
+			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+				return fmt.Errorf("needs formatting")
+			}
+			return fmt.Errorf("biome format check failed: %v\nOutput: %s", err, string(output))
+		}
+		// Exit code 0 means file is already formatted
+		return fmt.Errorf("already formatted")
+	}
+
+	// Format the file
+	// #nosec G204 - biomePath comes from findToolPath which validates paths
+	cmd := exec.Command(biomePath, "format", "--write", file)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("biome format failed: %v\nOutput: %s", err, string(output))
+	}
+
+	// Re-read formatted content
+	formattedContent, err := os.ReadFile(file)
+	if err != nil {
+		return fmt.Errorf("failed to re-read file after biome format: %v", err)
+	}
+
+	// Apply finalizer
+	if options.EnsureEOF || options.TrimTrailingWhitespace || options.NormalizeLineEndings != "" || options.RemoveUTF8BOM {
+		finalized, changed, err := finalizer.ComprehensiveFileNormalization(formattedContent, options)
+		if err != nil {
+			return fmt.Errorf("finalizer error: %v", err)
+		}
+		if changed {
+			if err := os.WriteFile(file, finalized, 0600); err != nil {
+				return fmt.Errorf("failed to write finalized file: %v", err)
+			}
+			formattedContent = finalized
+		}
+	}
+
+	// Check if content changed
+	if bytes.Equal(originalContent, formattedContent) {
+		return fmt.Errorf("already formatted")
+	}
+
+	logger.Info(fmt.Sprintf("Applying JavaScript/TypeScript formatting changes to %s", file))
+	return nil
+}
+
 // executeSequential executes work items sequentially
 func executeSequentialWithOptions(files []string, checkOnly, quiet bool, cfg *config.Config, ignoreMissingTools bool, options finalizer.NormalizationOptions, useGoimports bool, textNormalize bool, jsonIndent string, jsonIndentCount int, jsonSizeWarningMB int, xmlIndent string, xmlIndentCount int, xmlSizeWarningMB int) error {
 	start := time.Now()
@@ -1116,13 +1290,16 @@ func getStagedFilesFormat() ([]string, error) {
 }
 
 // executeParallel executes work items in parallel using the dispatcher
-func executeParallel(files []string, cfg *config.Config, quiet bool, checkOnly bool, noOp bool, ignoreMissingTools bool, options finalizer.NormalizationOptions, jsonIndent string, jsonIndentCount int, jsonSizeWarningMB int) error {
-	// Supported content types for parallel processing
+func executeParallel(files []string, cfg *config.Config, quiet bool, checkOnly bool, noOp bool, ignoreMissingTools bool, options finalizer.NormalizationOptions, textNormalize bool, jsonIndent string, jsonIndentCount int, jsonSizeWarningMB int) error {
+	// Supported content types for parallel processing (must match FormatProcessor.GetSupportedContentTypes)
 	supportedTypes := map[string]bool{
-		"go":       true,
-		"yaml":     true,
-		"json":     true,
-		"markdown": true,
+		"go":         true,
+		"yaml":       true,
+		"json":       true,
+		"markdown":   true,
+		"python":     true,
+		"javascript": true,
+		"typescript": true,
 	}
 
 	// Create work items, filtering to only supported content types
@@ -1197,14 +1374,17 @@ func executeParallel(files []string, cfg *config.Config, quiet bool, checkOnly b
 	// Create processor and dispatcher
 	workers := runtime.NumCPU()
 	processor := work.NewFormatProcessorWithOptions(cfg, work.FormatProcessorOptions{
-		FinalizerOptions:  options,
+		FinalizerOptions:   options,
 		IgnoreMissingTools: ignoreMissingTools,
-		JSONIndent:        jsonIndent,
-		JSONIndentCount:   jsonIndentCount,
-		JSONSizeWarningMB: jsonSizeWarningMB,
+		TextNormalize:      textNormalize,
+		JSONIndent:         jsonIndent,
+		JSONIndentCount:    jsonIndentCount,
+		JSONSizeWarningMB:  jsonSizeWarningMB,
 		ToolPaths: work.FormatProcessorToolPaths{
 			Yamlfmt:  findToolPath("yamlfmt"),
 			Prettier: findToolPath("prettier"),
+			Ruff:     findToolPath("ruff"),
+			Biome:    findToolPath("biome"),
 		},
 	})
 
@@ -1273,6 +1453,12 @@ func getContentTypeFromPath(path string) string {
 		return "xml"
 	case ".md":
 		return "markdown"
+	case ".py", ".pyi":
+		return "python"
+	case ".js", ".jsx", ".mjs", ".cjs":
+		return "javascript"
+	case ".ts", ".tsx", ".mts", ".cts":
+		return "typescript"
 	default:
 		return "unknown"
 	}

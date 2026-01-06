@@ -771,7 +771,7 @@ func TestFormatProcessor_GetProcessorInfo(t *testing.T) {
 		t.Errorf("expected supported_types to be []string, got %T", info["supported_types"])
 	}
 
-	expectedTypes := []string{"go", "yaml", "json", "markdown"}
+	expectedTypes := []string{"go", "yaml", "json", "markdown", "python", "javascript", "typescript"}
 	if len(supportedTypes) != len(expectedTypes) {
 		t.Errorf("expected %d supported types, got %d", len(expectedTypes), len(supportedTypes))
 	}

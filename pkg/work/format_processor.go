@@ -21,6 +21,7 @@ type FormatProcessor struct {
 	config             *config.Config
 	finalizerOptions   finalizer.NormalizationOptions
 	ignoreMissingTools bool
+	textNormalize      bool
 	jsonIndent         string
 	jsonIndentCount    int
 	jsonSizeWarningMB  int
@@ -31,12 +32,15 @@ type FormatProcessor struct {
 type FormatProcessorToolPaths struct {
 	Yamlfmt  string
 	Prettier string
+	Ruff     string
+	Biome    string
 }
 
 // FormatProcessorOptions configures optional processor behavior to align with CLI flags.
 type FormatProcessorOptions struct {
 	FinalizerOptions   finalizer.NormalizationOptions
 	IgnoreMissingTools bool
+	TextNormalize      bool // Apply finalizer to unknown text files
 	JSONIndent         string
 	JSONIndentCount    int
 	JSONSizeWarningMB  int
@@ -54,6 +58,7 @@ func NewFormatProcessor(cfg *config.Config) *FormatProcessor {
 			PreserveMarkdownHardBreaks: true,
 			EncodingPolicy:             "utf8-only",
 		},
+		TextNormalize:     true, // Default to applying finalizer on unknown text files
 		JSONIndent:        "  ",
 		JSONIndentCount:   2,
 		JSONSizeWarningMB: 500,
@@ -66,6 +71,7 @@ func NewFormatProcessorWithOptions(cfg *config.Config, opts FormatProcessorOptio
 		config:             cfg,
 		finalizerOptions:   opts.FinalizerOptions,
 		ignoreMissingTools: opts.IgnoreMissingTools,
+		textNormalize:      opts.TextNormalize,
 		jsonIndent:         opts.JSONIndent,
 		jsonIndentCount:    opts.JSONIndentCount,
 		jsonSizeWarningMB:  opts.JSONSizeWarningMB,
@@ -108,6 +114,18 @@ func (p *FormatProcessor) ProcessWorkItem(ctx context.Context, item *WorkItem, d
 			err = p.checkJSONFile(item.Path)
 		case "markdown":
 			err = p.checkMarkdownFile(item.Path)
+		case "python":
+			err = p.checkPythonFile(item.Path)
+		case "javascript", "typescript":
+			err = p.checkJavaScriptFile(item.Path)
+		case "unknown":
+			// For unknown types, apply text-normalize if enabled
+			if p.textNormalize && p.finalizerEnabled() {
+				err = p.checkFileFinalizerOnly(item.Path)
+			} else {
+				supportedTypes := p.GetSupportedContentTypes()
+				err = fmt.Errorf("unsupported content type '%s' for file %s. Supported types: %v. Use --types flag to filter specific types or check file extension", item.ContentType, item.Path, supportedTypes)
+			}
 		default:
 			supportedTypes := p.GetSupportedContentTypes()
 			err = fmt.Errorf("unsupported content type '%s' for file %s. Supported types: %v. Use --types flag to filter specific types or check file extension", item.ContentType, item.Path, supportedTypes)
@@ -133,6 +151,18 @@ func (p *FormatProcessor) ProcessWorkItem(ctx context.Context, item *WorkItem, d
 			err = p.formatJSONFile(item.Path)
 		case "markdown":
 			err = p.formatMarkdownFile(item.Path)
+		case "python":
+			err = p.formatPythonFile(item.Path)
+		case "javascript", "typescript":
+			err = p.formatJavaScriptFile(item.Path)
+		case "unknown":
+			// For unknown types, apply text-normalize if enabled
+			if p.textNormalize && p.finalizerEnabled() {
+				err = p.formatFileFinalizerOnly(item.Path)
+			} else {
+				supportedTypes := p.GetSupportedContentTypes()
+				err = fmt.Errorf("unsupported content type '%s' for file %s. Supported types: %v. Use --types flag to filter specific types or check file extension", item.ContentType, item.Path, supportedTypes)
+			}
 		default:
 			supportedTypes := p.GetSupportedContentTypes()
 			err = fmt.Errorf("unsupported content type '%s' for file %s. Supported types: %v. Use --types flag to filter specific types or check file extension", item.ContentType, item.Path, supportedTypes)
@@ -770,9 +800,305 @@ func (p *FormatProcessor) checkMarkdownFileFinalizerOnly(filePath string, conten
 	return nil
 }
 
+// formatPythonFile formats a Python file using ruff format + finalizer
+func (p *FormatProcessor) formatPythonFile(filePath string) error {
+	logger.Debug(fmt.Sprintf("Formatting Python file: %s", filePath))
+
+	// Validate and normalize file path
+	filePath = filepath.Clean(filePath)
+	if !filepath.IsAbs(filePath) {
+		abs, err := filepath.Abs(filePath)
+		if err != nil {
+			return fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err)
+		}
+		filePath = abs
+	}
+
+	// Check if ruff is available (prefer caller-supplied path for shim parity)
+	ruffPath := p.toolPaths.Ruff
+	if ruffPath == "" {
+		var err error
+		ruffPath, err = exec.LookPath("ruff")
+		if err != nil {
+			if p.ignoreMissingTools {
+				logger.Info("ruff not found, falling back to finalizer-only formatting for Python")
+				return p.formatFileFinalizerOnly(filePath)
+			}
+			return fmt.Errorf("ruff not found. Install with: pip install ruff")
+		}
+	}
+
+	// Read original content for change detection
+	originalContent, err := os.ReadFile(filePath) // #nosec G304 -- path already validated
+	if err != nil {
+		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+	}
+
+	// Format the file with ruff
+	// #nosec G204 -- ruffPath comes from toolPaths or exec.LookPath which validates the path
+	cmd := exec.Command(ruffPath, "format", filePath)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("ruff format failed for %s: %v\nOutput: %s", filePath, err, string(output))
+	}
+
+	// Re-read formatted content
+	formattedContent, err := os.ReadFile(filePath) // #nosec G304 -- path already validated
+	if err != nil {
+		return fmt.Errorf("failed to re-read file after ruff format: %w", err)
+	}
+
+	// Apply finalizer normalization
+	if p.finalizerEnabled() {
+		finalContent, changed, err := finalizer.ComprehensiveFileNormalization(formattedContent, p.finalizerOptions)
+		if err != nil {
+			return fmt.Errorf("finalizer error for %s: %w", filePath, err)
+		}
+		if changed {
+			if err := os.WriteFile(filePath, finalContent, 0600); err != nil {
+				return fmt.Errorf("failed to write finalized content to %s: %w", filePath, err)
+			}
+			formattedContent = finalContent
+		}
+	}
+
+	// Check if overall content changed
+	if bytes.Equal(originalContent, formattedContent) {
+		logger.Debug(fmt.Sprintf("No formatting changes needed for %s", filePath))
+	} else {
+		logger.Debug(fmt.Sprintf("Applied Python formatting to %s", filePath))
+	}
+
+	return nil
+}
+
+// checkPythonFile checks if a Python file needs formatting without modifying it
+func (p *FormatProcessor) checkPythonFile(filePath string) error {
+	logger.Debug(fmt.Sprintf("Checking Python file formatting: %s", filePath))
+
+	// Validate and normalize file path
+	filePath = filepath.Clean(filePath)
+	if !filepath.IsAbs(filePath) {
+		abs, err := filepath.Abs(filePath)
+		if err != nil {
+			return fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err)
+		}
+		filePath = abs
+	}
+
+	// Check if ruff is available (prefer caller-supplied path for shim parity)
+	ruffPath := p.toolPaths.Ruff
+	if ruffPath == "" {
+		var err error
+		ruffPath, err = exec.LookPath("ruff")
+		if err != nil {
+			if p.ignoreMissingTools {
+				logger.Info("ruff not found, falling back to finalizer-only check for Python")
+				return p.checkFileFinalizerOnly(filePath)
+			}
+			return fmt.Errorf("ruff not found. Install with: pip install ruff")
+		}
+	}
+
+	// Use ruff format --check
+	// #nosec G204 -- ruffPath comes from toolPaths or exec.LookPath which validates the path
+	cmd := exec.Command(ruffPath, "format", "--check", filePath)
+	output, err := cmd.CombinedOutput()
+
+	if err != nil {
+		// ruff returns exit code 1 if formatting is needed
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			return fmt.Errorf("file %s needs formatting", filePath)
+		}
+		return fmt.Errorf("ruff format check failed for %s: %v\nOutput: %s", filePath, err, string(output))
+	}
+
+	// Also check finalizer issues
+	if p.finalizerEnabled() {
+		return p.checkFileFinalizerOnly(filePath)
+	}
+
+	logger.Debug(fmt.Sprintf("File %s is properly formatted", filePath))
+	return nil
+}
+
+// formatJavaScriptFile formats a JavaScript/TypeScript file using biome format + finalizer
+func (p *FormatProcessor) formatJavaScriptFile(filePath string) error {
+	logger.Debug(fmt.Sprintf("Formatting JavaScript/TypeScript file: %s", filePath))
+
+	// Validate and normalize file path
+	filePath = filepath.Clean(filePath)
+	if !filepath.IsAbs(filePath) {
+		abs, err := filepath.Abs(filePath)
+		if err != nil {
+			return fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err)
+		}
+		filePath = abs
+	}
+
+	// Check if biome is available (prefer caller-supplied path for shim parity)
+	biomePath := p.toolPaths.Biome
+	if biomePath == "" {
+		var err error
+		biomePath, err = exec.LookPath("biome")
+		if err != nil {
+			if p.ignoreMissingTools {
+				logger.Info("biome not found, falling back to finalizer-only formatting for JavaScript/TypeScript")
+				return p.formatFileFinalizerOnly(filePath)
+			}
+			return fmt.Errorf("biome not found. Install with: npm install -g @biomejs/biome")
+		}
+	}
+
+	// Read original content for change detection
+	originalContent, err := os.ReadFile(filePath) // #nosec G304 -- path already validated
+	if err != nil {
+		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+	}
+
+	// Format the file with biome
+	// #nosec G204 -- biomePath comes from toolPaths or exec.LookPath which validates the path
+	cmd := exec.Command(biomePath, "format", "--write", filePath)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("biome format failed for %s: %v\nOutput: %s", filePath, err, string(output))
+	}
+
+	// Re-read formatted content
+	formattedContent, err := os.ReadFile(filePath) // #nosec G304 -- path already validated
+	if err != nil {
+		return fmt.Errorf("failed to re-read file after biome format: %w", err)
+	}
+
+	// Apply finalizer normalization
+	if p.finalizerEnabled() {
+		finalContent, changed, err := finalizer.ComprehensiveFileNormalization(formattedContent, p.finalizerOptions)
+		if err != nil {
+			return fmt.Errorf("finalizer error for %s: %w", filePath, err)
+		}
+		if changed {
+			if err := os.WriteFile(filePath, finalContent, 0600); err != nil {
+				return fmt.Errorf("failed to write finalized content to %s: %w", filePath, err)
+			}
+			formattedContent = finalContent
+		}
+	}
+
+	// Check if overall content changed
+	if bytes.Equal(originalContent, formattedContent) {
+		logger.Debug(fmt.Sprintf("No formatting changes needed for %s", filePath))
+	} else {
+		logger.Debug(fmt.Sprintf("Applied JavaScript/TypeScript formatting to %s", filePath))
+	}
+
+	return nil
+}
+
+// checkJavaScriptFile checks if a JavaScript/TypeScript file needs formatting without modifying it
+func (p *FormatProcessor) checkJavaScriptFile(filePath string) error {
+	logger.Debug(fmt.Sprintf("Checking JavaScript/TypeScript file formatting: %s", filePath))
+
+	// Validate and normalize file path
+	filePath = filepath.Clean(filePath)
+	if !filepath.IsAbs(filePath) {
+		abs, err := filepath.Abs(filePath)
+		if err != nil {
+			return fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err)
+		}
+		filePath = abs
+	}
+
+	// Check if biome is available (prefer caller-supplied path for shim parity)
+	biomePath := p.toolPaths.Biome
+	if biomePath == "" {
+		var err error
+		biomePath, err = exec.LookPath("biome")
+		if err != nil {
+			if p.ignoreMissingTools {
+				logger.Info("biome not found, falling back to finalizer-only check for JavaScript/TypeScript")
+				return p.checkFileFinalizerOnly(filePath)
+			}
+			return fmt.Errorf("biome not found. Install with: npm install -g @biomejs/biome")
+		}
+	}
+
+	// Use biome format --check
+	// #nosec G204 -- biomePath comes from toolPaths or exec.LookPath which validates the path
+	cmd := exec.Command(biomePath, "format", "--check", filePath)
+	output, err := cmd.CombinedOutput()
+
+	if err != nil {
+		// biome returns exit code 1 if formatting is needed
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			return fmt.Errorf("file %s needs formatting", filePath)
+		}
+		return fmt.Errorf("biome format check failed for %s: %v\nOutput: %s", filePath, err, string(output))
+	}
+
+	// Also check finalizer issues
+	if p.finalizerEnabled() {
+		return p.checkFileFinalizerOnly(filePath)
+	}
+
+	logger.Debug(fmt.Sprintf("File %s is properly formatted", filePath))
+	return nil
+}
+
+// formatFileFinalizerOnly applies only finalizer normalization (generic fallback)
+func (p *FormatProcessor) formatFileFinalizerOnly(filePath string) error {
+	content, err := os.ReadFile(filePath) // #nosec G304 -- path already validated by caller
+	if err != nil {
+		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+	}
+
+	if !p.finalizerEnabled() {
+		return nil
+	}
+
+	finalContent, changed, err := finalizer.ComprehensiveFileNormalization(content, p.finalizerOptions)
+	if err != nil {
+		return fmt.Errorf("finalizer error for %s: %w", filePath, err)
+	}
+
+	if changed {
+		if err := os.WriteFile(filePath, finalContent, 0600); err != nil {
+			return fmt.Errorf("failed to write finalized content to %s: %w", filePath, err)
+		}
+		logger.Debug(fmt.Sprintf("Applied finalizer normalization to %s", filePath))
+	} else {
+		logger.Debug(fmt.Sprintf("No formatting changes needed for %s", filePath))
+	}
+
+	return nil
+}
+
+// checkFileFinalizerOnly checks a file for finalizer issues only (generic fallback)
+func (p *FormatProcessor) checkFileFinalizerOnly(filePath string) error {
+	content, err := os.ReadFile(filePath) // #nosec G304 -- path already validated by caller
+	if err != nil {
+		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+	}
+
+	if !p.finalizerEnabled() {
+		return nil
+	}
+
+	_, changed, err := finalizer.ComprehensiveFileNormalization(content, p.finalizerOptions)
+	if err != nil {
+		return fmt.Errorf("finalizer check failed for %s: %w", filePath, err)
+	}
+
+	if changed {
+		return fmt.Errorf("file %s needs formatting (EOF, trailing whitespace, or line ending issues)", filePath)
+	}
+
+	logger.Debug(fmt.Sprintf("File %s is properly formatted", filePath))
+	return nil
+}
+
 // GetSupportedContentTypes returns the content types supported by this processor
 func (p *FormatProcessor) GetSupportedContentTypes() []string {
-	return []string{"go", "yaml", "json", "markdown"}
+	return []string{"go", "yaml", "json", "markdown", "python", "javascript", "typescript"}
 }
 
 // ValidateWorkItem validates that a work item can be processed
@@ -795,10 +1121,13 @@ func (p *FormatProcessor) ValidateWorkItem(item *WorkItem) error {
 func (p *FormatProcessor) EstimateProcessingTime(item *WorkItem) float64 {
 	// Base time per KB for different content types
 	baseTimePerKB := map[string]float64{
-		"go":       0.5, // Go formatting is fast
-		"yaml":     1.0, // YAML parsing is more complex
-		"json":     0.8, // JSON is relatively fast
-		"markdown": 1.2, // Markdown can be complex
+		"go":         0.5, // Go formatting is fast
+		"yaml":       1.0, // YAML parsing is more complex
+		"json":       0.8, // JSON is relatively fast
+		"markdown":   1.2, // Markdown can be complex
+		"python":     1.0, // Python formatting via ruff
+		"javascript": 1.0, // JavaScript formatting via biome
+		"typescript": 1.0, // TypeScript formatting via biome
 	}
 
 	timePerKB := baseTimePerKB[item.ContentType]
