@@ -68,7 +68,9 @@ func init() {
 	formatCmd.Flags().Int("max-depth", -1, "Maximum directory depth to traverse")
 
 	// Execution strategy flags
-	formatCmd.Flags().String("strategy", "sequential", "Execution strategy (sequential, parallel)")
+	formatCmd.Flags().String("strategy", "parallel", "Execution strategy (parallel, sequential)")
+	formatCmd.Flags().Bool("fallback-sequential", false, "If parallel strategy fails, retry sequentially")
+	formatCmd.Flags().Int("workers", 0, "Number of parallel workers (0 = auto)")
 	formatCmd.Flags().Bool("group-by-size", false, "Group work items by file size")
 	formatCmd.Flags().Bool("group-by-type", false, "Group work items by content type")
 
@@ -182,6 +184,8 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 	groupByType, _ := cmd.Flags().GetBool("group-by-type")
 	noOp, _ := cmd.Flags().GetBool("no-op")
 	stagedOnly, _ := cmd.Flags().GetBool("staged-only")
+	fallbackSequential, _ := cmd.Flags().GetBool("fallback-sequential")
+	workers, _ := cmd.Flags().GetInt("workers")
 	ignoreMissingTools, _ := cmd.Flags().GetBool("ignore-missing-tools")
 	finalizeEOF, _ := cmd.Flags().GetBool("finalize-eof")
 	finalizeTrimTrailingSpaces, _ := cmd.Flags().GetBool("finalize-trim-trailing-spaces")
@@ -254,6 +258,11 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 		}
 
 		// Create planner configuration
+		supportedTypes := []string{"go", "yaml", "json", "markdown", "python", "javascript", "typescript"}
+		if textNormalize {
+			supportedTypes = append(supportedTypes, "unknown")
+		}
+
 		plannerConfig = work.PlannerConfig{
 			Command:              "format",
 			Paths:                paths,
@@ -269,7 +278,7 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 			IncludeConfigDirs:    includeConfigDirs,                         // Include config directories like .claude
 			ForceIncludePatterns: forceInclude,
 			// For parallel execution, filter to only content types the FormatProcessor supports
-			SupportedContentTypes: []string{"go", "yaml", "json", "markdown", "python", "javascript", "typescript"},
+			SupportedContentTypes: supportedTypes,
 		}
 	}
 
@@ -362,7 +371,12 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 		if useGoimports {
 			logger.Warn("use-goimports is enabled but parallel processor does not apply goimports yet; skipping import alignment in parallel mode")
 		}
-		return executeParallel(filesToProcess, cfg, quiet, checkOnly, noOp, ignoreMissingTools, options, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB)
+		err := executeParallel(filesToProcess, cfg, quiet, checkOnly, noOp, ignoreMissingTools, options, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB, workers)
+		if err == nil || !fallbackSequential {
+			return err
+		}
+		logger.Warn(fmt.Sprintf("Parallel strategy failed (%v); retrying sequentially", err))
+		return executeSequentialWithOptions(filesToProcess, checkOnly || noOp, quiet, cfg, ignoreMissingTools, options, useGoimports, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB, xmlIndent, xmlIndentCount, xmlSizeWarningMB)
 	}
 
 	return executeSequentialWithOptions(filesToProcess, checkOnly || noOp, quiet, cfg, ignoreMissingTools, options, useGoimports, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB, xmlIndent, xmlIndentCount, xmlSizeWarningMB)
@@ -1290,7 +1304,7 @@ func getStagedFilesFormat() ([]string, error) {
 }
 
 // executeParallel executes work items in parallel using the dispatcher
-func executeParallel(files []string, cfg *config.Config, quiet bool, checkOnly bool, noOp bool, ignoreMissingTools bool, options finalizer.NormalizationOptions, textNormalize bool, jsonIndent string, jsonIndentCount int, jsonSizeWarningMB int) error {
+func executeParallel(files []string, cfg *config.Config, quiet bool, checkOnly bool, noOp bool, ignoreMissingTools bool, options finalizer.NormalizationOptions, textNormalize bool, jsonIndent string, jsonIndentCount int, jsonSizeWarningMB int, workers int) error {
 	// Supported content types for parallel processing (must match FormatProcessor.GetSupportedContentTypes)
 	supportedTypes := map[string]bool{
 		"go":         true,
@@ -1300,6 +1314,9 @@ func executeParallel(files []string, cfg *config.Config, quiet bool, checkOnly b
 		"python":     true,
 		"javascript": true,
 		"typescript": true,
+	}
+	if textNormalize {
+		supportedTypes["unknown"] = true
 	}
 
 	// Create work items, filtering to only supported content types
@@ -1354,7 +1371,7 @@ func executeParallel(files []string, cfg *config.Config, quiet bool, checkOnly b
 		Strategy:                   "parallel",
 		WorkItemIDs:                workItemIDs,
 		EstimatedTotalTime:         float64(len(workItems)),
-		RecommendedParallelization: runtime.NumCPU(),
+		RecommendedParallelization: resolveParallelWorkers(workers),
 	}
 
 	// Create manifest
@@ -1372,7 +1389,7 @@ func executeParallel(files []string, cfg *config.Config, quiet bool, checkOnly b
 	}
 
 	// Create processor and dispatcher
-	workers := runtime.NumCPU()
+	workerCount := resolveParallelWorkers(workers)
 	processor := work.NewFormatProcessorWithOptions(cfg, work.FormatProcessorOptions{
 		FinalizerOptions:   options,
 		IgnoreMissingTools: ignoreMissingTools,
@@ -1394,7 +1411,7 @@ func executeParallel(files []string, cfg *config.Config, quiet bool, checkOnly b
 	showProgress := totalFiles > 10 && !quiet
 
 	dispatcher := work.NewDispatcher(work.DispatcherConfig{
-		MaxWorkers: workers,
+		MaxWorkers: workerCount,
 		DryRun:     false,
 		NoOp:       checkOnly || noOp, // Check mode uses NoOp to prevent modifications
 		ProgressCallback: func(result work.ExecutionResult) {
@@ -1429,7 +1446,7 @@ func executeParallel(files []string, cfg *config.Config, quiet bool, checkOnly b
 			avgPerFile = summary.TotalDuration / time.Duration(len(files))
 		}
 		logger.Info(fmt.Sprintf("Parallel execution: files=%d, workers=%d, ok=%d, failed=%d, total=%v, avg/file=%v",
-			len(files), workers, summary.Successful, summary.Failed, summary.TotalDuration, avgPerFile))
+			len(files), workerCount, summary.Successful, summary.Failed, summary.TotalDuration, avgPerFile))
 	}
 
 	if summary.Failed > 0 {
@@ -1437,6 +1454,20 @@ func executeParallel(files []string, cfg *config.Config, quiet bool, checkOnly b
 	}
 
 	return nil
+}
+
+func resolveParallelWorkers(requested int) int {
+	if requested > 0 {
+		return requested
+	}
+	workers := runtime.NumCPU()
+	if workers < 1 {
+		workers = 1
+	}
+	if workers > 8 {
+		workers = 8
+	}
+	return workers
 }
 
 // getContentTypeFromPath determines content type from file path

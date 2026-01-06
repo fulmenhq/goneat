@@ -309,19 +309,20 @@ goneat format --check --files my.xml
 
 Notes:
 
-- When `--strategy parallel` is used, goimports is currently skipped with a warning. Use sequential strategy for import alignment until the parallel processor is extended.
+- `--strategy parallel` is the default. When parallel is used, goimports is currently skipped with a warning. Use `--strategy sequential` for import alignment until the parallel processor is extended.
 - If `goimports` is not installed:
   - With `--ignore-missing-tools`: import alignment is skipped (warn once).
   - Without `--ignore-missing-tools`: the command fails fast with a helpful error that includes install guidance (`go install golang.org/x/tools/cmd/goimports@latest`) and mentions the planned `goneat doctor` workflow.
 
 ### Execution Control Flags
 
-| Flag              | Type    | Description           | Example               |
-| ----------------- | ------- | --------------------- | --------------------- |
-| `--strategy`      | string  | Execution strategy    | `--strategy parallel` |
-| `--group-by-size` | boolean | Group by file size    | `--group-by-size`     |
-| `--group-by-type` | boolean | Group by content type | `--group-by-type`     |
-| `--concurrency`   | int     | Worker count override | `--concurrency 4`     |
+| Flag                   | Type    | Description                              | Example                  |
+| ---------------------- | ------- | ---------------------------------------- | ------------------------ |
+| `--strategy`           | string  | Execution strategy                       | `--strategy sequential`  |
+| `--fallback-sequential`| boolean | Retry sequential if parallel fails       | `--fallback-sequential`  |
+| `--group-by-size`      | boolean | Group by file size                       | `--group-by-size`        |
+| `--group-by-type`      | boolean | Group by content type                    | `--group-by-type`        |
+| `--workers`            | int     | Parallel worker count (0 = auto, max 8)  | `--workers 4`            |
 
 ### Filtering and Scope Flags
 
@@ -493,14 +494,14 @@ goneat format --finalize-eof --finalize-trim-trailing-spaces
 Control how formatting operations are executed:
 
 ```bash
-# Sequential execution (default)
+# Parallel execution (default)
+goneat format
+
+# Sequential execution
 goneat format --strategy sequential
 
-# Parallel execution
-goneat format --strategy parallel
-
 # Parallel with custom worker count
-goneat format --strategy parallel --concurrency 8
+goneat format --strategy parallel --workers 8
 ```
 
 ### Grouping Options
@@ -605,7 +606,7 @@ goneat format --types go --finalize-eof
 goneat format --types yaml,json --finalize-trim-trailing-spaces
 
 # Parallel execution for large codebases
-goneat format --strategy parallel --concurrency 8
+goneat format --strategy parallel --workers 8
 ```
 
 ### Custom Workflows
