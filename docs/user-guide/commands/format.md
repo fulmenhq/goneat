@@ -316,13 +316,13 @@ Notes:
 
 ### Execution Control Flags
 
-| Flag                   | Type    | Description                              | Example                  |
-| ---------------------- | ------- | ---------------------------------------- | ------------------------ |
-| `--strategy`           | string  | Execution strategy                       | `--strategy sequential`  |
-| `--fallback-sequential`| boolean | Retry sequential if parallel fails       | `--fallback-sequential`  |
-| `--group-by-size`      | boolean | Group by file size                       | `--group-by-size`        |
-| `--group-by-type`      | boolean | Group by content type                    | `--group-by-type`        |
-| `--workers`            | int     | Parallel worker count (0 = auto, max 8)  | `--workers 4`            |
+| Flag                    | Type    | Description                             | Example                 |
+| ----------------------- | ------- | --------------------------------------- | ----------------------- |
+| `--strategy`            | string  | Execution strategy                      | `--strategy sequential` |
+| `--fallback-sequential` | boolean | Retry sequential if parallel fails      | `--fallback-sequential` |
+| `--group-by-size`       | boolean | Group by file size                      | `--group-by-size`       |
+| `--group-by-type`       | boolean | Group by content type                   | `--group-by-type`       |
+| `--workers`             | int     | Parallel worker count (0 = auto, max 8) | `--workers 4`           |
 
 ### Filtering and Scope Flags
 

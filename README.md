@@ -14,17 +14,17 @@ We bring a smooth DX layer to the business of making neat code at scale. We wrap
 
 Goneat provides **language-aware assessment** with automatic tool detection. When supported tools are installed, goneat seamlessly integrates them into lint and format workflows.
 
-| Language | Lint | Format | Tool | Install |
-|----------|------|--------|------|---------|
-| **Go** | ✅ | ✅ | golangci-lint, gofmt | `brew install golangci-lint` |
-| **Python** | ✅ | ✅ | [ruff](https://docs.astral.sh/ruff/) | `brew install ruff` |
-| **JavaScript/TypeScript** | ✅ | ✅ | [biome](https://biomejs.dev/) | `brew install biome` |
-| **YAML** | ✅ | ✅ | yamllint, yamlfmt | `brew install yamllint yamlfmt` |
-| **Markdown** | — | ✅ | prettier | `npm install -g prettier` |
-| **JSON** | — | ✅ | prettier | `npm install -g prettier` |
-| **Shell** | ✅ | — | shellcheck | `brew install shellcheck` |
-| **Rust** | ✅ | — | cargo-clippy | `rustup component add clippy` |
-| _C#_ | 🔜 | 🔜 | _planned_ | — |
+| Language                  | Lint | Format | Tool                                 | Install                         |
+| ------------------------- | ---- | ------ | ------------------------------------ | ------------------------------- |
+| **Go**                    | ✅   | ✅     | golangci-lint, gofmt                 | `brew install golangci-lint`    |
+| **Python**                | ✅   | ✅     | [ruff](https://docs.astral.sh/ruff/) | `brew install ruff`             |
+| **JavaScript/TypeScript** | ✅   | ✅     | [biome](https://biomejs.dev/)        | `brew install biome`            |
+| **YAML**                  | ✅   | ✅     | yamllint, yamlfmt                    | `brew install yamllint yamlfmt` |
+| **Markdown**              | —    | ✅     | prettier                             | `npm install -g prettier`       |
+| **JSON**                  | —    | ✅     | prettier                             | `npm install -g prettier`       |
+| **Shell**                 | ✅   | —      | shellcheck                           | `brew install shellcheck`       |
+| **Rust**                  | ✅   | —      | cargo-clippy                         | `rustup component add clippy`   |
+| _C#_                      | 🔜   | 🔜     | _planned_                            | —                               |
 
 **Tool-present gating**: Goneat gracefully skips tools that aren't installed—no errors, just informational logs. Install only what you need.
 

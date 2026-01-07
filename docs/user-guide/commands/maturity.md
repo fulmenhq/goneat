@@ -10,12 +10,13 @@ The `maturity` group is part of the **neat** category under validation. It integ
 
 Phase validation follows **crucible schemas** as the single source of truth:
 
-| Phase File | Schema Path | Valid Values |
-|------------|-------------|--------------|
+| Phase File        | Schema Path                                                         | Valid Values                                       |
+| ----------------- | ------------------------------------------------------------------- | -------------------------------------------------- |
 | `LIFECYCLE_PHASE` | `schemas/crucible-go/config/repository/v1.0.0/lifecycle-phase.json` | `experimental`, `alpha`, `beta`, `rc`, `ga`, `lts` |
-| `RELEASE_PHASE` | `schemas/crucible-go/config/goneat/v1.0.0/release-phase.json` | `dev`, `rc`, `ga`, `release` |
+| `RELEASE_PHASE`   | `schemas/crucible-go/config/goneat/v1.0.0/release-phase.json`       | `dev`, `rc`, `ga`, `release`                       |
 
 **Schema distinction:**
+
 - **lifecycle-phase**: Repo-level concept (product maturity) - shared across all FulmenHQ tools
 - **release-phase**: Tool-specific (goneat deployment gates) - `release` is equivalent to `ga`
 

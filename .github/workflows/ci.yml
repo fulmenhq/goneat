@@ -1,5 +1,6 @@
----
+# yamllint disable rule:document-start
 # yamllint disable rule:truthy
+# yamllint disable rule:line-length
 name: CI
 on:
   push:
@@ -65,7 +66,6 @@ jobs:
           ls -ld /__w /__w/_temp /__w/_temp/_runner_file_commands || true
           stat -c "%n %U:%G %a" /__w /__w/_temp \
             /__w/_temp/_runner_file_commands || true
-
       - name: Checkout
         uses: actions/checkout@v4
       - name: Download goneat binary

@@ -27,15 +27,15 @@ See [agent-identity standard](https://crucible.3leaps.dev/repository/agent-ident
 
 ## Quick Reference
 
-| Task           | Command                 |
-| -------------- | ----------------------- |
-| Build          | `make build`            |
-| Test           | `make test`             |
-| Full check     | `make prepush`          |
-| Format         | `make fmt`              |
-| Lint           | `make lint`             |
-| Assess         | `./dist/goneat assess`  |
-| Version bump   | `make version-bump-*`   |
+| Task         | Command                |
+| ------------ | ---------------------- |
+| Build        | `make build`           |
+| Test         | `make test`            |
+| Full check   | `make prepush`         |
+| Format       | `make fmt`             |
+| Lint         | `make lint`            |
+| Assess       | `./dist/goneat assess` |
+| Version bump | `make version-bump-*`  |
 
 ## Session Protocol
 
@@ -117,12 +117,12 @@ Committer-of-Record: Dave Thompson <dave.thompson@3leaps.net> [@3leapsdave]
 
 The embedding system syncs from SOURCE → DESTINATION:
 
-| Source (edit here)    | Destination (never edit)                  |
-| --------------------- | ----------------------------------------- |
-| `config/`             | `internal/assets/embedded_config/config/` |
-| `templates/`          | `internal/assets/embedded_templates/`     |
-| `schemas/`            | `internal/assets/embedded_schemas/`       |
-| `docs/` (curated)     | `internal/assets/embedded_docs/`          |
+| Source (edit here) | Destination (never edit)                  |
+| ------------------ | ----------------------------------------- |
+| `config/`          | `internal/assets/embedded_config/config/` |
+| `templates/`       | `internal/assets/embedded_templates/`     |
+| `schemas/`         | `internal/assets/embedded_schemas/`       |
+| `docs/` (curated)  | `internal/assets/embedded_docs/`          |
 
 **Example - Adding Rust tools config:**
 
@@ -135,11 +135,13 @@ vim internal/assets/embedded_config/config/tools/foundation-tools-defaults.yaml
 ```
 
 **Why this matters:**
+
 - `make build` runs `embed-assets.sh` which syncs source → destination
 - Any edits to `internal/assets/embedded*` are **silently overwritten**
 - The binary embeds from `internal/assets/` so changes must flow through the sync
 
 **Verification:**
+
 ```bash
 make embed-assets  # Sync sources to embedded
 git diff           # Check which files changed
@@ -155,6 +157,7 @@ When you see `docs/releases/latest.md` and `internal/assets/embedded_docs/docs/r
 2. Destination: `internal/assets/embedded_docs/docs/releases/latest.md` (auto-generated)
 
 If both files show as modified in git status after a build, restore them:
+
 ```bash
 git restore docs/releases/latest.md internal/assets/embedded_docs/docs/releases/latest.md
 ```
@@ -202,21 +205,21 @@ fmt.Printf("DEBUG: ...")  // Wrong - pollutes STDOUT
 
 ## Key Files
 
-| File                            | Purpose                      |
-| ------------------------------- | ---------------------------- |
-| `cmd/`                          | CLI entry points             |
-| `internal/assess/`              | Assessment runners           |
-| `pkg/`                          | Reusable libraries           |
-| `docs/crucible-go/`             | Standards and SOPs           |
-| `.goneat/`                      | Project configuration        |
+| File                | Purpose               |
+| ------------------- | --------------------- |
+| `cmd/`              | CLI entry points      |
+| `internal/assess/`  | Assessment runners    |
+| `pkg/`              | Reusable libraries    |
+| `docs/crucible-go/` | Standards and SOPs    |
+| `.goneat/`          | Project configuration |
 
 ## Roles
 
-| Role      | Prompt                                                                 | Purpose                    |
-| --------- | ---------------------------------------------------------------------- | -------------------------- |
-| `devlead` | [devlead.yaml](config/crucible-go/agentic/roles/devlead.yaml)          | Implementation (default)   |
-| `devrev`  | [devrev.yaml](config/crucible-go/agentic/roles/devrev.yaml)            | Code review, four-eyes     |
-| `secrev`  | [secrev.yaml](config/crucible-go/agentic/roles/secrev.yaml)            | Security analysis          |
+| Role      | Prompt                                                        | Purpose                  |
+| --------- | ------------------------------------------------------------- | ------------------------ |
+| `devlead` | [devlead.yaml](config/crucible-go/agentic/roles/devlead.yaml) | Implementation (default) |
+| `devrev`  | [devrev.yaml](config/crucible-go/agentic/roles/devrev.yaml)   | Code review, four-eyes   |
+| `secrev`  | [secrev.yaml](config/crucible-go/agentic/roles/secrev.yaml)   | Security analysis        |
 
 See [Role Catalog](config/crucible-go/agentic/roles/README.md) for full definitions.
 

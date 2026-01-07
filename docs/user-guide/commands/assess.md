@@ -150,10 +150,10 @@ goneat assess --include "*.go" --exclude "vendor/**"
 
 ### Incremental Lint Flags
 
-| Flag               | Type   | Default | Description                                          | Example                        |
-| ------------------ | ------ | ------- | ---------------------------------------------------- | ------------------------------ |
-| `--new-issues-only` | bool   | `false` | Only report issues introduced since base reference   | `--new-issues-only`            |
-| `--new-issues-base` | string | `HEAD~` | Git reference for baseline comparison                | `--new-issues-base main`       |
+| Flag                | Type   | Default | Description                                        | Example                  |
+| ------------------- | ------ | ------- | -------------------------------------------------- | ------------------------ |
+| `--new-issues-only` | bool   | `false` | Only report issues introduced since base reference | `--new-issues-only`      |
+| `--new-issues-base` | string | `HEAD~` | Git reference for baseline comparison              | `--new-issues-base main` |
 
 **Note:** `--new-issues-base` has no effect without `--new-issues-only`.
 

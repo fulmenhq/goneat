@@ -1,5 +1,6 @@
----
+# yamllint disable rule:document-start
 # yamllint disable rule:truthy
+# yamllint disable rule:line-length
 name: Release binaries
 on:
   push:
@@ -9,10 +10,7 @@ permissions:
   contents: write
 jobs:
   build-and-release:
-    if: >-
-      ${{ !github.event.repository.private ||
-
-          vars.ALLOW_PRIVATE_RELEASES == 'true' }}
+    if: ${{ !github.event.repository.private || vars.ALLOW_PRIVATE_RELEASES == 'true' }}
     environment: public-release
     runs-on: ubuntu-latest
     steps:
@@ -45,7 +43,6 @@ jobs:
         run: |
           chmod +x scripts/build-all.sh
           ./scripts/build-all.sh
-
       - name: Smoke test linux binary (musl + glibc)
         run: |
           set -euo pipefail
@@ -62,7 +59,6 @@ jobs:
             -v "$PWD/bin:/work" \
             debian:bookworm-slim \
             /work/goneat-linux-amd64 version
-
       - name: Package artifacts
         run: |
           chmod +x scripts/package-artifacts.sh

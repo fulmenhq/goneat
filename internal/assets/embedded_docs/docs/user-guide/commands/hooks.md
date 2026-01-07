@@ -463,11 +463,27 @@ hooks:
   pre-commit:
     - command: "assess"
       # Only report NEW lint issues since previous commit
-      args: ["--categories", "format,lint", "--fail-on", "high", "--new-issues-only"]
+      args:
+        [
+          "--categories",
+          "format,lint",
+          "--fail-on",
+          "high",
+          "--new-issues-only",
+        ]
   pre-push:
     - command: "assess"
       # Only report NEW lint issues since main branch
-      args: ["--categories", "lint,security", "--fail-on", "high", "--new-issues-only", "--new-issues-base", "main"]
+      args:
+        [
+          "--categories",
+          "lint,security",
+          "--fail-on",
+          "high",
+          "--new-issues-only",
+          "--new-issues-base",
+          "main",
+        ]
 ```
 
 **Note:** Prior to v0.4.1, hook mode implicitly applied incremental checking. This has been changed to explicit opt-in for consistency and transparency.

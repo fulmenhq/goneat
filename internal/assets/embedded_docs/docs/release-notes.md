@@ -51,10 +51,10 @@
 
 New flags for `goneat assess` enable opt-in incremental lint checking:
 
-| Flag | Default | Description |
-|------|---------|-------------|
+| Flag                | Default | Description                             |
+| ------------------- | ------- | --------------------------------------- |
 | `--new-issues-only` | `false` | Only report issues since base reference |
-| `--new-issues-base` | `HEAD~` | Git reference for baseline comparison |
+| `--new-issues-base` | `HEAD~` | Git reference for baseline comparison   |
 
 ```bash
 # Report only NEW lint issues since previous commit
@@ -66,10 +66,10 @@ goneat assess --categories lint --new-issues-only --new-issues-base main
 
 ### Tool Support
 
-| Tool | Language | Native Flag |
-|------|----------|-------------|
-| golangci-lint | Go | `--new-from-rev REF` |
-| biome | JS/TS | `--changed --since=REF` |
+| Tool          | Language | Native Flag             |
+| ------------- | -------- | ----------------------- |
+| golangci-lint | Go       | `--new-from-rev REF`    |
+| biome         | JS/TS    | `--changed --since=REF` |
 
 ### Hook Mode Behavior Change
 
@@ -83,7 +83,14 @@ goneat assess --categories lint --new-issues-only --new-issues-base main
 hooks:
   pre-commit:
     - command: assess
-      args: ["--categories", "format,lint", "--fail-on", "high", "--new-issues-only"]
+      args:
+        [
+          "--categories",
+          "format,lint",
+          "--fail-on",
+          "high",
+          "--new-issues-only",
+        ]
 ```
 
 ## Upgrade Notes
@@ -120,10 +127,10 @@ hooks:
 
 Goneat now provides **polyglot assessment** with automatic tool detection:
 
-| Language               | Lint | Format | Tool   | Install              |
-| ---------------------- | ---- | ------ | ------ | -------------------- |
-| **Python**             | ✅   | ✅     | ruff   | `brew install ruff`  |
-| **JavaScript/TypeScript** | ✅   | ✅     | biome  | `brew install biome` |
+| Language                  | Lint | Format | Tool  | Install              |
+| ------------------------- | ---- | ------ | ----- | -------------------- |
+| **Python**                | ✅   | ✅     | ruff  | `brew install ruff`  |
+| **JavaScript/TypeScript** | ✅   | ✅     | biome | `brew install biome` |
 
 Tool-present gating: goneat gracefully skips tools that aren't installed.
 

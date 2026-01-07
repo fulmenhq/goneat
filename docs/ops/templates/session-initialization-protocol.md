@@ -51,14 +51,14 @@ Approved Scope: [Brief description of authorized work]
 
 ## Available Roles
 
-| Role      | Scope                                           |
-| --------- | ----------------------------------------------- |
-| `devlead` | Architecture, implementation, code review       |
-| `secrev`  | Security analysis, vulnerability review         |
-| `releng`  | Versioning, releases, changelogs                |
-| `qa`      | Testing, validation, quality gates              |
-| `cicd`    | Pipelines, deployments, automation              |
-| `infoarch`| Documentation, structure, standards             |
+| Role       | Scope                                     |
+| ---------- | ----------------------------------------- |
+| `devlead`  | Architecture, implementation, code review |
+| `secrev`   | Security analysis, vulnerability review   |
+| `releng`   | Versioning, releases, changelogs          |
+| `qa`       | Testing, validation, quality gates        |
+| `cicd`     | Pipelines, deployments, automation        |
+| `infoarch` | Documentation, structure, standards       |
 
 See [3leaps Role Catalog](https://crucible.3leaps.dev/catalog/roles) for baseline role definitions.
 

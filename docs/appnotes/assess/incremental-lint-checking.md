@@ -59,12 +59,28 @@ version: "1.0.0"
 hooks:
   pre-commit:
     - command: "assess"
-      args: ["--categories", "format,lint", "--fail-on", "high", "--new-issues-only"]
+      args:
+        [
+          "--categories",
+          "format,lint",
+          "--fail-on",
+          "high",
+          "--new-issues-only",
+        ]
       priority: 10
       timeout: "2m"
   pre-push:
     - command: "assess"
-      args: ["--categories", "lint,security", "--fail-on", "high", "--new-issues-only", "--new-issues-base", "main"]
+      args:
+        [
+          "--categories",
+          "lint,security",
+          "--fail-on",
+          "high",
+          "--new-issues-only",
+          "--new-issues-base",
+          "main",
+        ]
       priority: 10
       timeout: "3m"
 ```
@@ -77,10 +93,10 @@ goneat hooks generate && goneat hooks install
 
 ## Flag Reference
 
-| Flag | Type | Default | Description |
-|------|------|---------|-------------|
-| `--new-issues-only` | bool | `false` | Only report issues introduced since base reference |
-| `--new-issues-base` | string | `HEAD~` | Git reference for baseline comparison |
+| Flag                | Type   | Default | Description                                        |
+| ------------------- | ------ | ------- | -------------------------------------------------- |
+| `--new-issues-only` | bool   | `false` | Only report issues introduced since base reference |
+| `--new-issues-base` | string | `HEAD~` | Git reference for baseline comparison              |
 
 **Note:** `--new-issues-base` has no effect without `--new-issues-only`. If used alone, a warning is emitted.
 
@@ -88,13 +104,13 @@ goneat hooks generate && goneat hooks install
 
 Incremental checking is supported by tools that have native git-aware diffing:
 
-| Tool | Language | Native Flag | Support |
-|------|----------|-------------|---------|
-| golangci-lint | Go | `--new-from-rev REF` | Full |
-| biome | JS/TS | `--changed --since=REF` | Full |
-| ruff | Python | N/A | None (file-scoped only) |
-| gosec | Go | N/A | None (full scan always) |
-| staticcheck | Go | N/A | None (full scan always) |
+| Tool          | Language | Native Flag             | Support                 |
+| ------------- | -------- | ----------------------- | ----------------------- |
+| golangci-lint | Go       | `--new-from-rev REF`    | Full                    |
+| biome         | JS/TS    | `--changed --since=REF` | Full                    |
+| ruff          | Python   | N/A                     | None (file-scoped only) |
+| gosec         | Go       | N/A                     | None (full scan always) |
+| staticcheck   | Go       | N/A                     | None (full scan always) |
 
 Tools without incremental support run full scans regardless of flag setting. This means:
 
@@ -105,12 +121,12 @@ Tools without incremental support run full scans regardless of flag setting. Thi
 
 ## Behavior Matrix
 
-| Context | `--new-issues-only` | Behavior |
-|---------|---------------------|----------|
-| Direct assess (default) | `false` | Report ALL issues |
-| Direct assess (explicit) | `true` | Report issues since `--new-issues-base` |
-| Hook mode (default) | `false` | Report ALL issues |
-| Hook mode (explicit in hooks.yaml) | `true` | Report issues since base |
+| Context                            | `--new-issues-only` | Behavior                                |
+| ---------------------------------- | ------------------- | --------------------------------------- |
+| Direct assess (default)            | `false`             | Report ALL issues                       |
+| Direct assess (explicit)           | `true`              | Report issues since `--new-issues-base` |
+| Hook mode (default)                | `false`             | Report ALL issues                       |
+| Hook mode (explicit in hooks.yaml) | `true`              | Report issues since base                |
 
 **Important:** Hook mode does NOT implicitly enable incremental checking. You must explicitly add `--new-issues-only` to your hooks.yaml args.
 
@@ -167,12 +183,28 @@ Issues introduced via `--no-verify` bypass are caught on the next hook run when:
 hooks:
   pre-commit:
     - command: assess
-      args: ["--categories", "format,lint", "--new-issues-only", "--fail-on", "high"]
+      args:
+        [
+          "--categories",
+          "format,lint",
+          "--new-issues-only",
+          "--fail-on",
+          "high",
+        ]
 
-# Pre-push: more thorough, still incremental against main
+  # Pre-push: more thorough, still incremental against main
   pre-push:
     - command: assess
-      args: ["--categories", "lint,security", "--new-issues-only", "--new-issues-base", "main", "--fail-on", "high"]
+      args:
+        [
+          "--categories",
+          "lint,security",
+          "--new-issues-only",
+          "--new-issues-base",
+          "main",
+          "--fail-on",
+          "high",
+        ]
 ```
 
 And in CI:
