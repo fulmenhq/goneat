@@ -323,7 +323,7 @@ func (r *SecurityAssessmentRunner) runGosec(ctx context.Context, moduleRoot stri
 		}
 	}
 
-	// Determine worker pool size from concurrency percent (default 50%)
+	// Determine worker pool size from concurrency percent (default 80%)
 	workers := config.Concurrency
 	if workers <= 0 {
 		// map percent to a minimum of 1, based on CPU cores

@@ -224,7 +224,7 @@ func (r *SchemaAssessmentRunner) resolveSchemaWorkerCount(config AssessmentConfi
 	}
 	percent := config.ConcurrencyPercent
 	if percent <= 0 {
-		percent = 50
+		percent = 80
 	}
 	cores := runtime.NumCPU()
 	workers := (cores * percent) / 100

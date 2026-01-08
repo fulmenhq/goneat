@@ -165,7 +165,7 @@ func setupAssessCommandFlags(cmd *cobra.Command) {
 	cmd.Flags().StringSliceVar(&assessLintMakeExclude, "lint-make-exclude", []string{}, "Makefile lint exclude globs")
 	// Concurrency
 	cmd.Flags().IntVar(&assessConcurrency, "concurrency", 0, "Number of concurrent runners (0 uses --concurrency-percent)")
-	cmd.Flags().IntVar(&assessConcurrencyPercent, "concurrency-percent", 50, "Percent of CPU cores to use for concurrency (1-100)")
+	cmd.Flags().IntVar(&assessConcurrencyPercent, "concurrency-percent", 80, "Percent of CPU cores to use for concurrency (1-100, default 80)")
 
 	// Hook mode flags
 	cmd.Flags().StringVar(&assessHook, "hook", "", "Run in hook mode (pre-commit, pre-push)")

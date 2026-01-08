@@ -62,7 +62,7 @@ type AssessmentConfig struct {
 	SelectedCategories []string      `json:"selected_categories"` // If set, restrict assessment to these categories
 	// Concurrency controls
 	// If Concurrency > 0 it is used directly. Otherwise ConcurrencyPercent determines worker count
-	// as a percentage of available CPU cores (1-100). Values <=0 default to 50.
+	// as a percentage of available CPU cores (1-100). Values <=0 default to 80.
 	Concurrency        int `json:"concurrency"`
 	ConcurrencyPercent int `json:"concurrency_percent"`
 
@@ -136,7 +136,7 @@ func DefaultAssessmentConfig() AssessmentConfig {
 		FailOnSeverity:     SeverityCritical,
 		SelectedCategories: []string{},
 		Concurrency:        0,
-		ConcurrencyPercent: 50,
+		ConcurrencyPercent: 80,
 		// Security defaults
 		SecurityTools: []string{},
 		EnableVuln:    true,

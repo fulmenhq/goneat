@@ -1,16 +1,42 @@
-# Goneat v0.4.3 — Parallel Execution for Format & Schema Validation
+# Goneat v0.4.3 — Parallel Execution Across All Commands
 
 **Release Date**: 2026-01-08
 **Status**: Stable
 
 ## TL;DR
 
-- **Parallel format**: `goneat format` now defaults to parallel execution for faster formatting
+- **Parallel by default**: All major commands now default to parallel execution
+- **Parallel assess**: `goneat assess` now uses 80% of CPU cores by default (was 50%)
+- **Parallel format**: `goneat format` uses `--strategy parallel` by default
 - **Parallel schema validation**: `goneat schema validate-schema --workers N` for parallel meta-validation
 - **New validate-data command**: `goneat schema validate-data` for data file validation against schemas
 - **Cached validators**: Meta-schema validators (draft-07, 2020-12) compiled once, reused across files
 
 ## What Changed
+
+### Assess Command
+
+- **Default parallel execution**: The assess command now uses 80% of CPU cores by default (previously 50%)
+- **Consistent parallel model**: All goneat commands now default to parallel execution
+- **Sequential option**: Use `--concurrency 1` for sequential execution when needed
+
+```bash
+# Default parallel (80% of CPU cores)
+goneat assess
+
+# Explicit worker count
+goneat assess --concurrency 4
+
+# Sequential execution
+goneat assess --concurrency 1
+
+# Custom percentage
+goneat assess --concurrency-percent 50
+```
+
+Use `goneat envinfo` to see your system's CPU core count.
+
+See [assess command docs](../user-guide/commands/assess.md) for configuration details.
 
 ### Format Command
 
@@ -61,16 +87,27 @@ For small file sets (<200 files), parallelization overhead roughly equals gains�
 
 ### From v0.4.2
 
-**Behavioral change**: `goneat format` now runs in parallel by default. If you experience issues:
+**Behavioral change**: All major commands now default to parallel execution:
 
-```bash
-# Revert to sequential behavior
-goneat format --strategy sequential
-```
+- `goneat assess` uses 80% of CPU cores (was 50%). For sequential:
+  ```bash
+  goneat assess --concurrency 1
+  ```
+
+- `goneat format` uses parallel strategy. For sequential:
+  ```bash
+  goneat format --strategy sequential
+  ```
+
+- `goneat schema validate-schema` uses auto workers (CPU count). For sequential:
+  ```bash
+  goneat schema validate-schema --workers 1
+  ```
 
 **New subcommand**: `goneat schema validate-data` provides data validation as a first-class schema subcommand (previously only available via `goneat validate data`).
 
 ## Documentation
 
+- **Assess command**: [docs/user-guide/commands/assess.md](../user-guide/commands/assess.md)
 - **Format command**: [docs/user-guide/commands/format.md](../user-guide/commands/format.md)
 - **Schema validation**: [docs/user-guide/commands/validate.md](../user-guide/commands/validate.md)

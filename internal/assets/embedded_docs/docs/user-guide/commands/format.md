@@ -3,7 +3,7 @@ title: "Format Command Reference"
 description: "Complete reference for the goneat format command - comprehensive code formatting with extended file operations and unified detection logic"
 author: "goneat contributors"
 date: "2025-08-31"
-last_updated: "2025-09-15"
+last_updated: "2026-01-08"
 status: "approved"
 tags:
   [
@@ -500,9 +500,11 @@ goneat format
 # Sequential execution
 goneat format --strategy sequential
 
-# Parallel with custom worker count
-goneat format --strategy parallel --workers 8
+# Parallel with custom worker count (max 8)
+goneat format --workers 4
 ```
+
+Use `goneat envinfo` to see your system's CPU core count for tuning.
 
 ### Grouping Options
 

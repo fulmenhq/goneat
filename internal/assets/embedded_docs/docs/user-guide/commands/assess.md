@@ -3,7 +3,7 @@ title: "Assess Command Reference"
 description: "Complete reference for the goneat assess command - comprehensive codebase assessment and workflow planning"
 author: "goneat contributors"
 date: "2025-08-28"
-last_updated: "2026-01-06"
+last_updated: "2026-01-08"
 status: "approved"
 tags:
   ["cli", "assessment", "validation", "reporting", "commands", "dependencies"]
@@ -43,11 +43,12 @@ Goneat assess is the core intelligence engine that:
 ## Concurrency
 
 - Runtime concurrency across categories uses a worker-pool.
-- Defaults to 50% of CPU cores (min 1). Override via flags:
-  - `--concurrency <int>`
-  - `--concurrency-percent <int>` (1-100)
+- **Defaults to parallel execution** using 80% of CPU cores (min 1). Override via flags:
+  - `--concurrency <int>` — explicit worker count (use `--concurrency 1` for sequential)
+  - `--concurrency-percent <int>` (1-100, default 80)
 - Category failures do not stop other categories; final exit still honors `--fail-on`.
 - Logs include: workers used, per-category runtimes, totals.
+- Use `goneat envinfo` to see your system's CPU core count for tuning.
 
 Example log summary:
 
@@ -133,10 +134,10 @@ goneat assess --include "*.go" --exclude "vendor/**"
 
 ### Concurrency Flags
 
-| Flag                    | Type | Description                  | Example                    |
-| ----------------------- | ---- | ---------------------------- | -------------------------- |
-| `--concurrency`         | int  | Explicit worker count        | `--concurrency 4`          |
-| `--concurrency-percent` | int  | Percent of CPU cores (1-100) | `--concurrency-percent 75` |
+| Flag                    | Type | Default | Description                                      | Example                    |
+| ----------------------- | ---- | ------- | ------------------------------------------------ | -------------------------- |
+| `--concurrency`         | int  | 0       | Explicit worker count (0 uses percent, 1 = sequential) | `--concurrency 4`          |
+| `--concurrency-percent` | int  | 80      | Percent of CPU cores (1-100, min 1 worker)       | `--concurrency-percent 50` |
 
 ### Filtering Flags
 

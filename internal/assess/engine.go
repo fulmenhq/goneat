@@ -101,7 +101,7 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 	} else {
 		percent := config.ConcurrencyPercent
 		if percent <= 0 {
-			percent = 50
+			percent = 80
 		}
 		cores := runtime.NumCPU()
 		workerCount = (cores * percent) / 100

@@ -26,7 +26,12 @@ goneat validate [target]
 - `--scope`: Limit traversal scope
 - `--list-schemas`: List available embedded schemas with drafts
 
-Performance note: `goneat validate` does not currently expose a `--workers` flag. For explicit concurrency control, use `goneat assess --categories schema --concurrency N` (or `goneat validate suite --workers N`).
+**Parallel execution**: All validation commands default to parallel execution:
+- `goneat validate suite --workers N` — defaults to CPU count, use `--workers 1` for sequential
+- `goneat schema validate-schema --workers N` — defaults to auto (CPU count), use `--workers 1` for sequential
+- `goneat assess --categories schema` — uses 80% of CPU cores by default, use `--concurrency 1` for sequential
+
+Use `goneat envinfo` to see your system's CPU core count for tuning.
 
 ## Data Validation Subcommand
 
