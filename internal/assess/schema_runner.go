@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"bytes"
@@ -14,6 +17,7 @@ import (
 	"github.com/fulmenhq/goneat/pkg/schema"
 	"github.com/fulmenhq/goneat/pkg/schema/mapping"
 	"github.com/fulmenhq/goneat/pkg/work"
+	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
 )
 
@@ -84,98 +88,54 @@ func (r *SchemaAssessmentRunner) Assess(ctx context.Context, target string, conf
 	}
 	metrics["schema_candidate_files"] = len(schemaCandidates)
 
-	schemaValidated := 0
+	candidateStart := time.Now()
+
+	workerCount := r.resolveSchemaWorkerCount(config)
+	if r.shouldAvoidNestedParallelism(config) {
+		workerCount = 1
+	}
+	if workerCount < 1 {
+		workerCount = 1
+	}
+	if len(schemaCandidates) < 2 {
+		workerCount = 1
+	}
+
+	metaCache := newMetaSchemaValidatorCache()
+
+	var schemaValidated int
+	var mu sync.Mutex
+
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(workerCount)
 
 	for _, f := range schemaCandidates {
-		select {
-		case <-ctx.Done():
-			return &AssessmentResult{CommandName: r.commandName, Category: CategorySchema, Success: false, ExecutionTime: HumanReadableDuration(time.Since(start)), Error: ctx.Err().Error()}, nil
-		default:
-		}
-
-		// Syntax validation first
-		if strings.HasSuffix(strings.ToLower(f), ".json") {
-			if err := r.checkJSONSyntax(f); err != nil {
-				issues = append(issues, Issue{
-					File:          f,
-					Severity:      SeverityHigh,
-					Message:       fmt.Sprintf("JSON syntax error: %v", err),
-					Category:      CategorySchema,
-					SubCategory:   "json_syntax",
-					AutoFixable:   false,
-					EstimatedTime: HumanReadableDuration(2 * time.Minute),
-				})
-				continue
+		f := f
+		g.Go(func() error {
+			fileIssues, validated := r.validateSchemaCandidate(gctx, f, config, metaCache)
+			mu.Lock()
+			if validated {
+				schemaValidated++
 			}
-		}
-		if strings.HasSuffix(strings.ToLower(f), ".yaml") || strings.HasSuffix(strings.ToLower(f), ".yml") {
-			if err := r.checkYAMLSyntax(f); err != nil {
-				issues = append(issues, Issue{
-					File:          f,
-					Severity:      SeverityHigh,
-					Message:       fmt.Sprintf("YAML syntax error: %v", err),
-					Category:      CategorySchema,
-					SubCategory:   "yaml_syntax",
-					AutoFixable:   false,
-					EstimatedTime: HumanReadableDuration(2 * time.Minute),
-				})
-				continue
-			}
-		}
-
-		// Enhanced schema validation logic
-		isSchema, draft, err := r.detectSchemaInfo(f)
-		if err != nil {
-			issues = append(issues, Issue{
-				File:          f,
-				Severity:      SeverityMedium,
-				Message:       fmt.Sprintf("Failed to analyze schema info: %v", err),
-				Category:      CategorySchema,
-				SubCategory:   "schema_analysis",
-				AutoFixable:   false,
-				EstimatedTime: HumanReadableDuration(1 * time.Minute),
-			})
-			continue
-		}
-
-		if isSchema {
-			schemaValidated++
-			// Check if draft is allowed by configuration
-			if !r.isDraftAllowed(draft, config) {
-				issues = append(issues, Issue{
-					File:          f,
-					Severity:      SeverityLow,
-					Message:       fmt.Sprintf("Schema draft '%s' not in allowed drafts list", draft),
-					Category:      CategorySchema,
-					SubCategory:   "draft_filter",
-					AutoFixable:   false,
-					EstimatedTime: HumanReadableDuration(1 * time.Minute),
-				})
-				continue
-			}
-
-			// Basic structural validation
-			if err := r.checkJSONSchemaStructure(f); err != nil {
-				issues = append(issues, Issue{
-					File:          f,
-					Severity:      SeverityHigh,
-					Message:       fmt.Sprintf("Schema structural validation failed: %v", err),
-					Category:      CategorySchema,
-					SubCategory:   "schema_structure",
-					AutoFixable:   false,
-					EstimatedTime: HumanReadableDuration(3 * time.Minute),
-				})
-				continue
-			}
-
-			// Enhanced meta-validation using pkg/schema
-			if config.SchemaEnableMeta {
-				metaIssues := r.validateSchemaMeta(f, draft)
-				issues = append(issues, metaIssues...)
-			}
-		}
+			issues = append(issues, fileIssues...)
+			mu.Unlock()
+			return nil
+		})
 	}
+	_ = g.Wait()
+	if ctx.Err() != nil {
+		return &AssessmentResult{CommandName: r.commandName, Category: CategorySchema, Success: false, ExecutionTime: HumanReadableDuration(time.Since(start)), Error: ctx.Err().Error()}, nil
+	}
+
 	metrics["schema_validated_files"] = schemaValidated
+	metrics["schema_validation_workers"] = workerCount
+	metrics["schema_meta_validation_enabled"] = config.SchemaEnableMeta
+	metrics["schema_meta_validators_compiled"] = metaCache.Count()
+	candidateDuration := time.Since(candidateStart)
+	metrics["schema_validation_duration"] = HumanReadableDuration(candidateDuration)
+	if secs := candidateDuration.Seconds(); secs > 0 {
+		metrics["schema_validation_files_per_sec"] = float64(schemaValidated) / secs
+	}
 
 	if mappingCtx != nil {
 		configCandidates, err := r.findConfigCandidates(target, config)
@@ -195,6 +155,10 @@ func (r *SchemaAssessmentRunner) Assess(ctx context.Context, target string, conf
 		for k, v := range mappingMetrics {
 			metrics[k] = v
 		}
+	}
+
+	if len(issues) > 1 {
+		sortIssuesDeterministic(issues)
 	}
 
 	var finalMetrics map[string]interface{}
@@ -218,6 +182,291 @@ func (r *SchemaAssessmentRunner) GetEstimatedTime(target string) time.Duration {
 	return 2 * time.Second
 }
 func (r *SchemaAssessmentRunner) IsAvailable() bool { return true }
+
+type metaSchemaValidatorCache struct {
+	mu      sync.Mutex
+	byDraft map[string]*schema.Validator
+}
+
+func newMetaSchemaValidatorCache() *metaSchemaValidatorCache {
+	return &metaSchemaValidatorCache{byDraft: make(map[string]*schema.Validator)}
+}
+
+func (c *metaSchemaValidatorCache) Get(draft string) (*schema.Validator, error) {
+	draft = strings.TrimSpace(draft)
+	c.mu.Lock()
+	v, ok := c.byDraft[draft]
+	c.mu.Unlock()
+	if ok {
+		return v, nil
+	}
+
+	validator, err := schema.NewValidatorFromMetaSchema(draft)
+	if err != nil {
+		return nil, err
+	}
+
+	c.mu.Lock()
+	c.byDraft[draft] = validator
+	c.mu.Unlock()
+	return validator, nil
+}
+
+func (c *metaSchemaValidatorCache) Count() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return len(c.byDraft)
+}
+
+func (r *SchemaAssessmentRunner) resolveSchemaWorkerCount(config AssessmentConfig) int {
+	if config.Concurrency > 0 {
+		return config.Concurrency
+	}
+	percent := config.ConcurrencyPercent
+	if percent <= 0 {
+		percent = 50
+	}
+	cores := runtime.NumCPU()
+	workers := (cores * percent) / 100
+	if workers < 1 {
+		workers = 1
+	}
+	return workers
+}
+
+func (r *SchemaAssessmentRunner) shouldAvoidNestedParallelism(config AssessmentConfig) bool {
+	// When schema is executed as part of a full assess run (i.e., no explicit category
+	// selection), the assess engine already provides category-level parallelism.
+	// Avoid per-file parallelism here to prevent CPU oversubscription.
+	if len(config.SelectedCategories) == 0 {
+		return true
+	}
+	if len(config.SelectedCategories) != 1 {
+		return true
+	}
+	return strings.TrimSpace(config.SelectedCategories[0]) != string(CategorySchema)
+}
+
+func (r *SchemaAssessmentRunner) validateSchemaCandidate(ctx context.Context, path string, config AssessmentConfig, metaCache *metaSchemaValidatorCache) ([]Issue, bool) {
+	select {
+	case <-ctx.Done():
+		return nil, false
+	default:
+	}
+
+	data, err := safeReadFile(path)
+	if err != nil {
+		return []Issue{{
+			File:          path,
+			Severity:      SeverityHigh,
+			Message:       fmt.Sprintf("Failed to read schema file: %v", err),
+			Category:      CategorySchema,
+			SubCategory:   "read",
+			AutoFixable:   false,
+			EstimatedTime: HumanReadableDuration(1 * time.Minute),
+		}}, false
+	}
+
+	lower := strings.ToLower(path)
+
+	// Syntax validation first
+	if strings.HasSuffix(lower, ".json") {
+		if err := r.checkJSONSyntaxBytes(data); err != nil {
+			return []Issue{{
+				File:          path,
+				Severity:      SeverityHigh,
+				Message:       fmt.Sprintf("JSON syntax error: %v", err),
+				Category:      CategorySchema,
+				SubCategory:   "json_syntax",
+				AutoFixable:   false,
+				EstimatedTime: HumanReadableDuration(2 * time.Minute),
+			}}, false
+		}
+	}
+	if strings.HasSuffix(lower, ".yaml") || strings.HasSuffix(lower, ".yml") {
+		if err := r.checkYAMLSyntaxBytes(data); err != nil {
+			return []Issue{{
+				File:          path,
+				Severity:      SeverityHigh,
+				Message:       fmt.Sprintf("YAML syntax error: %v", err),
+				Category:      CategorySchema,
+				SubCategory:   "yaml_syntax",
+				AutoFixable:   false,
+				EstimatedTime: HumanReadableDuration(2 * time.Minute),
+			}}, false
+		}
+	}
+
+	isSchema, draft, err := r.detectSchemaInfoFromBytes(data)
+	if err != nil {
+		return []Issue{{
+			File:          path,
+			Severity:      SeverityMedium,
+			Message:       fmt.Sprintf("Failed to analyze schema info: %v", err),
+			Category:      CategorySchema,
+			SubCategory:   "schema_analysis",
+			AutoFixable:   false,
+			EstimatedTime: HumanReadableDuration(1 * time.Minute),
+		}}, false
+	}
+	if !isSchema {
+		return nil, false
+	}
+
+	// Check if draft is allowed by configuration
+	if !r.isDraftAllowed(draft, config) {
+		return []Issue{{
+			File:          path,
+			Severity:      SeverityLow,
+			Message:       fmt.Sprintf("Schema draft '%s' not in allowed drafts list", draft),
+			Category:      CategorySchema,
+			SubCategory:   "draft_filter",
+			AutoFixable:   false,
+			EstimatedTime: HumanReadableDuration(1 * time.Minute),
+		}}, true
+	}
+
+	// Basic structural validation
+	if err := r.checkJSONSchemaStructureBytes(data); err != nil {
+		return []Issue{{
+			File:          path,
+			Severity:      SeverityHigh,
+			Message:       fmt.Sprintf("Schema structural validation failed: %v", err),
+			Category:      CategorySchema,
+			SubCategory:   "schema_structure",
+			AutoFixable:   false,
+			EstimatedTime: HumanReadableDuration(3 * time.Minute),
+		}}, true
+	}
+
+	if !config.SchemaEnableMeta {
+		return nil, true
+	}
+
+	metaIssues := r.validateSchemaMetaBytes(path, draft, data, metaCache)
+	return metaIssues, true
+}
+
+func (r *SchemaAssessmentRunner) checkJSONSyntaxBytes(data []byte) error {
+	var v interface{}
+	dec := jsonNewDecoder(bytesNewReader(data))
+	dec.UseNumber()
+	if err := dec.Decode(&v); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *SchemaAssessmentRunner) checkYAMLSyntaxBytes(data []byte) error {
+	var v interface{}
+	if err := yaml.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *SchemaAssessmentRunner) detectSchemaInfoFromBytes(data []byte) (isSchema bool, draft string, err error) {
+	var doc map[string]interface{}
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		if err := json.Unmarshal(data, &doc); err != nil {
+			return false, "", nil
+		}
+	}
+	if schemaURL, ok := doc["$schema"].(string); ok {
+		draft := r.extractDraftFromURL(schemaURL)
+		return true, draft, nil
+	}
+	return false, "", nil
+}
+
+func (r *SchemaAssessmentRunner) checkJSONSchemaStructureBytes(data []byte) error {
+	// Try YAML first
+	var doc interface{}
+	if yaml.Unmarshal(data, &doc) != nil {
+		var j interface{}
+		dec := jsonNewDecoder(bytesNewReader(data))
+		dec.UseNumber()
+		if err := dec.Decode(&j); err != nil {
+			return fmt.Errorf("unable to parse as YAML or JSON: %v", err)
+		}
+		doc = j
+	}
+	if err := sanityCheckJSONSchema(doc); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *SchemaAssessmentRunner) validateSchemaMetaBytes(path string, draft string, schemaBytes []byte, metaCache *metaSchemaValidatorCache) []Issue {
+	validator, err := metaCache.Get(draft)
+	if err != nil {
+		return []Issue{{
+			File:          path,
+			Severity:      SeverityMedium,
+			Message:       fmt.Sprintf("Unsupported schema draft '%s': %v", draft, err),
+			Category:      CategorySchema,
+			SubCategory:   "meta_validation",
+			AutoFixable:   false,
+			EstimatedTime: HumanReadableDuration(1 * time.Minute),
+		}}
+	}
+
+	result, err := validator.ValidateBytes(schemaBytes)
+	if err != nil {
+		return []Issue{{
+			File:          path,
+			Severity:      SeverityHigh,
+			Message:       fmt.Sprintf("Meta-validation error: %v", err),
+			Category:      CategorySchema,
+			SubCategory:   "meta_validation",
+			AutoFixable:   false,
+			EstimatedTime: HumanReadableDuration(3 * time.Minute),
+		}}
+	}
+
+	if result.Valid {
+		return nil
+	}
+
+	issues := make([]Issue, 0, len(result.Errors))
+	for _, verr := range result.Errors {
+		severity := SeverityMedium
+		msgLower := strings.ToLower(verr.Message)
+		if strings.Contains(msgLower, "required") {
+			severity = SeverityHigh
+		} else if strings.Contains(msgLower, "additional") {
+			severity = SeverityLow
+		}
+		issues = append(issues, Issue{
+			File:          path,
+			Line:          verr.Context.LineNumber,
+			Severity:      severity,
+			Message:       fmt.Sprintf("Schema validation error at %s: %s", verr.Path, verr.Message),
+			Category:      CategorySchema,
+			SubCategory:   "meta_validation",
+			AutoFixable:   false,
+			EstimatedTime: HumanReadableDuration(2 * time.Minute),
+		})
+	}
+	return issues
+}
+
+func sortIssuesDeterministic(issues []Issue) {
+	sort.SliceStable(issues, func(i, j int) bool {
+		a := issues[i]
+		b := issues[j]
+		if a.File != b.File {
+			return a.File < b.File
+		}
+		if a.Line != b.Line {
+			return a.Line < b.Line
+		}
+		if a.SubCategory != b.SubCategory {
+			return a.SubCategory < b.SubCategory
+		}
+		return a.Message < b.Message
+	})
+}
 
 func (r *SchemaAssessmentRunner) findCandidates(target string, config AssessmentConfig) ([]string, error) {
 	return r.findFilteredCandidates(target, config, func(path string) bool {
@@ -714,31 +963,6 @@ func (r *SchemaAssessmentRunner) extractDraftFromURL(schemaURL string) string {
 	return "2020-12"
 }
 
-// detectSchemaInfo detects if a file is a schema and returns its draft version
-func (r *SchemaAssessmentRunner) detectSchemaInfo(path string) (isSchema bool, draft string, err error) {
-	data, err := safeReadFile(path)
-	if err != nil {
-		return false, "", err
-	}
-
-	// Try to parse as YAML first, then JSON
-	var doc map[string]interface{}
-	if err := yaml.Unmarshal(data, &doc); err != nil {
-		// Try JSON if YAML fails
-		if err := json.Unmarshal(data, &doc); err != nil {
-			return false, "", nil // Not a valid JSON/YAML file
-		}
-	}
-
-	// Check for $schema field
-	if schemaURL, ok := doc["$schema"].(string); ok {
-		draft := r.extractDraftFromURL(schemaURL)
-		return true, draft, nil
-	}
-
-	return false, "", nil
-}
-
 // isDraftAllowed checks if the detected draft is in the allowed list
 func (r *SchemaAssessmentRunner) isDraftAllowed(draft string, config AssessmentConfig) bool {
 	if len(config.SchemaDrafts) == 0 {
@@ -762,151 +986,6 @@ func isUnderSchemas(path string) bool {
 		}
 	}
 	return false
-}
-
-// validateSchemaMeta performs meta-validation using the pkg/schema library
-func (r *SchemaAssessmentRunner) validateSchemaMeta(path string, draft string) []Issue {
-	var issues []Issue
-
-	// Use the enhanced pkg/schema library for validation
-	validator, err := schema.NewValidatorFromMetaSchema(draft)
-	if err != nil {
-		issues = append(issues, Issue{
-			File:          path,
-			Severity:      SeverityMedium,
-			Message:       fmt.Sprintf("Unsupported schema draft '%s': %v", draft, err),
-			Category:      CategorySchema,
-			SubCategory:   "meta_validation",
-			AutoFixable:   false,
-			EstimatedTime: HumanReadableDuration(1 * time.Minute),
-		})
-		return issues
-	}
-
-	// Read and validate the file
-	data, err := safeReadFile(path)
-	if err != nil {
-		issues = append(issues, Issue{
-			File:          path,
-			Severity:      SeverityHigh,
-			Message:       fmt.Sprintf("Failed to read schema file: %v", err),
-			Category:      CategorySchema,
-			SubCategory:   "meta_validation",
-			AutoFixable:   false,
-			EstimatedTime: HumanReadableDuration(1 * time.Minute),
-		})
-		return issues
-	}
-
-	// Validate using the pkg/schema library
-	result, err := validator.ValidateBytes(data)
-	if err != nil {
-		issues = append(issues, Issue{
-			File:          path,
-			Severity:      SeverityHigh,
-			Message:       fmt.Sprintf("Meta-validation error: %v", err),
-			Category:      CategorySchema,
-			SubCategory:   "meta_validation",
-			AutoFixable:   false,
-			EstimatedTime: HumanReadableDuration(3 * time.Minute),
-		})
-		return issues
-	}
-
-	// Process validation errors with enhanced reporting
-	if !result.Valid {
-		for _, verr := range result.Errors {
-			severity := SeverityMedium
-			// Categorize errors by severity
-			if strings.Contains(strings.ToLower(verr.Message), "required") {
-				severity = SeverityHigh
-			} else if strings.Contains(strings.ToLower(verr.Message), "additional") {
-				severity = SeverityLow
-			}
-
-			issues = append(issues, Issue{
-				File:          path,
-				Line:          verr.Context.LineNumber,
-				Severity:      severity,
-				Message:       fmt.Sprintf("Schema validation error at %s: %s", verr.Path, verr.Message),
-				Category:      CategorySchema,
-				SubCategory:   "meta_validation",
-				AutoFixable:   false,
-				EstimatedTime: HumanReadableDuration(2 * time.Minute),
-			})
-		}
-	}
-
-	return issues
-}
-
-func (r *SchemaAssessmentRunner) checkJSONSyntax(path string) error {
-	// Read file and attempt decode (sanitized and restricted to repo root)
-	data, err := safeReadFile(path) // #nosec G304 -- path cleaned and restricted to working directory
-	if err != nil {
-		return err
-	}
-	var v interface{}
-	dec := jsonNewDecoder(bytesNewReader(data))
-	dec.UseNumber()
-	if err := dec.Decode(&v); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r *SchemaAssessmentRunner) checkYAMLSyntax(path string) error {
-	// Read file with sanitized path rules
-	data, err := safeReadFile(path) // #nosec G304 -- path cleaned and restricted to working directory
-	if err != nil {
-		return err
-	}
-	var v interface{}
-	if err := yaml.Unmarshal(data, &v); err != nil {
-		return err
-	}
-	return nil
-}
-
-// checkJSONSchemaStructure performs minimal structural checks for JSON Schema documents in YAML/JSON
-func (r *SchemaAssessmentRunner) checkJSONSchemaStructure(path string) error {
-	data, err := safeReadFile(path) // #nosec G304 -- path cleaned and restricted to working directory
-	if err != nil {
-		return err
-	}
-	// Try YAML first
-	var doc interface{}
-	if yaml.Unmarshal(data, &doc) != nil {
-		// Fallback to JSON
-		var j interface{}
-		dec := jsonNewDecoder(bytesNewReader(data))
-		dec.UseNumber()
-		if err := dec.Decode(&j); err != nil {
-			return fmt.Errorf("unable to parse as YAML or JSON: %v", err)
-		}
-		doc = j
-	}
-	// Determine draft from $schema (default to 2020-12)
-	draft := "2020-12"
-	if m, ok := doc.(map[string]interface{}); ok {
-		if v, ok := m["$schema"].(string); ok {
-			switch {
-			case strings.Contains(v, "draft-07"):
-				draft = "draft-07"
-			case strings.Contains(v, "2020-12"):
-				draft = "2020-12"
-			}
-		}
-	}
-	// Offline-first: run our structural sanity checks before library validation
-	if err := sanityCheckJSONSchema(doc); err != nil {
-		return err
-	}
-
-	// Skip library meta-schema validation for now (network-heavy and draft support varies).
-	// Sanity checks above provide offline structural validation for key fields.
-	_ = draft
-	return nil
 }
 
 //nolint:unused

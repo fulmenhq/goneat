@@ -22,9 +22,11 @@ goneat validate [target]
 - `--auto-detect`: Auto-detect schema files
 - `--no-ignore`: Disable .goneatignore/.gitignore
 - `--force-include`: Force-include paths/globs
-- `--enable-meta`: Attempt meta-schema validation
+- `--enable-meta`: Attempt meta-schema validation (meta-validation runs in parallel when validating many schema files)
 - `--scope`: Limit traversal scope
 - `--list-schemas`: List available embedded schemas with drafts
+
+Performance note: `goneat validate` does not currently expose a `--workers` flag. For explicit concurrency control, use `goneat assess --categories schema --concurrency N` (or `goneat validate suite --workers N`).
 
 ## Data Validation Subcommand
 
@@ -56,7 +58,7 @@ Common flags:
 - `--schema-resolution`: `prefer-id|id-strict|path-only` (controls how canonical schema IDs are resolved offline)
 - `--expect-fail`: Glob of files expected to fail (repeatable)
 - `--skip`: Glob of files to skip (repeatable)
-- `--workers`: Max parallel workers (defaults to CPU count)
+- `--workers`: Max parallel workers (defaults to CPU count). Applies to both data validation and (when `--enable-meta` is set) schema meta-validation.
 - `--format`: Output format (markdown, json)
 
 ### Example: Offline `$ref` resolution for a full examples suite

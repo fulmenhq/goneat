@@ -13,6 +13,10 @@ import (
 )
 
 func TestLintAssessmentRunner_verifyGolangciConfig(t *testing.T) {
+	if os.Getenv("GONEAT_INTEGRATION_NET") != "1" {
+		t.Skip("networked golangci-lint config verification disabled (set GONEAT_INTEGRATION_NET=1 to enable)")
+	}
+
 	runner := NewLintAssessmentRunner()
 
 	env := runner.detectGolangciLintEnvironment()

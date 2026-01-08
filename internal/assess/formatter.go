@@ -244,6 +244,11 @@ func (f *Formatter) formatMarkdown(report *AssessmentReport) string {
 		sb.WriteString(fmt.Sprintf("**Estimated Time:** %s\n", f.formatDuration(time.Duration(result.EstimatedTime))))
 		sb.WriteString(fmt.Sprintf("**Parallelizable:** %s\n\n", f.formatBool(result.Parallelizable)))
 
+		if metricsBlock := f.formatCategoryMetricsMarkdown(category, result.Metrics); metricsBlock != "" {
+			sb.WriteString(metricsBlock)
+			sb.WriteString("\n")
+		}
+
 		if result.IssueCount > 0 {
 			// Issues table (with optional cap for readability; JSON remains full SSOT)
 			sb.WriteString("| File | Line | Severity | Message | Auto-fixable |\n")
@@ -508,6 +513,135 @@ func (f *Formatter) formatBool(b bool) string {
 		return "Yes"
 	}
 	return "No"
+}
+
+func (f *Formatter) formatCategoryMetricsMarkdown(category string, metrics map[string]interface{}) string {
+	if metrics == nil {
+		return ""
+	}
+	if strings.TrimSpace(category) != string(CategorySchema) {
+		return ""
+	}
+
+	var lines []string
+
+	if n, ok := asInt(metrics["schema_candidate_files"]); ok {
+		lines = append(lines, fmt.Sprintf("- **Candidate files:** %d", n))
+	}
+	if n, ok := asInt(metrics["schema_validated_files"]); ok {
+		lines = append(lines, fmt.Sprintf("- **Schemas validated:** %d", n))
+	}
+	if n, ok := asInt(metrics["schema_validation_workers"]); ok {
+		lines = append(lines, fmt.Sprintf("- **Workers:** %d", n))
+	}
+	if s, ok := asString(metrics["schema_validation_duration"]); ok {
+		lines = append(lines, fmt.Sprintf("- **Validation time:** %s", s))
+	}
+	if v, ok := asFloat(metrics["schema_validation_files_per_sec"]); ok {
+		lines = append(lines, fmt.Sprintf("- **Throughput:** %.2f files/sec", v))
+	}
+	if b, ok := asBool(metrics["schema_meta_validation_enabled"]); ok {
+		lines = append(lines, fmt.Sprintf("- **Meta-validation:** %s", f.formatBool(b)))
+	}
+	if n, ok := asInt(metrics["schema_meta_validators_compiled"]); ok {
+		lines = append(lines, fmt.Sprintf("- **Meta-schema drafts compiled:** %d", n))
+	}
+
+	// Schema mapping headline metrics (if enabled)
+	if n, ok := asInt(metrics["schema_mapping_files_evaluated"]); ok {
+		lines = append(lines, fmt.Sprintf("- **Mapping files evaluated:** %d", n))
+	}
+	if n, ok := asInt(metrics["schema_mapping_mapped"]); ok {
+		lines = append(lines, fmt.Sprintf("- **Mapping resolved:** %d", n))
+	}
+	if n, ok := asInt(metrics["schema_mapping_unmapped"]); ok {
+		lines = append(lines, fmt.Sprintf("- **Mapping unmapped:** %d", n))
+	}
+	if v, ok := asFloat(metrics["schema_mapping_detection_rate"]); ok {
+		lines = append(lines, fmt.Sprintf("- **Mapping detection rate:** %.0f%%", v*100))
+	}
+
+	if len(lines) == 0 {
+		return ""
+	}
+
+	return "**Metrics:**\n" + strings.Join(lines, "\n") + "\n"
+}
+
+func asInt(v interface{}) (int, bool) {
+	switch t := v.(type) {
+	case int:
+		return t, true
+	case int64:
+		return int(t), true
+	case float64:
+		return int(t), true
+	case json.Number:
+		if i, err := t.Int64(); err == nil {
+			return int(i), true
+		}
+	case string:
+		if i, err := strconv.Atoi(strings.TrimSpace(t)); err == nil {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+func asFloat(v interface{}) (float64, bool) {
+	switch t := v.(type) {
+	case float64:
+		return t, true
+	case float32:
+		return float64(t), true
+	case int:
+		return float64(t), true
+	case int64:
+		return float64(t), true
+	case json.Number:
+		if f, err := t.Float64(); err == nil {
+			return f, true
+		}
+	case string:
+		if f, err := strconv.ParseFloat(strings.TrimSpace(t), 64); err == nil {
+			return f, true
+		}
+	}
+	return 0, false
+}
+
+func asBool(v interface{}) (bool, bool) {
+	switch t := v.(type) {
+	case bool:
+		return t, true
+	case string:
+		s := strings.TrimSpace(strings.ToLower(t))
+		if s == "true" || s == "yes" || s == "1" {
+			return true, true
+		}
+		if s == "false" || s == "no" || s == "0" {
+			return false, true
+		}
+	}
+	return false, false
+}
+
+func asString(v interface{}) (string, bool) {
+	switch t := v.(type) {
+	case string:
+		s := strings.TrimSpace(t)
+		if s == "" {
+			return "", false
+		}
+		return s, true
+	case fmt.Stringer:
+		s := strings.TrimSpace(t.String())
+		if s == "" {
+			return "", false
+		}
+		return s, true
+	}
+	return "", false
 }
 
 func (f *Formatter) getStatusEmoji(status string) string {

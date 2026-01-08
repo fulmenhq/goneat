@@ -395,6 +395,7 @@ func runSuiteMetaValidation(ctx context.Context, repoRoot, schemasRoot string) *
 		NoIgnore:           validateSuiteNoIgnore,
 		ForceInclude:       append([]string(nil), validateSuiteForceInclude...),
 		SchemaEnableMeta:   true,
+		Concurrency:        validateSuiteMaxWorkers,
 		SelectedCategories: []string{string(assess.CategorySchema)},
 	}
 	res, err := runner.Assess(ctx, repoRoot, cfg)

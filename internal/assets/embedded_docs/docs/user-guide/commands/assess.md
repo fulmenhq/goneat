@@ -3,7 +3,7 @@ title: "Assess Command Reference"
 description: "Complete reference for the goneat assess command - comprehensive codebase assessment and workflow planning"
 author: "goneat contributors"
 date: "2025-08-28"
-last_updated: "2025-12-31"
+last_updated: "2026-01-06"
 status: "approved"
 tags:
   ["cli", "assessment", "validation", "reporting", "commands", "dependencies"]
@@ -21,6 +21,7 @@ Goneat uses a small set of repo-local configuration files under `.goneat/`:
 - `.goneat/hooks.yaml` - Git hook orchestration (what runs on pre-commit/pre-push)
 - `.goneat/assess.yaml` - Lint/assessment tuning for `assess` (shell, Makefiles, GitHub Actions)
 - `.goneat/tools.yaml` - Tools manifest used by `goneat doctor tools`
+- `.goneat/schema-mappings.yaml` - Optional config-to-schema mapping rules for schema validation
 
 To scaffold a starter `.goneat/assess.yaml`, run:
 
@@ -32,7 +33,7 @@ goneat doctor assess init
 
 Goneat assess is the core intelligence engine that:
 
-- **Orchestrates multiple validation tools** (format, lint, security, performance)
+- **Orchestrates multiple validation tools** (format, lint, security, schema, dependencies)
 - **Applies intelligent prioritization** based on issue severity and impact
 - **Enables parallel execution** for faster validation cycles
 - **Generates unified reports** with actionable remediation workflows
@@ -128,6 +129,7 @@ goneat assess --include "*.go" --exclude "vendor/**"
 | `--fail-on`  | string   | Fail on severity level                     | `--fail-on high`                   |
 | `--timeout`  | duration | Assessment timeout                         | `--timeout 5m`                     |
 | `--output`   | string   | Output file path                           | `--output report.md`               |
+| `--profile`  | string   | Preset profile (`ci`, `dev`)               | `--profile ci`                     |
 
 ### Concurrency Flags
 
@@ -146,7 +148,20 @@ goneat assess --include "*.go" --exclude "vendor/**"
 | `--no-ignore`          | boolean | Disable ignore files                     | `--no-ignore`                         |
 | `--force-include`      | strings | Force-include ignored paths (repeatable) | `--force-include 'tests/fixtures/**'` |
 | `--scope`              | boolean | Limit traversal to include/force anchors | `--scope`                             |
-| `--schema-enable-meta` | boolean | Attempt schema meta validation           | `--schema-enable-meta`                |
+| `--staged-only`        | boolean | Only assess staged files in git          | `--staged-only`                       |
+
+### Schema Flags
+
+| Flag                            | Type    | Description                                              | Example                               |
+| ------------------------------- | ------- | -------------------------------------------------------- | ------------------------------------- |
+| `--schema-enable-meta`          | boolean | Attempt schema meta validation                           | `--schema-enable-meta`                |
+| `--schema-drafts`               | strings | Allowed JSON Schema drafts                               | `--schema-drafts "draft-07,2020-12"`  |
+| `--schema-patterns`             | strings | Custom schema file globs                                 | `--schema-patterns "*.schema.yaml"`   |
+| `--schema-discovery-mode`       | string  | Discovery mode (`schemas-dir`, `all`)                    | `--schema-discovery-mode all`         |
+| `--schema-mapping`              | boolean | Enable config-to-schema mapping                          | `--schema-mapping`                    |
+| `--schema-mapping-manifest`     | string  | Override mapping manifest path                            | `--schema-mapping-manifest ./path`    |
+| `--schema-mapping-min-confidence` | float | Minimum confidence threshold for mapping (0-1)           | `--schema-mapping-min-confidence 0.8` |
+| `--schema-mapping-strict`       | boolean | Fail when mappings are missing or low confidence         | `--schema-mapping-strict`             |
 
 ### Incremental Lint Flags
 
@@ -154,6 +169,7 @@ goneat assess --include "*.go" --exclude "vendor/**"
 | ------------------- | ------ | ------- | -------------------------------------------------- | ------------------------ |
 | `--new-issues-only` | bool   | `false` | Only report issues introduced since base reference | `--new-issues-only`      |
 | `--new-issues-base` | string | `HEAD~` | Git reference for baseline comparison              | `--new-issues-base main` |
+| `--lint-new-from-rev` | string | ``     | Pass through to golangci-lint `--new-from-rev`     | `--lint-new-from-rev HEAD~` |
 
 **Note:** `--new-issues-base` has no effect without `--new-issues-only`.
 
@@ -173,6 +189,27 @@ See [Incremental Lint Checking](../../appnotes/assess/incremental-lint-checking.
 | `--verbose`    | boolean | Verbose output                          | `--verbose`    |
 | `--quiet`      | boolean | Minimal output                          | `--quiet`      |
 | `--ci-summary` | boolean | One-line CI status (PASS/FAIL + counts) | `--ci-summary` |
+| `--extended`   | boolean | Include detailed workplan info in output| `--extended`   |
+
+### Output Helpers
+
+| Flag     | Type    | Description                         | Example   |
+| -------- | ------- | ----------------------------------- | --------- |
+| `--open` | boolean | Open HTML report in default browser | `--open`  |
+
+### Lint Mode Controls
+
+| Flag             | Type    | Description                                      | Example           |
+| ---------------- | ------- | ------------------------------------------------ | ----------------- |
+| `--package-mode` | boolean | Force golangci-lint package mode (`./pkg/...`)   | `--package-mode`  |
+
+### Benchmark Flags
+
+| Flag                | Type     | Description                    | Example                         |
+| ------------------- | -------- | ------------------------------ | ------------------------------- |
+| `--benchmark`       | boolean  | Run benchmark comparison       | `--benchmark`                   |
+| `--iterations`      | int      | Benchmark iterations           | `--iterations 5`                |
+| `--benchmark-output`| string   | Benchmark output file          | `--benchmark-output bench.json` |
 
 ### Security Flags
 
@@ -279,12 +316,10 @@ power dashboards or CI quality gates.
 - **Typical Issues:** Dead code, inefficient assignments, type issues
 - **Auto-fixable:** Limited
 
-### Performance (`performance`)
+### Performance (`performance`) [Reserved]
 
-- **Purpose:** Performance optimization opportunities
-- **Tools:** Custom performance analyzers
-- **Typical Issues:** Memory leaks, inefficient algorithms
-- **Auto-fixable:** No (requires architectural changes)
+- **Purpose:** Placeholder for future performance analyzers
+- **Status:** No runner wired yet (category reserved)
 
 ### Schema (`schema`) [Preview]
 
@@ -366,6 +401,15 @@ goneat assess config/ \
 - `--schema-mapping-strict`: surface issues when mappings are missing or fall below the configured confidence threshold.
 
 When mapping is enabled, schema assessment metrics include detection rate, mapped/unmapped counts, exclusion counts, validation successes/failures, and the active confidence threshold so CI dashboards can trend accuracy over time.
+
+### Additional Categories
+
+These categories are available for specialized assessments:
+
+- **Dates (`dates`)**: Validate date ranges and freshness rules in configs (preview).
+- **Tools (`tools`)**: Tool presence and version checks.
+- **Maturity (`maturity`)**: Repo hygiene and readiness checks (metadata completeness).
+- **Repo Status (`repo-status`)**: Git/worktree state checks (dirty tree, untracked files).
 
 ## Force-Include Override
 
@@ -1017,11 +1061,11 @@ goneat assess --categories format
 **Slow execution:**
 
 ```bash
-# Use parallel execution
-goneat assess --parallel
+# Increase concurrency (category-level)
+goneat assess --concurrency-percent 75
 
-# Focus on changed files only
-goneat assess --only-changed
+# Focus scope to staged changes only
+goneat assess --staged-only
 
 # Exclude vendor directories
 goneat assess --exclude "vendor/**"
@@ -1030,11 +1074,11 @@ goneat assess --exclude "vendor/**"
 **Memory issues:**
 
 ```bash
-# Limit concurrent operations
-goneat assess --max-workers 2
+# Limit concurrent category runners
+goneat assess --concurrency 2
 
-# Process in batches
-goneat assess --batch-size 10
+# Reduce CPU utilization (derived worker count)
+goneat assess --concurrency-percent 25
 ```
 
 ## Advanced Usage

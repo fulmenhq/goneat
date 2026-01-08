@@ -111,52 +111,60 @@ Committer-of-Record: Dave Thompson <dave.thompson@3leaps.net> [@3leapsdave]
 - Commit `.plans/` directory (gitignored)
 - Touch code outside task scope
 
-### Embedded Assets - Critical Warning
+### Embedded Assets & Sync Workflow (SSOT → embedded)
 
-**NEVER edit files in `internal/assets/embedded*/`** - these are generated from source directories.
+We use committed "synced" trees under `internal/assets/` for two reasons:
 
-The embedding system syncs from SOURCE → DESTINATION:
+1. **Go embedding constraint**: the binary embeds assets from a stable path (`internal/assets/...`). Go only embeds what exists on disk at build time.
+2. **Product requirement**: documentation must be viewable in-app via `goneat docs list/show`, so curated docs are embedded into the binary.
 
-| Source (edit here) | Destination (never edit)                  |
+This repo therefore maintains **SSOT source directories** (where humans edit) and **generated embedded directories** (what Go embeds).
+
+**NEVER hand-edit files in `internal/assets/embedded*/`** — they are generated.
+
+The embedding system syncs from SOURCE (edit here) → DESTINATION (generated, embedded):
+
+| Source (edit here) | Destination (generated; do not edit)      |
 | ------------------ | ----------------------------------------- |
 | `config/`          | `internal/assets/embedded_config/config/` |
 | `templates/`       | `internal/assets/embedded_templates/`     |
 | `schemas/`         | `internal/assets/embedded_schemas/`       |
 | `docs/` (curated)  | `internal/assets/embedded_docs/`          |
 
-**Example - Adding Rust tools config:**
+**Daily workflow (the part we all hate, but is required):**
+
+- Edit files only in `config/`, `templates/`, `schemas/`, `docs/`.
+- Run `make embed-assets` to regenerate the embedded trees.
+- Commit both:
+  - the SSOT change, and
+  - the generated `internal/assets/embedded_*` changes.
+
+**Rule of thumb:** if you changed anything under `docs/`, you should expect corresponding diffs under `internal/assets/embedded_docs/` — those are part of the deliverable and should be committed.
+
+**Do NOT "clean up" diffs by restoring embedded files** if you changed SSOT sources — that breaks the guarantee that the shipped binary contains the updated content.
+
+**Build behavior:**
+
+- `make build` runs the embed sync (`embed-assets.sh`) as part of building.
+- Prefer running `make embed-assets` explicitly before commits so it’s obvious what changed.
+
+**Example (correct vs wrong):**
 
 ```bash
 # CORRECT - edit the source file:
 vim config/tools/foundation-tools-defaults.yaml
+make embed-assets
 
-# WRONG - this will be overwritten by make build:
+# WRONG - this will be overwritten and will not ship reliably:
 vim internal/assets/embedded_config/config/tools/foundation-tools-defaults.yaml
 ```
 
-**Why this matters:**
+**Release notes: special-case guidance**
 
-- `make build` runs `embed-assets.sh` which syncs source → destination
-- Any edits to `internal/assets/embedded*` are **silently overwritten**
-- The binary embeds from `internal/assets/` so changes must flow through the sync
+`docs/releases/latest.md` is intentionally embedded for `goneat docs list/show`.
 
-**Verification:**
-
-```bash
-make embed-assets  # Sync sources to embedded
-git diff           # Check which files changed
-```
-
-**Release Notes Embedding:**
-
-The `docs/releases/latest.md` file is intentionally embedded into the binary for `goneat docs list` / `goneat docs show` commands. This is by design - not every release note should be embedded, only the latest.
-
-When you see `docs/releases/latest.md` and `internal/assets/embedded_docs/docs/releases/latest.md` modified after `make build`, this is the embedding system working correctly. The content flows:
-
-1. Source: `docs/releases/latest.md` (edit here when creating new release notes)
-2. Destination: `internal/assets/embedded_docs/docs/releases/latest.md` (auto-generated)
-
-If both files show as modified in git status after a build, restore them:
+- If you are *intentionally* updating release notes: edit `docs/releases/latest.md`, run `make embed-assets`, and commit both source + embedded copies.
+- If you are *not* working on release notes and a build dirties them: restore both to keep the diff clean.
 
 ```bash
 git restore docs/releases/latest.md internal/assets/embedded_docs/docs/releases/latest.md
