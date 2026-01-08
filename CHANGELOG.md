@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.4.3] - 2026-01-08
+
+### Added
+
+- **Parallel format execution**: `goneat format` now defaults to `--strategy parallel`, providing significant speedup for large codebases
+- **Parallel schema validation**: `goneat schema validate-schema` supports `--workers N` flag (0=auto, 1=sequential) for parallel meta-validation
+- **Schema data validation subcommand**: New `goneat schema validate-data` subcommand for validating data files against JSON schemas
+- **Cached meta-schema validators**: Draft-07 and 2020-12 meta-schema validators are compiled once and reused across all files
+
+### Changed
+
+- **Format default strategy**: Changed from sequential to parallel execution for better performance on multi-core systems
+- **Deterministic validation output**: Schema validation results maintain input file order regardless of parallelism
+
+### Performance
+
+- **Format**: Parallel execution with configurable `--workers` (default auto-detects CPU count, max 8)
+- **Schema validation**: ~1.7x speedup on large schema sets (776 files: 6.77s → 3.97s with 4 workers)
+
 ## [v0.4.2] - 2026-01-03
 
 ### Added
