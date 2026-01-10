@@ -1,5 +1,6 @@
 # goneat
 
+<!-- v0.4.4 -->
 [![Release](https://img.shields.io/github/v/release/fulmenhq/goneat?display_name=tag&sort=semver&logo=github)](https://github.com/fulmenhq/goneat/releases)
 [![CI](https://github.com/fulmenhq/goneat/actions/workflows/ci.yml/badge.svg)](https://github.com/fulmenhq/goneat/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)

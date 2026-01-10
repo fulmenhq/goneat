@@ -9,15 +9,17 @@ import (
 )
 
 // ToolsDefaultsConfig represents the foundation-tools-defaults.yaml structure
+// v0.4.4+: Organized into language-specific toolchain scopes
 type ToolsDefaultsConfig struct {
 	Version         string                     `yaml:"version"`
-	FoundationTools []ToolDefinition           `yaml:"foundation_tools"`
-	SecurityTools   []ToolDefinition           `yaml:"security_tools"`
-	FormatTools     []ToolDefinition           `yaml:"format_tools"`
-	SbomTools       []ToolDefinition           `yaml:"sbom_tools"`
-	PythonTools     []ToolDefinition           `yaml:"python_tools"`
-	TypeScriptTools []ToolDefinition           `yaml:"typescript_tools"`
-	RustTools       []ToolDefinition           `yaml:"rust_tools"`
+	FoundationTools []ToolDefinition           `yaml:"foundation_tools"` // Language-agnostic tools
+	GoTools         []ToolDefinition           `yaml:"go_tools"`         // Go development tools
+	RustTools       []ToolDefinition           `yaml:"rust_tools"`       // Rust Cargo plugins
+	PythonTools     []ToolDefinition           `yaml:"python_tools"`     // Python tools (ruff)
+	TypeScriptTools []ToolDefinition           `yaml:"typescript_tools"` // TS/JS tools (biome)
+	SecurityTools   []ToolDefinition           `yaml:"security_tools"`   // Cross-language security
+	SbomTools       []ToolDefinition           `yaml:"sbom_tools"`       // SBOM generation
+	CicdTools       []ToolDefinition           `yaml:"cicd_tools"`       // Local CI/CD runners
 	Scopes          map[string]ScopeDefinition `yaml:"scopes"`
 }
 
@@ -67,12 +69,13 @@ func LoadToolsDefaultsConfig() (*ToolsDefaultsConfig, error) {
 func (c *ToolsDefaultsConfig) GetAllTools() []ToolDefinition {
 	allTools := make([]ToolDefinition, 0)
 	allTools = append(allTools, c.FoundationTools...)
-	allTools = append(allTools, c.SecurityTools...)
-	allTools = append(allTools, c.FormatTools...)
-	allTools = append(allTools, c.SbomTools...)
+	allTools = append(allTools, c.GoTools...)
+	allTools = append(allTools, c.RustTools...)
 	allTools = append(allTools, c.PythonTools...)
 	allTools = append(allTools, c.TypeScriptTools...)
-	allTools = append(allTools, c.RustTools...)
+	allTools = append(allTools, c.SecurityTools...)
+	allTools = append(allTools, c.SbomTools...)
+	allTools = append(allTools, c.CicdTools...)
 	return allTools
 }
 
@@ -228,17 +231,26 @@ func ConvertToToolsConfig(tools []ToolDefinition, scopeName string, scopeDescrip
 }
 
 // ConvertToToolsConfigWithAllScopes generates a complete tools.yaml config
-// with all standard scopes (foundation, security, format, sbom, all) populated.
+// with all standard scopes populated.
+// v0.4.4+: Uses language-specific toolchain scopes (foundation, go, rust, python, typescript, security, sbom, cicd)
 // This ensures users get a fully functional config regardless of which scope
 // they specify during init.
+//
+// When minimal=true, only the language-specific scope is included (e.g., "go" for Go projects).
+// When minimal=false, all scopes are included.
 func ConvertToToolsConfigWithAllScopes(defaultsConfig *ToolsDefaultsConfig, language string, minimal bool) *ToolsConfig {
 	config := &ToolsConfig{
 		Tools:  make(map[string]ToolConfig),
 		Scopes: make(map[string]ScopeConfig),
 	}
 
-	// Define standard scopes to generate
-	standardScopes := []string{"foundation", "security", "format", "sbom", "rust", "all"}
+	// Define standard scopes to generate (v0.4.4+ toolchain scopes)
+	standardScopes := []string{"foundation", "go", "rust", "python", "typescript", "security", "sbom", "cicd", "all"}
+
+	// In minimal mode, only include the language-specific scope
+	if minimal && language != "" && language != "unknown" {
+		standardScopes = []string{language}
+	}
 
 	// Collect all unique tools across all scopes
 	allToolDefs := make(map[string]ToolDefinition)
@@ -249,10 +261,11 @@ func ConvertToToolsConfigWithAllScopes(defaultsConfig *ToolsDefaultsConfig, lang
 			continue // Skip scopes that don't exist
 		}
 
-		// Filter by language
+		// In non-minimal mode, filter by language for universal tool compatibility
 		var filteredTools []ToolDefinition
 		if minimal {
-			filteredTools = GetMinimalToolsForLanguage(scopeTools, language)
+			// In minimal mode, include all tools from the language-specific scope
+			filteredTools = scopeTools
 		} else {
 			filteredTools = FilterToolsByLanguage(scopeTools, language)
 		}

@@ -7,20 +7,23 @@ import (
 
 // installerKinds mirrors the internal installerKindLookup for validation purposes.
 var installerKinds = map[string]bool{
-	"bun":        true,
-	"mise":       true,
-	"brew":       true,
-	"scoop":      true,
-	"winget":     true,
-	"pacman":     true,
-	"apt":        true,
-	"apt-get":    true,
-	"dnf":        true,
-	"yum":        true,
-	"npm":        true,
-	"go-install": true,
-	"manual":     true,
-	"builtin":    true,
+	"bun":           true,
+	"mise":          true,
+	"brew":          true,
+	"scoop":         true,
+	"winget":        true,
+	"pacman":        true,
+	"apt":           true,
+	"apt-get":       true,
+	"dnf":           true,
+	"yum":           true,
+	"npm":           true,
+	"go-install":    true,
+	"cargo-install": true, // v0.4.4+: Rust tools via cargo install
+	"uv":            true, // v0.4.4+: Python tools via uv
+	"pip":           true, // v0.4.4+: Python tools via pip
+	"manual":        true,
+	"builtin":       true,
 }
 
 // TestDefaultConfigInstallability ensures the repo's default tools.yaml declares at least one installer

@@ -308,11 +308,12 @@ func writeAggregateProvenance(provenance *Provenance, outputPath string, dryRun 
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	// Marshal to JSON
+	// Marshal to JSON with trailing newline for formatter compatibility
 	data, err := json.MarshalIndent(provenance, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
+	data = append(data, '\n')
 
 	// Write with secure permissions
 	if err := os.WriteFile(outputPath, data, 0600); err != nil {
@@ -396,6 +397,11 @@ func writePerSourceMirror(source *SourceMetadata, format string, sourceConfig *S
 
 	if err != nil {
 		return fmt.Errorf("failed to marshal %s: %w", format, err)
+	}
+
+	// Ensure trailing newline for formatter compatibility
+	if len(data) > 0 && data[len(data)-1] != '\n' {
+		data = append(data, '\n')
 	}
 
 	if err := os.WriteFile(mirrorPath, data, 0600); err != nil {

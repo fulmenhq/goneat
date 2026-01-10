@@ -1,3 +1,112 @@
+# Goneat v0.4.4 — Rust Dependency Analysis via cargo-deny
+
+**Release Date**: 2026-01-09
+**Status**: Stable
+
+## TL;DR
+
+- **Rust license checking**: `goneat dependencies --licenses` now works for Rust projects
+- **cargo-deny integration**: License compliance and banned crate detection via cargo-deny
+- **Cargo tool installer**: `kind: cargo` support in tools.yaml for installing Rust tools
+- **Toolchain scopes**: Language-specific tool scopes (`go`, `rust`, `python`, `typescript`)
+- **Smart guidance**: Helpful messages when cargo-deny is not installed
+- **SSOT fix**: Provenance files now include trailing newlines (prevents format diffs in downstream repos)
+
+## What Changed
+
+### Rust Dependency Analysis
+
+`goneat dependencies --licenses` now supports Rust projects via cargo-deny:
+
+```bash
+# Analyze Rust project licenses
+cd my-rust-project
+goneat dependencies --licenses
+
+# JSON output for CI integration
+goneat dependencies --licenses --format json
+```
+
+**Detection & Guidance**: When a Rust project is detected but cargo-deny is not available:
+
+```
+Rust project detected but cargo-deny not installed.
+
+To set up Rust dependency checking:
+  1. Install cargo-deny: cargo install cargo-deny
+  2. Initialize config:  cargo deny init
+  3. Learn more:         goneat docs show user-guide/rust/dependencies
+```
+
+### Severity Mapping
+
+| Finding Type | Severity | Example |
+|--------------|----------|---------|
+| License violation | high | Unlicensed crate, GPL in MIT project |
+| Banned crate | medium | Duplicate versions, denied crate |
+| Informational | low | "license-not-encountered" warnings |
+
+### Cargo Tool Installer
+
+New `kind: cargo` in tools.yaml schema enables installing Rust tools:
+
+```yaml
+tools:
+  cargo-deny:
+    name: cargo-deny
+    description: License and dependency checking for Rust
+    kind: cargo
+    detect_command: cargo deny --version
+    install_package: cargo-deny
+    minimum_version: 0.14.0
+```
+
+Install via: `goneat doctor tools --scope rust --install --yes`
+
+### Toolchain Scopes
+
+Tools are now organized into language-specific scopes instead of mixing everything in `foundation`:
+
+| Scope | Purpose | Key Tools |
+|-------|---------|-----------|
+| `foundation` | Language-agnostic | ripgrep, jq, yq, yamlfmt, prettier, yamllint, shfmt, shellcheck, actionlint, checkmake, minisign |
+| `go` | Go development | go, go-licenses, golangci-lint, goimports, gofmt, gosec, govulncheck |
+| `rust` | Rust Cargo plugins | cargo-deny, cargo-audit |
+| `python` | Python tools | ruff (replaces black/flake8/isort) |
+| `typescript` | TS/JS tools | biome (replaces eslint/prettier for TS/JS/JSON) |
+
+**Usage examples:**
+
+```bash
+# Go project
+goneat doctor tools --scope foundation,go --install --yes
+
+# Rust project
+goneat doctor tools --scope foundation,rust --install --yes
+
+# Polyglot project (like goneat itself)
+goneat doctor tools --scope foundation,go,rust,python,typescript --install --yes
+```
+
+**Why prettier stays in foundation**: It's our only Markdown formatter - every repo has README.md/docs. For TypeScript projects, biome handles TS/JS/JSON formatting (faster than prettier+eslint).
+
+### Implementation Notes
+
+Several cargo-deny integration quirks were discovered and documented:
+
+1. **Argument order**: `--format json` must come BEFORE `check` subcommand
+2. **STDERR output**: cargo-deny outputs JSON to stderr (intentional design)
+3. **NDJSON format**: Output is newline-delimited JSON with nested `fields` object
+4. **Informational codes**: "license-not-encountered" is informational, not a violation
+
+See `pkg/dependencies/cargo_deny.go` for detailed comments.
+
+### Bug Fixes
+
+- **SSOT provenance trailing newline**: `goneat ssot sync` now writes provenance.json and metadata mirrors with trailing newlines, preventing format diffs when downstream repos run formatters after sync.
+
+---
+
 # Goneat v0.4.3 — Parallel Execution for Format & Schema Validation
 
 **Release Date**: 2026-01-08
@@ -92,128 +201,6 @@ For small file sets (<200 files), parallelization overhead roughly equals gains�
 
 - **Lint integration**: `cargo-clippy` runs as part of `goneat assess --categories lint` when available, mapping clippy warnings to medium severity.
 - **Doctor scope**: `goneat doctor tools --scope rust` now surfaces manual install commands for `cargo-deny` and `cargo-audit` (cargo install with `--locked`).
-
----
-
-# Goneat v0.4.1 — Explicit Incremental Lint Checking
-
-**Release Date**: 2026-01-02
-**Status**: Stable
-
-## TL;DR
-
-- **New flags**: `--new-issues-only` and `--new-issues-base` for incremental lint checking
-- **Behavior change**: Hook mode no longer implicitly applies incremental checking
-- **Tool support**: golangci-lint and biome integration for incremental mode
-
-## What Changed
-
-### Explicit Incremental Lint Checking
-
-New flags for `goneat assess` enable opt-in incremental lint checking:
-
-| Flag                | Default | Description                             |
-| ------------------- | ------- | --------------------------------------- |
-| `--new-issues-only` | `false` | Only report issues since base reference |
-| `--new-issues-base` | `HEAD~` | Git reference for baseline comparison   |
-
-```bash
-# Report only NEW lint issues since previous commit
-goneat assess --categories lint --new-issues-only
-
-# Report only NEW issues since main branch
-goneat assess --categories lint --new-issues-only --new-issues-base main
-```
-
-### Tool Support
-
-| Tool          | Language | Native Flag             |
-| ------------- | -------- | ----------------------- |
-| golangci-lint | Go       | `--new-from-rev REF`    |
-| biome         | JS/TS    | `--changed --since=REF` |
-
-### Hook Mode Behavior Change
-
-**Before v0.4.1**: Hook mode implicitly applied `--lint-new-from-rev HEAD~`, reporting only new issues.
-
-**After v0.4.1**: Hook mode reports ALL lint issues by default (consistent with direct assess).
-
-**To restore previous behavior**, add `--new-issues-only` to your `.goneat/hooks.yaml`:
-
-```yaml
-hooks:
-  pre-commit:
-    - command: assess
-      args:
-        [
-          "--categories",
-          "format,lint",
-          "--fail-on",
-          "high",
-          "--new-issues-only",
-        ]
-```
-
-## Upgrade Notes
-
-### From v0.4.0
-
-**Behavioral change**: If your hooks relied on implicit incremental checking, you may see more lint issues after upgrading. This is intentional—incremental checking is now opt-in.
-
-**Migration**: Add `--new-issues-only` to hooks.yaml if you want incremental behavior.
-
-## Documentation
-
-- **Appnote**: `docs/appnotes/assess/incremental-lint-checking.md`
-- **Assess flags**: `docs/user-guide/commands/assess.md`
-- **Hooks config**: `docs/user-guide/commands/hooks.md`
-
----
-
-# Goneat v0.4.0 — Language-Aware Assessment for Python & JavaScript/TypeScript
-
-**Release Date**: 2025-12-31
-**Status**: Stable
-
-## TL;DR
-
-- **Python support**: lint and format via [ruff](https://docs.astral.sh/ruff/)
-- **JavaScript/TypeScript support**: lint and format via [biome](https://biomejs.dev/)
-- **Tool-present gating**: gracefully skip tools that aren't installed
-- **Role-based agentic attribution**: simplified AI collaboration model
-
-## What Changed
-
-### Language-Aware Assessment
-
-Goneat now provides **polyglot assessment** with automatic tool detection:
-
-| Language                  | Lint | Format | Tool  | Install              |
-| ------------------------- | ---- | ------ | ----- | -------------------- |
-| **Python**                | ✅   | ✅     | ruff  | `brew install ruff`  |
-| **JavaScript/TypeScript** | ✅   | ✅     | biome | `brew install biome` |
-
-Tool-present gating: goneat gracefully skips tools that aren't installed.
-
-```bash
-goneat assess --categories lint,format
-```
-
-### Agentic Attribution v2
-
-Migrated to role-based attribution (devlead, secrev, releng) per [3leaps crucible](https://crucible.3leaps.dev/).
-
----
-
-# Goneat v0.3.25 — Checkmake Makefile Discovery Fix
-
-**Release Date**: 2025-12-27
-**Status**: Stable
-
-## TL;DR
-
-- **Makefile linting works by default**: checkmake now reliably runs on root-level `Makefile` targets
-- **Release upload homedir**: `make release-upload` honors `GONEAT_GPG_HOMEDIR`
 
 ---
 

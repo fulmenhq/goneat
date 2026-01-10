@@ -5,7 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+> **Note**: This changelog keeps the latest 10 releases for readability. For older releases, see `docs/releases/` archive.
+
 ## [Unreleased]
+
+## [v0.4.4] - 2026-01-09
+
+### Added
+
+- **Rust dependency analysis**: `goneat dependencies --licenses` now works for Rust projects via cargo-deny integration
+  - Detects Rust projects (Cargo.toml) and runs cargo-deny license/bans checks
+  - Smart guidance when cargo-deny not installed (install instructions, docs link)
+  - Shared runner in `pkg/dependencies/cargo_deny.go` (reusable by assess path)
+  - Proper severity mapping: license violations → high, bans → medium, informational → low
+
+- **Cargo tool installer**: `kind: cargo` support in tools.yaml schema
+  - Install Rust tools via `cargo install <package>` (e.g., cargo-deny)
+  - New `cargo-install` installer type in doctor tools infrastructure
+  - Pattern updated to allow packages without @version suffix
+
+- **Toolchain scopes**: Reorganized tools into language-specific scopes
+  - `foundation`: Language-agnostic tools (ripgrep, jq, yq, yamlfmt, prettier, yamllint, shfmt, shellcheck, actionlint, checkmake, minisign)
+  - `go`: Go development tools (go, go-licenses, golangci-lint, goimports, gofmt, gosec, govulncheck)
+  - `rust`: Rust Cargo plugins (cargo-deny, cargo-audit)
+  - `python`: Python tools (ruff - replaces black/flake8/isort)
+  - `typescript`: TypeScript/JavaScript tools (biome - replaces eslint/prettier for TS)
+  - Usage: `goneat doctor tools --scope foundation,go --install --yes`
+
+### Fixed
+
+- **cargo-deny JSON output**: Fixed multiple integration issues discovered during testing
+  - Argument order: `--format json` must precede `check` subcommand
+  - STDERR output: cargo-deny outputs JSON to stderr, not stdout (documented behavior)
+  - NDJSON parsing: Handle `type: "diagnostic"` entries with nested `fields` object
+  - Severity mapping: "license-not-encountered" is informational (low), not a violation (high)
+
+- **SSOT provenance trailing newline**: `goneat ssot sync` now writes provenance.json and metadata mirrors with trailing newlines
+  - Prevents format diffs when downstream repos run formatters after ssot sync
+  - Affects both aggregate provenance (.goneat/ssot/provenance.json) and per-source mirrors
 
 ## [v0.4.3] - 2026-01-08
 

@@ -1,20 +1,30 @@
 version: v1.0.0
 # Foundation Tools Defaults
 # These tools can be seeded into .goneat/tools.yaml via `goneat doctor tools init`
-# Organized by category with package manager preferences per platform
+# Organized by scope with package manager preferences per platform
 #
-# Package Manager Strategy (v0.3.10+):
+# Scope Strategy (v0.4.4+):
+# - foundation: Language-agnostic tools everyone needs
+# - go/rust/python/typescript: Language-specific toolchains
+# - security: Cross-language security tools
+# - sbom: Software Bill of Materials
+# - cicd: Local CI/CD runners
+#
+# Package Manager Strategy:
 # - brew: Primary for system binaries on darwin/linux (user-mode install supported)
 # - scoop/winget: Primary for Windows
 # - go-install: Primary for Go tools (no package manager needed)
+# - cargo-install: Primary for Rust tools
 # - bun/npm: For Node.js packages only
 # - uv/pip: For Python packages only
-#
-# Note: mise was removed - it's a version manager, not a general package manager
+
+# =============================================================================
+# FOUNDATION SCOPE - Language-agnostic tools for ALL projects
+# =============================================================================
 foundation_tools:
-  # System CLI tools - use brew (supports user-mode install)
+  # CLI utilities
   - name: ripgrep
-    description: "Fast text search - used by goneat for license auditing"
+    description: "Fast text search - used by goneat for content scanning"
     kind: "system"
     detect_command: "rg --version"
     platforms: ["darwin", "linux", "windows"]
@@ -23,6 +33,7 @@ foundation_tools:
       linux: ["brew"]
       windows: ["scoop", "winget"]
     auto_install_safe: true
+
   - name: jq
     description: "JSON processor - used in CI/CD scripts"
     kind: "system"
@@ -33,6 +44,7 @@ foundation_tools:
       linux: ["brew"]
       windows: ["scoop", "winget"]
     auto_install_safe: true
+
   - name: yq
     description: "YAML processor"
     kind: "system"
@@ -43,6 +55,90 @@ foundation_tools:
       linux: ["brew"]
       windows: ["scoop", "winget"]
     auto_install_safe: true
+
+  # Formatters (cross-language)
+  - name: yamlfmt
+    description: "YAML formatter"
+    kind: "go"
+    detect_command: "yamlfmt --version"
+    install_package: "github.com/google/yamlfmt/cmd/yamlfmt@latest"
+    version_args: ["--version"]
+    check_args: ["--help"]
+    package_managers:
+      all: ["go-install"]
+    auto_install_safe: true
+
+  # NOTE: prettier is in foundation because it's our ONLY Markdown formatter.
+  # Every repo has README.md, docs/, etc. that need formatting.
+  # For TypeScript/JavaScript projects, biome handles TS/JS/JSON formatting.
+  # prettier in foundation handles: Markdown (.md) and legacy JSON if biome not present.
+  - name: prettier
+    description: "Markdown formatter (foundation scope for docs)"
+    kind: "node"
+    detect_command: "prettier --version"
+    package_managers:
+      darwin: ["brew"]
+      linux: ["brew"]
+      windows: ["bun", "npm"]
+    auto_install_safe: true
+
+  # Linters (cross-language)
+  - name: yamllint
+    description: "YAML syntax linting"
+    kind: "system"
+    detect_command: "yamllint --version"
+    platforms: ["darwin", "linux", "windows"]
+    package_managers:
+      darwin: ["brew"]
+      linux: ["brew"]
+      windows: ["scoop"]
+    auto_install_safe: true
+
+  - name: shfmt
+    description: "Shell script formatter"
+    kind: "go"
+    detect_command: "shfmt -version"
+    install_package: "mvdan.cc/sh/v3/cmd/shfmt@latest"
+    version_args: ["-version"]
+    check_args: ["-version"]
+    package_managers:
+      all: ["go-install"]
+    auto_install_safe: true
+
+  - name: shellcheck
+    description: "Shell script analyzer"
+    kind: "system"
+    detect_command: "shellcheck --version"
+    platforms: ["darwin", "linux", "windows"]
+    package_managers:
+      darwin: ["brew"]
+      linux: ["brew"]
+      windows: ["scoop", "winget"]
+    auto_install_safe: true
+
+  - name: actionlint
+    description: "GitHub Actions workflow linter"
+    kind: "go"
+    detect_command: "actionlint -version"
+    install_package: "github.com/rhysd/actionlint/cmd/actionlint@latest"
+    version_args: ["-version"]
+    check_args: ["-help"]
+    package_managers:
+      all: ["go-install"]
+    auto_install_safe: true
+
+  - name: checkmake
+    description: "Makefile linter"
+    kind: "go"
+    detect_command: "checkmake -v"
+    install_package: "github.com/mrtazz/checkmake@latest"
+    version_args: ["-v"]
+    check_args: ["-h"]
+    package_managers:
+      all: ["go-install"]
+    auto_install_safe: true
+
+  # Signing
   - name: minisign
     description: "Minimal signing utility for release artifacts"
     kind: "system"
@@ -53,8 +149,13 @@ foundation_tools:
       linux: ["brew"]
       windows: ["scoop"]
     auto_install_safe: true
+
+# =============================================================================
+# GO SCOPE - Go development tools
+# =============================================================================
+go_tools:
   - name: go
-    description: "Go toolchain - required for Go projects"
+    description: "Go toolchain"
     kind: "system"
     detect_command: "go version"
     platforms: ["darwin", "linux", "windows"]
@@ -63,22 +164,20 @@ foundation_tools:
       linux: ["brew"]
       windows: ["scoop", "winget"]
     auto_install_safe: true
-    required_for_languages: ["go"]
     version_scheme: "semver"
     minimum_version: "1.21.0"
-    recommended_version: "1.22.0"
-  # Go-installable tools - use go-install (native, no package manager needed)
+    recommended_version: "1.23.0"
+
   - name: go-licenses
     description: "License compliance for Go dependencies"
     kind: "go"
     detect_command: "go-licenses -h"
     install_package: "github.com/google/go-licenses@latest"
-    version_args: []
     check_args: ["-h"]
     package_managers:
       all: ["go-install"]
     auto_install_safe: true
-    required_for_languages: ["go"]
+
   - name: golangci-lint
     description: "Fast linters runner for Go"
     kind: "go"
@@ -89,73 +188,29 @@ foundation_tools:
     package_managers:
       all: ["go-install"]
     auto_install_safe: true
-    required_for_languages: ["go"]
     version_scheme: "semver"
     minimum_version: "2.0.0"
     recommended_version: "2.4.0"
-  - name: yamlfmt
-    description: "YAML formatter and linter"
+
+  - name: goimports
+    description: "Go import formatter"
     kind: "go"
-    detect_command: "yamlfmt --version"
-    install_package: "github.com/google/yamlfmt/cmd/yamlfmt@latest"
-    version_args: ["--version"]
-    check_args: ["--help"]
-    package_managers:
-      all: ["go-install"]
-    auto_install_safe: true
-  - name: yamllint
-    description: "YAML syntax linting (GPL) - install only, never embedded"
-    kind: "system"
-    detect_command: "yamllint --version"
-    platforms: ["darwin", "linux", "windows"]
-    package_managers:
-      darwin: ["brew"]
-      linux: ["brew"]
-      windows: ["scoop"]
-    auto_install_safe: true
-  - name: shfmt
-    description: "Shell formatter (permissive license)"
-    kind: "go"
-    detect_command: "shfmt -version"
-    install_package: "mvdan.cc/sh/v3/cmd/shfmt@latest"
-    version_args: ["-version"]
-    check_args: ["-version"]
-    package_managers:
-      all: ["go-install"]
-    auto_install_safe: true
-  - name: actionlint
-    description: "GitHub Actions workflow linter (permissive license)"
-    kind: "go"
-    detect_command: "actionlint -version"
-    install_package: "github.com/rhysd/actionlint/cmd/actionlint@latest"
-    version_args: ["-version"]
-    check_args: ["-help"]
-    package_managers:
-      all: ["go-install"]
-    auto_install_safe: true
-  - name: checkmake
-    description: "Makefile linter (permissive license)"
-    kind: "go"
-    detect_command: "checkmake -v"
-    install_package: "github.com/mrtazz/checkmake@latest"
-    version_args: ["-v"]
+    detect_command: "goimports -h"
+    install_package: "golang.org/x/tools/cmd/goimports@latest"
     check_args: ["-h"]
     package_managers:
       all: ["go-install"]
     auto_install_safe: true
-  - name: shellcheck
-    description: "Shell script analyzer (GPL) - verify-only, opt-in"
-    kind: "system"
-    detect_command: "shellcheck --version"
-    platforms: ["darwin", "linux", "windows"]
+
+  - name: gofmt
+    description: "Go formatter (bundled with Go toolchain)"
+    kind: "bundled-go"
+    detect_command: "gofmt -h"
+    check_args: ["-h"]
     package_managers:
-      darwin: ["brew"]
-      linux: ["brew"]
-      windows: ["scoop", "winget"]
-    auto_install_safe: false
-    verify_only: true
-# Security tools (Go-based, use go-install)
-security_tools:
+      all: ["builtin"]
+    auto_install_safe: true
+
   - name: gosec
     description: "Go security checker"
     kind: "go"
@@ -166,7 +221,7 @@ security_tools:
     package_managers:
       all: ["go-install"]
     auto_install_safe: true
-    required_for_languages: ["go"]
+
   - name: govulncheck
     description: "Go vulnerability checker"
     kind: "go"
@@ -177,9 +232,81 @@ security_tools:
     package_managers:
       all: ["go-install"]
     auto_install_safe: true
-    required_for_languages: ["go"]
+
+# =============================================================================
+# RUST SCOPE - Rust development tools
+# =============================================================================
+# Note: Rust toolchain (cargo, rustc, rustfmt, clippy) is installed via rustup.
+# goneat only manages Cargo plugins that extend the toolchain.
+rust_tools:
+  - name: cargo-deny
+    description: "Rust dependency license, advisory, and ban checks"
+    kind: "cargo"
+    detect_command: "cargo deny --version"
+    install_package: "cargo-deny"
+    version_args: ["deny", "--version"]
+    check_args: ["deny", "--help"]
+    package_managers:
+      all: ["cargo-install"]
+    auto_install_safe: true
+    version_scheme: "semver"
+    minimum_version: "0.14.0"
+    recommended_version: "0.16.0"
+
+  - name: cargo-audit
+    description: "Rust security vulnerability scanner (RustSec advisories)"
+    kind: "cargo"
+    detect_command: "cargo audit --version"
+    install_package: "cargo-audit"
+    version_args: ["audit", "--version"]
+    check_args: ["audit", "--help"]
+    package_managers:
+      all: ["cargo-install"]
+    auto_install_safe: true
+    version_scheme: "semver"
+    minimum_version: "0.18.0"
+    recommended_version: "0.21.0"
+
+# =============================================================================
+# PYTHON SCOPE - Python development tools
+# =============================================================================
+# Note: Python toolchain is installed separately (pyenv, system python, etc.)
+# ruff replaces black, flake8, isort - handles both linting AND formatting
+python_tools:
+  - name: ruff
+    description: "Fast Python linter and formatter (replaces black, flake8, isort)"
+    kind: "python"
+    detect_command: "ruff --version"
+    package_managers:
+      all: ["uv", "pip"]
+    auto_install_safe: true
+
+# =============================================================================
+# TYPESCRIPT SCOPE - TypeScript/JavaScript development tools
+# =============================================================================
+# Note: Node.js toolchain is installed separately (nvm, fnm, system node, etc.)
+# biome is our opinionated choice for TS/JS - handles linting AND formatting
+# for TypeScript, JavaScript, AND JSON files. Faster than prettier+eslint.
+typescript_tools:
+  - name: biome
+    description: "TypeScript/JavaScript/JSON linter and formatter (replaces eslint+prettier for TS)"
+    kind: "node"
+    detect_command: "biome --version"
+    package_managers:
+      darwin: ["brew"]
+      linux: ["brew"]
+      windows: ["bun", "npm"]
+    auto_install_safe: true
+
+# =============================================================================
+# SECURITY SCOPE - Cross-language security tools
+# =============================================================================
+# Language-specific security tools (gosec, govulncheck, cargo-audit) stay in
+# their respective language scopes. This scope is for tools that work across
+# all languages.
+security_tools:
   - name: gitleaks
-    description: "Git secrets scanner"
+    description: "Git secrets scanner (all repositories)"
     kind: "go"
     detect_command: "gitleaks version"
     install_package: "github.com/zricethezav/gitleaks/v8@latest"
@@ -188,30 +315,10 @@ security_tools:
     package_managers:
       all: ["go-install"]
     auto_install_safe: true
-# Format tools (Go-based, use go-install)
-format_tools:
-  - name: goimports
-    description: "Go import formatter"
-    kind: "go"
-    detect_command: "goimports -h"
-    install_package: "golang.org/x/tools/cmd/goimports@latest"
-    version_args: []
-    check_args: ["-h"]
-    package_managers:
-      all: ["go-install"]
-    auto_install_safe: true
-    required_for_languages: ["go"]
-  - name: gofmt
-    description: "Go formatter (bundled with Go toolchain)"
-    kind: "bundled-go"
-    detect_command: "gofmt -h"
-    version_args: []
-    check_args: ["-h"]
-    package_managers:
-      all: ["builtin"]
-    auto_install_safe: true
-    required_for_languages: ["go"]
-# SBOM tools (software bill of materials)
+
+# =============================================================================
+# SBOM SCOPE - Software Bill of Materials
+# =============================================================================
 sbom_tools:
   - name: syft
     description: "SBOM generator for software supply chain security"
@@ -223,27 +330,27 @@ sbom_tools:
     package_managers:
       darwin: ["brew"]
       linux: ["brew"]
-      windows: ["scoop"] # scoop install main/syft
+      windows: ["scoop"]
     auto_install_safe: true
-# CI/CD local runner tools (optional - separate scope from foundation)
-# Enables local GitHub Actions testing via nektos/act
+
+# =============================================================================
+# CICD SCOPE - Local CI/CD runner tools (optional)
+# =============================================================================
 cicd_tools:
   - name: docker
-    description: "Docker-compatible runtime (Docker Desktop, Rancher Desktop, or Colima) - verify only"
+    description: "Docker-compatible runtime - verify only (never auto-installed)"
     kind: "system"
     detect_command: "docker info"
     platforms: ["darwin", "linux", "windows"]
     version_args: ["--version"]
     check_args: ["info"]
     package_managers:
-      all: [] # Verify only - never auto-install due to licensing/complexity
+      all: []
     auto_install_safe: false
     verify_only: true
-    # Alternatives to Docker Desktop:
-    # - Colima (recommended): brew install colima && colima start
-    # - Rancher Desktop: Use dockerd runtime, not containerd
+
   - name: act
-    description: "Run GitHub Actions locally (requires docker-compatible runtime)"
+    description: "Run GitHub Actions locally (requires docker)"
     kind: "system"
     detect_command: "act --version"
     platforms: ["darwin", "linux", "windows"]
@@ -255,151 +362,101 @@ cicd_tools:
       windows: ["scoop", "winget"]
     auto_install_safe: true
     prerequisites: ["docker"]
-# Python tools (use uv/pip)
-python_tools:
-  - name: ruff
-    description: "Fast Python linter and formatter"
-    kind: "python"
-    detect_command: "ruff --version"
-    package_managers:
-      all: ["uv", "pip"]
-    auto_install_safe: true
-    required_for_languages: ["python"]
-  - name: black
-    description: "Python code formatter"
-    kind: "python"
-    detect_command: "black --version"
-    package_managers:
-      all: ["uv", "pip"]
-    auto_install_safe: true
-    required_for_languages: ["python"]
-# Rust tools (verify-only in v0.4.x; cargo-install support planned for v0.5.0)
-# Install manually: cargo install <tool> --locked
-rust_tools:
-  - name: cargo-deny
-    description: "Rust dependency license, advisory, and ban checks"
-    kind: "system"
-    detect_command: "cargo deny --version"
-    platforms: ["darwin", "linux", "windows"]
-    version_args: ["--version"]
-    check_args: ["--help"]
-    install_commands:
-      manual: "cargo install cargo-deny --locked"
-    installer_priority:
-      all: ["manual"]
-    package_managers:
-      all: []
-    auto_install_safe: false
-    verify_only: true
-    required_for_languages: ["rust"]
-    version_scheme: "semver"
-    minimum_version: "0.14.0"
-    recommended_version: "0.16.0"
-  - name: cargo-audit
-    description: "Rust security vulnerability scanner (RustSec advisories)"
-    kind: "system"
-    detect_command: "cargo audit --version"
-    platforms: ["darwin", "linux", "windows"]
-    version_args: ["--version"]
-    check_args: ["--help"]
-    install_commands:
-      manual: "cargo install cargo-audit --locked"
-    installer_priority:
-      all: ["manual"]
-    package_managers:
-      all: []
-    auto_install_safe: false
-    verify_only: true
-    required_for_languages: ["rust"]
-    version_scheme: "semver"
-    minimum_version: "0.18.0"
-    recommended_version: "0.21.0"
-# TypeScript/Node tools
-typescript_tools:
-  - name: prettier
-    description: "Opinionated code formatter"
-    kind: "node"
-    detect_command: "prettier --version"
-    package_managers:
-      # brew can install prettier on darwin/linux, bun on windows
-      darwin: ["brew"]
-      linux: ["brew"]
-      windows: ["bun", "npm"]
-    auto_install_safe: true
-    # Note: prettier is also in foundation scope for YAML/markdown formatting
-  - name: eslint
-    description: "JavaScript/TypeScript linter"
-    kind: "node"
-    detect_command: "eslint --version"
-    package_managers:
-      # eslint is TypeScript-specific, use bun/npm (only installed for TS repos)
-      all: ["bun", "npm"]
-    auto_install_safe: true
-    required_for_languages: ["typescript"]
-# Scopes define which tools to include for each scope
+
+# =============================================================================
+# SCOPE DEFINITIONS
+# =============================================================================
 scopes:
-  bootstrap:
-    description: "Minimal package managers for CI/CD bootstrap"
-    # No tools yet - package managers install via auto-install logic
-    # Tools will be installed in subsequent steps
   foundation:
-    description: "Core foundation tools required for goneat and basic AI agent operation"
+    description: "Language-agnostic tools for all projects"
     tools:
       - ripgrep
       - jq
       - yq
-      - minisign
-      - go # Only if Go repo detected
-      - go-licenses # Only if Go repo detected
-      - golangci-lint # Only if Go repo detected
       - yamlfmt
+      - prettier      # Markdown formatter (only one we have)
       - yamllint
-      - prettier # Used by goneat format for markdown, JSON, YAML
-  security:
-    description: "Security scanning tools"
-    tools:
-      - gosec
-      - govulncheck
-      - gitleaks
-  format:
-    description: "Code formatting tools"
-    tools:
-      - goimports
-      - gofmt
-  sbom:
-    description: "Software Bill of Materials (SBOM) generation tools"
-    tools:
-      - syft
-  cicd:
-    description: "Local CI/CD runner tools (optional) - run GitHub Actions locally"
-    tools:
-      - docker # verify-only prerequisite
-      - act # installable via package managers
-  rust:
-    description: "Rust development and security tools"
-    tools:
-      - cargo-deny
-      - cargo-audit
-  all:
-    description: "All tools from all scopes"
-    tools:
-      - ripgrep
-      - jq
-      - yq
+      - shfmt
+      - shellcheck
+      - actionlint
+      - checkmake
       - minisign
+
+  go:
+    description: "Go development tools"
+    tools:
       - go
       - go-licenses
       - golangci-lint
-      - yamlfmt
-      - yamllint
-      - prettier
-      - gosec
-      - govulncheck
-      - gitleaks
       - goimports
       - gofmt
-      - syft
+      - gosec
+      - govulncheck
+
+  rust:
+    description: "Rust development tools (Cargo plugins)"
+    tools:
       - cargo-deny
       - cargo-audit
+
+  python:
+    description: "Python development tools"
+    tools:
+      - ruff
+
+  typescript:
+    description: "TypeScript/JavaScript development tools"
+    tools:
+      - biome
+
+  security:
+    description: "Cross-language security scanning"
+    tools:
+      - gitleaks
+
+  sbom:
+    description: "Software Bill of Materials (SBOM) generation"
+    tools:
+      - syft
+
+  cicd:
+    description: "Local CI/CD runner tools (optional)"
+    tools:
       - docker
       - act
+
+  all:
+    description: "All tools from all scopes (for polyglot projects)"
+    tools:
+      # foundation
+      - ripgrep
+      - jq
+      - yq
+      - yamlfmt
+      - prettier
+      - yamllint
+      - shfmt
+      - shellcheck
+      - actionlint
+      - checkmake
+      - minisign
+      # go
+      - go
+      - go-licenses
+      - golangci-lint
+      - goimports
+      - gofmt
+      - gosec
+      - govulncheck
+      # rust
+      - cargo-deny
+      - cargo-audit
+      # python
+      - ruff
+      # typescript
+      - biome
+      # security
+      - gitleaks
+      # sbom
+      - syft
+      # Note: cicd tools excluded from 'all' - they require manual setup

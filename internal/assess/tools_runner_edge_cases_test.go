@@ -59,11 +59,12 @@ func TestToolsRunner_Assess_WithMetrics(t *testing.T) {
 	}
 
 	// tools_checked should be reasonable number
+	// v0.4.4+: foundation scope has 11 tools; increased threshold to 15
 	if toolsChecked, ok := result.Metrics["tools_checked"].(int); ok {
 		if toolsChecked <= 0 {
 			t.Error("tools_checked should be positive")
 		}
-		if toolsChecked > 10 { // Should not have too many foundation tools
+		if toolsChecked > 15 { // Should not have too many foundation tools
 			t.Errorf("tools_checked seems too high: %d", toolsChecked)
 		}
 	}

@@ -23,8 +23,8 @@ func TestLoadToolsDefaultsConfig(t *testing.T) {
 		t.Error("No scopes defined")
 	}
 
-	// Verify expected scopes
-	expectedScopes := []string{"foundation", "security", "format", "rust", "all"}
+	// Verify expected scopes (v0.4.4+ toolchain scopes)
+	expectedScopes := []string{"foundation", "go", "rust", "python", "typescript", "security", "sbom", "cicd", "all"}
 	for _, scope := range expectedScopes {
 		if _, exists := config.Scopes[scope]; !exists {
 			t.Errorf("Expected scope %s not found", scope)
@@ -41,8 +41,10 @@ func TestGetAllTools(t *testing.T) {
 
 	allTools := config.GetAllTools()
 
-	// Should have tools from all categories
-	expectedMinimum := len(config.FoundationTools) + len(config.SecurityTools) + len(config.FormatTools)
+	// Should have tools from all categories (v0.4.4+: foundation, go, rust, python, typescript, security, sbom, cicd)
+	expectedMinimum := len(config.FoundationTools) + len(config.GoTools) + len(config.RustTools) +
+		len(config.PythonTools) + len(config.TypeScriptTools) + len(config.SecurityTools) +
+		len(config.SbomTools) + len(config.CicdTools)
 	if len(allTools) < expectedMinimum {
 		t.Errorf("Expected at least %d tools, got %d", expectedMinimum, len(allTools))
 	}
@@ -81,11 +83,14 @@ func TestGetToolsForScope(t *testing.T) {
 		expectError bool
 		minTools    int
 	}{
-		{"foundation", false, 5},
-		{"security", false, 2},
-		{"format", false, 2},
-		{"rust", false, 2},
-		{"all", false, 10},
+		{"foundation", false, 5},  // Language-agnostic tools
+		{"go", false, 5},          // Go toolchain
+		{"rust", false, 2},        // Cargo plugins
+		{"python", false, 1},      // ruff
+		{"typescript", false, 1},  // biome
+		{"security", false, 1},    // gitleaks (cross-language)
+		{"sbom", false, 1},        // syft
+		{"all", false, 15},        // All tools
 		{"nonexistent", true, 0},
 	}
 
@@ -121,38 +126,43 @@ func TestFilterToolsByLanguage(t *testing.T) {
 		t.Fatalf("Failed to load config: %v", err)
 	}
 
+	// v0.4.4+: The new scope-based structure doesn't use required_for_languages on individual tools.
+	// Language filtering now works via scopes (e.g., "go" scope, "rust" scope).
+	// This test verifies the scope-based filtering approach.
 	tests := []struct {
-		language   string
-		expectTool string // Tool we expect to be included
-		dontExpect string // Tool we expect to be excluded
+		scope      string
+		expectTool string // Tool we expect to be in this scope
+		dontExpect string // Tool we expect NOT to be in this scope
 	}{
 		{
-			language:   "go",
-			expectTool: "go",
+			scope:      "go",
+			expectTool: "golangci-lint",
 			dontExpect: "ruff", // Python tool
 		},
 		{
-			language:   "python",
+			scope:      "python",
 			expectTool: "ruff",
 			dontExpect: "golangci-lint", // Go tool
 		},
 		{
-			language:   "unknown",
+			scope:      "foundation",
 			expectTool: "ripgrep", // Universal tool
-			dontExpect: "go",      // Language-specific tool
+			dontExpect: "go",      // Language-specific tool (in go scope)
 		},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.language, func(t *testing.T) {
-			// Get all tools for this test
-			allTools := config.GetAllTools()
-			filtered := FilterToolsByLanguage(allTools, tt.language)
+		t.Run(tt.scope, func(t *testing.T) {
+			// Get tools for this scope
+			scopeTools, err := config.GetToolsForScope(tt.scope)
+			if err != nil {
+				t.Fatalf("Failed to get scope %s: %v", tt.scope, err)
+			}
 
 			foundExpected := false
 			foundUnexpected := false
 
-			for _, tool := range filtered {
+			for _, tool := range scopeTools {
 				if tool.Name == tt.expectTool {
 					foundExpected = true
 				}
@@ -162,14 +172,14 @@ func TestFilterToolsByLanguage(t *testing.T) {
 			}
 
 			if !foundExpected && tt.expectTool != "" {
-				t.Errorf("Expected tool %s not found for language %s", tt.expectTool, tt.language)
+				t.Errorf("Expected tool %s not found in scope %s", tt.expectTool, tt.scope)
 			}
 
 			if foundUnexpected {
-				t.Errorf("Unexpected tool %s found for language %s", tt.dontExpect, tt.language)
+				t.Errorf("Unexpected tool %s found in scope %s", tt.dontExpect, tt.scope)
 			}
 
-			t.Logf("Language %s: filtered to %d tools (from %d)", tt.language, len(filtered), len(allTools))
+			t.Logf("Scope %s: %d tools", tt.scope, len(scopeTools))
 		})
 	}
 }
@@ -181,34 +191,38 @@ func TestGetMinimalToolsForLanguage(t *testing.T) {
 		t.Fatalf("Failed to load config: %v", err)
 	}
 
+	// v0.4.4+: Minimal tools are now accessed via language-specific scopes.
+	// This test verifies that each language scope has the expected tools.
 	tests := []struct {
-		language string
+		scope    string
 		minTools int
 		maxTools int
 	}{
-		{"go", 1, 10},        // Should include go-install, golangci-lint, etc.
-		{"python", 1, 10},    // Should include uv, ruff, etc.
-		{"typescript", 1, 5}, // Should include npm, eslint, prettier
-		{"unknown", 0, 0},    // Should have nothing
+		{"go", 5, 10},         // go, go-licenses, golangci-lint, goimports, gofmt, gosec, govulncheck
+		{"python", 1, 5},      // ruff
+		{"typescript", 1, 5},  // biome
+		{"foundation", 5, 15}, // Language-agnostic tools
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.language, func(t *testing.T) {
-			allTools := config.GetAllTools()
-			minimal := GetMinimalToolsForLanguage(allTools, tt.language)
-
-			if len(minimal) < tt.minTools {
-				t.Errorf("Expected at least %d minimal tools for %s, got %d",
-					tt.minTools, tt.language, len(minimal))
+		t.Run(tt.scope, func(t *testing.T) {
+			scopeTools, err := config.GetToolsForScope(tt.scope)
+			if err != nil {
+				t.Fatalf("Failed to get scope %s: %v", tt.scope, err)
 			}
 
-			if tt.maxTools > 0 && len(minimal) > tt.maxTools {
-				t.Errorf("Expected at most %d minimal tools for %s, got %d",
-					tt.maxTools, tt.language, len(minimal))
+			if len(scopeTools) < tt.minTools {
+				t.Errorf("Expected at least %d tools for scope %s, got %d",
+					tt.minTools, tt.scope, len(scopeTools))
 			}
 
-			t.Logf("Minimal tools for %s: %d", tt.language, len(minimal))
-			for _, tool := range minimal {
+			if tt.maxTools > 0 && len(scopeTools) > tt.maxTools {
+				t.Errorf("Expected at most %d tools for scope %s, got %d",
+					tt.maxTools, tt.scope, len(scopeTools))
+			}
+
+			t.Logf("Tools for scope %s: %d", tt.scope, len(scopeTools))
+			for _, tool := range scopeTools {
 				t.Logf("  - %s (kind: %s)", tool.Name, tool.Kind)
 			}
 		})

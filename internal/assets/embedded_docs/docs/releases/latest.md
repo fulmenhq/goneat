@@ -1,113 +1,146 @@
-# Goneat v0.4.3 — Parallel Execution Across All Commands
+# Goneat v0.4.4 — Rust Dependency Analysis via cargo-deny
 
-**Release Date**: 2026-01-08
+**Release Date**: 2026-01-09
 **Status**: Stable
 
 ## TL;DR
 
-- **Parallel by default**: All major commands now default to parallel execution
-- **Parallel assess**: `goneat assess` now uses 80% of CPU cores by default (was 50%)
-- **Parallel format**: `goneat format` uses `--strategy parallel` by default
-- **Parallel schema validation**: `goneat schema validate-schema --workers N` for parallel meta-validation
-- **New validate-data command**: `goneat schema validate-data` for data file validation against schemas
-- **Cached validators**: Meta-schema validators (draft-07, 2020-12) compiled once, reused across files
+- **Rust license checking**: `goneat dependencies --licenses` now works for Rust projects
+- **cargo-deny integration**: License compliance and banned crate detection via cargo-deny
+- **Cargo tool installer**: `kind: cargo` support in tools.yaml for installing Rust tools
+- **Toolchain scopes**: Language-specific tool scopes (`go`, `rust`, `python`, `typescript`)
+- **Smart guidance**: Helpful messages when cargo-deny is not installed
+- **SSOT fix**: Provenance files now include trailing newlines (prevents format diffs in downstream repos)
 
 ## What Changed
 
-### Assess Command
+### Rust Dependency Analysis
 
-- **Default parallel execution**: The assess command now uses 80% of CPU cores by default (previously 50%)
-- **Consistent parallel model**: All goneat commands now default to parallel execution
-- **Sequential option**: Use `--concurrency 1` for sequential execution when needed
+`goneat dependencies --licenses` now supports Rust projects via cargo-deny:
 
 ```bash
-# Default parallel (80% of CPU cores)
-goneat assess
+# Analyze Rust project licenses
+cd my-rust-project
+goneat dependencies --licenses
 
-# Explicit worker count
-goneat assess --concurrency 4
-
-# Sequential execution
-goneat assess --concurrency 1
-
-# Custom percentage
-goneat assess --concurrency-percent 50
+# JSON output for CI integration
+goneat dependencies --licenses --format json
 ```
 
-Use `goneat envinfo` to see your system's CPU core count.
+**Detection & Guidance**: When a Rust project is detected but cargo-deny is not available:
 
-See [assess command docs](../user-guide/commands/assess.md) for configuration details.
+```
+Rust project detected but cargo-deny not installed.
 
-### Format Command
+To set up Rust dependency checking:
+  1. Install cargo-deny: cargo install cargo-deny
+  2. Initialize config:  cargo deny init
+  3. Learn more:         goneat docs show user-guide/rust/dependencies
+```
 
-- **Default parallel execution**: The format command now uses `--strategy parallel` by default
-- **Configurable workers**: Use `--workers N` to control parallelism (0=auto, 1=sequential, max 8)
-- **Python/JS/TS support**: Parallel formatting now includes ruff (Python) and biome (JS/TS)
+### Severity Mapping
+
+| Finding Type | Severity | Example |
+|--------------|----------|---------|
+| License violation | high | Unlicensed crate, GPL in MIT project |
+| Banned crate | medium | Duplicate versions, denied crate |
+| Informational | low | "license-not-encountered" warnings |
+
+### Cargo Tool Installer
+
+New `kind: cargo` in tools.yaml schema enables installing Rust tools:
+
+```yaml
+tools:
+  cargo-deny:
+    name: cargo-deny
+    description: License and dependency checking for Rust
+    kind: cargo
+    detect_command: cargo deny --version
+    install_package: cargo-deny
+    minimum_version: 0.14.0
+```
+
+Install via: `goneat doctor tools --scope rust --install --yes`
+
+### Toolchain Scopes
+
+Tools are now organized into language-specific scopes instead of mixing everything in `foundation`:
+
+| Scope | Purpose | Key Tools |
+|-------|---------|-----------|
+| `foundation` | Language-agnostic | ripgrep, jq, yq, yamlfmt, prettier, yamllint, shfmt, shellcheck, actionlint, checkmake, minisign |
+| `go` | Go development | go, go-licenses, golangci-lint, goimports, gofmt, gosec, govulncheck |
+| `rust` | Rust Cargo plugins | cargo-deny, cargo-audit |
+| `python` | Python tools | ruff (replaces black/flake8/isort) |
+| `typescript` | TS/JS tools | biome (replaces eslint/prettier for TS/JS/JSON) |
+
+**Usage examples:**
 
 ```bash
-# Default parallel (auto-detects CPU count)
-goneat format
+# Go project
+goneat doctor tools --scope foundation,go --install --yes
 
-# Explicit worker count
-goneat format --workers 4
+# Rust project
+goneat doctor tools --scope foundation,rust --install --yes
 
-# Sequential (legacy behavior)
-goneat format --strategy sequential
+# Polyglot project (like goneat itself)
+goneat doctor tools --scope foundation,go,rust,python,typescript --install --yes
 ```
 
-See [format command docs](../user-guide/commands/format.md) for configuration details.
+**Why prettier stays in foundation**: It's our only Markdown formatter - every repo has README.md/docs. For TypeScript projects, biome handles TS/JS/JSON formatting (faster than prettier+eslint).
 
-### Schema Validation
+### Implementation Notes
 
-- **Parallel validate-schema**: Meta-schema validation supports `--workers` flag
-- **Cached validators**: Draft-07 and 2020-12 validators compiled once and reused
-- **Deterministic output**: Results maintain input file order regardless of parallelism
-- **New validate-data subcommand**: Validate data files against JSON schemas
+Several cargo-deny integration quirks were discovered and documented:
 
-```bash
-# Parallel schema validation (auto workers)
-goneat schema validate-schema --workers 0 schemas/
+1. **Argument order**: `--format json` must come BEFORE `check` subcommand
+2. **STDERR output**: cargo-deny outputs JSON to stderr (intentional design)
+3. **NDJSON format**: Output is newline-delimited JSON with nested `fields` object
+4. **Informational codes**: "license-not-encountered" is informational, not a violation
 
-# Validate data against schema
-goneat schema validate-data --schema schemas/config.json config.yaml
-```
+See `pkg/dependencies/cargo_deny.go` for detailed comments.
 
-### Performance
+### Bug Fixes
 
-Benchmarks confirm meaningful speedup for large file sets:
+- **SSOT provenance trailing newline**: `goneat ssot sync` now writes provenance.json and metadata mirrors with trailing newlines, preventing format diffs when downstream repos run formatters after sync.
 
-| Operation | Sequential | Parallel (4 workers) | Speedup |
-|-----------|------------|---------------------|---------|
-| Schema validation (776 files) | 6.77s | 3.97s | ~1.7x |
-| Format (large codebase) | varies | varies | ~1.5-2x |
+## Files Changed
 
-For small file sets (<200 files), parallelization overhead roughly equals gains—sequential is fine.
+### New Files
+
+- `pkg/dependencies/cargo_deny.go` - Shared cargo-deny runner (~600 lines)
+
+### Modified Files
+
+- `pkg/dependencies/rust_analyzer.go` - Full implementation calling cargo-deny
+- `cmd/dependencies.go` - Language-based analyzer selection
+- `internal/doctor/tools.go` - Cargo installer support
+- `schemas/tools/v1.1.0/tools-config.yaml` - Added `cargo` kind
+- `internal/assets/embedded_schemas/schemas/tools/v1.1.0/tools-config.yaml` - Embedded schema sync
+- `pkg/ssot/metadata.go` - Trailing newline fix for provenance files
+- `config/tools/foundation-tools-defaults.yaml` - Reorganized into language-specific scopes
+- `.goneat/tools.yaml` - Updated with all toolchain scopes for polyglot testing
 
 ## Upgrade Notes
 
-### From v0.4.2
+### From v0.4.3
 
-**Behavioral change**: All major commands now default to parallel execution:
+No breaking changes. New Rust functionality is additive.
 
-- `goneat assess` uses 80% of CPU cores (was 50%). For sequential:
-  ```bash
-  goneat assess --concurrency 1
-  ```
+**Rust projects**: To enable license checking:
+1. Install cargo-deny: `cargo install cargo-deny`
+2. Initialize config: `cargo deny init`
+3. Run: `goneat dependencies --licenses`
 
-- `goneat format` uses parallel strategy. For sequential:
-  ```bash
-  goneat format --strategy sequential
-  ```
-
-- `goneat schema validate-schema` uses auto workers (CPU count). For sequential:
-  ```bash
-  goneat schema validate-schema --workers 1
-  ```
-
-**New subcommand**: `goneat schema validate-data` provides data validation as a first-class schema subcommand (previously only available via `goneat validate data`).
+**SSOT consumers**: After upgrading, run `goneat ssot sync` to regenerate provenance files with proper trailing newlines. This is a one-time fix.
 
 ## Documentation
 
-- **Assess command**: [docs/user-guide/commands/assess.md](../user-guide/commands/assess.md)
-- **Format command**: [docs/user-guide/commands/format.md](../user-guide/commands/format.md)
-- **Schema validation**: [docs/user-guide/commands/validate.md](../user-guide/commands/validate.md)
+- Rust feature brief: `.plans/active/v0.4.4/rust-dependencies-licenses-feature-brief.md`
+- Toolchain scopes plan: `.plans/active/v0.4.4/toolchain-scopes-plan.md`
+- cargo-deny integration: `pkg/dependencies/cargo_deny.go` (inline comments)
+
+---
+
+**Previous Releases**: See `docs/releases/` for older release notes.

@@ -60,32 +60,34 @@ func (t *Tool) GetEffectiveCoolingConfig(disableCooling bool) (*tools.CoolingCon
 type installerKind string
 
 const (
-	installerBun       installerKind = "bun"
-	installerMise      installerKind = "mise"
-	installerBrew      installerKind = "brew"
-	installerScoop     installerKind = "scoop"
-	installerWinget    installerKind = "winget"
-	installerPacman    installerKind = "pacman"
-	installerAptGet    installerKind = "apt-get"
-	installerDnf       installerKind = "dnf"
-	installerYum       installerKind = "yum"
-	installerGoInstall installerKind = "go-install"
-	installerManual    installerKind = "manual"
+	installerBun          installerKind = "bun"
+	installerMise         installerKind = "mise"
+	installerBrew         installerKind = "brew"
+	installerScoop        installerKind = "scoop"
+	installerWinget       installerKind = "winget"
+	installerPacman       installerKind = "pacman"
+	installerAptGet       installerKind = "apt-get"
+	installerDnf          installerKind = "dnf"
+	installerYum          installerKind = "yum"
+	installerGoInstall    installerKind = "go-install"
+	installerCargoInstall installerKind = "cargo-install"
+	installerManual       installerKind = "manual"
 )
 
 var installerKindLookup = map[string]installerKind{
-	"bun":        installerBun,
-	"mise":       installerMise,
-	"brew":       installerBrew,
-	"scoop":      installerScoop,
-	"winget":     installerWinget,
-	"pacman":     installerPacman,
-	"apt":        installerAptGet,
-	"apt-get":    installerAptGet,
-	"dnf":        installerDnf,
-	"yum":        installerYum,
-	"go-install": installerGoInstall,
-	"manual":     installerManual,
+	"bun":           installerBun,
+	"mise":          installerMise,
+	"brew":          installerBrew,
+	"scoop":         installerScoop,
+	"winget":        installerWinget,
+	"pacman":        installerPacman,
+	"apt":           installerAptGet,
+	"apt-get":       installerAptGet,
+	"dnf":           installerDnf,
+	"yum":           installerYum,
+	"go-install":    installerGoInstall,
+	"cargo-install": installerCargoInstall,
+	"manual":        installerManual,
 }
 
 var defaultInstallerPriority = map[string][]installerKind{
@@ -332,6 +334,8 @@ func InstallTool(t Tool) Status {
 		return installSystemTool(t)
 	case "go":
 		return installGoTool(t)
+	case "cargo":
+		return installCargoTool(t)
 	case "bundled-go":
 		return Status{
 			Name:         t.Name,
@@ -607,6 +611,59 @@ func installGoTool(t Tool) Status {
 	return status
 }
 
+func installCargoTool(t Tool) Status {
+	if _, err := exec.LookPath("cargo"); err != nil {
+		return Status{
+			Name:         t.Name,
+			Present:      false,
+			Installed:    false,
+			Error:        fmt.Errorf("'cargo' (Rust toolchain) not found in PATH"),
+			Instructions: fmt.Sprintf("Install Rust toolchain: https://rustup.rs/\nThen run: %s", cargoInstallCommand(t)),
+		}
+	}
+
+	installCmd := exec.Command("cargo", "install", t.InstallPackage) // #nosec G204
+	var stdout, stderr bytes.Buffer
+	installCmd.Stdout = &stdout
+	installCmd.Stderr = &stderr
+	if err := installCmd.Run(); err != nil {
+		present := commandExists(t.Name)
+		return Status{
+			Name:         t.Name,
+			Present:      present,
+			Installed:    false,
+			Error:        fmt.Errorf("cargo install failed: %v, stderr: %s", err, strings.TrimSpace(stderr.String())),
+			Instructions: cargoInstallCommand(t),
+		}
+	}
+
+	status := Status{
+		Name:      t.Name,
+		Installed: true,
+		Version:   detectVersion(t),
+	}
+	if _, err := exec.LookPath(t.Name); err == nil {
+		status.Present = true
+		applyVersionPolicy(t, &status)
+		return status
+	}
+
+	// Check cargo bin directory
+	if cargoBin := getCargoBinPath(); cargoBin != "" {
+		candidate := filepath.Join(cargoBin, t.Name)
+		if _, err := os.Stat(candidate); err == nil {
+			status.Present = false
+			status.Instructions = buildPathInstructions(candidate)
+			return status
+		}
+	}
+
+	status.Present = false
+	status.Error = fmt.Errorf("cargo install succeeded but %s not found in PATH", t.Name)
+	status.Instructions = fmt.Sprintf("Tool should be available under %s. Update PATH and retry.", getCargoBinPath())
+	return status
+}
+
 func detectVersion(t Tool) string {
 	// Try version args first
 	if len(t.VersionArgs) > 0 {
@@ -774,6 +831,8 @@ func defaultInstallerPriorityForTool(t Tool, platform string) []installerKind {
 	switch t.Kind {
 	case "go":
 		return append([]installerKind{installerGoInstall}, defaultInstallerPriority[platform]...)
+	case "cargo":
+		return append([]installerKind{installerCargoInstall}, defaultInstallerPriority[platform]...)
 	default:
 		if p, ok := defaultInstallerPriority[platform]; ok {
 			return p
@@ -838,7 +897,7 @@ func ValidateInstallerCommands(t Tool) {
 		// Warn about completely unrecognized keys
 		logger.Warn(fmt.Sprintf(
 			"Tool %s: install_commands key '%s' is not a recognized installer kind. "+
-				"Known kinds: bun, mise, brew, apt-get, scoop, winget, pacman, dnf, yum, manual, go-install",
+				"Known kinds: bun, mise, brew, apt-get, scoop, winget, pacman, dnf, yum, manual, go-install, cargo-install",
 			t.Name, key))
 	}
 }
@@ -865,6 +924,8 @@ func isInstallerAvailable(kind installerKind) bool {
 		return commandExists("yum")
 	case installerGoInstall:
 		return commandExists("go")
+	case installerCargoInstall:
+		return commandExists("cargo")
 	case installerManual:
 		// Manual installer is always "available" - it's just a script/command to execute
 		// Used for bootstrapping package managers (mise, scoop) via official install scripts
@@ -930,6 +991,11 @@ func defaultInstallerCommand(t Tool, kind installerKind) string {
 	case installerGoInstall:
 		if t.InstallPackage != "" {
 			return fmt.Sprintf("go install %s", t.InstallPackage)
+		}
+		return ""
+	case installerCargoInstall:
+		if t.InstallPackage != "" {
+			return fmt.Sprintf("cargo install %s", t.InstallPackage)
 		}
 		return ""
 	case installerManual:
@@ -1001,6 +1067,8 @@ func installInstruction(t Tool) string {
 	switch t.Kind {
 	case "go":
 		return goInstallCommand(t)
+	case "cargo":
+		return cargoInstallCommand(t)
 	case "bundled-go":
 		return "Install Go toolchain first: https://go.dev/dl/ (gofmt is included)"
 	case "system":
@@ -1016,6 +1084,25 @@ func installInstruction(t Tool) string {
 
 func goInstallCommand(t Tool) string {
 	return fmt.Sprintf("go install %s", t.InstallPackage)
+}
+
+func cargoInstallCommand(t Tool) string {
+	return fmt.Sprintf("cargo install %s", t.InstallPackage)
+}
+
+// getCargoBinPath returns the Cargo bin directory where tools are installed
+func getCargoBinPath() string {
+	// Check CARGO_HOME environment variable
+	if cargoHome := os.Getenv("CARGO_HOME"); cargoHome != "" {
+		return filepath.Join(cargoHome, "bin")
+	}
+
+	// Default to ~/.cargo/bin (standard Rust location)
+	if homeDir, err := os.UserHomeDir(); err == nil {
+		return filepath.Join(homeDir, ".cargo", "bin")
+	}
+
+	return ""
 }
 
 // getCurrentPlatform returns the current platform identifier

@@ -118,7 +118,6 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 			policyPath = depsCfg.PolicyPath
 		}
 
-		analyzer := dependencies.NewGoAnalyzer()
 		detector := dependencies.NewDetector(&depsCfg)
 
 		lang, _, err := detector.Detect(target)
@@ -127,6 +126,19 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 		}
 		if lang == "" {
 			return errors.New("no supported language detected")
+		}
+
+		// Select the appropriate analyzer based on detected language
+		var analyzer dependencies.Analyzer
+		switch lang {
+		case dependencies.LanguageRust:
+			analyzer = dependencies.NewRustAnalyzer()
+		case dependencies.LanguageGo:
+			analyzer = dependencies.NewGoAnalyzer()
+		default:
+			// Fall back to Go analyzer for unsupported languages
+			// (will likely fail gracefully with "no go.mod found")
+			analyzer = dependencies.NewGoAnalyzer()
 		}
 
 		analysisConfig := dependencies.AnalysisConfig{

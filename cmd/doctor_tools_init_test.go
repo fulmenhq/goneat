@@ -45,7 +45,8 @@ func TestDoctorToolsInitCreatesFoundationConfig(t *testing.T) {
 func TestDoctorToolsInitMinimalMatchesDefaults(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// In minimal mode, we generate all scopes but filter each to minimal tools
+	// v0.4.4+: In minimal mode, we generate only the language-specific scope
+	// For "go" language, this means only the "go" scope tools are included
 	// This test verifies that the generated config matches what
 	// ConvertToToolsConfigWithAllScopes produces with minimal=true
 	defaults, err := doctor.LoadToolsDefaultsConfig()
@@ -53,15 +54,23 @@ func TestDoctorToolsInitMinimalMatchesDefaults(t *testing.T) {
 		t.Fatalf("failed to load defaults: %v", err)
 	}
 
-	// Calculate expected tools across ALL scopes in minimal mode
+	// Calculate expected tools for minimal mode (only language-specific scope)
 	expectedConfig := doctor.ConvertToToolsConfigWithAllScopes(defaults, "go", true)
 	if len(expectedConfig.Tools) == 0 {
 		t.Fatal("expected minimal tool list for go to be non-empty")
 	}
 
+	// Verify minimal mode produces only the "go" scope
+	if _, exists := expectedConfig.Scopes["go"]; !exists {
+		t.Fatal("expected go scope in minimal mode config")
+	}
+	if len(expectedConfig.Scopes) != 1 {
+		t.Fatalf("expected 1 scope (go) in minimal mode, got %d", len(expectedConfig.Scopes))
+	}
+
 	if _, err := runDoctorToolsInitInDir(t, tmpDir, toolsInitOptions{
 		language: "go",
-		scope:    "foundation",
+		scope:    "foundation", // scope flag is ignored in v0.4.4+
 		minimal:  true,
 		force:    true,
 	}); err != nil {
@@ -100,8 +109,8 @@ func TestDoctorToolsInitRequiresForceWhenConfigExists(t *testing.T) {
 }
 
 func TestDoctorToolsInitGeneratesAllStandardScopes(t *testing.T) {
-	// Since v0.3.11, init always generates all 5 standard scopes (foundation, security, format, sbom, all)
-	// regardless of which scope is specified via --scope flag
+	// v0.4.4+: init generates language-specific toolchain scopes
+	// foundation, go, rust, python, typescript, security, sbom, cicd, all
 	tmpDir := t.TempDir()
 
 	_, err := runDoctorToolsInitInDir(t, tmpDir, toolsInitOptions{
@@ -115,16 +124,16 @@ func TestDoctorToolsInitGeneratesAllStandardScopes(t *testing.T) {
 
 	config := loadGeneratedToolsConfig(t, tmpDir)
 
-	// Verify all 5 standard scopes are present
-	expectedScopes := []string{"foundation", "security", "format", "sbom", "all"}
+	// Verify standard scopes are present (v0.4.4+ toolchain scopes)
+	expectedScopes := []string{"foundation", "go", "rust", "python", "typescript", "security", "sbom", "cicd", "all"}
 	for _, scope := range expectedScopes {
 		if _, exists := config.Scopes[scope]; !exists {
 			t.Fatalf("expected scope %s in generated config", scope)
 		}
 	}
 
-	if len(config.Scopes) != 5 {
-		t.Fatalf("expected 5 scopes, got %d", len(config.Scopes))
+	if len(config.Scopes) != len(expectedScopes) {
+		t.Fatalf("expected %d scopes, got %d", len(expectedScopes), len(config.Scopes))
 	}
 }
 
