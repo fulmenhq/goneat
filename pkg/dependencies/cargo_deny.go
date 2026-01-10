@@ -57,17 +57,17 @@ type CargoDenyResult struct {
 // cargoDenyEntry represents the JSON structure returned by cargo-deny (NDJSON format)
 // cargo-deny outputs diagnostic entries with type: "diagnostic" and a summary with type: "summary"
 type cargoDenyEntry struct {
-	Type   string              `json:"type"`   // "diagnostic" or "summary"
-	Fields *cargoDenyFields    `json:"fields"` // Present for diagnostic entries
+	Type   string           `json:"type"`   // "diagnostic" or "summary"
+	Fields *cargoDenyFields `json:"fields"` // Present for diagnostic entries
 }
 
 // cargoDenyFields contains the actual diagnostic information
 type cargoDenyFields struct {
-	Code     string              `json:"code"`     // e.g., "license-not-encountered", "duplicate", "banned"
-	Severity string              `json:"severity"` // "error", "warning", "note", "help"
-	Message  string              `json:"message"`
-	Labels   []cargoDenyLabel    `json:"labels,omitempty"`
-	Advisory *cargoDenyAdvisory  `json:"advisory,omitempty"`
+	Code     string             `json:"code"`     // e.g., "license-not-encountered", "duplicate", "banned"
+	Severity string             `json:"severity"` // "error", "warning", "note", "help"
+	Message  string             `json:"message"`
+	Labels   []cargoDenyLabel   `json:"labels,omitempty"`
+	Advisory *cargoDenyAdvisory `json:"advisory,omitempty"`
 }
 
 // cargoDenyLabel contains span information for diagnostics
