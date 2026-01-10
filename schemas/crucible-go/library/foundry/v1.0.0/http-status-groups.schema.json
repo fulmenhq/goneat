@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/library/foundry/v1.0.0/http-status-groups.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/library/foundry/v1.0.0/http-status-groups.schema.json",
   "title": "HTTP Status Groups",
   "description": "Grouped HTTP status codes for reuse in helper libraries",
   "type": "object",

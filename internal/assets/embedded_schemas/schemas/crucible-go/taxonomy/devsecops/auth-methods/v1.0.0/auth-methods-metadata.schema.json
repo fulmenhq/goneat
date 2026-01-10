@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/taxonomy/devsecops/auth-methods/v1.0.0/auth-methods-metadata.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/taxonomy/devsecops/auth-methods/v1.0.0/auth-methods-metadata.schema.json",
   "title": "Fulmen Auth Methods Metadata",
   "description": "Metadata object describing authentication/MFA method support and security characteristics",
   "type": "object",

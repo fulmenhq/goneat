@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/library/foundry/v1.0.0/signals.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/library/foundry/v1.0.0/signals.schema.json",
   "title": "Signal Handling Catalog",
   "description": "Standardized signal handling semantics for Fulmen ecosystem",
   "type": "object",
@@ -427,6 +427,11 @@
           "maximum": 255
         },
         "SIGUSR2": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "SIGKILL": {
           "type": "integer",
           "minimum": 0,
           "maximum": 255

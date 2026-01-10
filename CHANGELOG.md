@@ -30,7 +30,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `rust`: Rust Cargo plugins (cargo-deny, cargo-audit)
   - `python`: Python tools (ruff - replaces black/flake8/isort)
   - `typescript`: TypeScript/JavaScript tools (biome - replaces eslint/prettier for TS)
+  - `sbom`: SBOM generation and vulnerability scanning (syft, grype)
   - Usage: `goneat doctor tools --scope foundation,go --install --yes`
+
+- **grype vulnerability scanner**: Added to sbom scope as companion to syft
+  - syft generates SBOMs, grype scans them for vulnerabilities
+  - Complete SBOM-based security workflow for CI/CD pipelines
+
+### Changed
+
+- **Crucible upstream**: Updated from v0.3.1 to v0.4.5
+  - New agentic roles (prodmktg, uxdev)
+  - Similarity library schemas and fixtures
+  - Foundry signal resolution fixtures
+  - Platform modules taxonomy v1.1.0
 
 ### Fixed
 

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/observability/metrics/v1.0.0/metrics-event.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/observability/metrics/v1.0.0/metrics-event.schema.json",
   "title": "Fulmen Metrics Event",
   "description": "Schema for basic telemetry export (counter/gauge/histogram) emitted by Fulmen helper libraries.",
   "type": "object",

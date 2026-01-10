@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/devsecops/lorage-central/tenant/v1.0.0/tenant.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/devsecops/lorage-central/tenant/v1.0.0/tenant.schema.json",
   "title": "L'Orage Central Tenant Registry",
   "description": "Schema for tenant registry (multiple per client; confidential public IDs for no exposure). Loaded via gofulmen shim; enforced in REPL for scoping. Global uniqueness required (e.g., UUID for anon clients). Geo/cloud flags for restrictions (e.g., EU-only for GDPR); PII/PHI for guards.",
   "type": "object",

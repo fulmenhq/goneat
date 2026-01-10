@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/config/fulmen-ecosystem/fulmen-config-paths-v1.0.0.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/config/fulmen-ecosystem/fulmen-config-paths-v1.0.0.json",
   "title": "Fulmen Config Paths",
   "description": "Describes shared configuration directories for Fulmen tools",
   "type": "object",

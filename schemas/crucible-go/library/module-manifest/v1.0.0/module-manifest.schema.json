@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/library/module-manifest/v1.0.0/module-manifest.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/library/module-manifest/v1.0.0/module-manifest.schema.json",
   "title": "Fulmen Library Module Manifest",
   "description": "Defines required and optional helper modules across Fulmen languages",
   "type": "object",

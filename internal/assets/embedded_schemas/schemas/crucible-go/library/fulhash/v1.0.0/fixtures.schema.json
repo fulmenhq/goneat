@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/library/fulhash/v1.0.0/fixtures.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/library/fulhash/v1.0.0/fixtures.schema.json",
   "title": "FulHash Fixture File",
   "description": "Shared test fixtures for FulHash implementations",
   "type": "object",

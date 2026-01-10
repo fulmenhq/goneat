@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/taxonomy/language/v1.0.0/language-metadata.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/taxonomy/language/v1.0.0/language-metadata.schema.json",
   "title": "Fulmen Language Metadata",
   "description": "Metadata object describing Fulmen helper language support status",
   "type": "object",

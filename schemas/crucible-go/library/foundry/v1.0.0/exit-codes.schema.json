@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/library/foundry/v1.0.0/exit-codes.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/library/foundry/v1.0.0/exit-codes.schema.json",
   "title": "Exit Codes Catalog",
   "description": "Standardized process exit codes for Fulmen ecosystem",
   "type": "object",

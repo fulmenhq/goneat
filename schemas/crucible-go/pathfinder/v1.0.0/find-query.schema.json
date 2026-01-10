@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/gofulmen/pathfinder/find-query-v1.0.0.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/pathfinder/find-query-v1.0.0.json",
   "title": "FindQuery",
   "description": "Parameters for file discovery operations in pathfinder",
   "type": "object",

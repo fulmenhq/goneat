@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/taxonomy/devsecops/infra-providers/v1.0.0/infra-providers-metadata.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/taxonomy/devsecops/infra-providers/v1.0.0/infra-providers-metadata.schema.json",
   "title": "Fulmen Infra Providers Metadata",
   "description": "Metadata object describing infrastructure provider characteristics and capabilities",
   "type": "object",

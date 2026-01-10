@@ -34,4 +34,18 @@ $defs:
         type: array
         items:
           type: string
+      metadata:
+        type: object
+        description: Optional metadata for sync tooling
+        properties:
+          sourceRepo:
+            type: string
+            description: Source repository URL or 'local' for development references
+          sourcePathBase:
+            type: string
+            description: Base path within source repository for this sync key
+          notes:
+            type: string
+            description: Human-readable notes about usage, constraints, or caveats
+        additionalProperties: true
     additionalProperties: false

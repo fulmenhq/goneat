@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/devsecops/lorage-central/recipe/v1.0.0/recipe.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/devsecops/lorage-central/recipe/v1.0.0/recipe.schema.json",
   "title": "L'Orage Central Recipe",
   "description": "Schema-driven recipe for L'Orage Central deployments/seeding. Loaded via gofulmen shim; executed in REPL. Heavily declarative (components/secrets/validate); procedural opt-in via actions (e.g., bootstrap scripts). Phases/layering via infra-phases taxonomy for dep ordering/review (keys → network → buckets → assets).",
   "type": "object",

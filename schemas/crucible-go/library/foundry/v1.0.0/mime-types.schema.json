@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/library/foundry/v1.0.0/mime-types.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/library/foundry/v1.0.0/mime-types.schema.json",
   "title": "MIME Types Catalog",
   "description": "Curated set of media types for helper libraries",
   "type": "object",

@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.fulmenhq.dev/server/management/v1.0.0/server-management.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/server/management/v1.0.0/server-management.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "title": "Fulmen Server Management Configuration",

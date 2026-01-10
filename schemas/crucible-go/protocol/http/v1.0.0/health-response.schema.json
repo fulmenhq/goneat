@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/protocol/http/v1.0.0/health-response.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/protocol/http/v1.0.0/health-response.schema.json",
   "title": "HealthResponse",
   "description": "Response envelope for health endpoints (/health/live, /health/ready, /health/startup)",
   "type": "object",

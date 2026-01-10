@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/error-handling/v1.0.0/error-response.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/error-handling/v1.0.0/error-response.schema.json",
   "title": "Fulmen Error Response",
   "description": "Extends the Pathfinder error envelope with optional telemetry fields used across Fulmen libraries.",
   "$comment": "Consumers SHOULD continue to emit the pathfinder base fields; new fields are optional and additive.",

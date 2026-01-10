@@ -3,9 +3,9 @@ title: "Fulmen Ecosystem Guide"
 description: "How the Fulmen ecosystem fits together—from schemas and tooling to libraries, forges, and operational standards"
 author: "Schema Cartographer"
 date: "2025-10-10"
-last_updated: "2025-12-20"
+last_updated: "2026-01-06"
 status: "draft"
-tags: ["fulmen", "architecture", "ecosystem", "v0.2.26"]
+tags: ["fulmen", "architecture", "ecosystem", "v0.4.2"]
 ---
 
 # Fulmen Ecosystem Guide
@@ -123,7 +123,7 @@ graph TD
 
 ### 2. Templates (Fulmens)
 
-Five specialized template categories, each optimized for different use cases:
+Six specialized template categories, each optimized for different use cases:
 
 - **Workhorse Templates**: General-purpose applications (servers, workers, long-running processes)
   - **Current**: `forge-workhorse-groningen` (Go backend), `forge-workhorse-percheron` (Python backend)
@@ -154,6 +154,16 @@ Five specialized template categories, each optimized for different use cases:
   - **Use cases**: Event announcements, charity fundraisers, product launches
   - **Philosophy**: Vanilla HTML/CSS first; escalate to SSG only when justified
   - **Escalation**: Migrate to Codex when multi-page, search, or content collections needed
+
+- **Fixture Templates**: Test infrastructure with real-but-test-purpose implementations
+  - **Naming**: `fixture-<mode>-<category>-<name>-<variant>` (e.g., `fixture-server-proving-gauntlet-001`)
+  - **Modes**: `server`, `client`, `datastore`, `identity` (identity planned v0.4.3)
+  - **Use cases**: Integration testing, AAA validation, resilience testing
+  - **Philosophy**: Real execution with synthetic data - NOT mocks (simulated responses)
+  - **Categories**: `proving` (validation), `utility` (convenience), `chaos` (resilience)
+  - **Key constraints**: No PII, container-first, scenario-driven configuration
+  - **Registry**: All names registered in `config/taxonomy/fixture-catalog.yaml`
+  - **See also**: [Fulmen Fixture Standard](./fulmen-fixture-standard.md)
 
 - **Gymnasiums**: Experimental playgrounds (TUIs, metrics analyzers); e.g., "forge-gymnasium-ginkgo" for modular components.
 

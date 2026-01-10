@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/taxonomy/devsecops/geo/v1.0.0/geo-metadata.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/taxonomy/devsecops/geo/v1.0.0/geo-metadata.schema.json",
   "title": "Fulmen Geo Metadata",
   "description": "Metadata structure for geographic taxonomy including countries, grouped regions, and cloud-specific regions",
   "type": "object",

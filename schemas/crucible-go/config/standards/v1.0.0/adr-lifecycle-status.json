@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/standards/adr-lifecycle-status-v1.0.0.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/standards/adr-lifecycle-status-v1.0.0.json",
   "title": "ADR Lifecycle Status",
   "description": "Lifecycle status for Architecture Decision Records (ADRs) and standards documents. Inspired by ThoughtWorks Technology Radar maturity model, adapted for architectural decision tracking.",
   "type": "string",

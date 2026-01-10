@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/gofulmen/pathfinder/finder-config-v1.0.0.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/pathfinder/finder-config-v1.0.0.json",
   "title": "FinderConfig",
   "description": "Configuration for pathfinder Finder instances",
   "type": "object",

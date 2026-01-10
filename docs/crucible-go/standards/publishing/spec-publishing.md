@@ -209,13 +209,14 @@ For any corpus:
 
 These questions are deferred for follow-on specification:
 
-1. **Scope boundaries**: Do we standardize a single root prefix (e.g., `/crucible/...`) or allow multiple suites at the domain root?
+1. ~~**Scope boundaries**: Do we standardize a single root prefix (e.g., `/crucible/...`) or allow multiple suites at the domain root?~~ **Resolved**: See [Canonical URI Resolution Standard](canonical-uri-resolution.md) — module namespace (repo tag) is required as first path segment.
 2. **Media type policy**: Do we require `application/schema+json` vs `application/json` vs extension-based defaults?
 3. **Index requirements**: Should `index.json` be required for spec-host repos?
 4. **Tooling owner**: Do we standardize on a specific publisher tool, or allow multiple implementations?
 
 ## Related Documentation
 
+- [Canonical URI Resolution Standard](canonical-uri-resolution.md) — URI structure and resolver contract
 - [Repository Category: spec-host](../repository-category/spec-host/README.md) — Category for spec hosting repositories
 - [Schema Normalization](../schema-normalization.md) — `$id` requirements for JSON Schema
 - [Spec Catalog Schema](../../../schemas/standards/publishing/v1.0.0/spec-catalog.schema.json) — Index catalog format

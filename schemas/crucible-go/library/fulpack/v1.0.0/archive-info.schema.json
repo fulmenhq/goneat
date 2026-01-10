@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://schemas.fulmenhq.dev/library/fulpack/v1.0.0/archive-info",
+  "$id": "https://schemas.fulmenhq.dev/crucible/library/fulpack/v1.0.0/archive-info",
   "title": "Archive Info",
   "description": "Metadata about an archive file",
   "type": "object",

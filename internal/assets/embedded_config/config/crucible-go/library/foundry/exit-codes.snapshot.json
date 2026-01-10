@@ -280,6 +280,32 @@
       "description": "Test coverage below required threshold",
       "context": "Code coverage validation, quality gate failure"
     },
+    "124": {
+      "name": "EXIT_TIMEOUT",
+      "category": "shell",
+      "description": "Command timed out before completion",
+      "context": "GNU timeout or similar utility terminated command after deadline"
+    },
+    "125": {
+      "name": "EXIT_TIMEOUT_INTERNAL",
+      "category": "shell",
+      "description": "Timeout utility itself failed",
+      "context": "Error in timeout tool before or during command execution (not command failure)"
+    },
+    "126": {
+      "name": "EXIT_CANNOT_EXECUTE",
+      "category": "shell",
+      "description": "Command found but could not be executed",
+      "context": "Permission denied, not executable, exec format error",
+      "bsd_equivalent": "EX_NOPERM (partial)"
+    },
+    "127": {
+      "name": "EXIT_NOT_FOUND",
+      "category": "shell",
+      "description": "Command not found",
+      "context": "Executable not found in PATH or specified path does not exist",
+      "bsd_equivalent": "EX_UNAVAILABLE (partial)"
+    },
     "129": {
       "name": "EXIT_SIGNAL_HUP",
       "category": "signals",

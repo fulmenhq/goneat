@@ -52,7 +52,7 @@
     },
     "category": {
       "type": "string",
-      "enum": ["agentic", "automation", "review", "governance"],
+      "enum": ["agentic", "automation", "review", "governance", "marketing"],
       "description": "Role category for organization"
     },
     "tags": {

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/library/fulhash/v1.0.0/digest.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/library/fulhash/v1.0.0/digest.schema.json",
   "title": "FulHash Digest",
   "description": "Standard digest payload returned by FulHash helpers",
   "type": "object",

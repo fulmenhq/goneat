@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/taxonomy/library/fulencode/detection-confidence-v1.0.0.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/taxonomy/library/fulencode/detection-confidence-v1.0.0.json",
   "title": "Detection Confidence Taxonomy Schema",
   "description": "Schema for encoding detection confidence levels taxonomy",
   "type": "object",

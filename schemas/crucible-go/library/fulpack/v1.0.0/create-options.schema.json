@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://schemas.fulmenhq.dev/library/fulpack/v1.0.0/create-options",
+  "$id": "https://schemas.fulmenhq.dev/crucible/library/fulpack/v1.0.0/create-options",
   "title": "Create Options",
   "description": "Options for archive creation operation",
   "type": "object",

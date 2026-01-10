@@ -153,6 +153,20 @@ signals:
         signal: SIGUSR2
         platform: windows
         fallback_behavior: http_admin_endpoint
+  - id: kill
+    name: SIGKILL
+    unix_number: 9
+    windows_event: null
+    description: Force immediate termination - cannot be caught, blocked, or ignored
+    default_behavior: immediate_exit
+    exit_code: 137 # 128 + 9
+    timeout_seconds: 0
+    cleanup_actions: []
+    usage_notes: |
+      SIGKILL terminates a process immediately without allowing cleanup.
+      Use only as a last resort after SIGTERM grace period expires. The process
+      has no opportunity to save state, close files, or release resources.
+      On Windows, use TerminateProcess() for single process or TerminateJobObject() for groups.
 behaviors:
   - id: graceful_shutdown
     name: Graceful Shutdown
@@ -318,12 +332,19 @@ platform_support:
     windows: unsupported
     fallback: http_admin_endpoint
     notes: Signal number varies by platform. On Windows, use HTTP POST /admin/signal with signal=USR2
+  - signal: SIGKILL
+    linux: native
+    macos: native
+    freebsd: native
+    windows: mapped
+    notes: Cannot be caught or ignored. Windows uses TerminateProcess/TerminateJobObject.
 # Exit code mappings (128+N pattern per POSIX)
 exit_codes:
   SIGTERM: 143 # 128 + 15
   SIGINT: 130 # 128 + 2
   SIGHUP: 129 # 128 + 1
   SIGQUIT: 131 # 128 + 3
+  SIGKILL: 137 # 128 + 9
   SIGPIPE: 141 # 128 + 13
   SIGALRM: 142 # 128 + 14
   SIGUSR1: 138 # 128 + 10

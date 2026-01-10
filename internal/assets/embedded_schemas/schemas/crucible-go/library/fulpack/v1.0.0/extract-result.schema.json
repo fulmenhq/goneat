@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://schemas.fulmenhq.dev/library/fulpack/v1.0.0/extract-result",
+  "$id": "https://schemas.fulmenhq.dev/crucible/library/fulpack/v1.0.0/extract-result",
   "title": "Extract Result",
   "description": "Result of archive extraction operation",
   "type": "object",

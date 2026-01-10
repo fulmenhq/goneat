@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/devsecops/lorage-central/policy/v1.0.0/policy.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/devsecops/lorage-central/policy/v1.0.0/policy.schema.json",
   "title": "L'Orage Central Tenant Policy",
   "description": "Defines rules for tenant-scoped sessions in L'Orage Central REPL/CLI. Loaded via gofulmen shim from Crucible; enforced at unlock/deploy. Supports pluggable secrets (e.g., Turso for HA, GPG for cloud-free). No persistence MVP—force re-unlock per session.",
   "type": "object",

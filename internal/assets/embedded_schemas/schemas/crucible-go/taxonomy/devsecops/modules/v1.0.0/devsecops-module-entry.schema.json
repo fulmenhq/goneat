@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://schemas.fulmenhq.dev/taxonomy/devsecops/modules/v1.0.0/devsecops-module-entry.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/taxonomy/devsecops/modules/v1.0.0/devsecops-module-entry.schema.json",
   "title": "DevSecOps Module Registry Entry",
   "description": "Schema for DevSecOps module entries in the taxonomy registry. Tracks schemas, configs, and potential L'Orage-branded library implementations.",
   "type": "object",

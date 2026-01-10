@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/standards/publishing/v1.0.0/spec-catalog.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/standards/publishing/v1.0.0/spec-catalog.schema.json",
   "title": "Spec Catalog",
   "description": "Machine-readable catalog of published specification artifacts for spec-host repositories",
   "type": "object",

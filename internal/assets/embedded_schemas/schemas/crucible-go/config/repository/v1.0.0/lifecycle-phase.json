@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/repository/lifecycle-phase-v1.0.0.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/repository/lifecycle-phase-v1.0.0.json",
   "title": "Repository Lifecycle Phase",
   "description": "Product lifecycle maturity phase used to drive quality gates, coverage thresholds, and communication posture across Fulmen repositories.",
   "type": "string",

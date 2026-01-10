@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/taxonomy/library/fulencode/normalization-profiles-v1.0.0.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/taxonomy/library/fulencode/normalization-profiles-v1.0.0.json",
   "title": "Normalization Profiles Taxonomy Schema",
   "description": "Schema for Unicode normalization profiles taxonomy",
   "type": "object",

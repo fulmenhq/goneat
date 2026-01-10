@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/standards/adr-frontmatter-v1.0.0.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/standards/adr-frontmatter-v1.0.0.json",
   "title": "ADR Frontmatter Schema",
   "description": "Required frontmatter structure for Architecture Decision Records (ADRs) in the Fulmen ecosystem. Ensures consistency, enables validation, and supports tooling.",
   "type": "object",
@@ -33,7 +33,7 @@
       ]
     },
     "status": {
-      "$ref": "https://schemas.fulmenhq.dev/standards/adr-lifecycle-status-v1.0.0.json",
+      "$ref": "https://schemas.fulmenhq.dev/crucible/standards/adr-lifecycle-status-v1.0.0.json",
       "description": "Current lifecycle status of this ADR. Drives adoption guidance and deprecation warnings."
     },
     "date": {
@@ -164,7 +164,7 @@
       "type": "object",
       "description": "Per-library adoption status tracking. Keys are library names, values are adoption status. Used for ecosystem ADRs only.",
       "additionalProperties": {
-        "$ref": "https://schemas.fulmenhq.dev/standards/adr-adoption-status-v1.0.0.json"
+        "$ref": "https://schemas.fulmenhq.dev/crucible/standards/adr-adoption-status-v1.0.0.json"
       },
       "examples": [
         {

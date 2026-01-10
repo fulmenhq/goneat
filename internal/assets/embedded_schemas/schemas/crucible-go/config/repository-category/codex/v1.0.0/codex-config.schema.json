@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/config/repository-category/codex/v1.0.0/codex-config.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/config/repository-category/codex/v1.0.0/codex-config.schema.json",
   "title": "Codex Configuration Schema",
   "description": "Configuration schema for Fulmen codex templates (documentation sites, schema registries, knowledge hubs)",
   "type": "object",

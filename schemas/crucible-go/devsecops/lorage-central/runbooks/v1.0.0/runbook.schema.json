@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/devsecops/lorage-central/runbooks/v1.0.0/runbook.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/devsecops/lorage-central/runbooks/v1.0.0/runbook.schema.json",
   "title": "L'Orage Central Runbook",
   "description": "Schema for operational runbooks (e.g., tenant provisioning, global-network setup). Loaded via gofulmen shim; executed in REPL (serializes Markdown prototypes). Structured steps with phases/actions; tenant-scoped. Ties to recipe/policy (e.g., refs infra-phases for ordering, credentials for bootstrap).",
   "type": "object",

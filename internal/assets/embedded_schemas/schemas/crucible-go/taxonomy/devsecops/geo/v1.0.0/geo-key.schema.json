@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/taxonomy/devsecops/geo/v1.0.0/geo-key.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/taxonomy/devsecops/geo/v1.0.0/geo-key.schema.json",
   "title": "Fulmen Geo Key",
   "description": "Enum of canonical geographic identifiers (countries and region groups) for DevSecOps schemas",
   "type": "string",

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/taxonomy/repository-category/v1.0.0/category-metadata.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/taxonomy/repository-category/v1.0.0/category-metadata.schema.json",
   "title": "Fulmen Repository Category Metadata",
   "description": "Metadata object describing Fulmen repository category requirements",
   "type": "object",

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/config/repository/app-identity/v1.0.0/app-identity.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/config/repository/app-identity/v1.0.0/app-identity.schema.json",
   "title": "Fulmen Application Identity",
   "description": "Application identity metadata for Fulmen ecosystem projects",
   "type": "object",

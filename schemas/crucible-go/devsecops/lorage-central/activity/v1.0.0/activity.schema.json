@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/devsecops/lorage-central/activity/v1.0.0/activity.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/devsecops/lorage-central/activity/v1.0.0/activity.schema.json",
   "title": "L'Orage Central Activity Record",
   "description": "Schema for audit events in L'Orage Central (e.g., unlock success, deploy start). Emitted via gofulmen observability; stored in policy.audit backend (e.g., structured logs to Turso). No sensitive data.",
   "type": "object",

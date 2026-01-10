@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.fulmenhq.dev/web/branding/v1.0.0/site-branding.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/web/branding/v1.0.0/site-branding.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "title": "Fulmen Site Branding",

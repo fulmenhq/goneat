@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/fulmenhq/crucible/schemas/content/ssot-provenance/v1.0.0/ssot-provenance.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/content/ssot-provenance/v1.0.0/ssot-provenance.schema.json",
   "title": "SSOT Sync Provenance Metadata",
   "description": "Aggregate provenance metadata for SSOT sync operations capturing source information for audit trails",
   "type": "object",

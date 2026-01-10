@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://schemas.fulmenhq.dev/library/fulpack/v1.0.0/scan-options",
+  "$id": "https://schemas.fulmenhq.dev/crucible/library/fulpack/v1.0.0/scan-options",
   "title": "Scan Options",
   "description": "Options for archive scanning operation (for Pathfinder integration)",
   "type": "object",

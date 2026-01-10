@@ -1,5 +1,5 @@
 # Fulmen repository category taxonomy (machine-readable source)
-version: "2025.10.2"
+version: "2026.01.1"
 categories:
   - key: cli
     summary: "Command-line utilities without long-lived servers"
@@ -144,7 +144,7 @@ categories:
       - "Partner integrations"
     notes: "Ship compatibility matrix and error taxonomy"
   - key: spec-host
-    summary: "Machine-first static hosting for versioned specification artifacts"
+    summary: "Machine-first static hosting for self-describing specification artifacts"
     primaryEntryPoints:
       - "index.json (optional catalog)"
       - "v{version}/*.schema.json"
@@ -156,13 +156,14 @@ categories:
       - "API client generators"
       - "CI/CD pipelines"
     constraints:
-      - "MUST resolve canonical IDs ($id, x-fulmen-id) over HTTPS"
+      - "MUST resolve embedded canonical IDs ($id, x-fulmen-id) over HTTPS"
+      - "MUST host self-describing specifications with industry-standard meta-validation"
       - "MUST use versioned paths for immutability"
       - "MUST NOT require runtime server (static files only)"
       - "SHOULD provide index.json catalog for discovery"
       - "MAY provide optional human-readable index page"
     notes: >
-      Spec-host repositories prioritize raw artifact access over rich browsing. Canonical URL resolution is the primary invariant. A Codex site may layer browsable UI over a spec-host corpus. See Spec Publishing Standard for canonical ID requirements.
+      Spec-host repositories host self-describing specifications where assets contain embedded canonical IDs ($id, x-fulmen-id) that must resolve over HTTPS. Assets are validated against industry-standard meta-schemas (JSON Schema, OpenAPI, AsyncAPI). For path-addressed assets without embedded IDs, see doc-host.
 
     templateNaming:
       pattern: "forge-spec-host-{name}"
@@ -170,3 +171,86 @@ categories:
     references:
       - "docs/standards/publishing/spec-publishing.md"
       - "docs/standards/repository-category/spec-host/README.md"
+  - key: doc-host
+    summary: "Machine-first static hosting for path-addressed documentation and configuration"
+    primaryEntryPoints:
+      - "index.json (optional catalog)"
+      - "{module}/**/*.md"
+      - "{module}/**/*.yaml"
+      - "{module}/**/*.json"
+    typicalConsumers:
+      - "Helper library shim modules"
+      - "Documentation tools"
+      - "Configuration loaders"
+      - "CI/CD pipelines"
+    constraints:
+      - "MUST serve files at canonical paths matching publish tree structure"
+      - "MUST use module namespace in URL structure per Canonical URI Resolution Standard"
+      - "MUST NOT require runtime server (static files only)"
+      - "SHOULD use versioned paths for versioned content"
+      - "MAY provide index for asset discovery"
+    notes: >
+      Doc-host repositories host path-addressed assets where canonical URLs are derived from file paths, not embedded identifiers. No meta-validation against industry-standard specifications is required. Suitable for Markdown docs, YAML configs, and reference data. For self-describing specifications with embedded IDs, see spec-host.
+
+    templateNaming:
+      pattern: "forge-doc-host-{name}"
+      note: "Naming pattern TBD - should reflect the content being hosted"
+    references:
+      - "docs/standards/publishing/canonical-uri-resolution.md"
+      - "docs/standards/repository-category/doc-host/README.md"
+  - key: fixture
+    summary: "Test infrastructure providing real-but-test-purpose servers, clients, or datastores"
+    primaryEntryPoints:
+      - "docker compose up"
+      - "Container image"
+    typicalConsumers:
+      - "Integration test suites"
+      - "CI/CD pipelines"
+      - "Local development environments"
+    constraints:
+      - "MUST NOT contain PII (use synthetic/anonymized data only)"
+      - "MUST NOT contain NPI/MNPI (regulatory/legal exposure)"
+      - "MUST NOT provide tooling for non-public interfaces in public repos"
+      - "MUST be container-first (docker compose up as primary entry)"
+      - "SHOULD use helper library (gofulmen, tsfulmen, pyfulmen) for observability"
+      - "MUST use scenario-driven configuration (YAML/JSON, not code changes)"
+      - "MUST be stateless by default (clean slate on restart)"
+      - "SHOULD expose structured logs for test assertions"
+      - "SHOULD self-document available endpoints/behaviors"
+    modes:
+      - key: server
+        summary: "Backend APIs (REST, gRPC, GraphQL)"
+        example: "fixture-server-proving-gauntlet-001"
+      - key: client
+        summary: "Clients for server/API testing"
+        example: "fixture-client-proving-probe-001"
+      - key: datastore
+        summary: "Databases, caches, or message queues"
+        example: "fixture-datastore-utility-bucket-001"
+      - key: identity
+        summary: "IdP/authentication services (OIDC, SAML)"
+        example: "fixture-identity-proving-warden-001"
+        status: "planned-v0.4.3"
+    behavioralCategories:
+      - key: proving
+        summary: "Real execution, test-purpose data, validates caller"
+        namingTheme: "Challenge/trial names (gauntlet, sentinel, bastion)"
+      - key: utility
+        summary: "Real execution, trivial but reliable service"
+        namingTheme: "Functional/descriptive (echo, static, relay)"
+      - key: chaos
+        summary: "Real execution, deliberately unreliable/hostile"
+        namingTheme: "Mischief names (gremlin, jinx, havoc)"
+    notes: >
+      Fixtures are real implementations with test-purpose configuration, NOT mocks (simulated responses). They execute real logic with synthetic data. Security constraints are inviolate to prevent data exposure in test artifacts. All fixture names must be registered in config/taxonomy/fixture-catalog.yaml.
+
+    naming:
+      pattern: "fixture-{mode}-{category}-{name}-{variant}"
+      categoryConstraint: "^(proving|utility|chaos)$"
+      nameConstraint: "^[a-z][a-z0-9]{1,20}$"
+      variantConstraint: "^[0-9]{3}$"
+      note: "Names registered in fixture-catalog.yaml. Variant 001 = reference implementation. Category in name for discoverability at scale."
+    registry: "config/taxonomy/fixture-catalog.yaml"
+    references:
+      - "docs/architecture/fulmen-fixture-standard.md"
+      - "docs/standards/repository-category/fixture/README.md"

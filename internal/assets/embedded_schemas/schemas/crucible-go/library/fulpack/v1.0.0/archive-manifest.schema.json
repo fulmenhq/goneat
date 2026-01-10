@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://schemas.fulmenhq.dev/library/fulpack/v1.0.0/archive-manifest",
+  "$id": "https://schemas.fulmenhq.dev/crucible/library/fulpack/v1.0.0/archive-manifest",
   "title": "Archive Manifest",
   "description": "Complete archive table of contents (for large archives and caching)",
   "type": "object",
@@ -50,7 +50,7 @@
     "entries": {
       "type": "array",
       "items": {
-        "$ref": "https://schemas.fulmenhq.dev/library/fulpack/v1.0.0/archive-entry"
+        "$ref": "https://schemas.fulmenhq.dev/crucible/library/fulpack/v1.0.0/archive-entry"
       },
       "description": "Array of archive entries"
     },

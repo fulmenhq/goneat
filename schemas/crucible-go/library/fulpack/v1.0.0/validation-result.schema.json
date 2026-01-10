@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://schemas.fulmenhq.dev/library/fulpack/v1.0.0/validation-result",
+  "$id": "https://schemas.fulmenhq.dev/crucible/library/fulpack/v1.0.0/validation-result",
   "title": "Validation Result",
   "description": "Result of archive integrity verification (from verify operation)",
   "type": "object",

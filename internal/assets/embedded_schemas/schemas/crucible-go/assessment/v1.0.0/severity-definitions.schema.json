@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.fulmenhq.dev/assessment/severity-definitions-v1.0.0.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/assessment/severity-definitions-v1.0.0.json",
   "title": "Assessment Severity Definitions",
   "description": "Shared severity definitions for assessment and analysis tooling.",
   "$comment": "Implementations MUST compare severities using severityLevel, not lexical ordering of severityName.",

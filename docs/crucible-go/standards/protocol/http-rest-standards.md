@@ -94,3 +94,5 @@ Metrics endpoints:
 - `docs/standards/library/modules/ssot-sync.md`
 - `docs/standards/observability/logging.md`
 - `config/library/foundry/http-statuses.yaml` - HTTP status code catalog
+- [HTTP Server Patterns Guide](../guides/testing/http-server-patterns.md) - Compliance routing and implementation patterns
+- [HTTP Client Patterns Guide](../guides/testing/http-client-patterns.md) - Client testing patterns with fixture usage

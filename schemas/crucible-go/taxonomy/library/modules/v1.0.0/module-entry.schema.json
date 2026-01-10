@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://fulmenhq.dev/schemas/taxonomy/library/modules/v1.0.0/module-entry.schema.json",
+  "$id": "https://schemas.fulmenhq.dev/crucible/taxonomy/library/modules/v1.0.0/module-entry.schema.json",
   "title": "Fulmen Helper Library Module Entry",
   "description": "Schema for individual module entries in the helper library module registry",
   "type": "object",
