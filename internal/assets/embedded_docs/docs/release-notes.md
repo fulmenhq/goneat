@@ -74,6 +74,7 @@ Tools are now organized into language-specific scopes instead of mixing everythi
 | `rust` | Rust Cargo plugins | cargo-deny, cargo-audit |
 | `python` | Python tools | ruff (replaces black/flake8/isort) |
 | `typescript` | TS/JS tools | biome (replaces eslint/prettier for TS/JS/JSON) |
+| `sbom` | SBOM & vuln scanning | syft (SBOM generation), grype (vulnerability scanning) |
 
 **Usage examples:**
 
@@ -104,6 +105,14 @@ See `pkg/dependencies/cargo_deny.go` for detailed comments.
 ### Bug Fixes
 
 - **SSOT provenance trailing newline**: `goneat ssot sync` now writes provenance.json and metadata mirrors with trailing newlines, preventing format diffs when downstream repos run formatters after sync.
+
+### Upstream Updates
+
+- **Crucible v0.4.5**: Updated from v0.3.1 to v0.4.5
+  - New agentic roles (prodmktg, uxdev)
+  - Similarity library schemas and fixtures
+  - Foundry signal resolution fixtures
+  - Platform modules taxonomy v1.1.0
 
 ---
 
