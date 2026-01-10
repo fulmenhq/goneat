@@ -83,14 +83,14 @@ func TestGetToolsForScope(t *testing.T) {
 		expectError bool
 		minTools    int
 	}{
-		{"foundation", false, 5},  // Language-agnostic tools
-		{"go", false, 5},          // Go toolchain
-		{"rust", false, 2},        // Cargo plugins
-		{"python", false, 1},      // ruff
-		{"typescript", false, 1},  // biome
-		{"security", false, 1},    // gitleaks (cross-language)
-		{"sbom", false, 1},        // syft
-		{"all", false, 15},        // All tools
+		{"foundation", false, 5}, // Language-agnostic tools
+		{"go", false, 5},         // Go toolchain
+		{"rust", false, 2},       // Cargo plugins
+		{"python", false, 1},     // ruff
+		{"typescript", false, 1}, // biome
+		{"security", false, 1},   // gitleaks (cross-language)
+		{"sbom", false, 2},       // syft, grype
+		{"all", false, 16},       // All tools (added grype)
 		{"nonexistent", true, 0},
 	}
 

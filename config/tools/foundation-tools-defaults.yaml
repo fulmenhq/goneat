@@ -319,11 +319,26 @@ security_tools:
 # =============================================================================
 # SBOM SCOPE - Software Bill of Materials
 # =============================================================================
+# syft generates SBOMs, grype scans them for vulnerabilities.
+# Together they provide a complete SBOM-based security workflow.
 sbom_tools:
   - name: syft
     description: "SBOM generator for software supply chain security"
     kind: "system"
     detect_command: "syft version"
+    platforms: ["darwin", "linux", "windows"]
+    version_args: ["version"]
+    check_args: ["--help"]
+    package_managers:
+      darwin: ["brew"]
+      linux: ["brew"]
+      windows: ["scoop"]
+    auto_install_safe: true
+
+  - name: grype
+    description: "Vulnerability scanner for container images and SBOMs"
+    kind: "system"
+    detect_command: "grype version"
     platforms: ["darwin", "linux", "windows"]
     version_args: ["version"]
     check_args: ["--help"]
@@ -415,9 +430,10 @@ scopes:
       - gitleaks
 
   sbom:
-    description: "Software Bill of Materials (SBOM) generation"
+    description: "Software Bill of Materials (SBOM) generation and vulnerability scanning"
     tools:
       - syft
+      - grype
 
   cicd:
     description: "Local CI/CD runner tools (optional)"
@@ -459,4 +475,5 @@ scopes:
       - gitleaks
       # sbom
       - syft
+      - grype
       # Note: cicd tools excluded from 'all' - they require manual setup
