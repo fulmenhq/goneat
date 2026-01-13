@@ -1147,6 +1147,11 @@ func formatJavaScriptFile(file string, checkOnly bool, _ *config.Config, options
 		return fmt.Errorf("biome not found. Install with: npm install -g @biomejs/biome")
 	}
 
+	// Verify biome version is 2.x (1.x used --check which was removed in 2.x)
+	if err := checkBiomeVersionCmd(biomePath); err != nil {
+		return err
+	}
+
 	// Read the original content
 	originalContent, err := os.ReadFile(file)
 	if err != nil {
@@ -1154,9 +1159,10 @@ func formatJavaScriptFile(file string, checkOnly bool, _ *config.Config, options
 	}
 
 	if checkOnly {
-		// Use biome format --check to check formatting
+		// Use biome format (without --write) to check formatting
+		// Biome 2.x: running without --write performs a dry-run check (exit 0=formatted, 1=needs formatting)
 		// #nosec G204 - biomePath comes from findToolPath which validates paths
-		cmd := exec.Command(biomePath, "format", "--check", file)
+		cmd := exec.Command(biomePath, "format", file)
 		output, err := cmd.CombinedOutput()
 
 		if err != nil {
@@ -1655,4 +1661,38 @@ func writePlanToFile(manifest *work.WorkManifest, filename string) error {
 	}
 
 	return os.WriteFile(filename, data, 0600)
+}
+
+// checkBiomeVersionCmd verifies that biome is version 2.x or higher.
+// Biome 1.x used --check flag which was removed in 2.x.
+func checkBiomeVersionCmd(biomePath string) error {
+	// #nosec G204 -- biomePath comes from findToolPath
+	cmd := exec.Command(biomePath, "--version")
+	output, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to get biome version: %w", err)
+	}
+
+	// Output format: "Version: 2.3.10" or similar
+	versionStr := strings.TrimSpace(string(output))
+	versionStr = strings.TrimPrefix(versionStr, "Version: ")
+
+	// Extract major version
+	parts := strings.Split(versionStr, ".")
+	if len(parts) == 0 {
+		return fmt.Errorf("could not parse biome version: %s", versionStr)
+	}
+
+	major := 0
+	for _, c := range parts[0] {
+		if c >= '0' && c <= '9' {
+			major = major*10 + int(c-'0')
+		}
+	}
+
+	if major < 2 {
+		return fmt.Errorf("biome version %s is not supported; goneat requires biome 2.x or higher. Upgrade with: npm install -g @biomejs/biome@latest", versionStr)
+	}
+
+	return nil
 }

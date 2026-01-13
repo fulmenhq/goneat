@@ -1022,9 +1022,15 @@ func (p *FormatProcessor) checkJavaScriptFile(filePath string) error {
 		}
 	}
 
-	// Use biome format --check
+	// Verify biome version is 2.x (1.x used --check which was removed in 2.x)
+	if err := checkBiomeVersion(biomePath); err != nil {
+		return err
+	}
+
+	// Use biome format (without --write) to check formatting
+	// Biome 2.x: running without --write performs a dry-run check (exit 0=formatted, 1=needs formatting)
 	// #nosec G204 -- biomePath comes from toolPaths or exec.LookPath which validates the path
-	cmd := exec.Command(biomePath, "format", "--check", filePath)
+	cmd := exec.Command(biomePath, "format", filePath)
 	output, err := cmd.CombinedOutput()
 
 	if err != nil {
@@ -1239,4 +1245,38 @@ func (p *FormatProcessor) normalizeMarkdownContent(input []byte, mdConfig config
 	}
 
 	return []byte(formatted), nil
+}
+
+// checkBiomeVersion verifies that biome is version 2.x or higher.
+// Biome 1.x used --check flag which was removed in 2.x.
+func checkBiomeVersion(biomePath string) error {
+	// #nosec G204 -- biomePath comes from toolPaths or exec.LookPath
+	cmd := exec.Command(biomePath, "--version")
+	output, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to get biome version: %w", err)
+	}
+
+	// Output format: "Version: 2.3.10" or similar
+	versionStr := strings.TrimSpace(string(output))
+	versionStr = strings.TrimPrefix(versionStr, "Version: ")
+
+	// Extract major version
+	parts := strings.Split(versionStr, ".")
+	if len(parts) == 0 {
+		return fmt.Errorf("could not parse biome version: %s", versionStr)
+	}
+
+	major := 0
+	for _, c := range parts[0] {
+		if c >= '0' && c <= '9' {
+			major = major*10 + int(c-'0')
+		}
+	}
+
+	if major < 2 {
+		return fmt.Errorf("biome version %s is not supported; goneat requires biome 2.x or higher. Upgrade with: npm install -g @biomejs/biome@latest", versionStr)
+	}
+
+	return nil
 }
