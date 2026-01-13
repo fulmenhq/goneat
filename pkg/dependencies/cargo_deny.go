@@ -689,3 +689,204 @@ func (f *CargoDenyFinding) formatLabelContext() string {
 
 	return strings.Join(unique, "; ")
 }
+
+// CargoDenyListResult contains the results of running cargo deny list
+type CargoDenyListResult struct {
+	Dependencies []CargoCrateLicense
+	RootPath     string
+	Duration     time.Duration
+}
+
+// CargoCrateLicense represents a crate with its license information from cargo deny list
+type CargoCrateLicense struct {
+	Name     string   // Crate name
+	Version  string   // Crate version
+	Licenses []string // List of licenses (e.g., ["MIT", "Apache-2.0"])
+}
+
+// RunCargoDenyList executes cargo deny list to get dependency license information.
+// This provides the equivalent of `goneat dependencies --licenses` for Rust projects,
+// producing a list of all dependencies with their detected licenses.
+func RunCargoDenyList(ctx context.Context, target string, timeout time.Duration) (*CargoDenyListResult, error) {
+	if !IsCargoAvailable() {
+		return nil, fmt.Errorf("cargo is not available")
+	}
+
+	project := DetectRustProject(target)
+	if project == nil || project.CargoTomlPath == "" {
+		return nil, nil // Not a Rust project
+	}
+
+	presence := CheckCargoDenyPresence()
+	if !presence.Present {
+		return nil, fmt.Errorf("cargo-deny is not installed. Install with: cargo install cargo-deny")
+	}
+
+	root := project.EffectiveRoot()
+	if root == "" {
+		root = target
+	}
+
+	start := time.Now()
+
+	// Run cargo deny list - outputs a table of crates with licenses
+	// Format: "crate_name version license1 OR license2"
+	args := []string{"deny", "list"}
+	out, err := runCargoDenyListCommand(ctx, root, args, timeout)
+	duration := time.Since(start)
+
+	if err != nil {
+		return nil, fmt.Errorf("cargo deny list failed: %w", err)
+	}
+
+	deps := parseCargoDenyList(out)
+
+	logger.Debug(fmt.Sprintf("cargo deny list found %d dependencies", len(deps)))
+
+	return &CargoDenyListResult{
+		Dependencies: deps,
+		RootPath:     root,
+		Duration:     duration,
+	}, nil
+}
+
+// runCargoDenyListCommand executes cargo deny list with the given arguments
+func runCargoDenyListCommand(ctx context.Context, dir string, args []string, timeout time.Duration) ([]byte, error) {
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
+	cmd := exec.CommandContext(ctx, "cargo", args...) // #nosec G204 -- args from controlled input
+	cmd.Dir = dir
+
+	// cargo deny list outputs to stdout (unlike check which uses stderr for JSON)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		// cargo deny list should not fail on normal operation
+		if _, ok := err.(*exec.ExitError); ok { //nolint:errorlint // checking for specific type
+			// May have warnings but still output valid data
+			if stdout.Len() > 0 {
+				return stdout.Bytes(), nil
+			}
+		}
+		return nil, fmt.Errorf("cargo deny list execution failed: %w", err)
+	}
+
+	return stdout.Bytes(), nil
+}
+
+// parseCargoDenyList parses the output of cargo deny list.
+// The output format is a table with columns: Name, Version, License
+// Example:
+//
+//	Name            Version License
+//	----            ------- -------
+//	aho-corasick    1.1.3   Unlicense OR MIT
+//	anstream        0.6.18  MIT OR Apache-2.0
+func parseCargoDenyList(out []byte) []CargoCrateLicense {
+	var deps []CargoCrateLicense
+
+	scanner := bufio.NewScanner(bytes.NewReader(out))
+	headerSeen := false
+	separatorSeen := false
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// Skip empty lines
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+
+		// Skip header line (contains "Name" and "Version")
+		if !headerSeen && strings.Contains(line, "Name") && strings.Contains(line, "Version") {
+			headerSeen = true
+			continue
+		}
+
+		// Skip separator line (contains "----")
+		if headerSeen && !separatorSeen && strings.Contains(line, "----") {
+			separatorSeen = true
+			continue
+		}
+
+		// Parse data lines after header and separator
+		if headerSeen && separatorSeen {
+			dep := parseCargoDenyListLine(line)
+			if dep.Name != "" {
+				deps = append(deps, dep)
+			}
+		}
+	}
+
+	return deps
+}
+
+// parseCargoDenyListLine parses a single line from cargo deny list output.
+// Lines are whitespace-delimited: "crate-name    1.0.0   MIT OR Apache-2.0"
+func parseCargoDenyListLine(line string) CargoCrateLicense {
+	// Split on whitespace, but the license field may contain spaces (e.g., "MIT OR Apache-2.0")
+	// The format is: name version license...
+	// We split into at most 3 parts: name, version, rest (license expression)
+	fields := strings.Fields(line)
+	if len(fields) < 2 {
+		return CargoCrateLicense{}
+	}
+
+	name := fields[0]
+	version := fields[1]
+
+	// Everything after name and version is the license expression
+	var licenseExpr string
+	if len(fields) > 2 {
+		licenseExpr = strings.Join(fields[2:], " ")
+	}
+
+	// Parse license expression - can be "MIT", "MIT OR Apache-2.0", etc.
+	licenses := parseLicenseExpression(licenseExpr)
+
+	return CargoCrateLicense{
+		Name:     name,
+		Version:  version,
+		Licenses: licenses,
+	}
+}
+
+// parseLicenseExpression parses an SPDX-like license expression into individual licenses.
+// Examples:
+//   - "MIT" -> ["MIT"]
+//   - "MIT OR Apache-2.0" -> ["MIT", "Apache-2.0"]
+//   - "MIT AND Apache-2.0" -> ["MIT", "Apache-2.0"]
+//   - "(MIT OR Apache-2.0) AND BSD-3-Clause" -> ["MIT", "Apache-2.0", "BSD-3-Clause"]
+func parseLicenseExpression(expr string) []string {
+	if expr == "" {
+		return nil
+	}
+
+	// Remove parentheses
+	expr = strings.ReplaceAll(expr, "(", "")
+	expr = strings.ReplaceAll(expr, ")", "")
+
+	// Split on OR and AND (case insensitive)
+	// Use regex to handle " OR " and " AND " with surrounding spaces
+	separatorPattern := regexp.MustCompile(`\s+(?:OR|AND)\s+`)
+	parts := separatorPattern.Split(expr, -1)
+
+	var licenses []string
+	seen := make(map[string]bool)
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" && !seen[p] {
+			seen[p] = true
+			licenses = append(licenses, p)
+		}
+	}
+
+	return licenses
+}

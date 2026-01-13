@@ -20,7 +20,8 @@ func NewRustAnalyzer() Analyzer {
 }
 
 // Analyze implements Analyzer.Analyze for Rust.
-// Uses cargo-deny to check license compliance and banned crates.
+// Uses cargo-deny to check license compliance and banned crates,
+// and cargo deny list to enumerate dependencies with their licenses.
 func (a *RustAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisConfig) (*AnalysisResult, error) {
 	start := time.Now()
 
@@ -70,6 +71,20 @@ func (a *RustAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisC
 	// Run cargo-deny for licenses and bans (5 minute default timeout)
 	timeout := 5 * time.Minute
 
+	// First, get the dependency list with licenses using cargo deny list
+	// This provides the equivalent of `goneat dependencies --licenses` for Rust
+	var dependencies []Dependency
+	if cfg.CheckLicenses {
+		listResult, listErr := RunCargoDenyList(ctx, target, timeout)
+		if listErr != nil {
+			logger.Warn(fmt.Sprintf("cargo deny list failed: %v", listErr))
+		} else if listResult != nil {
+			dependencies = convertCratesToDependencies(listResult.Dependencies)
+			logger.Debug(fmt.Sprintf("cargo deny list found %d dependencies", len(dependencies)))
+		}
+	}
+
+	// Run cargo-deny check for policy violations
 	result, err := RunCargoDeny(ctx, target, []CargoDenyCheckType{
 		CargoDenyCheckLicenses,
 		CargoDenyCheckBans,
@@ -81,7 +96,7 @@ func (a *RustAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisC
 
 	if result == nil {
 		return &AnalysisResult{
-			Dependencies: []Dependency{},
+			Dependencies: dependencies,
 			Issues:       []Issue{},
 			Passed:       true,
 			Duration:     time.Since(start),
@@ -117,11 +132,69 @@ func (a *RustAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisC
 	logger.Debug(fmt.Sprintf("Rust dependency analysis found %d issues", len(issues)))
 
 	return &AnalysisResult{
-		Dependencies: []Dependency{}, // cargo-deny doesn't enumerate deps, just checks policies
+		Dependencies: dependencies,
 		Issues:       issues,
 		Passed:       passed,
 		Duration:     result.Duration,
 	}, nil
+}
+
+// convertCratesToDependencies converts cargo deny list results to the unified Dependency format.
+// This enables `goneat dependencies --licenses` to work for Rust projects with the same
+// structured output as Go projects.
+func convertCratesToDependencies(crates []CargoCrateLicense) []Dependency {
+	deps := make([]Dependency, 0, len(crates))
+
+	for _, crate := range crates {
+		// Create license info - join multiple licenses with " OR " for SPDX-like expression
+		var license *License
+		if len(crate.Licenses) > 0 {
+			// Use the first license as the primary, but store all in the Type field
+			licenseType := crate.Licenses[0]
+			if len(crate.Licenses) > 1 {
+				licenseType = joinLicenses(crate.Licenses)
+			}
+			license = &License{
+				Name: licenseType,
+				Type: licenseType,
+			}
+		}
+
+		deps = append(deps, Dependency{
+			Module: Module{
+				Name:     crate.Name,
+				Version:  crate.Version,
+				Language: LanguageRust,
+			},
+			License: license,
+		})
+	}
+
+	return deps
+}
+
+// joinLicenses joins multiple licenses into an SPDX-like expression.
+// Example: ["MIT", "Apache-2.0"] -> "MIT OR Apache-2.0"
+func joinLicenses(licenses []string) string {
+	if len(licenses) == 0 {
+		return ""
+	}
+	if len(licenses) == 1 {
+		return licenses[0]
+	}
+	return stringJoin(licenses, " OR ")
+}
+
+// stringJoin joins strings with a separator (avoiding import of strings just for Join)
+func stringJoin(parts []string, sep string) string {
+	if len(parts) == 0 {
+		return ""
+	}
+	result := parts[0]
+	for i := 1; i < len(parts); i++ {
+		result += sep + parts[i]
+	}
+	return result
 }
 
 // mapFindingSeverityString maps cargo-deny finding severity to string severity.
