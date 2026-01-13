@@ -1,15 +1,12 @@
 package assess
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"time"
 
+	"github.com/fulmenhq/goneat/pkg/dependencies"
 	"github.com/fulmenhq/goneat/pkg/logger"
 )
 
@@ -38,58 +35,31 @@ func (c *cargoDenyAdapter) IsAvailable() bool {
 	return presence.Present
 }
 
-func (c *cargoDenyAdapter) Run(_ context.Context) ([]Issue, error) {
-	project := DetectRustProject(c.moduleRoot)
-	if project == nil || project.CargoTomlPath == "" {
-		return nil, nil
-	}
-	root := project.EffectiveRoot()
-	if root == "" {
-		root = c.moduleRoot
-	}
+// Run executes cargo-deny for security checks (advisories, sources).
+// NOTE: cargo-deny outputs JSON to STDERR (not stdout) when using --format json.
+// This is intentional per cargo-deny design - see pkg/dependencies/cargo_deny.go for details.
+// The --format json flag must come BEFORE the check subcommand.
+func (c *cargoDenyAdapter) Run(ctx context.Context) ([]Issue, error) {
+	// Use the canonical cargo-deny implementation from pkg/dependencies
+	// which correctly handles STDERR output and NDJSON parsing
+	result, err := dependencies.RunCargoDeny(ctx, c.moduleRoot, []dependencies.CargoDenyCheckType{
+		dependencies.CargoDenyCheckAdvisories,
+		dependencies.CargoDenyCheckSources,
+	}, c.cfg.Timeout)
 
-	args := []string{"deny", "check", "advisories", "sources", "--format", "json"}
-	out, err := runToolStdoutOnly(root, "cargo", args, c.cfg.Timeout)
 	if err != nil {
 		return nil, err
 	}
-	if len(bytes.TrimSpace(out)) == 0 {
+	if result == nil {
 		return nil, nil
 	}
 
-	entries, perr := parseCargoDenyEntries(out)
-	if perr != nil {
-		return nil, perr
-	}
-
-	issues := make([]Issue, 0, len(entries))
-	reportFile := rustIssueFile(project)
-	for _, entry := range entries {
-		msg := strings.TrimSpace(entry.Message)
-		if msg == "" && entry.Advisory != nil {
-			msg = strings.TrimSpace(entry.Advisory.Title)
-		}
-		if msg == "" {
-			msg = "cargo-deny finding"
-		}
-		if entry.Type != "" {
-			msg = fmt.Sprintf("%s: %s", entry.Type, msg)
-		}
-
-		id := strings.TrimSpace(entry.ID)
-		if id == "" && entry.Advisory != nil {
-			id = strings.TrimSpace(entry.Advisory.ID)
-		}
-		if id != "" {
-			msg = fmt.Sprintf("cargo-deny(%s): %s", id, msg)
-		} else {
-			msg = fmt.Sprintf("cargo-deny: %s", msg)
-		}
-
+	issues := make([]Issue, 0, len(result.Findings))
+	for _, finding := range result.Findings {
 		issues = append(issues, Issue{
-			File:        filepath.ToSlash(reportFile),
-			Severity:    mapCargoDenySeverity(entry),
-			Message:     msg,
+			File:        filepath.ToSlash(result.ReportFile),
+			Severity:    mapCargoDenyFindingSeverity(finding),
+			Message:     finding.FormatMessage(),
 			Category:    CategorySecurity,
 			SubCategory: "rust:cargo-deny",
 			AutoFixable: false,
@@ -99,65 +69,16 @@ func (c *cargoDenyAdapter) Run(_ context.Context) ([]Issue, error) {
 	return issues, nil
 }
 
-type cargoDenyEntry struct {
-	Type     string `json:"type"`
-	Severity string `json:"severity"`
-	Message  string `json:"message"`
-	ID       string `json:"id"`
-	Code     string `json:"code"`
-	URL      string `json:"url"`
-	Advisory *struct {
-		ID       string `json:"id"`
-		Title    string `json:"title"`
-		Severity string `json:"severity"`
-		URL      string `json:"url"`
-	} `json:"advisory,omitempty"`
-}
-
-func parseCargoDenyEntries(out []byte) ([]cargoDenyEntry, error) {
-	var entries []cargoDenyEntry
-	if err := json.Unmarshal(out, &entries); err == nil {
-		return entries, nil
-	}
-
-	var single cargoDenyEntry
-	if err := json.Unmarshal(out, &single); err == nil && (single.Type != "" || single.Message != "") {
-		return []cargoDenyEntry{single}, nil
-	}
-
-	scanner := bufio.NewScanner(bytes.NewReader(out))
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-		var entry cargoDenyEntry
-		if err := json.Unmarshal([]byte(line), &entry); err == nil {
-			entries = append(entries, entry)
-		}
-	}
-	if len(entries) > 0 {
-		return entries, nil
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("failed to parse cargo-deny output: %w", err)
-	}
-	return nil, fmt.Errorf("failed to parse cargo-deny output")
-}
-
-func mapCargoDenySeverity(entry cargoDenyEntry) IssueSeverity {
-	sev := strings.TrimSpace(entry.Severity)
-	if sev == "" && entry.Advisory != nil {
-		sev = entry.Advisory.Severity
-	}
-	switch strings.ToLower(sev) {
-	case "critical":
+// mapCargoDenyFindingSeverity maps cargo-deny finding to security severity
+func mapCargoDenyFindingSeverity(f dependencies.CargoDenyFinding) IssueSeverity {
+	switch f.SeverityLevel() {
+	case 4:
 		return SeverityCritical
-	case "high", "error":
+	case 3:
 		return SeverityHigh
-	case "medium", "moderate", "warning":
+	case 2:
 		return SeverityMedium
-	case "low":
+	case 1:
 		return SeverityLow
 	default:
 		return SeverityMedium
@@ -173,6 +94,12 @@ func init() {
 // RunCargoDenyDependencyChecks runs cargo-deny license and bans checks.
 // This is called from the dependencies assessment category (not security).
 // Returns issues with Category=CategoryDependencies and SubCategory=rust:cargo-deny.
+//
+// NOTE: cargo-deny outputs JSON to STDERR (not stdout) when using --format json.
+// This is intentional per cargo-deny design. The --format json flag must come
+// BEFORE the check subcommand. This was discovered during fulmen-toolbox testing
+// and is documented here for maintainability.
+// See: pkg/dependencies/cargo_deny.go for the canonical implementation.
 func RunCargoDenyDependencyChecks(target string, timeout time.Duration) ([]Issue, error) {
 	if !IsCargoAvailable() {
 		return nil, nil
@@ -192,62 +119,39 @@ func RunCargoDenyDependencyChecks(target string, timeout time.Duration) ([]Issue
 		logger.Warn(fmt.Sprintf("cargo-deny %s below minimum %s; results may be unreliable", presence.Version, cargoDenyMinVersion))
 	}
 
-	root := project.EffectiveRoot()
-	if root == "" {
-		root = target
-	}
+	// Use the canonical cargo-deny implementation from pkg/dependencies
+	// which correctly handles:
+	// 1. Command order: --format json BEFORE check subcommand
+	// 2. STDERR output: cargo-deny outputs JSON to stderr, not stdout
+	// 3. NDJSON parsing: diagnostic entries with type: "diagnostic" and fields
+	// 4. Rich labels: file:line refs, license names, version context
+	ctx := context.Background()
+	result, err := dependencies.RunCargoDeny(ctx, target, []dependencies.CargoDenyCheckType{
+		dependencies.CargoDenyCheckLicenses,
+		dependencies.CargoDenyCheckBans,
+	}, timeout)
 
-	// cargo deny check licenses bans --format json
-	args := []string{"deny", "check", "licenses", "bans", "--format", "json"}
-	out, err := runToolStdoutOnly(root, "cargo", args, timeout)
 	if err != nil {
-		// cargo-deny returns non-zero on findings, but we still get JSON output
-		// Only treat as error if we got no output at all
-		if len(bytes.TrimSpace(out)) == 0 {
-			return nil, err
-		}
+		return nil, err
 	}
-	if len(bytes.TrimSpace(out)) == 0 {
+	if result == nil {
 		return nil, nil
 	}
 
-	entries, perr := parseCargoDenyEntries(out)
-	if perr != nil {
-		return nil, perr
-	}
-
-	issues := make([]Issue, 0, len(entries))
-	reportFile := rustIssueFile(project)
-	for _, entry := range entries {
-		msg := strings.TrimSpace(entry.Message)
-		if msg == "" {
-			msg = "cargo-deny finding"
-		}
-		if entry.Type != "" {
-			msg = fmt.Sprintf("%s: %s", entry.Type, msg)
-		}
-
-		id := strings.TrimSpace(entry.ID)
-		if id != "" {
-			msg = fmt.Sprintf("cargo-deny(%s): %s", id, msg)
-		} else {
-			msg = fmt.Sprintf("cargo-deny: %s", msg)
-		}
-
-		// Map entry type to subcategory
-		// cargo-deny uses plural type values: "licenses", "bans", "advisories", "sources"
+	issues := make([]Issue, 0, len(result.Findings))
+	for _, finding := range result.Findings {
+		// Map finding type to subcategory
 		subCategory := "rust:cargo-deny"
-		switch strings.ToLower(entry.Type) {
-		case "license", "licenses":
+		if finding.IsLicenseFinding() {
 			subCategory = "rust:cargo-deny:license"
-		case "ban", "bans":
+		} else if finding.IsBanFinding() {
 			subCategory = "rust:cargo-deny:bans"
 		}
 
 		issues = append(issues, Issue{
-			File:          filepath.ToSlash(reportFile),
-			Severity:      mapCargoDenyDependencySeverity(entry),
-			Message:       msg,
+			File:          filepath.ToSlash(result.ReportFile),
+			Severity:      mapCargoDenyDependencySeverity(finding),
+			Message:       finding.FormatMessage(),
 			Category:      CategoryDependencies,
 			SubCategory:   subCategory,
 			AutoFixable:   false,
@@ -263,27 +167,33 @@ func RunCargoDenyDependencyChecks(target string, timeout time.Duration) ([]Issue
 // Per acceptance criteria:
 // - License violations: high severity (supply chain/legal risk)
 // - Bans violations: medium severity (policy enforcement)
-func mapCargoDenyDependencySeverity(entry cargoDenyEntry) IssueSeverity {
-	entryType := strings.ToLower(entry.Type)
+// - Informational codes (e.g., "license-not-encountered"): low severity
+func mapCargoDenyDependencySeverity(f dependencies.CargoDenyFinding) IssueSeverity {
+	// Informational codes are low severity (not actual violations)
+	// e.g., "license-not-encountered" means an allowed license wasn't used
+	if dependencies.IsInformationalCode(f.Code) {
+		return SeverityLow
+	}
 
 	// Bans are always medium per spec, regardless of cargo-deny's severity
-	if entryType == "ban" || entryType == "bans" {
+	if f.IsBanFinding() {
 		return SeverityMedium
 	}
 
 	// License violations are always high per spec
-	if entryType == "license" || entryType == "licenses" {
+	if f.IsLicenseFinding() {
 		return SeverityHigh
 	}
 
 	// For other types (shouldn't happen in dependencies context), use cargo-deny's severity
-	sev := strings.TrimSpace(entry.Severity)
-	switch strings.ToLower(sev) {
-	case "error":
+	switch f.SeverityLevel() {
+	case 4:
+		return SeverityCritical
+	case 3:
 		return SeverityHigh
-	case "warning":
+	case 2:
 		return SeverityMedium
-	case "note", "help":
+	case 1:
 		return SeverityLow
 	default:
 		return SeverityMedium

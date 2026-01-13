@@ -610,53 +610,59 @@ func TestDependenciesRunner_UpdateMetricsFromIssues(t *testing.T) {
 }
 
 // TestCargoDenyDependencySeverityMapping validates severity mapping for cargo-deny
-// dependency checks (licenses and bans) per spec requirements
+// dependency checks (licenses and bans) per spec requirements.
+// Uses dependencies.CargoDenyFinding from pkg/dependencies (canonical implementation).
 func TestCargoDenyDependencySeverityMapping(t *testing.T) {
 	tests := []struct {
 		name     string
-		entry    cargoDenyEntry
+		finding  dependencies.CargoDenyFinding
 		expected IssueSeverity
 	}{
 		{
 			name:     "license_singular_always_high",
-			entry:    cargoDenyEntry{Type: "license", Severity: "warning"},
+			finding:  dependencies.CargoDenyFinding{Type: "license", Severity: "warning"},
 			expected: SeverityHigh,
 		},
 		{
 			name:     "licenses_plural_always_high",
-			entry:    cargoDenyEntry{Type: "licenses", Severity: "error"},
+			finding:  dependencies.CargoDenyFinding{Type: "licenses", Severity: "error"},
 			expected: SeverityHigh,
 		},
 		{
 			name:     "ban_singular_always_medium",
-			entry:    cargoDenyEntry{Type: "ban", Severity: "error"},
+			finding:  dependencies.CargoDenyFinding{Type: "ban", Severity: "error"},
 			expected: SeverityMedium,
 		},
 		{
 			name:     "bans_plural_always_medium",
-			entry:    cargoDenyEntry{Type: "bans", Severity: "error"},
+			finding:  dependencies.CargoDenyFinding{Type: "bans", Severity: "error"},
 			expected: SeverityMedium,
 		},
 		{
 			name:     "unknown_error_severity_maps_to_high",
-			entry:    cargoDenyEntry{Type: "other", Severity: "error"},
+			finding:  dependencies.CargoDenyFinding{Type: "other", Severity: "error"},
 			expected: SeverityHigh,
 		},
 		{
 			name:     "unknown_warning_severity_maps_to_medium",
-			entry:    cargoDenyEntry{Type: "other", Severity: "warning"},
+			finding:  dependencies.CargoDenyFinding{Type: "other", Severity: "warning"},
 			expected: SeverityMedium,
 		},
 		{
 			name:     "unknown_note_severity_maps_to_low",
-			entry:    cargoDenyEntry{Type: "other", Severity: "note"},
+			finding:  dependencies.CargoDenyFinding{Type: "other", Severity: "note"},
+			expected: SeverityLow,
+		},
+		{
+			name:     "informational_code_is_low",
+			finding:  dependencies.CargoDenyFinding{Type: "license", Code: "license-not-encountered"},
 			expected: SeverityLow,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := mapCargoDenyDependencySeverity(tt.entry)
+			got := mapCargoDenyDependencySeverity(tt.finding)
 			if got != tt.expected {
 				t.Errorf("mapCargoDenyDependencySeverity() = %v, want %v", got, tt.expected)
 			}

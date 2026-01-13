@@ -130,7 +130,7 @@ func (a *RustAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisC
 // Informational codes (like "license-not-encountered") are low severity.
 func mapFindingSeverityString(f CargoDenyFinding) string {
 	// Informational codes are low severity (not actual violations)
-	if isInformationalCode(f.Code) {
+	if IsInformationalCode(f.Code) {
 		return "low"
 	}
 

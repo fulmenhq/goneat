@@ -41,9 +41,20 @@ type CargoDenyFinding struct {
 	Type     string // "license", "licenses", "ban", "bans", "advisory", "advisories", "sources"
 	Severity string // "error", "warning", "note", "help"
 	Message  string
-	ID       string // Advisory ID (e.g., RUSTSEC-2024-0001) or license/ban identifier
-	URL      string // URL to advisory or documentation
-	Code     string // cargo-deny diagnostic code
+	ID       string           // Advisory ID (e.g., RUSTSEC-2024-0001) or license/ban identifier
+	URL      string           // URL to advisory or documentation
+	Code     string           // cargo-deny diagnostic code
+	Labels   []CargoDenyLabel // Span information with file:line references and context
+}
+
+// CargoDenyLabel contains span information for diagnostics.
+// This provides rich context like specific license names, deny.toml line refs,
+// and crate version details that cargo-deny includes in its JSON output.
+type CargoDenyLabel struct {
+	Message string // Label message (e.g., "unmatched license allowance", "windows-sys v0.52.0")
+	Span    string // File span (e.g., "deny.toml:53:6")
+	Line    int    // Line number in the file
+	Column  int    // Column number in the file
 }
 
 // CargoDenyResult contains the results of running cargo-deny
@@ -188,9 +199,17 @@ func RunCargoDeny(ctx context.Context, target string, checkTypes []CargoDenyChec
 			Code:     fields.Code,
 		}
 
-		// Extract label info if present
+		// Extract label info if present - labels contain rich context like:
+		// - Specific license names (e.g., "0BSD" with "unmatched license allowance")
+		// - deny.toml file:line references for configuration issues
+		// - Crate version details for duplicate/ban findings
 		if len(fields.Labels) > 0 {
-			// Use first label's span as ID if applicable
+			finding.Labels = make([]CargoDenyLabel, len(fields.Labels))
+			for i, label := range fields.Labels {
+				// Direct type conversion since CargoDenyLabel and cargoDenyLabel have identical fields
+				finding.Labels[i] = CargoDenyLabel(label)
+			}
+			// Use first label's message as fallback if main message is empty
 			if finding.Message == "" {
 				finding.Message = fields.Labels[0].Message
 			}
@@ -558,9 +577,10 @@ func mapCodeToType(code string) string {
 	}
 }
 
-// isInformationalCode returns true if the cargo-deny code is informational
+// IsInformationalCode returns true if the cargo-deny code is informational
 // (not an actual policy violation). These should be low severity.
-func isInformationalCode(code string) bool {
+// Exported for use by internal/assess/rust_cargo_deny.go
+func IsInformationalCode(code string) bool {
 	code = strings.ToLower(code)
 	// "license-not-encountered" means an allowed license wasn't used - not a violation
 	// "duplicate" is a warning about multiple versions, not necessarily a ban violation
@@ -577,7 +597,8 @@ func (f *CargoDenyFinding) SeverityLevel() int {
 		return 3
 	case "medium", "moderate", "warning":
 		return 2
-	case "low":
+	case "low", "note", "help":
+		// "note" and "help" are informational cargo-deny severities
 		return 1
 	default:
 		return 2
@@ -602,14 +623,69 @@ func (f *CargoDenyFinding) IsAdvisoryFinding() bool {
 	return t == "advisory" || t == "advisories"
 }
 
-// FormatMessage returns a formatted message including the ID if present
+// FormatMessage returns a formatted message including the ID and label context.
+// This provides rich context from cargo-deny's diagnostic output:
+// - For license issues: specific license names and whether it's an unmatched allowance
+// - For bans/duplicates: crate version details
+// - File:line references for deny.toml configuration issues
 func (f *CargoDenyFinding) FormatMessage() string {
 	msg := f.Message
 	if f.Type != "" {
 		msg = fmt.Sprintf("%s: %s", f.Type, msg)
 	}
+
+	// Enrich message with label context
+	labelContext := f.formatLabelContext()
+	if labelContext != "" {
+		msg = fmt.Sprintf("%s [%s]", msg, labelContext)
+	}
+
 	if f.ID != "" {
 		return fmt.Sprintf("cargo-deny(%s): %s", f.ID, msg)
 	}
 	return fmt.Sprintf("cargo-deny: %s", msg)
+}
+
+// formatLabelContext extracts meaningful context from labels.
+// Returns a string with relevant details like:
+// - Specific license/crate names from label messages
+// - File:line references for configuration issues
+// - Version information for duplicate crate findings
+func (f *CargoDenyFinding) formatLabelContext() string {
+	if len(f.Labels) == 0 {
+		return ""
+	}
+
+	var parts []string
+
+	for _, label := range f.Labels {
+		// Extract meaningful context from label
+		if label.Message != "" {
+			// For duplicate findings, label.Message often contains version info like "windows-sys v0.52.0"
+			// For license findings, it contains context like "unmatched license allowance"
+			parts = append(parts, label.Message)
+		}
+
+		// Include file:line reference for configuration issues (typically deny.toml refs)
+		if label.Span != "" && strings.Contains(label.Span, "deny.toml") {
+			// Span format is usually "deny.toml:53:6" - include it for actionable context
+			parts = append(parts, fmt.Sprintf("at %s", label.Span))
+		}
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+
+	// Deduplicate and join - cargo-deny can have redundant labels
+	seen := make(map[string]bool)
+	var unique []string
+	for _, p := range parts {
+		if !seen[p] {
+			seen[p] = true
+			unique = append(unique, p)
+		}
+	}
+
+	return strings.Join(unique, "; ")
 }
