@@ -564,7 +564,9 @@ func parseVersionPart(part string) int {
 func mapCodeToType(code string) string {
 	code = strings.ToLower(code)
 	switch {
-	case strings.HasPrefix(code, "license"):
+	case strings.HasPrefix(code, "license"), code == "rejected", code == "unlicensed":
+		// "rejected" = license was not in allow list
+		// "unlicensed" = crate has no license
 		return "license"
 	case strings.HasPrefix(code, "ban"), code == "duplicate":
 		return "bans"
@@ -648,21 +650,45 @@ func (f *CargoDenyFinding) FormatMessage() string {
 
 // formatLabelContext extracts meaningful context from labels.
 // Returns a string with relevant details like:
-// - Specific license/crate names from label messages
-// - File:line references for configuration issues
-// - Version information for duplicate crate findings
+// - Specific license IDs extracted from span field for license findings
+// - Crate version details for duplicate/ban findings
+// - File:line references for deny.toml configuration issues
+//
+// cargo-deny JSON labels structure for license rejections:
+//
+//	{"span":"MIT OR Apache-2.0","message":""}                              <- full license expr
+//	{"span":"MIT","message":"rejected: license is not explicitly allowed"} <- specific rejected license
+//	{"span":"Apache-2.0","message":"rejected: license is not explicitly allowed"}
 func (f *CargoDenyFinding) formatLabelContext() string {
 	if len(f.Labels) == 0 {
 		return ""
 	}
 
 	var parts []string
+	var licenseIDs []string
 
 	for _, label := range f.Labels {
-		// Extract meaningful context from label
-		if label.Message != "" {
-			// For duplicate findings, label.Message often contains version info like "windows-sys v0.52.0"
-			// For license findings, it contains context like "unmatched license allowance"
+		// For license findings, extract specific license IDs from span field
+		if f.IsLicenseFinding() && label.Span != "" && !strings.Contains(label.Span, ":") {
+			if strings.Contains(label.Message, "rejected") {
+				// "rejected: license is not explicitly allowed" -> span is the rejected license
+				licenseIDs = append(licenseIDs, label.Span)
+			} else if strings.Contains(label.Message, "unmatched") {
+				// "unmatched license allowance" -> span is the unmatched allowed license (e.g., "0BSD")
+				licenseIDs = append(licenseIDs, label.Span)
+			} else if label.Message == "" {
+				// Empty message with non-file span is typically the full license expression
+				// Only include if we don't have specific license IDs yet
+				if len(licenseIDs) == 0 {
+					parts = append(parts, label.Span)
+				}
+			}
+		}
+
+		// Extract context from message for non-license findings
+		if !f.IsLicenseFinding() && label.Message != "" {
+			// For duplicate findings, label.Message contains version info like "windows-sys v0.52.0"
+			// For other findings, contains descriptive context
 			parts = append(parts, label.Message)
 		}
 
@@ -673,11 +699,25 @@ func (f *CargoDenyFinding) formatLabelContext() string {
 		}
 	}
 
+	// Add specific license IDs if we found rejected licenses
+	if len(licenseIDs) > 0 {
+		// Deduplicate license IDs
+		seen := make(map[string]bool)
+		var unique []string
+		for _, id := range licenseIDs {
+			if !seen[id] {
+				seen[id] = true
+				unique = append(unique, id)
+			}
+		}
+		parts = append(parts, strings.Join(unique, ", "))
+	}
+
 	if len(parts) == 0 {
 		return ""
 	}
 
-	// Deduplicate and join - cargo-deny can have redundant labels
+	// Deduplicate and join remaining parts
 	seen := make(map[string]bool)
 	var unique []string
 	for _, p := range parts {
@@ -782,80 +822,75 @@ func runCargoDenyListCommand(ctx context.Context, dir string, args []string, tim
 }
 
 // parseCargoDenyList parses the output of cargo deny list.
-// The output format is a table with columns: Name, Version, License
-// Example:
+// The output format groups crates by license:
 //
-//	Name            Version License
-//	----            ------- -------
-//	aho-corasick    1.1.3   Unlicense OR MIT
-//	anstream        0.6.18  MIT OR Apache-2.0
+//	Apache-2.0 (78): crate@version, crate@version, ...
+//	MIT (89): crate@version, crate@version, ...
+//	Unlicensed (4): crate@version, ...
+//
+// Each line starts with a license identifier, followed by a count in parentheses,
+// then a colon, and finally a comma-separated list of crate@version entries.
 func parseCargoDenyList(out []byte) []CargoCrateLicense {
 	var deps []CargoCrateLicense
 
 	scanner := bufio.NewScanner(bytes.NewReader(out))
-	headerSeen := false
-	separatorSeen := false
+
+	// Pattern to match license lines: "LICENSE-ID (count): crates..."
+	// Examples:
+	//   "Apache-2.0 (78): anstream@0.6.21, anstyle@1.0.13, ..."
+	//   "MIT OR Apache-2.0 (5): crate@1.0.0, ..."
+	//   "Unlicensed (4): crate@1.0.0, ..."
+	licenseLinePattern := regexp.MustCompile(`^(.+?)\s+\(\d+\):\s*(.*)$`)
 
 	for scanner.Scan() {
-		line := scanner.Text()
+		line := strings.TrimSpace(scanner.Text())
 
-		// Skip empty lines
-		if strings.TrimSpace(line) == "" {
+		// Skip empty lines and log/warning lines
+		if line == "" || strings.HasPrefix(line, "2") { // Skip timestamp lines like "2026-01-13..."
 			continue
 		}
 
-		// Skip header line (contains "Name" and "Version")
-		if !headerSeen && strings.Contains(line, "Name") && strings.Contains(line, "Version") {
-			headerSeen = true
+		matches := licenseLinePattern.FindStringSubmatch(line)
+		if len(matches) < 3 {
 			continue
 		}
 
-		// Skip separator line (contains "----")
-		if headerSeen && !separatorSeen && strings.Contains(line, "----") {
-			separatorSeen = true
+		licenseExpr := strings.TrimSpace(matches[1])
+		cratesStr := strings.TrimSpace(matches[2])
+
+		if cratesStr == "" {
 			continue
 		}
 
-		// Parse data lines after header and separator
-		if headerSeen && separatorSeen {
-			dep := parseCargoDenyListLine(line)
-			if dep.Name != "" {
-				deps = append(deps, dep)
+		// Parse individual crate@version entries
+		crates := strings.Split(cratesStr, ", ")
+		for _, crateEntry := range crates {
+			crateEntry = strings.TrimSpace(crateEntry)
+			if crateEntry == "" {
+				continue
 			}
+
+			// Split crate@version
+			atIdx := strings.LastIndex(crateEntry, "@")
+			if atIdx == -1 {
+				continue
+			}
+
+			name := crateEntry[:atIdx]
+			version := crateEntry[atIdx+1:]
+
+			// Parse license expression into individual licenses
+			licenses := parseLicenseExpression(licenseExpr)
+
+			deps = append(deps, CargoCrateLicense{
+				Name:     name,
+				Version:  version,
+				Licenses: licenses,
+			})
 		}
 	}
 
 	return deps
-}
-
-// parseCargoDenyListLine parses a single line from cargo deny list output.
-// Lines are whitespace-delimited: "crate-name    1.0.0   MIT OR Apache-2.0"
-func parseCargoDenyListLine(line string) CargoCrateLicense {
-	// Split on whitespace, but the license field may contain spaces (e.g., "MIT OR Apache-2.0")
-	// The format is: name version license...
-	// We split into at most 3 parts: name, version, rest (license expression)
-	fields := strings.Fields(line)
-	if len(fields) < 2 {
-		return CargoCrateLicense{}
-	}
-
-	name := fields[0]
-	version := fields[1]
-
-	// Everything after name and version is the license expression
-	var licenseExpr string
-	if len(fields) > 2 {
-		licenseExpr = strings.Join(fields[2:], " ")
-	}
-
-	// Parse license expression - can be "MIT", "MIT OR Apache-2.0", etc.
-	licenses := parseLicenseExpression(licenseExpr)
-
-	return CargoCrateLicense{
-		Name:     name,
-		Version:  version,
-		Licenses: licenses,
-	}
 }
 
 // parseLicenseExpression parses an SPDX-like license expression into individual licenses.

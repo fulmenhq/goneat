@@ -1,154 +1,114 @@
-# Goneat v0.4.4 — Rust Dependency Analysis via cargo-deny
+# Goneat v0.4.5 — Rust License Scanning Improvements
 
-**Release Date**: 2026-01-09
+**Release Date**: 2026-01-13
 **Status**: Stable
 
 ## TL;DR
 
-- **Rust license checking**: `goneat dependencies --licenses` now works for Rust projects
-- **cargo-deny integration**: License compliance and banned crate detection via cargo-deny
-- **Cargo tool installer**: `kind: cargo` support in tools.yaml for installing Rust tools
-- **Toolchain scopes**: Language-specific tool scopes (`go`, `rust`, `python`, `typescript`)
-- **Smart guidance**: Helpful messages when cargo-deny is not installed
-- **SSOT fix**: Provenance files now include trailing newlines (prevents format diffs in downstream repos)
+- **Rich cargo-deny output**: Error messages now include specific license names, crate versions, and deny.toml file:line references
+- **License enumeration for Rust**: `goneat dependencies --licenses` now lists all Rust dependencies with their licenses (like Go)
+- **Unified implementation**: Single source of truth for cargo-deny integration (fixes stderr/NDJSON parsing bugs)
 
 ## What Changed
 
-### Rust Dependency Analysis
+### Phase 1: Rich cargo-deny Output
 
-`goneat dependencies --licenses` now supports Rust projects via cargo-deny:
+Previously, cargo-deny output was generic:
 
+```
+cargo-deny: license: rejected, failing due to license requirements
+```
+
+Now it includes full context:
+
+```
+cargo-deny: license: rejected, failing due to license requirements [0BSD; unmatched license allowance; at deny.toml:53:6]
+```
+
+**What's included:**
+
+| Context Type | Example |
+|--------------|---------|
+| Specific license name | `0BSD`, `GPL-3.0`, `Unlicense` |
+| License action | `unmatched license allowance`, `rejected by policy` |
+| deny.toml reference | `at deny.toml:53:6` |
+| Crate version | `windows-sys v0.52.0` (for duplicate warnings) |
+
+This makes diagnosing license issues actionable without digging through cargo-deny's raw output.
+
+### Phase 2: License Enumeration for Rust
+
+`goneat dependencies --licenses` now works identically for Go and Rust projects:
+
+**Go project:**
 ```bash
-# Analyze Rust project licenses
-cd my-rust-project
-goneat dependencies --licenses
-
-# JSON output for CI integration
-goneat dependencies --licenses --format json
+$ goneat dependencies --licenses --format json
+{"Dependencies":[{"Name":"github.com/spf13/cobra","Version":"v1.8.1","Language":"go","License":{"Name":"Apache-2.0","Type":"Apache-2.0"}},...]}
 ```
 
-**Detection & Guidance**: When a Rust project is detected but cargo-deny is not available:
-
-```
-Rust project detected but cargo-deny not installed.
-
-To set up Rust dependency checking:
-  1. Install cargo-deny: cargo install cargo-deny
-  2. Initialize config:  cargo deny init
-  3. Learn more:         goneat docs show user-guide/rust/dependencies
-```
-
-### Severity Mapping
-
-| Finding Type | Severity | Example |
-|--------------|----------|---------|
-| License violation | high | Unlicensed crate, GPL in MIT project |
-| Banned crate | medium | Duplicate versions, denied crate |
-| Informational | low | "license-not-encountered" warnings |
-
-### Cargo Tool Installer
-
-New `kind: cargo` in tools.yaml schema enables installing Rust tools:
-
-```yaml
-tools:
-  cargo-deny:
-    name: cargo-deny
-    description: License and dependency checking for Rust
-    kind: cargo
-    detect_command: cargo deny --version
-    install_package: cargo-deny
-    minimum_version: 0.14.0
-```
-
-Install via: `goneat doctor tools --scope rust --install --yes`
-
-### Toolchain Scopes
-
-Tools are now organized into language-specific scopes instead of mixing everything in `foundation`:
-
-| Scope | Purpose | Key Tools |
-|-------|---------|-----------|
-| `foundation` | Language-agnostic | ripgrep, jq, yq, yamlfmt, prettier, yamllint, shfmt, shellcheck, actionlint, checkmake, minisign |
-| `go` | Go development | go, go-licenses, golangci-lint, goimports, gofmt, gosec, govulncheck |
-| `rust` | Rust Cargo plugins | cargo-deny, cargo-audit |
-| `python` | Python tools | ruff (replaces black/flake8/isort) |
-| `typescript` | TS/JS tools | biome (replaces eslint/prettier for TS/JS/JSON) |
-| `sbom` | SBOM & vuln scanning | syft (SBOM generation), grype (vulnerability scanning) |
-
-**Usage examples:**
-
+**Rust project:**
 ```bash
-# Go project
-goneat doctor tools --scope foundation,go --install --yes
-
-# Rust project
-goneat doctor tools --scope foundation,rust --install --yes
-
-# Polyglot project (like goneat itself)
-goneat doctor tools --scope foundation,go,rust,python,typescript --install --yes
+$ goneat dependencies --licenses --format json
+{"Dependencies":[{"Name":"serde","Version":"1.0.215","Language":"rust","License":{"Name":"MIT OR Apache-2.0","Type":"MIT OR Apache-2.0"}},...]}
 ```
 
-**Why prettier stays in foundation**: It's our only Markdown formatter - every repo has README.md/docs. For TypeScript projects, biome handles TS/JS/JSON formatting (faster than prettier+eslint).
-
-### Implementation Notes
-
-Several cargo-deny integration quirks were discovered and documented:
-
-1. **Argument order**: `--format json` must come BEFORE `check` subcommand
-2. **STDERR output**: cargo-deny outputs JSON to stderr (intentional design)
-3. **NDJSON format**: Output is newline-delimited JSON with nested `fields` object
-4. **Informational codes**: "license-not-encountered" is informational, not a violation
-
-See `pkg/dependencies/cargo_deny.go` for detailed comments.
+**Features:**
+- Parses `cargo deny list` output (license-grouped format: `MIT (89): crate@version, ...`)
+- Handles SPDX-like license expressions (`MIT OR Apache-2.0`, `Unlicense OR MIT`)
+- Same `Dependency` schema as Go analyzer
+- Works in Cargo workspaces
 
 ### Bug Fixes
 
-- **SSOT provenance trailing newline**: `goneat ssot sync` now writes provenance.json and metadata mirrors with trailing newlines, preventing format diffs when downstream repos run formatters after sync.
+**cargo-deny integration issues discovered during fulmen-toolbox and sysprims testing:**
 
-### Upstream Updates
+1. **STDERR output**: cargo-deny outputs JSON to stderr (not stdout) when using `--format json`
+   - This is intentional per cargo-deny design
+   - Fixed by reading from stderr in the unified implementation
 
-- **Crucible v0.4.5**: Updated from v0.3.1 to v0.4.5
-  - New agentic roles (prodmktg, uxdev)
-  - Similarity library schemas and fixtures
-  - Foundry signal resolution fixtures
-  - Platform modules taxonomy v1.1.0
+2. **Command order**: `--format json` must precede `check` subcommand
+   - Wrong: `cargo deny check --format json licenses`
+   - Right: `cargo deny --format json check licenses`
 
-## Files Changed
+3. **Duplicate implementation removed**: `internal/assess/rust_cargo_deny.go` now uses the canonical `pkg/dependencies.RunCargoDeny()` instead of duplicating parsing logic
 
-### New Files
+4. **Severity mapping**: "note" and "help" severities now correctly map to low (was defaulting to medium)
 
-- `pkg/dependencies/cargo_deny.go` - Shared cargo-deny runner (~600 lines)
+5. **Dependencies array empty**: `parseCargoDenyList()` expected table format, but `cargo deny list` outputs license-grouped format
+   - Fixed parser to correctly extract crate names, versions, and licenses from grouped output
 
-### Modified Files
+6. **License IDs not extracted**: Diagnostic code "rejected" wasn't recognized as a license finding
+   - Fixed `mapCodeToType()` to map "rejected" and "unlicensed" codes to license type
+   - Fixed `formatLabelContext()` to extract license IDs from span field
 
-- `pkg/dependencies/rust_analyzer.go` - Full implementation calling cargo-deny
-- `cmd/dependencies.go` - Language-based analyzer selection
-- `internal/doctor/tools.go` - Cargo installer support
-- `schemas/tools/v1.1.0/tools-config.yaml` - Added `cargo` kind
-- `internal/assets/embedded_schemas/schemas/tools/v1.1.0/tools-config.yaml` - Embedded schema sync
-- `pkg/ssot/metadata.go` - Trailing newline fix for provenance files
-- `config/tools/foundation-tools-defaults.yaml` - Reorganized into language-specific scopes
-- `.goneat/tools.yaml` - Updated with all toolchain scopes for polyglot testing
+### Implementation Notes
 
-## Upgrade Notes
+**New functions in `pkg/dependencies/cargo_deny.go`:**
 
-### From v0.4.3
+- `RunCargoDenyList()` - Invokes `cargo deny list` for dependency enumeration
+- `parseCargoDenyList()` - Parses license-grouped output format
+- `parseLicenseExpression()` - Handles SPDX-like expressions (`MIT OR Apache-2.0`)
+- `CargoDenyLabel` struct - Captures span information (file:line:col, message)
+- `FormatMessage()` enhancement - Includes label context in formatted output
 
-No breaking changes. New Rust functionality is additive.
+**Documentation added:**
+- In-code comments explaining stderr behavior
+- Notes about command argument ordering
+- Cross-references between internal/assess and pkg/dependencies
 
-**Rust projects**: To enable license checking:
-1. Install cargo-deny: `cargo install cargo-deny`
-2. Initialize config: `cargo deny init`
-3. Run: `goneat dependencies --licenses`
+---
 
-**SSOT consumers**: After upgrading, run `goneat ssot sync` to regenerate provenance files with proper trailing newlines. This is a one-time fix.
+## Migration
 
-## Documentation
+No breaking changes. Existing cargo-deny integrations will automatically benefit from:
+- Richer error messages (no code changes required)
+- Dependency listing via `--licenses` flag (opt-in)
 
-- Rust feature brief: `.plans/active/v0.4.4/rust-dependencies-licenses-feature-brief.md`
-- Toolchain scopes plan: `.plans/active/v0.4.4/toolchain-scopes-plan.md`
-- cargo-deny integration: `pkg/dependencies/cargo_deny.go` (inline comments)
+---
+
+## Acknowledgments
+
+This release addresses issues discovered during [fulmen-toolbox](https://github.com/fulmenhq/fulmen-toolbox) testing with real Rust projects.
 
 ---
 

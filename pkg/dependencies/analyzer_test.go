@@ -108,40 +108,51 @@ func TestGoAnalyzer_RegistryFailureFallback(t *testing.T) {
 
 // TestParseCargoDenyList tests parsing of cargo deny list output
 func TestParseCargoDenyList(t *testing.T) {
-	// Sample cargo deny list output
-	output := `Name            Version License
-----            ------- -------
-aho-corasick    1.1.3   Unlicense OR MIT
-anstream        0.6.18  MIT OR Apache-2.0
-bitflags        2.6.0   MIT OR Apache-2.0
-clap            4.5.23  MIT OR Apache-2.0
-memchr          2.7.4   Unlicense OR MIT
-windows-sys     0.52.0  MIT OR Apache-2.0
+	// Actual cargo deny list output format groups crates by license:
+	// LICENSE (count): crate@version, crate@version, ...
+	output := `Apache-2.0 (3): anstream@0.6.18, bitflags@2.6.0, windows-sys@0.52.0
+MIT (4): clap@4.5.23, bitflags@2.6.0, anstream@0.6.18, windows-sys@0.52.0
+Unlicense (2): aho-corasick@1.1.3, memchr@2.7.4
 `
 
 	deps := parseCargoDenyList([]byte(output))
 
-	if len(deps) != 6 {
-		t.Errorf("Expected 6 dependencies, got %d", len(deps))
+	// Each crate@version entry becomes a Dependency
+	// Total: 3 Apache + 4 MIT + 2 Unlicense = 9 entries
+	if len(deps) != 9 {
+		t.Errorf("Expected 9 dependencies, got %d", len(deps))
 	}
 
-	// Check first dependency
-	if deps[0].Name != "aho-corasick" {
-		t.Errorf("Expected first dep name 'aho-corasick', got '%s'", deps[0].Name)
+	// Check first dependency (from Apache-2.0 line)
+	if deps[0].Name != "anstream" {
+		t.Errorf("Expected first dep name 'anstream', got '%s'", deps[0].Name)
 	}
-	if deps[0].Version != "1.1.3" {
-		t.Errorf("Expected first dep version '1.1.3', got '%s'", deps[0].Version)
+	if deps[0].Version != "0.6.18" {
+		t.Errorf("Expected first dep version '0.6.18', got '%s'", deps[0].Version)
 	}
-	if len(deps[0].Licenses) != 2 {
-		t.Errorf("Expected 2 licenses for first dep, got %d", len(deps[0].Licenses))
+	if len(deps[0].Licenses) != 1 {
+		t.Errorf("Expected 1 license for first dep, got %d", len(deps[0].Licenses))
+	}
+	if len(deps[0].Licenses) > 0 && deps[0].Licenses[0] != "Apache-2.0" {
+		t.Errorf("Expected license 'Apache-2.0', got '%s'", deps[0].Licenses[0])
 	}
 
-	// Check license parsing
-	expectedLicenses := []string{"Unlicense", "MIT"}
-	for i, lic := range expectedLicenses {
-		if deps[0].Licenses[i] != lic {
-			t.Errorf("Expected license %d to be '%s', got '%s'", i, lic, deps[0].Licenses[i])
+	// Find an Unlicense entry
+	var foundUnlicense bool
+	for _, dep := range deps {
+		if dep.Name == "aho-corasick" {
+			foundUnlicense = true
+			if dep.Version != "1.1.3" {
+				t.Errorf("Expected aho-corasick version '1.1.3', got '%s'", dep.Version)
+			}
+			if len(dep.Licenses) != 1 || dep.Licenses[0] != "Unlicense" {
+				t.Errorf("Expected Unlicense license, got %v", dep.Licenses)
+			}
+			break
 		}
+	}
+	if !foundUnlicense {
+		t.Error("Did not find aho-corasick in parsed dependencies")
 	}
 }
 
