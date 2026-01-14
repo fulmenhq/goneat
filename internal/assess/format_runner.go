@@ -145,6 +145,27 @@ func (r *FormatAssessmentRunner) Assess(ctx context.Context, target string, conf
 			continue
 		}
 
+		if config.Mode == AssessmentModeFix {
+			options := finalizer.NormalizationOptions{
+				EnsureEOF:                  true,
+				TrimTrailingWhitespace:     true,
+				NormalizeLineEndings:       "\n",
+				RemoveUTF8BOM:              true,
+				PreserveMarkdownHardBreaks: true,
+				EncodingPolicy:             "utf8-only",
+			}
+			finalized, changed, normalizeErr := finalizer.ComprehensiveFileNormalization(content, options)
+			if normalizeErr != nil {
+				logger.Warn(fmt.Sprintf("Failed to normalize %s: %v", cleanFilePath, normalizeErr))
+			} else if changed {
+				if writeErr := os.WriteFile(cleanFilePath, finalized, 0600); writeErr != nil {
+					logger.Warn(fmt.Sprintf("Failed to write normalized file %s: %v", cleanFilePath, writeErr))
+				} else {
+					content = finalized
+				}
+			}
+		}
+
 		// BOM check
 		if _, _, found := finalizer.GetBOMInfo(content); found {
 			if _, changed, _ := finalizer.RemoveBOM(content); changed {
