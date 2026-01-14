@@ -33,6 +33,24 @@ type biomeV2Diagnostic struct {
 	} `json:"location"`
 }
 
+func parseBiomeReport(out []byte) (biomeV2Report, error) {
+	var report biomeV2Report
+	trimmed := bytes.TrimSpace(out)
+	if len(trimmed) == 0 {
+		return report, nil
+	}
+	start := bytes.IndexByte(trimmed, '{')
+	end := bytes.LastIndexByte(trimmed, '}')
+	if start == -1 || end == -1 || end < start {
+		return report, fmt.Errorf("no json output from biome")
+	}
+	trimmed = trimmed[start : end+1]
+	if uerr := json.Unmarshal(trimmed, &report); uerr != nil {
+		return report, uerr
+	}
+	return report, nil
+}
+
 func runBiomeLint(target string, config AssessmentConfig, files []string) ([]Issue, error) {
 	if len(files) == 0 {
 		return nil, nil
@@ -75,8 +93,8 @@ func runBiomeLint(target string, config AssessmentConfig, files []string) ([]Iss
 		return nil, nil
 	}
 
-	var report biomeV2Report
-	if uerr := json.Unmarshal(out, &report); uerr != nil {
+	report, uerr := parseBiomeReport(out)
+	if uerr != nil {
 		return nil, fmt.Errorf("failed to parse biome json: %w", uerr)
 	}
 
@@ -128,34 +146,50 @@ func runBiomeFormat(target string, config AssessmentConfig, files []string) ([]I
 		return nil, nil
 	}
 
-	// Biome 2.x: running without --write performs a dry-run check
-	// Exit code 0 = all files formatted, exit code 1 = some files need formatting
-	// The output contains the file paths that need formatting
+	// Biome 2.x: use `check` with formatter enabled to get JSON diagnostics
+	// This avoids parsing human-readable output and respects biome ignores.
 	// TODO(v0.4.6): Refactor biome integration to share code between assess and format commands.
 	// Currently duplicated in: internal/assess/js_biome.go, pkg/work/format_processor.go, cmd/format.go
-	args := append([]string{"format"}, files...)
-	out, exitCode, err := runToolCapture(target, "biome", args, config.Timeout)
-	if err == nil && exitCode == 0 {
+	args := append([]string{"check", "--formatter-enabled=true", "--linter-enabled=false", "--reporter", "json"}, files...)
+	out, _, err := runToolCapture(target, "biome", args, config.Timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	report, uerr := parseBiomeReport(out)
+	if uerr != nil {
+		return nil, fmt.Errorf("failed to parse biome json: %w", uerr)
+	}
+	if len(report.Diagnostics) == 0 {
 		return nil, nil
 	}
 
-	// Parse biome output to find which files need formatting
-	// Biome 2.x outputs lines like "path/to/file.ts format ━━━" for each unformatted file
-	issues := make([]Issue, 0)
-	outStr := string(out)
-	for _, f := range files {
-		// Check if file appears in output as needing formatting
-		if strings.Contains(outStr, f+" format") || strings.Contains(outStr, filepath.ToSlash(f)+" format") {
-			issues = append(issues, Issue{
-				File:          filepath.ToSlash(f),
-				Severity:      SeverityLow,
-				Message:       "File not formatted (biome format)",
-				Category:      CategoryFormat,
-				SubCategory:   "js:biome-format",
-				AutoFixable:   true,
-				EstimatedTime: HumanReadableDuration(30 * time.Second),
-			})
+	issues := make([]Issue, 0, len(report.Diagnostics))
+	seen := make(map[string]struct{})
+	for _, d := range report.Diagnostics {
+		if strings.HasPrefix(d.Category, "internalError") {
+			continue
 		}
+		if strings.ToLower(strings.TrimSpace(d.Category)) != "format" {
+			continue
+		}
+		file := filepath.ToSlash(d.Location.Path.File)
+		if file == "" {
+			continue
+		}
+		if _, ok := seen[file]; ok {
+			continue
+		}
+		seen[file] = struct{}{}
+		issues = append(issues, Issue{
+			File:          file,
+			Severity:      SeverityLow,
+			Message:       "File not formatted (biome format)",
+			Category:      CategoryFormat,
+			SubCategory:   "js:biome-format",
+			AutoFixable:   true,
+			EstimatedTime: HumanReadableDuration(30 * time.Second),
+		})
 	}
 	return issues, nil
 }
