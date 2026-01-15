@@ -41,7 +41,7 @@ jobs:
       - name: Upload goneat binary
         uses: actions/upload-artifact@v4
         with:
-          name: goneat-linux
+          name: goneat-linux-${{ matrix.runner }}
           path: dist/goneat
           retention-days: 1
   # =============================================================================
@@ -81,7 +81,7 @@ jobs:
       - name: Download goneat binary
         uses: actions/download-artifact@v4
         with:
-          name: goneat-linux
+          name: goneat-linux-${{ matrix.runner }}
           path: ./bin
       - name: Verify container tools (raw)
         run: |
