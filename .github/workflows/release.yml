@@ -12,7 +12,9 @@ jobs:
   build-and-release:
     if: ${{ !github.event.repository.private || vars.ALLOW_PRIVATE_RELEASES == 'true' }}
     environment: public-release
-    runs-on: ubuntu-latest
+    # Use Fulmen-managed runner labels (x64/arm64 variants) instead of GitHub-hosted defaults.
+    # This keeps CI consistent across repos and makes architecture selection explicit.
+    runs-on: ubuntu-latest-x64-s
     steps:
       - name: Checkout
         uses: actions/checkout@v4

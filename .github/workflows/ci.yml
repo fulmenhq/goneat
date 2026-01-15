@@ -12,7 +12,9 @@ jobs:
   # JOB 1: Build & Test (no external tools required)
   # =============================================================================
   build-test-lint:
-    runs-on: ubuntu-latest
+    # Use Fulmen-managed runner labels (x64/arm64 variants) instead of GitHub-hosted defaults.
+    # This keeps CI consistent across repos and makes architecture selection explicit.
+    runs-on: ubuntu-latest-x64-s
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,7 +48,9 @@ jobs:
   # =============================================================================
   container-probe:
     needs: [build-test-lint]
-    runs-on: ubuntu-latest
+    # Use Fulmen-managed runner labels (x64/arm64 variants) instead of GitHub-hosted defaults.
+    # This keeps CI consistent across repos and makes architecture selection explicit.
+    runs-on: ubuntu-latest-x64-s
     container:
       image: ghcr.io/fulmenhq/goneat-tools:latest
       # ghcr.io/fulmenhq/goneat-tools runs as a non-root user.
@@ -97,7 +101,9 @@ jobs:
   # =============================================================================
   bootstrap-probe:
     needs: [container-probe]
-    runs-on: ubuntu-latest
+    # Use Fulmen-managed runner labels (x64/arm64 variants) instead of GitHub-hosted defaults.
+    # This keeps CI consistent across repos and makes architecture selection explicit.
+    runs-on: ubuntu-latest-x64-s
     steps:
       - name: Checkout
         uses: actions/checkout@v4
