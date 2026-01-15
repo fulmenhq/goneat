@@ -5,9 +5,13 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/fulmenhq/goneat)](go.mod)
 
-**A unified developer experience layer for code quality at scale.**
+**One CLI to orchestrate code quality across your polyglot codebase.**
 
-goneat wraps best-in-class toolchains for formatting, linting, security scanning, and schema validation—across Go, Python, TypeScript, and Rust. One tool, consistent DX, parallel execution.
+Stop juggling twelve tools across four languages. goneat wraps best-in-class toolchains—gofmt, ruff, biome, clippy, and more—behind a single interface with parallel execution, unified output, and zero configuration drama.
+
+Beyond formatting and linting, goneat handles the hard parts of CI/CD: dependency analysis, license compliance, package cooling policies, security scanning, and git hooks. For teams building with Go, Python, TypeScript, and Rust, it's the orchestration layer that brings order to polyglot pipelines.
+
+**New to goneat?** Start with `brew install fulmenhq/tap/goneat` to explore. When you're ready to integrate into CI/CD, see [End-to-End Setup](docs/user-guide/end-to-end-setup.md) for the full trust-anchored workflow.
 
 ## Why goneat?
 
@@ -68,9 +72,9 @@ goneat provides **language-aware assessment** with automatic tool detection:
 | **Makefiles** | Yes | — | checkmake | `brew install checkmake` |
 | **GitHub Actions** | Yes | — | actionlint | `brew install actionlint` |
 
-**Tool-present gating**: goneat gracefully skips tools that aren't installed—no errors, just informational logs.
+**Graceful degradation**: Missing a tool? goneat skips it and logs what was skipped—no errors, no broken builds. Add tools incrementally as your needs grow.
 
-**Automatic installation**: You don't need to install these tools manually. Use [doctor tools](docs/user-guide/commands/doctor.md) to install everything at once:
+**Automatic installation**: Use [doctor tools](docs/user-guide/commands/doctor.md) to install everything at once:
 
 ```bash
 goneat doctor tools init                           # Generate .goneat/tools.yaml for your repo
@@ -219,17 +223,19 @@ goneat docs list           # Browse embedded documentation
 goneat docs show assess    # Read command guide offline
 ```
 
-## Zero-Friction Tooling
+## CI/CD Integration
 
-Never deal with "tool not found" errors:
+### Zero-Friction Tool Installation
+
+Fresh CI runner? One command installs everything:
 
 ```bash
 goneat doctor tools --scope foundation --install --yes
 ```
 
-Automatically installs package managers (brew/bun) and all required tools. Works on fresh CI runners.
+Automatically installs package managers (brew/bun) and all required tools. Idempotent and fast on subsequent runs.
 
-## JSON-First Output
+### JSON-First Output
 
 All commands produce structured JSON for automation:
 
@@ -240,21 +246,7 @@ goneat dependencies --format json | jq '.issues'
 
 ## Install
 
-### Recommended: Trust Anchor Pattern
-
-Install [sfetch](https://github.com/3leaps/sfetch) once, then use it to install goneat with cryptographic verification:
-
-```bash
-# Step 1: Install sfetch (the trust anchor)
-curl -sSfL https://github.com/3leaps/sfetch/releases/latest/download/install-sfetch.sh | bash
-
-# Step 2: Use sfetch to install goneat with signature verification
-sfetch --repo fulmenhq/goneat --latest --dest-dir ~/.local/bin
-```
-
-This pattern provides minisign signature verification on every install and update. See [sfetch documentation](https://github.com/3leaps/sfetch) for verification options.
-
-### Package Managers
+### Quick Start
 
 ```bash
 # Homebrew (macOS/Linux)
@@ -268,9 +260,25 @@ scoop bucket add fulmenhq https://github.com/fulmenhq/scoop-bucket
 scoop install goneat
 ```
 
+### For CI/CD: Trust Anchor Pattern
+
+For production pipelines, we recommend the **trust anchor pattern**—cryptographic verification from the first binary you install. This establishes an auditable chain of trust for your entire build process.
+
+The idea: install one verified tool ([sfetch](https://github.com/3leaps/sfetch)), then use it to install everything else with signature verification. No unsigned binaries in your pipeline.
+
+```bash
+# Step 1: Install sfetch (the trust anchor) - verify this checksum manually
+curl -sSfL https://github.com/3leaps/sfetch/releases/latest/download/install-sfetch.sh | bash
+
+# Step 2: Use sfetch to install goneat with minisign verification
+sfetch --repo fulmenhq/goneat --latest --dest-dir ~/.local/bin
+```
+
+This pattern is how goneat itself manages supply chain security. When goneat runs `doctor tools --install`, it uses the same verification approach for downstream tools. See [End-to-End Setup](docs/user-guide/end-to-end-setup.md) for the full workflow.
+
 ### Binary Download
 
-Download from [GitHub Releases](https://github.com/fulmenhq/goneat/releases). All releases include minisign and PGP signatures.
+Download from [GitHub Releases](https://github.com/fulmenhq/goneat/releases). All releases include minisign and PGP signatures for manual verification.
 
 ## Configuration
 

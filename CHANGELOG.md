@@ -26,6 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Biome 2.x compatibility**: Updated format assessment for biome 2.x breaking changes
+  - Biome 2.x removed `--check` flag; now uses exit codes for format detection
+  - Version check requires biome 2.x or higher
+  - Parse biome JSON diagnostics for reliable format issue detection
+  - Respects `.biome.json` ignore rules correctly
+- **Format assess fix mode**: Normalizes files (EOF newlines, trailing whitespace) when running `assess --categories format --fix`
 - **cargo-deny STDERR output**: Fixed reading from stderr (cargo-deny outputs JSON to stderr by design)
 - **cargo-deny command order**: Fixed `--format json` positioning (must precede `check` subcommand)
 - **Unified cargo-deny implementation**: Removed duplicate parsing code in internal/assess/rust_cargo_deny.go
