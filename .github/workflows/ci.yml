@@ -18,14 +18,13 @@ jobs:
       matrix:
         runner: [ubuntu-latest-x64-s, ubuntu-latest-arm64-s]
     runs-on: ${{ matrix.runner }}
+    container:
+      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:latest
+      # glibc runner image includes make/go/rust toolchains for both x64+arm64
+      options: --user 1001
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.25.x'
-          # setup-go@v5 has built-in caching - no explicit cache step needed
       - name: Build
         run: make build
       - name: Verify embedded assets in sync
@@ -58,8 +57,8 @@ jobs:
         runner: [ubuntu-latest-x64-s, ubuntu-latest-arm64-s]
     runs-on: ${{ matrix.runner }}
     container:
-      image: ghcr.io/fulmenhq/goneat-tools:latest
-      # ghcr.io/fulmenhq/goneat-tools runs as a non-root user.
+      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:latest
+      # ghcr.io/fulmenhq/goneat-tools-runner-glibc runs as a non-root user.
       # GitHub mounts runner temp/work directories into the container
       # under /__w.
       # Running as UID 1001 matches the hosted runner's ownership and
@@ -113,13 +112,13 @@ jobs:
       matrix:
         runner: [ubuntu-latest-x64-s, ubuntu-latest-arm64-s]
     runs-on: ${{ matrix.runner }}
+    container:
+      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:latest
+      # glibc runner image includes make/go/rust toolchains for both x64+arm64
+      options: --user 1001
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.25.x'
       - name: Bootstrap probe (package manager installation)
         env:
           GONEAT_INSTALL_PROBE: "1"
