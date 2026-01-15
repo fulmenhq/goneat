@@ -22,6 +22,9 @@ jobs:
       image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:latest
       # glibc runner image includes make/go/rust toolchains for both x64+arm64
       options: --user 1001
+    env:
+      GOPATH: /tmp/gopath
+      GOMODCACHE: /tmp/gopath/pkg/mod
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -116,6 +119,9 @@ jobs:
       image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:latest
       # glibc runner image includes make/go/rust toolchains for both x64+arm64
       options: --user 1001
+    env:
+      GOPATH: /tmp/gopath
+      GOMODCACHE: /tmp/gopath/pkg/mod
     steps:
       - name: Checkout
         uses: actions/checkout@v4
