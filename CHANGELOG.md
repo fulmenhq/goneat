@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.0] - 2026-01-15
+
+### Added
+
+- **core.hooksPath detection**: `goneat hooks install` now detects `core.hooksPath` git config (common remnant from husky, lefthook, etc.) and provides clear fix options
+  - Warns and aborts by default when detected
+  - `--unset-hookspath` / `--force`: Clear the override and install to `.git/hooks/`
+  - `--respect-hookspath`: Install hooks to the custom path instead
+  - `hooks inspect` and `hooks validate` now report this diagnostic (text + JSON)
+  - Relative path resolution: Works correctly when running from subdirectories
+
+### Fixed
+
+- **Mutually exclusive flags**: `--respect-hookspath` and `--unset-hookspath` now error if both set
+
 ## [v0.4.5] - 2026-01-13
 
 ### Added

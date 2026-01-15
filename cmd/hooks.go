@@ -101,6 +101,9 @@ var (
 	removeNoRestore  bool
 	hooksGuardian    bool
 	gitResetGuardian bool
+	unsetHooksPath   bool
+	respectHooksPath bool
+	forceUnsetHooks  bool
 )
 
 // hooksUpgradeCmd represents the hooks upgrade command
@@ -160,6 +163,11 @@ func init() {
 	hooksConfigureCmd.Flags().Bool("git-reset-guardian", false, "Enable guardian protection for git reset operations on protected branches")
 	hooksGenerateCmd.Flags().BoolVar(&hooksGuardian, "with-guardian", false, "Include guardian security checks when generating hooks")
 	hooksGenerateCmd.Flags().BoolVar(&gitResetGuardian, "reset-guardian", false, "Generate guardian-protected reset hook for protected branches")
+
+	// hooks install flags for core.hooksPath handling
+	hooksInstallCmd.Flags().BoolVar(&unsetHooksPath, "unset-hookspath", false, "Clear core.hooksPath git config before installing (fixes husky/lefthook migration)")
+	hooksInstallCmd.Flags().BoolVar(&respectHooksPath, "respect-hookspath", false, "Install hooks to the path specified in core.hooksPath instead of .git/hooks")
+	hooksInstallCmd.Flags().BoolVar(&forceUnsetHooks, "force", false, "Alias for --unset-hookspath")
 
 	// Subcommands are added to hooksCmd but not individually registered with ops
 	// as they inherit from the parent hooks command registration
@@ -633,6 +641,64 @@ func runHooksInstall(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf(".git/hooks directory not found. Are you in a git repository?")
 	}
 
+	// Detect core.hooksPath override (common remnant from husky, lefthook, etc.)
+	repoRoot := findRepoRoot()
+	if repoRoot == "" {
+		repoRoot = "."
+	}
+	hooksPathOverride, err := detectHooksPathOverride(repoRoot)
+	if err != nil {
+		logger.Warn("Failed to check core.hooksPath", logger.Err(err))
+	}
+
+	// Handle --force as alias for --unset-hookspath
+	shouldUnset := unsetHooksPath || forceUnsetHooks
+	if respectHooksPath && shouldUnset {
+		return fmt.Errorf("flags --respect-hookspath and --unset-hookspath cannot be used together")
+	}
+
+	resolvedHooksPath := hooksPathOverride
+	if hooksPathOverride != "" && !filepath.IsAbs(hooksPathOverride) && repoRoot != "" {
+		resolvedHooksPath = filepath.Join(repoRoot, hooksPathOverride)
+	}
+
+	if hooksPathOverride != "" {
+		if respectHooksPath {
+			// Install to the custom path instead of .git/hooks
+			fmt.Printf("ℹ️  Installing hooks to configured path: %s\n", hooksPathOverride)
+			gitHooksDir = resolvedHooksPath
+			// Ensure the directory exists
+			if err := os.MkdirAll(gitHooksDir, 0750); err != nil {
+				return fmt.Errorf("failed to create hooks directory %s: %v", gitHooksDir, err)
+			}
+		} else if shouldUnset {
+			// Clear core.hooksPath and proceed with normal installation
+			fmt.Printf("ℹ️  Unsetting core.hooksPath (was: %s)\n", hooksPathOverride)
+			if err := unsetHooksPathConfig(repoRoot); err != nil {
+				return fmt.Errorf("failed to unset core.hooksPath: %v", err)
+			}
+			fmt.Println("✅ core.hooksPath cleared - git will use .git/hooks/")
+		} else {
+			// Warn and abort - user needs to choose how to handle this
+			fmt.Printf("\n⚠️  Warning: core.hooksPath is set to '%s'\n", hooksPathOverride)
+			fmt.Println("   Git will ignore hooks in .git/hooks/")
+			fmt.Println()
+			fmt.Println("   This is typically left over from husky, lefthook, or similar tools.")
+			fmt.Println()
+			fmt.Println("   Options:")
+			fmt.Println("   1. Run: goneat hooks install --unset-hookspath")
+			fmt.Println("      (Removes core.hooksPath so git uses .git/hooks/)")
+			fmt.Println()
+			fmt.Printf("   2. Run: goneat hooks install --respect-hookspath\n")
+			fmt.Printf("      (Installs hooks to %s instead)\n", hooksPathOverride)
+			fmt.Println()
+			fmt.Println("   3. Manually fix:")
+			fmt.Println("      git config --local --unset core.hooksPath")
+			fmt.Println()
+			return fmt.Errorf("hooks installation aborted due to core.hooksPath override")
+		}
+	}
+
 	hooksInstalled := 0
 
 	detectGuardian := func(paths ...string) (bool, error) {
@@ -778,6 +844,30 @@ func copyFile(src, dst string) error {
 	return os.WriteFile(dst, data, 0700) // #nosec G306 - Git hooks require execute permissions
 }
 
+// detectHooksPathOverride checks if core.hooksPath is set in git config.
+// Returns the configured path if set, empty string if not set.
+// This is important for detecting remnants from husky, lefthook, or similar tools.
+func detectHooksPathOverride(repoRoot string) (string, error) {
+	cmd := exec.Command("git", "config", "--local", "core.hooksPath")
+	cmd.Dir = repoRoot
+	output, err := cmd.Output()
+	if err != nil {
+		// Exit code 1 means the config is not set - this is the expected/good case
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			return "", nil
+		}
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+// unsetHooksPathConfig clears core.hooksPath from git config
+func unsetHooksPathConfig(repoRoot string) error {
+	cmd := exec.Command("git", "config", "--local", "--unset", "core.hooksPath")
+	cmd.Dir = repoRoot
+	return cmd.Run()
+}
+
 type hooksManifestForInspection struct {
 	Version string                          `yaml:"version"`
 	Hooks   map[string][]hooksManifestEntry `yaml:"hooks"`
@@ -827,11 +917,13 @@ type hooksInspectionReport struct {
 	PrePushGenerated   bool                         `json:"pre_push_generated"`
 	PreCommitInstalled bool                         `json:"pre_commit_installed"`
 	PrePushInstalled   bool                         `json:"pre_push_installed"`
+	HooksPathOverride  string                       `json:"hooks_path_override,omitempty"`
 	HealthScore        int                          `json:"health_score"`
 	HealthMax          int                          `json:"health_max"`
 	HealthStatus       string                       `json:"health_status"`
 	Hooks              map[string]hooksHookAnalysis `json:"hooks,omitempty"`
 	Errors             []string                     `json:"errors,omitempty"`
+	Warnings           []string                     `json:"warnings,omitempty"`
 }
 
 func loadHooksManifestForInspection(path string) (*hooksManifestForInspection, error) {
@@ -1166,6 +1258,17 @@ func runHooksValidate(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Detect core.hooksPath override
+	repoRoot := findRepoRoot()
+	if repoRoot == "" {
+		repoRoot = "."
+	}
+	hooksPathOverrideVal, _ := detectHooksPathOverride(repoRoot)
+	var validateWarnings []string
+	if hooksPathOverrideVal != "" {
+		validateWarnings = append(validateWarnings, fmt.Sprintf("core.hooksPath is set to '%s' - hooks in .git/hooks/ will be ignored. Fix: goneat hooks install --unset-hookspath", hooksPathOverrideVal))
+	}
+
 	if format == "json" {
 		report := hooksInspectionReport{
 			ConfigFound:        true,
@@ -1175,8 +1278,10 @@ func runHooksValidate(cmd *cobra.Command, args []string) error {
 			PrePushGenerated:   prePushGenerated,
 			PreCommitInstalled: preCommitInstalled,
 			PrePushInstalled:   prePushInstalled,
+			HooksPathOverride:  hooksPathOverrideVal,
 			HealthMax:          7,
 			Hooks:              map[string]hooksHookAnalysis{},
+			Warnings:           validateWarnings,
 		}
 		report.HealthScore = 0
 		if report.ConfigFound {
@@ -1247,6 +1352,15 @@ func runHooksValidate(cmd *cobra.Command, args []string) error {
 
 	hooksReportEffectiveHook(cmd, manifest, "pre-commit")
 	hooksReportEffectiveHook(cmd, manifest, "pre-push")
+
+	// Display core.hooksPath warning if detected
+	if hooksPathOverrideVal != "" {
+		fmt.Fprintln(out)                                                                           //nolint:errcheck // CLI output
+		fmt.Fprintf(out, "⚠️  core.hooksPath override detected: %s\n", hooksPathOverrideVal)        //nolint:errcheck // CLI output
+		fmt.Fprintln(out, "   Hooks in .git/hooks/ will be ignored by git.")                        //nolint:errcheck // CLI output
+		fmt.Fprintln(out, "   This is typically left over from husky, lefthook, or similar tools.") //nolint:errcheck // CLI output
+		fmt.Fprintln(out, "   Fix: goneat hooks install --unset-hookspath")                         //nolint:errcheck // CLI output
+	}
 
 	fmt.Fprintln(out, "\n✅ Hook configuration validation complete")     //nolint:errcheck // CLI output
 	fmt.Fprintln(out, "🎉 Ready to commit with intelligent validation!") //nolint:errcheck // CLI output
@@ -1395,6 +1509,17 @@ func runHooksInspect(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Detect core.hooksPath override
+	repoRoot := findRepoRoot()
+	if repoRoot == "" {
+		repoRoot = "."
+	}
+	hooksPathOverride, _ := detectHooksPathOverride(repoRoot)
+	var warnings []string
+	if hooksPathOverride != "" {
+		warnings = append(warnings, fmt.Sprintf("core.hooksPath is set to '%s' - hooks in .git/hooks/ will be ignored. Fix: goneat hooks install --unset-hookspath", hooksPathOverride))
+	}
+
 	healthScore := 0
 	if configFound {
 		healthScore++
@@ -1435,10 +1560,12 @@ func runHooksInspect(cmd *cobra.Command, args []string) error {
 			PrePushGenerated:   prePushGenerated,
 			PreCommitInstalled: preCommitInstalled,
 			PrePushInstalled:   prePushInstalled,
+			HooksPathOverride:  hooksPathOverride,
 			HealthScore:        healthScore,
 			HealthMax:          7,
 			HealthStatus:       healthStatus,
 			Hooks:              map[string]hooksHookAnalysis{},
+			Warnings:           warnings,
 		}
 		if configFound {
 			manifest, err := loadHooksManifestForInspection(hooksConfigPath)
@@ -1509,6 +1636,15 @@ func runHooksInspect(cmd *cobra.Command, args []string) error {
 		}
 		hooksReportEffectiveHook(cmd, manifest, "pre-commit")
 		hooksReportEffectiveHook(cmd, manifest, "pre-push")
+	}
+
+	// Display core.hooksPath warning if detected
+	if hooksPathOverride != "" {
+		fmt.Fprintln(out)                                                                           //nolint:errcheck // CLI output
+		fmt.Fprintf(out, "⚠️  core.hooksPath override detected: %s\n", hooksPathOverride)           //nolint:errcheck // CLI output
+		fmt.Fprintln(out, "   Hooks in .git/hooks/ will be ignored by git.")                        //nolint:errcheck // CLI output
+		fmt.Fprintln(out, "   This is typically left over from husky, lefthook, or similar tools.") //nolint:errcheck // CLI output
+		fmt.Fprintln(out, "   Fix: goneat hooks install --unset-hookspath")                         //nolint:errcheck // CLI output
 	}
 
 	return nil

@@ -3,7 +3,7 @@ title: "Hooks Command Reference"
 description: "Complete reference for the goneat hooks command - manage git hooks with intelligent validation"
 author: "goneat contributors"
 date: "2025-08-28"
-last_updated: "2025-12-10"
+last_updated: "2026-01-15"
 status: "approved"
 tags: ["cli", "hooks", "git", "validation", "commands"]
 category: "user-guide"
@@ -131,12 +131,21 @@ When auto-install is enabled in the config, the same guardian block is emitted w
 Install generated hook files to the active git hooks directory.
 
 ```bash
-goneat hooks install
+goneat hooks install [flags]
 ```
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--unset-hookspath` | Clear `core.hooksPath` git config before installing (fixes husky/lefthook migration) |
+| `--respect-hookspath` | Install hooks to the path specified in `core.hooksPath` instead of `.git/hooks` |
+| `--force` | Alias for `--unset-hookspath` |
 
 **What it does:**
 
-- Copies generated hooks from `.goneat/hooks/` to `.git/hooks/`
+- Detects `core.hooksPath` git config (common remnant from husky, lefthook, etc.) and warns if set
+- Copies generated hooks from `.goneat/hooks/` to `.git/hooks/` (or custom path if `--respect-hookspath`)
 - Sets executable permissions on hook files
 - Provides backup of existing hooks if they exist
 - Detects guardian-enabled scripts and ensures guardian configuration is bootstrapped
@@ -152,6 +161,41 @@ goneat hooks install
 🎯 Successfully installed 3 hook(s)!
 🛡️  Guardian integration detected. Config available at /Users/alex/.goneat/guardian/config.yaml
 🔐 Protected operations will require guardian approval before proceeding
+```
+
+**Example with core.hooksPath detected:**
+
+```bash
+$ goneat hooks install
+
+⚠️  Warning: core.hooksPath is set to '.husky/_'
+   Git will ignore hooks in .git/hooks/
+
+   This is typically left over from husky, lefthook, or similar tools.
+
+   Options:
+   1. Run: goneat hooks install --unset-hookspath
+      (Removes core.hooksPath so git uses .git/hooks/)
+
+   2. Run: goneat hooks install --respect-hookspath
+      (Installs hooks to .husky/_/ instead)
+
+   3. Manually fix:
+      git config --local --unset core.hooksPath
+
+❌ Hooks installation aborted due to core.hooksPath override
+```
+
+**Example with --unset-hookspath:**
+
+```bash
+$ goneat hooks install --unset-hookspath
+📦 Installing hooks to .git/hooks...
+ℹ️  Unsetting core.hooksPath (was: .husky/_)
+✅ core.hooksPath cleared - git will use .git/hooks/
+✅ Installed pre-commit hook
+✅ Installed pre-push hook
+🎯 Successfully installed 2 hook(s)!
 ```
 
 ### `goneat hooks validate`
@@ -531,6 +575,60 @@ goneat hooks install
 goneat hooks validate
 ```
 
+### Migration from Other Hook Managers
+
+When migrating from husky, lefthook, or similar tools, the `core.hooksPath` git config often remains set after uninstallation. This causes git to ignore hooks in `.git/hooks/`, making goneat hooks appear to not work.
+
+**Husky migration:**
+
+```bash
+# 1. Remove husky from package.json
+npm uninstall husky
+
+# 2. Remove the .husky directory (optional)
+rm -rf .husky
+
+# 3. Install goneat hooks (auto-detects and fixes core.hooksPath)
+goneat hooks init
+goneat hooks generate
+goneat hooks install --unset-hookspath
+```
+
+**Lefthook migration:**
+
+```bash
+# 1. Remove lefthook
+# (varies by installation method)
+
+# 2. Install goneat hooks
+goneat hooks init
+goneat hooks generate
+goneat hooks install --unset-hookspath
+```
+
+**Manual fix (if needed):**
+
+```bash
+# Check if core.hooksPath is set
+git config --local core.hooksPath
+
+# If set, clear it
+git config --local --unset core.hooksPath
+
+# Then install goneat hooks
+goneat hooks install
+```
+
+**Troubleshooting: hooks not running after migration**
+
+```bash
+# Use inspect to diagnose
+goneat hooks inspect
+
+# If core.hooksPath warning appears:
+goneat hooks install --unset-hookspath
+```
+
 ### Custom Configuration
 
 ```bash
@@ -734,6 +832,14 @@ goneat guardian check git reset --branch main
 **Hooks not running:**
 
 ```bash
+# First, check for core.hooksPath override (common after husky/lefthook migration)
+git config --local core.hooksPath
+# If this returns a path, git is ignoring .git/hooks/
+# Fix: goneat hooks install --unset-hookspath
+
+# Use inspect to diagnose hook system health
+goneat hooks inspect
+
 # Check if hooks are executable
 ls -la .git/hooks/pre-commit
 
