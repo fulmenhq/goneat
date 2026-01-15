@@ -1,17 +1,36 @@
-# Goneat v0.4.5 — Rust License Scanning Improvements
+# Goneat v0.4.5 — Rust License Scanning & Biome 2.x Compatibility
 
 **Release Date**: 2026-01-13
 **Status**: Stable
 
 ## TL;DR
 
+- **Biome 2.x compatibility**: Format assessment updated for biome 2.x breaking changes (removed `--check` flag)
 - **Rich cargo-deny output**: Error messages now include specific license names, crate versions, and deny.toml file:line references
 - **License enumeration for Rust**: `goneat dependencies --licenses` now lists all Rust dependencies with their licenses (like Go)
-- **Unified implementation**: Single source of truth for cargo-deny integration (fixes stderr/NDJSON parsing bugs)
+- **Format assess fix mode**: Normalizes files when running `assess --categories format --fix`
 
 ## What Changed
 
-### Phase 1: Rich cargo-deny Output
+### Biome 2.x Compatibility
+
+Biome 2.x introduced breaking changes that affected goneat's format assessment:
+
+- **Removed `--check` flag**: Biome 2.x uses exit codes instead of the `--check` flag
+- **JSON diagnostics**: Now parses biome JSON output for reliable format issue detection
+- **Respects ignore rules**: Properly honors `.biome.json` ignore configuration
+- **Version requirement**: goneat now requires biome 2.x or higher
+
+This fix eliminates false positive format issues in repos using biome 2.x.
+
+### Format Assess Fix Mode
+
+`assess --categories format --fix` now applies finalizer normalization:
+- Adds EOF newlines where missing
+- Removes trailing whitespace
+- Consistent behavior with `goneat format` command
+
+### Rich cargo-deny Output
 
 Previously, cargo-deny output was generic:
 
@@ -34,7 +53,7 @@ cargo-deny: license: rejected, failing due to license requirements [0BSD; unmatc
 | deny.toml reference | `at deny.toml:53:6` |
 | Crate version | `windows-sys v0.52.0` (for duplicate warnings) |
 
-### Phase 2: License Enumeration for Rust
+### License Enumeration for Rust
 
 `goneat dependencies --licenses` now works identically for Go and Rust projects:
 

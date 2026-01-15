@@ -21,6 +21,20 @@ Biome 2.x introduced breaking changes that affected goneat's format assessment:
 - **Respects ignore rules**: Properly honors `.biome.json` ignore configuration
 - **Version requirement**: goneat now requires biome 2.x or higher
 
+**Before (broken with biome 2.x):**
+
+```
+goneat assess --categories format
+# All JS/TS files reported as "not formatted" due to exit code misinterpretation
+```
+
+**After (fixed):**
+
+```
+goneat assess --categories format
+# Only files that actually need formatting are reported
+```
+
 This fix eliminates false positive format issues in repos using biome 2.x.
 
 ### Format Assess Fix Mode
@@ -47,12 +61,12 @@ cargo-deny: license: rejected, failing due to license requirements [0BSD; unmatc
 
 **What's included:**
 
-| Context Type          | Example                                             |
-| --------------------- | --------------------------------------------------- |
-| Specific license name | `0BSD`, `GPL-3.0`, `Unlicense`                      |
-| License action        | `unmatched license allowance`, `rejected by policy` |
-| deny.toml reference   | `at deny.toml:53:6`                                 |
-| Crate version         | `windows-sys v0.52.0` (for duplicate warnings)      |
+| Context Type          | Example                                            |
+| --------------------- | -------------------------------------------------- |
+| Specific license name | `0BSD`, `GPL-3.0`, `Unlicense`                     |
+| License action        | `unmatched license allowance`, `rejected by policy`|
+| deny.toml reference   | `at deny.toml:53:6`                                |
+| Crate version         | `windows-sys v0.52.0` (for duplicate warnings)     |
 
 This makes diagnosing license issues actionable without digging through cargo-deny's raw output.
 
@@ -83,11 +97,51 @@ $ goneat dependencies --licenses --format json
 
 ### Bug Fixes
 
-- **Biome 2.x false positives**: Fixed format assessment exit code interpretation
-- **cargo-deny STDERR output**: Fixed reading from stderr (cargo-deny design)
-- **Command order**: Fixed `--format json` positioning (must precede `check`)
-- **Unified implementation**: Removed duplicate parsing code
-- **Severity mapping**: "note"/"help" now correctly map to low severity
+**Biome 2.x breaking changes:**
+
+1. **False positive format issues**: Biome 2.x removed `--check`, causing goneat to misinterpret exit codes
+   - Fixed by parsing biome JSON diagnostics directly
+   - Now correctly identifies only files that actually need formatting
+
+2. **Assess fix normalization**: Files were not being normalized when using `assess --categories format --fix`
+   - Fixed by applying finalizer after format changes
+
+**cargo-deny integration issues discovered during fulmen-toolbox and sysprims testing:**
+
+1. **STDERR output**: cargo-deny outputs JSON to stderr (not stdout) when using `--format json`
+   - This is intentional per cargo-deny design
+   - Fixed by reading from stderr in the unified implementation
+
+2. **Command order**: `--format json` must precede `check` subcommand
+   - Wrong: `cargo deny check --format json licenses`
+   - Right: `cargo deny --format json check licenses`
+
+3. **Duplicate implementation removed**: `internal/assess/rust_cargo_deny.go` now uses the canonical `pkg/dependencies.RunCargoDeny()` instead of duplicating parsing logic
+
+4. **Severity mapping**: "note" and "help" severities now correctly map to low (was defaulting to medium)
+
+5. **Dependencies array empty**: `parseCargoDenyList()` expected table format, but `cargo deny list` outputs license-grouped format
+   - Fixed parser to correctly extract crate names, versions, and licenses from grouped output
+
+6. **License IDs not extracted**: Diagnostic code "rejected" wasn't recognized as a license finding
+   - Fixed `mapCodeToType()` to map "rejected" and "unlicensed" codes to license type
+   - Fixed `formatLabelContext()` to extract license IDs from span field
+
+### Implementation Notes
+
+**New functions in `pkg/dependencies/cargo_deny.go`:**
+
+- `RunCargoDenyList()` - Invokes `cargo deny list` for dependency enumeration
+- `parseCargoDenyList()` - Parses license-grouped output format
+- `parseLicenseExpression()` - Handles SPDX-like expressions (`MIT OR Apache-2.0`)
+- `CargoDenyLabel` struct - Captures span information (file:line:col, message)
+- `FormatMessage()` enhancement - Includes label context in formatted output
+
+**Biome integration updates in `internal/assess/format_biome.go`:**
+
+- `runBiomeFormatCheck()` - Updated for biome 2.x exit code handling
+- JSON diagnostic parsing with guard against log preambles
+- Version detection requiring biome 2.x or higher
 
 ---
 
@@ -98,6 +152,12 @@ No breaking changes. Existing integrations will automatically benefit from:
 - Richer error messages (no code changes required)
 - Dependency listing via `--licenses` flag (opt-in)
 - Correct format assessment with biome 2.x
+
+---
+
+## Acknowledgments
+
+This release addresses issues discovered during [fulmen-toolbox](https://github.com/fulmenhq/fulmen-toolbox) and [sysprims](https://github.com/fulmenhq/sysprims) testing with real Rust projects.
 
 ---
 
