@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Configurable via `.goneat/assess.yaml`
 - **Biome config diagnostics**: Lint now surfaces Biome schema mismatch warnings for `biome.json`
 - **Toolchain support**: TypeScript scope now includes `tsc` for type checking
+- **Assess config validation**: `.goneat/assess.yaml` is now schema-validated on read and during `doctor assess init`
 
 ### Fixed
 
