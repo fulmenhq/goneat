@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/fulmenhq/goneat/internal/assets"
 	"github.com/xeipuuv/gojsonschema"
@@ -37,6 +38,7 @@ func init() {
 		"dates":                "embedded_schemas/schemas/config/dates.yaml",
 		"tools-config-v1.0.0":  "embedded_schemas/schemas/tools/v1.0.0/tools-config.yaml",
 		"tools-config-v1.1.0":  "embedded_schemas/schemas/tools/v1.1.0/tools-config.yaml",
+		"assess-config-v1.0.0": "embedded_schemas/schemas/config/v1.0.0/assess-config.yaml",
 		// Add more as needed
 	}
 	for name, path := range known {
@@ -125,4 +127,30 @@ func Validate(data interface{}, schemaName string) (*Result, error) {
 	}
 
 	return res, nil
+}
+
+func ValidateConfigFile(path string, schemaName string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("failed to read %s: %w", path, err)
+	}
+
+	var decoded interface{}
+	if err := yaml.Unmarshal(data, &decoded); err != nil {
+		return fmt.Errorf("failed to parse %s: %w", path, err)
+	}
+
+	result, err := Validate(decoded, schemaName)
+	if err != nil {
+		return err
+	}
+	if !result.Valid {
+		var errLines []string
+		for _, v := range result.Errors {
+			errLines = append(errLines, fmt.Sprintf("%s: %s", v.Path, v.Message))
+		}
+		return fmt.Errorf("schema validation failed:\n%s", strings.Join(errLines, "\n"))
+	}
+
+	return nil
 }

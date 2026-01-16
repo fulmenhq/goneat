@@ -985,6 +985,7 @@ func legacyMapSchemaNameToPath(schemaName string) string {
 	knownSchemas := map[string]string{
 		"goneat-config-v1.0.0":      "embedded_schemas/config/goneat-config-v1.0.0.yaml",
 		"dates":                     "embedded_schemas/schemas/config/dates.yaml",
+		"assess-config-v1.0.0":      "embedded_schemas/schemas/config/v1.0.0/assess-config.yaml",
 		"lifecycle-phase-v1.0.0":    "embedded_schemas/config/lifecycle-phase-v1.0.0.json",
 		"release-phase-v1.0.0":      "embedded_schemas/config/release-phase-v1.0.0.json",
 		"security-policy-v1.0.0":    "embedded_schemas/config/security-policy-v1.0.0.yaml",

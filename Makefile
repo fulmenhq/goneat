@@ -44,7 +44,7 @@ LDFLAGS := -ldflags "\
 	-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
-.PHONY: help build hooks-ensure clean clean-go clean-testcache clean-vendor clean-coverage clean-os-metadata clean-backups clean-release clean-all test fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites prerequisites-build-goneat prerequisites-check-go prerequisites-check-git prerequisites-check-tools prerequisites-install-tools sync-crucible sync-ssot verify-crucible verify-crucible-clean bootstrap tools lint release-check release-prepare release-build release-clean release-verify-checksums check-all prepush precommit update-homebrew-formula verify-release-key local-ci-check local-ci all
+.PHONY: help build hooks-ensure clean clean-go clean-testcache clean-vendor clean-coverage clean-os-metadata clean-backups clean-release clean-all test fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites prerequisites-build-goneat prerequisites-check-go prerequisites-check-git prerequisites-check-tools prerequisites-install-tools sync-crucible sync-ssot verify-crucible verify-crucible-clean verify-schemas bootstrap tools lint release-check release-prepare release-build release-clean release-verify-checksums check-all prepush precommit update-homebrew-formula verify-release-key local-ci-check local-ci all
 
 # Default target
 all: clean build format-all
@@ -125,6 +125,11 @@ verify-crucible-clean: ## Verify crucible sources are clean (no uncommitted chan
 	@chmod +x scripts/verify-crucible-clean.sh
 	@./scripts/verify-crucible-clean.sh
 
+verify-schemas: build ## Validate local config schemas
+	@echo "🔍 Validating local schemas..."
+	@$(BUILD_DIR)/$(BINARY_NAME) schema validate-schema schemas/config/v1.0.0/*.yaml >/dev/null
+	@echo "✅ Schema validation passed"
+
 bootstrap: build ## Install foundation scope (auto-installs user-local brew/scoop as needed)
 	@echo "🥾 Installing foundation tools via goneat doctor tools..."
 	@if [ -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
@@ -161,6 +166,7 @@ release-check: release-prepare ## Validate release readiness (tests, lint, cruci
 	@echo "🔍 Running release checklist validation..."
 	$(MAKE) test
 	$(MAKE) lint
+	$(MAKE) verify-schemas
 	$(MAKE) verify-crucible
 	$(MAKE) license-audit
 	@echo "✅ Release checklist validation passed"

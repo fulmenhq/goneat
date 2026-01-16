@@ -59,6 +59,7 @@ type FindQuery struct {
 	SchemaIDs             []string
 	SchemaCategories      []string
 	IncludeSchemaMetadata bool
+	IncludeHidden         bool
 }
 
 // FinderFacade provides a simplified API on top of the full PathFinder interface.
@@ -208,7 +209,7 @@ func (f *FinderFacade) buildDiscoveryOptions(query FindQuery) DiscoveryOptions {
 		FollowSymlinks:   query.FollowSymlinks,
 		Constraint:       f.config.Constraint,
 		Concurrency:      effectiveWorkers,
-		IncludeHidden:    false,
+		IncludeHidden:    query.IncludeHidden,
 		ProgressCallback: nil,
 	}
 

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/bmatcuk/doublestar/v4"
+	"github.com/fulmenhq/goneat/internal/schema"
 	"github.com/fulmenhq/goneat/pkg/ignore"
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"gopkg.in/yaml.v3"
@@ -115,6 +116,35 @@ func loadAssessOverrides(target string) *assessOverrides {
 		if !os.IsNotExist(err) {
 			logger.Warn(fmt.Sprintf("Failed to read %s: %v", configPath, err))
 		}
+		assessConfigCache.Store(absTarget, nil)
+		return nil
+	}
+
+	var raw map[string]any
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		logger.Warn(fmt.Sprintf("Failed to parse %s: %v", configPath, err))
+		assessConfigCache.Store(absTarget, nil)
+		return nil
+	}
+	if raw == nil {
+		raw = map[string]any{}
+	}
+	if _, ok := raw["version"]; !ok {
+		raw["version"] = 1
+	}
+
+	result, err := schema.Validate(raw, "assess-config-v1.0.0")
+	if err != nil {
+		logger.Warn(fmt.Sprintf("Failed to validate %s: %v", configPath, err))
+		assessConfigCache.Store(absTarget, nil)
+		return nil
+	}
+	if !result.Valid {
+		var messages []string
+		for _, v := range result.Errors {
+			messages = append(messages, fmt.Sprintf("%s: %s", v.Path, v.Message))
+		}
+		logger.Warn(fmt.Sprintf("assess.yaml failed schema validation: %s", strings.Join(messages, "; ")))
 		assessConfigCache.Store(absTarget, nil)
 		return nil
 	}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/fulmenhq/goneat/internal/assets"
 	"github.com/fulmenhq/goneat/internal/doctor"
+	"github.com/fulmenhq/goneat/internal/schema"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -87,10 +88,31 @@ func runDoctorAssessInit(cmd *cobra.Command, _ []string) error {
 	if err := yaml.Unmarshal(data, &decoded); err != nil {
 		return fmt.Errorf("embedded template %s is invalid YAML: %w", templatePath, err)
 	}
+	if decoded == nil {
+		decoded = map[string]any{}
+	}
+	if _, ok := decoded["version"]; !ok {
+		decoded["version"] = 1
+	}
+	result, err := schema.Validate(decoded, "assess-config-v1.0.0")
+	if err != nil {
+		return fmt.Errorf("failed to validate assess template: %v", err)
+	}
+	if !result.Valid {
+		var errLines []string
+		for _, v := range result.Errors {
+			errLines = append(errLines, fmt.Sprintf("%s: %s", v.Path, v.Message))
+		}
+		return fmt.Errorf("assess template failed schema validation:\n%s", strings.Join(errLines, "\n"))
+	}
 
 	// Write file with secure permissions
 	if err := os.WriteFile(configPath, data, 0600); err != nil {
 		return fmt.Errorf("failed to write %s: %w", configPath, err)
+	}
+
+	if err := schema.ValidateConfigFile(configPath, "assess-config-v1.0.0"); err != nil {
+		return fmt.Errorf("failed to validate %s after write: %v", configPath, err)
 	}
 
 	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\n✨ Successfully created %s\n", configPath)

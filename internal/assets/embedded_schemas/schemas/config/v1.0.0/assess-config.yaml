@@ -1,7 +1,7 @@
 $schema: https://json-schema.org/draft/2020-12/schema
 $schemaVersion: 1.0.0
 title: Goneat Assess Overrides
-description: Configure assess category overrides (currently lint-specific)
+description: Configure assess category overrides (lint and typecheck)
 type: object
 required:
   - version
@@ -121,7 +121,7 @@ properties:
                     type: integer
                     description: Maximum lines allowed in target body (default 5)
                     minimum: 1
-                    maximum: 50
+                    maximum: 200
                   min_phony_targets:
                     type: array
                     description: Required phony targets (default ["all"])
@@ -137,6 +137,31 @@ properties:
             type: array
             items:
               type: string
+        additionalProperties: false
+    additionalProperties: false
+  typecheck:
+    type: object
+    description: Typecheck overrides
+    properties:
+      enabled:
+        type: boolean
+        description: Enable or disable typecheck assessments
+      typescript:
+        type: object
+        description: TypeScript typecheck settings
+        properties:
+          enabled:
+            type: boolean
+          config:
+            type: string
+            description: Path to tsconfig file (relative to repo root)
+          strict:
+            type: boolean
+          skip_lib_check:
+            type: boolean
+          file_mode:
+            type: boolean
+            description: Enable file-at-a-time typecheck when a single file is included
         additionalProperties: false
     additionalProperties: false
   additionalProperties: false

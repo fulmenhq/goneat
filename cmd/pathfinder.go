@@ -45,6 +45,7 @@ func init() {
 	pathfinderFindCmd.Flags().Bool("follow-symlinks", false, "Follow symlinks during traversal")
 	pathfinderFindCmd.Flags().Int("workers", 0, "Worker count for traversal (0 = auto)")
 	pathfinderFindCmd.Flags().Bool("stream", false, "Stream results as they are discovered")
+	pathfinderFindCmd.Flags().Bool("include-hidden", false, "Include hidden files and directories (e.g., .goneat)")
 	pathfinderFindCmd.Flags().String("output", "json", "Output format: json|text")
 	pathfinderFindCmd.Flags().Bool("show-source", false, "Include source path in text output")
 	pathfinderFindCmd.Flags().String("strip-prefix", "", "Strip prefix from relative path when producing logical path")
@@ -66,6 +67,7 @@ func runPathfinderFind(cmd *cobra.Command, _ []string) error {
 	followSymlinks, _ := cmd.Flags().GetBool("follow-symlinks")
 	workers, _ := cmd.Flags().GetInt("workers")
 	stream, _ := cmd.Flags().GetBool("stream")
+	includeHidden, _ := cmd.Flags().GetBool("include-hidden")
 	outputFormat, _ := cmd.Flags().GetString("output")
 	showSource, _ := cmd.Flags().GetBool("show-source")
 	stripPrefix, _ := cmd.Flags().GetString("strip-prefix")
@@ -112,6 +114,7 @@ func runPathfinderFind(cmd *cobra.Command, _ []string) error {
 		SchemaIDs:             schemaIDs,
 		SchemaCategories:      schemaCategories,
 		IncludeSchemaMetadata: schemaMetadata,
+		IncludeHidden:         includeHidden,
 	}
 
 	query.Transform = buildTransform(stripPrefix, logicalPrefix, flatten)
