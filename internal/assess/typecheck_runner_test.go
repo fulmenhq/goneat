@@ -87,8 +87,9 @@ func TestWriteTempTsconfig(t *testing.T) {
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		t.Fatalf("failed to parse temp config: %v", err)
 	}
-	if parsed.Extends != "tsconfig.json" {
-		t.Fatalf("expected extends tsconfig.json, got %s", parsed.Extends)
+	expected := filepath.ToSlash(baseConfig)
+	if parsed.Extends != expected {
+		t.Fatalf("expected extends %s, got %s", expected, parsed.Extends)
 	}
 	if len(parsed.Include) != 1 || parsed.Include[0] != "src/index.ts" {
 		t.Fatalf("unexpected include list: %v", parsed.Include)
