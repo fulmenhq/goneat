@@ -6,7 +6,7 @@
 ## TL;DR
 
 - **core.hooksPath detection**: `goneat hooks install` now detects remnants from husky, lefthook, and similar tools that would silently break hooks
-- **Migration flags**: `--unset-hookspath` clears the override; `--respect-hookspath` installs to the custom path
+- **TypeScript typecheck**: new `typecheck` category runs `tsc --noEmit` with optional file-at-a-time mode
 - **Better diagnostics**: `hooks inspect` and `hooks validate` now report core.hooksPath issues
 
 ## What Changed
@@ -70,6 +70,14 @@ goneat hooks init
 goneat hooks generate
 goneat hooks install
 ```
+
+### TypeScript Typecheck
+
+Typecheck assessment is now available via `goneat assess --categories typecheck`. It runs `tsc --noEmit` and supports an optional file-at-a-time mode when `file_mode: true` is set in `.goneat/assess.yaml` and a single file is passed via `--include`.
+
+### Tooling Updates
+
+The TypeScript toolchain scope now includes `tsc` so `goneat doctor tools` can provision the compiler alongside Biome.
 
 ### Enhanced Diagnostics
 

@@ -135,6 +135,18 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 	}
 	issues = append(issues, jsIssues...)
 
+	configIssues, configErr := runBiomeConfigCheck(target, config)
+	if configErr != nil {
+		return &AssessmentResult{
+			CommandName:   r.commandName,
+			Category:      CategoryLint,
+			Success:       false,
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
+			Error:         fmt.Sprintf("biome config check failed: %v", configErr),
+		}, nil
+	}
+	issues = append(issues, configIssues...)
+
 	rustIssues, rustErr := runCargoClippyLint(target, config)
 	if rustErr != nil {
 		return &AssessmentResult{

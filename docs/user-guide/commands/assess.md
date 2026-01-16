@@ -3,7 +3,7 @@ title: "Assess Command Reference"
 description: "Complete reference for the goneat assess command - comprehensive codebase assessment and workflow planning"
 author: "goneat contributors"
 date: "2025-08-28"
-last_updated: "2026-01-08"
+last_updated: "2026-01-15"
 status: "approved"
 tags:
   ["cli", "assessment", "validation", "reporting", "commands", "dependencies"]
@@ -19,7 +19,7 @@ The `goneat assess` command provides comprehensive codebase assessment with inte
 Goneat uses a small set of repo-local configuration files under `.goneat/`:
 
 - `.goneat/hooks.yaml` - Git hook orchestration (what runs on pre-commit/pre-push)
-- `.goneat/assess.yaml` - Lint/assessment tuning for `assess` (shell, Makefiles, GitHub Actions)
+- `.goneat/assess.yaml` - Lint/typecheck tuning for `assess` (shell, Makefiles, GitHub Actions, TypeScript)
 - `.goneat/tools.yaml` - Tools manifest used by `goneat doctor tools`
 - `.goneat/schema-mappings.yaml` - Optional config-to-schema mapping rules for schema validation
 
@@ -33,7 +33,7 @@ goneat doctor assess init
 
 Goneat assess is the core intelligence engine that:
 
-- **Orchestrates multiple validation tools** (format, lint, security, schema, dependencies)
+- **Orchestrates multiple validation tools** (format, lint, typecheck, security, schema, dependencies)
 - **Applies intelligent prioritization** based on issue severity and impact
 - **Enables parallel execution** for faster validation cycles
 - **Generates unified reports** with actionable remediation workflows
@@ -113,6 +113,35 @@ goneat assess --fail-on high
 
 # Include/exclude specific files
 goneat assess --include "*.go" --exclude "vendor/**"
+```
+
+## Typecheck Workflow
+
+Typecheck uses `tsc --noEmit` and will auto-detect `tsconfig.json` (or `tsconfig.build.json`) when TypeScript files are present.
+
+Enable/override settings in `.goneat/assess.yaml`:
+
+```yaml
+version: 1
+
+typecheck:
+  enabled: true
+  typescript:
+    enabled: true
+    config: tsconfig.json
+    strict: false
+    skip_lib_check: true
+    file_mode: false
+```
+
+**File-at-a-time checks**
+
+Set `file_mode: true` to enable file-scoped typechecking when you pass a single file via `--include`. This writes a temporary tsconfig that includes only that file (mirrors the Brooklyn `check-file.ts` pattern). If more than one file is included, goneat falls back to project-wide checks.
+
+Example:
+
+```bash
+goneat assess --categories typecheck --include "src/shared/mcp-response.ts"
 ```
 
 ## Command Flags

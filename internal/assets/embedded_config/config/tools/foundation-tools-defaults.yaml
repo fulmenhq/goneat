@@ -285,8 +285,8 @@ python_tools:
 # TYPESCRIPT SCOPE - TypeScript/JavaScript development tools
 # =============================================================================
 # Note: Node.js toolchain is installed separately (nvm, fnm, system node, etc.)
-# biome is our opinionated choice for TS/JS - handles linting AND formatting
-# for TypeScript, JavaScript, AND JSON files. Faster than prettier+eslint.
+# biome handles linting/formatting, tsc handles type checking.
+# Together they cover TypeScript quality checks end-to-end.
 typescript_tools:
   - name: biome
     description: "TypeScript/JavaScript/JSON linter and formatter (replaces eslint+prettier for TS)"
@@ -295,6 +295,16 @@ typescript_tools:
     package_managers:
       darwin: ["brew"]
       linux: ["brew"]
+      windows: ["bun", "npm"]
+    auto_install_safe: true
+
+  - name: tsc
+    description: "TypeScript compiler for type checking"
+    kind: "node"
+    detect_command: "tsc --version"
+    package_managers:
+      darwin: ["bun", "npm"]
+      linux: ["bun", "npm"]
       windows: ["bun", "npm"]
     auto_install_safe: true
 
@@ -423,6 +433,7 @@ scopes:
     description: "TypeScript/JavaScript development tools"
     tools:
       - biome
+      - tsc
 
   security:
     description: "Cross-language security scanning"
@@ -471,6 +482,7 @@ scopes:
       - ruff
       # typescript
       - biome
+      - tsc
       # security
       - gitleaks
       # sbom

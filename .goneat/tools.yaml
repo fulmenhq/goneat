@@ -59,6 +59,7 @@ scopes:
     description: TypeScript/JavaScript development tools
     tools:
       - biome
+      - tsc
 
   security:
     description: Cross-language security scanning
@@ -426,6 +427,22 @@ tools:
         - brew
       linux:
         - brew
+      windows:
+        - bun
+        - npm
+
+  tsc:
+    name: tsc
+    description: TypeScript compiler for type checking
+    kind: node
+    detect_command: tsc --version
+    installer_priority:
+      darwin:
+        - bun
+        - npm
+      linux:
+        - bun
+        - npm
       windows:
         - bun
         - npm

@@ -20,8 +20,9 @@ import (
 )
 
 type assessOverrides struct {
-	Version int            `yaml:"version"`
-	Lint    *lintOverrides `yaml:"lint"`
+	Version   int                 `yaml:"version"`
+	Lint      *lintOverrides      `yaml:"lint"`
+	Typecheck *typecheckOverrides `yaml:"typecheck"`
 }
 
 type lintOverrides struct {

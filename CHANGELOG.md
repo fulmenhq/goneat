@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `--respect-hookspath`: Install hooks to the custom path instead
   - `hooks inspect` and `hooks validate` now report this diagnostic (text + JSON)
   - Relative path resolution: Works correctly when running from subdirectories
+- **TypeScript typecheck assessment**: New `typecheck` category runs `tsc --noEmit`
+  - Supports `file_mode: true` with `--include` for single-file checks
+  - Configurable via `.goneat/assess.yaml`
+- **Biome config diagnostics**: Lint now surfaces Biome schema mismatch warnings for `biome.json`
+- **Toolchain support**: TypeScript scope now includes `tsc` for type checking
 
 ### Fixed
 

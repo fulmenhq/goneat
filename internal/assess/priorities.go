@@ -18,6 +18,7 @@ var DefaultPriorities = map[AssessmentCategory]int{
 	CategorySchema:         2, // Semantics correctness; near-security priority
 	CategoryDependencies:   2, // High priority (supply-chain risk)
 	CategoryStaticAnalysis: 3, // Code correctness, potential bugs
+	CategoryTypecheck:      3, // Type correctness, API contracts
 	CategoryLint:           4, // Code quality, variable effort
 	CategoryPerformance:    5, // Optimization, may be deferred
 }

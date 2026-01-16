@@ -47,3 +47,12 @@ lint:
       - ".git/**"
       - "node_modules/**"
       - ".plans/**"
+
+typecheck:
+  enabled: true
+  typescript:
+    enabled: true
+    config: tsconfig.json
+    strict: false
+    skip_lib_check: true
+    file_mode: false

@@ -94,6 +94,7 @@ const (
 	CategoryMaturity       AssessmentCategory = "maturity"
 	CategoryRepoStatus     AssessmentCategory = "repo-status"
 	CategoryDependencies   AssessmentCategory = "dependencies"
+	CategoryTypecheck      AssessmentCategory = "typecheck"
 )
 
 // IssueSeverity represents the severity level of an assessment issue

@@ -1,186 +1,117 @@
-# Goneat v0.4.5 — Rust License Scanning & Biome 2.x Compatibility
+# Goneat v0.5.0 — Husky/Lefthook Migration Support
 
-**Release Date**: 2026-01-13
+**Release Date**: 2026-01-15
 **Status**: Stable
 
 ## TL;DR
 
-- **Biome 2.x compatibility**: Format assessment updated for biome 2.x breaking changes (removed `--check` flag)
-- **Rich cargo-deny output**: Error messages now include specific license names, crate versions, and deny.toml file:line references
-- **License enumeration for Rust**: `goneat dependencies --licenses` now lists all Rust dependencies with their licenses (like Go)
-- **Format assess fix mode**: Normalizes files when running `assess --categories format --fix`
+- **core.hooksPath detection**: `goneat hooks install` now detects remnants from husky, lefthook, and similar tools that would silently break hooks
+- **TypeScript typecheck**: new `typecheck` category runs `tsc --noEmit` with optional file-at-a-time mode
+- **Better diagnostics**: `hooks inspect` and `hooks validate` now report core.hooksPath issues
 
 ## What Changed
 
-### Biome 2.x Compatibility
+### core.hooksPath Detection
 
-Biome 2.x introduced breaking changes that affected goneat's format assessment:
+When migrating from husky, lefthook, or similar hook managers, the `core.hooksPath` git config often remains set after uninstallation. This causes git to ignore hooks in `.git/hooks/`, making goneat hooks appear to not work.
 
-- **Removed `--check` flag**: Biome 2.x uses exit codes instead of the `--check` flag
-- **JSON diagnostics**: Now parses biome JSON output for reliable format issue detection
-- **Respects ignore rules**: Properly honors `.biome.json` ignore configuration
-- **Version requirement**: goneat now requires biome 2.x or higher
-
-This fix eliminates false positive format issues in repos using biome 2.x.
-
-### Format Assess Fix Mode
-
-`assess --categories format --fix` now applies finalizer normalization:
-- Adds EOF newlines where missing
-- Removes trailing whitespace
-- Consistent behavior with `goneat format` command
-
-### Rich cargo-deny Output
-
-Previously, cargo-deny output was generic:
-
-```
-cargo-deny: license: rejected, failing due to license requirements
-```
-
-Now it includes full context:
-
-```
-cargo-deny: license: rejected, failing due to license requirements [0BSD; unmatched license allowance; at deny.toml:53:6]
-```
-
-**What's included:**
-
-| Context Type | Example |
-|--------------|---------|
-| Specific license name | `0BSD`, `GPL-3.0`, `Unlicense` |
-| License action | `unmatched license allowance`, `rejected by policy` |
-| deny.toml reference | `at deny.toml:53:6` |
-| Crate version | `windows-sys v0.52.0` (for duplicate warnings) |
-
-### License Enumeration for Rust
-
-`goneat dependencies --licenses` now works identically for Go and Rust projects:
+**Before v0.5.0:**
 
 ```bash
-# Rust project
-$ goneat dependencies --licenses --format json
-{"Dependencies":[{"Name":"serde","Version":"1.0.215","Language":"rust","License":{"Name":"MIT OR Apache-2.0","Type":"MIT OR Apache-2.0"}},...]}
+$ goneat hooks install
+✅ Installed pre-commit hook
+# But hooks never run! Git ignores .git/hooks/ because core.hooksPath is set
 ```
 
-**Features:**
-- Parses `cargo deny list` output (table format)
-- Handles SPDX-like license expressions (`MIT OR Apache-2.0`)
-- Same `Dependency` schema as Go analyzer
-- Works in Cargo workspaces
-
-### Bug Fixes
-
-- **cargo-deny STDERR output**: Fixed reading from stderr (cargo-deny design)
-- **Command order**: Fixed `--format json` positioning (must precede `check`)
-- **Unified implementation**: Removed duplicate parsing code
-- **Severity mapping**: "note"/"help" now correctly map to low severity
-
----
-
-# Goneat v0.4.4 — Rust Dependency Analysis via cargo-deny
-
-**Release Date**: 2026-01-09
-**Status**: Stable
-
-## TL;DR
-
-- **Rust license checking**: `goneat dependencies --licenses` now works for Rust projects
-- **cargo-deny integration**: License compliance and banned crate detection via cargo-deny
-- **Cargo tool installer**: `kind: cargo` support in tools.yaml for installing Rust tools
-- **Toolchain scopes**: Language-specific tool scopes (`go`, `rust`, `python`, `typescript`)
-- **Smart guidance**: Helpful messages when cargo-deny is not installed
-- **SSOT fix**: Provenance files now include trailing newlines (prevents format diffs in downstream repos)
-
-## What Changed
-
-### Rust Dependency Analysis
-
-`goneat dependencies --licenses` now supports Rust projects via cargo-deny:
+**After v0.5.0:**
 
 ```bash
-# Analyze Rust project licenses
-cd my-rust-project
-goneat dependencies --licenses
+$ goneat hooks install
 
-# JSON output for CI integration
-goneat dependencies --licenses --format json
+⚠️  Warning: core.hooksPath is set to '.husky/_'
+   Git will ignore hooks in .git/hooks/
+
+   Options:
+   1. Run: goneat hooks install --unset-hookspath
+   2. Run: goneat hooks install --respect-hookspath
+
+❌ Hooks installation aborted due to core.hooksPath override
 ```
 
-**Detection & Guidance**: When a Rust project is detected but cargo-deny is not available:
+### New Flags
 
-```
-Rust project detected but cargo-deny not installed.
+| Flag                  | Description                                             |
+| --------------------- | ------------------------------------------------------- |
+| `--unset-hookspath`   | Clear `core.hooksPath` and install to `.git/hooks/`     |
+| `--respect-hookspath` | Install hooks to the path specified in `core.hooksPath` |
+| `--force`             | Alias for `--unset-hookspath`                           |
 
-To set up Rust dependency checking:
-  1. Install cargo-deny: cargo install cargo-deny
-  2. Initialize config:  cargo deny init
-  3. Learn more:         goneat docs show user-guide/rust/dependencies
-```
-
-### Severity Mapping
-
-| Finding Type | Severity | Example |
-|--------------|----------|---------|
-| License violation | high | Unlicensed crate, GPL in MIT project |
-| Banned crate | medium | Duplicate versions, denied crate |
-| Informational | low | "license-not-encountered" warnings |
-
-### Toolchain Scopes
-
-Tools are now organized into language-specific scopes:
-
-| Scope | Purpose | Key Tools |
-|-------|---------|-----------|
-| `foundation` | Language-agnostic | ripgrep, jq, yq, yamlfmt, prettier, yamllint, shfmt, shellcheck, actionlint, checkmake, minisign |
-| `go` | Go development | go, go-licenses, golangci-lint, goimports, gofmt, gosec, govulncheck |
-| `rust` | Rust Cargo plugins | cargo-deny, cargo-audit |
-| `python` | Python tools | ruff (replaces black/flake8/isort) |
-| `typescript` | TS/JS tools | biome (replaces eslint/prettier for TS/JS/JSON) |
-| `sbom` | SBOM & vuln scanning | syft (SBOM generation), grype (vulnerability scanning) |
-
----
-
-# Goneat v0.4.3 — Parallel Execution for Format & Schema Validation
-
-**Release Date**: 2026-01-08
-**Status**: Stable
-
-## TL;DR
-
-- **Parallel format**: `goneat format` now defaults to parallel execution for faster formatting
-- **Parallel schema validation**: `goneat schema validate-schema --workers N` for parallel meta-validation
-- **New validate-data command**: `goneat schema validate-data` for data file validation against schemas
-- **Cached validators**: Meta-schema validators (draft-07, 2020-12) compiled once, reused across files
-
-## What Changed
-
-### Format Command
-
-- **Default parallel execution**: The format command now uses `--strategy parallel` by default
-- **Configurable workers**: Use `--workers N` to control parallelism (0=auto, 1=sequential, max 8)
+### Migration from Husky
 
 ```bash
-# Default parallel (auto-detects CPU count)
-goneat format
+# After removing husky
+npm uninstall husky
+rm -rf .husky
 
-# Explicit worker count
-goneat format --workers 4
+# Install goneat hooks (auto-detects and fixes)
+goneat hooks init
+goneat hooks generate
+goneat hooks install --unset-hookspath
 ```
 
-### Schema Validation
+### Migration from Lefthook
 
-- **Parallel validate-schema**: Meta-schema validation supports `--workers` flag
-- **Deterministic output**: Results maintain input file order regardless of parallelism
-- **New validate-data subcommand**: Validate data files against JSON schemas
+```bash
+# After removing lefthook
+git config --local --unset core.hooksPath  # or use --unset-hookspath
 
-### Performance
+# Install goneat hooks
+goneat hooks init
+goneat hooks generate
+goneat hooks install
+```
 
-| Operation | Sequential | Parallel (4 workers) | Speedup |
-|-----------|------------|---------------------|---------|
-| Schema validation (776 files) | 6.77s | 3.97s | ~1.7x |
-| Format (large codebase) | varies | varies | ~1.5-2x |
+### TypeScript Typecheck
 
----
+Typecheck assessment is now available via `goneat assess --categories typecheck`. It runs `tsc --noEmit` and supports an optional file-at-a-time mode when `file_mode: true` is set in `.goneat/assess.yaml` and a single file is passed via `--include`.
 
-**Previous Releases**: See `docs/releases/` for older release notes.
+### Tooling Updates
+
+The TypeScript toolchain scope now includes `tsc` so `goneat doctor tools` can provision the compiler alongside Biome.
+
+### Enhanced Diagnostics
+
+`hooks inspect` now shows core.hooksPath warnings:
+
+```bash
+$ goneat hooks inspect
+📊 Current Hook Status:
+├── Configuration: ✅ Found
+├── Generated Hooks: ✅ Found
+├── Installed Hooks: ✅ Found
+└── System Health: ✅ Good (7/7)
+
+⚠️  core.hooksPath override detected: .husky/_
+   Hooks in .git/hooks/ will be ignored by git.
+   Fix: goneat hooks install --unset-hookspath
+```
+
+JSON output includes the new field:
+
+```json
+{
+  "hooks_path_override": ".husky/_",
+  "warnings": [
+    "core.hooksPath is set to '.husky/_' - hooks in .git/hooks/ will be ignored"
+  ]
+}
+```
+
+## Upgrade Notes
+
+No breaking changes. The new detection is purely additive—existing workflows continue to work.
+
+## Contributors
+
+- Claude Opus 4.5 (devlead)
+- @3leapsdave (supervision)

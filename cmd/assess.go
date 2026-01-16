@@ -40,6 +40,7 @@ You can restrict the assessment to specific categories using the --categories fl
   goneat assess --fail-on high                     # Exit with error on high-severity issues
   goneat assess --priority "security=1,format=2"  # Custom priorities
   goneat assess --categories dependencies          # Check dependency licenses and cooling policy
+  goneat assess --categories typecheck             # Run TypeScript type checking
   goneat assess --categories format,lint,dependencies # Multiple categories including dependencies
   goneat assess --categories dependencies --fail-on high # Fail on high-severity dependency issues`,
 	Args: cobra.MaximumNArgs(1),

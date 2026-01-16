@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -121,6 +122,58 @@ func runBiomeLint(target string, config AssessmentConfig, files []string) ([]Iss
 			Message:     fmt.Sprintf("[%s] %s", d.Category, strings.TrimSpace(d.Description)),
 			Category:    CategoryLint,
 			SubCategory: "js:biome",
+		})
+	}
+
+	return issues, nil
+}
+
+func runBiomeConfigCheck(target string, config AssessmentConfig) ([]Issue, error) {
+	if _, err := exec.LookPath("biome"); err != nil {
+		logger.Info("biome not found; skipping config check")
+		return nil, nil
+	}
+
+	configPath := filepath.Join(target, "biome.json")
+	if _, err := os.Stat(configPath); err != nil {
+		return nil, nil
+	}
+
+	args := []string{"check", "--reporter", "json", "--formatter-enabled=false", "--linter-enabled=false"}
+	out, _, err := runToolCapture(target, "biome", args, config.Timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	report, uerr := parseBiomeReport(out)
+	if uerr != nil {
+		return nil, fmt.Errorf("failed to parse biome json: %w", uerr)
+	}
+	if len(report.Diagnostics) == 0 {
+		return nil, nil
+	}
+
+	issues := make([]Issue, 0, len(report.Diagnostics))
+	for _, d := range report.Diagnostics {
+		file := filepath.Base(d.Location.Path.File)
+		if file != "biome.json" {
+			continue
+		}
+		sev := SeverityMedium
+		switch strings.ToLower(strings.TrimSpace(d.Severity)) {
+		case "error":
+			sev = SeverityHigh
+		case "warning":
+			sev = SeverityMedium
+		case "information", "hint":
+			sev = SeverityLow
+		}
+		issues = append(issues, Issue{
+			File:        filepath.ToSlash(d.Location.Path.File),
+			Severity:    sev,
+			Message:     fmt.Sprintf("[%s] %s", d.Category, strings.TrimSpace(d.Description)),
+			Category:    CategoryLint,
+			SubCategory: "js:biome-config",
 		})
 	}
 
