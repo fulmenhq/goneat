@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/fulmenhq/goneat/internal/ops"
@@ -44,17 +45,50 @@ func init() {
 
 	// Policy and output
 	dependenciesCmd.Flags().String("policy", ".goneat/dependencies.yaml", "Policy file path")
-	dependenciesCmd.Flags().String("format", "json", "Output format (json, markdown, html)")
+	dependenciesCmd.Flags().String("format", "text", "Output format (text, json, markdown, html)")
 	dependenciesCmd.Flags().String("output", "", "Output file (default: stdout)")
 
 	// SBOM-specific
 	dependenciesCmd.Flags().String("sbom-format", "cyclonedx-json", "SBOM format (cyclonedx-json)")
 	dependenciesCmd.Flags().String("sbom-output", "", "SBOM output file path (default: sbom/goneat-<timestamp>.cdx.json)")
+	dependenciesCmd.Flags().String("sbom-input", "", "Use an existing SBOM file (skips syft) for vulnerability scanning")
 	dependenciesCmd.Flags().Bool("sbom-stdout", false, "Output SBOM to stdout instead of file")
 	dependenciesCmd.Flags().String("sbom-platform", "", "Target platform for SBOM (e.g., linux/amd64)")
 
 	// Failure controls
 	dependenciesCmd.Flags().String("fail-on", "critical", "Fail on severity (critical, high, medium, low)")
+}
+
+func renderDependenciesText(result *dependencies.AnalysisResult) string {
+	var vulnInfo string
+	issuesBySev := map[string]int{}
+	for _, issue := range result.Issues {
+		issuesBySev[issue.Severity]++
+		if issue.Type == "vulnerability" && issue.Severity == "info" {
+			vulnInfo = issue.Message
+		}
+	}
+
+	lines := []string{}
+	lines = append(lines, "Dependencies")
+	lines = append(lines, "============")
+	lines = append(lines, fmt.Sprintf("Dependencies: %d", len(result.Dependencies)))
+	lines = append(lines, fmt.Sprintf("Passed: %t", result.Passed))
+	if vulnInfo != "" {
+		lines = append(lines, "")
+		lines = append(lines, vulnInfo)
+	}
+	if len(result.Issues) > 0 {
+		lines = append(lines, "")
+		lines = append(lines, "Issues:")
+		lines = append(lines, fmt.Sprintf("- critical: %d", issuesBySev["critical"]))
+		lines = append(lines, fmt.Sprintf("- high: %d", issuesBySev["high"]))
+		lines = append(lines, fmt.Sprintf("- medium: %d", issuesBySev["medium"]))
+		lines = append(lines, fmt.Sprintf("- low: %d", issuesBySev["low"]))
+		lines = append(lines, fmt.Sprintf("- info: %d", issuesBySev["info"]))
+	}
+	lines = append(lines, "")
+	return strings.Join(lines, "\n")
 }
 
 func shouldFailDependencies(result *dependencies.AnalysisResult, failOn string) bool {
@@ -181,7 +215,8 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 
 		// Vulnerability scan is orchestrated here (SBOM + grype) because it is language-agnostic.
 		if runVuln {
-			_, vulnIssues, vErr := dependencies.RunVulnerabilityScan(context.Background(), target, policyPath, 10*time.Minute)
+			sbomInput, _ := cmd.Flags().GetString("sbom-input")
+			_, vulnIssues, vErr := dependencies.RunVulnerabilityScan(context.Background(), target, policyPath, sbomInput, 10*time.Minute)
 			if vErr != nil {
 				return vErr
 			}
@@ -200,12 +235,19 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 		format, _ := cmd.Flags().GetString("format")
 		if output != "" {
 			// Write to file
-			data, err := json.MarshalIndent(result, "", "  ")
-			if err != nil {
-				return fmt.Errorf("failed to marshal result: %w", err)
-			}
-			if err := os.WriteFile(output, data, 0600); err != nil {
-				return fmt.Errorf("failed to write output file: %w", err)
+			switch format {
+			case "json":
+				data, err := json.MarshalIndent(result, "", "  ")
+				if err != nil {
+					return fmt.Errorf("failed to marshal result: %w", err)
+				}
+				if err := os.WriteFile(output, data, 0600); err != nil {
+					return fmt.Errorf("failed to write output file: %w", err)
+				}
+			default:
+				if err := os.WriteFile(output, []byte(renderDependenciesText(result)), 0600); err != nil {
+					return fmt.Errorf("failed to write output file: %w", err)
+				}
 			}
 		} else {
 			// Print to stdout
@@ -214,11 +256,8 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 				if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {
 					return fmt.Errorf("failed to encode JSON: %w", err)
 				}
-			case "markdown":
-				// TODO: Markdown output
-				fmt.Printf("Dependencies: %d, Passed: %t\n", len(result.Dependencies), result.Passed)
 			default:
-				fmt.Printf("Dependencies: %d, Passed: %t\n", len(result.Dependencies), result.Passed)
+				fmt.Print(renderDependenciesText(result))
 			}
 		}
 

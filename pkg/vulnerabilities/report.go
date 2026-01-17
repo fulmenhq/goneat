@@ -16,6 +16,7 @@ type Finding struct {
 	PURLs          []string `json:"purls,omitempty"`
 	FixVersions    []string `json:"fix_versions,omitempty"`
 	FixState       string   `json:"fix_state,omitempty"`
+	PublishedDate  string   `json:"published_date,omitempty"`
 	FixFirstSeen   string   `json:"fix_first_seen,omitempty"`
 	DataSource     string   `json:"data_source,omitempty"`
 	AdvisoryURLs   []string `json:"advisory_urls,omitempty"`
@@ -65,9 +66,10 @@ type grypeReport struct {
 			PURL    string `json:"purl"`
 		} `json:"artifact"`
 		Vulnerability struct {
-			ID       string `json:"id"`
-			Severity string `json:"severity"`
-			Fix      struct {
+			ID            string `json:"id"`
+			Severity      string `json:"severity"`
+			PublishedDate string `json:"publishedDate"`
+			Fix           struct {
 				Versions  []string         `json:"versions"`
 				State     string           `json:"state"`
 				Available []grypeAvailable `json:"available"`
@@ -114,6 +116,7 @@ func ParseGrype(raw []byte) ([]Finding, map[Severity]int, error) {
 			f.AdvisoryURLs = m.Vulnerability.URLs
 			f.FixVersions = dedupeStrings(m.Vulnerability.Fix.Versions)
 			f.FixState = m.Vulnerability.Fix.State
+			f.PublishedDate = strings.TrimSpace(m.Vulnerability.PublishedDate)
 			f.FixFirstSeen = firstAvailableDate(m.Vulnerability.Fix.Available)
 		}
 

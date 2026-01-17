@@ -119,7 +119,7 @@ func (r *DependenciesRunner) Assess(ctx context.Context, target string, assessCo
 	}
 
 	// Vulnerability scanning (SBOM + grype) is policy-driven via .goneat/dependencies.yaml
-	if _, vulnIssues, vErr := dependencies.RunVulnerabilityScan(ctx, target, depsCfg.PolicyPath, assessConfig.Timeout); vErr != nil {
+	if _, vulnIssues, vErr := dependencies.RunVulnerabilityScan(ctx, target, depsCfg.PolicyPath, "", assessConfig.Timeout); vErr != nil {
 		logger.Warn(fmt.Sprintf("vulnerability scan failed: %v", vErr))
 	} else if len(vulnIssues) > 0 {
 		for _, depIssue := range vulnIssues {
