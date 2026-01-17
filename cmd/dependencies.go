@@ -93,17 +93,18 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 	sbomFlag, _ := cmd.Flags().GetBool("sbom")
 	vulnFlag, _ := cmd.Flags().GetBool("vuln")
 
-	runAnalysis := licensesFlag || coolingFlag || vulnFlag
+	runAnalysis := licensesFlag || coolingFlag
+	runVuln := vulnFlag
 	runSBOM := sbomFlag
 
-	if !runAnalysis && !runSBOM {
+	if !runAnalysis && !runVuln && !runSBOM {
 		if err := cmd.Help(); err != nil {
 			return fmt.Errorf("failed to show help: %w", err)
 		}
 		return nil
 	}
 
-	if runAnalysis {
+	if runAnalysis || runVuln {
 		// Determine target directory (default to current directory)
 		target := "."
 		if len(args) > 0 {
@@ -121,52 +122,65 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 			policyPath = depsCfg.PolicyPath
 		}
 
-		detector := dependencies.NewDetector(&depsCfg)
-
-		lang, _, err := detector.Detect(target)
-		if err != nil {
-			return err
-		}
-		if lang == "" {
-			return errors.New("no supported language detected")
+		result := &dependencies.AnalysisResult{
+			Dependencies: []dependencies.Dependency{},
+			Issues:       []dependencies.Issue{},
+			Passed:       true,
 		}
 
-		// Select the appropriate analyzer based on detected language
-		var analyzer dependencies.Analyzer
-		switch lang {
-		case dependencies.LanguageRust:
-			analyzer = dependencies.NewRustAnalyzer()
-		case dependencies.LanguageGo:
-			analyzer = dependencies.NewGoAnalyzer()
-		default:
-			// Fall back to Go analyzer for unsupported languages
-			// (will likely fail gracefully with "no go.mod found")
-			analyzer = dependencies.NewGoAnalyzer()
-		}
+		if runAnalysis {
+			detector := dependencies.NewDetector(&depsCfg)
 
-		analysisConfig := dependencies.AnalysisConfig{
-			PolicyPath:    policyPath,
-			EngineType:    depsCfg.Engine.Type,
-			Languages:     []dependencies.Language{lang},
-			Target:        target,
-			CheckLicenses: licensesFlag,
-			CheckCooling:  coolingFlag,
-			Config:        &depsCfg,
-		}
+			lang, _, err := detector.Detect(target)
+			if err != nil {
+				return err
+			}
+			if lang == "" {
+				return errors.New("no supported language detected")
+			}
 
-		result, err := analyzer.Analyze(context.Background(), target, analysisConfig)
-		if err != nil {
-			return err
-		}
-		if result.Dependencies == nil {
-			result.Dependencies = []dependencies.Dependency{}
-		}
-		if result.Issues == nil {
-			result.Issues = []dependencies.Issue{}
+			// Select the appropriate analyzer based on detected language
+			var analyzer dependencies.Analyzer
+			switch lang {
+			case dependencies.LanguageRust:
+				analyzer = dependencies.NewRustAnalyzer()
+			case dependencies.LanguageGo:
+				analyzer = dependencies.NewGoAnalyzer()
+			case dependencies.LanguageTypeScript:
+				analyzer = dependencies.NewTypeScriptAnalyzer()
+			case dependencies.LanguagePython:
+				analyzer = dependencies.NewPythonAnalyzer()
+			case dependencies.LanguageCSharp:
+				analyzer = dependencies.NewCSharpAnalyzer()
+			default:
+				return fmt.Errorf("no analyzer available for language: %s", lang)
+			}
+
+			analysisConfig := dependencies.AnalysisConfig{
+				PolicyPath:    policyPath,
+				EngineType:    depsCfg.Engine.Type,
+				Languages:     []dependencies.Language{lang},
+				Target:        target,
+				CheckLicenses: licensesFlag,
+				CheckCooling:  coolingFlag,
+				Config:        &depsCfg,
+			}
+
+			analysisResult, err := analyzer.Analyze(context.Background(), target, analysisConfig)
+			if err != nil {
+				return err
+			}
+			result = analysisResult
+			if result.Dependencies == nil {
+				result.Dependencies = []dependencies.Dependency{}
+			}
+			if result.Issues == nil {
+				result.Issues = []dependencies.Issue{}
+			}
 		}
 
 		// Vulnerability scan is orchestrated here (SBOM + grype) because it is language-agnostic.
-		if vulnFlag {
+		if runVuln {
 			_, vulnIssues, vErr := dependencies.RunVulnerabilityScan(context.Background(), target, policyPath, 10*time.Minute)
 			if vErr != nil {
 				return vErr
@@ -180,8 +194,6 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 				}
 			}
 		}
-
-		// Analyzer now handles all license/cooling policy checks internally
 
 		// Output
 		output, _ := cmd.Flags().GetString("output")
