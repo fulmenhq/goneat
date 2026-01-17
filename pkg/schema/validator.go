@@ -983,15 +983,13 @@ func ValidateWithOptions(schemaBytes []byte, data interface{}, opts ValidationOp
 func legacyMapSchemaNameToPath(schemaName string) string {
 	// Map known schema names to their paths
 	knownSchemas := map[string]string{
-		"goneat-config-v1.0.0":      "embedded_schemas/config/goneat-config-v1.0.0.yaml",
-		"dates":                     "embedded_schemas/schemas/config/dates.yaml",
-		"assess-config-v1.0.0":      "embedded_schemas/schemas/config/v1.0.0/assess-config.yaml",
-		"lifecycle-phase-v1.0.0":    "embedded_schemas/config/lifecycle-phase-v1.0.0.json",
-		"release-phase-v1.0.0":      "embedded_schemas/config/release-phase-v1.0.0.json",
-		"security-policy-v1.0.0":    "embedded_schemas/config/security-policy-v1.0.0.yaml",
-		"suppression-report-v1.0.0": "embedded_schemas/output/suppression-report-v1.0.0.yaml",
-		"hooks-manifest-v1.0.0":     "embedded_schemas/work/hooks-manifest-v1.0.0.yaml",
-		"work-manifest-v1.0.0":      "embedded_schemas/work/work-manifest-v1.0.0.yaml",
+		"goneat-config-v1.0.0":       "embedded_schemas/config/goneat-config-v1.0.0.yaml",
+		"dates":                      "embedded_schemas/schemas/config/dates.yaml",
+		"assess-config-v1.0.0":       "embedded_schemas/schemas/config/v1.0.0/assess-config.yaml",
+		"dependencies-policy-v1.0.0": "embedded_schemas/schemas/config/v1.0.0/dependencies-policy.yaml",
+		"hooks-manifest-v1.0.0":      "embedded_schemas/work/hooks-manifest-v1.0.0.yaml",
+
+		"work-manifest-v1.0.0": "embedded_schemas/work/work-manifest-v1.0.0.yaml",
 	}
 
 	if path, ok := knownSchemas[schemaName]; ok {

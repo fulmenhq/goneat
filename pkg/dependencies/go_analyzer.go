@@ -19,6 +19,8 @@ import (
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/fulmenhq/goneat/pkg/registry"
 	"github.com/fulmenhq/goneat/pkg/safeio"
+	"github.com/fulmenhq/goneat/pkg/schema"
+
 	"github.com/google/go-licenses/licenses"
 	"gopkg.in/yaml.v3"
 )
@@ -185,6 +187,16 @@ func (a *GoAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisCon
 		policyData, err := os.ReadFile(cfg.PolicyPath)
 		if err == nil {
 			if err := yaml.Unmarshal(policyData, &policyConfig); err == nil {
+				if _, ok := policyConfig["version"]; !ok {
+					policyConfig["version"] = "v1"
+				}
+				if result, vErr := schema.Validate(policyConfig, "dependencies-policy-v1.0.0"); vErr != nil {
+					logger.Warn("dependencies: policy schema validation error", logger.Err(vErr))
+					policyConfig = nil
+				} else if !result.Valid {
+					logger.Warn("dependencies: policy failed schema validation")
+					policyConfig = nil
+				}
 				if checkLicenses {
 					if licensesConfig, ok := policyConfig["licenses"].(map[string]interface{}); ok {
 						if forbidden, ok := licensesConfig["forbidden"].([]interface{}); ok {

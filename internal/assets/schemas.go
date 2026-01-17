@@ -31,6 +31,7 @@ func GetSchemaNames() []SchemaInfo {
 		"goneat-config-v1.0.0":           "embedded_schemas/schemas/config/v1.0.0/goneat-config.yaml",
 		"dates-v1.0.0":                   "embedded_schemas/schemas/config/v1.0.0/dates.yaml",
 		"assess-config-v1.0.0":           "embedded_schemas/schemas/config/v1.0.0/assess-config.yaml",
+		"dependencies-policy-v1.0.0":     "embedded_schemas/schemas/config/v1.0.0/dependencies-policy.yaml",
 		"lifecycle-phase-v1.0.0":         "embedded_schemas/schemas/config/v1.0.0/lifecycle-phase.json",
 		"release-phase-v1.0.0":           "embedded_schemas/schemas/config/v1.0.0/release-phase.json",
 		"security-policy-v1.0.0":         "embedded_schemas/schemas/config/v1.0.0/security-policy.yaml",

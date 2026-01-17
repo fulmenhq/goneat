@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/fulmenhq/goneat/pkg/schema"
 	"github.com/open-policy-agent/opa/v1/rego"
 	"gopkg.in/yaml.v3"
 )
@@ -75,6 +76,27 @@ func (e *OPAEngine) LoadPolicy(source string) error {
 	data, err := os.ReadFile(absPath) // #nosec G304 - path validated above
 	if err != nil {
 		return fmt.Errorf("failed to read policy file: %w", err)
+	}
+
+	var decoded interface{}
+	if err := yaml.Unmarshal(data, &decoded); err != nil {
+		return fmt.Errorf("failed to parse dependencies policy yaml: %w", err)
+	}
+	if decodedMap, ok := decoded.(map[string]interface{}); ok {
+		if _, ok := decodedMap["version"]; !ok {
+			decodedMap["version"] = "v1"
+		}
+		decoded = decodedMap
+	}
+
+	if result, err := schema.Validate(decoded, "dependencies-policy-v1.0.0"); err != nil {
+		return fmt.Errorf("failed to validate dependencies policy schema: %w", err)
+	} else if !result.Valid {
+		var msgs []string
+		for _, v := range result.Errors {
+			msgs = append(msgs, fmt.Sprintf("%s: %s", v.Path, v.Message))
+		}
+		return fmt.Errorf("dependencies policy failed schema validation: %s", strings.Join(msgs, "; "))
 	}
 
 	// Simple YAML to Rego transpiler for Wave 1
