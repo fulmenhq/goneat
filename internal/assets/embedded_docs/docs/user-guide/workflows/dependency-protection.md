@@ -3,7 +3,7 @@ title: "Dependency Protection Workflow"
 description: "Complete workflow for using goneat's dependency protection features including license compliance, cooling policies, and SBOM generation"
 author: "goneat contributors"
 date: "2025-10-22"
-last_updated: "2025-10-22"
+last_updated: "2026-01-17"
 status: "active"
 tags: ["dependencies", "security", "supply-chain", "sbom", "opa"]
 ---
@@ -14,8 +14,9 @@ This guide demonstrates goneat's comprehensive dependency protection capabilitie
 
 ## Overview
 
-Goneat v0.3.0 introduces enterprise-grade dependency protection with:
+Goneat provides enterprise-grade dependency protection with:
 
+- **Vulnerability Scanning** (v0.5.0+): SBOM-based CVE detection via syft + grype across Go, Rust, Python, TypeScript
 - **License Compliance**: Multi-language license detection and policy enforcement
 - **Package Cooling**: Supply chain attack mitigation via age/download thresholds
 - **SBOM Generation**: CycloneDX SBOM artifacts for compliance reporting (SPDX generation supported; some summary metadata is CycloneDX-only today)
@@ -435,10 +436,14 @@ The structured JSON output integrates with:
 - **Compliance Dashboards**: License and security metrics
 - **Audit Trails**: Complete dependency history
 
-## Next Steps
+## What's New in v0.5.0
 
-- **v0.3.1**: Full TypeScript, Python, Rust, C# support
-- **Vulnerability Scanning**: Integration with OSV database
+- **Vulnerability Scanning**: SBOM-based CVE detection via syft + grype (see [Dependencies Command](../commands/dependencies.md#vulnerability-scanning-wave-4-))
+- **Multi-Language Support**: Go, Rust, Python, TypeScript vulnerability scanning
+- **Policy Enforcement**: `fail_on`, allowlists, and remediation age windows
+
+## Future Enhancements
+
 - **Advanced Policies**: Typosquatting detection, provenance verification
 - **Enterprise Features**: Remote OPA policy servers, audit logging
 

@@ -1,9 +1,9 @@
 ---
 title: "Dependencies Command"
-description: "Reference for goneat dependencies – license compliance, cooling policy, and SBOM generation tooling"
+description: "Reference for goneat dependencies – vulnerability scanning, license compliance, cooling policy, and SBOM generation"
 author: "@arch-eagle"
 date: "2025-09-30"
-last_updated: "2025-10-22"
+last_updated: "2026-01-17"
 status: "approved"
 tags: ["cli", "dependencies", "security", "supply-chain", "sbom", "licenses"]
 category: "user-guide"
@@ -179,6 +179,7 @@ For workflow guidance see [Dependency Gating Workflow](../workflows/dependency-g
 - `--licenses`: Run license compliance checks (default: false)
 - `--cooling`: Check package cooling policy (default: false)
 - `--sbom`: Generate SBOM artifact (default: false)
+- `--vuln`: Generate vulnerability report (default: false)
 
 ### Configuration
 
@@ -188,6 +189,7 @@ For workflow guidance see [Dependency Gating Workflow](../workflows/dependency-g
 
 - `--format string`: Output format (json, markdown, html) (default: "json")
 - `--output string`: Output file (default: stdout)
+- `--quiet`: Suppress verbose output (default: false)
 
 ### SBOM Options
 
@@ -195,6 +197,12 @@ For workflow guidance see [Dependency Gating Workflow](../workflows/dependency-g
 - `--sbom-output string`: Output file path (default: "sbom/goneat-<timestamp>.cdx.json")
 - `--sbom-stdout`: Output SBOM to stdout instead of file (default: false)
 - `--sbom-platform string`: Target platform for SBOM (e.g., linux/amd64)
+
+### Vulnerability Options
+
+- `--sbom-input string`: Path to existing SBOM file to scan (skips SBOM regeneration)
+- `--vuln-format string`: Vulnerability report format (`json` or `markdown`) (default: "json")
+- `--vuln-output string`: Output file path for normalized report (default: "sbom/vuln-<timestamp>.json")
 
 ### Failure Control
 

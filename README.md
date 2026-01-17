@@ -21,6 +21,7 @@ Beyond formatting and linting, goneat handles the hard parts of CI/CD: dependenc
 | **Slow CI** | Parallel execution uses all CPU cores—format 800+ files in seconds |
 | **YAML schemas ignored** | Validates YAML-defined schemas that traditional tools skip |
 | **Supply chain risk** | Package cooling blocks newly published dependencies until vetted |
+| **Known vulnerabilities** | SBOM-based scanning via grype detects CVEs across Go, Rust, Python, TypeScript |
 | **Hook fragmentation** | Language-neutral hooks infrastructure works across your entire repo |
 | **Agent integration** | JSON Schema-backed output for AI agents and automation |
 
@@ -60,17 +61,19 @@ goneat hooks init && goneat hooks install
 
 goneat provides **language-aware assessment** with automatic tool detection:
 
-| Language | Lint | Format | Tool | Install |
-|----------|------|--------|------|---------|
-| **Go** | Yes | Yes | golangci-lint, gofmt | `brew install golangci-lint` |
-| **Python** | Yes | Yes | [ruff](https://docs.astral.sh/ruff/) | `brew install ruff` |
-| **TypeScript/JS** | Yes | Yes | [biome](https://biomejs.dev/) | `brew install biome` |
-| **Rust** | Yes | Yes | cargo-clippy, rustfmt, cargo-deny | `rustup component add clippy rustfmt` |
-| **YAML** | Yes | Yes | yamllint, yamlfmt | `brew install yamllint yamlfmt` |
-| **Markdown/JSON** | — | Yes | prettier | `npm install -g prettier` |
-| **Shell** | Yes | — | shellcheck, shfmt | `brew install shellcheck shfmt` |
-| **Makefiles** | Yes | — | checkmake | `brew install checkmake` |
-| **GitHub Actions** | Yes | — | actionlint | `brew install actionlint` |
+| Language | Lint | Format | Typecheck | Tool | Install |
+|----------|------|--------|-----------|------|---------|
+| **Go** | Yes | Yes | — | golangci-lint, gofmt | `brew install golangci-lint` |
+| **Python** | Yes | Yes | — | [ruff](https://docs.astral.sh/ruff/) | `brew install ruff` |
+| **TypeScript/JS** | Yes | Yes | Yes | [biome](https://biomejs.dev/), tsc | `brew install biome` |
+| **Rust** | Yes | Yes | — | cargo-clippy, rustfmt, cargo-deny | `rustup component add clippy rustfmt` |
+| **YAML** | Yes | Yes | — | yamllint, yamlfmt | `brew install yamllint yamlfmt` |
+| **Markdown/JSON** | — | Yes | — | prettier | `npm install -g prettier` |
+| **Shell** | Yes | — | — | shellcheck, shfmt | `brew install shellcheck shfmt` |
+| **Makefiles** | Yes | — | — | checkmake | `brew install checkmake` |
+| **GitHub Actions** | Yes | — | — | actionlint | `brew install actionlint` |
+
+**TypeScript type checking** (v0.5.0+): Run `goneat assess --categories typecheck` to catch type errors via `tsc --noEmit`. Complements biome's lint/format with full type analysis.
 
 **Graceful degradation**: Missing a tool? goneat skips it and logs what was skipped—no errors, no broken builds. Add tools incrementally as your needs grow.
 
@@ -114,9 +117,12 @@ Supports JSON Schema Draft-07 and 2020-12 with **offline `$ref` resolution**—n
 
 ### Supply Chain Security
 
-Protect against dependency attacks with package cooling and license compliance:
+Protect against dependency attacks with vulnerability scanning, package cooling, and license compliance:
 
 ```bash
+# Scan for known vulnerabilities (NEW in v0.5.0)
+goneat dependencies --vuln
+
 # Check license compliance
 goneat dependencies --licenses
 
@@ -125,9 +131,24 @@ goneat dependencies --cooling --fail-on high
 
 # Generate SBOM for compliance
 goneat dependencies --sbom
+
+# Full supply chain assessment in CI
+goneat assess --categories dependencies --fail-on high
 ```
 
-**Why cooling?** 80% of supply chain attacks are detected within 7 days. The ua-parser-js attack (8M+ weekly downloads) would have been blocked.
+**Vulnerability scanning** uses syft (SBOM generation) and grype (CVE detection) to identify known vulnerabilities across Go, Rust, Python, and TypeScript dependencies. Configure policy in `.goneat/dependencies.yaml`:
+
+```yaml
+vulnerabilities:
+  enabled: true
+  fail_on: high
+  allow:
+    - id: CVE-2024-12345
+      until: 2026-06-30
+      reason: "Vendor patch pending"
+```
+
+**Package cooling** blocks newly published dependencies until vetted. 80% of supply chain attacks are detected within 7 days—the ua-parser-js attack (8M+ weekly downloads) would have been blocked.
 
 ### Language-Neutral Hooks
 
