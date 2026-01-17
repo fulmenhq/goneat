@@ -158,6 +158,49 @@ cooling:
   #   min_downloads: 50
 
 # ============================================================================
+# VULNERABILITY SCANNING (v0.5.0+)
+# ============================================================================
+# Scans dependencies for known vulnerabilities using grype.
+# Generates SBOM via syft, scans with grype, produces normalized reports.
+#
+# ⚠️  REQUIRES: grype and syft installed
+#     Install: goneat doctor tools --scope sbom --install --yes
+#
+# Commands:
+#   goneat dependencies --vuln
+#   goneat assess --categories dependencies
+#
+vulnerabilities:
+  # Enable/disable vulnerability scanning
+  enabled: true
+
+  # Scanner tool (currently only grype supported)
+  tool: grype
+
+  # Enforcement threshold
+  # - none: report only, never fail (visibility mode)
+  # - low/medium/high/critical: fail if findings at or above threshold
+  fail_on: none
+
+  # Include vulnerabilities without available fixes
+  # true: report all vulnerabilities
+  # false: only report vulnerabilities with available fixes
+  ignore_unfixed: false
+
+  # Grace period for new vulnerabilities (optional)
+  # Suppresses findings published within the configured window
+  # remediation_age:
+  #   enabled: true
+  #   days: 30  # Suppress vulns published < 30 days ago
+
+  # Allowlist specific CVEs (use sparingly, document reason)
+  # allowlist:
+  #   - id: "CVE-2023-12345"
+  #     reason: "False positive - not applicable to our usage"
+  #     approved_by: "@security-team"
+  #     expires: "2026-06-01"
+
+# ============================================================================
 # POLICY ENGINE CONFIGURATION
 # ============================================================================
 # goneat uses embedded OPA (Open Policy Agent) for policy evaluation.
