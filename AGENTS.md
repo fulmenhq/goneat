@@ -227,6 +227,7 @@ fmt.Printf("DEBUG: ...")  // Wrong - pollutes STDOUT
 | --------- | ------------------------------------------------------------- | ------------------------ |
 | `devlead` | [devlead.yaml](config/crucible-go/agentic/roles/devlead.yaml) | Implementation (default) |
 | `devrev`  | [devrev.yaml](config/crucible-go/agentic/roles/devrev.yaml)   | Code review, four-eyes   |
+| `qa`      | [qa.yaml](config/crucible-go/agentic/roles/qa.yaml)           | Testing, validation      |
 | `secrev`  | [secrev.yaml](config/crucible-go/agentic/roles/secrev.yaml)   | Security analysis        |
 
 See [Role Catalog](config/crucible-go/agentic/roles/README.md) for full definitions.
