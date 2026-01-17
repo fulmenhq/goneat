@@ -16,6 +16,7 @@ import (
 	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/fulmenhq/goneat/pkg/config"
 	"github.com/fulmenhq/goneat/pkg/dependencies"
+	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/fulmenhq/goneat/pkg/sbom"
 	"github.com/spf13/cobra"
 )
@@ -47,6 +48,7 @@ func init() {
 	dependenciesCmd.Flags().String("policy", ".goneat/dependencies.yaml", "Policy file path")
 	dependenciesCmd.Flags().String("format", "text", "Output format (text, json, markdown, html)")
 	dependenciesCmd.Flags().String("output", "", "Output file (default: stdout)")
+	dependenciesCmd.Flags().Bool("quiet", false, "Suppress goneat logs (best-effort)")
 
 	// SBOM-specific
 	dependenciesCmd.Flags().String("sbom-format", "cyclonedx-json", "SBOM format (cyclonedx-json)")
@@ -122,6 +124,15 @@ func shouldFailDependencies(result *dependencies.AnalysisResult, failOn string) 
 }
 
 func runDependencies(cmd *cobra.Command, args []string) error {
+	quiet, _ := cmd.Flags().GetBool("quiet")
+	if quiet {
+		// Best-effort: suppress goneat's own logs; external tool output may still appear.
+		logJSON, _ := cmd.Flags().GetBool("json")
+		noColor, _ := cmd.Flags().GetBool("no-color")
+		noOp, _ := cmd.Flags().GetBool("no-op")
+		_ = logger.Initialize(logger.Config{Level: logger.ErrorLevel, UseColor: !noColor, JSON: logJSON, Component: "goneat", NoOp: noOp})
+	}
+
 	licensesFlag, _ := cmd.Flags().GetBool("licenses")
 	coolingFlag, _ := cmd.Flags().GetBool("cooling")
 	sbomFlag, _ := cmd.Flags().GetBool("sbom")
