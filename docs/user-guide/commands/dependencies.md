@@ -113,6 +113,36 @@ SBOM generation can be combined with license and cooling checks:
 goneat dependencies --licenses --cooling --sbom .
 ```
 
+### Vulnerability Scanning (Wave 4 ✅)
+
+Generate a vulnerability report from an SBOM using Grype.
+
+```bash
+# Generate vulnerability report (SBOM + grype)
+goneat dependencies --vuln .
+```
+
+**Output Directory:**
+
+- Reports are written under `sbom/` in the project root:
+  - `sbom/vuln-<timestamp>.json` (normalized)
+  - `sbom/vuln-<timestamp>.grype.json` (raw grype output)
+
+**Policy & Enforcement:**
+
+Vulnerability scanning is policy-driven via `.goneat/dependencies.yaml` under the `vulnerabilities:` key.
+
+- `fail_on: none` produces the report but never fails.
+- `remediation_age` (or compatibility alias `cooling_days`) can suppress findings for a grace window.
+  - If a finding has no `fix_first_seen` date available from Grype, it is suppressed with `remediation_age_unknown` when remediation age is enabled.
+
+**Tooling:**
+
+```bash
+# Install syft + grype
+goneat doctor tools --scope sbom --install --yes
+```
+
 ## Assessment Integration
 
 The standalone command shares its engine with `goneat assess --categories dependencies`. Use assess when you need unified

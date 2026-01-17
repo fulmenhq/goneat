@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/fulmenhq/goneat/pkg/config"
@@ -39,6 +40,7 @@ func init() {
 	dependenciesCmd.Flags().Bool("licenses", false, "Run license compliance checks")
 	dependenciesCmd.Flags().Bool("cooling", false, "Check package cooling policy")
 	dependenciesCmd.Flags().Bool("sbom", false, "Generate SBOM artifact")
+	dependenciesCmd.Flags().Bool("vuln", false, "Generate vulnerability report (SBOM + grype)")
 
 	// Policy and output
 	dependenciesCmd.Flags().String("policy", ".goneat/dependencies.yaml", "Policy file path")
@@ -89,8 +91,9 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 	licensesFlag, _ := cmd.Flags().GetBool("licenses")
 	coolingFlag, _ := cmd.Flags().GetBool("cooling")
 	sbomFlag, _ := cmd.Flags().GetBool("sbom")
+	vulnFlag, _ := cmd.Flags().GetBool("vuln")
 
-	runAnalysis := licensesFlag || coolingFlag
+	runAnalysis := licensesFlag || coolingFlag || vulnFlag
 	runSBOM := sbomFlag
 
 	if !runAnalysis && !runSBOM {
@@ -162,7 +165,23 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 			result.Issues = []dependencies.Issue{}
 		}
 
-		// Analyzer now handles all policy checks internally
+		// Vulnerability scan is orchestrated here (SBOM + grype) because it is language-agnostic.
+		if vulnFlag {
+			_, vulnIssues, vErr := dependencies.RunVulnerabilityScan(context.Background(), target, policyPath, 10*time.Minute)
+			if vErr != nil {
+				return vErr
+			}
+			if len(vulnIssues) > 0 {
+				result.Issues = append(result.Issues, vulnIssues...)
+				for _, vi := range vulnIssues {
+					if vi.Severity != "info" {
+						result.Passed = false
+					}
+				}
+			}
+		}
+
+		// Analyzer now handles all license/cooling policy checks internally
 
 		// Output
 		output, _ := cmd.Flags().GetString("output")
