@@ -45,6 +45,7 @@ REQUIRED_FILES=(
 	"SHA512SUMS.minisig"
 	"fulmenhq-release-signing-key.asc"
 	"fulmenhq-release-minisign.pub"
+	"release-notes.md"
 	"release-notes-${VERSION}.md"
 )
 
@@ -108,6 +109,6 @@ gh release upload "$VERSION" \
 	--clobber
 
 echo "   Setting release body from notes file..."
-gh release edit "$VERSION" --notes-file "release-notes-${VERSION}.md"
+gh release edit "$VERSION" --notes-file "release-notes.md"
 
 echo "✅ Release artifacts uploaded for $VERSION"

@@ -54,39 +54,6 @@ copy_if_changed() {
 	echo "✅ Updated $label"
 }
 
-generate_release_doc_aliases() {
-	local version=""
-	if [ -f "$ROOT_DIR/VERSION" ]; then
-		version=$(tr -d ' \n\t' <"$ROOT_DIR/VERSION")
-	fi
-	if [ -z "$version" ]; then
-		echo "ℹ️  VERSION not found; skipping release docs aliases"
-		return 0
-	fi
-
-	# Expose curated recent release notes via embedded docs.
-	copy_if_changed "$ROOT_DIR/RELEASE_NOTES.md" "$ROOT_DIR/docs/release-notes.md" "docs/release-notes.md"
-
-	# Stable slug for the current release notes.
-	# Only update latest.md when a version-specific doc exists for the current VERSION.
-	# This prevents regenerating latest.md on every build during development when
-	# VERSION has been bumped but release notes haven't been written yet.
-	mkdir -p "$ROOT_DIR/docs/releases"
-	local versionDoc="$ROOT_DIR/docs/releases/${version}.md"
-	local latestDoc="$ROOT_DIR/docs/releases/latest.md"
-	if [ -f "$versionDoc" ]; then
-		copy_if_changed "$versionDoc" "$latestDoc" "docs/releases/latest.md"
-	elif [ ! -f "$latestDoc" ]; then
-		# Only create latest.md from RELEASE_NOTES.md if it doesn't exist at all.
-		# This handles initial bootstrap; otherwise keep existing latest.md.
-		copy_if_changed "$ROOT_DIR/docs/release-notes.md" "$latestDoc" "docs/releases/latest.md (bootstrap)"
-	else
-		echo "ℹ️  docs/releases/latest.md preserved (no $version.md yet)"
-	fi
-}
-
-generate_release_doc_aliases
-
 echo "📦 Embedding curated docs (docs/ -> internal/assets/embedded_docs/docs via content embed)..."
 # Use go run to invoke content embed without requiring prebuilt binary
 # This avoids chicken-and-egg problem where build depends on embed-assets

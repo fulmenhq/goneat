@@ -159,16 +159,12 @@ make embed-assets
 vim internal/assets/embedded_config/config/tools/foundation-tools-defaults.yaml
 ```
 
-**Release notes: special-case guidance**
+**Release notes: guidance**
 
-`docs/releases/latest.md` is intentionally embedded for `goneat docs list/show`.
+Release notes live under `docs/releases/v<semver>.md` and are embedded into the binary for `goneat docs list/show`.
 
-- If you are *intentionally* updating release notes: edit `docs/releases/latest.md`, run `make embed-assets`, and commit both source + embedded copies.
-- If you are *not* working on release notes and a build dirties them: restore both to keep the diff clean.
-
-```bash
-git restore docs/releases/latest.md internal/assets/embedded_docs/docs/releases/latest.md
-```
+- Edit the versioned doc (e.g. `docs/releases/v0.5.0.md`) and run `make embed-assets`.
+- No shadow copies (`docs/release-notes.md` or `docs/releases/latest.md`) are used.
 
 ## Critical Rules
 

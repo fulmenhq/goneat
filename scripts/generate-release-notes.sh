@@ -2,30 +2,31 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VERSION_FILE="$ROOT_DIR/VERSION"
-NOTES_FILE="$ROOT_DIR/RELEASE_NOTES.md"
 OUT_DIR="$ROOT_DIR/dist/release"
+RELEASE_TAG=${GONEAT_RELEASE_TAG:-}
 
-if [[ ! -f "$VERSION_FILE" ]]; then
-	echo "VERSION file not found" >&2
+if [[ -z "$RELEASE_TAG" ]]; then
+	echo "GONEAT_RELEASE_TAG is required (e.g. v0.4.5 or 0.4.5)" >&2
 	exit 1
 fi
-VERSION=$(cat "$VERSION_FILE")
 
+# Normalize tag to include leading v
+if [[ "$RELEASE_TAG" != v* ]]; then
+	RELEASE_TAG="v${RELEASE_TAG}"
+fi
+
+NOTES_FILE="$ROOT_DIR/docs/releases/${RELEASE_TAG}.md"
 if [[ ! -f "$NOTES_FILE" ]]; then
-	echo "RELEASE_NOTES.md not found" >&2
+	echo "Release notes file not found: $NOTES_FILE" >&2
+	echo "Expected docs/releases/${RELEASE_TAG}.md" >&2
 	exit 1
 fi
 
 mkdir -p "$OUT_DIR"
-# Strip 'v' prefix if present for filename
-VERSION_CLEAN=${VERSION#v}
-OUT_FILE="$OUT_DIR/release-notes-v${VERSION_CLEAN}.md"
 
-# Simple sanity: ensure notes mention the version
-if ! grep -qi "${VERSION}" "$NOTES_FILE"; then
-	echo "Warning: RELEASE_NOTES.md does not mention version ${VERSION}" >&2
-fi
+# Keep both a stable name and a versioned name for convenience
+cp "$NOTES_FILE" "$OUT_DIR/release-notes.md"
+cp "$NOTES_FILE" "$OUT_DIR/release-notes-${RELEASE_TAG}.md"
 
-cp "$NOTES_FILE" "$OUT_FILE"
-echo "Release notes written to: $OUT_FILE"
+echo "Release notes written to: $OUT_DIR/release-notes.md"
+echo "Release notes written to: $OUT_DIR/release-notes-${RELEASE_TAG}.md"

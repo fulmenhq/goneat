@@ -192,10 +192,10 @@ check-all: build ## Run all checks (lint, test, typecheck)
 
 
 # Release notes artifact from RELEASE_NOTES.md
-release-notes: ## Generate release notes artifact (dist/release/release-notes-v<version>.md)
+release-notes: ## Generate release notes artifact from docs/releases/v<version>.md
 	@echo "📝 Generating release notes for $(VERSION)..."
 	@chmod +x scripts/generate-release-notes.sh
-	@./scripts/generate-release-notes.sh
+	@GONEAT_RELEASE_TAG="$(VERSION)" ./scripts/generate-release-notes.sh
 	@echo "✅ Release notes generated (dist/release)"
 
 build-linux-amd64: ## Build for Linux AMD64

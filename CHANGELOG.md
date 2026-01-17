@@ -139,7 +139,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Idempotent release doc embedding**: `docs/releases/latest.md` no longer regenerates on every build; only updates when version-specific release notes change (see `scripts/embed-assets.sh`)
+- **Release notes embedding**: Release notes are embedded from `docs/releases/v<version>.md` (no shadow copies under `docs/`).
 - **Dependencies: suppress stdlib noise**: License detection no longer reports "degraded" due to harmless go-licenses warnings about Go standard library packages
 - **Format check mode**: `goneat format --check` now correctly reports files needing formatting when primary formatter (e.g., yamlfmt) detects issues but finalizer says OK
 

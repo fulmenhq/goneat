@@ -16,7 +16,5 @@ topics:
       - appnotes/**/*.md
       - guides/**/*.md
       - troubleshooting/**/*.md
-      - release-notes.md
-      - releases/latest.md
     exclude:
       - user-guide/commands/experimental/**

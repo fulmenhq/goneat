@@ -14,7 +14,6 @@ Baseline role prompts for AI agent sessions in the FulmenHQ ecosystem.
 | [Information Architect](infoarch.yaml) | `infoarch` | agentic    | Documentation, schemas                       |
 | [Enterprise Architect](entarch.yaml)   | `entarch`  | governance | Cross-repo coordination, ecosystem alignment |
 | [CI/CD Automation](cicd.yaml)          | `cicd`     | automation | Pipelines, GitHub Actions                    |
-| [Quality Assurance](qa.yaml)           | `qa`       | review     | Testing, validation, quality gates           |
 | [Security Review](secrev.yaml)         | `secrev`   | review     | Security analysis, vulnerabilities           |
 | [Data Engineering](dataeng.yaml)       | `dataeng`  | agentic    | Database design, data pipelines              |
 | [Product Marketing](prodmktg.yaml)     | `prodmktg` | marketing  | Messaging, personas, branding, storytelling  |
@@ -29,7 +28,6 @@ These roles extend the [3leaps baseline](https://github.com/3leaps/crucible/tree
 | `devrev`   | Four-eyes code review (FulmenHQ-specific)                |
 | `uxdev`    | TUI and web frontend development (FulmenHQ-original)     |
 | `entarch`  | Cross-repo coordination (FulmenHQ-specific)              |
-| `qa`       | Testing and quality gates (goneat-focused)               |
 | `dataeng`  | Enterprise-scale data infrastructure (FulmenHQ-specific) |
 | `prodmktg` | Product marketing and branding (FulmenHQ-original)       |
 
