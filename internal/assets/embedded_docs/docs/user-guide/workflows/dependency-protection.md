@@ -1,6 +1,6 @@
 ---
 title: "Dependency Protection Workflow"
-description: "Complete workflow for using goneat's dependency protection features including license compliance, cooling policies, and SBOM generation"
+description: "Complete workflow for using goneat's dependency protection features including vulnerability scanning, license compliance, cooling policies, and SBOM generation"
 author: "goneat contributors"
 date: "2025-10-22"
 last_updated: "2026-01-17"
@@ -25,15 +25,20 @@ Goneat provides enterprise-grade dependency protection with:
 
 ## Prerequisites
 
-- Goneat v0.3.0 or later
-- Go project with `go.mod` (other languages supported in future versions)
+- Goneat v0.5.0 or later (v0.3.0+ for license/cooling only)
+- Project with supported dependency manifest:
+  - **Go**: `go.mod`
+  - **Rust**: `Cargo.toml` (requires `cargo-deny` for license checks)
+  - **Python**: `pyproject.toml`, `requirements.txt`
+  - **TypeScript/JS**: `package.json`, `package-lock.json`
+- For vulnerability scanning: `syft` and `grype` (install via `goneat doctor tools --scope sbom --install --yes`)
 - Optional: `.goneat/dependencies.yaml` policy configuration
 
 ## Quick Start
 
 ### 1. License Compliance Check
 
-Run license analysis on your Go project:
+Run license analysis on your project (Go, Rust, Python, or TypeScript):
 
 ```bash
 # Basic license check
@@ -385,10 +390,13 @@ jobs:
 
 ### Common Issues
 
-**"No Go files found"**
+**"No dependency manifest found"**
 
-- Ensure you're in a Go project directory with `go.mod`
-- For other languages, full support coming in v0.3.1+
+- Ensure you're in a project directory with a supported manifest:
+  - Go: `go.mod`
+  - Rust: `Cargo.toml`
+  - Python: `pyproject.toml` or `requirements.txt`
+  - TypeScript/JS: `package.json`
 
 **Registry API timeouts**
 
