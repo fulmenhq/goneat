@@ -21,7 +21,7 @@ import (
 	"github.com/fulmenhq/goneat/pkg/safeio"
 	"github.com/fulmenhq/goneat/pkg/schema"
 
-	"github.com/google/go-licenses/licenses"
+	"github.com/google/go-licenses/v2/licenses"
 	"gopkg.in/yaml.v3"
 )
 
@@ -341,7 +341,7 @@ func discoverModules(ctx context.Context) ([]goListModule, error) {
 }
 
 func collectLicenses(ctx context.Context) (map[string]*License, bool, error) {
-	classifier, err := licenses.NewClassifier(0.9)
+	classifier, err := licenses.NewClassifier()
 	if err != nil {
 		return nil, true, err
 	}
@@ -366,8 +366,8 @@ func collectLicenses(ctx context.Context) (map[string]*License, bool, error) {
 	out := map[string]*License{}
 	for _, lib := range libraries {
 		licenseType := "Unknown"
-		licenseName := filepath.Base(lib.LicensePath)
-		if data, err := os.ReadFile(lib.LicensePath); err == nil {
+		licenseName := filepath.Base(lib.LicenseFile)
+		if data, err := os.ReadFile(lib.LicenseFile); err == nil {
 			licenseType = detectLicenseType(string(data))
 		}
 		if licenseType == "Unknown" {
