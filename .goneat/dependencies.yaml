@@ -194,11 +194,14 @@ vulnerabilities:
   #   days: 30  # Suppress vulns published < 30 days ago
 
   # Allowlist specific CVEs (use sparingly, document reason)
-  # allowlist:
-  #   - id: "CVE-2023-12345"
-  #     reason: "False positive - not applicable to our usage"
-  #     approved_by: "@security-team"
-  #     expires: "2026-06-01"
+  # See docs/security/decisions/ for detailed analysis (SDRs)
+  allow:
+    - id: GHSA-v778-237x-gjrc
+      status: false_positive
+      reason: "Grype flags min version (v0.17.0) not resolved version (v0.42.0 - patched)"
+      sdr: SDR-001
+      verified_by: "@3leapsdave"
+      verified_date: "2026-01-17"
 
 # ============================================================================
 # POLICY ENGINE CONFIGURATION
