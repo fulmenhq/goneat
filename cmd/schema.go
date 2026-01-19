@@ -3,8 +3,11 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 
@@ -16,9 +19,10 @@ import (
 )
 
 var (
-	schemaValidateSchemaID string
-	schemaValidateFormat   string
-	schemaValidateWorkers  int
+	schemaValidateSchemaID        string
+	schemaValidateFormat          string
+	schemaValidateWorkers         int
+	schemaValidateSchemaRecursive bool
 )
 
 var schemaCmd = &cobra.Command{
@@ -44,6 +48,7 @@ func init() {
 	schemaValidateSchemaCmd.Flags().StringVar(&schemaValidateSchemaID, "schema-id", "", "Schema signature id to validate against (e.g., json-schema-draft-07)")
 	schemaValidateSchemaCmd.Flags().StringVar(&schemaValidateFormat, "format", "text", "Output format: text|json")
 	schemaValidateSchemaCmd.Flags().IntVar(&schemaValidateWorkers, "workers", 0, "Number of parallel workers (0=auto)")
+	schemaValidateSchemaCmd.Flags().BoolVar(&schemaValidateSchemaRecursive, "recursive", false, "If a directory is provided, recursively validate schema files within")
 }
 
 type schemaValidateResult struct {
@@ -51,6 +56,71 @@ type schemaValidateResult struct {
 	SchemaID string   `json:"schema_id"`
 	Valid    bool     `json:"valid"`
 	Errors   []string `json:"errors,omitempty"`
+}
+
+func expandSchemaValidateInputs(args []string, recursive bool) ([]string, error) {
+	var expanded []string
+	for _, arg := range args {
+		if containsGlob(arg) {
+			matches, err := filepath.Glob(arg)
+			if err != nil {
+				return nil, fmt.Errorf("invalid glob %s: %w", arg, err)
+			}
+			if len(matches) == 0 {
+				return nil, fmt.Errorf("glob pattern matched no files: %s", arg)
+			}
+			expanded = append(expanded, matches...)
+			continue
+		}
+
+		info, err := os.Stat(arg)
+		if err == nil && info.IsDir() {
+			if !recursive {
+				return nil, fmt.Errorf("%s is a directory (use --recursive)", arg)
+			}
+			files, err := collectSchemaFiles(arg)
+			if err != nil {
+				return nil, err
+			}
+			if len(files) == 0 {
+				return nil, fmt.Errorf("no schema files found under %s", arg)
+			}
+			expanded = append(expanded, files...)
+			continue
+		}
+
+		expanded = append(expanded, arg)
+	}
+
+	// Ensure deterministic order
+	sort.Strings(expanded)
+	return expanded, nil
+}
+
+func containsGlob(value string) bool {
+	return strings.ContainsAny(value, "*?[")
+}
+
+func collectSchemaFiles(root string) ([]string, error) {
+	var files []string
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		ext := strings.ToLower(filepath.Ext(path))
+		switch ext {
+		case ".json", ".yaml", ".yml":
+			files = append(files, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return files, nil
 }
 
 func runSchemaValidateSchema(cmd *cobra.Command, args []string) error {
@@ -82,7 +152,12 @@ func runSchemaValidateSchema(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	results := make([]schemaValidateResult, len(args))
+	inputs, err := expandSchemaValidateInputs(args, schemaValidateSchemaRecursive)
+	if err != nil {
+		return err
+	}
+
+	results := make([]schemaValidateResult, len(inputs))
 	var failures int
 	var mu sync.Mutex
 
@@ -103,7 +178,7 @@ func runSchemaValidateSchema(cmd *cobra.Command, args []string) error {
 	g, gctx := errgroup.WithContext(cmd.Context())
 	g.SetLimit(workers)
 
-	for idx, input := range args {
+	for idx, input := range inputs {
 		idx := idx
 		input := input
 		g.Go(func() error {

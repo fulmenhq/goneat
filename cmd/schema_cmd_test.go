@@ -100,3 +100,34 @@ func TestSchemaValidateSchema_JSONOutput(t *testing.T) {
 		t.Fatalf("expected valid=true in JSON output, got: %s", out)
 	}
 }
+
+func TestSchemaValidateSchema_GlobExpansion(t *testing.T) {
+	out, err := execRoot(t, []string{
+		"schema", "validate-schema",
+		"--format", "text",
+		"--schema-id", "json-schema-draft-07",
+		"tests/fixtures/schemas/draft-07/good/*.json",
+	})
+	if err != nil {
+		t.Fatalf("schema validate-schema (glob) failed: %v\n%s", err, out)
+	}
+	if count := strings.Count(out, "✅"); count < 2 {
+		t.Fatalf("expected multiple validated schemas, got: %s", out)
+	}
+}
+
+func TestSchemaValidateSchema_DirectoryRecursive(t *testing.T) {
+	out, err := execRoot(t, []string{
+		"schema", "validate-schema",
+		"--format", "text",
+		"--recursive",
+		"--schema-id", "json-schema-draft-07",
+		"tests/fixtures/schemas/draft-07/good",
+	})
+	if err != nil {
+		t.Fatalf("schema validate-schema (directory recursive) failed: %v\n%s", err, out)
+	}
+	if count := strings.Count(out, "✅"); count < 2 {
+		t.Fatalf("expected multiple validated schemas, got: %s", out)
+	}
+}
