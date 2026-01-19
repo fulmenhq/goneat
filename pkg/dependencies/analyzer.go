@@ -63,10 +63,11 @@ type AnalysisConfig struct {
 
 // AnalysisResult holds the result of analysis
 type AnalysisResult struct {
-	Dependencies []Dependency
-	Issues       []Issue
-	Passed       bool
-	Duration     time.Duration
+	Dependencies    []Dependency
+	Issues          []Issue
+	Passed          bool
+	Duration        time.Duration
+	PackagesScanned int // Number of packages scanned (from SBOM, used for vuln scan)
 }
 
 // Issue represents an analysis issue

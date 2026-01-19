@@ -1,3 +1,137 @@
+# Goneat v0.5.1 — Security Remediation & SDR Framework
+
+**Release Date**: 2026-01-17
+**Status**: Stable
+
+## TL;DR
+
+- **Security fix**: Removed 4 critical/high vulnerabilities by upgrading go-licenses (v1.6.0 → v2.0.1)
+- **SDR framework**: New Security Decision Records process for transparent vulnerability management
+- **UX improvements**: `--vuln` works without config, clearer output messaging
+- **Dogfooding**: Found and fixed these issues using goneat's own vulnerability scanner
+
+## Why This Release
+
+Shortly after releasing v0.5.0 with vulnerability scanning, we ran `goneat dependencies --vuln` on goneat itself. The scanner identified transitive vulnerabilities in `gopkg.in/src-d/go-git.v4` via our `go-licenses` dependency.
+
+This release demonstrates the value of supply chain security tooling: **we found and fixed real vulnerabilities in our own dependency graph** within 48 hours of shipping the scanning feature.
+
+## Security Fix: go-licenses Upgrade
+
+### What Changed
+
+Upgraded `github.com/google/go-licenses` from v1.6.0 to v2.0.1.
+
+### Vulnerabilities Removed
+
+| GHSA ID | Severity | Package | Description |
+|---------|----------|---------|-------------|
+| GHSA-449p-3h89-pw88 | Critical | go-git.v4 | Argument injection via crafted URLs |
+| GHSA-v725-9546-7q7m | High | go-git.v4 | Path traversal in git operations |
+
+The go-licenses v2.0.0 release dropped the `go-git.v4` dependency entirely, eliminating these vulnerabilities from goneat's dependency tree.
+
+### API Migration
+
+Minor code changes were required for the v2 API:
+
+```go
+// Before (v1.6.0)
+classifier, _ := licenses.NewClassifier(0.9)
+licensePath := lib.LicensePath
+
+// After (v2.0.1)
+classifier, _ := licenses.NewClassifier()
+licensePath := lib.LicenseFile
+```
+
+## Security Decision Records (SDR)
+
+This release introduces a structured process for documenting security decisions.
+
+### Structure
+
+```
+docs/security/
+├── README.md              # Process overview
+├── decisions/             # Security Decision Records
+│   ├── TEMPLATE.md        # SDR template
+│   └── SDR-001-*.md       # Individual decisions
+└── bulletins/             # User-facing announcements
+```
+
+### When to Create an SDR
+
+- Vulnerability assessments requiring analysis
+- False positive justifications
+- Accepted risk decisions
+- Security architecture choices
+
+### SDR-001: x/crypto False Positive
+
+Our first SDR documents a grype false positive: GHSA-v778-237x-gjrc in `golang.org/x/crypto`.
+
+**Finding**: Grype flagged the minimum version requirement (v0.17.0) from a transitive dependency, not the resolved version (v0.42.0, which is patched).
+
+**Decision**: Suppress in allowlist with documented analysis. See [SDR-001](docs/security/decisions/SDR-001-x-crypto-false-positive.md).
+
+### Machine-Readable Allowlist
+
+Vulnerability suppressions in `.goneat/dependencies.yaml` now support SDR references:
+
+```yaml
+vulnerabilities:
+  allow:
+    - id: GHSA-v778-237x-gjrc
+      status: false_positive
+      reason: "Grype flags min version, not resolved version"
+      sdr: SDR-001
+      verified_by: "@3leapsdave"
+      verified_date: "2026-01-17"
+```
+
+This links machine-readable policy to human-readable analysis, creating an audit trail for security decisions.
+
+## UX Improvements
+
+### Zero-Config Vulnerability Scanning
+
+`goneat dependencies --vuln` now works without a `.goneat/dependencies.yaml` config file. Sensible defaults are applied:
+
+```bash
+# Just works - no config required
+goneat dependencies --vuln
+```
+
+Previously, the command would fail or produce confusing output without an explicit vulnerabilities configuration block.
+
+### Clearer Output Messaging
+
+The dependencies command now reports "Packages scanned: N" instead of the misleading "Dependencies: 0" when vulnerability scanning completes. This accurately reflects what the scanner analyzed.
+
+### Makefile Integration
+
+Added `make install` target for local testing workflows:
+
+```bash
+make install    # Builds and installs goneat to ~/.local/bin
+```
+
+New documentation: [Makefile Integration](docs/user-guide/workflows/makefile-integration.md) covers common development workflows and CI/CD patterns.
+
+## Upgrade Notes
+
+No breaking changes. This is a security patch release.
+
+**Recommended action**: Run `goneat dependencies --vuln` on your own projects to identify supply chain issues.
+
+## Contributors
+
+- Claude Opus 4.5 (devlead)
+- @3leapsdave (supervision)
+
+---
+
 # Goneat v0.5.0 — Vulnerability Scanning & TypeScript Typecheck
 
 **Release Date**: 2026-01-15

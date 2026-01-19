@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.1] - 2026-01-17
+
+### Security
+
+- **Dependency vulnerability remediation**: Upgraded `go-licenses` v1.6.0 → v2.0.1 to remove 4 critical/high vulnerabilities (GHSA-449p-3h89-pw88, GHSA-v725-9546-7q7m) from transitive `gopkg.in/src-d/go-git.v4` dependency
+  - go-licenses v2 dropped go-git.v4 entirely
+  - API migration: `NewClassifier(0.9)` → `NewClassifier()`, `LicensePath` → `LicenseFile`
+
+### Added
+
+- **Security Decision Records (SDR) framework**: New `docs/security/` structure for documenting security-related decisions
+  - `docs/security/decisions/` — SDRs for vulnerability assessments, false positive analysis, accepted risks
+  - `docs/security/bulletins/` — User-facing security announcements
+  - `docs/security/decisions/TEMPLATE.md` — SDR template for consistent documentation
+- **SDR-001**: Documents GHSA-v778-237x-gjrc false positive in x/crypto (grype flags minimum version requirement, not resolved version)
+- **Vulnerability allowlist with SDR references**: `.goneat/dependencies.yaml` now supports `sdr:` field linking suppressions to detailed analysis
+- **Makefile install target**: `make install` builds and installs goneat to `~/.local/bin` for local testing
+- **Makefile integration docs**: New `docs/user-guide/workflows/makefile-integration.md` covering development workflows
+
+### Changed
+
+- **Vulnerability policy mode**: Default `fail_on: none` (visibility mode) to allow incremental adoption
+
+### Fixed
+
+- **Zero-config vulnerability scanning**: `goneat dependencies --vuln` now works without explicit `.goneat/dependencies.yaml` config (uses sensible defaults)
+- **Dependencies output clarity**: Shows "Packages scanned: N" instead of misleading "Dependencies: 0" during vulnerability scans
+
 ## [v0.5.0] - 2026-01-15
 
 ### Added

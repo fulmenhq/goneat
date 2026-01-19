@@ -444,6 +444,14 @@ The structured JSON output integrates with:
 - **Compliance Dashboards**: License and security metrics
 - **Audit Trails**: Complete dependency history
 
+## What's New in v0.5.1
+
+- **Security Remediation**: Removed 4 critical/high vulnerabilities by upgrading go-licenses (v1.6.0 → v2.0.1)
+- **Security Decision Records (SDR)**: New `docs/security/decisions/` framework for documenting vulnerability assessments, false positive analysis, and accepted risks
+- **Allowlist with SDR References**: Vulnerability suppressions in `.goneat/dependencies.yaml` now support `sdr:` field linking to detailed analysis
+
+See [Security Documentation](../../security/README.md) for the SDR process and templates.
+
 ## What's New in v0.5.0
 
 - **Vulnerability Scanning**: SBOM-based CVE detection via syft + grype (see [Dependencies Command](../commands/dependencies.md#vulnerability-scanning-wave-4-))

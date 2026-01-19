@@ -194,12 +194,16 @@ vulnerabilities:
   #   days: 30  # Suppress vulns published < 30 days ago
 
   # Allowlist specific CVEs (use sparingly, document reason)
-  # See docs/security/decisions/ for detailed analysis (SDRs)
+  # Each entry should reference an SDR with full analysis
   allow:
     - id: GHSA-v778-237x-gjrc
       status: false_positive
       reason: "Grype flags min version (v0.17.0) not resolved version (v0.42.0 - patched)"
-      sdr: SDR-001
+      sdr: docs/security/decisions/SDR-001-x-crypto-false-positive.md
+      analysis: |
+        Go MVS resolves to v0.42.0 (patched). The v0.17.0 is a transitive
+        minimum requirement from ProtonMail/go-crypto, not the actual version.
+        Goneat doesn't use x/crypto SSH server code (the vulnerable component).
       verified_by: "@3leapsdave"
       verified_date: "2026-01-17"
 

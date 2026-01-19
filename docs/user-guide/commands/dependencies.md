@@ -136,6 +136,23 @@ Vulnerability scanning is policy-driven via `.goneat/dependencies.yaml` under th
 - `remediation_age` (or compatibility alias `cooling_days`) can suppress findings for a grace window.
   - If a finding has no `fix_first_seen` date available from Grype, it is suppressed with `remediation_age_unknown` when remediation age is enabled.
 
+**Vulnerability Allowlists & SDRs (v0.5.1+):**
+
+Suppressions can reference Security Decision Records (SDRs) for audit trails:
+
+```yaml
+vulnerabilities:
+  allow:
+    - id: GHSA-v778-237x-gjrc
+      status: false_positive
+      reason: "Grype flags min version, not resolved version"
+      sdr: SDR-001  # Link to detailed analysis
+      verified_by: "@maintainer"
+      verified_date: "2026-01-17"
+```
+
+For non-trivial suppressions (false positives, accepted risks), document the analysis in `docs/security/decisions/` using the SDR template. See [Security Documentation](../../security/README.md).
+
 **Tooling:**
 
 ```bash

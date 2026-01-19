@@ -10,11 +10,13 @@ topics:
       - user-guide/workflows/assess-code.md
       - user-guide/workflows/dependency-protection.md
       - user-guide/workflows/dependency-gating.md
+      - user-guide/workflows/makefile-integration.md
       - user-guide/workflows/schema-discovery-validation.md
       - configuration/feature-gates.md
       - assess/**/*.md
       - appnotes/**/*.md
       - guides/**/*.md
       - troubleshooting/**/*.md
+      - releases/**/*.md
     exclude:
       - user-guide/commands/experimental/**

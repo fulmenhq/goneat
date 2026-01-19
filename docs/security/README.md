@@ -45,12 +45,20 @@ vulnerabilities:
   allow:
     - id: GHSA-xxxx-xxxx-xxxx
       status: false_positive|accepted_risk|mitigated
-      reason: "Brief explanation"
-      sdr: SDR-001  # Link to detailed analysis
+      reason: "Brief one-line explanation"
+      sdr: docs/security/decisions/SDR-NNN-title.md  # Full repo-relative path
+      analysis: |
+        2-3 line summary so readers can understand the rationale without
+        opening the SDR. Include key facts: why it's safe, what was verified.
       verified_by: "@handle"
       verified_date: YYYY-MM-DD
       expires: YYYY-MM-DD  # Optional expiry for accepted risks
 ```
+
+**Best practices:**
+- Use full repo-relative path in `sdr:` for easy navigation
+- Include `analysis:` summary for quick understanding without opening the SDR
+- Keep `reason:` as a one-liner; use `analysis:` for detail
 
 ## Process
 

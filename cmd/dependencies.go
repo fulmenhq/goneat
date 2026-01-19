@@ -74,7 +74,15 @@ func renderDependenciesText(result *dependencies.AnalysisResult) string {
 	lines := []string{}
 	lines = append(lines, "Dependencies")
 	lines = append(lines, "============")
-	lines = append(lines, fmt.Sprintf("Dependencies: %d", len(result.Dependencies)))
+
+	// Show analyzed dependencies count, or packages scanned (from SBOM) if only vuln scan ran
+	if len(result.Dependencies) > 0 {
+		lines = append(lines, fmt.Sprintf("Dependencies: %d", len(result.Dependencies)))
+	} else if result.PackagesScanned > 0 {
+		lines = append(lines, fmt.Sprintf("Packages scanned: %d", result.PackagesScanned))
+	} else {
+		lines = append(lines, "Dependencies: 0")
+	}
 	lines = append(lines, fmt.Sprintf("Passed: %t", result.Passed))
 	if vulnInfo != "" {
 		lines = append(lines, "")
@@ -227,9 +235,12 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 		// Vulnerability scan is orchestrated here (SBOM + grype) because it is language-agnostic.
 		if runVuln {
 			sbomInput, _ := cmd.Flags().GetString("sbom-input")
-			_, vulnIssues, vErr := dependencies.RunVulnerabilityScan(context.Background(), target, policyPath, sbomInput, 10*time.Minute)
+			vulnResult, vulnIssues, vErr := dependencies.RunVulnerabilityScan(context.Background(), target, policyPath, sbomInput, 10*time.Minute)
 			if vErr != nil {
 				return vErr
+			}
+			if vulnResult != nil {
+				result.PackagesScanned = vulnResult.PackageCount
 			}
 			if len(vulnIssues) > 0 {
 				result.Issues = append(result.Issues, vulnIssues...)

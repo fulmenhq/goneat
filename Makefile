@@ -82,6 +82,17 @@ hooks-ensure: ## Ensure git hooks are installed (auto-installs if missing)
 		fi; \
 	fi
 
+# User-space install directory (platform-aware)
+INSTALL_DIR ?= $(HOME)/.local/bin
+
+install: build ## Install binary to user-space bin dir (~/.local/bin)
+	@echo "Installing $(BINARY_NAME) to $(INSTALL_DIR)..."
+	@mkdir -p "$(INSTALL_DIR)"
+	@cp "$(BUILD_DIR)/$(BINARY_NAME)" "$(INSTALL_DIR)/$(BINARY_NAME)"
+	@chmod +x "$(INSTALL_DIR)/$(BINARY_NAME)"
+	@echo "✅ Installed: $(INSTALL_DIR)/$(BINARY_NAME)"
+	@"$(INSTALL_DIR)/$(BINARY_NAME)" version
+
 embed-assets: ## Sync templates/ and schemas/ into embedded assets (SSOT -> internal/assets)
 	@echo "Embedding assets (templates/, schemas/)..."
 	@chmod +x scripts/embed-assets.sh
