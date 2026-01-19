@@ -25,10 +25,11 @@ type Finding struct {
 }
 
 type Summary struct {
-	MatchCount int              `json:"match_count"`
-	Counts     map[Severity]int `json:"counts"`
-	Violations int              `json:"violations"`
-	Suppressed int              `json:"suppressed"`
+	SBOMPackages int              `json:"sbom_packages"`
+	MatchCount   int              `json:"match_count"`
+	Counts       map[Severity]int `json:"counts"`
+	Violations   int              `json:"violations"`
+	Suppressed   int              `json:"suppressed"`
 }
 
 type Report struct {

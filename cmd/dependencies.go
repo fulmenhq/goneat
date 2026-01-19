@@ -240,7 +240,7 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 				return vErr
 			}
 			if vulnResult != nil {
-				result.PackagesScanned = vulnResult.PackageCount
+				result.PackagesScanned = vulnResult.PackagesScanned
 			}
 			if len(vulnIssues) > 0 {
 				result.Issues = append(result.Issues, vulnIssues...)

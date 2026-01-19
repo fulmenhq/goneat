@@ -9,9 +9,10 @@ import (
 
 func TestRenderDependenciesTextIncludesVulnInfo(t *testing.T) {
 	result := &dependencies.AnalysisResult{
-		Dependencies: []dependencies.Dependency{},
+		Dependencies:    []dependencies.Dependency{},
+		PackagesScanned: 10,
 		Issues: []dependencies.Issue{
-			{Type: "vulnerability", Severity: "info", Message: "Vulnerability report generated: sbom/vuln.json (critical=1 high=2 medium=3 low=4 unknown=5)"},
+			{Type: "vulnerability", Severity: "info", Message: "Vulnerability report generated: sbom/vuln.json (packages=10 findings=5 suppressed=1 violations=0 fail_on=none; critical=1 high=2 medium=3 low=4 unknown=5)"},
 		},
 		Passed: true,
 	}
