@@ -325,8 +325,14 @@ func (c *metaSchemaDraftCache) Get(draft string) (*schema.Validator, error) {
 
 func validateSchemaByIDCached(schemaID string, schemaBytes []byte, cache *metaSchemaDraftCache) (bool, []string, error) {
 	switch schemaID {
+	case "json-schema-draft-04":
+		return validateJSONSchemaDraftCached("draft-04", schemaBytes, cache)
+	case "json-schema-draft-06":
+		return validateJSONSchemaDraftCached("draft-06", schemaBytes, cache)
 	case "json-schema-draft-07":
 		return validateJSONSchemaDraftCached("draft-07", schemaBytes, cache)
+	case "json-schema-2019-09":
+		return validateJSONSchemaDraftCached("2019-09", schemaBytes, cache)
 	case "json-schema-2020-12":
 		return validateJSONSchemaDraftCached("2020-12", schemaBytes, cache)
 	default:

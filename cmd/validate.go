@@ -259,7 +259,8 @@ func validateSummarize(report *assess.AssessmentReport) {
 
 // listSchemas lists available embedded schemas.
 func listSchemas(cmd *cobra.Command) {
-	cmd.Println("Available embedded schemas (Draft-07 and Draft-2020-12 supported only):")
+	cmd.Println("Available embedded schemas (Draft-04/06/07/2019-09/2020-12 supported):")
+
 	infos := assets.GetSchemaNames()
 	if len(infos) == 0 {
 		cmd.Println("No schemas found.")

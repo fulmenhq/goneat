@@ -49,8 +49,14 @@ func TestGetJSONSchemaMeta(t *testing.T) {
 		draft string
 		want  bool
 	}{
+		{"draft-04", true},
+		{"04", true},
+		{"draft-06", true},
+		{"06", true},
 		{"draft-07", true},
 		{"07", true},
+		{"2019-09", true},
+		{"2019", true},
 		{"2020-12", true},
 		{"2020", true},
 		{"invalid", false},
@@ -70,22 +76,31 @@ func TestGetJSONSchemaMeta(t *testing.T) {
 }
 
 func TestOfflineMetaSchemaEmbedding(t *testing.T) {
-	path := "embedded_schemas/schemas/meta/draft-2020-12/offline.schema.json"
-	data, ok := GetSchema(path)
-	if !ok {
-		t.Fatalf("offline meta-schema not embedded at %s", path)
-	}
-	if len(data) == 0 {
-		t.Fatalf("offline meta-schema %s is empty", path)
-	}
+	for _, tc := range []struct {
+		draft string
+		path  string
+	}{
+		{draft: "2020-12", path: "embedded_schemas/schemas/meta/draft-2020-12/offline.schema.json"},
+		{draft: "2019-09", path: "embedded_schemas/schemas/meta/draft-2019-09/offline.schema.json"},
+	} {
+		t.Run(tc.draft, func(t *testing.T) {
+			data, ok := GetSchema(tc.path)
+			if !ok {
+				t.Fatalf("offline meta-schema not embedded at %s", tc.path)
+			}
+			if len(data) == 0 {
+				t.Fatalf("offline meta-schema %s is empty", tc.path)
+			}
 
-	t.Setenv("GONEAT_OFFLINE_SCHEMA_VALIDATION", "true")
-	meta, ok := GetJSONSchemaMeta("2020-12")
-	if !ok {
-		t.Fatal("expected offline meta-schema lookup to succeed for draft 2020-12")
-	}
-	if !bytes.Equal(meta, data) {
-		t.Fatal("offline meta-schema returned by GetJSONSchemaMeta does not match embedded copy")
+			t.Setenv("GONEAT_OFFLINE_SCHEMA_VALIDATION", "true")
+			meta, ok := GetJSONSchemaMeta(tc.draft)
+			if !ok {
+				t.Fatalf("expected offline meta-schema lookup to succeed for %s", tc.draft)
+			}
+			if !bytes.Equal(meta, data) {
+				t.Fatal("offline meta-schema returned by GetJSONSchemaMeta does not match embedded copy")
+			}
+		})
 	}
 }
 

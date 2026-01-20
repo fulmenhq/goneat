@@ -49,6 +49,10 @@ func GetSchemaNames() []SchemaInfo {
 		"dependency-analysis-v1.0.0":     "embedded_schemas/schemas/dependencies/v1.0.0/dependency-analysis.schema.json",
 		"ssot-provenance-v1":             "embedded_schemas/schemas/crucible-go/content/ssot-provenance/v1.0.0/ssot-provenance.schema.json",
 		"ssot-source-metadata-v1":        "embedded_schemas/schemas/ssot/source-metadata.v1.json",
+		"json-schema-draft-04":           "embedded_schemas/schemas/meta/draft-04/schema.json",
+		"json-schema-draft-06":           "embedded_schemas/schemas/meta/draft-06/schema.json",
+		"json-schema-draft-07":           "embedded_schemas/schemas/meta/draft-07/schema.json",
+		"json-schema-2019-09":            "embedded_schemas/schemas/meta/draft-2019-09/schema.json",
 		"json-schema-2020-12":            "embedded_schemas/schemas/meta/draft-2020-12/schema.json",
 	}
 
@@ -80,8 +84,17 @@ func detectDraft(path string) string {
 	}
 	if m, ok := doc.(map[string]interface{}); ok {
 		if v, ok := m["$schema"].(string); ok {
+			if strings.Contains(v, "draft-04") {
+				return "Draft-04"
+			}
+			if strings.Contains(v, "draft-06") {
+				return "Draft-06"
+			}
 			if strings.Contains(v, "draft-07") {
 				return "Draft-07"
+			}
+			if strings.Contains(v, "2019-09") {
+				return "Draft-2019-09"
 			}
 			if strings.Contains(v, "2020-12") {
 				return "Draft-2020-12"

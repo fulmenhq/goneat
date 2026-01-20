@@ -8,8 +8,17 @@ import (
 
 // Curated JSON Schema meta-schemas (embedded)
 
+//go:embed jsonschema/draft-04/schema.json
+var JSONSchemaDraft04 []byte
+
+//go:embed jsonschema/draft-06/schema.json
+var JSONSchemaDraft06 []byte
+
 //go:embed jsonschema/draft-07/schema.json
 var JSONSchemaDraft07 []byte
+
+//go:embed jsonschema/draft-2019-09/schema.json
+var JSONSchemaDraft2019_09 []byte
 
 //go:embed jsonschema/draft-2020-12/schema.json
 var JSONSchemaDraft2020_12 []byte
@@ -29,8 +38,19 @@ var Config embed.FS
 func GetJSONSchemaMeta(draft string) ([]byte, bool) {
 	offline := os.Getenv("GONEAT_OFFLINE_SCHEMA_VALIDATION") == "true"
 	switch draft {
+	case "draft-04", "04", "4":
+		return JSONSchemaDraft04, len(JSONSchemaDraft04) > 0
+	case "draft-06", "06", "6":
+		return JSONSchemaDraft06, len(JSONSchemaDraft06) > 0
 	case "draft-07", "07", "7":
 		return JSONSchemaDraft07, len(JSONSchemaDraft07) > 0
+	case "2019-09", "2019", "201909":
+		if offline {
+			if data, ok := GetSchema("embedded_schemas/schemas/meta/draft-2019-09/offline.schema.json"); ok {
+				return data, true
+			}
+		}
+		return JSONSchemaDraft2019_09, len(JSONSchemaDraft2019_09) > 0
 	case "2020-12", "2020", "202012":
 		if offline {
 			if data, ok := GetSchema("embedded_schemas/schemas/meta/draft-2020-12/offline.schema.json"); ok {

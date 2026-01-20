@@ -958,6 +958,9 @@ func (r *SchemaAssessmentRunner) extractDraftFromURL(schemaURL string) string {
 	if strings.Contains(schemaURL, "draft-04") {
 		return "draft-04"
 	}
+	if strings.Contains(schemaURL, "draft-06") {
+		return "draft-06"
+	}
 
 	// Default to 2020-12 if we can't determine
 	return "2020-12"
@@ -967,7 +970,7 @@ func (r *SchemaAssessmentRunner) extractDraftFromURL(schemaURL string) string {
 func (r *SchemaAssessmentRunner) isDraftAllowed(draft string, config AssessmentConfig) bool {
 	if len(config.SchemaDrafts) == 0 {
 		// No filter specified, allow all supported drafts
-		return draft == "draft-07" || draft == "2020-12" || draft == "2019-09"
+		return draft == "draft-04" || draft == "draft-06" || draft == "draft-07" || draft == "2019-09" || draft == "2020-12"
 	}
 
 	for _, allowedDraft := range config.SchemaDrafts {

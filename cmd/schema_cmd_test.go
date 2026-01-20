@@ -6,6 +6,34 @@ import (
 	"testing"
 )
 
+func TestSchemaValidateSchema_GoodDraft04(t *testing.T) {
+	out, err := execRoot(t, []string{
+		"schema", "validate-schema",
+		"--schema-id", "json-schema-draft-04",
+		"tests/fixtures/schemas/draft-04/good/simple.json",
+	})
+	if err != nil {
+		t.Fatalf("schema validate-schema (good draft-04) failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "✅") {
+		t.Fatalf("expected success marker in output, got: %s", out)
+	}
+}
+
+func TestSchemaValidateSchema_GoodDraft06(t *testing.T) {
+	out, err := execRoot(t, []string{
+		"schema", "validate-schema",
+		"--schema-id", "json-schema-draft-06",
+		"tests/fixtures/schemas/draft-06/good/simple.json",
+	})
+	if err != nil {
+		t.Fatalf("schema validate-schema (good draft-06) failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "✅") {
+		t.Fatalf("expected success marker in output, got: %s", out)
+	}
+}
+
 func TestSchemaValidateSchema_GoodDraft07(t *testing.T) {
 	out, err := execRoot(t, []string{
 		"schema", "validate-schema",
@@ -31,6 +59,20 @@ func TestSchemaValidateSchema_BadDraft07(t *testing.T) {
 	}
 	if !strings.Contains(out, "❌") {
 		t.Fatalf("expected failure marker in output, got: %s", out)
+	}
+}
+
+func TestSchemaValidateSchema_GoodDraft2019_09(t *testing.T) {
+	out, err := execRoot(t, []string{
+		"schema", "validate-schema",
+		"--schema-id", "json-schema-2019-09",
+		"tests/fixtures/schemas/draft-2019-09/good/simple.json",
+	})
+	if err != nil {
+		t.Fatalf("schema validate-schema (good draft-2019-09) failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "✅") {
+		t.Fatalf("expected success marker in output, got: %s", out)
 	}
 }
 
