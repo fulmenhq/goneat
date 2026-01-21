@@ -104,7 +104,10 @@ Unlike traditional tools, goneat validates **YAML-defined schemas**—not just `
 
 ```bash
 # Validate schema files themselves (meta-validation)
-goneat schema validate-schema schemas/
+goneat schema validate-schema --recursive ./schemas/
+
+# Use glob patterns for targeted validation
+goneat schema validate-schema "schemas/**/*.json"
 
 # Validate config files against schemas
 goneat validate data --schema schemas/config.yaml config/app.yaml
