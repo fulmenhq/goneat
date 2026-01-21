@@ -82,10 +82,19 @@ hooks-ensure: ## Ensure git hooks are installed (auto-installs if missing)
 		fi; \
 	fi
 
-# User-space install directory (platform-aware)
+# User-space install directory (platform-aware, overridable via INSTALL_DIR=...)
+ifeq ($(OS),Windows_NT)
+INSTALL_DIR ?= $(LOCALAPPDATA)/Programs/goneat
+else
 INSTALL_DIR ?= $(HOME)/.local/bin
+endif
 
-install: build ## Install binary to user-space bin dir (~/.local/bin)
+install: ## Install built binary to user-space bin dir (~/.local/bin) - assumes 'make build' was run
+	@if [ ! -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
+		echo "❌ Binary not found at $(BUILD_DIR)/$(BINARY_NAME)"; \
+		echo "   Run 'make build' first, or use 'make build install' for both"; \
+		exit 1; \
+	fi
 	@echo "Installing $(BINARY_NAME) to $(INSTALL_DIR)..."
 	@mkdir -p "$(INSTALL_DIR)"
 	@cp "$(BUILD_DIR)/$(BINARY_NAME)" "$(INSTALL_DIR)/$(BINARY_NAME)"
