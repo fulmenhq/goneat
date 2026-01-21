@@ -14,8 +14,17 @@ goneat schema validate-schema [flags] <schema-file> [...schema-file]
 
 ## validate-schema
 
-Validate schema files (currently JSON Schema Draft-07 and 2020-12) against the embedded meta-schemas. Pair this
-with `goneat pathfinder find --schemas` to discover candidate files first.
+Validate schema files against embedded meta-schemas. Supports **all major JSON Schema versions**: Draft-04, Draft-06, Draft-07, 2019-09, and 2020-12. Pair this with `goneat pathfinder find --schemas` to discover candidate files first.
+
+### Supported Schema IDs
+
+| Schema ID | JSON Schema Version | Typical Use |
+|-----------|---------------------|-------------|
+| `json-schema-draft-04` | Draft-04 (2013) | Kubernetes CRDs, legacy enterprise configs |
+| `json-schema-draft-06` | Draft-06 (2017) | Transitional schemas |
+| `json-schema-draft-07` | Draft-07 (2017) | Most common, community standard |
+| `json-schema-2019-09` | 2019-09 | OpenAPI 3.0.x compatible |
+| `json-schema-2020-12` | 2020-12 | OpenAPI 3.1, current standard |
 
 ### Flags
 
@@ -28,8 +37,17 @@ with `goneat pathfinder find --schemas` to discover candidate files first.
 ### Examples
 
 ```bash
+# Auto-detect draft version from $schema field (recommended for mixed directories)
+goneat schema validate-schema --recursive ./schemas/
+
+# Validate legacy Draft-04 schemas (Kubernetes, enterprise configs)
+goneat schema validate-schema --schema-id json-schema-draft-04 ./k8s-schemas/
+
 # Validate a single schema file against Draft-07
 goneat schema validate-schema --schema-id json-schema-draft-07 ./schemas/config/example.json
+
+# Validate OpenAPI 3.1 schemas (2020-12)
+goneat schema validate-schema --schema-id json-schema-2020-12 ./openapi/
 
 # Validate many schema files in parallel
 goneat schema validate-schema --schema-id json-schema-draft-07 --workers 8 ./schemas/**/*.json

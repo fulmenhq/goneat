@@ -113,7 +113,7 @@ goneat validate data --schema schemas/config.yaml config/app.yaml
 goneat validate suite --workers 4 --mapping .goneat/schema-mappings.yaml
 ```
 
-Supports JSON Schema Draft-07 and 2020-12 with **offline `$ref` resolution**—no network calls needed. Embedded meta-schemas enable air-gapped CI environments.
+Supports **all major JSON Schema versions**: Draft-04, Draft-06, Draft-07, 2019-09, and 2020-12—with **offline `$ref` resolution** and no network calls needed. Validate legacy Kubernetes schemas alongside modern OpenAPI 3.1 specs. Embedded meta-schemas enable air-gapped CI environments.
 
 ### Supply Chain Security
 
