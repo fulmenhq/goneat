@@ -7,6 +7,7 @@
 
 - **Full JSON Schema draft coverage**: Validate Draft-04 through 2020-12 (all five major versions) with offline `$ref` resolution
 - **Schema CLI improvements**: Glob patterns and recursive directory validation
+- **Tools config fixes**: `min_version` alias support, schema validation now enforced
 - **Dependency modernization**: 84 packages updated across 3 staged releases, including OPA and container ecosystem
 - **No breaking changes**: Additive features and maintenance only
 
@@ -94,6 +95,27 @@ Each stage passed full validation (`make prepush`, `goneat dependencies --vuln`)
 ### Vulnerability Summary Clarity
 
 The `--vuln` output now reports accurate counts distinguishing between total vulnerabilities found and unique CVEs after deduplication.
+
+### Tools Config: `min_version` Alias
+
+The `min_version` field is now accepted as a deprecated alias for `minimum_version` in `.goneat/tools.yaml`. This provides backwards compatibility for existing configs while encouraging migration to the canonical name:
+
+```yaml
+tools:
+  prettier:
+    name: "prettier"
+    description: "Code formatter"
+    kind: "node"
+    detect_command: "prettier --version"
+    min_version: "3.0.0"        # Accepted (deprecated alias)
+    # minimum_version: "3.0.0"  # Preferred
+```
+
+Using both fields simultaneously is a schema validation error.
+
+### Tools Config Schema Validation
+
+Fixed a bug where `goneat doctor tools` was not validating `.goneat/tools.yaml` against the embedded schema. Invalid configs are now caught early with clear error messages.
 
 ## Upgrade Notes
 

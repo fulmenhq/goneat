@@ -27,6 +27,7 @@ goneat validate [target]
 - `--list-schemas`: List available embedded schemas with drafts
 
 **Parallel execution**: All validation commands default to parallel execution:
+
 - `goneat validate suite --workers N` — defaults to CPU count, use `--workers 1` for sequential
 - `goneat schema validate-schema --workers N` — defaults to auto (CPU count), use `--workers 1` for sequential
 - `goneat assess --categories schema` — uses 80% of CPU cores by default, use `--concurrency 1` for sequential

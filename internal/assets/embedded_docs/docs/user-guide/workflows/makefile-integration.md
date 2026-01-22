@@ -119,12 +119,12 @@ bootstrap:
 
 ## Version Selection Strategy
 
-| Scenario | Recommendation |
-|----------|----------------|
-| **New project** | Use `latest` or current stable (e.g., `v0.5.1`) |
-| **Existing project** | Use `?=` with minimum required version |
-| **CI/CD pipelines** | Pin to specific version for reproducibility |
-| **Local development** | Let existing install be used |
+| Scenario              | Recommendation                                  |
+| --------------------- | ----------------------------------------------- |
+| **New project**       | Use `latest` or current stable (e.g., `v0.5.1`) |
+| **Existing project**  | Use `?=` with minimum required version          |
+| **CI/CD pipelines**   | Pin to specific version for reproducibility     |
+| **Local development** | Let existing install be used                    |
 
 ## Troubleshooting
 

@@ -157,8 +157,15 @@ func (pm *PathManager) AddToSessionPATH(paths ...string) {
 		return
 	}
 
-	// Build new PATH with additions at the front
-	newPATH := strings.Join(append(pm.additions, currentPaths...), string(os.PathListSeparator))
+	// Build new PATH with additions at the end.
+	//
+	// Rationale: goneat's job is to make required tools discoverable, not to
+	// unexpectedly override user/system tool resolution order.
+	//
+	// Putting shim directories (mise, scoop, etc.) at the front can shadow
+	// system-installed tools (e.g., Homebrew) and produce surprising version
+	// mismatches.
+	newPATH := strings.Join(append(currentPaths, pm.additions...), string(os.PathListSeparator))
 	if err := os.Setenv("PATH", newPATH); err != nil {
 		logger.Warn(fmt.Sprintf("Failed to set PATH environment variable: %v", err))
 		return
@@ -181,20 +188,20 @@ func (pm *PathManager) GetActivationInstructions(shell string) string {
 	switch shell {
 	case "bash", "zsh", "sh":
 		for _, path := range pm.additions {
-			lines = append(lines, fmt.Sprintf("export PATH=\"%s:$PATH\"", path))
+			lines = append(lines, fmt.Sprintf("export PATH=\"$PATH:%s\"", path))
 		}
 	case "fish":
 		for _, path := range pm.additions {
-			lines = append(lines, fmt.Sprintf("set -gx PATH %s $PATH", path))
+			lines = append(lines, fmt.Sprintf("set -gx PATH $PATH %s", path))
 		}
 	case "powershell", "pwsh":
 		for _, path := range pm.additions {
-			lines = append(lines, fmt.Sprintf("$env:PATH = \"%s;$env:PATH\"", path))
+			lines = append(lines, fmt.Sprintf("$env:PATH = \"$env:PATH;%s\"", path))
 		}
 	default:
 		// Default to bash syntax
 		for _, path := range pm.additions {
-			lines = append(lines, fmt.Sprintf("export PATH=\"%s:$PATH\"", path))
+			lines = append(lines, fmt.Sprintf("export PATH=\"$PATH:%s\"", path))
 		}
 	}
 

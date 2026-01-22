@@ -127,6 +127,11 @@ $defs:
         description: "Minimum supported version that must be present"
         minLength: 1
         maxLength: 50
+      min_version:
+        type: string
+        description: "DEPRECATED: Alias for minimum_version (use minimum_version)"
+        minLength: 1
+        maxLength: 50
       recommended_version:
         type: string
         description: "Recommended version to target during upgrades"
@@ -185,9 +190,13 @@ $defs:
               min_age_days: 14        # More conservative than global 7 days
               min_downloads: 5000     # Higher threshold than global 100
     required: ["name", "description", "kind", "detect_command"]
-    # Enforce mutual exclusivity: install and install_commands cannot both be present
-    not:
-      required: ["install", "install_commands"]
+    allOf:
+      # Enforce mutual exclusivity: install and install_commands cannot both be present
+      - not:
+          required: ["install", "install_commands"]
+      # Enforce mutual exclusivity: min_version is a deprecated alias for minimum_version
+      - not:
+          required: ["minimum_version", "min_version"]
     additionalProperties: false
   installConfig:
     type: object

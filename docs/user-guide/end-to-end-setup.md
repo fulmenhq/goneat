@@ -130,7 +130,7 @@ licenses:
 
 cooling:
   enabled: true
-  min_age_days: 7  # Block packages published < 7 days ago
+  min_age_days: 7 # Block packages published < 7 days ago
 ```
 
 **Why cooling?** 80% of supply chain attacks are detected within 7 days of publication. Package cooling provides a buffer for the community to identify malicious packages.
@@ -274,15 +274,15 @@ goneat assess --categories security --track-suppressions
 
 ## Summary
 
-| Phase | Command | Purpose |
-|-------|---------|---------|
-| 1 | `sfetch --repo fulmenhq/goneat` | Trust anchor installation |
-| 2 | `goneat doctor tools init` | Generate tool manifest |
-| 3 | `goneat doctor tools --install` | Install required tools |
-| 4 | Create `dependencies.yaml` | Define supply chain policy |
-| 5 | `goneat hooks install` | Set up git hooks |
-| 6 | CI pipeline config | Automate in CI/CD |
-| 7 | `goneat assess` | Ongoing quality gates |
+| Phase | Command                         | Purpose                    |
+| ----- | ------------------------------- | -------------------------- |
+| 1     | `sfetch --repo fulmenhq/goneat` | Trust anchor installation  |
+| 2     | `goneat doctor tools init`      | Generate tool manifest     |
+| 3     | `goneat doctor tools --install` | Install required tools     |
+| 4     | Create `dependencies.yaml`      | Define supply chain policy |
+| 5     | `goneat hooks install`          | Set up git hooks           |
+| 6     | CI pipeline config              | Automate in CI/CD          |
+| 7     | `goneat assess`                 | Ongoing quality gates      |
 
 ## Next Steps
 

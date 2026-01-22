@@ -26,23 +26,28 @@ type Scope struct {
 
 // Tool represents a single tool definition.
 type Tool struct {
-	Name               string              `yaml:"name" json:"name"`
-	Description        string              `yaml:"description" json:"description"`
-	Kind               string              `yaml:"kind" json:"kind"`
-	DetectCommand      string              `yaml:"detect_command" json:"detect_command"`
-	Install            *InstallConfig      `yaml:"install,omitempty" json:"install,omitempty"`                 // v1.1.0+: structured installation
-	InstallPackage     string              `yaml:"install_package,omitempty" json:"install_package,omitempty"` // Go package for "go" kind tools
-	VersionArgs        []string            `yaml:"version_args,omitempty" json:"version_args,omitempty"`
-	CheckArgs          []string            `yaml:"check_args,omitempty" json:"check_args,omitempty"`
-	Platforms          []string            `yaml:"platforms,omitempty" json:"platforms,omitempty"`
-	InstallCommands    map[string]string   `yaml:"install_commands,omitempty" json:"install_commands,omitempty"` // v1.0.0 legacy
-	InstallerPriority  map[string][]string `yaml:"installer_priority,omitempty" json:"installer_priority,omitempty"`
-	VersionScheme      string              `yaml:"version_scheme,omitempty" json:"version_scheme,omitempty"`
-	MinimumVersion     string              `yaml:"minimum_version,omitempty" json:"minimum_version,omitempty"`
-	RecommendedVersion string              `yaml:"recommended_version,omitempty" json:"recommended_version,omitempty"`
-	DisallowedVersions []string            `yaml:"disallowed_versions,omitempty" json:"disallowed_versions,omitempty"`
-	Artifacts          *ArtifactManifest   `yaml:"artifacts,omitempty" json:"artifacts,omitempty"`
-	Cooling            *CoolingConfig      `yaml:"cooling,omitempty" json:"cooling,omitempty"` // v1.2.0: optional tool-specific cooling policy override
+	Name              string              `yaml:"name" json:"name"`
+	Description       string              `yaml:"description" json:"description"`
+	Kind              string              `yaml:"kind" json:"kind"`
+	DetectCommand     string              `yaml:"detect_command" json:"detect_command"`
+	Install           *InstallConfig      `yaml:"install,omitempty" json:"install,omitempty"`                 // v1.1.0+: structured installation
+	InstallPackage    string              `yaml:"install_package,omitempty" json:"install_package,omitempty"` // Go package for "go" kind tools
+	VersionArgs       []string            `yaml:"version_args,omitempty" json:"version_args,omitempty"`
+	CheckArgs         []string            `yaml:"check_args,omitempty" json:"check_args,omitempty"`
+	Platforms         []string            `yaml:"platforms,omitempty" json:"platforms,omitempty"`
+	InstallCommands   map[string]string   `yaml:"install_commands,omitempty" json:"install_commands,omitempty"` // v1.0.0 legacy
+	InstallerPriority map[string][]string `yaml:"installer_priority,omitempty" json:"installer_priority,omitempty"`
+	VersionScheme     string              `yaml:"version_scheme,omitempty" json:"version_scheme,omitempty"`
+	// MinVersion is a deprecated alias for MinimumVersion.
+	//
+	// Kept for backwards compatibility with configs that used min_version.
+	// Prefer MinimumVersion going forward.
+	MinVersion         string            `yaml:"min_version,omitempty" json:"min_version,omitempty"`
+	MinimumVersion     string            `yaml:"minimum_version,omitempty" json:"minimum_version,omitempty"`
+	RecommendedVersion string            `yaml:"recommended_version,omitempty" json:"recommended_version,omitempty"`
+	DisallowedVersions []string          `yaml:"disallowed_versions,omitempty" json:"disallowed_versions,omitempty"`
+	Artifacts          *ArtifactManifest `yaml:"artifacts,omitempty" json:"artifacts,omitempty"`
+	Cooling            *CoolingConfig    `yaml:"cooling,omitempty" json:"cooling,omitempty"` // v1.2.0: optional tool-specific cooling policy override
 }
 
 // InstallConfig defines structured installation methods (v1.1.0+).
@@ -222,7 +227,10 @@ func (c *Config) GetAllScopes() []string {
 
 // VersionPolicy converts the tool's version fields into a reusable policy object.
 func (t Tool) VersionPolicy() (versioning.Policy, error) {
-	if t.VersionScheme == "" && t.MinimumVersion == "" && t.RecommendedVersion == "" && len(t.DisallowedVersions) == 0 {
+	if strings.TrimSpace(t.MinVersion) != "" && strings.TrimSpace(t.MinimumVersion) != "" {
+		return versioning.Policy{}, fmt.Errorf("both min_version and minimum_version are set; use only minimum_version")
+	}
+	if t.VersionScheme == "" && t.MinVersion == "" && t.MinimumVersion == "" && t.RecommendedVersion == "" && len(t.DisallowedVersions) == 0 {
 		return versioning.Policy{Scheme: versioning.SchemeLexical}, nil
 	}
 	scheme, err := parseScheme(t.VersionScheme)
@@ -235,9 +243,13 @@ func (t Tool) VersionPolicy() (versioning.Policy, error) {
 			cleanDisallowed = append(cleanDisallowed, trimmed)
 		}
 	}
+	minVersion := strings.TrimSpace(t.MinimumVersion)
+	if minVersion == "" {
+		minVersion = strings.TrimSpace(t.MinVersion)
+	}
 	policy := versioning.Policy{
 		Scheme:             scheme,
-		MinimumVersion:     strings.TrimSpace(t.MinimumVersion),
+		MinimumVersion:     minVersion,
 		RecommendedVersion: strings.TrimSpace(t.RecommendedVersion),
 		DisallowedVersions: cleanDisallowed,
 	}

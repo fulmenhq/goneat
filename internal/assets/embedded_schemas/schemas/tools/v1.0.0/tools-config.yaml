@@ -113,6 +113,11 @@ $defs:
         description: "Minimum supported version that must be present"
         minLength: 1
         maxLength: 50
+      min_version:
+        type: string
+        description: "DEPRECATED: Alias for minimum_version (use minimum_version)"
+        minLength: 1
+        maxLength: 50
       recommended_version:
         type: string
         description: "Recommended version to target during upgrades"
@@ -159,6 +164,10 @@ $defs:
         required: ["default_version", "versions"]
         additionalProperties: false
     required: ["name", "description", "kind", "detect_command"]
+    allOf:
+      # Enforce mutual exclusivity: min_version is a deprecated alias for minimum_version
+      - not:
+          required: ["minimum_version", "min_version"]
     additionalProperties: false
   versionArtifacts:
     type: object

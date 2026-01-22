@@ -136,11 +136,11 @@ goneat hooks install [flags]
 
 **Flags:**
 
-| Flag | Description |
-|------|-------------|
-| `--unset-hookspath` | Clear `core.hooksPath` git config before installing (fixes husky/lefthook migration) |
-| `--respect-hookspath` | Install hooks to the path specified in `core.hooksPath` instead of `.git/hooks` |
-| `--force` | Alias for `--unset-hookspath` |
+| Flag                  | Description                                                                          |
+| --------------------- | ------------------------------------------------------------------------------------ |
+| `--unset-hookspath`   | Clear `core.hooksPath` git config before installing (fixes husky/lefthook migration) |
+| `--respect-hookspath` | Install hooks to the path specified in `core.hooksPath` instead of `.git/hooks`      |
+| `--force`             | Alias for `--unset-hookspath`                                                        |
 
 **What it does:**
 

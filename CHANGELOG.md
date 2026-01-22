@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.2] - 2026-01-21
+
+### Added
+
+- **Full JSON Schema draft coverage**: Meta-validation now supports Draft-04, Draft-06, Draft-07, 2019-09, and 2020-12
+  - Embedded meta-schemas for air-gapped CI environments
+  - Auto-detection from `$schema` field or explicit `--schema-id` flag
+- **Schema CLI improvements**: Glob patterns (`"schemas/**/*.json"`) and `--recursive` directory validation
+- **`min_version` alias**: Tools config now accepts `min_version` as deprecated alias for `minimum_version` for backwards compatibility
+
+### Fixed
+
+- **Tools config schema validation**: `goneat doctor tools` now correctly validates `.goneat/tools.yaml` against embedded schema (was silently skipping validation)
+- **Vulnerability summary counts**: `--vuln` output now distinguishes between total findings and unique CVEs after deduplication
+- **PATH ordering**: `doctor tools --install` now appends shim directories to PATH instead of prepending, avoiding unexpected shadowing of system-installed tools (e.g., Homebrew)
+
+### Changed
+
+- **Dependency modernization**: 84 packages updated across 3 staged releases
+  - Stage 1: Patch versions, `golang.org/x/*`
+  - Stage 2: Security updates, minor bumps
+  - Stage 3: OPA, OpenTelemetry, container ecosystem
+- **Makefile install target**: `make install` now only copies binary (assumes `make build` was run); use `make build install` for both
+- **OS-aware install path**: `INSTALL_DIR` defaults to `%LOCALAPPDATA%/Programs/goneat` on Windows, `~/.local/bin` on Unix
+
 ## [v0.5.1] - 2026-01-17
 
 ### Security

@@ -11,16 +11,17 @@ During v0.5.1 security remediation, grype flagged GHSA-v778-237x-gjrc (CVE-2024-
 
 ## Finding
 
-| Field | Value |
-|-------|-------|
-| ID | GHSA-v778-237x-gjrc / CVE-2024-45337 |
-| Severity | Critical |
-| Package | golang.org/x/crypto |
-| Scanner | grype via syft SBOM |
-| First Seen | 2026-01-17 |
-| Fix Version | v0.31.0 |
+| Field       | Value                                |
+| ----------- | ------------------------------------ |
+| ID          | GHSA-v778-237x-gjrc / CVE-2024-45337 |
+| Severity    | Critical                             |
+| Package     | golang.org/x/crypto                  |
+| Scanner     | grype via syft SBOM                  |
+| First Seen  | 2026-01-17                           |
+| Fix Version | v0.31.0                              |
 
 **Grype report:**
+
 ```json
 {
   "id": "GHSA-v778-237x-gjrc",
@@ -41,18 +42,21 @@ However, Go's Minimal Version Selection (MVS) algorithm resolves the actual vers
 ### Verification
 
 **Declared requirement (from ProtonMail/go-crypto):**
+
 ```bash
 $ go mod graph | grep "x/crypto@v0.17"
 github.com/ProtonMail/go-crypto@v1.1.6 golang.org/x/crypto@v0.17.0
 ```
 
 **Actual resolved version:**
+
 ```bash
 $ go list -m golang.org/x/crypto
 golang.org/x/crypto v0.42.0
 ```
 
 **Version comparison:**
+
 - Required minimum: v0.17.0
 - Fix version: v0.31.0
 - Actual resolved: v0.42.0 (patched)
@@ -68,6 +72,7 @@ CVE-2024-45337 is an authorization bypass in `ServerConfig.PublicKeyCallback` in
 **Classification:** False Positive
 
 **Rationale:**
+
 1. The actual resolved version (v0.42.0) is patched (fix was v0.31.0)
 2. Go MVS guarantees the highest compatible version is used
 3. The vulnerability is in SSH server code not used by goneat

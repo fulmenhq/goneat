@@ -146,7 +146,7 @@ vulnerabilities:
     - id: GHSA-v778-237x-gjrc
       status: false_positive
       reason: "Grype flags min version, not resolved version"
-      sdr: SDR-001  # Link to detailed analysis
+      sdr: SDR-001 # Link to detailed analysis
       verified_by: "@maintainer"
       verified_date: "2026-01-17"
 ```

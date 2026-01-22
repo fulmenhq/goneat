@@ -163,43 +163,43 @@ goneat assess --categories typecheck --include "src/shared/mcp-response.ts"
 
 ### Concurrency Flags
 
-| Flag                    | Type | Default | Description                                      | Example                    |
-| ----------------------- | ---- | ------- | ------------------------------------------------ | -------------------------- |
+| Flag                    | Type | Default | Description                                            | Example                    |
+| ----------------------- | ---- | ------- | ------------------------------------------------------ | -------------------------- |
 | `--concurrency`         | int  | 0       | Explicit worker count (0 uses percent, 1 = sequential) | `--concurrency 4`          |
-| `--concurrency-percent` | int  | 80      | Percent of CPU cores (1-100, min 1 worker)       | `--concurrency-percent 50` |
+| `--concurrency-percent` | int  | 80      | Percent of CPU cores (1-100, min 1 worker)             | `--concurrency-percent 50` |
 
 ### Filtering Flags
 
-| Flag                   | Type    | Description                              | Example                               |
-| ---------------------- | ------- | ---------------------------------------- | ------------------------------------- |
-| `--include`            | strings | Include file patterns                    | `--include "*.go"`                    |
-| `--exclude`            | strings | Exclude file patterns                    | `--exclude "vendor/**"`               |
-| `--categories`         | string  | Specific categories to assess            | `--categories "format,lint"`          |
-| `--no-ignore`          | boolean | Disable ignore files                     | `--no-ignore`                         |
-| `--force-include`      | strings | Force-include ignored paths (repeatable) | `--force-include 'tests/fixtures/**'` |
-| `--scope`              | boolean | Limit traversal to include/force anchors | `--scope`                             |
-| `--staged-only`        | boolean | Only assess staged files in git          | `--staged-only`                       |
+| Flag              | Type    | Description                              | Example                               |
+| ----------------- | ------- | ---------------------------------------- | ------------------------------------- |
+| `--include`       | strings | Include file patterns                    | `--include "*.go"`                    |
+| `--exclude`       | strings | Exclude file patterns                    | `--exclude "vendor/**"`               |
+| `--categories`    | string  | Specific categories to assess            | `--categories "format,lint"`          |
+| `--no-ignore`     | boolean | Disable ignore files                     | `--no-ignore`                         |
+| `--force-include` | strings | Force-include ignored paths (repeatable) | `--force-include 'tests/fixtures/**'` |
+| `--scope`         | boolean | Limit traversal to include/force anchors | `--scope`                             |
+| `--staged-only`   | boolean | Only assess staged files in git          | `--staged-only`                       |
 
 ### Schema Flags
 
-| Flag                            | Type    | Description                                              | Example                               |
-| ------------------------------- | ------- | -------------------------------------------------------- | ------------------------------------- |
-| `--schema-enable-meta`          | boolean | Attempt schema meta validation                           | `--schema-enable-meta`                |
-| `--schema-drafts`               | strings | Allowed JSON Schema drafts                               | `--schema-drafts "draft-07,2020-12"`  |
-| `--schema-patterns`             | strings | Custom schema file globs                                 | `--schema-patterns "*.schema.yaml"`   |
-| `--schema-discovery-mode`       | string  | Discovery mode (`schemas-dir`, `all`)                    | `--schema-discovery-mode all`         |
-| `--schema-mapping`              | boolean | Enable config-to-schema mapping                          | `--schema-mapping`                    |
-| `--schema-mapping-manifest`     | string  | Override mapping manifest path                            | `--schema-mapping-manifest ./path`    |
-| `--schema-mapping-min-confidence` | float | Minimum confidence threshold for mapping (0-1)           | `--schema-mapping-min-confidence 0.8` |
-| `--schema-mapping-strict`       | boolean | Fail when mappings are missing or low confidence         | `--schema-mapping-strict`             |
+| Flag                              | Type    | Description                                      | Example                               |
+| --------------------------------- | ------- | ------------------------------------------------ | ------------------------------------- |
+| `--schema-enable-meta`            | boolean | Attempt schema meta validation                   | `--schema-enable-meta`                |
+| `--schema-drafts`                 | strings | Allowed JSON Schema drafts                       | `--schema-drafts "draft-07,2020-12"`  |
+| `--schema-patterns`               | strings | Custom schema file globs                         | `--schema-patterns "*.schema.yaml"`   |
+| `--schema-discovery-mode`         | string  | Discovery mode (`schemas-dir`, `all`)            | `--schema-discovery-mode all`         |
+| `--schema-mapping`                | boolean | Enable config-to-schema mapping                  | `--schema-mapping`                    |
+| `--schema-mapping-manifest`       | string  | Override mapping manifest path                   | `--schema-mapping-manifest ./path`    |
+| `--schema-mapping-min-confidence` | float   | Minimum confidence threshold for mapping (0-1)   | `--schema-mapping-min-confidence 0.8` |
+| `--schema-mapping-strict`         | boolean | Fail when mappings are missing or low confidence | `--schema-mapping-strict`             |
 
 ### Incremental Lint Flags
 
-| Flag                | Type   | Default | Description                                        | Example                  |
-| ------------------- | ------ | ------- | -------------------------------------------------- | ------------------------ |
-| `--new-issues-only` | bool   | `false` | Only report issues introduced since base reference | `--new-issues-only`      |
-| `--new-issues-base` | string | `HEAD~` | Git reference for baseline comparison              | `--new-issues-base main` |
-| `--lint-new-from-rev` | string | ``     | Pass through to golangci-lint `--new-from-rev`     | `--lint-new-from-rev HEAD~` |
+| Flag                  | Type   | Default | Description                                        | Example                     |
+| --------------------- | ------ | ------- | -------------------------------------------------- | --------------------------- |
+| `--new-issues-only`   | bool   | `false` | Only report issues introduced since base reference | `--new-issues-only`         |
+| `--new-issues-base`   | string | `HEAD~` | Git reference for baseline comparison              | `--new-issues-base main`    |
+| `--lint-new-from-rev` | string | ``      | Pass through to golangci-lint `--new-from-rev`     | `--lint-new-from-rev HEAD~` |
 
 **Note:** `--new-issues-base` has no effect without `--new-issues-only`.
 
@@ -214,32 +214,32 @@ See [Incremental Lint Checking](../../appnotes/assess/incremental-lint-checking.
 
 ### Display Flags
 
-| Flag           | Type    | Description                             | Example        |
-| -------------- | ------- | --------------------------------------- | -------------- |
-| `--verbose`    | boolean | Verbose output                          | `--verbose`    |
-| `--quiet`      | boolean | Minimal output                          | `--quiet`      |
-| `--ci-summary` | boolean | One-line CI status (PASS/FAIL + counts) | `--ci-summary` |
-| `--extended`   | boolean | Include detailed workplan info in output| `--extended`   |
+| Flag           | Type    | Description                              | Example        |
+| -------------- | ------- | ---------------------------------------- | -------------- |
+| `--verbose`    | boolean | Verbose output                           | `--verbose`    |
+| `--quiet`      | boolean | Minimal output                           | `--quiet`      |
+| `--ci-summary` | boolean | One-line CI status (PASS/FAIL + counts)  | `--ci-summary` |
+| `--extended`   | boolean | Include detailed workplan info in output | `--extended`   |
 
 ### Output Helpers
 
-| Flag     | Type    | Description                         | Example   |
-| -------- | ------- | ----------------------------------- | --------- |
-| `--open` | boolean | Open HTML report in default browser | `--open`  |
+| Flag     | Type    | Description                         | Example  |
+| -------- | ------- | ----------------------------------- | -------- |
+| `--open` | boolean | Open HTML report in default browser | `--open` |
 
 ### Lint Mode Controls
 
-| Flag             | Type    | Description                                      | Example           |
-| ---------------- | ------- | ------------------------------------------------ | ----------------- |
-| `--package-mode` | boolean | Force golangci-lint package mode (`./pkg/...`)   | `--package-mode`  |
+| Flag             | Type    | Description                                    | Example          |
+| ---------------- | ------- | ---------------------------------------------- | ---------------- |
+| `--package-mode` | boolean | Force golangci-lint package mode (`./pkg/...`) | `--package-mode` |
 
 ### Benchmark Flags
 
-| Flag                | Type     | Description                    | Example                         |
-| ------------------- | -------- | ------------------------------ | ------------------------------- |
-| `--benchmark`       | boolean  | Run benchmark comparison       | `--benchmark`                   |
-| `--iterations`      | int      | Benchmark iterations           | `--iterations 5`                |
-| `--benchmark-output`| string   | Benchmark output file          | `--benchmark-output bench.json` |
+| Flag                 | Type    | Description              | Example                         |
+| -------------------- | ------- | ------------------------ | ------------------------------- |
+| `--benchmark`        | boolean | Run benchmark comparison | `--benchmark`                   |
+| `--iterations`       | int     | Benchmark iterations     | `--iterations 5`                |
+| `--benchmark-output` | string  | Benchmark output file    | `--benchmark-output bench.json` |
 
 ### Security Flags
 

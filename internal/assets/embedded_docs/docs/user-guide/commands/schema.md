@@ -18,13 +18,13 @@ Validate schema files against embedded meta-schemas. Supports **all major JSON S
 
 ### Supported Schema IDs
 
-| Schema ID | JSON Schema Version | Typical Use |
-|-----------|---------------------|-------------|
-| `json-schema-draft-04` | Draft-04 (2013) | Kubernetes CRDs, legacy enterprise configs |
-| `json-schema-draft-06` | Draft-06 (2017) | Transitional schemas |
-| `json-schema-draft-07` | Draft-07 (2017) | Most common, community standard |
-| `json-schema-2019-09` | 2019-09 | OpenAPI 3.0.x compatible |
-| `json-schema-2020-12` | 2020-12 | OpenAPI 3.1, current standard |
+| Schema ID              | JSON Schema Version | Typical Use                                |
+| ---------------------- | ------------------- | ------------------------------------------ |
+| `json-schema-draft-04` | Draft-04 (2013)     | Kubernetes CRDs, legacy enterprise configs |
+| `json-schema-draft-06` | Draft-06 (2017)     | Transitional schemas                       |
+| `json-schema-draft-07` | Draft-07 (2017)     | Most common, community standard            |
+| `json-schema-2019-09`  | 2019-09             | OpenAPI 3.0.x compatible                   |
+| `json-schema-2020-12`  | 2020-12             | OpenAPI 3.1, current standard              |
 
 ### Flags
 
@@ -77,14 +77,14 @@ goneat schema validate-data --schema goneat-config-v1.0.0 --data .goneat/assess.
 
 ### Flags
 
-| Flag                    | Description |
-| ----------------------- | ----------- |
-| `--schema string`       | Schema name (embedded) or canonical schema ID URL (mutually exclusive with `--schema-file`) |
-| `--schema-file string`  | Path to arbitrary schema file (JSON/YAML; overrides `--schema`) |
-| `--ref-dir strings`     | Directory tree of schema files used to resolve absolute `$ref` URLs offline (repeatable) |
-| `--schema-resolution`   | `prefer-id|id-strict|path-only` (controls canonical schema ID resolution) |
-| `--data string`         | Data file to validate (required) |
-| `--format string`       | Output format: `markdown` (default) or `json` |
+| Flag                   | Description                                                                                 |
+| ---------------------- | ------------------------------------------------------------------------------------------- | --------- | ---------------------------------------------------- |
+| `--schema string`      | Schema name (embedded) or canonical schema ID URL (mutually exclusive with `--schema-file`) |
+| `--schema-file string` | Path to arbitrary schema file (JSON/YAML; overrides `--schema`)                             |
+| `--ref-dir strings`    | Directory tree of schema files used to resolve absolute `$ref` URLs offline (repeatable)    |
+| `--schema-resolution`  | `prefer-id                                                                                  | id-strict | path-only` (controls canonical schema ID resolution) |
+| `--data string`        | Data file to validate (required)                                                            |
+| `--format string`      | Output format: `markdown` (default) or `json`                                               |
 
 ### Examples
 

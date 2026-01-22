@@ -321,3 +321,68 @@ tools:
 		t.Errorf("Complex valid config should pass validation: %v", err)
 	}
 }
+
+func TestValidateConfigFile_MinVersionAlias(t *testing.T) {
+	t.Parallel()
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "min-version-alias.yaml")
+
+	// min_version is a deprecated alias for minimum_version. We accept it for
+	// compatibility, but configs should use minimum_version going forward.
+	config := `
+scopes:
+  test:
+    description: "Test scope"
+    tools: ["prettier"]
+
+tools:
+  prettier:
+    name: "prettier"
+    description: "Formatter"
+    kind: "node"
+    detect_command: "prettier --version"
+    min_version: "3.8.1"
+`
+
+	err := os.WriteFile(configPath, []byte(config), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write test config: %v", err)
+	}
+
+	err = ValidateConfigFile(configPath)
+	if err != nil {
+		t.Errorf("Config with min_version alias should pass validation: %v", err)
+	}
+}
+
+func TestValidateConfigFile_MinVersionAliasConflict(t *testing.T) {
+	t.Parallel()
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "min-version-alias-conflict.yaml")
+
+	config := `
+scopes:
+  test:
+    description: "Test scope"
+    tools: ["prettier"]
+
+tools:
+  prettier:
+    name: "prettier"
+    description: "Formatter"
+    kind: "node"
+    detect_command: "prettier --version"
+    minimum_version: "3.8.1"
+    min_version: "3.8.1"
+`
+
+	err := os.WriteFile(configPath, []byte(config), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write test config: %v", err)
+	}
+
+	err = ValidateConfigFile(configPath)
+	if err == nil {
+		t.Fatal("Config with both min_version and minimum_version should fail validation")
+	}
+}
