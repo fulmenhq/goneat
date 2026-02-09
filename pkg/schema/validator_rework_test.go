@@ -82,12 +82,48 @@ func TestValidateFromBytes_InvalidFormat(t *testing.T) {
 func TestValidateFromBytes_UnsupportedDraft(t *testing.T) {
 	t.Parallel()
 	schemaJSON := []byte(`{
-  "$schema": "http://json-schema.org/draft-04/schema#",
+  "$schema": "http://json-schema.org/draft-03/schema#",
   "type": "object"
 }`)
 	_, err := ValidateFromBytes(schemaJSON, map[string]any{})
 	if err == nil {
 		t.Fatalf("expected unsupported $schema error")
+	}
+}
+
+func TestValidateFromBytes_AllSupportedDrafts(t *testing.T) {
+	t.Parallel()
+	drafts := []struct {
+		name   string
+		schema string
+	}{
+		{"Draft-04", `{"$schema":"http://json-schema.org/draft-04/schema#","type":"object","required":["name"],"properties":{"name":{"type":"string"}}}`},
+		{"Draft-06", `{"$schema":"http://json-schema.org/draft-06/schema#","type":"object","required":["name"],"properties":{"name":{"type":"string"}}}`},
+		{"Draft-07", `{"$schema":"http://json-schema.org/draft-07/schema#","type":"object","required":["name"],"properties":{"name":{"type":"string"}}}`},
+		{"2019-09", `{"$schema":"https://json-schema.org/draft/2019-09/schema","type":"object","required":["name"],"properties":{"name":{"type":"string"}}}`},
+		{"2020-12", `{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","required":["name"],"properties":{"name":{"type":"string"}}}`},
+	}
+	for _, d := range drafts {
+		t.Run(d.name+"_valid", func(t *testing.T) {
+			t.Parallel()
+			res, err := ValidateFromBytes([]byte(d.schema), map[string]any{"name": "Alice"})
+			if err != nil {
+				t.Fatalf("%s: unexpected error: %v", d.name, err)
+			}
+			if !res.Valid {
+				t.Fatalf("%s: expected valid, got errors: %+v", d.name, res.Errors)
+			}
+		})
+		t.Run(d.name+"_invalid", func(t *testing.T) {
+			t.Parallel()
+			res, err := ValidateFromBytes([]byte(d.schema), map[string]any{"age": 30})
+			if err != nil {
+				t.Fatalf("%s: unexpected error: %v", d.name, err)
+			}
+			if res.Valid {
+				t.Fatalf("%s: expected invalid (missing required 'name'), got valid", d.name)
+			}
+		})
 	}
 }
 

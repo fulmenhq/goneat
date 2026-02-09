@@ -547,8 +547,13 @@ func ensureSupportedDraft(schemaBytes []byte) error {
 	}
 	if schemaDoc != nil {
 		if v, ok := schemaDoc["$schema"].(string); ok {
-			if !strings.Contains(v, "draft-07") && !strings.Contains(v, "2020-12") {
-				return fmt.Errorf("unsupported $schema: only Draft-07 and Draft-2020-12 supported")
+			supported := strings.Contains(v, "draft-04") ||
+				strings.Contains(v, "draft-06") ||
+				strings.Contains(v, "draft-07") ||
+				strings.Contains(v, "2019-09") ||
+				strings.Contains(v, "2020-12")
+			if !supported {
+				return fmt.Errorf("unsupported $schema %q: supported drafts are 04, 06, 07, 2019-09, 2020-12", v)
 			}
 		}
 	}

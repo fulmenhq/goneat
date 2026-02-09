@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.3] - 2026-02-09
+
+### Fixed
+
+- **Data validation draft gate**: `ValidateFromBytes` and `validate data` now accept all five supported JSON Schema drafts (Draft-04, Draft-06, Draft-07, 2019-09, 2020-12). Previously only Draft-07 and 2020-12 were accepted for data validation, despite v0.5.2 adding meta-schema validation for all drafts. This blocked downstream consumers (e.g., crucible) from validating configs against 2019-09 schemas.
+
 ## [v0.5.2] - 2026-01-21
 
 ### Added
@@ -237,65 +243,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Dates tests**: Fixed temporal stability by using far-future test dates (2099-12-31)
 
-## [v0.3.25] - 2025-12-27
-
-### Fixed
-
-- **Checkmake discovery**: `assess --categories lint` now reliably finds and lints root-level `Makefile` targets (no more silent skip)
-- **Release upload homedir**: `make release-upload` now honors `GONEAT_GPG_HOMEDIR` (legacy `GPG_HOMEDIR` still supported)
-- **Cmd test isolation**: reset validate globals to prevent cross-test state bleed
-
-## [v0.3.24] - 2025-12-23
-
-### Added
-
-- **Offline canonical ID lookup**: `validate data` and `validate suite` can resolve canonical URL `schema_id` values from local `--ref-dir` trees (no-network CI)
-- **Schema resolution mode**: `--schema-resolution prefer-id|id-strict|path-only`
-- **Offline $id index**: internal registry for collision-safe `$id` → schema bytes/path indexing
-
-### Changed
-
-- **Validate docs**: documented dual-run CI strategy (offline strict pre-deploy + post-deploy spec-host probe)
-- **Crucible SSOT**: synced to Crucible v0.2.27
-
-### Fixed
-
-- **Format dogfooding**: `goneat format <explicit-file>` force-includes targets even if ignored by `.goneatignore`
-
-## [v0.3.23] - 2025-12-21
-
-### Added
-
-- **Validate suite (bulk)**: `goneat validate suite` validates many YAML/JSON files in one run with parallel workers and JSON output
-- **Schema mapping shorthand**: `schema_path` in `.goneat/schema-mappings.yaml` to map directly to local schema files
-- **Embedded release docs**: `goneat docs show release-notes` and `goneat docs show releases/latest`
-
-### Fixed
-
-- **Offline ref-dir duplicates**: `validate data --ref-dir` no longer fails when the root schema is also present in the ref-dir tree
-- **Validate suite local schema path resolution**: local `schema_id` mappings now honor `overrides.path` and include resolved `schema.path` in JSON output
-
-### Changed
-
-- **Validate docs**: expanded `validate` docs with bulk validation and local schema examples
-
-## [v0.3.22] - 2025-12-20
-
-### Added
-
-- **Assess config scaffolding**: `goneat doctor assess init` can generate a starter `.goneat/assess.yaml` based on repo type
-- **Hooks UX**: `goneat hooks validate` and `goneat hooks inspect` now show the effective hook wrapper invocation and classify internal vs external commands
-- **Hooks JSON output**: `goneat hooks validate --format json` and `goneat hooks inspect --format json`
-- **Offline $ref resolution**: `goneat validate data --ref-dir` can preload local schemas to resolve remote `$ref` URLs without a live schema registry
-
-### Fixed
-
-- **Bash hook glob expansion**: generated bash hooks now include `set -f` to prevent unquoted glob patterns (e.g., `.cache/**`) from exploding into many args
-
-### Changed
-
-- **Embedded hooks template layout**: standardized on canonical embedded templates under `embedded_templates/templates/hooks/...` (legacy embedded path removed)
-
 ---
 
-**Note**: Older releases (0.3.21 and earlier) have been archived. See git history or `docs/releases/` for details.
+**Note**: Older releases (0.3.25 and earlier) have been archived. See git history or `docs/releases/` for details.
