@@ -25,13 +25,38 @@ type biomeV2Report struct {
 type biomeV2Diagnostic struct {
 	Category    string `json:"category"`
 	Severity    string `json:"severity"`
+	// biome v2.4+ uses "message"; older versions used "description".
+	Message     string `json:"message"`
 	Description string `json:"description"`
 	Location    struct {
-		Path struct {
-			File string `json:"file"`
-		} `json:"path"`
-		Span []int `json:"span"` // [start, end] byte offsets
+		Path biomePath `json:"path"`
+		Span []int     `json:"span"` // older biome used [start,end] byte offsets
 	} `json:"location"`
+}
+
+// biomePath supports both biome JSON shapes:
+// - biome <= 2.3: { "path": { "file": "src/file.ts" } }
+// - biome >= 2.4: { "path": "src/file.ts" }
+type biomePath struct {
+	File string
+}
+
+func (p *biomePath) UnmarshalJSON(b []byte) error {
+	// String form
+	var s string
+	if err := json.Unmarshal(b, &s); err == nil {
+		p.File = s
+		return nil
+	}
+	// Object form
+	var o struct {
+		File string `json:"file"`
+	}
+	if err := json.Unmarshal(b, &o); err != nil {
+		return err
+	}
+	p.File = o.File
+	return nil
 }
 
 func parseBiomeReport(out []byte) (biomeV2Report, error) {
@@ -106,6 +131,11 @@ func runBiomeLint(target string, config AssessmentConfig, files []string) ([]Iss
 			continue
 		}
 
+		desc := strings.TrimSpace(d.Message)
+		if desc == "" {
+			desc = strings.TrimSpace(d.Description)
+		}
+
 		sev := SeverityMedium
 		switch strings.ToLower(strings.TrimSpace(d.Severity)) {
 		case "error":
@@ -119,7 +149,7 @@ func runBiomeLint(target string, config AssessmentConfig, files []string) ([]Iss
 		issues = append(issues, Issue{
 			File:        filepath.ToSlash(d.Location.Path.File),
 			Severity:    sev,
-			Message:     fmt.Sprintf("[%s] %s", d.Category, strings.TrimSpace(d.Description)),
+			Message:     fmt.Sprintf("[%s] %s", d.Category, desc),
 			Category:    CategoryLint,
 			SubCategory: "js:biome",
 		})
@@ -159,6 +189,10 @@ func runBiomeConfigCheck(target string, config AssessmentConfig) ([]Issue, error
 		if file != "biome.json" {
 			continue
 		}
+		desc := strings.TrimSpace(d.Message)
+		if desc == "" {
+			desc = strings.TrimSpace(d.Description)
+		}
 		sev := SeverityMedium
 		switch strings.ToLower(strings.TrimSpace(d.Severity)) {
 		case "error":
@@ -171,7 +205,7 @@ func runBiomeConfigCheck(target string, config AssessmentConfig) ([]Issue, error
 		issues = append(issues, Issue{
 			File:        filepath.ToSlash(d.Location.Path.File),
 			Severity:    sev,
-			Message:     fmt.Sprintf("[%s] %s", d.Category, strings.TrimSpace(d.Description)),
+			Message:     fmt.Sprintf("[%s] %s", d.Category, desc),
 			Category:    CategoryLint,
 			SubCategory: "js:biome-config",
 		})
