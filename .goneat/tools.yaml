@@ -93,6 +93,9 @@ tools:
       windows:
         - scoop
         - winget
+    version_scheme: semver
+    minimum_version: "14.0.0"
+    recommended_version: "14.1.0"
 
   jq:
     name: jq
@@ -111,6 +114,9 @@ tools:
       windows:
         - scoop
         - winget
+    version_scheme: semver
+    minimum_version: "1.7.0"
+    recommended_version: "1.7.1"
 
   yq:
     name: yq
@@ -129,6 +135,9 @@ tools:
       windows:
         - scoop
         - winget
+    version_scheme: semver
+    minimum_version: "4.40.0"
+    recommended_version: "4.44.0"
 
   yamlfmt:
     name: yamlfmt
@@ -143,6 +152,9 @@ tools:
     installer_priority:
       all:
         - go-install
+    version_scheme: semver
+    minimum_version: "0.16.0"
+    recommended_version: "0.21.0"
 
   # NOTE: prettier is in foundation because it's our ONLY Markdown formatter.
   # For TypeScript/JavaScript projects, biome handles TS/JS/JSON formatting.
@@ -159,6 +171,9 @@ tools:
       windows:
         - bun
         - npm
+    version_scheme: semver
+    minimum_version: "3.0.0"
+    recommended_version: "3.8.0"
 
   yamllint:
     name: yamllint
@@ -176,6 +191,9 @@ tools:
         - brew
       windows:
         - scoop
+    version_scheme: semver
+    minimum_version: "1.33.0"
+    recommended_version: "1.37.0"
 
   shfmt:
     name: shfmt
@@ -208,6 +226,9 @@ tools:
       windows:
         - scoop
         - winget
+    version_scheme: semver
+    minimum_version: "0.9.0"
+    recommended_version: "0.10.0"
 
   actionlint:
     name: actionlint
@@ -222,6 +243,9 @@ tools:
     installer_priority:
       all:
         - go-install
+    version_scheme: semver
+    minimum_version: "1.7.0"
+    recommended_version: "1.7.8"
 
   checkmake:
     name: checkmake
@@ -236,6 +260,9 @@ tools:
     installer_priority:
       all:
         - go-install
+    version_scheme: semver
+    minimum_version: "0.2.0"
+    recommended_version: "0.2.2"
 
   minisign:
     name: minisign
@@ -343,6 +370,9 @@ tools:
     installer_priority:
       all:
         - go-install
+    version_scheme: semver
+    minimum_version: "2.18.0"
+    recommended_version: "2.22.0"
 
   govulncheck:
     name: govulncheck
@@ -357,6 +387,9 @@ tools:
     installer_priority:
       all:
         - go-install
+    version_scheme: semver
+    minimum_version: "1.0.0"
+    recommended_version: "1.1.0"
 
   # ==========================================================================
   # RUST TOOLS
@@ -411,6 +444,9 @@ tools:
       all:
         - uv
         - pip
+    version_scheme: semver
+    minimum_version: "0.8.0"
+    recommended_version: "0.14.0"
 
   # ==========================================================================
   # TYPESCRIPT TOOLS
@@ -430,6 +466,9 @@ tools:
       windows:
         - bun
         - npm
+    version_scheme: semver
+    minimum_version: "2.0.0"
+    recommended_version: "2.4.0"
 
   tsc:
     name: tsc
@@ -446,6 +485,9 @@ tools:
       windows:
         - bun
         - npm
+    version_scheme: semver
+    minimum_version: "5.0.0"
+    recommended_version: "5.7.0"
 
   # ==========================================================================
   # SECURITY TOOLS
@@ -487,6 +529,9 @@ tools:
         - brew
       windows:
         - scoop
+    version_scheme: semver
+    minimum_version: "1.0.0"
+    recommended_version: "1.38.0"
 
   grype:
     name: grype
@@ -508,3 +553,6 @@ tools:
         - brew
       windows:
         - scoop
+    version_scheme: semver
+    minimum_version: "0.80.0"
+    recommended_version: "0.105.0"
