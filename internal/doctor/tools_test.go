@@ -886,6 +886,286 @@ func TestValidateInstallerCommands(t *testing.T) {
 	}
 }
 
+// TestDefaultUpgradeCommand_Brew tests that brew upgrade generates correct command
+func TestDefaultUpgradeCommand_Brew(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		tool Tool
+		want string
+	}{
+		{
+			name: "default brew upgrade uses tool name",
+			tool: Tool{Name: "ripgrep", Kind: "system"},
+			want: "brew upgrade ripgrep",
+		},
+		{
+			name: "brew upgrade extracts package from install command",
+			tool: Tool{
+				Name: "yamlfmt",
+				Kind: "system",
+				InstallCommands: map[string]string{
+					"brew": "brew install --formula yamlfmt",
+				},
+			},
+			want: "brew upgrade yamlfmt",
+		},
+		{
+			name: "brew upgrade with tap package",
+			tool: Tool{
+				Name: "actionlint",
+				Kind: "system",
+				InstallCommands: map[string]string{
+					"brew": "brew install rhysd/actionlint/actionlint",
+				},
+			},
+			want: "brew upgrade rhysd/actionlint/actionlint",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := defaultUpgradeCommand(tt.tool, installerBrew)
+			if got != tt.want {
+				t.Errorf("defaultUpgradeCommand(%s, brew) = %q, want %q", tt.tool.Name, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestDefaultUpgradeCommand_GoInstall tests that go-install upgrade uses same command as install
+func TestDefaultUpgradeCommand_GoInstall(t *testing.T) {
+	t.Parallel()
+	tool := Tool{
+		Name:           "golangci-lint",
+		Kind:           "go",
+		InstallPackage: "github.com/golangci/golangci-lint/cmd/golangci-lint@latest",
+	}
+	got := defaultUpgradeCommand(tool, installerGoInstall)
+	want := defaultInstallerCommand(tool, installerGoInstall)
+	if got != want {
+		t.Errorf("defaultUpgradeCommand(go-install) = %q, want %q (same as install)", got, want)
+	}
+	if !strings.Contains(got, "go install") {
+		t.Errorf("defaultUpgradeCommand(go-install) should contain 'go install', got %q", got)
+	}
+}
+
+// TestDefaultUpgradeCommand_CargoInstall tests that cargo-install upgrade uses same command as install
+func TestDefaultUpgradeCommand_CargoInstall(t *testing.T) {
+	t.Parallel()
+	tool := Tool{
+		Name:           "some-cargo-tool",
+		Kind:           "cargo",
+		InstallPackage: "some-cargo-tool",
+	}
+	got := defaultUpgradeCommand(tool, installerCargoInstall)
+	want := defaultInstallerCommand(tool, installerCargoInstall)
+	if got != want {
+		t.Errorf("defaultUpgradeCommand(cargo-install) = %q, want %q (same as install)", got, want)
+	}
+	if !strings.Contains(got, "cargo install") {
+		t.Errorf("defaultUpgradeCommand(cargo-install) should contain 'cargo install', got %q", got)
+	}
+}
+
+// TestDefaultUpgradeCommand_Scoop tests that scoop upgrade generates correct command
+func TestDefaultUpgradeCommand_Scoop(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		tool Tool
+		want string
+	}{
+		{
+			name: "default scoop update uses tool name",
+			tool: Tool{Name: "jq", Kind: "system"},
+			want: "scoop update jq",
+		},
+		{
+			name: "scoop update extracts package from install command",
+			tool: Tool{
+				Name: "ripgrep",
+				Kind: "system",
+				InstallCommands: map[string]string{
+					"scoop": "scoop install ripgrep",
+				},
+			},
+			want: "scoop update ripgrep",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := defaultUpgradeCommand(tt.tool, installerScoop)
+			if got != tt.want {
+				t.Errorf("defaultUpgradeCommand(%s, scoop) = %q, want %q", tt.tool.Name, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestBuildUpgradeAttempts tests that upgrade attempts are built with correct commands
+func TestBuildUpgradeAttempts(t *testing.T) {
+	t.Parallel()
+	tool := Tool{
+		Name: "yamlfmt",
+		Kind: "system",
+		InstallCommands: map[string]string{
+			"brew": "brew install --formula yamlfmt",
+		},
+		InstallerPriority: map[string][]string{
+			"darwin": {"brew"},
+			"linux":  {"brew"},
+		},
+	}
+
+	attempts := buildUpgradeAttempts(tool, "darwin")
+	if len(attempts) == 0 {
+		t.Fatal("buildUpgradeAttempts should return at least one attempt")
+	}
+
+	// First attempt should be brew upgrade
+	found := false
+	for _, attempt := range attempts {
+		if attempt.kind == installerBrew {
+			found = true
+			if attempt.command != "brew upgrade yamlfmt" {
+				t.Errorf("brew upgrade attempt command = %q, want %q", attempt.command, "brew upgrade yamlfmt")
+			}
+			break
+		}
+	}
+	if !found {
+		t.Error("buildUpgradeAttempts should include a brew attempt")
+	}
+}
+
+// TestExtractBrewPackageName tests brew package name extraction
+func TestExtractBrewPackageName(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		tool Tool
+		want string
+	}{
+		{
+			name: "no brew install command uses tool name",
+			tool: Tool{Name: "ripgrep"},
+			want: "ripgrep",
+		},
+		{
+			name: "extracts last token from brew install",
+			tool: Tool{
+				Name:            "yamlfmt",
+				InstallCommands: map[string]string{"brew": "brew install --formula yamlfmt"},
+			},
+			want: "yamlfmt",
+		},
+		{
+			name: "extracts tap package",
+			tool: Tool{
+				Name:            "actionlint",
+				InstallCommands: map[string]string{"brew": "brew install rhysd/actionlint/actionlint"},
+			},
+			want: "rhysd/actionlint/actionlint",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractBrewPackageName(tt.tool)
+			if got != tt.want {
+				t.Errorf("extractBrewPackageName(%s) = %q, want %q", tt.tool.Name, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestExtractLastToken tests last token extraction
+func TestExtractLastToken(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"brew install yamlfmt", "yamlfmt"},
+		{"brew install --formula yamlfmt", "yamlfmt"},
+		{"scoop install ripgrep", "ripgrep"},
+		{"single", "single"},
+		{"", ""},
+	}
+	for _, c := range cases {
+		got := extractLastToken(c.in)
+		if got != c.want {
+			t.Errorf("extractLastToken(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+// TestUpgradeTool_KindDispatch tests that UpgradeTool returns correct errors for unsupported kinds
+// and routes supported kinds through the upgrade path without "unsupported kind" errors
+func TestUpgradeTool_KindDispatch(t *testing.T) {
+	t.Parallel()
+
+	// Test error cases: kinds that should be rejected
+	errorTests := []struct {
+		name      string
+		tool      Tool
+		wantError string
+	}{
+		{
+			name:      "bundled-go cannot be upgraded",
+			tool:      Tool{Name: "gofmt", Kind: "bundled-go"},
+			wantError: "cannot upgrade bundled-go tool",
+		},
+		{
+			name:      "unknown kind returns error",
+			tool:      Tool{Name: "unknown", Kind: "alien"},
+			wantError: "upgrade not supported for kind",
+		},
+	}
+	for _, tt := range errorTests {
+		t.Run(tt.name, func(t *testing.T) {
+			status := UpgradeTool(tt.tool)
+			if status.Error == nil {
+				t.Errorf("UpgradeTool(%s) expected error, got nil", tt.tool.Name)
+				return
+			}
+			if !strings.Contains(status.Error.Error(), tt.wantError) {
+				t.Errorf("UpgradeTool(%s) error = %q, want to contain %q", tt.tool.Name, status.Error, tt.wantError)
+			}
+		})
+	}
+
+	// Test that supported kinds do NOT return "upgrade not supported" errors.
+	// These may still fail (e.g., tool not actually installed) but the error
+	// must not be about unsupported kind — it must route through the upgrade path.
+	supportedKinds := []struct {
+		name string
+		tool Tool
+	}{
+		{
+			name: "system kind routes to upgrade path",
+			tool: Tool{Name: "nonexistent-system-tool-test", Kind: "system"},
+		},
+		{
+			name: "node kind routes to upgrade path",
+			tool: Tool{Name: "nonexistent-node-tool-test", Kind: "node"},
+		},
+		{
+			name: "python kind routes to upgrade path",
+			tool: Tool{Name: "nonexistent-python-tool-test", Kind: "python"},
+		},
+	}
+	for _, tt := range supportedKinds {
+		t.Run(tt.name, func(t *testing.T) {
+			status := UpgradeTool(tt.tool)
+			// May have an error (no installer available) but must NOT be "upgrade not supported"
+			if status.Error != nil && strings.Contains(status.Error.Error(), "upgrade not supported for kind") {
+				t.Errorf("UpgradeTool(%s) should not reject kind %q, got: %v", tt.tool.Name, tt.tool.Kind, status.Error)
+			}
+		})
+	}
+}
+
 // TestManualInstallerBootstrapScenario tests the mise/scoop bootstrap use case
 func TestManualInstallerBootstrapScenario(t *testing.T) {
 	t.Parallel()

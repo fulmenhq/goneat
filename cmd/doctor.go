@@ -87,6 +87,7 @@ var (
 
 var (
 	flagDoctorInstall           bool
+	flagDoctorUpgrade           bool
 	flagDoctorAll               bool
 	flagDoctorTools             []string
 	flagDoctorPrintInstructions bool
@@ -118,6 +119,7 @@ func init() {
 
 	// Flags for tools subcommand
 	doctorToolsCmd.Flags().BoolVar(&flagDoctorInstall, "install", false, "Install missing tools (non-interactive with --yes)")
+	doctorToolsCmd.Flags().BoolVar(&flagDoctorUpgrade, "upgrade", false, "Upgrade installed tools below recommended version")
 	doctorToolsCmd.Flags().BoolVar(&flagDoctorAll, "all", false, "Target all known tools in this scope")
 	doctorToolsCmd.Flags().StringSliceVar(&flagDoctorTools, "tools", []string{}, "Comma-separated list of tools (e.g., gosec,govulncheck,goimports,gofmt)")
 	doctorToolsCmd.Flags().BoolVar(&flagDoctorPrintInstructions, "print-instructions", false, "Print install instructions for missing tools")
@@ -147,7 +149,13 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 		return handleValidateConfig(cmd)
 	}
 
-	if flagDoctorDryRun {
+	// Mutual exclusion: --install and --upgrade cannot be used together
+	if flagDoctorInstall && flagDoctorUpgrade {
+		return fmt.Errorf("--install and --upgrade are mutually exclusive")
+	}
+
+	// Dry-run for install mode (non-upgrade); upgrade handles dry-run internally
+	if flagDoctorDryRun && !flagDoctorUpgrade {
 		return handleDryRun(cmd)
 	}
 
@@ -221,6 +229,11 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 	// Preview: check-updates mode (informational; no network latest lookup yet)
 	if flagDoctorCheckUpdates {
 		return handleCheckUpdates(cmd, selected)
+	}
+
+	// Upgrade mode: upgrade installed tools below recommended version
+	if flagDoctorUpgrade {
+		return handleUpgrade(cmd, selected)
 	}
 
 	// Process tools
@@ -921,6 +934,109 @@ func handleDryRun(cmd *cobra.Command) error {
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "\nSummary: %d tool(s) would be installed out of %d total\n", wouldInstallCount, len(selected)) //nolint:errcheck // CLI output errors are typically ignored
+	return nil
+}
+
+// handleUpgrade handles the --upgrade flag: upgrades installed tools below recommended version
+func handleUpgrade(cmd *cobra.Command, selected []intdoctor.Tool) error {
+	upgraded := 0
+	skippedCurrent := 0
+	warnings := 0
+	failed := 0
+
+	for _, tool := range selected {
+		if !intdoctor.SupportsCurrentPlatform(tool) {
+			logger.Debug(fmt.Sprintf("Skipping %s (not applicable to %s platform)", tool.Name, runtime.GOOS))
+			continue
+		}
+
+		status := intdoctor.CheckTool(tool)
+
+		// Not installed → skip
+		if !status.Present {
+			logger.Info(fmt.Sprintf("%s not installed (use --install to install)", tool.Name))
+			continue
+		}
+
+		// Version empty/unparseable → skip with warning
+		if status.Version == "" || status.PolicyError != nil {
+			if status.PolicyError != nil {
+				logger.Warn(fmt.Sprintf("%s version check skipped: %v", tool.Name, status.PolicyError))
+			} else {
+				logger.Warn(fmt.Sprintf("%s version not detectable, skipping upgrade", tool.Name))
+			}
+			warnings++
+			continue
+		}
+
+		// No policy configured → nothing to compare against
+		if status.PolicyEvaluation == nil {
+			logger.Info(fmt.Sprintf("%s %s (no version policy configured)", tool.Name, status.Version))
+			skippedCurrent++
+			continue
+		}
+
+		eval := status.PolicyEvaluation
+
+		// Already meets recommended → skip
+		if eval.MeetsRecommended {
+			recommended := eval.RecommendedVersion
+			if recommended == "" {
+				recommended = eval.MinimumVersion
+			}
+			logger.Info(fmt.Sprintf("%s %s meets recommended %s", tool.Name, eval.ActualVersion, recommended))
+			skippedCurrent++
+			continue
+		}
+
+		// Upgrade candidate
+		recommended := eval.RecommendedVersion
+		if recommended == "" {
+			recommended = eval.MinimumVersion
+		}
+
+		if flagDoctorDryRun {
+			fmt.Fprintf(cmd.OutOrStdout(), "%s %s -> would upgrade (recommended: %s)\n", tool.Name, eval.ActualVersion, recommended) //nolint:errcheck
+			upgraded++
+			continue
+		}
+
+		if !flagDoctorYes {
+			if !promptYes(cmd, fmt.Sprintf("Upgrade %s from %s? (recommended: %s) [y/N] ", tool.Name, eval.ActualVersion, recommended)) {
+				logger.Warn(fmt.Sprintf("Skipped upgrade for %s", tool.Name))
+				continue
+			}
+		}
+
+		logger.Info(fmt.Sprintf("%s %s -> upgrading (recommended: %s)...", tool.Name, eval.ActualVersion, recommended))
+		res := intdoctor.UpgradeTool(tool)
+		if res.Error != nil {
+			logger.Error(fmt.Sprintf("Upgrade failed for %s: %v", tool.Name, res.Error))
+			failed++
+			continue
+		}
+
+		// Re-detect version after upgrade
+		newStatus := intdoctor.CheckTool(tool)
+		if newStatus.Version != "" {
+			logger.Info(fmt.Sprintf("%s upgraded to %s", tool.Name, newStatus.Version))
+		} else {
+			logger.Info(fmt.Sprintf("%s upgraded (version detection unavailable)", tool.Name))
+		}
+		upgraded++
+	}
+
+	// Summary
+	if flagDoctorDryRun {
+		fmt.Fprintf(cmd.OutOrStdout(), "\nDry run: Would upgrade %d tool(s) | Skipped: %d (current) | Warnings: %d (unparseable)\n", upgraded, skippedCurrent, warnings) //nolint:errcheck
+		return nil
+	}
+
+	logger.Info(fmt.Sprintf("Upgraded: %d | Failed: %d | Skipped: %d (current) | Warnings: %d (unparseable)", upgraded, failed, skippedCurrent, warnings))
+
+	if failed > 0 {
+		return fmt.Errorf("%d tool upgrade(s) failed", failed)
+	}
 	return nil
 }
 

@@ -1261,3 +1261,139 @@ func getGoBinPath() string {
 func GetAllPackageManagerStatuses() []*tools.PackageManagerStatus {
 	return tools.GetAllPackageManagerStatuses()
 }
+
+// UpgradeTool upgrades an installed tool to its latest version.
+// It dispatches to the appropriate upgrade method based on tool kind.
+func UpgradeTool(t Tool) Status {
+	switch t.Kind {
+	case "system", "node", "python":
+		return upgradeSystemTool(t)
+	case "go":
+		return installGoTool(t) // go install @latest is idempotent
+	case "cargo":
+		return installCargoTool(t) // cargo install overwrites
+	case "bundled-go":
+		return Status{
+			Name:  t.Name,
+			Error: fmt.Errorf("cannot upgrade bundled-go tool %s independently (bundled with Go toolchain)", t.Name),
+		}
+	default:
+		return Status{
+			Name:  t.Name,
+			Error: fmt.Errorf("upgrade not supported for kind %q", t.Kind),
+		}
+	}
+}
+
+func upgradeSystemTool(t Tool) Status {
+	platform := getCurrentPlatform()
+	attempts := buildUpgradeAttempts(t, platform)
+	status := Status{Name: t.Name}
+	var lastErr error
+
+	for i := range attempts {
+		attempt := &attempts[i]
+		if attempt.command == "" {
+			continue
+		}
+		if !attempt.available {
+			continue
+		}
+		logger.Info(fmt.Sprintf("Upgrading %s via %s", t.Name, attempt.kind), logger.String("command", attempt.command))
+		output, exitCode, err := executeInstallerCommandWithOutput(attempt.command)
+		if err != nil {
+			logger.Warn(
+				fmt.Sprintf("upgrade %s failed for %s", attempt.kind, t.Name),
+				logger.Int("exit_code", exitCode),
+				logger.String("output", truncateInstallerOutput(output)),
+				logger.Err(err),
+			)
+			lastErr = fmt.Errorf("upgrade %s failed: %w", attempt.kind, err)
+			continue
+		}
+		if trimmed := strings.TrimSpace(output); trimmed != "" {
+			logger.Debug(fmt.Sprintf("upgrade %s output for %s", attempt.kind, t.Name), logger.String("output", truncateInstallerOutput(trimmed)))
+		}
+
+		// After successful attempt, re-detect version
+		status.Installed = true
+		status.Present = true
+		status.Version = sanitizeVersion(detectVersion(t))
+		applyVersionPolicy(t, &status)
+		return status
+	}
+
+	// All attempts failed
+	if lastErr != nil {
+		status.Error = lastErr
+	} else {
+		status.Error = fmt.Errorf("no available upgrade method for %s", t.Name)
+	}
+	return status
+}
+
+// defaultUpgradeCommand returns the upgrade command for a given installer kind.
+// For brew, it uses "brew upgrade" instead of "brew install".
+// For go-install and cargo-install, install commands are already idempotent upgrades.
+func defaultUpgradeCommand(t Tool, kind installerKind) string {
+	switch kind {
+	case installerBrew:
+		pkg := extractBrewPackageName(t)
+		return fmt.Sprintf("brew upgrade %s", pkg)
+	case installerGoInstall:
+		return defaultInstallerCommand(t, kind)
+	case installerCargoInstall:
+		return defaultInstallerCommand(t, kind)
+	case installerScoop:
+		if cmd, ok := t.InstallCommands["scoop"]; ok && cmd != "" {
+			pkg := extractLastToken(cmd)
+			return fmt.Sprintf("scoop update %s", pkg)
+		}
+		return fmt.Sprintf("scoop update %s", t.Name)
+	default:
+		return defaultInstallerCommand(t, kind)
+	}
+}
+
+// extractBrewPackageName extracts the brew package name from install commands or falls back to tool name.
+func extractBrewPackageName(t Tool) string {
+	if cmd, ok := t.InstallCommands["brew"]; ok && cmd != "" {
+		return extractLastToken(cmd)
+	}
+	return t.Name
+}
+
+// extractLastToken returns the last whitespace-delimited token from a string.
+// NOTE: This is intentionally simple and assumes install commands end with the
+// package name (e.g. "brew install --formula yamlfmt"). If install commands ever
+// include trailing flags or compound shell syntax, this extraction will need
+// hardening — see extractBrewPackageName for the call site.
+func extractLastToken(s string) string {
+	parts := strings.Fields(s)
+	if len(parts) == 0 {
+		return ""
+	}
+	return parts[len(parts)-1]
+}
+
+// buildUpgradeAttempts builds prioritized upgrade attempts, parallel to buildInstallerAttempts
+// but using defaultUpgradeCommand instead of defaultInstallerCommand.
+func buildUpgradeAttempts(t Tool, platform string) []installerAttempt {
+	priorities := resolveInstallerPriority(t, platform)
+	attempts := make([]installerAttempt, 0, len(priorities))
+	for _, kind := range priorities {
+		command := defaultUpgradeCommand(t, kind)
+		instructions := command
+		available := isInstallerAvailable(kind)
+		if !available {
+			instructions = fmt.Sprintf("Ensure %s is available, then run: %s", string(kind), command)
+		}
+		attempts = append(attempts, installerAttempt{
+			kind:         kind,
+			command:      command,
+			available:    available && command != "",
+			instructions: instructions,
+		})
+	}
+	return attempts
+}
