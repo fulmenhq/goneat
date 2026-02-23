@@ -1339,7 +1339,7 @@ func defaultUpgradeCommand(t Tool, kind installerKind) string {
 	switch kind {
 	case installerBrew:
 		pkg := extractBrewPackageName(t)
-		return fmt.Sprintf("brew upgrade %s", pkg)
+		return fmt.Sprintf("brew update && brew upgrade %s", pkg)
 	case installerGoInstall:
 		return defaultInstallerCommand(t, kind)
 	case installerCargoInstall:

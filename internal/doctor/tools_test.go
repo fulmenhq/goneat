@@ -897,7 +897,7 @@ func TestDefaultUpgradeCommand_Brew(t *testing.T) {
 		{
 			name: "default brew upgrade uses tool name",
 			tool: Tool{Name: "ripgrep", Kind: "system"},
-			want: "brew upgrade ripgrep",
+			want: "brew update && brew upgrade ripgrep",
 		},
 		{
 			name: "brew upgrade extracts package from install command",
@@ -908,7 +908,7 @@ func TestDefaultUpgradeCommand_Brew(t *testing.T) {
 					"brew": "brew install --formula yamlfmt",
 				},
 			},
-			want: "brew upgrade yamlfmt",
+			want: "brew update && brew upgrade yamlfmt",
 		},
 		{
 			name: "brew upgrade with tap package",
@@ -919,7 +919,7 @@ func TestDefaultUpgradeCommand_Brew(t *testing.T) {
 					"brew": "brew install rhysd/actionlint/actionlint",
 				},
 			},
-			want: "brew upgrade rhysd/actionlint/actionlint",
+			want: "brew update && brew upgrade rhysd/actionlint/actionlint",
 		},
 	}
 	for _, tt := range tests {
@@ -1028,8 +1028,8 @@ func TestBuildUpgradeAttempts(t *testing.T) {
 	for _, attempt := range attempts {
 		if attempt.kind == installerBrew {
 			found = true
-			if attempt.command != "brew upgrade yamlfmt" {
-				t.Errorf("brew upgrade attempt command = %q, want %q", attempt.command, "brew upgrade yamlfmt")
+			if attempt.command != "brew update && brew upgrade yamlfmt" {
+				t.Errorf("brew upgrade attempt command = %q, want %q", attempt.command, "brew update && brew upgrade yamlfmt")
 			}
 			break
 		}
