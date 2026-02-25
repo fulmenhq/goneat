@@ -799,6 +799,34 @@ func TestFormatProcessor_GetProcessorInfo(t *testing.T) {
 	}
 }
 
+// --- LooksLikeYAMLParseError tests ---
+
+func TestLooksLikeYAMLParseError(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name   string
+		output string
+		want   bool
+	}{
+		{"parse error - did not find expected key", "yaml: did not find expected key", true},
+		{"parse error - yaml line", "yaml: line 42: could not find expected ':'", true},
+		{"parse error - Error prefix", "Error: invalid yaml content", true},
+		{"parse error - unexpected end", "found unexpected end of stream", true},
+		{"parse error - mapping values", "mapping values are not allowed in this context", true},
+		{"parse error - cannot start token", "found character that cannot start any token", true},
+		{"formatting diff only", "--- a/file.yaml\n+++ b/file.yaml\n@@ -1 +1 @@\n-foo: bar\n+foo:  bar", false},
+		{"empty output", "", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := LooksLikeYAMLParseError(c.output)
+			if got != c.want {
+				t.Errorf("LooksLikeYAMLParseError(%q) = %v, want %v", c.output, got, c.want)
+			}
+		})
+	}
+}
+
 // --- ResolveBiomeContext tests ---
 
 func TestResolveBiomeContext_NestedConfig(t *testing.T) {

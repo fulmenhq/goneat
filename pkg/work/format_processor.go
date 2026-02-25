@@ -402,6 +402,28 @@ func (p *FormatProcessor) formatYAMLFileFinalizerOnly(filePath string) error {
 	return nil
 }
 
+// LooksLikeYAMLParseError returns true if yamlfmt output indicates a YAML
+// syntax error rather than a formatting difference. yamlfmt exits 1 for both
+// cases, so we inspect the output to distinguish them.
+func LooksLikeYAMLParseError(output string) bool {
+	indicators := []string{
+		"did not find expected",
+		"yaml: line ",
+		"Error:",
+		"could not determine a constructor",
+		"found unexpected end of stream",
+		"mapping values are not allowed",
+		"block sequence entries are not allowed",
+		"found character that cannot start any token",
+	}
+	for _, ind := range indicators {
+		if strings.Contains(output, ind) {
+			return true
+		}
+	}
+	return false
+}
+
 // checkYAMLFile checks if a YAML file needs formatting without modifying it
 func (p *FormatProcessor) checkYAMLFile(filePath string) error {
 	logger.Debug(fmt.Sprintf("Checking YAML file formatting: %s", filePath))
@@ -435,8 +457,11 @@ func (p *FormatProcessor) checkYAMLFile(filePath string) error {
 	output, err := cmd.CombinedOutput()
 
 	if err != nil {
-		// yamlfmt returns exit code 1 if formatting is needed
 		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			outStr := string(output)
+			if LooksLikeYAMLParseError(outStr) {
+				return fmt.Errorf("file %s has invalid YAML syntax:\n%s", filePath, strings.TrimSpace(outStr))
+			}
 			return fmt.Errorf("file %s needs formatting", filePath)
 		}
 		// Real error

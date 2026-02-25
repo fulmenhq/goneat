@@ -672,9 +672,12 @@ func formatYAMLFile(file string, checkOnly bool, cfg *config.Config, options fin
 		cmd := exec.Command(yamlfmtPath, args...)
 		output, err := cmd.CombinedOutput()
 
-		// In lint mode, yamlfmt returns exit code 1 if formatting is needed
 		if err != nil {
 			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+				outStr := string(output)
+				if work.LooksLikeYAMLParseError(outStr) {
+					return fmt.Errorf("invalid YAML syntax:\n%s", strings.TrimSpace(outStr))
+				}
 				return fmt.Errorf("needs formatting")
 			}
 			// Real error
