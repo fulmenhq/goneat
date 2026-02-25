@@ -548,6 +548,54 @@ func TestSanitizeVersion_EdgeCases(t *testing.T) {
 	}
 }
 
+func TestSanitizeVersion_Multiline(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			"syft multiline",
+			"Application:   syft\nVersion:       1.42.1\nBuildDate:     2026-02-17T22:32:35Z",
+			"1.42.1",
+		},
+		{
+			"grype multiline",
+			"Application:         grype\nVersion:             0.109.0\nBuildDate:           2026-02-18T21:40:23Z",
+			"0.109.0",
+		},
+		{
+			"shellcheck multiline",
+			"ShellCheck - shell script analysis tool\nversion: 0.11.0\nlicense: GNU General Public License, version 3",
+			"0.11.0",
+		},
+		{
+			"yq with URL",
+			"yq (https://github.com/mikefarah/yq/) version v4.49.1",
+			"v4.49.1",
+		},
+		{
+			"single line still works",
+			"gosec 2.19.0",
+			"2.19.0",
+		},
+		{
+			"multiline with version on first line",
+			"ruff 0.14.10\nsome other info",
+			"0.14.10",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := sanitizeVersion(c.in)
+			if got != c.want {
+				t.Errorf("sanitizeVersion(%q) = %q, want %q", c.in, got, c.want)
+			}
+		})
+	}
+}
+
 func TestExtractFirstVersionToken_EdgeCases(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
@@ -560,7 +608,9 @@ func TestExtractFirstVersionToken_EdgeCases(t *testing.T) {
 		{"text with v1.2.3 and more text", "v1.2.3"},
 		{"text with 1.2.3 and more text", "1.2.3"},
 		{"text with 1.2 and more text", "1.2"},
-		{"text with v1 and more text", ""}, // v1 should not be considered a version
+		{"text with v1 and more text", ""},                                                    // v1 should not be considered a version
+		{"yq (https://github.com/mikefarah/yq/) version v4.49.1", "v4.49.1"},                 // URL skipped, real version found
+		{"checkmake built at 2025-09-13 by Homebrew <homebrew@brew.sh> go1.25.1", "1.25.1"},   // Email skipped, go version found
 	}
 	for _, c := range cases {
 		got := extractFirstVersionToken(c.in)
@@ -585,8 +635,17 @@ func TestLooksLikeVersion_EdgeCases(t *testing.T) {
 		{"v1.2.3.4.5", false}, // After 'v' removal: 4 dots
 		{"0.0.0", true},
 		{"999.999.999", true},
-		{"1.2.3-snapshot", true}, // function only checks dots, not content
+		{"1.2.3-snapshot", true}, // dots check + starts with digit
 		{"version", false},
+		// Deliverable B: reject URLs, parens, emails, non-digit starts
+		{"https://github.com/mikefarah/yq/", false},              // URL
+		{"(https://github.com/mikefarah/yq/)", false},            // Parenthesized URL
+		{"<homebrew@brew.sh>", false},                             // Email address
+		{"jq-1.7.1-apple", false},                                // Tool name prefix (starts with letter)
+		{"checkmake.", false},                                     // Tool name with trailing dot
+		{"go1.25.4", true},                                       // Go version (go prefix then digit)
+		{"Application:", false},                                   // Multiline header (no digit start)
+		{"built", false},                                          // Random word
 	}
 	for _, c := range cases {
 		got := looksLikeVersion(c.in)

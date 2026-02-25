@@ -110,7 +110,7 @@ foundation_tools:
     auto_install_safe: true
     version_scheme: "semver"
     minimum_version: "1.33.0"
-    recommended_version: "1.37.0"
+    recommended_version: "1.38.0"
 
   - name: shfmt
     description: "Shell script formatter"
@@ -135,7 +135,7 @@ foundation_tools:
     auto_install_safe: true
     version_scheme: "semver"
     minimum_version: "0.9.0"
-    recommended_version: "0.10.0"
+    recommended_version: "0.11.0"
 
   - name: actionlint
     description: "GitHub Actions workflow linter"
@@ -163,7 +163,7 @@ foundation_tools:
     auto_install_safe: true
     version_scheme: "semver"
     minimum_version: "0.2.0"
-    recommended_version: "0.2.2"
+    recommended_version: "0.3.0"
 
   # Signing
   - name: minisign
@@ -213,11 +213,13 @@ go_tools:
     version_args: ["--version"]
     check_args: ["--help"]
     package_managers:
-      all: ["go-install"]
+      darwin: ["brew", "go-install"]
+      linux: ["brew", "go-install"]
+      windows: ["go-install"]
     auto_install_safe: true
     version_scheme: "semver"
     minimum_version: "2.0.0"
-    recommended_version: "2.4.0"
+    recommended_version: "2.10.0"
 
   - name: goimports
     description: "Go import formatter"
@@ -246,11 +248,13 @@ go_tools:
     version_args: ["-version"]
     check_args: ["-h"]
     package_managers:
-      all: ["go-install"]
+      darwin: ["brew", "go-install"]
+      linux: ["brew", "go-install"]
+      windows: ["go-install"]
     auto_install_safe: true
     version_scheme: "semver"
     minimum_version: "2.18.0"
-    recommended_version: "2.22.0"
+    recommended_version: "2.23.0"
 
   - name: govulncheck
     description: "Go vulnerability checker"
@@ -311,11 +315,13 @@ python_tools:
     kind: "python"
     detect_command: "ruff --version"
     package_managers:
-      all: ["uv", "pip"]
+      darwin: ["brew", "uv", "pip"]
+      linux: ["brew", "uv", "pip"]
+      windows: ["uv", "pip"]
     auto_install_safe: true
     version_scheme: "semver"
     minimum_version: "0.8.0"
-    recommended_version: "0.14.0"
+    recommended_version: "0.15.0"
 
 # =============================================================================
 # TYPESCRIPT SCOPE - TypeScript/JavaScript development tools
@@ -388,7 +394,7 @@ sbom_tools:
     auto_install_safe: true
     version_scheme: "semver"
     minimum_version: "1.0.0"
-    recommended_version: "1.38.0"
+    recommended_version: "1.42.0"
 
   - name: grype
     description: "Vulnerability scanner for container images and SBOMs"
@@ -404,7 +410,7 @@ sbom_tools:
     auto_install_safe: true
     version_scheme: "semver"
     minimum_version: "0.80.0"
-    recommended_version: "0.105.0"
+    recommended_version: "0.109.0"
 
 # =============================================================================
 # CICD SCOPE - Local CI/CD runner tools (optional)

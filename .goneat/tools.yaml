@@ -193,7 +193,7 @@ tools:
         - scoop
     version_scheme: semver
     minimum_version: "1.33.0"
-    recommended_version: "1.37.0"
+    recommended_version: "1.38.0"
 
   shfmt:
     name: shfmt
@@ -228,7 +228,7 @@ tools:
         - winget
     version_scheme: semver
     minimum_version: "0.9.0"
-    recommended_version: "0.10.0"
+    recommended_version: "0.11.0"
 
   actionlint:
     name: actionlint
@@ -262,7 +262,7 @@ tools:
         - go-install
     version_scheme: semver
     minimum_version: "0.2.0"
-    recommended_version: "0.2.2"
+    recommended_version: "0.3.0"
 
   minisign:
     name: minisign
@@ -328,11 +328,17 @@ tools:
     check_args:
       - --help
     installer_priority:
-      all:
+      darwin:
+        - brew
+        - go-install
+      linux:
+        - brew
+        - go-install
+      windows:
         - go-install
     version_scheme: semver
     minimum_version: "2.0.0"
-    recommended_version: "2.4.0"
+    recommended_version: "2.10.0"
 
   goimports:
     name: goimports
@@ -368,11 +374,17 @@ tools:
     check_args:
       - -h
     installer_priority:
-      all:
+      darwin:
+        - brew
+        - go-install
+      linux:
+        - brew
+        - go-install
+      windows:
         - go-install
     version_scheme: semver
     minimum_version: "2.18.0"
-    recommended_version: "2.22.0"
+    recommended_version: "2.23.0"
 
   govulncheck:
     name: govulncheck
@@ -441,12 +453,20 @@ tools:
     kind: python
     detect_command: ruff --version
     installer_priority:
-      all:
+      darwin:
+        - brew
+        - uv
+        - pip
+      linux:
+        - brew
+        - uv
+        - pip
+      windows:
         - uv
         - pip
     version_scheme: semver
     minimum_version: "0.8.0"
-    recommended_version: "0.14.0"
+    recommended_version: "0.15.0"
 
   # ==========================================================================
   # TYPESCRIPT TOOLS
@@ -531,7 +551,7 @@ tools:
         - scoop
     version_scheme: semver
     minimum_version: "1.0.0"
-    recommended_version: "1.38.0"
+    recommended_version: "1.42.0"
 
   grype:
     name: grype
@@ -555,4 +575,4 @@ tools:
         - scoop
     version_scheme: semver
     minimum_version: "0.80.0"
-    recommended_version: "0.105.0"
+    recommended_version: "0.109.0"

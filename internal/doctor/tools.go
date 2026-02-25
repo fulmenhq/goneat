@@ -718,6 +718,20 @@ func sanitizeVersion(s string) string {
 	if token := extractFirstVersionToken(line); token != "" {
 		return token
 	}
+
+	// Scan all lines for a version token (handles multiline tools like
+	// syft, grype, shellcheck where the version is on a subsequent line)
+	versionPrefixes := []string{"version: ", "Version: ", "Version:", "version "}
+	for _, l := range strings.Split(s, "\n") {
+		l = strings.TrimSpace(l)
+		for _, vp := range versionPrefixes {
+			l = strings.TrimPrefix(l, vp)
+		}
+		if token := extractFirstVersionToken(l); token != "" {
+			return token
+		}
+	}
+
 	return line
 }
 
@@ -737,9 +751,26 @@ func extractFirstVersionToken(s string) string {
 }
 
 func looksLikeVersion(s string) bool {
+	// Reject tokens that are clearly not versions
+	if strings.Contains(s, "://") { // URLs
+		return false
+	}
+	if strings.HasPrefix(s, "(") { // Parenthesized URLs/notes
+		return false
+	}
+	if strings.HasPrefix(s, "<") { // Email addresses like <user@host>
+		return false
+	}
+
 	// v1.2.3 or 1.2.3 or go1.25.4 or similar
 	s = strings.TrimPrefix(s, "v")
 	s = strings.TrimPrefix(s, "go") // Go version: "go1.25.4"
+
+	// Must start with a digit after prefix stripping
+	if len(s) == 0 || s[0] < '0' || s[0] > '9' {
+		return false
+	}
+
 	dots := strings.Count(s, ".")
 	return dots >= 1 && dots <= 3
 }
@@ -813,6 +844,22 @@ func buildEnhancedPathInstructions(binaryPath, toolName string) string {
 
 	b.WriteString("\nFor detailed PATH diagnostics, run: goneat doctor env")
 	return strings.TrimSpace(b.String())
+}
+
+// hasSystemInstaller returns true if the tool's installer_priority includes a
+// system-level package manager (brew, scoop, winget) for the current platform.
+// This is used to route go/cargo tools through upgradeSystemTool when they were
+// installed via a system package manager rather than go install / cargo install.
+func hasSystemInstaller(t Tool) bool {
+	platform := getCurrentPlatform()
+	priorities := resolveInstallerPriority(t, platform)
+	for _, kind := range priorities {
+		switch kind {
+		case installerBrew, installerScoop, installerWinget:
+			return true
+		}
+	}
+	return false
 }
 
 func resolveInstallerPriority(t Tool, platform string) []installerKind {
@@ -1269,6 +1316,12 @@ func UpgradeTool(t Tool) Status {
 	case "system", "node", "python":
 		return upgradeSystemTool(t)
 	case "go":
+		// If the tool has a system-level installer (e.g. brew) listed in its
+		// priority, prefer the system upgrade path. This handles the common
+		// scenario where brew-installed binaries shadow ~/go/bin in PATH.
+		if hasSystemInstaller(t) {
+			return upgradeSystemTool(t)
+		}
 		return installGoTool(t) // go install @latest is idempotent
 	case "cargo":
 		return installCargoTool(t) // cargo install overwrites

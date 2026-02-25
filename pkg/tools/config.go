@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/fulmenhq/goneat/pkg/schema"
@@ -194,9 +195,14 @@ func (c *Config) Merge(other *Config) {
 }
 
 // GetToolsForScope resolves concrete tool definitions for a given scope.
+// If scopeName is "all" and not explicitly defined, it synthesizes a scope
+// containing every tool from all defined scopes (deduplicated, stable order).
 func (c *Config) GetToolsForScope(scopeName string) ([]Tool, error) {
 	scope, ok := c.Scopes[scopeName]
 	if !ok {
+		if scopeName == "all" {
+			return c.synthesizeAllScope()
+		}
 		return nil, fmt.Errorf("scope '%s' not found", scopeName)
 	}
 	tools := make([]Tool, 0, len(scope.Tools))
@@ -210,18 +216,58 @@ func (c *Config) GetToolsForScope(scopeName string) ([]Tool, error) {
 	return tools, nil
 }
 
+// synthesizeAllScope unions all tools from all defined scopes, deduplicating
+// by tool name. Scopes are iterated in sorted order for deterministic output.
+func (c *Config) synthesizeAllScope() ([]Tool, error) {
+	scopeNames := make([]string, 0, len(c.Scopes))
+	for name := range c.Scopes {
+		scopeNames = append(scopeNames, name)
+	}
+	sort.Strings(scopeNames)
+
+	seen := make(map[string]bool)
+	var tools []Tool
+	for _, scopeName := range scopeNames {
+		scope := c.Scopes[scopeName]
+		for _, toolName := range scope.Tools {
+			if seen[toolName] {
+				continue
+			}
+			seen[toolName] = true
+			toolDef, exists := c.Tools[toolName]
+			if !exists {
+				continue // skip tools referenced but not defined
+			}
+			tools = append(tools, toolDef)
+		}
+	}
+	if len(tools) == 0 {
+		return nil, fmt.Errorf("scope 'all' not found")
+	}
+	return tools, nil
+}
+
 // GetTool returns a tool definition by name.
 func (c *Config) GetTool(name string) (Tool, bool) {
 	t, ok := c.Tools[name]
 	return t, ok
 }
 
-// GetAllScopes lists defined scope names (unordered).
+// GetAllScopes lists defined scope names in sorted order.
+// Includes "all" if not explicitly defined but tools exist.
 func (c *Config) GetAllScopes() []string {
-	scopes := make([]string, 0, len(c.Scopes))
+	scopes := make([]string, 0, len(c.Scopes)+1)
+	hasAll := false
 	for name := range c.Scopes {
 		scopes = append(scopes, name)
+		if name == "all" {
+			hasAll = true
+		}
 	}
+	if !hasAll && len(c.Tools) > 0 {
+		scopes = append(scopes, "all")
+	}
+	sort.Strings(scopes)
 	return scopes
 }
 

@@ -762,7 +762,11 @@ func handleListScopes(cmd *cobra.Command) error {
 	// Human-readable output
 	fmt.Fprintln(cmd.OutOrStdout(), "Available scopes:") //nolint:errcheck // CLI output errors are typically ignored
 	for _, scope := range scopes {
-		fmt.Fprintf(cmd.OutOrStdout(), "  %-15s - %s\n", scope, config.Scopes[scope].Description) //nolint:errcheck // CLI output errors are typically ignored
+		desc := config.Scopes[scope].Description
+		if desc == "" && scope == "all" {
+			desc = "All tools from all scopes"
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "  %-15s - %s\n", scope, desc) //nolint:errcheck // CLI output errors are typically ignored
 	}
 
 	return nil

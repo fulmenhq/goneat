@@ -138,6 +138,48 @@ func TestGetToolsForScope(t *testing.T) {
 	}
 }
 
+func TestGetToolsForScope_SynthesizedAll(t *testing.T) {
+	cfg, err := ParseConfig([]byte(sampleConfig))
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	// "all" is not defined in sampleConfig — should be synthesized
+	tools, err := cfg.GetToolsForScope("all")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// sampleConfig has 3 unique tools across 2 scopes
+	if len(tools) != 3 {
+		t.Fatalf("expected 3 tools from synthesized all scope, got %d", len(tools))
+	}
+	// Verify deduplication: tool names should be unique
+	seen := make(map[string]bool)
+	for _, tool := range tools {
+		if seen[tool.Name] {
+			t.Errorf("duplicate tool in synthesized all scope: %s", tool.Name)
+		}
+		seen[tool.Name] = true
+	}
+}
+
+func TestGetAllScopes_IncludesAll(t *testing.T) {
+	cfg, err := ParseConfig([]byte(sampleConfig))
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	scopes := cfg.GetAllScopes()
+	found := false
+	for _, s := range scopes {
+		if s == "all" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("GetAllScopes() should include synthesized 'all', got: %v", scopes)
+	}
+}
+
 func TestVersionPolicy(t *testing.T) {
 	tests := []struct {
 		name       string
