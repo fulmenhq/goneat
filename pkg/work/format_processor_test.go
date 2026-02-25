@@ -810,7 +810,9 @@ func TestLooksLikeYAMLParseError(t *testing.T) {
 	}{
 		{"parse error - did not find expected key", "yaml: did not find expected key", true},
 		{"parse error - yaml line", "yaml: line 42: could not find expected ':'", true},
+		{"parse error - uppercase yaml line", "YAML: LINE 42: COULD NOT FIND EXPECTED ':'", true},
 		{"parse error - Error prefix", "Error: invalid yaml content", true},
+		{"parse error - uppercase error prefix", "ERROR: invalid yaml content", true},
 		{"parse error - unexpected end", "found unexpected end of stream", true},
 		{"parse error - mapping values", "mapping values are not allowed in this context", true},
 		{"parse error - cannot start token", "found character that cannot start any token", true},

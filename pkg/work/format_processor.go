@@ -406,10 +406,12 @@ func (p *FormatProcessor) formatYAMLFileFinalizerOnly(filePath string) error {
 // syntax error rather than a formatting difference. yamlfmt exits 1 for both
 // cases, so we inspect the output to distinguish them.
 func LooksLikeYAMLParseError(output string) bool {
+	normalized := strings.ToLower(output)
+
 	indicators := []string{
 		"did not find expected",
 		"yaml: line ",
-		"Error:",
+		"error:",
 		"could not determine a constructor",
 		"found unexpected end of stream",
 		"mapping values are not allowed",
@@ -417,7 +419,7 @@ func LooksLikeYAMLParseError(output string) bool {
 		"found character that cannot start any token",
 	}
 	for _, ind := range indicators {
-		if strings.Contains(output, ind) {
+		if strings.Contains(normalized, ind) {
 			return true
 		}
 	}
