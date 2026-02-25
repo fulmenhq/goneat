@@ -1,3 +1,76 @@
+# Goneat v0.5.4 — Biome Nested-Config Fixes and YAML Parse Error Clarity
+
+**Release Date**: 2026-02-25
+**Status**: Stable
+
+## TL;DR
+
+- **Biome monorepo fix**: `goneat format` and `goneat format --check` now run Biome from per-file resolved config context (nearest `biome.json`/`biome.jsonc`), fixing nested root config failures
+- **Assess parity fix**: `goneat assess --categories format` now applies the same nested-config grouping strategy, preventing Biome JSON parse failures in nested TS/JS package layouts
+- **YAML check UX fix**: yamlfmt parse errors are now reported as syntax errors instead of misleading "needs formatting" results
+
+## What Changed
+
+### Biome Context Resolution in `format`
+
+Biome 2.4+ rejects certain invocations in monorepos that contain nested Biome roots.
+`goneat format` previously invoked Biome from a shared working directory with outer
+paths, which caused failures like:
+
+```
+Found a nested root configuration, but there's already a root configuration.
+```
+
+`goneat` now resolves invocation context per file and runs Biome from the nearest
+config root directory, using a relative file argument. This fixes `format` and
+`format --check` behavior in nested package layouts.
+
+### Biome Context Resolution in `assess`
+
+`assess --categories format` and Biome lint assess paths now group JS/TS files by
+resolved Biome context and execute Biome once per group. This avoids mixed-root
+invocations that previously produced non-JSON output and errors such as:
+
+```
+failed to parse biome json: no json output from biome
+```
+
+Error reporting was also improved so non-JSON Biome output is surfaced with
+actionable context.
+
+This closes the remaining gap for `make fmt-check` workflows that call assess
+before falling back to `goneat format --check`.
+
+### YAML Parse Error vs Formatting Error
+
+`yamlfmt` exits with status 1 for both syntax errors and formatting differences.
+Check mode now inspects output and classifies parse failures correctly:
+
+- Invalid YAML: reported as syntax error with yamlfmt details
+- Valid but unformatted YAML: reported as needs formatting
+
+Detection is case-insensitive to cover variant yamlfmt output formats.
+
+### Regression Guard: `--fix --new-issues-only`
+
+Biome lint fix mode now executes before incremental `--new-issues-only` reporting,
+preserving expected behavior for combined workflows.
+
+## Upgrade Notes
+
+Drop-in replacement for v0.5.3. No config migration required.
+
+If you are testing local changes, ensure your installed binary matches your latest
+build (`make build install`) before validating downstream repositories.
+
+## Contributors
+
+- gemini-3.1-pro (devlead)
+- Claude Opus 4.6 (devlead)
+- @3leapsdave (supervision)
+
+---
+
 # Goneat v0.5.3 — Data Validation for All JSON Schema Drafts
 
 **Release Date**: 2026-02-09

@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.4] - 2026-02-25
+
+### Fixed
+
+- **Biome nested config handling (`format`)**: `goneat format` and `goneat format --check` now resolve Biome context per file and run from the nearest `biome.json`/`biome.jsonc`, fixing monorepo nested-root failures.
+- **YAML parse error DX in check mode**: `yamlfmt` check paths now distinguish syntax errors from formatting differences, surfacing invalid YAML as a parse error instead of the misleading "needs formatting" message.
+- **Biome nested config handling (`assess`)**: `goneat assess --categories format` and Biome lint assess paths now group files by resolved Biome context and run per-group, preventing `failed to parse biome json: no json output from biome` in nested-config repos and improving error detail when Biome emits non-JSON output.
+- **Incremental lint fix-mode regression**: restored `--fix --new-issues-only` behavior so Biome fix pass executes before incremental reporting.
+
 ## [v0.5.3] - 2026-02-09
 
 ### Fixed
