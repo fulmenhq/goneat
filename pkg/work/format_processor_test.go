@@ -798,3 +798,190 @@ func TestFormatProcessor_GetProcessorInfo(t *testing.T) {
 		t.Error("expected config_available to be true since config is provided")
 	}
 }
+
+// --- ResolveBiomeContext tests ---
+
+func TestResolveBiomeContext_NestedConfig(t *testing.T) {
+	t.Parallel()
+
+	// Create: repo/.git/, repo/biome.json, repo/pkg/sub/biome.json, repo/pkg/sub/src/index.ts
+	repoDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repoDir, ".git"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	// Root biome.json
+	if err := os.WriteFile(filepath.Join(repoDir, "biome.json"), []byte(`{}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// Nested biome.json
+	nestedDir := filepath.Join(repoDir, "pkg", "sub")
+	if err := os.MkdirAll(filepath.Join(nestedDir, "src"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nestedDir, "biome.json"), []byte(`{}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	tsFile := filepath.Join(nestedDir, "src", "index.ts")
+	if err := os.WriteFile(tsFile, []byte("export {};\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmdDir, fileArg, err := ResolveBiomeContext(tsFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should resolve to the nested config dir, not repo root
+	if cmdDir != nestedDir {
+		t.Errorf("cmdDir = %q, want %q (nearest biome.json)", cmdDir, nestedDir)
+	}
+	if fileArg != filepath.Join("src", "index.ts") {
+		t.Errorf("fileArg = %q, want %q", fileArg, filepath.Join("src", "index.ts"))
+	}
+}
+
+func TestResolveBiomeContext_RootConfigOnly(t *testing.T) {
+	t.Parallel()
+
+	// Create: repo/.git/, repo/biome.json, repo/src/app.ts
+	repoDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repoDir, ".git"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repoDir, "biome.json"), []byte(`{}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	srcDir := filepath.Join(repoDir, "src")
+	if err := os.MkdirAll(srcDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	tsFile := filepath.Join(srcDir, "app.ts")
+	if err := os.WriteFile(tsFile, []byte("export {};\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmdDir, fileArg, err := ResolveBiomeContext(tsFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should resolve to repo root where biome.json lives
+	if cmdDir != repoDir {
+		t.Errorf("cmdDir = %q, want %q (root biome.json)", cmdDir, repoDir)
+	}
+	if fileArg != filepath.Join("src", "app.ts") {
+		t.Errorf("fileArg = %q, want %q", fileArg, filepath.Join("src", "app.ts"))
+	}
+}
+
+func TestResolveBiomeContext_NoConfig(t *testing.T) {
+	t.Parallel()
+
+	// Create: repo/.git/, repo/src/app.ts (no biome.json anywhere)
+	repoDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repoDir, ".git"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	srcDir := filepath.Join(repoDir, "src")
+	if err := os.MkdirAll(srcDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	tsFile := filepath.Join(srcDir, "app.ts")
+	if err := os.WriteFile(tsFile, []byte("export {};\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmdDir, fileArg, err := ResolveBiomeContext(tsFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Fallback: file's directory when no biome config found
+	if cmdDir != srcDir {
+		t.Errorf("cmdDir = %q, want %q (fallback to file dir)", cmdDir, srcDir)
+	}
+	if fileArg != "app.ts" {
+		t.Errorf("fileArg = %q, want %q", fileArg, "app.ts")
+	}
+}
+
+func TestResolveBiomeContext_NoRepoRoot(t *testing.T) {
+	t.Parallel()
+
+	// Create a temp dir with NO .git — simulates running outside a repo.
+	// Should fall back to file directory gracefully (no error, no traversal).
+	tmpDir := t.TempDir()
+	tsFile := filepath.Join(tmpDir, "index.ts")
+	if err := os.WriteFile(tsFile, []byte("export {};\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmdDir, fileArg, err := ResolveBiomeContext(tsFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v (should fall back gracefully)", err)
+	}
+	if cmdDir != tmpDir {
+		t.Errorf("cmdDir = %q, want %q (fallback to file dir)", cmdDir, tmpDir)
+	}
+	if fileArg != "index.ts" {
+		t.Errorf("fileArg = %q, want %q", fileArg, "index.ts")
+	}
+}
+
+func TestResolveBiomeContext_GitWorktree(t *testing.T) {
+	t.Parallel()
+
+	// Simulate a git worktree where .git is a file, not a directory
+	repoDir := t.TempDir()
+	gitFile := filepath.Join(repoDir, ".git")
+	if err := os.WriteFile(gitFile, []byte("gitdir: /some/other/.git/worktrees/foo\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repoDir, "biome.json"), []byte(`{}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	srcDir := filepath.Join(repoDir, "src")
+	if err := os.MkdirAll(srcDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	tsFile := filepath.Join(srcDir, "app.ts")
+	if err := os.WriteFile(tsFile, []byte("export {};\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmdDir, fileArg, err := ResolveBiomeContext(tsFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v (should handle .git file for worktrees)", err)
+	}
+	if cmdDir != repoDir {
+		t.Errorf("cmdDir = %q, want %q", cmdDir, repoDir)
+	}
+	if fileArg != filepath.Join("src", "app.ts") {
+		t.Errorf("fileArg = %q, want %q", fileArg, filepath.Join("src", "app.ts"))
+	}
+}
+
+func TestResolveBiomeContext_BiomeJsonc(t *testing.T) {
+	t.Parallel()
+
+	// Create repo with biome.jsonc (not biome.json)
+	repoDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repoDir, ".git"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repoDir, "biome.jsonc"), []byte(`{}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	tsFile := filepath.Join(repoDir, "app.ts")
+	if err := os.WriteFile(tsFile, []byte("export {};\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmdDir, _, err := ResolveBiomeContext(tsFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cmdDir != repoDir {
+		t.Errorf("cmdDir = %q, want %q (biome.jsonc)", cmdDir, repoDir)
+	}
+}

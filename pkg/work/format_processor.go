@@ -956,9 +956,16 @@ func (p *FormatProcessor) formatJavaScriptFile(filePath string) error {
 		return fmt.Errorf("failed to read file %s: %w", filePath, err)
 	}
 
+	// Resolve biome invocation context for nested config support
+	cmdDir, fileArg, err := ResolveBiomeContext(filePath)
+	if err != nil {
+		return fmt.Errorf("biome context resolution failed for %s: %w", filePath, err)
+	}
+
 	// Format the file with biome
 	// #nosec G204 -- biomePath comes from toolPaths or exec.LookPath which validates the path
-	cmd := exec.Command(biomePath, "format", "--write", filePath)
+	cmd := exec.Command(biomePath, "format", "--write", fileArg)
+	cmd.Dir = cmdDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("biome format failed for %s: %v\nOutput: %s", filePath, err, string(output))
@@ -1027,10 +1034,17 @@ func (p *FormatProcessor) checkJavaScriptFile(filePath string) error {
 		return err
 	}
 
+	// Resolve biome invocation context for nested config support
+	cmdDir, fileArg, err := ResolveBiomeContext(filePath)
+	if err != nil {
+		return fmt.Errorf("biome context resolution failed for %s: %w", filePath, err)
+	}
+
 	// Use biome format (without --write) to check formatting
 	// Biome 2.x: running without --write performs a dry-run check (exit 0=formatted, 1=needs formatting)
 	// #nosec G204 -- biomePath comes from toolPaths or exec.LookPath which validates the path
-	cmd := exec.Command(biomePath, "format", filePath)
+	cmd := exec.Command(biomePath, "format", fileArg)
+	cmd.Dir = cmdDir
 	output, err := cmd.CombinedOutput()
 
 	if err != nil {
@@ -1279,4 +1293,88 @@ func checkBiomeVersion(biomePath string) error {
 	}
 
 	return nil
+}
+
+// ResolveBiomeContext resolves the working directory and relative file argument
+// for invoking biome on a given file. It walks from the file's directory up to
+// the repository root (located by .git — file or directory) looking for the
+// nearest biome.json or biome.jsonc. Returns (cmdDir, relativeFileArg, error).
+//
+// If no repository root is found (non-git folder), falls back to the file's
+// directory without walking — this prevents unbounded filesystem traversal
+// while preserving backward compatibility for non-repo usage.
+func ResolveBiomeContext(filePath string) (string, string, error) {
+	absFile, err := filepath.Abs(filePath)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err)
+	}
+
+	fileDir := filepath.Dir(absFile)
+
+	repoRoot, err := findRepoRoot(fileDir)
+	if err != nil {
+		return "", "", fmt.Errorf("cannot resolve biome context: %w", err)
+	}
+
+	// No repo root — fall back to file directory (no config walk, no traversal risk)
+	if repoRoot == "" {
+		return fileDir, filepath.Base(absFile), nil
+	}
+
+	// Walk from fileDir up to repoRoot (inclusive) looking for biome config
+	configDir := ""
+	dir := fileDir
+	for {
+		for _, name := range []string{"biome.json", "biome.jsonc"} {
+			candidate := filepath.Join(dir, name)
+			if _, err := os.Stat(candidate); err == nil {
+				configDir = dir
+				break
+			}
+		}
+		if configDir != "" {
+			break
+		}
+		if dir == repoRoot {
+			break
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break // filesystem root — should not happen given repoRoot check
+		}
+		dir = parent
+	}
+
+	// Fallback to file's directory if no config found (biome will use defaults)
+	if configDir == "" {
+		configDir = fileDir
+	}
+
+	relFile, err := filepath.Rel(configDir, absFile)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to compute relative path from %s to %s: %w", configDir, absFile, err)
+	}
+
+	return configDir, relFile, nil
+}
+
+// findRepoRoot walks up from startDir to find the nearest directory containing
+// .git (file or directory — worktrees and submodules use a .git file).
+// Returns ("", nil) if no repo root is found, letting callers fall back gracefully.
+func findRepoRoot(startDir string) (string, error) {
+	dir := startDir
+	for {
+		gitPath := filepath.Join(dir, ".git")
+		// Intentionally checking existence only, not IsDir(): .git is a
+		// directory in normal repos but a file (gitdir pointer) in worktrees
+		// and submodules.
+		if _, err := os.Stat(gitPath); err == nil {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", nil // not inside a git repository
+		}
+		dir = parent
+	}
 }

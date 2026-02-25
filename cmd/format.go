@@ -1158,11 +1158,18 @@ func formatJavaScriptFile(file string, checkOnly bool, _ *config.Config, options
 		return err
 	}
 
+	// Resolve biome invocation context for nested config support
+	cmdDir, fileArg, err := work.ResolveBiomeContext(file)
+	if err != nil {
+		return fmt.Errorf("biome context resolution failed for %s: %w", file, err)
+	}
+
 	if checkOnly {
 		// Use biome format (without --write) to check formatting
 		// Biome 2.x: running without --write performs a dry-run check (exit 0=formatted, 1=needs formatting)
 		// #nosec G204 - biomePath comes from findToolPath which validates paths
-		cmd := exec.Command(biomePath, "format", file)
+		cmd := exec.Command(biomePath, "format", fileArg)
+		cmd.Dir = cmdDir
 		output, err := cmd.CombinedOutput()
 
 		if err != nil {
@@ -1178,7 +1185,8 @@ func formatJavaScriptFile(file string, checkOnly bool, _ *config.Config, options
 
 	// Format the file
 	// #nosec G204 - biomePath comes from findToolPath which validates paths
-	cmd := exec.Command(biomePath, "format", "--write", file)
+	cmd := exec.Command(biomePath, "format", "--write", fileArg)
+	cmd.Dir = cmdDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("biome format failed: %v\nOutput: %s", err, string(output))
