@@ -272,13 +272,13 @@ func (cr *ConfigResolver) ResolveConfigFile(category string) (string, bool) {
 	// 2. User-level config (GONEAT_HOME)
 	if homeDir := os.Getenv("GONEAT_HOME"); homeDir != "" {
 		userConfig := filepath.Join(homeDir, "config", category+".yaml")
-		if info, err := os.Stat(userConfig); err == nil && !info.IsDir() {
+		if info, err := os.Stat(userConfig); err == nil && !info.IsDir() { // #nosec G703 - userConfig from GONEAT_HOME env var, env-based config paths are by design
 			return userConfig, true
 		}
 	} else if homeDir, err := os.UserHomeDir(); err == nil {
 		// Fall back to ~/.goneat/config/{category}.yaml
 		userConfig := filepath.Join(homeDir, ".goneat", "config", category+".yaml")
-		if info, err := os.Stat(userConfig); err == nil && !info.IsDir() {
+		if info, err := os.Stat(userConfig); err == nil && !info.IsDir() { // #nosec G703 - userConfig from os.UserHomeDir(), standard config lookup
 			return userConfig, true
 		}
 	}

@@ -293,20 +293,20 @@ func ExportTerminalData() (string, error) {
 func TerminalTestReport(termProgram string) string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("Terminal Test Report: %s\n", termProgram))
+	fmt.Fprintf(&sb, "Terminal Test Report: %s\n", termProgram)
 	sb.WriteString(strings.Repeat("=", 50) + "\n\n")
 
 	// Get the config if it exists
 	config, exists := terminalCatalog.Terminals[termProgram]
 	if exists {
-		sb.WriteString(fmt.Sprintf("Known Terminal: %s\n", config.Name))
-		sb.WriteString(fmt.Sprintf("Notes: %s\n", config.Notes))
-		sb.WriteString(fmt.Sprintf("Override Count: %d\n\n", len(config.Overrides)))
+		fmt.Fprintf(&sb, "Known Terminal: %s\n", config.Name)
+		fmt.Fprintf(&sb, "Notes: %s\n", config.Notes)
+		fmt.Fprintf(&sb, "Override Count: %d\n\n", len(config.Overrides))
 
 		if len(config.Overrides) > 0 {
 			sb.WriteString("Overrides:\n")
 			for char, width := range config.Overrides {
-				sb.WriteString(fmt.Sprintf("  %q -> width %d\n", char, width))
+				fmt.Fprintf(&sb, "  %q -> width %d\n", char, width)
 			}
 		}
 	} else {

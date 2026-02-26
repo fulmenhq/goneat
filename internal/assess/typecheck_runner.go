@@ -265,14 +265,14 @@ func writeTempTsconfig(workingDir, baseConfigPath, targetFile string) (string, f
 	if err := file.Close(); err != nil {
 		return "", func() {}, fmt.Errorf("failed to finalize temporary tsconfig: %w", err)
 	}
-	if err := os.WriteFile(file.Name(), content, 0600); err != nil {
+	if err := os.WriteFile(file.Name(), content, 0600); err != nil { // #nosec G703 - file.Name() from os.CreateTemp(), system-generated temp path
 		return "", func() {}, fmt.Errorf("failed to write temporary tsconfig: %w", err)
 	}
 
 	cleanup := func() {
-		_ = os.Remove(file.Name())
+		_ = os.Remove(file.Name()) // #nosec G703 - file.Name() from os.CreateTemp(), removing system-generated temp file
 	}
-	return file.Name(), cleanup, nil
+	return file.Name(), cleanup, nil // #nosec G703 - returning system-generated temp file path from os.CreateTemp()
 }
 
 var tscLinePattern = regexp.MustCompile(`^(.+)\((\d+),(\d+)\): (error|warning) (TS\d+): (.+)$`)

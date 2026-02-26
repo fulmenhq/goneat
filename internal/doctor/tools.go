@@ -804,16 +804,16 @@ func applyVersionPolicy(t Tool, status *Status) {
 func buildPathInstructions(binaryPath string) string {
 	dir := filepath.Dir(binaryPath)
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("Tool installed at %s but not in PATH.\n", binaryPath))
+	fmt.Fprintf(&b, "Tool installed at %s but not in PATH.\n", binaryPath)
 	if runtime.GOOS == "windows" {
-		b.WriteString(fmt.Sprintf("Add for current session:\n  set PATH=%%PATH%%;%s\n", dir))
-		b.WriteString(fmt.Sprintf("Persist (PowerShell):\n  setx PATH \"$Env:PATH;%s\"\n", dir))
-		b.WriteString(fmt.Sprintf("Inline usage: $env:PATH=\"%s;\" + $env:PATH; goneat doctor tools --scope foundation\n", dir))
+		fmt.Fprintf(&b, "Add for current session:\n  set PATH=%%PATH%%;%s\n", dir)
+		fmt.Fprintf(&b, "Persist (PowerShell):\n  setx PATH \"$Env:PATH;%s\"\n", dir)
+		fmt.Fprintf(&b, "Inline usage: $env:PATH=\"%s;\" + $env:PATH; goneat doctor tools --scope foundation\n", dir)
 	} else {
-		b.WriteString(fmt.Sprintf("Add for current shell:\n  export PATH=\"%s:$PATH\"\n", dir))
-		b.WriteString(fmt.Sprintf("Persist (bash/zsh):\n  echo 'export PATH=\"%s:$PATH\"' >> ~/.bashrc && source ~/.bashrc\n", dir))
+		fmt.Fprintf(&b, "Add for current shell:\n  export PATH=\"%s:$PATH\"\n", dir)
+		fmt.Fprintf(&b, "Persist (bash/zsh):\n  echo 'export PATH=\"%s:$PATH\"' >> ~/.bashrc && source ~/.bashrc\n", dir)
 		b.WriteString("If you use zsh, update ~/.zshrc similarly.\n")
-		b.WriteString(fmt.Sprintf("Inline usage: PATH=\"%s:$PATH\" goneat doctor tools --scope foundation\n", dir))
+		fmt.Fprintf(&b, "Inline usage: PATH=\"%s:$PATH\" goneat doctor tools --scope foundation\n", dir)
 	}
 	b.WriteString("Run 'goneat doctor env' for PATH diagnostics.")
 	return strings.TrimSpace(b.String())
@@ -823,23 +823,23 @@ func buildPathInstructions(binaryPath string) string {
 func buildEnhancedPathInstructions(binaryPath, toolName string) string {
 	dir := filepath.Dir(binaryPath)
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("✅ %s is installed at %s but not in PATH.\n", toolName, binaryPath))
+	fmt.Fprintf(&b, "✅ %s is installed at %s but not in PATH.\n", toolName, binaryPath)
 	b.WriteString("This is common for Go tools installed with 'go install'.\n\n")
 
 	if runtime.GOOS == "windows" {
 		b.WriteString("Quick fix for current session:\n")
-		b.WriteString(fmt.Sprintf("  set PATH=%%PATH%%;%s\n\n", dir))
+		fmt.Fprintf(&b, "  set PATH=%%PATH%%;%s\n\n", dir)
 		b.WriteString("Make it permanent (PowerShell as Administrator):\n")
-		b.WriteString(fmt.Sprintf("  setx PATH \"$Env:PATH;%s\"\n\n", dir))
+		fmt.Fprintf(&b, "  setx PATH \"$Env:PATH;%s\"\n\n", dir)
 		b.WriteString("Test it works:\n")
-		b.WriteString(fmt.Sprintf("  %s --version\n", toolName))
+		fmt.Fprintf(&b, "  %s --version\n", toolName)
 	} else {
 		b.WriteString("Quick fix for current shell:\n")
-		b.WriteString(fmt.Sprintf("  export PATH=\"%s:$PATH\"\n\n", dir))
+		fmt.Fprintf(&b, "  export PATH=\"%s:$PATH\"\n\n", dir)
 		b.WriteString("Make it permanent (add to ~/.bashrc or ~/.zshrc):\n")
-		b.WriteString(fmt.Sprintf("  echo 'export PATH=\"%s:$PATH\"' >> ~/.bashrc && source ~/.bashrc\n\n", dir))
+		fmt.Fprintf(&b, "  echo 'export PATH=\"%s:$PATH\"' >> ~/.bashrc && source ~/.bashrc\n\n", dir)
 		b.WriteString("Test it works:\n")
-		b.WriteString(fmt.Sprintf("  %s --version\n", toolName))
+		fmt.Fprintf(&b, "  %s --version\n", toolName)
 	}
 
 	b.WriteString("\nFor detailed PATH diagnostics, run: goneat doctor env")
@@ -1096,7 +1096,7 @@ func summarizeInstallerInstructions(attempts []installerAttempt) string {
 		if attempt.instructions == "" {
 			continue
 		}
-		b.WriteString(fmt.Sprintf("- %s\n", attempt.instructions))
+		fmt.Fprintf(&b, "- %s\n", attempt.instructions)
 		if strings.Contains(attempt.instructions, "(failed:") {
 			hasFailures = true
 		}
@@ -1104,7 +1104,7 @@ func summarizeInstallerInstructions(attempts []installerAttempt) string {
 
 	// If all attempts failed, add reference to package manager documentation
 	if hasFailures && b.Len() > 0 {
-		b.WriteString(fmt.Sprintf("\nFor package manager installation guides, see: %s", packageManagerDocPath))
+		fmt.Fprintf(&b, "\nFor package manager installation guides, see: %s", packageManagerDocPath)
 	}
 
 	return strings.TrimSpace(b.String())

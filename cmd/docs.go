@@ -260,11 +260,11 @@ func openBrowser(path string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":
-		cmd = exec.Command("open", path)
+		cmd = exec.Command("open", path) // #nosec G204 G702 - path is internal temp HTML from rendered docs
 	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", path)
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", path) // #nosec G204 G702 - path is internal temp HTML from rendered docs
 	default:
-		cmd = exec.Command("xdg-open", path)
+		cmd = exec.Command("xdg-open", path) // #nosec G204 G702 - path is internal temp HTML from rendered docs
 	}
 	return cmd.Start()
 }

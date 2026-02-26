@@ -130,11 +130,11 @@ func (l *Logger) formatPretty(entry LogEntry) string {
 		}
 	}
 
-	builder.WriteString(fmt.Sprintf(" [%s]", level))
+	fmt.Fprintf(&builder, " [%s]", level)
 
 	// Component
 	if entry.Component != "" {
-		builder.WriteString(fmt.Sprintf(" %s:", entry.Component))
+		fmt.Fprintf(&builder, " %s:", entry.Component)
 	}
 
 	// No-op indicator
@@ -147,7 +147,7 @@ func (l *Logger) formatPretty(entry LogEntry) string {
 	}
 
 	// Message
-	builder.WriteString(fmt.Sprintf(" %s", entry.Message))
+	fmt.Fprintf(&builder, " %s", entry.Message)
 
 	// Fields
 	if len(entry.Fields) > 0 {
@@ -157,7 +157,7 @@ func (l *Logger) formatPretty(entry LogEntry) string {
 			if !first {
 				builder.WriteString(", ")
 			}
-			builder.WriteString(fmt.Sprintf("%s=%v", k, v))
+			fmt.Fprintf(&builder, "%s=%v", k, v)
 			first = false
 		}
 		builder.WriteString("}")
@@ -165,7 +165,7 @@ func (l *Logger) formatPretty(entry LogEntry) string {
 
 	// File and line for debug/trace
 	if entry.File != "" {
-		builder.WriteString(fmt.Sprintf(" (%s:%d)", entry.File, entry.Line))
+		fmt.Fprintf(&builder, " (%s:%d)", entry.File, entry.Line)
 	}
 
 	return builder.String()

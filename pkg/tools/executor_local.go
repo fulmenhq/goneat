@@ -145,7 +145,7 @@ func getShimDirectories() []string {
 	if goDir == "" {
 		goDir = filepath.Join(homeDir, "go", "bin")
 	}
-	if _, err := os.Stat(goDir); err == nil {
+	if _, err := os.Stat(goDir); err == nil { // #nosec G703 - goDir from GOBIN env var or os.UserHomeDir()+"go/bin"; tool discovery by design
 		dirs = append(dirs, goDir)
 	}
 

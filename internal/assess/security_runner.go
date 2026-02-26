@@ -572,7 +572,7 @@ func (r *SecurityAssessmentRunner) getIgnoreFiles(targetPath string) []string {
 	// Add user-level global ignore (GONEAT_HOME/.goneatignore)
 	if homeDir := os.Getenv("GONEAT_HOME"); homeDir != "" {
 		userIgnore := filepath.Join(homeDir, ".goneatignore")
-		if _, err := os.Stat(userIgnore); err == nil {
+		if _, err := os.Stat(userIgnore); err == nil { // #nosec G703 - userIgnore from GONEAT_HOME env var, env-based paths are by design
 			ignoreFiles = append(ignoreFiles, userIgnore)
 		}
 	} else if homeDir, err := os.UserHomeDir(); err == nil {

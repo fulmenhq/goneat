@@ -270,7 +270,7 @@ func (f *GitHubFetcher) FetchLatestMetadata(repo string) (*Metadata, error) {
 func (f *GitHubFetcher) fetchWithTag(repo, tag string, baseReq *http.Request) (*Metadata, error) {
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/releases/tags/%s", repo, tag)
 
-	req, err := http.NewRequest("GET", apiURL, nil)
+	req, err := http.NewRequest("GET", apiURL, nil) // #nosec G704 - GitHub API call by design; apiURL from validated repo/tag config
 	if err != nil {
 		return nil, fmt.Errorf("failed to create retry request: %w", err)
 	}

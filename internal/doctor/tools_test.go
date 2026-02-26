@@ -608,9 +608,9 @@ func TestExtractFirstVersionToken_EdgeCases(t *testing.T) {
 		{"text with v1.2.3 and more text", "v1.2.3"},
 		{"text with 1.2.3 and more text", "1.2.3"},
 		{"text with 1.2 and more text", "1.2"},
-		{"text with v1 and more text", ""},                                                    // v1 should not be considered a version
-		{"yq (https://github.com/mikefarah/yq/) version v4.49.1", "v4.49.1"},                 // URL skipped, real version found
-		{"checkmake built at 2025-09-13 by Homebrew <homebrew@brew.sh> go1.25.1", "1.25.1"},   // Email skipped, go version found
+		{"text with v1 and more text", ""},                                   // v1 should not be considered a version
+		{"yq (https://github.com/mikefarah/yq/) version v4.49.1", "v4.49.1"}, // URL skipped, real version found
+		{"checkmake built at 2025-09-13 by Homebrew <homebrew@brew.sh> go1.25.1", "1.25.1"}, // Email skipped, go version found
 	}
 	for _, c := range cases {
 		got := extractFirstVersionToken(c.in)
@@ -638,14 +638,14 @@ func TestLooksLikeVersion_EdgeCases(t *testing.T) {
 		{"1.2.3-snapshot", true}, // dots check + starts with digit
 		{"version", false},
 		// Deliverable B: reject URLs, parens, emails, non-digit starts
-		{"https://github.com/mikefarah/yq/", false},              // URL
-		{"(https://github.com/mikefarah/yq/)", false},            // Parenthesized URL
-		{"<homebrew@brew.sh>", false},                             // Email address
-		{"jq-1.7.1-apple", false},                                // Tool name prefix (starts with letter)
-		{"checkmake.", false},                                     // Tool name with trailing dot
-		{"go1.25.4", true},                                       // Go version (go prefix then digit)
-		{"Application:", false},                                   // Multiline header (no digit start)
-		{"built", false},                                          // Random word
+		{"https://github.com/mikefarah/yq/", false},   // URL
+		{"(https://github.com/mikefarah/yq/)", false}, // Parenthesized URL
+		{"<homebrew@brew.sh>", false},                 // Email address
+		{"jq-1.7.1-apple", false},                     // Tool name prefix (starts with letter)
+		{"checkmake.", false},                         // Tool name with trailing dot
+		{"go1.25.4", true},                            // Go version (go prefix then digit)
+		{"Application:", false},                       // Multiline header (no digit start)
+		{"built", false},                              // Random word
 	}
 	for _, c := range cases {
 		got := looksLikeVersion(c.in)

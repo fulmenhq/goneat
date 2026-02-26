@@ -33,7 +33,7 @@ func ResolveBinary(toolName string, opts ResolveOptions) (string, error) {
 	if opts.EnvOverride != "" {
 		if overridePath := os.Getenv(opts.EnvOverride); overridePath != "" {
 			logger.Debug("checking env override", logger.String("env_var", opts.EnvOverride), logger.String("path", overridePath))
-			if _, err := os.Stat(overridePath); err == nil {
+			if _, err := os.Stat(overridePath); err == nil { // #nosec G703 - overridePath from env var opts.EnvOverride; env-based path overrides are by design
 				logger.Debug("resolution successful: env override", logger.String("path", overridePath))
 				return overridePath, nil
 			}

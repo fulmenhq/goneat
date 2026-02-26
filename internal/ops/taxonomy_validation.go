@@ -282,10 +282,10 @@ func FormatErrors(errors []ValidationError) string {
 	}
 
 	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("Found %d validation errors:\n", len(errors)))
+	fmt.Fprintf(&builder, "Found %d validation errors:\n", len(errors))
 
 	for i, err := range errors {
-		builder.WriteString(fmt.Sprintf("%d. %s\n", i+1, err.Error()))
+		fmt.Fprintf(&builder, "%d. %s\n", i+1, err.Error())
 	}
 
 	return builder.String()

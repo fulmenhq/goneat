@@ -138,7 +138,7 @@ func transpileYAMLToRego(yamlData []byte) string {
 			buf.WriteString("  dep := input.dependencies[_]\n")
 
 			if minAge, ok := cooling["min_age_days"].(int); ok {
-				buf.WriteString(fmt.Sprintf("  dep.metadata.age_days < %d\n", minAge))
+				fmt.Fprintf(&buf, "  dep.metadata.age_days < %d\n", minAge)
 			}
 
 			buf.WriteString("  not is_cooling_exception(dep.module.name)\n")

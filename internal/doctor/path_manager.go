@@ -223,14 +223,14 @@ func (pm *PathManager) GetGitHubActionsInstructions() string {
 func BuildPATHInstructions(toolName, shimPath, packageManager string) string {
 	var instructions strings.Builder
 
-	instructions.WriteString(fmt.Sprintf("\n%s installed to: %s\n", toolName, shimPath))
+	fmt.Fprintf(&instructions, "\n%s installed to: %s\n", toolName, shimPath)
 	instructions.WriteString("But this directory is not in your PATH.\n\n")
 
 	instructions.WriteString("🔧 For immediate use in this terminal:\n")
 	if runtime.GOOS == "windows" {
-		instructions.WriteString(fmt.Sprintf("  $env:PATH = \"%s;$env:PATH\"\n\n", shimPath))
+		fmt.Fprintf(&instructions, "  $env:PATH = \"%s;$env:PATH\"\n\n", shimPath)
 	} else {
-		instructions.WriteString(fmt.Sprintf("  export PATH=\"%s:$PATH\"\n\n", shimPath))
+		fmt.Fprintf(&instructions, "  export PATH=\"%s:$PATH\"\n\n", shimPath)
 	}
 
 	instructions.WriteString("📝 To persist across shell sessions:\n")
@@ -241,7 +241,7 @@ func BuildPATHInstructions(toolName, shimPath, packageManager string) string {
 		if shell := os.Getenv("SHELL"); strings.Contains(shell, "zsh") {
 			shellRC = "~/.zshrc"
 		}
-		instructions.WriteString(fmt.Sprintf("  echo 'export PATH=\"%s:$PATH\"' >> %s\n\n", shimPath, shellRC))
+		fmt.Fprintf(&instructions, "  echo 'export PATH=\"%s:$PATH\"' >> %s\n\n", shimPath, shellRC)
 	}
 
 	instructions.WriteString("⚡ Or use goneat's helper:\n")
@@ -259,7 +259,7 @@ func BuildPATHInstructions(toolName, shimPath, packageManager string) string {
 			if pm.Name == packageManager && len(pm.PathActivation) > 0 {
 				instructions.WriteString("\n💡 Package manager activation (alternative):\n")
 				for shell, cmd := range pm.PathActivation {
-					instructions.WriteString(fmt.Sprintf("  %s: %s\n", shell, cmd))
+					fmt.Fprintf(&instructions, "  %s: %s\n", shell, cmd)
 				}
 			}
 		}

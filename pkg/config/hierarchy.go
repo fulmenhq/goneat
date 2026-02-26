@@ -205,7 +205,7 @@ func (s *HTTPConfigSource) Load(ctx context.Context) (*viper.Viper, error) {
 		req.Header.Set(k, v)
 	}
 
-	resp, err := s.client.Do(req)
+	resp, err := s.client.Do(req) // #nosec G704 - HTTP client for remote config; URL from validated config hierarchy
 	if err != nil {
 		return nil, err
 	}

@@ -448,9 +448,9 @@ func updateGitHubActionsPath(githubPathFile string, paths []string) error {
 	}
 
 	// Open file in append mode
-	// #nosec G302 G304 - githubPathFile comes from GITHUB_PATH env var managed by GitHub Actions
+	// #nosec G302 G304 G703 - githubPathFile comes from GITHUB_PATH env var managed by GitHub Actions
 	// Permission 0644 is the GitHub Actions standard for $GITHUB_PATH file
-	// File path is controlled by GitHub Actions runtime, not user input
+	// File path is controlled by GitHub Actions runtime, not user input. G703 taint FP.
 	f, err := os.OpenFile(githubPathFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open GITHUB_PATH file: %w", err)
@@ -508,7 +508,7 @@ func runDoctorEnv(cmd *cobra.Command, _ []string) error {
 		}
 		fmt.Fprintf(out, "  %s", dir) //nolint:errcheck // CLI output errors are typically ignored
 		// Check if this directory exists
-		if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if _, err := os.Stat(dir); os.IsNotExist(err) { // #nosec G703 - dir from PATH env var, stat for display only
 			fmt.Fprintf(out, " ❌ (does not exist)") //nolint:errcheck // CLI output errors are typically ignored
 		} else {
 			fmt.Fprintf(out, " ✅") //nolint:errcheck // CLI output errors are typically ignored
@@ -1288,12 +1288,12 @@ func detectGoneatInstallations() ([]GoneatInstallation, error) {
 // getGoneatVersion gets the version from a goneat binary
 func getGoneatVersion(path string) (string, bool) {
 	// Check if file exists and is executable
-	if info, err := os.Stat(path); err != nil || info.IsDir() {
+	if info, err := os.Stat(path); err != nil || info.IsDir() { // #nosec G703 - path is a discovered binary, stat for existence check
 		return "", false
 	}
 
 	// Try to run `goneat version`
-	cmd := exec.Command(path, "version")
+	cmd := exec.Command(path, "version") // #nosec G702 - executing discovered goneat binary with fixed args by design
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = nil // Suppress errors

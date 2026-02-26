@@ -242,8 +242,9 @@ func (r *LintAssessmentRunner) runYamllintAssessment(target string, config Asses
 	}
 	args = append(args, files...)
 
-	// #nosec G204 -- yamllintBin is either the default "yamllint" or a cleaned,
-	// repo-configured override validated via LookPath above.
+	// #nosec G204 G702 -- yamllintBin is either the default "yamllint" or a cleaned,
+	// repo-configured override validated via LookPath above. G702 taint FP: args are
+	// file paths from controlled discovery, not user-provided shell input.
 	cmd := exec.CommandContext(ctx, yamllintBin, args...)
 	cmd.Dir = target
 	output, err := cmd.CombinedOutput()

@@ -28,7 +28,7 @@ func (f *RealHTTPFetcher) Get(url string) (*http.Response, error) {
 }
 
 func (f *RealHTTPFetcher) Do(req *http.Request) (*http.Response, error) {
-	return f.client.Do(req)
+	return f.client.Do(req) // #nosec G704 - registry HTTP transport; URL validated by caller
 }
 
 // MockHTTPFetcher simulates HTTP responses for testing

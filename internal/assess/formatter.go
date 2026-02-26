@@ -93,8 +93,8 @@ func (f *Formatter) formatConcise(report *AssessmentReport) string {
 	} else {
 		healthStr = red(healthStr)
 	}
-	sb.WriteString(fmt.Sprintf("%s %s | total issues: %d | time: %s\n",
-		bold("Assessment"), fmt.Sprintf("health=%s", healthStr), report.Summary.TotalIssues, report.Metadata.ExecutionTime))
+	fmt.Fprintf(&sb, "%s %s | total issues: %d | time: %s\n",
+		bold("Assessment"), fmt.Sprintf("health=%s", healthStr), report.Summary.TotalIssues, report.Metadata.ExecutionTime)
 
 	// Fail-on context if present in commands_run hint
 	// We don't have explicit fail-on in metadata yet; detect from commands or print default marker
@@ -103,7 +103,7 @@ func (f *Formatter) formatConcise(report *AssessmentReport) string {
 		// best-effort default display; actual enforcement happens in caller
 		failOn = "configured"
 	}
-	sb.WriteString(fmt.Sprintf(" - Fail-on: %s\n", failOn))
+	fmt.Fprintf(&sb, " - Fail-on: %s\n", failOn)
 
 	// One line per category included
 	ordered := f.getOrderedCategories(report.Categories)
@@ -120,7 +120,7 @@ func (f *Formatter) formatConcise(report *AssessmentReport) string {
 			statusStr = green("ok")
 		}
 
-		sb.WriteString(fmt.Sprintf(" - %s: %s (est %s)\n", titleCase(cat), statusStr, f.formatDuration(time.Duration(res.EstimatedTime))))
+		fmt.Fprintf(&sb, " - %s: %s (est %s)\n", titleCase(cat), statusStr, f.formatDuration(time.Duration(res.EstimatedTime)))
 
 		// Show top-N affected files when there are issues
 		if res.IssueCount > 0 {
@@ -151,12 +151,12 @@ func (f *Formatter) formatConcise(report *AssessmentReport) string {
 				if len(files) > len(shown) {
 					more = fmt.Sprintf(" (+%d more)", len(files)-len(shown))
 				}
-				sb.WriteString(fmt.Sprintf("   files: %s%s\n", strings.Join(shown, ", "), more))
+				fmt.Fprintf(&sb, "   files: %s%s\n", strings.Join(shown, ", "), more)
 			} else if len(res.Issues) > 0 {
 				// Fallback: show first issue message if no file paths were captured
 				msg := strings.TrimSpace(res.Issues[0].Message)
 				if msg != "" {
-					sb.WriteString(fmt.Sprintf("   note: %s\n", msg))
+					fmt.Fprintf(&sb, "   note: %s\n", msg)
 				}
 			}
 		}
@@ -173,7 +173,7 @@ func (f *Formatter) formatConcise(report *AssessmentReport) string {
 		}
 
 		if res.Status == "error" && strings.TrimSpace(res.Error) != "" {
-			sb.WriteString(fmt.Sprintf("   %s %s\n", red("!"), res.Error))
+			fmt.Fprintf(&sb, "   %s %s\n", red("!"), res.Error)
 		}
 	}
 
@@ -204,20 +204,20 @@ func (f *Formatter) formatMarkdown(report *AssessmentReport) string {
 
 	// Header
 	sb.WriteString("# Codebase Assessment Report\n\n")
-	sb.WriteString(fmt.Sprintf("**Generated:** %s\n", report.Metadata.GeneratedAt.Format(time.RFC3339)))
-	sb.WriteString(fmt.Sprintf("**Tool:** %s\n", report.Metadata.Tool))
-	sb.WriteString(fmt.Sprintf("**Version:** %s\n", report.Metadata.Version))
-	sb.WriteString(fmt.Sprintf("**Target:** %s\n", report.Metadata.Target))
-	sb.WriteString(fmt.Sprintf("**Execution Time:** %v\n\n", report.Metadata.ExecutionTime))
+	fmt.Fprintf(&sb, "**Generated:** %s\n", report.Metadata.GeneratedAt.Format(time.RFC3339))
+	fmt.Fprintf(&sb, "**Tool:** %s\n", report.Metadata.Tool)
+	fmt.Fprintf(&sb, "**Version:** %s\n", report.Metadata.Version)
+	fmt.Fprintf(&sb, "**Target:** %s\n", report.Metadata.Target)
+	fmt.Fprintf(&sb, "**Execution Time:** %v\n\n", report.Metadata.ExecutionTime)
 
 	// Executive Summary
 	sb.WriteString("## Executive Summary\n\n")
-	sb.WriteString(fmt.Sprintf("- **Overall Health:** %s\n", f.formatHealthScore(report.Summary.OverallHealth)))
-	sb.WriteString(fmt.Sprintf("- **Critical Issues:** %d\n", report.Summary.CriticalIssues))
-	sb.WriteString(fmt.Sprintf("- **Total Issues:** %d\n", report.Summary.TotalIssues))
-	sb.WriteString(fmt.Sprintf("- **Estimated Fix Time:** %s\n", f.formatDuration(time.Duration(report.Summary.EstimatedTime))))
-	sb.WriteString(fmt.Sprintf("- **Parallelizable Tasks:** %d groups identified\n", report.Summary.ParallelGroups))
-	sb.WriteString(fmt.Sprintf("- **Categories with Issues:** %d\n\n", report.Summary.CategoriesWithIssues))
+	fmt.Fprintf(&sb, "- **Overall Health:** %s\n", f.formatHealthScore(report.Summary.OverallHealth))
+	fmt.Fprintf(&sb, "- **Critical Issues:** %d\n", report.Summary.CriticalIssues)
+	fmt.Fprintf(&sb, "- **Total Issues:** %d\n", report.Summary.TotalIssues)
+	fmt.Fprintf(&sb, "- **Estimated Fix Time:** %s\n", f.formatDuration(time.Duration(report.Summary.EstimatedTime)))
+	fmt.Fprintf(&sb, "- **Parallelizable Tasks:** %d groups identified\n", report.Summary.ParallelGroups)
+	fmt.Fprintf(&sb, "- **Categories with Issues:** %d\n\n", report.Summary.CategoriesWithIssues)
 
 	// Assessment Results by Category
 	sb.WriteString("## Assessment Results\n\n")
@@ -233,16 +233,16 @@ func (f *Formatter) formatMarkdown(report *AssessmentReport) string {
 
 		// Category header
 		statusEmoji := f.getStatusEmoji(result.Status)
-		sb.WriteString(fmt.Sprintf("### %s %s Issues (Priority: %d)\n\n", statusEmoji, titleCase(category), result.Priority))
+		fmt.Fprintf(&sb, "### %s %s Issues (Priority: %d)\n\n", statusEmoji, titleCase(category), result.Priority)
 
 		if result.Status == "error" {
-			sb.WriteString(fmt.Sprintf("**Status:** Error - %s\n\n", result.Error))
+			fmt.Fprintf(&sb, "**Status:** Error - %s\n\n", result.Error)
 			continue
 		}
 
-		sb.WriteString(fmt.Sprintf("**Status:** %d issues found\n", result.IssueCount))
-		sb.WriteString(fmt.Sprintf("**Estimated Time:** %s\n", f.formatDuration(time.Duration(result.EstimatedTime))))
-		sb.WriteString(fmt.Sprintf("**Parallelizable:** %s\n\n", f.formatBool(result.Parallelizable)))
+		fmt.Fprintf(&sb, "**Status:** %d issues found\n", result.IssueCount)
+		fmt.Fprintf(&sb, "**Estimated Time:** %s\n", f.formatDuration(time.Duration(result.EstimatedTime)))
+		fmt.Fprintf(&sb, "**Parallelizable:** %s\n\n", f.formatBool(result.Parallelizable))
 
 		if metricsBlock := f.formatCategoryMetricsMarkdown(category, result.Metrics); metricsBlock != "" {
 			sb.WriteString(metricsBlock)
@@ -270,11 +270,11 @@ func (f *Formatter) formatMarkdown(report *AssessmentReport) string {
 				if issue.Line > 0 {
 					line = fmt.Sprintf("%d", issue.Line)
 				}
-				sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s |\n",
-					issue.File, line, issue.Severity, issue.Message, f.formatBool(issue.AutoFixable)))
+				fmt.Fprintf(&sb, "| %s | %s | %s | %s | %s |\n",
+					issue.File, line, issue.Severity, issue.Message, f.formatBool(issue.AutoFixable))
 			}
 			if maxToShow < len(result.Issues) {
-				sb.WriteString(fmt.Sprintf("\n_Showing %d of %d issues. Use --format json for full details._\n", maxToShow, len(result.Issues)))
+				fmt.Fprintf(&sb, "\n_Showing %d of %d issues. Use --format json for full details._\n", maxToShow, len(result.Issues))
 			}
 			sb.WriteString("\n")
 
@@ -300,7 +300,7 @@ func (f *Formatter) formatMarkdown(report *AssessmentReport) string {
 					if len(sample) > len(shown) {
 						more = fmt.Sprintf(" (+%d more)", len(sample)-len(shown))
 					}
-					sb.WriteString(fmt.Sprintf("**Affected files:** %s%s\n\n", strings.Join(shown, ", "), more))
+					fmt.Fprintf(&sb, "**Affected files:** %s%s\n\n", strings.Join(shown, ", "), more)
 				}
 			}
 		}
@@ -329,12 +329,12 @@ func (f *Formatter) formatMarkdown(report *AssessmentReport) string {
 		}
 
 		for i, phase := range report.Workflow.Phases {
-			sb.WriteString(fmt.Sprintf("### Phase %d: %s\n\n", i+1, phase.Description))
-			sb.WriteString(fmt.Sprintf("**Estimated Time:** %s\n", f.formatDuration(time.Duration(phase.EstimatedTime))))
-			sb.WriteString(fmt.Sprintf("**Categories:** %s\n", f.formatCategories(phase.Categories)))
+			fmt.Fprintf(&sb, "### Phase %d: %s\n\n", i+1, phase.Description)
+			fmt.Fprintf(&sb, "**Estimated Time:** %s\n", f.formatDuration(time.Duration(phase.EstimatedTime)))
+			fmt.Fprintf(&sb, "**Categories:** %s\n", f.formatCategories(phase.Categories))
 
 			if len(phase.ParallelGroups) > 0 {
-				sb.WriteString(fmt.Sprintf("**Parallel Groups:** %s\n", strings.Join(phase.ParallelGroups, ", ")))
+				fmt.Fprintf(&sb, "**Parallel Groups:** %s\n", strings.Join(phase.ParallelGroups, ", "))
 				// List files for each group (expand sentinel using git-state samples)
 				for _, name := range phase.ParallelGroups {
 					if g, ok := groupByName[name]; ok {
@@ -349,9 +349,9 @@ func (f *Formatter) formatMarkdown(report *AssessmentReport) string {
 							if len(gitStateSamples) > len(shown) {
 								more = fmt.Sprintf(" (+%d more)", len(gitStateSamples)-len(shown))
 							}
-							sb.WriteString(fmt.Sprintf("- %s files: %s%s\n", name, strings.Join(shown, ", "), more))
+							fmt.Fprintf(&sb, "- %s files: %s%s\n", name, strings.Join(shown, ", "), more)
 						} else if len(files) > 0 {
-							sb.WriteString(fmt.Sprintf("- %s files: %s\n", name, strings.Join(files, ", ")))
+							fmt.Fprintf(&sb, "- %s files: %s\n", name, strings.Join(files, ", "))
 						}
 					}
 				}
@@ -359,7 +359,7 @@ func (f *Formatter) formatMarkdown(report *AssessmentReport) string {
 			sb.WriteString("\n")
 		}
 
-		sb.WriteString(fmt.Sprintf("**Total Estimated Time:** %s\n\n", f.formatDuration(time.Duration(report.Workflow.TotalTime))))
+		fmt.Fprintf(&sb, "**Total Estimated Time:** %s\n\n", f.formatDuration(time.Duration(report.Workflow.TotalTime)))
 	}
 
 	// Parallelization Opportunities
@@ -380,8 +380,8 @@ func (f *Formatter) formatMarkdown(report *AssessmentReport) string {
 		}
 
 		for _, group := range report.Workflow.ParallelGroups {
-			sb.WriteString(fmt.Sprintf("### %s\n", group.Name))
-			sb.WriteString(fmt.Sprintf("**Description:** %s\n", group.Description))
+			fmt.Fprintf(&sb, "### %s\n", group.Name)
+			fmt.Fprintf(&sb, "**Description:** %s\n", group.Description)
 			// If group files are sentinel-only, expand with git-state samples for clarity
 			files := group.Files
 			if (len(files) == 1 && (files[0] == "repository" || files[0] == ".git")) && len(gitStateSamples) > 0 {
@@ -394,13 +394,13 @@ func (f *Formatter) formatMarkdown(report *AssessmentReport) string {
 				if len(gitStateSamples) > len(shown) {
 					more = fmt.Sprintf(" (+%d more)", len(gitStateSamples)-len(shown))
 				}
-				sb.WriteString(fmt.Sprintf("**Files:** %s%s\n", strings.Join(shown, ", "), more))
+				fmt.Fprintf(&sb, "**Files:** %s%s\n", strings.Join(shown, ", "), more)
 			} else {
-				sb.WriteString(fmt.Sprintf("**Files:** %s\n", strings.Join(files, ", ")))
+				fmt.Fprintf(&sb, "**Files:** %s\n", strings.Join(files, ", "))
 			}
-			sb.WriteString(fmt.Sprintf("**Categories:** %s\n", f.formatCategories(group.Categories)))
-			sb.WriteString(fmt.Sprintf("**Issues:** %d\n", group.IssueCount))
-			sb.WriteString(fmt.Sprintf("**Estimated Time:** %s\n\n", f.formatDuration(time.Duration(group.EstimatedTime))))
+			fmt.Fprintf(&sb, "**Categories:** %s\n", f.formatCategories(group.Categories))
+			fmt.Fprintf(&sb, "**Issues:** %d\n", group.IssueCount)
+			fmt.Fprintf(&sb, "**Estimated Time:** %s\n\n", f.formatDuration(time.Duration(group.EstimatedTime)))
 		}
 	}
 
@@ -408,60 +408,60 @@ func (f *Formatter) formatMarkdown(report *AssessmentReport) string {
 	if report.Workplan != nil {
 		sb.WriteString("## Extended Workplan\n\n")
 		sb.WriteString("### File Discovery\n\n")
-		sb.WriteString(fmt.Sprintf("- **Files Discovered:** %d\n", report.Workplan.FilesDiscovered))
-		sb.WriteString(fmt.Sprintf("- **Files Included:** %d\n", report.Workplan.FilesIncluded))
-		sb.WriteString(fmt.Sprintf("- **Files Excluded:** %d\n", report.Workplan.FilesExcluded))
+		fmt.Fprintf(&sb, "- **Files Discovered:** %d\n", report.Workplan.FilesDiscovered)
+		fmt.Fprintf(&sb, "- **Files Included:** %d\n", report.Workplan.FilesIncluded)
+		fmt.Fprintf(&sb, "- **Files Excluded:** %d\n", report.Workplan.FilesExcluded)
 
 		if len(report.Workplan.ExclusionReasons) > 0 {
 			sb.WriteString("- **Exclusion Reasons:**\n")
 			for reason, count := range report.Workplan.ExclusionReasons {
-				sb.WriteString(fmt.Sprintf("  - %s: %d files\n", reason, count))
+				fmt.Fprintf(&sb, "  - %s: %d files\n", reason, count)
 			}
 		}
 
 		sb.WriteString("\n### Category Planning\n\n")
-		sb.WriteString(fmt.Sprintf("- **Categories Planned:** %s\n", strings.Join(report.Workplan.CategoriesPlanned, ", ")))
+		fmt.Fprintf(&sb, "- **Categories Planned:** %s\n", strings.Join(report.Workplan.CategoriesPlanned, ", "))
 		if len(report.Workplan.CategoriesSkipped) > 0 {
-			sb.WriteString(fmt.Sprintf("- **Categories Skipped:** %s\n", strings.Join(report.Workplan.CategoriesSkipped, ", ")))
+			fmt.Fprintf(&sb, "- **Categories Skipped:** %s\n", strings.Join(report.Workplan.CategoriesSkipped, ", "))
 			if len(report.Workplan.SkipReasons) > 0 {
 				sb.WriteString("- **Skip Reasons:**\n")
 				for category, reason := range report.Workplan.SkipReasons {
-					sb.WriteString(fmt.Sprintf("  - %s: %s\n", category, reason))
+					fmt.Fprintf(&sb, "  - %s: %s\n", category, reason)
 				}
 			}
 		}
 
 		sb.WriteString("\n### Discovery Patterns\n\n")
 		if len(report.Workplan.DiscoveryPatterns.Include) > 0 {
-			sb.WriteString(fmt.Sprintf("- **Include Patterns:** %s\n", strings.Join(report.Workplan.DiscoveryPatterns.Include, ", ")))
+			fmt.Fprintf(&sb, "- **Include Patterns:** %s\n", strings.Join(report.Workplan.DiscoveryPatterns.Include, ", "))
 		}
 		if len(report.Workplan.DiscoveryPatterns.Exclude) > 0 {
-			sb.WriteString(fmt.Sprintf("- **Exclude Patterns:** %s\n", strings.Join(report.Workplan.DiscoveryPatterns.Exclude, ", ")))
+			fmt.Fprintf(&sb, "- **Exclude Patterns:** %s\n", strings.Join(report.Workplan.DiscoveryPatterns.Exclude, ", "))
 		}
 		if len(report.Workplan.DiscoveryPatterns.ForceInclude) > 0 {
-			sb.WriteString(fmt.Sprintf("- **Force Include Patterns:** %s\n", strings.Join(report.Workplan.DiscoveryPatterns.ForceInclude, ", ")))
+			fmt.Fprintf(&sb, "- **Force Include Patterns:** %s\n", strings.Join(report.Workplan.DiscoveryPatterns.ForceInclude, ", "))
 		}
 
 		sb.WriteString("\n### Execution Summary\n\n")
-		sb.WriteString(fmt.Sprintf("- **Worker Count:** %d\n", report.Workplan.ExecutionSummary.WorkerCount))
-		sb.WriteString(fmt.Sprintf("- **Total Runtime:** %s\n", f.formatDuration(time.Duration(report.Workplan.ExecutionSummary.TotalRuntime))))
+		fmt.Fprintf(&sb, "- **Worker Count:** %d\n", report.Workplan.ExecutionSummary.WorkerCount)
+		fmt.Fprintf(&sb, "- **Total Runtime:** %s\n", f.formatDuration(time.Duration(report.Workplan.ExecutionSummary.TotalRuntime)))
 
 		if len(report.Workplan.ExecutionSummary.CategoryRuntimes) > 0 {
 			sb.WriteString("- **Category Runtimes:**\n")
 			for category, duration := range report.Workplan.ExecutionSummary.CategoryRuntimes {
-				sb.WriteString(fmt.Sprintf("  - %s: %s\n", category, f.formatDuration(time.Duration(duration))))
+				fmt.Fprintf(&sb, "  - %s: %s\n", category, f.formatDuration(time.Duration(duration)))
 			}
 		}
 
 		if len(report.Workplan.FileList) > 0 && len(report.Workplan.FileList) <= 20 {
 			sb.WriteString("\n### Files Processed\n\n")
 			for _, file := range report.Workplan.FileList {
-				sb.WriteString(fmt.Sprintf("- %s\n", file))
+				fmt.Fprintf(&sb, "- %s\n", file)
 			}
 		} else if len(report.Workplan.FileList) > 20 {
-			sb.WriteString(fmt.Sprintf("\n### Files Processed\n\n_Showing first 20 of %d files processed. Use --format json for complete list._\n\n", len(report.Workplan.FileList)))
+			fmt.Fprintf(&sb, "\n### Files Processed\n\n_Showing first 20 of %d files processed. Use --format json for complete list._\n\n", len(report.Workplan.FileList))
 			for _, file := range report.Workplan.FileList[:20] {
-				sb.WriteString(fmt.Sprintf("- %s\n", file))
+				fmt.Fprintf(&sb, "- %s\n", file)
 			}
 		}
 		sb.WriteString("\n")
@@ -803,8 +803,8 @@ func (f *Formatter) generateHTMLFromJSON(report *AssessmentReport) string {
 
 	// Allow explicit override via environment variable
 	if envPath := os.Getenv("GONEAT_TEMPLATE_PATH"); strings.TrimSpace(envPath) != "" {
-		envPath = filepath.Clean(envPath) // Path validation for G304
-		if content, err := os.ReadFile(envPath); err == nil {
+		envPath = filepath.Clean(envPath)                     // Path validation for G304
+		if content, err := os.ReadFile(envPath); err == nil { // #nosec G703 - envPath from GONEAT_TEMPLATE_PATH env var, filepath.Clean applied above
 			return renderHandlebars(string(content), templateData)
 		}
 	}

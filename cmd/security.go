@@ -96,7 +96,7 @@ func init() {
 			}
 			// Re-exec current binary to invoke the canonical security flow with presets
 			argv := []string{"security", "--enable", "secrets", "--tools", "gitleaks", target}
-			c := exec.Command(os.Args[0], argv...) // #nosec G204 - self re-exec for flag consistency
+			c := exec.Command(os.Args[0], argv...) // #nosec G204 G702 - self re-exec; argv constructed internally, not user shell input
 			c.Stdout = cmd.OutOrStdout()
 			c.Stderr = cmd.ErrOrStderr()
 			c.Env = os.Environ()

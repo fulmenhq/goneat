@@ -303,7 +303,7 @@ func copyFile(src, dst string) error {
 	}
 
 	// Create destination file
-	dstFile, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, srcInfo.Mode()) // #nosec G304 - caller validates paths
+	dstFile, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, srcInfo.Mode()) // #nosec G304 G703 - caller validates paths; taint FP for SSOT sync
 	if err != nil {
 		return fmt.Errorf("failed to create destination file: %w", err)
 	}
