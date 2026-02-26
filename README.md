@@ -15,25 +15,25 @@ Beyond formatting and linting, goneat handles the hard parts of CI/CD: dependenc
 
 ## Why goneat?
 
-| Challenge | goneat Solution |
-|-----------|-----------------|
-| **Tool sprawl** | One CLI wraps gofmt, golangci-lint, ruff, biome, clippy, prettier, and more |
-| **Slow CI** | Parallel execution uses all CPU cores—format 800+ files in seconds |
-| **YAML schemas ignored** | Validates YAML-defined schemas that traditional tools skip |
-| **Supply chain risk** | Package cooling blocks newly published dependencies until vetted |
+| Challenge                 | goneat Solution                                                                |
+| ------------------------- | ------------------------------------------------------------------------------ |
+| **Tool sprawl**           | One CLI wraps gofmt, golangci-lint, ruff, biome, clippy, prettier, and more    |
+| **Slow CI**               | Parallel execution uses all CPU cores—format 800+ files in seconds             |
+| **YAML schemas ignored**  | Validates YAML-defined schemas that traditional tools skip                     |
+| **Supply chain risk**     | Package cooling blocks newly published dependencies until vetted               |
 | **Known vulnerabilities** | SBOM-based scanning via grype detects CVEs across Go, Rust, Python, TypeScript |
-| **Hook fragmentation** | Language-neutral hooks infrastructure works across your entire repo |
-| **Agent integration** | JSON Schema-backed output for AI agents and automation |
+| **Hook fragmentation**    | Language-neutral hooks infrastructure works across your entire repo            |
+| **Agent integration**     | JSON Schema-backed output for AI agents and automation                         |
 
 ## Performance at Scale
 
 Real benchmarks on public repositories:
 
-| Repository | Files | Time | CPU Utilization |
-|------------|-------|------|-----------------|
-| [Hugo](https://github.com/gohugoio/hugo) | 883 Go files | 14.4s | 716% (7 cores) |
-| [Crucible](https://github.com/fulmenhq/crucible) | 1,743 YAML/MD files | 7.6s | 651% (6 cores) |
-| [SchemaStore](https://github.com/SchemaStore/schemastore) | 776 JSON schemas | 2.5s | 316% (3 cores) |
+| Repository                                                | Files               | Time  | CPU Utilization |
+| --------------------------------------------------------- | ------------------- | ----- | --------------- |
+| [Hugo](https://github.com/gohugoio/hugo)                  | 883 Go files        | 14.4s | 716% (7 cores)  |
+| [Crucible](https://github.com/fulmenhq/crucible)          | 1,743 YAML/MD files | 7.6s  | 651% (6 cores)  |
+| [SchemaStore](https://github.com/SchemaStore/schemastore) | 776 JSON schemas    | 2.5s  | 316% (3 cores)  |
 
 goneat defaults to 80% CPU utilization with configurable worker pools. Your CI stays fast even on large monorepos.
 
@@ -61,17 +61,17 @@ goneat hooks init && goneat hooks install
 
 goneat provides **language-aware assessment** with automatic tool detection:
 
-| Language | Lint | Format | Typecheck | Tool | Install |
-|----------|------|--------|-----------|------|---------|
-| **Go** | Yes | Yes | — | golangci-lint, gofmt | `brew install golangci-lint` |
-| **Python** | Yes | Yes | — | [ruff](https://docs.astral.sh/ruff/) | `brew install ruff` |
-| **TypeScript/JS** | Yes | Yes | Yes | [biome](https://biomejs.dev/), tsc | `brew install biome` |
-| **Rust** | Yes | Yes | — | cargo-clippy, rustfmt, cargo-deny | `rustup component add clippy rustfmt` |
-| **YAML** | Yes | Yes | — | yamllint, yamlfmt | `brew install yamllint yamlfmt` |
-| **Markdown/JSON** | — | Yes | — | prettier | `npm install -g prettier` |
-| **Shell** | Yes | — | — | shellcheck, shfmt | `brew install shellcheck shfmt` |
-| **Makefiles** | Yes | — | — | checkmake | `brew install checkmake` |
-| **GitHub Actions** | Yes | — | — | actionlint | `brew install actionlint` |
+| Language           | Lint | Format | Typecheck | Tool                                 | Install                               |
+| ------------------ | ---- | ------ | --------- | ------------------------------------ | ------------------------------------- |
+| **Go**             | Yes  | Yes    | —         | golangci-lint, gofmt                 | `brew install golangci-lint`          |
+| **Python**         | Yes  | Yes    | —         | [ruff](https://docs.astral.sh/ruff/) | `brew install ruff`                   |
+| **TypeScript/JS**  | Yes  | Yes    | Yes       | [biome](https://biomejs.dev/), tsc   | `brew install biome`                  |
+| **Rust**           | Yes  | Yes    | —         | cargo-clippy, rustfmt, cargo-deny    | `rustup component add clippy rustfmt` |
+| **YAML**           | Yes  | Yes    | —         | yamllint, yamlfmt                    | `brew install yamllint yamlfmt`       |
+| **Markdown/JSON**  | —    | Yes    | —         | prettier                             | `npm install -g prettier`             |
+| **Shell**          | Yes  | —      | —         | shellcheck, shfmt                    | `brew install shellcheck shfmt`       |
+| **Makefiles**      | Yes  | —      | —         | checkmake                            | `brew install checkmake`              |
+| **GitHub Actions** | Yes  | —      | —         | actionlint                           | `brew install actionlint`             |
 
 **TypeScript type checking** (v0.5.0+): Run `goneat assess --categories typecheck` to catch type errors via `tsc --noEmit`. Complements biome's lint/format with full type analysis.
 
@@ -233,13 +233,13 @@ goneat assess --force-include "tests/fixtures/**"  # Override .gitignore
 
 ## Commands
 
-| Category | Commands |
-|----------|----------|
+| Category       | Commands                                                            |
+| -------------- | ------------------------------------------------------------------- |
 | **Assessment** | `assess`, `format`, `security`, `validate`, `dependencies`, `dates` |
-| **Workflow** | `hooks`, `guardian`, `repository`, `maturity` |
-| **Tooling** | `doctor`, `schema`, `pathfinder`, `ssot` |
-| **Setup** | `init`, `doctor tools init`, `hooks init` |
-| **Support** | `docs`, `version`, `envinfo`, `info` |
+| **Workflow**   | `hooks`, `guardian`, `repository`, `maturity`                       |
+| **Tooling**    | `doctor`, `schema`, `pathfinder`, `ssot`                            |
+| **Setup**      | `init`, `doctor tools init`, `hooks init`                           |
+| **Support**    | `docs`, `version`, `envinfo`, `info`                                |
 
 ```bash
 goneat --help              # Full command list
@@ -308,13 +308,13 @@ Download from [GitHub Releases](https://github.com/fulmenhq/goneat/releases). Al
 
 goneat uses `.goneat/` directory for project configuration:
 
-| File | Purpose |
-|------|---------|
-| `tools.yaml` | Tool manifest for `doctor tools` |
-| `hooks.yaml` | Git hook orchestration |
-| `assess.yaml` | Lint/assessment tuning |
-| `dependencies.yaml` | License and cooling policies |
-| `schema-mappings.yaml` | Config-to-schema mappings |
+| File                   | Purpose                          |
+| ---------------------- | -------------------------------- |
+| `tools.yaml`           | Tool manifest for `doctor tools` |
+| `hooks.yaml`           | Git hook orchestration           |
+| `assess.yaml`          | Lint/assessment tuning           |
+| `dependencies.yaml`    | License and cooling policies     |
+| `schema-mappings.yaml` | Config-to-schema mappings        |
 
 ## Documentation
 

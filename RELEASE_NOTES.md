@@ -17,7 +17,7 @@ Some gosec versions emit non-JSON warnings or progress text on stderr. goneat no
 
 ### Smarter JSON extraction
 
-goneat previously used a greedy `{...}` extraction which could accidentally select brace-delimited, non-JSON fragments (commonly starting with `0`). The extractor now scans for the first *valid* JSON object.
+goneat previously used a greedy `{...}` extraction which could accidentally select brace-delimited, non-JSON fragments (commonly starting with `0`). The extractor now scans for the first _valid_ JSON object.
 
 ### Parse-failure debug artifact
 
@@ -102,11 +102,11 @@ two Go ecosystem changes that affect any project goneat assesses.
 gosec 2.23.0 introduced three inter-procedural taint analysis rules that are
 distinct from the older file-access and subprocess rules:
 
-| Rule | Name | Description |
-|------|------|-------------|
+| Rule | Name                        | Description                       |
+| ---- | --------------------------- | --------------------------------- |
 | G702 | Command injection via taint | Exec calls with taint-traced args |
-| G703 | Path traversal via taint | File ops with taint-traced paths |
-| G704 | SSRF via taint | HTTP calls with taint-traced URLs |
+| G703 | Path traversal via taint    | File ops with taint-traced paths  |
+| G704 | SSRF via taint              | HTTP calls with taint-traced URLs |
 
 These rules trace data flow across function boundaries. **Existing `#nosec G304`
 or `#nosec G204` comments do not suppress G703/G704/G702** — the taint rules must
@@ -161,12 +161,14 @@ In v0.5.2, goneat added meta-schema validation support for all five JSON Schema 
 This meant schemas that passed `goneat schema validate-schema` would fail when used to validate data — an inconsistency that blocked downstream consumers like crucible from validating configs against 2019-09 schemas.
 
 **Before (v0.5.2)**:
+
 ```
 $ goneat validate data --schema schemas/draft-2019-09/config.json data.yaml
 Error: unsupported $schema: only Draft-07 and Draft-2020-12 supported
 ```
 
 **After (v0.5.3)**:
+
 ```
 $ goneat validate data --schema schemas/draft-2019-09/config.json data.yaml
 ✅ Valid
@@ -174,13 +176,13 @@ $ goneat validate data --schema schemas/draft-2019-09/config.json data.yaml
 
 ### Supported Drafts (now consistent across all validation paths)
 
-| Draft | Meta-Schema Validation | Data Validation |
-|-------|----------------------|-----------------|
-| Draft-04 | v0.5.2+ | **v0.5.3+** |
-| Draft-06 | v0.5.2+ | **v0.5.3+** |
-| Draft-07 | Always | Always |
-| 2019-09 | v0.5.2+ | **v0.5.3+** |
-| 2020-12 | Always | Always |
+| Draft    | Meta-Schema Validation | Data Validation |
+| -------- | ---------------------- | --------------- |
+| Draft-04 | v0.5.2+                | **v0.5.3+**     |
+| Draft-06 | v0.5.2+                | **v0.5.3+**     |
+| Draft-07 | Always                 | Always          |
+| 2019-09  | v0.5.2+                | **v0.5.3+**     |
+| 2020-12  | Always                 | Always          |
 
 ## Upgrade Notes
 
@@ -216,13 +218,13 @@ Enterprise codebases accumulate schemas over years. A Kubernetes operator from 2
 
 ### Supported Drafts
 
-| Schema ID | Version | Typical Use |
-|-----------|---------|-------------|
+| Schema ID              | Version         | Typical Use                                |
+| ---------------------- | --------------- | ------------------------------------------ |
 | `json-schema-draft-04` | Draft-04 (2013) | Kubernetes CRDs, legacy enterprise configs |
-| `json-schema-draft-06` | Draft-06 (2017) | Transitional schemas |
-| `json-schema-draft-07` | Draft-07 (2017) | Community standard, most common |
-| `json-schema-2019-09` | 2019-09 | OpenAPI 3.0.x |
-| `json-schema-2020-12` | 2020-12 | OpenAPI 3.1, current standard |
+| `json-schema-draft-06` | Draft-06 (2017) | Transitional schemas                       |
+| `json-schema-draft-07` | Draft-07 (2017) | Community standard, most common            |
+| `json-schema-2019-09`  | 2019-09         | OpenAPI 3.0.x                              |
+| `json-schema-2020-12`  | 2020-12         | OpenAPI 3.1, current standard              |
 
 All meta-schemas are embedded for **air-gapped CI environments**—no network calls required.
 
@@ -271,11 +273,11 @@ This release updates 84 packages through a staged approach designed for stabilit
 
 ### Stage Summary
 
-| Stage | Focus | Risk |
-|-------|-------|------|
-| Stage 1 | Patch versions, `golang.org/x/*` | Low |
-| Stage 2 | Security updates, minor bumps | Low-Medium |
-| Stage 3 | OPA, OpenTelemetry, container ecosystem | Medium |
+| Stage   | Focus                                   | Risk       |
+| ------- | --------------------------------------- | ---------- |
+| Stage 1 | Patch versions, `golang.org/x/*`        | Low        |
+| Stage 2 | Security updates, minor bumps           | Low-Medium |
+| Stage 3 | OPA, OpenTelemetry, container ecosystem | Medium     |
 
 ### Notable Updates
 
@@ -302,7 +304,7 @@ tools:
     description: "Code formatter"
     kind: "node"
     detect_command: "prettier --version"
-    min_version: "3.0.0"        # Accepted (deprecated alias)
+    min_version: "3.0.0" # Accepted (deprecated alias)
     # minimum_version: "3.0.0"  # Preferred
 ```
 
@@ -317,6 +319,7 @@ Fixed a bug where `goneat doctor tools` was not validating `.goneat/tools.yaml` 
 **No breaking CLI changes.** This release is additive and maintenance-focused.
 
 All features from v0.5.0 and v0.5.1 continue to work unchanged:
+
 - Vulnerability scanning (`--vuln`)
 - TypeScript typecheck (`--categories typecheck`)
 - Hooks migration support (`--unset-hookspath`)
@@ -361,10 +364,10 @@ Upgraded `github.com/google/go-licenses` from v1.6.0 to v2.0.1.
 
 ### Vulnerabilities Removed
 
-| GHSA ID | Severity | Package | Description |
-|---------|----------|---------|-------------|
+| GHSA ID             | Severity | Package   | Description                         |
+| ------------------- | -------- | --------- | ----------------------------------- |
 | GHSA-449p-3h89-pw88 | Critical | go-git.v4 | Argument injection via crafted URLs |
-| GHSA-v725-9546-7q7m | High | go-git.v4 | Path traversal in git operations |
+| GHSA-v725-9546-7q7m | High     | go-git.v4 | Path traversal in git operations    |
 
 The go-licenses v2.0.0 release dropped the `go-git.v4` dependency entirely, eliminating these vulnerabilities from goneat's dependency tree.
 
@@ -507,11 +510,11 @@ goneat assess --categories dependencies --fail-on high
 
 Reports are written to `sbom/`:
 
-| File | Description |
-|------|-------------|
-| `sbom/goneat-<timestamp>.cdx.json` | CycloneDX SBOM |
-| `sbom/vuln-<timestamp>.json` | Normalized vulnerability report |
-| `sbom/vuln-<timestamp>.grype.json` | Raw grype output |
+| File                               | Description                     |
+| ---------------------------------- | ------------------------------- |
+| `sbom/goneat-<timestamp>.cdx.json` | CycloneDX SBOM                  |
+| `sbom/vuln-<timestamp>.json`       | Normalized vulnerability report |
+| `sbom/vuln-<timestamp>.grype.json` | Raw grype output                |
 
 ### Policy Configuration
 
@@ -523,14 +526,14 @@ version: v1
 vulnerabilities:
   enabled: true
   tool: grype
-  fail_on: high              # critical|high|medium|low|any|none
-  ignore_unfixed: false      # skip vulns without a fix version
+  fail_on: high # critical|high|medium|low|any|none
+  ignore_unfixed: false # skip vulns without a fix version
   allow:
     - id: CVE-2024-12345
       until: 2026-06-30
       reason: "Vendor patch pending"
       approved_by: "@security"
-  remediation_age:           # grace windows by severity
+  remediation_age: # grace windows by severity
     enabled: true
     max_days:
       critical: 7
@@ -542,21 +545,21 @@ vulnerabilities:
 
 Vulnerability scanning works across all languages that syft supports:
 
-| Language | Detection | Tested |
-|----------|-----------|--------|
-| Go | `go.mod` | Yes |
-| Rust | `Cargo.toml` | Yes |
-| Python | `pyproject.toml`, `requirements.txt` | Yes |
-| TypeScript/JS | `package.json`, `package-lock.json` | Yes |
+| Language      | Detection                            | Tested |
+| ------------- | ------------------------------------ | ------ |
+| Go            | `go.mod`                             | Yes    |
+| Rust          | `Cargo.toml`                         | Yes    |
+| Python        | `pyproject.toml`, `requirements.txt` | Yes    |
+| TypeScript/JS | `package.json`, `package-lock.json`  | Yes    |
 
 ### New Flags
 
-| Flag | Description |
-|------|-------------|
-| `--vuln` | Generate vulnerability report |
-| `--sbom-input <path>` | Scan an existing SBOM (skip regeneration) |
-| `--quiet` | Suppress verbose output |
-| `--fail-on <severity>` | Fail at severity threshold |
+| Flag                   | Description                               |
+| ---------------------- | ----------------------------------------- |
+| `--vuln`               | Generate vulnerability report             |
+| `--sbom-input <path>`  | Scan an existing SBOM (skip regeneration) |
+| `--quiet`              | Suppress verbose output                   |
+| `--fail-on <severity>` | Fail at severity threshold                |
 
 ### Example: CI Pipeline
 
@@ -596,10 +599,10 @@ typecheck:
   enabled: true
   typescript:
     enabled: true
-    config: tsconfig.json    # custom tsconfig path
-    strict: false            # override strict mode
-    skip_lib_check: true     # faster checks
-    file_mode: false         # single-file mode for --include
+    config: tsconfig.json # custom tsconfig path
+    strict: false # override strict mode
+    skip_lib_check: true # faster checks
+    file_mode: false # single-file mode for --include
 ```
 
 ### File Mode
@@ -637,11 +640,11 @@ $ goneat hooks install
 
 ### New Flags
 
-| Flag | Description |
-|------|-------------|
-| `--unset-hookspath` | Clear `core.hooksPath` and install to `.git/hooks/` |
-| `--respect-hookspath` | Install hooks to the custom path instead |
-| `--force` | Alias for `--unset-hookspath` |
+| Flag                  | Description                                         |
+| --------------------- | --------------------------------------------------- |
+| `--unset-hookspath`   | Clear `core.hooksPath` and install to `.git/hooks/` |
+| `--respect-hookspath` | Install hooks to the custom path instead            |
+| `--force`             | Alias for `--unset-hookspath`                       |
 
 ### Migration from Husky
 
@@ -782,14 +785,14 @@ goneat dependencies --licenses
 
 Tools are now organized into language-specific scopes:
 
-| Scope | Purpose | Key Tools |
-|-------|---------|-----------|
-| `foundation` | Language-agnostic | ripgrep, jq, yq, yamlfmt, prettier, yamllint, shfmt, shellcheck, actionlint, checkmake, minisign |
-| `go` | Go development | go, go-licenses, golangci-lint, goimports, gofmt, gosec, govulncheck |
-| `rust` | Rust Cargo plugins | cargo-deny, cargo-audit |
-| `python` | Python tools | ruff |
-| `typescript` | TS/JS tools | biome |
-| `sbom` | SBOM & vuln scanning | syft, grype |
+| Scope        | Purpose              | Key Tools                                                                                        |
+| ------------ | -------------------- | ------------------------------------------------------------------------------------------------ |
+| `foundation` | Language-agnostic    | ripgrep, jq, yq, yamlfmt, prettier, yamllint, shfmt, shellcheck, actionlint, checkmake, minisign |
+| `go`         | Go development       | go, go-licenses, golangci-lint, goimports, gofmt, gosec, govulncheck                             |
+| `rust`       | Rust Cargo plugins   | cargo-deny, cargo-audit                                                                          |
+| `python`     | Python tools         | ruff                                                                                             |
+| `typescript` | TS/JS tools          | biome                                                                                            |
+| `sbom`       | SBOM & vuln scanning | syft, grype                                                                                      |
 
 ### Cargo Tool Installer
 

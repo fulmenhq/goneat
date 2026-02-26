@@ -36,7 +36,6 @@ foundation_tools:
     version_scheme: "semver"
     minimum_version: "14.0.0"
     recommended_version: "14.1.0"
-
   - name: jq
     description: "JSON processor - used in CI/CD scripts"
     kind: "system"
@@ -50,7 +49,6 @@ foundation_tools:
     version_scheme: "semver"
     minimum_version: "1.7.0"
     recommended_version: "1.7.1"
-
   - name: yq
     description: "YAML processor"
     kind: "system"
@@ -64,7 +62,6 @@ foundation_tools:
     version_scheme: "semver"
     minimum_version: "4.40.0"
     recommended_version: "4.44.0"
-
   # Formatters (cross-language)
   - name: yamlfmt
     description: "YAML formatter"
@@ -79,7 +76,6 @@ foundation_tools:
     version_scheme: "semver"
     minimum_version: "0.16.0"
     recommended_version: "0.21.0"
-
   # NOTE: prettier is in foundation because it's our ONLY Markdown formatter.
   # Every repo has README.md, docs/, etc. that need formatting.
   # For TypeScript/JavaScript projects, biome handles TS/JS/JSON formatting.
@@ -96,7 +92,6 @@ foundation_tools:
     version_scheme: "semver"
     minimum_version: "3.0.0"
     recommended_version: "3.8.0"
-
   # Linters (cross-language)
   - name: yamllint
     description: "YAML syntax linting"
@@ -111,7 +106,6 @@ foundation_tools:
     version_scheme: "semver"
     minimum_version: "1.33.0"
     recommended_version: "1.38.0"
-
   - name: shfmt
     description: "Shell script formatter"
     kind: "go"
@@ -122,7 +116,6 @@ foundation_tools:
     package_managers:
       all: ["go-install"]
     auto_install_safe: true
-
   - name: shellcheck
     description: "Shell script analyzer"
     kind: "system"
@@ -136,7 +129,6 @@ foundation_tools:
     version_scheme: "semver"
     minimum_version: "0.9.0"
     recommended_version: "0.11.0"
-
   - name: actionlint
     description: "GitHub Actions workflow linter"
     kind: "go"
@@ -150,7 +142,6 @@ foundation_tools:
     version_scheme: "semver"
     minimum_version: "1.7.0"
     recommended_version: "1.7.8"
-
   - name: checkmake
     description: "Makefile linter"
     kind: "go"
@@ -164,7 +155,6 @@ foundation_tools:
     version_scheme: "semver"
     minimum_version: "0.2.0"
     recommended_version: "0.3.0"
-
   # Signing
   - name: minisign
     description: "Minimal signing utility for release artifacts"
@@ -176,7 +166,6 @@ foundation_tools:
       linux: ["brew"]
       windows: ["scoop"]
     auto_install_safe: true
-
 # =============================================================================
 # GO SCOPE - Go development tools
 # =============================================================================
@@ -194,7 +183,6 @@ go_tools:
     version_scheme: "semver"
     minimum_version: "1.21.0"
     recommended_version: "1.23.0"
-
   - name: go-licenses
     description: "License compliance for Go dependencies"
     kind: "go"
@@ -204,7 +192,6 @@ go_tools:
     package_managers:
       all: ["go-install"]
     auto_install_safe: true
-
   - name: golangci-lint
     description: "Fast linters runner for Go"
     kind: "go"
@@ -220,7 +207,6 @@ go_tools:
     version_scheme: "semver"
     minimum_version: "2.0.0"
     recommended_version: "2.10.0"
-
   - name: goimports
     description: "Go import formatter"
     kind: "go"
@@ -230,7 +216,6 @@ go_tools:
     package_managers:
       all: ["go-install"]
     auto_install_safe: true
-
   - name: gofmt
     description: "Go formatter (bundled with Go toolchain)"
     kind: "bundled-go"
@@ -239,7 +224,6 @@ go_tools:
     package_managers:
       all: ["builtin"]
     auto_install_safe: true
-
   - name: gosec
     description: "Go security checker"
     kind: "go"
@@ -255,7 +239,6 @@ go_tools:
     version_scheme: "semver"
     minimum_version: "2.18.0"
     recommended_version: "2.23.0"
-
   - name: govulncheck
     description: "Go vulnerability checker"
     kind: "go"
@@ -269,7 +252,6 @@ go_tools:
     version_scheme: "semver"
     minimum_version: "1.0.0"
     recommended_version: "1.1.0"
-
 # =============================================================================
 # RUST SCOPE - Rust development tools
 # =============================================================================
@@ -289,7 +271,6 @@ rust_tools:
     version_scheme: "semver"
     minimum_version: "0.14.0"
     recommended_version: "0.16.0"
-
   - name: cargo-audit
     description: "Rust security vulnerability scanner (RustSec advisories)"
     kind: "cargo"
@@ -303,7 +284,6 @@ rust_tools:
     version_scheme: "semver"
     minimum_version: "0.18.0"
     recommended_version: "0.21.0"
-
 # =============================================================================
 # PYTHON SCOPE - Python development tools
 # =============================================================================
@@ -322,7 +302,6 @@ python_tools:
     version_scheme: "semver"
     minimum_version: "0.8.0"
     recommended_version: "0.15.0"
-
 # =============================================================================
 # TYPESCRIPT SCOPE - TypeScript/JavaScript development tools
 # =============================================================================
@@ -342,7 +321,6 @@ typescript_tools:
     version_scheme: "semver"
     minimum_version: "2.0.0"
     recommended_version: "2.4.0"
-
   - name: tsc
     description: "TypeScript compiler for type checking"
     kind: "node"
@@ -355,7 +333,6 @@ typescript_tools:
     version_scheme: "semver"
     minimum_version: "5.0.0"
     recommended_version: "5.7.0"
-
 # =============================================================================
 # SECURITY SCOPE - Cross-language security tools
 # =============================================================================
@@ -373,7 +350,6 @@ security_tools:
     package_managers:
       all: ["go-install"]
     auto_install_safe: true
-
 # =============================================================================
 # SBOM SCOPE - Software Bill of Materials
 # =============================================================================
@@ -395,7 +371,6 @@ sbom_tools:
     version_scheme: "semver"
     minimum_version: "1.0.0"
     recommended_version: "1.42.0"
-
   - name: grype
     description: "Vulnerability scanner for container images and SBOMs"
     kind: "system"
@@ -411,7 +386,6 @@ sbom_tools:
     version_scheme: "semver"
     minimum_version: "0.80.0"
     recommended_version: "0.109.0"
-
 # =============================================================================
 # CICD SCOPE - Local CI/CD runner tools (optional)
 # =============================================================================
@@ -427,7 +401,6 @@ cicd_tools:
       all: []
     auto_install_safe: false
     verify_only: true
-
   - name: act
     description: "Run GitHub Actions locally (requires docker)"
     kind: "system"
@@ -441,7 +414,6 @@ cicd_tools:
       windows: ["scoop", "winget"]
     auto_install_safe: true
     prerequisites: ["docker"]
-
 # =============================================================================
 # SCOPE DEFINITIONS
 # =============================================================================
@@ -453,14 +425,13 @@ scopes:
       - jq
       - yq
       - yamlfmt
-      - prettier      # Markdown formatter (only one we have)
+      - prettier # Markdown formatter (only one we have)
       - yamllint
       - shfmt
       - shellcheck
       - actionlint
       - checkmake
       - minisign
-
   go:
     description: "Go development tools"
     tools:
@@ -471,41 +442,34 @@ scopes:
       - gofmt
       - gosec
       - govulncheck
-
   rust:
     description: "Rust development tools (Cargo plugins)"
     tools:
       - cargo-deny
       - cargo-audit
-
   python:
     description: "Python development tools"
     tools:
       - ruff
-
   typescript:
     description: "TypeScript/JavaScript development tools"
     tools:
       - biome
       - tsc
-
   security:
     description: "Cross-language security scanning"
     tools:
       - gitleaks
-
   sbom:
     description: "Software Bill of Materials (SBOM) generation and vulnerability scanning"
     tools:
       - syft
       - grype
-
   cicd:
     description: "Local CI/CD runner tools (optional)"
     tools:
       - docker
       - act
-
   all:
     description: "All tools from all scopes (for polyglot projects)"
     tools:
