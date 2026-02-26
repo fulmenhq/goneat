@@ -17,12 +17,12 @@ All Rust tools are installed via rustup or cargo.
 
 ## Tools
 
-| Tool | Category | Install |
-|------|----------|---------|
-| `rustfmt` | format | `rustup component add rustfmt` |
-| `cargo-clippy` | lint | `rustup component add clippy` |
-| `cargo-deny` | dependencies, license | `cargo install cargo-deny` |
-| `cargo-audit` | security | `cargo install cargo-audit` |
+| Tool           | Category              | Install                        |
+| -------------- | --------------------- | ------------------------------ |
+| `rustfmt`      | format                | `rustup component add rustfmt` |
+| `cargo-clippy` | lint                  | `rustup component add clippy`  |
+| `cargo-deny`   | dependencies, license | `cargo install cargo-deny`     |
+| `cargo-audit`  | security              | `cargo install cargo-audit`    |
 
 ```bash
 goneat doctor tools --scope rust --install --yes
@@ -41,8 +41,8 @@ goneat assess --categories format         # check only
 
 ### Common Findings
 
-| Finding | Meaning | Fix |
-|---------|---------|-----|
+| Finding                 | Meaning                        | Fix                                |
+| ----------------------- | ------------------------------ | ---------------------------------- |
 | "File needs formatting" | rustfmt would rewrite the file | Run `cargo fmt` or `goneat format` |
 
 ## Lint
@@ -75,10 +75,10 @@ fn my_func(...) {}
 
 ### Common Findings
 
-| Rule | Meaning |
-|------|---------|
-| `clippy::clone_on_copy` | Using `.clone()` on a type that implements `Copy`. |
-| `clippy::unwrap_used` | Discourages `.unwrap()` in production code in favor of proper error handling. |
+| Rule                    | Meaning                                                                       |
+| ----------------------- | ----------------------------------------------------------------------------- |
+| `clippy::clone_on_copy` | Using `.clone()` on a type that implements `Copy`.                            |
+| `clippy::unwrap_used`   | Discourages `.unwrap()` in production code in favor of proper error handling. |
 
 ## Dependencies
 

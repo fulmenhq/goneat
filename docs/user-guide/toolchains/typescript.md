@@ -16,10 +16,10 @@ Both tools are optional — goneat skips them gracefully if not installed.
 
 ## Tools
 
-| Tool | Category | Install |
-|------|----------|---------|
+| Tool    | Category     | Install                                                 |
+| ------- | ------------ | ------------------------------------------------------- |
 | `biome` | lint, format | `brew install biome` or `npm install -g @biomejs/biome` |
-| `tsc` | typecheck | bundled with TypeScript (`npm install -g typescript`) |
+| `tsc`   | typecheck    | bundled with TypeScript (`npm install -g typescript`)   |
 
 ```bash
 goneat doctor tools --scope typescript --install --yes
@@ -51,16 +51,16 @@ Found a nested root configuration, but there's already a root configuration.
 
 ### Common Findings
 
-| Finding | Meaning | Fix |
-|---------|---------|-----|
+| Finding                 | Meaning                      | Fix                        |
+| ----------------------- | ---------------------------- | -------------------------- |
 | "File needs formatting" | biome would rewrite the file | Run `goneat format <file>` |
 
 ### Version Notes
 
-| biome version | Notable behavior change |
-|---------------|------------------------|
-| 2.0 | Removed `--check` flag; goneat now uses exit codes + JSON output |
-| 2.4 | Changed diagnostic JSON format; goneat updated parser in v0.5.4 |
+| biome version | Notable behavior change                                          |
+| ------------- | ---------------------------------------------------------------- |
+| 2.0           | Removed `--check` flag; goneat now uses exit codes + JSON output |
+| 2.4           | Changed diagnostic JSON format; goneat updated parser in v0.5.4  |
 
 ## Lint
 
@@ -74,6 +74,7 @@ goneat assess --categories lint --new-issues-only
 Linting configuration is defined in the `linter` section of `biome.json`. `goneat` extracts diagnostic information from `biome`'s JSON output, translating internal severities to standard `goneat` severity levels.
 
 You can suppress rules using inline comments:
+
 ```typescript
 // biome-ignore lint/suspicious/noExplicitAny: needed for interop
 const data: any = JSON.parse(input);
@@ -81,11 +82,11 @@ const data: any = JSON.parse(input);
 
 ### Common Findings
 
-| Rule | Meaning |
-|------|---------|
-| `noExplicitAny` | Usage of the `any` type is discouraged. |
-| `useConst` | Variables that are never reassigned should use `const`. |
-| `noUnusedVariables` | A declared variable is never used in the file. |
+| Rule                | Meaning                                                 |
+| ------------------- | ------------------------------------------------------- |
+| `noExplicitAny`     | Usage of the `any` type is discouraged.                 |
+| `useConst`          | Variables that are never reassigned should use `const`. |
+| `noUnusedVariables` | A declared variable is never used in the file.          |
 
 ## Typecheck
 
@@ -109,18 +110,18 @@ typecheck:
   enabled: true
   typescript:
     enabled: true
-    config: tsconfig.json    # path to tsconfig
-    strict: false            # override strict mode
+    config: tsconfig.json # path to tsconfig
+    strict: false # override strict mode
     skip_lib_check: true
-    file_mode: false         # single-file mode for --include
+    file_mode: false # single-file mode for --include
 ```
 
 ### Common Findings
 
-| Error | Meaning |
-|-------|---------|
+| Error    | Meaning                                 |
+| -------- | --------------------------------------- |
 | `TS2322` | Type 'X' is not assignable to type 'Y'. |
-| `TS2531` | Object is possibly 'null'. |
+| `TS2531` | Object is possibly 'null'.              |
 
 ## Known Behaviors and Edge Cases
 

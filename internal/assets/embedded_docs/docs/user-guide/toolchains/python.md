@@ -16,8 +16,8 @@ fast tool that replaces flake8, isort, and black in one binary.
 
 ## Tools
 
-| Tool | Category | Install |
-|------|----------|---------|
+| Tool   | Category     | Install                                   |
+| ------ | ------------ | ----------------------------------------- |
 | `ruff` | lint, format | `brew install ruff` or `pip install ruff` |
 
 ```bash
@@ -33,7 +33,7 @@ goneat format                             # fix formatting
 goneat assess --categories format         # check only
 ```
 
-When formatting, `goneat` executes `ruff format` to resolve styling issues. If import sorting is enabled in your `ruff` configuration (usually via the `I` rule in `pyproject.toml`), `ruff check --fix --select I` logic is also addressed. 
+When formatting, `goneat` executes `ruff format` to resolve styling issues. If import sorting is enabled in your `ruff` configuration (usually via the `I` rule in `pyproject.toml`), `ruff check --fix --select I` logic is also addressed.
 
 `goneat` automatically discovers `*.py` files, respecting standard `.gitignore` and `.goneatignore` conventions. If both `black` and `ruff` exist in a project, `goneat` prefers `ruff` for formatting when executing Python toolchains.
 
@@ -51,10 +51,10 @@ line-ending = "auto"
 
 ### Common Findings
 
-| Finding | Meaning | Fix |
-|---------|---------|-----|
+| Finding                 | Meaning                                                                  | Fix                        |
+| ----------------------- | ------------------------------------------------------------------------ | -------------------------- |
 | "File needs formatting" | ruff formatter would rewrite the file to meet Black-compatible standards | Run `goneat format <file>` |
-| "Imports not sorted" | `ruff` (with `I` rules enabled) detected unsorted imports | Run `goneat format <file>` |
+| "Imports not sorted"    | `ruff` (with `I` rules enabled) detected unsorted imports                | Run `goneat format <file>` |
 
 ## Lint
 
@@ -82,18 +82,19 @@ ignore = ["E501"]
 ```
 
 To suppress findings inline, use standard `# noqa` syntax:
+
 ```python
 x = 1 / 0  # noqa: F841
 ```
 
 ### Common Findings
 
-| Rule | Meaning |
-|------|---------|
+| Rule   | Meaning                                                            |
+| ------ | ------------------------------------------------------------------ |
 | `E501` | Line too long (often disabled in favor of trusting the formatter). |
-| `F401` | Variable is declared but never used. |
-| `F403` | Module imported but unused. |
-| `I001` | Import block is un-sorted or un-formatted. |
+| `F401` | Variable is declared but never used.                               |
+| `F403` | Module imported but unused.                                        |
+| `I001` | Import block is un-sorted or un-formatted.                         |
 
 ## Known Behaviors and Edge Cases
 

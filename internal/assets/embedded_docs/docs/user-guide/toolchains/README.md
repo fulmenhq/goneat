@@ -17,17 +17,17 @@ how to configure behavior, and known version-sensitive edge cases.
 
 ## Coverage at a Glance
 
-| Language | Lint | Format | Typecheck | Security | Dependency |
-|----------|------|--------|-----------|----------|------------|
-| **Go** | golangci-lint | gofmt / goimports | — | gosec, govulncheck | go-licenses |
-| **TypeScript / JS** | biome | biome | tsc | — | — |
-| **Python** | ruff | ruff | — | — | — |
-| **Rust** | cargo-clippy | rustfmt | — | cargo-audit | cargo-deny |
-| **YAML** | yamllint | yamlfmt | — | — | — |
-| **Shell** | shellcheck | shfmt | — | — | — |
-| **Markdown / JSON** | — | prettier | — | — | — |
-| **Makefiles** | checkmake | — | — | — | — |
-| **GitHub Actions** | actionlint | — | — | — | — |
+| Language            | Lint          | Format            | Typecheck | Security           | Dependency  |
+| ------------------- | ------------- | ----------------- | --------- | ------------------ | ----------- |
+| **Go**              | golangci-lint | gofmt / goimports | —         | gosec, govulncheck | go-licenses |
+| **TypeScript / JS** | biome         | biome             | tsc       | —                  | —           |
+| **Python**          | ruff          | ruff              | —         | —                  | —           |
+| **Rust**            | cargo-clippy  | rustfmt           | —         | cargo-audit        | cargo-deny  |
+| **YAML**            | yamllint      | yamlfmt           | —         | —                  | —           |
+| **Shell**           | shellcheck    | shfmt             | —         | —                  | —           |
+| **Markdown / JSON** | —             | prettier          | —         | —                  | —           |
+| **Makefiles**       | checkmake     | —                 | —         | —                  | —           |
+| **GitHub Actions**  | actionlint    | —                 | —         | —                  | —           |
 
 Across-language security scanning (SBOM + CVE) is handled separately by
 `goneat dependencies --vuln` (syft + grype) and is not language-scoped.
