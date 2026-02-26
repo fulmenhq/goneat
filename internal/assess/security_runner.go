@@ -5,6 +5,7 @@ package assess
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -12,7 +13,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -373,23 +373,38 @@ func (r *SecurityAssessmentRunner) runGosec(ctx context.Context, moduleRoot stri
 			}
 
 			args = append(args, dirArg)
+
+			runOnce := func(runCtx context.Context) ([]byte, []byte, error) {
+				cmd := exec.CommandContext(runCtx, "gosec", args...)
+				cmd.Dir = moduleRoot
+				var stdout bytes.Buffer
+				var stderr bytes.Buffer
+				cmd.Stdout = &stdout
+				cmd.Stderr = &stderr
+				err := cmd.Run()
+				return stdout.Bytes(), stderr.Bytes(), err
+			}
+
 			rctx, cancel := r.effectiveToolContext(ctx, config.Timeout, config.SecurityGosecTimeout)
 			defer cancel()
-			cmd := exec.CommandContext(rctx, "gosec", args...)
-			cmd.Dir = moduleRoot
-			output, err := cmd.CombinedOutput()
+			stdout, stderr, err := runOnce(rctx)
 			if err != nil {
-				// gosec returns non-zero when issues found; still parse output if present
+				// gosec returns non-zero when issues found; still parse JSON output if present
 				logger.Debug(fmt.Sprintf("gosec(%s) returned error: %v", dirArg, err))
 			}
-			trimmed := strings.TrimSpace(string(output))
+
+			primary := stdout
+			if len(bytes.TrimSpace(primary)) == 0 {
+				primary = stderr
+			}
 			// Treat empty output as no issues without warning
-			if trimmed == "" {
+			if len(bytes.TrimSpace(primary)) == 0 {
 				results <- shardResult{issues: nil, err: nil}
 				return
 			}
+
 			// Parse with retry on malformed non-empty output
-			iss, supps, perr := r.parseGosecOutputWithSuppressions(output)
+			iss, supps, perr := r.parseGosecOutputWithSuppressions(primary)
 			// Post-filter to included files when scoped (reduces noise from dir-level scans)
 			if len(config.IncludeFiles) > 0 && len(iss) > 0 {
 				var fIss []Issue
@@ -411,16 +426,17 @@ func (r *SecurityAssessmentRunner) runGosec(ctx context.Context, moduleRoot stri
 						return
 					case <-time.After(backoff):
 					}
-					cmd2 := exec.CommandContext(rctx, "gosec", args...)
-					cmd2.Dir = moduleRoot
-					output2, _ := cmd2.CombinedOutput()
-					trimmed2 := strings.TrimSpace(string(output2))
-					if trimmed2 == "" {
+					stdout2, stderr2, _ := runOnce(rctx)
+					primary2 := stdout2
+					if len(bytes.TrimSpace(primary2)) == 0 {
+						primary2 = stderr2
+					}
+					if len(bytes.TrimSpace(primary2)) == 0 {
 						// No issues; consider success
 						results <- shardResult{issues: nil, err: nil}
 						return
 					}
-					iss2, supps2, perr2 := r.parseGosecOutputWithSuppressions(output2)
+					iss2, supps2, perr2 := r.parseGosecOutputWithSuppressions(primary2)
 					if perr2 == nil {
 						results <- shardResult{issues: iss2, suppressions: supps2, err: nil}
 						return
@@ -428,7 +444,11 @@ func (r *SecurityAssessmentRunner) runGosec(ctx context.Context, moduleRoot stri
 					backoff *= 2
 				}
 				// If still failing after retries, report once
-				logger.Warn(fmt.Sprintf("gosec(%s) parse failed after retries: %v", dirArg, perr))
+				if p := persistGosecParseFailure(dirArg, stdout, stderr); p != "" {
+					logger.Warn(fmt.Sprintf("gosec(%s) parse failed after retries (debug: %s): %v", dirArg, p, perr))
+				} else {
+					logger.Warn(fmt.Sprintf("gosec(%s) parse failed after retries: %v", dirArg, perr))
+				}
 			}
 			results <- shardResult{issues: iss, suppressions: supps, err: perr}
 		}(d)
@@ -670,12 +690,12 @@ func (r *SecurityAssessmentRunner) parseGosecOutputWithSuppressions(output []byt
 
 	var report gosecReport
 	if err := json.Unmarshal(output, &report); err != nil {
-		// Some versions print extra text around JSON; try to extract JSON object
-		cleaned := extractJSONObject(string(output))
-		if cleaned == "" {
+		// Some versions print extra text around JSON; try to extract a valid JSON object
+		cleaned := extractFirstJSONObjectBytes(output)
+		if len(cleaned) == 0 {
 			return nil, nil, fmt.Errorf("failed to parse gosec output: %v", err)
 		}
-		if uerr := json.Unmarshal([]byte(cleaned), &report); uerr != nil {
+		if uerr := json.Unmarshal(cleaned, &report); uerr != nil {
 			return nil, nil, fmt.Errorf("failed to parse cleaned gosec output: %v", uerr)
 		}
 	}
@@ -1101,12 +1121,54 @@ func getInt(m map[string]interface{}, keys []string) int {
 	return 0
 }
 
-// extractJSONObject attempts to extract a top-level JSON object from noisy output
-func extractJSONObject(s string) string {
-	// naive extraction of the first {...} block
-	re := regexp.MustCompile(`\{[\s\S]*\}`)
-	match := re.FindString(s)
-	return match
+// extractFirstJSONObjectBytes extracts the first valid JSON object from noisy output.
+// It ignores brace-delimited non-JSON fragments like "{0 packages}".
+func extractFirstJSONObjectBytes(b []byte) []byte {
+	for i := 0; i < len(b); i++ {
+		if b[i] != '{' {
+			continue
+		}
+		j := i + 1
+		for j < len(b) {
+			switch b[j] {
+			case ' ', '\n', '\r', '\t':
+				j++
+				continue
+			default:
+				goto afterWS
+			}
+		}
+		continue
+	afterWS:
+		if j >= len(b) || b[j] != '"' {
+			continue
+		}
+		dec := json.NewDecoder(bytes.NewReader(b[i:]))
+		var raw json.RawMessage
+		if err := dec.Decode(&raw); err == nil && len(raw) > 0 {
+			return raw
+		}
+	}
+	return nil
+}
+
+func persistGosecParseFailure(dirArg string, stdout, stderr []byte) string {
+	// Best-effort: write debug output to a temp file for diagnosis.
+	safe := strings.NewReplacer(string(os.PathSeparator), "-", ":", "-", "..", "-").Replace(dirArg)
+	if safe == "" {
+		safe = "shard"
+	}
+	f, err := os.CreateTemp("", "goneat-gosec-"+safe+"-*.log")
+	if err != nil {
+		return ""
+	}
+	defer func() { _ = f.Close() }()
+	_, _ = f.WriteString("# gosec parse failure debug\n")
+	_, _ = f.WriteString("## stdout\n")
+	_, _ = f.Write(stdout)
+	_, _ = f.WriteString("\n\n## stderr\n")
+	_, _ = f.Write(stderr)
+	return f.Name()
 }
 
 // uniqueDirs returns unique directory paths for the given file list

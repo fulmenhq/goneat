@@ -62,6 +62,18 @@ func TestParseGosecOutput_Noisy(t *testing.T) {
 	}
 }
 
+func TestParseGosecOutput_IgnoresBraceStatsNoise(t *testing.T) {
+	runner := NewSecurityAssessmentRunner()
+	noisy := []byte("stats: {0 packages, 0 issues}\n{\n  \"Issues\": [ { \"severity\": \"low\", \"details\": \"x\", \"file\": \"x.go\", \"line\": 1, \"rule_id\": \"G000\" } ]\n}\n")
+	issues, err := runner.parseGosecOutput(noisy)
+	if err != nil {
+		t.Fatalf("unexpected error parsing brace-stats noise: %v", err)
+	}
+	if len(issues) != 1 {
+		t.Fatalf("expected 1 issue, got %d", len(issues))
+	}
+}
+
 func TestUniqueDirs(t *testing.T) {
 	runner := NewSecurityAssessmentRunner()
 	files := []string{
