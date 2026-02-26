@@ -19,6 +19,7 @@ import (
 	"runtime"
 
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/pattern"
 )
 
 // SecurityAssessmentRunner implements AssessmentRunner for vulnerability/code security scanners
@@ -32,18 +33,17 @@ func NewSecurityAssessmentRunner() *SecurityAssessmentRunner {
 }
 
 // parseIgnorePatternsForGosec parses .goneatignore and .gitignore files to extract
-// directory patterns suitable for gosec's -exclude-dir option
+// directory patterns suitable for gosec's -exclude-dir option.
+// Patterns are converted from glob to regex syntax and validated before use.
 func parseIgnorePatternsForGosec(moduleRoot string) []string {
-	var excludeDirs []string
+	var rawPatterns []string
 
-	// Common ignore files to check
 	ignoreFiles := []string{
 		filepath.Join(moduleRoot, ".goneatignore"),
 		filepath.Join(moduleRoot, ".gitignore"),
 		filepath.Join(moduleRoot, ".goneat", "ignore"),
 	}
 
-	// Directory patterns that should be excluded (converted to relative paths for gosec)
 	dirPatterns := []string{
 		"node_modules",
 		"vendor",
@@ -60,12 +60,11 @@ func parseIgnorePatternsForGosec(moduleRoot string) []string {
 		"temp",
 	}
 
-	// Check if ignore files exist and add their directory patterns
 	for _, ignoreFile := range ignoreFiles {
 		// #nosec G304 -- ignoreFile from controlled list of known ignore files (.goneatignore, .gitignore, .goneat/ignore)
 		if file, err := os.Open(ignoreFile); err == nil {
 			defer func() {
-				_ = file.Close() // Ignore close errors for ignore file parsing - defensive programming
+				_ = file.Close()
 			}()
 			scanner := bufio.NewScanner(file)
 			for scanner.Scan() {
@@ -74,27 +73,41 @@ func parseIgnorePatternsForGosec(moduleRoot string) []string {
 					continue
 				}
 
-				// Convert patterns ending with / to directory exclusions
 				if strings.HasSuffix(line, "/") || strings.Contains(line, "*/") {
-					// Remove trailing slash and wildcards for gosec
-					cleanPattern := strings.TrimSuffix(line, "/")
-					cleanPattern = strings.ReplaceAll(cleanPattern, "*/", "")
-					if cleanPattern != "" && !sliceContainsString(excludeDirs, cleanPattern) {
-						excludeDirs = append(excludeDirs, cleanPattern)
+					if !sliceContainsString(rawPatterns, line) {
+						rawPatterns = append(rawPatterns, line)
 					}
 				}
 			}
 		}
 	}
 
-	// Add common directory patterns if not already present
-	for _, pattern := range dirPatterns {
-		if !sliceContainsString(excludeDirs, pattern) {
-			excludeDirs = append(excludeDirs, pattern)
+	for _, pattern_ := range dirPatterns {
+		if !sliceContainsString(rawPatterns, pattern_) {
+			rawPatterns = append(rawPatterns, pattern_)
 		}
 	}
 
-	return excludeDirs
+	regexes, decisions := pattern.ToGosecExcludeRegexDecisions(rawPatterns)
+	skipCount := 0
+	var skipReasons []string
+	for _, d := range decisions {
+		if d.Accepted {
+			logger.Debug(fmt.Sprintf("gosec exclude pattern converted: raw=%q normalized=%q regex=%q",
+				d.Raw, d.Normalized, d.Regex))
+			continue
+		}
+		skipCount++
+		skipReasons = append(skipReasons, d.Reason)
+		logger.Debug(fmt.Sprintf("gosec exclude pattern skipped: raw=%q normalized=%q reason=%s",
+			d.Raw, d.Normalized, d.Reason))
+	}
+	if skipCount > 0 {
+		logger.Warn(fmt.Sprintf("gosec exclude conversion completed with skips: total=%d converted=%d skipped=%d reasons=%v",
+			len(rawPatterns), len(regexes), skipCount, skipReasons))
+	}
+
+	return regexes
 }
 
 // sliceContainsString checks if a slice contains a string
@@ -348,6 +361,7 @@ func (r *SecurityAssessmentRunner) runGosec(ctx context.Context, moduleRoot stri
 		err          error
 	}
 	results := make(chan shardResult, len(dirs))
+	excludeDirs := parseIgnorePatternsForGosec(moduleRoot)
 
 	// Simple bounded worker pool via semaphore
 	sem := make(chan struct{}, workers)
@@ -365,8 +379,6 @@ func (r *SecurityAssessmentRunner) runGosec(ctx context.Context, moduleRoot stri
 				args = append(args, "-track-suppressions")
 			}
 
-			// Add directory exclusions based on .goneatignore and .gitignore patterns
-			excludeDirs := parseIgnorePatternsForGosec(moduleRoot)
 			logger.Debug(fmt.Sprintf("gosec exclude dirs for %s: %v", dirArg, excludeDirs))
 			for _, dir := range excludeDirs {
 				args = append(args, "-exclude-dir", dir)

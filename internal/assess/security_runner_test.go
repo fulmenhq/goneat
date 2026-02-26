@@ -1,8 +1,15 @@
 package assess
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/fulmenhq/goneat/pkg/logger"
 )
 
 func TestParseGosecOutput_WellFormed(t *testing.T) {
@@ -90,5 +97,53 @@ func TestUniqueDirs(t *testing.T) {
 	dirs2 := runner.uniqueDirs(nil)
 	if len(dirs2) != 1 || dirs2[0] != "./..." {
 		t.Fatalf("expected fallback ./..., got %v", dirs2)
+	}
+}
+
+func TestParseIgnorePatternsForGosec_ConvertsAndLogsSkips(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "goneat-gosec-ignore-test")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
+	gitignore := strings.Join([]string{
+		"*.egg-info/",
+		"!vendor/",
+		"**/dist/",
+		"",
+	}, "\n")
+	if err := os.WriteFile(filepath.Join(tempDir, ".gitignore"), []byte(gitignore), 0600); err != nil {
+		t.Fatalf("failed to write .gitignore: %v", err)
+	}
+
+	if err := logger.Initialize(logger.Config{Level: logger.DebugLevel, Component: "goneat"}); err != nil {
+		t.Fatalf("failed to init logger: %v", err)
+	}
+	var logBuf bytes.Buffer
+	logger.SetOutput(&logBuf)
+	defer logger.SetOutput(io.Discard)
+
+	excludes := parseIgnorePatternsForGosec(tempDir)
+
+	if !sliceContainsString(excludes, `[^/]*\.egg-info`) {
+		t.Fatalf("expected converted egg-info regex in excludes, got %v", excludes)
+	}
+	if !sliceContainsString(excludes, `(.*/)?dist`) {
+		t.Fatalf("expected converted doublestar dist regex in excludes, got %v", excludes)
+	}
+	if !sliceContainsString(excludes, "vendor") {
+		t.Fatalf("expected default vendor exclude present, got %v", excludes)
+	}
+
+	logs := logBuf.String()
+	if !strings.Contains(logs, "gosec exclude pattern skipped:") {
+		t.Fatalf("expected skip debug log, got logs: %s", logs)
+	}
+	if !strings.Contains(logs, "reason=negation_not_supported") {
+		t.Fatalf("expected negation reason in logs, got logs: %s", logs)
+	}
+	if !strings.Contains(logs, "gosec exclude conversion completed with skips:") {
+		t.Fatalf("expected summary warn log, got logs: %s", logs)
 	}
 }
