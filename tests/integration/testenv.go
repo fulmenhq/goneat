@@ -206,7 +206,7 @@ func (env *TestEnv) runCommand(name string, args ...string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, name, args...)
+	cmd := exec.CommandContext(ctx, name, args...) // #nosec G204 - test helper; name and args are controlled by test framework methods (e.g. running goneat subcommands), not user-controlled input
 	cmd.Dir = env.Dir
 
 	output, err := cmd.CombinedOutput()

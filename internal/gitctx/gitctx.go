@@ -194,7 +194,7 @@ func runGit(dir string, args ...string) string {
 }
 
 func runGitBytes(dir string, args ...string) []byte {
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command("git", args...) // #nosec G204 - internal git wrapper; args are hardcoded git subcommands in all callers (e.g. "rev-parse", "status"), not user-controlled input
 	cmd.Dir = dir
 	out, _ := cmd.Output()
 	return out

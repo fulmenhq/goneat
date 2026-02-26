@@ -74,7 +74,7 @@ func (f *GitRepoFixture) runGitCommand(args ...string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd := exec.CommandContext(ctx, "git", args...) // #nosec G204 - test helper; args are literal git subcommands in test setup (e.g. "init", "add", "commit"), not user-controlled input
 	cmd.Dir = f.repoDir
 
 	output, err := cmd.CombinedOutput()

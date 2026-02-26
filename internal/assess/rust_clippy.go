@@ -295,7 +295,7 @@ func gitChangedFilesSince(dir, base string) (map[string]struct{}, error) {
 }
 
 func gitCommandOutput(dir string, args ...string) ([]byte, error) {
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command("git", args...) // #nosec G204 - internal git wrapper; args are git subcommands constructed by the clippy assessment runner, not user-controlled input
 	cmd.Dir = dir
 	return cmd.Output()
 }

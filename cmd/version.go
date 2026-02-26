@@ -793,7 +793,7 @@ func createGitTag(version string, noOp bool) error {
 		return nil
 	}
 
-	cmd := exec.Command("git", "tag", version)
+	cmd := exec.Command("git", "tag", version) // #nosec G204 - version is a validated semver string from the goneat version bump workflow, not user-controlled input
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to create git tag %s: %v", version, err)
 	}

@@ -661,11 +661,11 @@ func shouldAutoOpen(cfg BrowserSettings) bool {
 func browserCommand(url string) (*exec.Cmd, error) {
 	switch runtime.GOOS {
 	case "darwin":
-		return exec.Command("open", url), nil
+		return exec.Command("open", url), nil // #nosec G204 - url is a goneat-generated localhost approval URL (127.0.0.1:port/approve/token); "open" is the macOS system browser launcher
 	case "windows":
-		return exec.Command("rundll32", "url.dll,FileProtocolHandler", url), nil
+		return exec.Command("rundll32", "url.dll,FileProtocolHandler", url), nil // #nosec G204 - url is a goneat-generated localhost approval URL; rundll32 is the Windows system browser launcher
 	case "linux":
-		return exec.Command("xdg-open", url), nil
+		return exec.Command("xdg-open", url), nil // #nosec G204 - url is a goneat-generated localhost approval URL; xdg-open is the Linux system browser launcher
 	default:
 		return nil, fmt.Errorf("unsupported platform for browser auto-open")
 	}

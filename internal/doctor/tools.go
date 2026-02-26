@@ -681,7 +681,7 @@ func detectVersion(t Tool) string {
 }
 
 func tryCommand(name string, args ...string) (string, bool) {
-	cmd := exec.Command(name, args...)
+	cmd := exec.Command(name, args...) // #nosec G204 - probes installed tool versions; name and args are from the internal doctor tool registry (e.g. "golangci-lint --version"), not user-controlled input
 	var out bytes.Buffer
 	var errb bytes.Buffer
 	cmd.Stdout = &out

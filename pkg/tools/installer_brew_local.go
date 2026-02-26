@@ -31,7 +31,7 @@ func InstallUserLocalBrew(prefix string, interactive bool, dryRun bool) error {
 	downloadURL := "https://github.com/Homebrew/brew/tarball/master"
 
 	cmd := exec.Command("curl", "-L", downloadURL)
-	tarCmd := exec.Command("tar", "xz", "--strip", "1", "-C", prefix)
+	tarCmd := exec.Command("tar", "xz", "--strip", "1", "-C", prefix) // #nosec G204 - prefix is either a caller-supplied installation directory or defaults to ~/homebrew-local; not user-controlled raw input
 
 	pipe, err := cmd.StdoutPipe()
 	if err != nil {
