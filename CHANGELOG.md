@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.5] - 2026-02-26
+
+### Fixed
+
+- **gosec output parsing robustness**: gosec JSON parsing now prefers stdout (avoids stderr noise), ignores brace-delimited non-JSON fragments (e.g. "{0 packages, 0 issues}"), and persists raw output to a temp file when parsing fails for easier diagnosis.
+
 ## [v0.5.4] - 2026-02-25
 
 ### Fixed
