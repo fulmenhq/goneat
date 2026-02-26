@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Biome nested config handling (`assess`)**: `goneat assess --categories format` and Biome lint assess paths now group files by resolved Biome context and run per-group, preventing `failed to parse biome json: no json output from biome` in nested-config repos and improving error detail when Biome emits non-JSON output.
 - **Incremental lint fix-mode regression**: restored `--fix --new-issues-only` behavior so Biome fix pass executes before incremental reporting.
 
+### Toolchain Updates
+
+#### Go
+
+- **gosec 2.23.0**: Three inter-procedural taint analysis rules are now active — G702 (command injection), G703 (path traversal), G704 (SSRF). These trace data flow across call boundaries and are distinct from the older G204/G304 rules; existing `#nosec G304` comments do **not** suppress G703. Projects running gosec ≥ 2.23.0 will see new findings in code that intentionally passes env-var paths to `os.Open` or config-derived URLs to `http.Client`. Use targeted `#nosec G702`/`G703`/`G704` with justification for acknowledged patterns.
+- **golangci-lint 2.10**: QF1012 (`WriteString(fmt.Sprintf(…))` → `fmt.Fprintf`) is now reported across more code patterns. With the default `max-same-issues: 3`, findings rotate across files per run; set `max-same-issues: 0` in `.golangci.yml` to surface all instances at once.
+
 ## [v0.5.3] - 2026-02-09
 
 ### Fixed

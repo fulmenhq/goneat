@@ -7,6 +7,7 @@ topics:
       - user-guide/bootstrap/**/*.md
       - user-guide/commands/**/*.md
       - user-guide/tutorials/**/*.md
+      - user-guide/toolchains/**/*.md
       - user-guide/workflows/assess-code.md
       - user-guide/workflows/dependency-protection.md
       - user-guide/workflows/dependency-gating.md

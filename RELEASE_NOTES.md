@@ -56,6 +56,40 @@ Detection is case-insensitive to cover variant yamlfmt output formats.
 Biome lint fix mode now executes before incremental `--new-issues-only` reporting,
 preserving expected behavior for combined workflows.
 
+## Toolchain Updates
+
+goneat dogfoods its own `doctor tools --upgrade` infrastructure. v0.5.4 absorbed
+two Go ecosystem changes that affect any project goneat assesses.
+
+### Go: gosec 2.23.0 — Taint Analysis
+
+gosec 2.23.0 introduced three inter-procedural taint analysis rules that are
+distinct from the older file-access and subprocess rules:
+
+| Rule | Name | Description |
+|------|------|-------------|
+| G702 | Command injection via taint | Exec calls with taint-traced args |
+| G703 | Path traversal via taint | File ops with taint-traced paths |
+| G704 | SSRF via taint | HTTP calls with taint-traced URLs |
+
+These rules trace data flow across function boundaries. **Existing `#nosec G304`
+or `#nosec G204` comments do not suppress G703/G704/G702** — the taint rules must
+be listed explicitly:
+
+```go
+// Before: suppresses file-access rule, not taint analysis
+if _, err := os.Stat(path); err == nil { // #nosec G304
+
+// After: suppresses both
+if _, err := os.Stat(path); err == nil { // #nosec G304 G703 - path from validated config
+```
+
+### Go: golangci-lint 2.10 — QF1012 Expansion
+
+golangci-lint 2.10 expands QF1012 to flag `WriteString(fmt.Sprintf(…))` across
+more patterns. With the default `max-same-issues: 3`, findings rotate across files
+per run. Set `max-same-issues: 0` to surface all at once.
+
 ## Upgrade Notes
 
 Drop-in replacement for v0.5.3. No config migration required.
@@ -67,6 +101,7 @@ build (`make build install`) before validating downstream repositories.
 
 - gemini-3.1-pro (devlead)
 - Claude Opus 4.6 (devlead)
+- Claude Sonnet 4.6 (releng)
 - @3leapsdave (supervision)
 
 ---
