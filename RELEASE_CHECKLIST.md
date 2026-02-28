@@ -40,7 +40,8 @@ goneat's release automation requires specific sibling repositories for package m
 parent/
   ├── goneat/              # This repository
   ├── homebrew-tap/        # Required for `make update-homebrew-formula`
-  └── homebrew-tap-tools/  # Optional (improves local dev workflow)
+  ├── homebrew-tap-tools/  # Optional (improves local dev workflow)
+  └── scoop-bucket/        # Required for `make update-scoop-manifest`
 ```
 
 **Setup:**
@@ -49,10 +50,11 @@ parent/
 cd ..  # Navigate to parent directory
 git clone https://github.com/fulmenhq/homebrew-tap.git
 git clone https://github.com/fulmenhq/homebrew-tap-tools.git  # Optional
+git clone https://github.com/fulmenhq/scoop-bucket.git
 cd goneat
 ```
 
-**Why this matters**: The `make release-upload` target automatically updates the Homebrew formula after uploading release artifacts. If `../homebrew-tap` is not present, the release process will skip formula updates and provide manual instructions.
+**Why this matters**: The `make release-upload` target automatically updates Homebrew and Scoop metadata after uploading release artifacts. If `../homebrew-tap` is missing, release-upload fails and you must update Homebrew manually. If `../scoop-bucket` is missing, Scoop update is skipped with a warning and requires manual follow-up.
 
 ## Pre-Release Preparation
 
@@ -407,13 +409,13 @@ All signature and key files are now ready in `dist/release/`:
 
 ### Option A: Automated Upload (Recommended)
 
-Includes automatic Homebrew formula updates.
+Includes automatic Homebrew formula and Scoop manifest updates.
 
 ```bash
 cd ../..  # Return to repo root
 # CRITICAL: Ensure GONEAT_GPG_HOMEDIR matches what was used during signing (PGP only)
 export GONEAT_GPG_HOMEDIR=${GNUPGHOME:-$HOME/.gnupg}
-make release-upload  # Uploads artifacts AND updates ../homebrew-tap formula
+make release-upload  # Uploads artifacts AND updates Homebrew + Scoop metadata
 ```
 
 ### Option B: Manual Upload
@@ -478,13 +480,14 @@ diff "$TMPDIR"/SHA256SUMS.local "$TMPDIR"/SHA256SUMS.remote  # Validates uploade
 
 ### Update Package Manager Formulas
 
-If using Option B (manual upload), update Homebrew formula separately:
+If using Option B (manual upload), update package manager metadata separately:
 
 ```bash
 make update-homebrew-formula  # Requires ../homebrew-tap
+make update-scoop-manifest    # Requires ../scoop-bucket
 ```
 
-**Note**: `make release-upload` (Option A) automatically generates release notes (`make release-notes`) and calls `make update-homebrew-formula` after uploading artifacts. If using Option B (manual upload), run these targets separately.
+**Note**: `make release-upload` (Option A) automatically generates release notes (`make release-notes`) and calls both `make update-homebrew-formula` and `make update-scoop-manifest` after uploading artifacts. If using Option B (manual upload), run these targets separately.
 
 **See**: [`docs/security/release-signing.md`](docs/security/release-signing.md) for detailed signing procedures.
 
@@ -588,6 +591,12 @@ goneat doctor tools --scope foundation
 - All platform checksums updated correctly
 - Formula passes audit: `cd ../homebrew-tap && make audit APP=goneat`
 - Test installation works: `cd ../homebrew-tap && make test APP=goneat`
+
+**Scoop Manifest (if updated):**
+
+- Manifest version matches release version
+- Windows amd64 hash matches SHA256SUMS
+- Manifest parses: `jq . ../scoop-bucket/bucket/goneat.json`
 
 ### Communication
 
@@ -700,8 +709,9 @@ make prepush
 - `make build-all` - Cross-platform binary builds
 - `make package` - Release artifact packaging
 - `make release-notes` - Generate release notes artifact
-- `make release-upload` - Upload artifacts, generate release notes, and update Homebrew formula (v0.3.9+, enhanced v0.3.11)
+- `make release-upload` - Upload artifacts, generate release notes, and update Homebrew + Scoop metadata (v0.3.9+, Scoop added v0.5.7)
 - `make update-homebrew-formula` - Update Homebrew tap formula (v0.3.10+)
+- `make update-scoop-manifest` - Update Scoop bucket manifest (v0.5.7+)
 
 **Scripts:**
 
@@ -716,8 +726,9 @@ make prepush
 - Automated release creation
 - ✅ Binary upload automation (v0.3.9: `make release-upload`)
 - ✅ Homebrew formula updates (v0.3.10: `make update-homebrew-formula`)
+- ✅ Scoop manifest updates (v0.5.7: `make update-scoop-manifest`)
 - Native `goneat formula` command (v0.3.11+: multi-package-manager support)
-- Scoop and Winget manifest updates (v0.4.x+)
+- Winget manifest updates (future)
 - Changelog generation from commits
 - Automated signing integration (requires CI infrastructure)
 
@@ -824,8 +835,10 @@ git push origin main v0.3.6
 - ✅ Verify license audit passes
 - ✅ Sign all release artifacts (v0.3.4+)
 - ✅ Clone ../homebrew-tap for automated formula updates (v0.3.10+)
+- ✅ Clone ../scoop-bucket for automated manifest updates (v0.5.7+)
 - ✅ Use `make release-upload` for complete release process (v0.3.9+)
 - ✅ Verify Homebrew formula updates after release (v0.3.10+)
+- ✅ Verify Scoop manifest updates after release (v0.5.7+)
 - ✅ Wait for pkg.go.dev indexing before announcing
 
 **DON'T:**
@@ -837,6 +850,7 @@ git push origin main v0.3.6
 - ❌ Release with failing license audit
 - ❌ Skip documentation updates
 - ❌ Manually update Homebrew formulas (use `make update-homebrew-formula`)
+- ❌ Manually update Scoop manifests (use `make update-scoop-manifest`)
 
 ## Contact Information
 
@@ -855,7 +869,7 @@ git push origin main v0.3.6
 
 ---
 
-**Document Version**: 2.2 (Best Practice Reference Guide)
-**Last Updated**: 2025-12-02 (v0.3.11 - release-upload now generates release notes automatically)
+**Document Version**: 2.3 (Best Practice Reference Guide)
+**Last Updated**: 2026-02-28 (v0.5.7 - Scoop manifest automation integrated into release-upload)
 **Next Review**: With each major release or significant process change
 **Format**: General reference (not version-specific checklist)

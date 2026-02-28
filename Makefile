@@ -44,7 +44,7 @@ LDFLAGS := -ldflags "\
 	-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
-.PHONY: help build hooks-ensure clean clean-go clean-testcache clean-vendor clean-coverage clean-os-metadata clean-backups clean-release clean-all test fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites prerequisites-build-goneat prerequisites-check-go prerequisites-check-git prerequisites-check-tools prerequisites-install-tools sync-crucible sync-ssot verify-crucible verify-crucible-clean verify-schemas bootstrap tools lint release-check release-prepare release-build release-clean release-verify-checksums check-all prepush precommit update-homebrew-formula verify-release-key local-ci-check local-ci all
+.PHONY: help build hooks-ensure clean clean-go clean-testcache clean-vendor clean-coverage clean-os-metadata clean-backups clean-release clean-all test fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites prerequisites-build-goneat prerequisites-check-go prerequisites-check-git prerequisites-check-tools prerequisites-install-tools sync-crucible sync-ssot verify-crucible verify-crucible-clean verify-schemas bootstrap tools lint release-check release-prepare release-build release-clean release-verify-checksums check-all prepush precommit update-homebrew-formula update-scoop-manifest verify-release-key local-ci-check local-ci all
 
 # Default target
 all: clean build format-all
@@ -933,6 +933,9 @@ release-upload: release-notes verify-release-key ## Upload signed release artifa
 	@echo ""
 	@echo "📝 Updating Homebrew formula..."
 	@$(MAKE) update-homebrew-formula
+	@echo ""
+	@echo "📝 Updating Scoop manifest..."
+	@$(MAKE) update-scoop-manifest
 
 update-homebrew-formula: ## Update Homebrew formula with new version and checksums (requires ../homebrew-tap)
 	@echo "Updating Homebrew formula for $(BINARY_NAME) $(VERSION)..."
@@ -968,6 +971,42 @@ update-homebrew-formula: ## Update Homebrew formula with new version and checksu
 	@echo "   2. Test formula:    cd ../homebrew-tap && make test APP=$(BINARY_NAME)"
 	@echo "   3. Commit formula:  cd ../homebrew-tap && git add Formula/$(BINARY_NAME).rb && git commit"
 	@echo "   4. Push to tap:     cd ../homebrew-tap && git push"
+
+update-scoop-manifest: ## Update Scoop manifest with new version and checksums (requires ../scoop-bucket)
+	@echo "Updating Scoop manifest for $(BINARY_NAME) $(VERSION)..."
+	@echo ""
+	@echo "ℹ️  Note: This target requires ../scoop-bucket to be cloned as a sibling directory"
+	@echo "   Repository: https://github.com/fulmenhq/scoop-bucket"
+	@echo "   Expected path: ../scoop-bucket"
+	@echo ""
+	@if [ ! -d "../scoop-bucket" ]; then \
+		echo "⚠️  Warning: ../scoop-bucket directory not found"; \
+		echo ""; \
+		echo "Please clone the scoop-bucket repository:"; \
+		echo "  cd .. && git clone https://github.com/fulmenhq/scoop-bucket.git"; \
+		echo ""; \
+		echo "Directory structure should be:"; \
+		echo "  parent/"; \
+		echo "    ├── goneat/           (this repository)"; \
+		echo "    ├── homebrew-tap/     (sibling repository)"; \
+		echo "    └── scoop-bucket/     (sibling repository)"; \
+		echo ""; \
+		echo "Skipping Scoop manifest update."; \
+	elif [ ! -f "../scoop-bucket/bucket/$(BINARY_NAME).json" ]; then \
+		echo "❌ Error: Manifest file not found: ../scoop-bucket/bucket/$(BINARY_NAME).json"; \
+		exit 1; \
+	else \
+		echo "✅ Sibling repository found: ../scoop-bucket"; \
+		echo "   Calling scoop-bucket update target..."; \
+		cd ../scoop-bucket && $(MAKE) update-goneat VERSION=$(VERSION); \
+		echo ""; \
+		echo "✅ Scoop manifest updated successfully!"; \
+		echo ""; \
+		echo "📋 Next steps:"; \
+		echo "   1. Review changes:  cd ../scoop-bucket && git diff bucket/$(BINARY_NAME).json"; \
+		echo "   2. Commit manifest: cd ../scoop-bucket && git add bucket/$(BINARY_NAME).json && git commit"; \
+		echo "   3. Push to bucket:  cd ../scoop-bucket && git push"; \
+	fi
 
 release: release-prep release-tag release-push ## Complete release process
 	@echo "🎉 Release v$(VERSION) completed!"

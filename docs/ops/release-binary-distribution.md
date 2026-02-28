@@ -3,7 +3,7 @@ title: "Release SOP: Binary Distribution"
 description: "Step-by-step procedure to build, verify, and publish Goneat binaries and package manager updates"
 author: "@arch-eagle"
 date: "2025-09-02"
-last_updated: "2025-09-02"
+last_updated: "2026-02-28"
 status: "draft"
 tags: ["release", "distribution", "sop", "brew", "scoop", "aur"]
 ---
@@ -48,11 +48,19 @@ Outputs archives and `SHA256SUMS` under `dist/release/`.
 4. Update package managers
 
 - Homebrew
-  - In `fulmenhq/tap`, update the formula using `packaging/homebrew/goneat.rb.template` as reference.
+  - In `fulmenhq/homebrew-tap`, update the formula using `packaging/homebrew/goneat.rb.template` as reference.
   - Populate URLs and SHA256 for macOS (amd64/arm64) and Linux (amd64/arm64).
 - Scoop
-  - In `fulmenhq/scoop-bucket`, update `goneat.json` using `packaging/scoop/goneat.json.template`.
-  - Update version and hashes for `windows_amd64` and (optionally) `windows_arm64` when provided.
+  - From this repo, run:
+    ```bash
+    make update-scoop-manifest VERSION=0.5.7
+    ```
+  - Or from the bucket repo directly:
+    ```bash
+    cd ../scoop-bucket && make update-goneat VERSION=0.5.7
+    ```
+  - Review manifest output: `jq . ../scoop-bucket/bucket/goneat.json`
+  - Commit and push bucket update: `cd ../scoop-bucket && make release APP=goneat VERSION=0.5.7`
 - Arch AUR (`goneat-bin`)
   - Update `PKGBUILD` using `packaging/aur/PKGBUILD.template`.
   - Set `sha256sums_*` values and run `updpkgsums`, update `.SRCINFO`.
