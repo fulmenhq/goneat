@@ -31,8 +31,8 @@ This standard defines how Fulmen ecosystem CLIs are packaged and distributed acr
 
 ## Supported channels
 
-- Homebrew: official tap (`3leaps/tap`) with per-project formulae
-- Scoop: bucket repository (`3leaps/scoop-bucket`) manifests
+- Homebrew: official tap (`fulmenhq/tap`) with per-project formulae
+- Scoop: bucket repository (`fulmenhq/scoop-bucket`) manifests
 - Arch Linux: AUR `-bin` packages (preferred) backed by GitHub Releases
 - Direct installers: `install.sh` (curl | bash) and `install.ps1` (PowerShell)
 - GitHub Releases: canonical source of signed artifacts
@@ -67,15 +67,15 @@ This standard defines how Fulmen ecosystem CLIs are packaged and distributed acr
    - Create GitHub Release for tag; upload artifacts, checksums, signature
    - Include release notes and lifecycle status snippet
 5. Package managers
-   - Homebrew: update formula in `3leaps/tap`
-   - Scoop: update manifest in `3leaps/scoop-bucket`
+   - Homebrew: update formula in `fulmenhq/tap`
+   - Scoop: update manifest in `fulmenhq/scoop-bucket`
    - AUR: update `goneat-bin` with new version and checksums
 6. Announce
    - Update docs; post in appropriate channels
 
 ## Homebrew (tap) standard
 
-- Tap: `3leaps/tap`
+- Tap: `fulmenhq/tap`
 - Formula naming: `goneat.rb`
 - Formula pulls tarball from GitHub Release and validates SHA256
 - Bottles optional initially; fallback to tarballs
@@ -83,7 +83,7 @@ This standard defines how Fulmen ecosystem CLIs are packaged and distributed acr
 
 ## Scoop (bucket) standard
 
-- Bucket: `3leaps/scoop-bucket`
+- Bucket: `fulmenhq/scoop-bucket`
 - Manifest: `goneat.json`
 - Keys: `version`, `architecture` (urls + sha256), `bin`, `checkver`, `autoupdate`
 - Update flow: automation updates `version` and `autoupdate` URLs/checksums

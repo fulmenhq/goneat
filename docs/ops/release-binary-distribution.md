@@ -48,10 +48,10 @@ Outputs archives and `SHA256SUMS` under `dist/release/`.
 4. Update package managers
 
 - Homebrew
-  - In `3leaps/tap`, update the formula using `packaging/homebrew/goneat.rb.template` as reference.
+  - In `fulmenhq/tap`, update the formula using `packaging/homebrew/goneat.rb.template` as reference.
   - Populate URLs and SHA256 for macOS (amd64/arm64) and Linux (amd64/arm64).
 - Scoop
-  - In `3leaps/scoop-bucket`, update `goneat.json` using `packaging/scoop/goneat.json.template`.
+  - In `fulmenhq/scoop-bucket`, update `goneat.json` using `packaging/scoop/goneat.json.template`.
   - Update version and hashes for `windows_amd64` and (optionally) `windows_arm64` when provided.
 - Arch AUR (`goneat-bin`)
   - Update `PKGBUILD` using `packaging/aur/PKGBUILD.template`.
