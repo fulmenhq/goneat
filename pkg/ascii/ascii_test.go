@@ -8,6 +8,8 @@ import (
 )
 
 func TestBox(t *testing.T) {
+	forceTestTerminal(t, "ghostty")
+
 	tests := []struct {
 		name  string
 		lines []string
@@ -150,6 +152,8 @@ func TestDrawBoxEmpty(t *testing.T) {
 }
 
 func TestStringWidth(t *testing.T) {
+	forceTestTerminal(t, "ghostty")
+
 	tests := []struct {
 		input string
 		want  int

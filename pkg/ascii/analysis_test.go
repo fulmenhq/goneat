@@ -157,6 +157,8 @@ func TestAnalyzeBoxAlignment(t *testing.T) {
 }
 
 func TestAnalyzeEmojiSequences(t *testing.T) {
+	forceTestTerminal(t, "ghostty")
+
 	tests := []struct {
 		name     string
 		lines    []StringInfoLine
