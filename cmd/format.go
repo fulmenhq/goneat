@@ -24,6 +24,7 @@ import (
 	formatpkg "github.com/fulmenhq/goneat/pkg/format"
 	"github.com/fulmenhq/goneat/pkg/format/finalizer"
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/safeio"
 	"github.com/fulmenhq/goneat/pkg/tools"
 	"github.com/fulmenhq/goneat/pkg/work"
 	"github.com/spf13/cobra"
@@ -534,7 +535,7 @@ func applyFinalizer(file string, checkOnly bool, options finalizer.Normalization
 
 	if changed {
 		// Write back the finalized content
-		if err := os.WriteFile(file, finalized, 0600); err != nil {
+		if err := safeio.WriteFileValidated(file, finalized, 0o600); err != nil {
 			return fmt.Errorf("failed to write finalized file: %v", err)
 		}
 		// Return an error to indicate changes were made (finalizer takes precedence)
@@ -620,7 +621,7 @@ func formatGoFile(file string, checkOnly bool, cfg *config.Config, useGoimports 
 		}
 
 		logger.Info(fmt.Sprintf("Applying Go formatting changes to %s", file))
-		return os.WriteFile(file, final, 0600)
+		return safeio.WriteFileValidated(file, final, 0o600)
 	}
 
 	return fmt.Errorf("already formatted")
@@ -741,7 +742,7 @@ func formatYAMLFile(file string, checkOnly bool, cfg *config.Config, options fin
 			return fmt.Errorf("finalizer error: %v", err)
 		}
 		if changed {
-			if err := os.WriteFile(file, finalized, 0600); err != nil {
+			if err := safeio.WriteFileValidated(file, finalized, 0o600); err != nil {
 				return fmt.Errorf("failed to write finalized file: %v", err)
 			}
 		}
@@ -849,7 +850,7 @@ func formatJSONFile(file string, checkOnly bool, cfg *config.Config, options fin
 	}
 
 	logger.Info(fmt.Sprintf("Applying JSON formatting changes to %s", file))
-	return os.WriteFile(file, []byte(formatted), 0600)
+	return safeio.WriteFileValidated(file, []byte(formatted), 0o600)
 }
 
 func formatXMLFile(file string, checkOnly bool, cfg *config.Config, options finalizer.NormalizationOptions, xmlIndent string, xmlIndentCount int, xmlSizeWarningMB int) error {
@@ -930,7 +931,7 @@ func formatXMLFile(file string, checkOnly bool, cfg *config.Config, options fina
 	}
 
 	logger.Info(fmt.Sprintf("Applying XML formatting changes to %s", file))
-	return os.WriteFile(file, []byte(formatted), 0600)
+	return safeio.WriteFileValidated(file, []byte(formatted), 0o600)
 }
 
 func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config, options finalizer.NormalizationOptions) error {
@@ -1051,7 +1052,7 @@ func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config, options
 	}
 
 	logger.Info(fmt.Sprintf("Applying Markdown formatting changes to %s", file))
-	return os.WriteFile(file, []byte(formatted), 0600)
+	return safeio.WriteFileValidated(file, []byte(formatted), 0o600)
 }
 
 // formatPythonFile formats a Python file using ruff format
@@ -1116,7 +1117,7 @@ func formatPythonFile(file string, checkOnly bool, _ *config.Config, options fin
 			return fmt.Errorf("finalizer error: %v", err)
 		}
 		if changed {
-			if err := os.WriteFile(file, finalized, 0600); err != nil {
+			if err := safeio.WriteFileValidated(file, finalized, 0o600); err != nil {
 				return fmt.Errorf("failed to write finalized file: %v", err)
 			}
 			formattedContent = finalized
@@ -1208,7 +1209,7 @@ func formatJavaScriptFile(file string, checkOnly bool, _ *config.Config, options
 			return fmt.Errorf("finalizer error: %v", err)
 		}
 		if changed {
-			if err := os.WriteFile(file, finalized, 0600); err != nil {
+			if err := safeio.WriteFileValidated(file, finalized, 0o600); err != nil {
 				return fmt.Errorf("failed to write finalized file: %v", err)
 			}
 			formattedContent = finalized
@@ -1671,7 +1672,7 @@ func writePlanToFile(manifest *work.WorkManifest, filename string) error {
 		return err
 	}
 
-	return os.WriteFile(filename, data, 0600)
+	return safeio.WriteFileValidated(filename, data, 0o600)
 }
 
 // checkBiomeVersionCmd verifies that biome is version 2.x or higher.

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/safeio"
 	"github.com/pelletier/go-toml/v2"
 )
 
@@ -148,7 +149,7 @@ func (m *PythonManager) UpdateVersion(file, version string) error {
 		return fmt.Errorf("no version field found to update in [project] or [tool.poetry] sections")
 	}
 
-	if err := os.WriteFile(file, []byte(content), 0600); err != nil {
+	if err := safeio.WriteFileValidated(file, []byte(content), 0o600); err != nil {
 		return fmt.Errorf("failed to write updated pyproject.toml: %w", err)
 	}
 

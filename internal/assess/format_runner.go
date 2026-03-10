@@ -15,6 +15,7 @@ import (
 
 	"github.com/fulmenhq/goneat/pkg/format/finalizer"
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/safeio"
 	"github.com/fulmenhq/goneat/pkg/work"
 )
 
@@ -158,7 +159,7 @@ func (r *FormatAssessmentRunner) Assess(ctx context.Context, target string, conf
 			if normalizeErr != nil {
 				logger.Warn(fmt.Sprintf("Failed to normalize %s: %v", cleanFilePath, normalizeErr))
 			} else if changed {
-				if writeErr := os.WriteFile(cleanFilePath, finalized, 0600); writeErr != nil {
+				if writeErr := safeio.WriteFileValidated(cleanFilePath, finalized, 0o600); writeErr != nil {
 					logger.Warn(fmt.Sprintf("Failed to write normalized file %s: %v", cleanFilePath, writeErr))
 				} else {
 					content = finalized

@@ -1218,7 +1218,7 @@ func (r *SecurityAssessmentRunner) effectiveToolContext(ctx context.Context, glo
 		// No timeout configured; return original context with no-op cancel
 		return ctx, func() {}
 	}
-	return context.WithTimeout(ctx, eff)
+	return context.WithTimeout(ctx, eff) // #nosec G118 -- helper returns cancel func so callers can defer it at the call site
 }
 
 // init registers the security assessment runner

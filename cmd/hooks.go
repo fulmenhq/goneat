@@ -20,6 +20,7 @@ import (
 	"github.com/fulmenhq/goneat/internal/guardian"
 	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/safeio"
 	"github.com/spf13/cobra"
 	"github.com/xeipuuv/gojsonschema"
 	"gopkg.in/yaml.v3"
@@ -841,7 +842,7 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(dst, data, 0700) // #nosec G306 - Git hooks require execute permissions
+	return safeio.WriteFileValidated(dst, data, 0o700)
 }
 
 // detectHooksPathOverride checks if core.hooksPath is set in git config.

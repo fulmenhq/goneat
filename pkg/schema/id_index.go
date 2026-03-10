@@ -73,11 +73,16 @@ func BuildIDIndexFromRefDirs(refDirs []string) (*IDIndex, error) {
 			return nil, fmt.Errorf("ref-dir %s is not a directory", cleanDir)
 		}
 
-		err = filepath.WalkDir(cleanDir, func(path string, d fs.DirEntry, walkErr error) error {
+		root, err := os.OpenRoot(cleanDir)
+		if err != nil {
+			return nil, fmt.Errorf("open ref-dir root %s: %w", cleanDir, err)
+		}
+
+		err = fs.WalkDir(root.FS(), ".", func(path string, d fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr
 			}
-			if d.IsDir() {
+			if path == "." || d.IsDir() {
 				return nil
 			}
 
@@ -89,7 +94,7 @@ func BuildIDIndexFromRefDirs(refDirs []string) (*IDIndex, error) {
 				return nil
 			}
 
-			fileBytes, err := os.ReadFile(path) // #nosec G304 -- path discovered by walking a sanitized directory
+			fileBytes, err := root.ReadFile(path)
 			if err != nil {
 				return fmt.Errorf("read ref schema %s: %w", path, err)
 			}
@@ -113,8 +118,12 @@ func BuildIDIndexFromRefDirs(refDirs []string) (*IDIndex, error) {
 			idx.entries[id] = IDIndexEntry{ID: id, Path: path, Normalized: normalized}
 			return nil
 		})
+		closeErr := root.Close()
 		if err != nil {
 			return nil, err
+		}
+		if closeErr != nil {
+			return nil, fmt.Errorf("close ref-dir root %s: %w", cleanDir, closeErr)
 		}
 	}
 

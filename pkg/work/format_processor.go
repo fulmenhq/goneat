@@ -14,6 +14,7 @@ import (
 	formatpkg "github.com/fulmenhq/goneat/pkg/format"
 	"github.com/fulmenhq/goneat/pkg/format/finalizer"
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/safeio"
 )
 
 // FormatProcessor implements WorkItemProcessor for formatting operations
@@ -225,7 +226,7 @@ func (p *FormatProcessor) formatGoFile(filePath string) error {
 	}
 
 	// Write back the formatted content
-	if err := os.WriteFile(filePath, finalContent, 0600); err != nil {
+	if err := safeio.WriteFileValidated(filePath, finalContent, 0o600); err != nil {
 		return fmt.Errorf("failed to write formatted content to %s: %w", filePath, err)
 	}
 
@@ -355,7 +356,7 @@ func (p *FormatProcessor) formatYAMLFile(filePath string) error {
 		}
 
 		if finalizerChanged {
-			if err := os.WriteFile(filePath, finalContent, 0600); err != nil {
+			if err := safeio.WriteFileValidated(filePath, finalContent, 0o600); err != nil {
 				return fmt.Errorf("failed to write finalized content to %s: %w", filePath, err)
 			}
 		}
@@ -391,7 +392,7 @@ func (p *FormatProcessor) formatYAMLFileFinalizerOnly(filePath string) error {
 	}
 
 	if changed {
-		if err := os.WriteFile(filePath, finalContent, 0600); err != nil {
+		if err := safeio.WriteFileValidated(filePath, finalContent, 0o600); err != nil {
 			return fmt.Errorf("failed to write finalized content to %s: %w", filePath, err)
 		}
 		logger.Debug(fmt.Sprintf("Applied finalizer normalization to %s", filePath))
@@ -557,7 +558,7 @@ func (p *FormatProcessor) formatJSONFile(filePath string) error {
 	}
 
 	// Write back the formatted content
-	if err := os.WriteFile(filePath, finalContent, 0600); err != nil {
+	if err := safeio.WriteFileValidated(filePath, finalContent, 0o600); err != nil {
 		return fmt.Errorf("failed to write formatted content to %s: %w", filePath, err)
 	}
 
@@ -724,7 +725,7 @@ func (p *FormatProcessor) formatMarkdownFileFinalizerOnly(filePath string, conte
 	}
 
 	if changed {
-		if err := os.WriteFile(filePath, finalContent, 0600); err != nil {
+		if err := safeio.WriteFileValidated(filePath, finalContent, 0o600); err != nil {
 			return fmt.Errorf("failed to write finalized content to %s: %w", filePath, err)
 		}
 		logger.Debug(fmt.Sprintf("Applied finalizer normalization to %s", filePath))
@@ -882,7 +883,7 @@ func (p *FormatProcessor) formatPythonFile(filePath string) error {
 			return fmt.Errorf("finalizer error for %s: %w", filePath, err)
 		}
 		if changed {
-			if err := os.WriteFile(filePath, finalContent, 0600); err != nil {
+			if err := safeio.WriteFileValidated(filePath, finalContent, 0o600); err != nil {
 				return fmt.Errorf("failed to write finalized content to %s: %w", filePath, err)
 			}
 			formattedContent = finalContent
@@ -1011,7 +1012,7 @@ func (p *FormatProcessor) formatJavaScriptFile(filePath string) error {
 			return fmt.Errorf("finalizer error for %s: %w", filePath, err)
 		}
 		if changed {
-			if err := os.WriteFile(filePath, finalContent, 0600); err != nil {
+			if err := safeio.WriteFileValidated(filePath, finalContent, 0o600); err != nil {
 				return fmt.Errorf("failed to write finalized content to %s: %w", filePath, err)
 			}
 			formattedContent = finalContent
@@ -1108,7 +1109,7 @@ func (p *FormatProcessor) formatFileFinalizerOnly(filePath string) error {
 	}
 
 	if changed {
-		if err := os.WriteFile(filePath, finalContent, 0600); err != nil {
+		if err := safeio.WriteFileValidated(filePath, finalContent, 0o600); err != nil {
 			return fmt.Errorf("failed to write finalized content to %s: %w", filePath, err)
 		}
 		logger.Debug(fmt.Sprintf("Applied finalizer normalization to %s", filePath))

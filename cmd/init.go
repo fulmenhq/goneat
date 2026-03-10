@@ -14,6 +14,7 @@ import (
 
 	"github.com/fulmenhq/goneat/internal/assets"
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/safeio"
 	"github.com/spf13/cobra"
 )
 
@@ -198,7 +199,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// Write file with secure permissions
-	err = os.WriteFile(outputPath, []byte(finalContent), 0600)
+	err = safeio.WriteFileValidated(outputPath, []byte(finalContent), 0o600)
 	if err != nil {
 		return fmt.Errorf("failed to write %s: %w", initOutput, err)
 	}

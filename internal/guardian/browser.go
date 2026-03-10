@@ -50,6 +50,7 @@ type BrowserServer struct {
 	info            server.Info
 	httpServer      *http.Server
 	listener        net.Listener
+	shutdownBaseCtx context.Context
 	nonce           string
 	session         ApprovalSession
 	started         time.Time
@@ -143,6 +144,7 @@ func StartBrowserApproval(ctx context.Context, session ApprovalSession) (*Browse
 	srv := &BrowserServer{
 		nonce:           nonce,
 		listener:        listener,
+		shutdownBaseCtx: context.WithoutCancel(ctx),
 		started:         time.Now().UTC(),
 		done:            make(chan error, 1),
 		session:         session,
@@ -251,7 +253,7 @@ func (b *BrowserServer) serve() {
 
 func (b *BrowserServer) watchContext(ctx context.Context) {
 	<-ctx.Done()
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(b.shutdownBaseCtx, 5*time.Second)
 	defer cancel()
 	b.once.Do(func() {
 		if b.httpServer != nil {
@@ -604,7 +606,7 @@ func (b *BrowserServer) monitorExpiry() {
 	b.mu.Unlock()
 
 	logger.Info("Guardian approval expired", logger.String("scope", b.session.Scope), logger.String("operation", b.session.Operation))
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(b.shutdownBaseCtx, 5*time.Second)
 	defer cancel()
 	b.once.Do(func() {
 		if b.httpServer != nil {

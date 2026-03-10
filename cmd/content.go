@@ -1220,22 +1220,33 @@ func embedTarget(target string, items []contentItem, noDelete bool) error {
 	}
 
 	if !noDelete {
-		_ = filepath.WalkDir(targetAbs, func(path string, d fs.DirEntry, err error) error {
+		targetRoot, err := os.OpenRoot(targetAbs)
+		if err != nil {
+			return err
+		}
+
+		walkErr := fs.WalkDir(targetRoot.FS(), ".", func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return nil
 			}
-			if d.IsDir() {
+			if path == "." || d.IsDir() {
 				return nil
 			}
-			rel, _ := filepath.Rel(targetAbs, path)
-			rel = filepath.Clean(rel)
+			rel := filepath.Clean(filepath.FromSlash(path))
 			if _, ok := want[rel]; !ok {
-				if remErr := os.Remove(path); remErr != nil {
+				if remErr := targetRoot.Remove(path); remErr != nil {
 					return remErr
 				}
 			}
 			return nil
 		})
+		closeErr := targetRoot.Close()
+		if walkErr != nil {
+			return walkErr
+		}
+		if closeErr != nil {
+			return closeErr
+		}
 	}
 
 	for rel, item := range want {

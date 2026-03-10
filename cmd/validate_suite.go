@@ -284,9 +284,9 @@ func runValidateSuite(cmd *cobra.Command, _ []string) error {
 
 func contextWithTimeout(parent context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
 	if timeout <= 0 {
-		return context.WithCancel(parent)
+		return context.WithCancel(parent) // #nosec G118 -- helper returns cancel func so callers can defer it at the call site
 	}
-	return context.WithTimeout(parent, timeout)
+	return context.WithTimeout(parent, timeout) // #nosec G118 -- helper returns cancel func so callers can defer it at the call site
 }
 
 func inferSuiteRepoRoot(dataRoot string) (string, error) {
