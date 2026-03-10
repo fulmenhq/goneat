@@ -9,6 +9,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.7] - 2026-03-09
+
+### Added
+
+- **Scoop distribution**: goneat is now installable on Windows via `scoop install goneat` from `fulmenhq/scoop-bucket`
+  - `bucket/goneat.json` manifest with SHA256 hash verification
+  - `scripts/update-manifest.sh` for automated version bumps
+- **Release pipeline Scoop integration**: `make release-upload` now automatically updates Scoop manifest alongside Homebrew formula
+  - `make update-scoop-manifest` target (graceful skip when `../scoop-bucket` is missing)
+
+### Security
+
+- **gosec 2.24 remediation**: Resolved 27 findings from gosec 2.23→2.24.7 upgrade
+  - G122 (filepath.Walk TOCTOU): switched to `os.Root`-scoped APIs in `cmd/content.go`, `pkg/schema/validator.go`, `pkg/schema/id_index.go`
+  - G118 (context.Background in goroutine): derived shutdown context in `internal/guardian/browser.go`
+  - G703 (path traversal via taint): centralized trust boundary in `pkg/safeio/write.go` for 19 local file-write sites
+  - G118 (cancel not called): suppressed with rationale in helper functions that return cancel
+
+### Fixed
+
+- **v0.5.6 signing gap**: v0.5.6 was released without PGP/minisign signature assets; v0.5.7 restores full signed releases
+- **ASCII art test stability**: Terminal-width-dependent specs stabilized across environments with varying column counts
+
+## [v0.5.6] - 2026-02-26
+
+### Fixed
+
+- **gosec glob-to-regex conversion**: ignore-file glob patterns (e.g. `*.egg-info/`) are now converted to valid regex before being passed to gosec's `-exclude-dir` flag, preventing gosec panics on invalid regexp syntax
+  - `*` → `[^/]*`, `**` → `(.*/)?`, `?` → `[^/]`, `.` → `\.`
+  - Every generated regex validated with `regexp.Compile` before use
+  - Unconvertible patterns (negations, duplicates) safely skipped with reason codes
+  - Exclude pattern parsing moved outside worker pool to avoid redundant `.gitignore` reads
+
 ## [v0.5.5] - 2026-02-26
 
 ### Fixed
