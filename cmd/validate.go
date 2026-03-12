@@ -12,6 +12,7 @@ import (
 	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/fulmenhq/goneat/pkg/config"
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/safeio"
 	"github.com/spf13/cobra"
 )
 
@@ -191,19 +192,28 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	formatter := assess.NewFormatter(outFmt)
 	formatter.SetTargetPath(target)
 	if validateOutput != "" {
-		f, err := os.OpenFile(filepath.Clean(validateOutput), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
-		if err != nil {
-			return fmt.Errorf("failed to create output: %v", err)
-		}
-		defer func() {
-			if closeErr := f.Close(); closeErr != nil {
-				logger.Warn(fmt.Sprintf("failed to close output file: %v", closeErr))
+		if safeio.IsNullDevice(validateOutput) {
+			// Cross-platform null device: discard output silently
+			w := safeio.NullWriter()
+			defer func() { _ = w.Close() }()
+			if err := formatter.WriteReport(w, report); err != nil {
+				return fmt.Errorf("write report: %v", err)
 			}
-		}()
-		if err := formatter.WriteReport(f, report); err != nil {
-			return fmt.Errorf("write report: %v", err)
+		} else {
+			f, err := os.OpenFile(filepath.Clean(validateOutput), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+			if err != nil {
+				return fmt.Errorf("failed to create output: %v", err)
+			}
+			defer func() {
+				if closeErr := f.Close(); closeErr != nil {
+					logger.Warn(fmt.Sprintf("failed to close output file: %v", closeErr))
+				}
+			}()
+			if err := formatter.WriteReport(f, report); err != nil {
+				return fmt.Errorf("write report: %v", err)
+			}
+			logger.Info(fmt.Sprintf("Validation report written to %s", validateOutput))
 		}
-		logger.Info(fmt.Sprintf("Validation report written to %s", validateOutput))
 	} else {
 		if err := formatter.WriteReport(cmd.OutOrStdout(), report); err != nil {
 			return fmt.Errorf("write report: %v", err)

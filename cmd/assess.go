@@ -19,6 +19,7 @@ import (
 	"github.com/fulmenhq/goneat/internal/assess"
 	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/safeio"
 	"github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
@@ -475,34 +476,43 @@ func runAssess(cmd *cobra.Command, args []string) error {
 	formatter.SetTargetPath(target)
 
 	if assessOutput != "" {
-		// Validate output path to prevent path traversal
-		assessOutput = filepath.Clean(assessOutput)
-		if strings.Contains(assessOutput, "..") {
-			return fmt.Errorf("invalid output path: contains path traversal")
-		}
-		// Write to file with restrictive permissions
-		file, err := os.OpenFile(assessOutput, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
-		if err != nil {
-			return fmt.Errorf("failed to create output file: %v", err)
-		}
-		defer func() {
-			if err := file.Close(); err != nil {
-				logger.Warn(fmt.Sprintf("Failed to close output file: %v", err))
+		if safeio.IsNullDevice(assessOutput) {
+			// Cross-platform null device: discard output silently
+			w := safeio.NullWriter()
+			defer func() { _ = w.Close() }()
+			if err := formatter.WriteReport(w, report); err != nil {
+				return fmt.Errorf("failed to write report: %v", err)
 			}
-		}()
+		} else {
+			// Validate output path to prevent path traversal
+			assessOutput = filepath.Clean(assessOutput)
+			if strings.Contains(assessOutput, "..") {
+				return fmt.Errorf("invalid output path: contains path traversal")
+			}
+			// Write to file with restrictive permissions
+			file, err := os.OpenFile(assessOutput, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+			if err != nil {
+				return fmt.Errorf("failed to create output file: %v", err)
+			}
+			defer func() {
+				if err := file.Close(); err != nil {
+					logger.Warn(fmt.Sprintf("Failed to close output file: %v", err))
+				}
+			}()
 
-		if err := formatter.WriteReport(file, report); err != nil {
-			return fmt.Errorf("failed to write report: %v", err)
-		}
+			if err := formatter.WriteReport(file, report); err != nil {
+				return fmt.Errorf("failed to write report: %v", err)
+			}
 
-		logger.Info(fmt.Sprintf("Assessment report written to %s", assessOutput))
+			logger.Info(fmt.Sprintf("Assessment report written to %s", assessOutput))
 
-		// Open in browser if requested
-		if assessOpen && format == assess.FormatHTML {
-			if err := openInBrowser(assessOutput); err != nil {
-				logger.Warn(fmt.Sprintf("Failed to open report in browser: %v", err))
-			} else {
-				logger.Info("Report opened in default browser")
+			// Open in browser if requested
+			if assessOpen && format == assess.FormatHTML {
+				if err := openInBrowser(assessOutput); err != nil {
+					logger.Warn(fmt.Sprintf("Failed to open report in browser: %v", err))
+				} else {
+					logger.Info("Report opened in default browser")
+				}
 			}
 		}
 	} else {

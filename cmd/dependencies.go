@@ -17,6 +17,7 @@ import (
 	"github.com/fulmenhq/goneat/pkg/config"
 	"github.com/fulmenhq/goneat/pkg/dependencies"
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/safeio"
 	"github.com/fulmenhq/goneat/pkg/sbom"
 	"github.com/spf13/cobra"
 )
@@ -256,19 +257,23 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 		output, _ := cmd.Flags().GetString("output")
 		format, _ := cmd.Flags().GetString("format")
 		if output != "" {
-			// Write to file
-			switch format {
-			case "json":
-				data, err := json.MarshalIndent(result, "", "  ")
-				if err != nil {
-					return fmt.Errorf("failed to marshal result: %w", err)
-				}
-				if err := os.WriteFile(output, data, 0600); err != nil {
-					return fmt.Errorf("failed to write output file: %w", err)
-				}
-			default:
-				if err := os.WriteFile(output, []byte(renderDependenciesText(result)), 0600); err != nil {
-					return fmt.Errorf("failed to write output file: %w", err)
+			if safeio.IsNullDevice(output) {
+				// Cross-platform null device: discard output silently
+			} else {
+				// Write to file
+				switch format {
+				case "json":
+					data, err := json.MarshalIndent(result, "", "  ")
+					if err != nil {
+						return fmt.Errorf("failed to marshal result: %w", err)
+					}
+					if err := os.WriteFile(output, data, 0600); err != nil {
+						return fmt.Errorf("failed to write output file: %w", err)
+					}
+				default:
+					if err := os.WriteFile(output, []byte(renderDependenciesText(result)), 0600); err != nil {
+						return fmt.Errorf("failed to write output file: %w", err)
+					}
 				}
 			}
 		} else {

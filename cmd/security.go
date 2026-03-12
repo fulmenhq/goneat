@@ -18,6 +18,7 @@ import (
 	"github.com/fulmenhq/goneat/internal/ops"
 	cfgpkg "github.com/fulmenhq/goneat/pkg/config"
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/safeio"
 	"github.com/spf13/cobra"
 )
 
@@ -322,21 +323,28 @@ func runSecurity(cmd *cobra.Command, args []string) error {
 	formatter.SetTargetPath(target)
 	out := cmd.OutOrStdout()
 	if securityOutput != "" {
-		// Validate output path to prevent path traversal
-		securityOutput = filepath.Clean(securityOutput)
-		if strings.Contains(securityOutput, "..") {
-			return fmt.Errorf("invalid output path: contains path traversal")
-		}
-		f, ferr := os.OpenFile(securityOutput, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
-		if ferr != nil {
-			return fmt.Errorf("failed to create output file: %v", ferr)
-		}
-		defer func() {
-			if cerr := f.Close(); cerr != nil {
-				logger.Warn(fmt.Sprintf("failed to close output file: %v", cerr))
+		if safeio.IsNullDevice(securityOutput) {
+			// Cross-platform null device: discard output silently
+			w := safeio.NullWriter()
+			defer func() { _ = w.Close() }()
+			out = w
+		} else {
+			// Validate output path to prevent path traversal
+			securityOutput = filepath.Clean(securityOutput)
+			if strings.Contains(securityOutput, "..") {
+				return fmt.Errorf("invalid output path: contains path traversal")
 			}
-		}()
-		out = f
+			f, ferr := os.OpenFile(securityOutput, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+			if ferr != nil {
+				return fmt.Errorf("failed to create output file: %v", ferr)
+			}
+			defer func() {
+				if cerr := f.Close(); cerr != nil {
+					logger.Warn(fmt.Sprintf("failed to close output file: %v", cerr))
+				}
+			}()
+			out = f
+		}
 	}
 	if err := formatter.WriteReport(out, report); err != nil {
 		return fmt.Errorf("failed to write report: %v", err)
