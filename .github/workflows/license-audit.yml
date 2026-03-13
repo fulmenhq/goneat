@@ -27,7 +27,7 @@ jobs:
           make license-audit
       - name: Upload inventory artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: license-inventory
           path: dist/reports/license-inventory.csv

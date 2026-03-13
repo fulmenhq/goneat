@@ -41,7 +41,7 @@ jobs:
       - name: Lint (informational)
         run: golangci-lint run || true
       - name: Upload goneat binary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: goneat-linux-${{ matrix.runner }}
           path: dist/goneat
