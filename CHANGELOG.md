@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.8] - 2026-03-13
+
+### Fixed
+
+- **Cross-platform null device handling**: `--output /dev/null` on Windows native cmd/PowerShell no longer creates a file named `dev\null`; all four output commands (`assess`, `validate`, `security`, `dependencies`) detect null device paths via `pkg/safeio.IsNullDevice()` and discard output in-memory
+- **golangci-lint non-Go project gate**: In polyglot repositories with Go files in subdirectories but no `go.mod` at root, golangci-lint is now skipped instead of failing with exit code 7 (typechecking error)
+- **Include-filter `./...` fallback**: When `--include` filters result in zero Go files, `runGolangCILintWithMode()` returns empty instead of falling back to full-project `./...` scan
+
+### Security
+
+- **Go dependency vulnerability remediation**: Bumped `otel/sdk` v1.39→v1.40, `go-git` v5.16.4→v5.16.5, `circl` v1.6.2→v1.6.3 to resolve GHSA-qhcg-phj2-fjhh, GHSA-898f-h2v3-q986, GHSA-vjc3-whcr-jvjj
+- **GitHub Actions supply chain hardening**: Pinned `actions/download-artifact` to v4.1.8 (GHSA-cxww-7g56-2vh6) and `actions/upload-artifact` to v4.6.2 (preventive pin)
+
 ## [v0.5.7] - 2026-03-09
 
 ### Added
