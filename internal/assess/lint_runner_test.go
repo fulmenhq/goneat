@@ -599,3 +599,71 @@ func TestLintAssessmentRunner_shouldUsePackageMode(t *testing.T) {
 	}
 
 }
+
+func TestHasGoModule(t *testing.T) {
+	runner := NewLintAssessmentRunner()
+
+	t.Run("directory with go.mod", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module test\ngo 1.23\n"), 0o644); err != nil {
+			t.Fatalf("write go.mod: %v", err)
+		}
+		if !runner.hasGoModule(dir) {
+			t.Error("hasGoModule() = false, want true for directory with go.mod")
+		}
+	})
+
+	t.Run("directory without go.mod", func(t *testing.T) {
+		dir := t.TempDir()
+		if runner.hasGoModule(dir) {
+			t.Error("hasGoModule() = true, want false for directory without go.mod")
+		}
+	})
+
+	t.Run("go.mod in subdirectory only", func(t *testing.T) {
+		dir := t.TempDir()
+		sub := filepath.Join(dir, "bindings", "go")
+		if err := os.MkdirAll(sub, 0o755); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(sub, "go.mod"), []byte("module test\ngo 1.23\n"), 0o644); err != nil {
+			t.Fatalf("write go.mod: %v", err)
+		}
+		// Root should NOT detect the subdirectory's go.mod
+		if runner.hasGoModule(dir) {
+			t.Error("hasGoModule() = true, want false — go.mod in subdirectory should not count")
+		}
+	})
+}
+
+func TestLintAssessSkipsGolangciLintWithoutGoMod(t *testing.T) {
+	runner := NewLintAssessmentRunner()
+
+	// Create a temp dir with .go files but NO go.mod (simulates Rust project
+	// with Go bindings in a subdirectory).
+	dir := t.TempDir()
+	goFile := filepath.Join(dir, "main.go")
+	if err := os.WriteFile(goFile, []byte("package main\nfunc main() {}\n"), 0o644); err != nil {
+		t.Fatalf("write main.go: %v", err)
+	}
+
+	config := DefaultAssessmentConfig()
+	config.Mode = AssessmentModeCheck
+
+	result, err := runner.Assess(context.Background(), dir, config)
+	if err != nil {
+		t.Fatalf("Assess returned unexpected error: %v", err)
+	}
+
+	// Assessment should succeed (not fail with golangci-lint exit code 7)
+	if !result.Success {
+		t.Errorf("Expected assessment to succeed (skip golangci-lint), got failure: %s", result.Error)
+	}
+
+	// No medium-severity golangci-lint errors should be present
+	for _, issue := range result.Issues {
+		if strings.Contains(issue.Message, "golangci-lint") {
+			t.Errorf("Unexpected golangci-lint issue: %s", issue.Message)
+		}
+	}
+}

@@ -173,7 +173,9 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 	goFiles = r.filterFilesRespectingIgnores(goFiles, target, config)
 
 	if len(goFiles) > 0 {
-		if !r.IsAvailable() {
+		if !r.hasGoModule(target) {
+			logger.Info("No go.mod at target root; skipping golangci-lint (Go files may exist in subdirectories)")
+		} else if !r.IsAvailable() {
 			logger.Info("golangci-lint not found; skipping Go lint")
 		} else {
 			env := r.detectGolangciLintEnvironment()
@@ -1035,10 +1037,9 @@ func (r *LintAssessmentRunner) runGolangCILintWithMode(target string, config Ass
 			cmd = exec.CommandContext(ctx, "golangci-lint", args...) // #nosec G204
 			cmd.Dir = target
 		} else {
-			// No Go files in include list, fall back to directory mode
-			args = append(args, "./...")
-			cmd = exec.CommandContext(ctx, "golangci-lint", args...) // #nosec G204
-			cmd.Dir = target
+			// No Go files in include list — nothing to lint
+			logger.Debug("No Go files in include list; skipping golangci-lint")
+			return []Issue{}, nil
 		}
 	} else if info, err := os.Stat(target); err == nil && !info.IsDir() {
 		// Target is a single file - only proceed if it's a .go file
@@ -1150,6 +1151,15 @@ func (r *LintAssessmentRunner) GetEstimatedTime(target string) time.Duration {
 // IsAvailable implements AssessmentRunner.IsAvailable
 func (r *LintAssessmentRunner) IsAvailable() bool {
 	_, err := exec.LookPath("golangci-lint")
+	return err == nil
+}
+
+// hasGoModule reports whether target contains a go.mod file.
+// golangci-lint requires a Go module at the working directory; running it
+// in a non-Go project (e.g. Rust with Go bindings in a subdirectory)
+// produces exit-code 7 typechecking errors.
+func (r *LintAssessmentRunner) hasGoModule(target string) bool {
+	_, err := os.Stat(filepath.Join(target, "go.mod"))
 	return err == nil
 }
 
