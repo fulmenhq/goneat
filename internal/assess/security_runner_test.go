@@ -147,3 +147,76 @@ func TestParseIgnorePatternsForGosec_ConvertsAndLogsSkips(t *testing.T) {
 		t.Fatalf("expected summary warn log, got logs: %s", logs)
 	}
 }
+
+func TestPathWithinAssessmentRoot(t *testing.T) {
+	root := filepath.Join(string(os.PathSeparator), "repo")
+
+	tests := []struct {
+		name      string
+		candidate string
+		want      bool
+	}{
+		{name: "empty path", candidate: "", want: false},
+		{name: "relative file in repo", candidate: filepath.Join("internal", "assess", "security_runner.go"), want: true},
+		{name: "absolute file in repo", candidate: filepath.Join(root, "internal", "assess", "security_runner.go"), want: true},
+		{name: "cache artifact absolute", candidate: filepath.Join(string(os.PathSeparator), "tmp", "sysprims-gocache-release", "foo.go"), want: false},
+		{name: "default go cache absolute", candidate: filepath.Join(string(os.PathSeparator), "Users", "davethompson", "Library", "Caches", "go-build", "ab", "foo.go"), want: false},
+		{name: "relative path escape", candidate: filepath.Join("..", "..", "tmp", "foo.go"), want: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := pathWithinAssessmentRoot(root, tc.candidate); got != tc.want {
+				t.Fatalf("pathWithinAssessmentRoot(%q, %q) = %v, want %v", root, tc.candidate, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestFilterToAssessmentRoot_DropsExternalSecurityFindings(t *testing.T) {
+	runner := NewSecurityAssessmentRunner()
+	repoRoot := t.TempDir()
+	repoFile := filepath.Join(repoRoot, "internal", "assess", "security_runner.go")
+	cacheFile := filepath.Join(string(os.PathSeparator), "tmp", "sysprims-gocache-release", "123", "cache.go")
+
+	issues := []Issue{
+		{File: repoFile, Severity: SeverityHigh, Message: "gosec(G115): repo issue", Category: CategorySecurity, SubCategory: "code"},
+		{File: cacheFile, Severity: SeverityHigh, Message: "gosec(G115): cache issue", Category: CategorySecurity, SubCategory: "code"},
+	}
+	suppressions := []Suppression{
+		{Tool: "gosec", File: repoFile, RuleID: "G115"},
+		{Tool: "gosec", File: cacheFile, RuleID: "G115"},
+	}
+
+	filteredIssues, filteredSuppressions := runner.filterToAssessmentRoot(repoRoot, issues, suppressions)
+
+	if len(filteredIssues) != 1 {
+		t.Fatalf("expected 1 in-scope issue, got %d: %+v", len(filteredIssues), filteredIssues)
+	}
+	if filteredIssues[0].File != repoFile {
+		t.Fatalf("expected repo-local issue to remain, got %+v", filteredIssues[0])
+	}
+	if len(filteredSuppressions) != 1 {
+		t.Fatalf("expected 1 in-scope suppression, got %d: %+v", len(filteredSuppressions), filteredSuppressions)
+	}
+	if filteredSuppressions[0].File != repoFile {
+		t.Fatalf("expected repo-local suppression to remain, got %+v", filteredSuppressions[0])
+	}
+}
+
+func TestFilterToAssessmentRoot_DropsUnlocatableFindings(t *testing.T) {
+	runner := NewSecurityAssessmentRunner()
+	repoRoot := t.TempDir()
+
+	issues := []Issue{{File: "", Severity: SeverityHigh, Message: "gosec(G115): missing file", Category: CategorySecurity, SubCategory: "code"}}
+	suppressions := []Suppression{{Tool: "gosec", File: "", RuleID: "G115"}}
+
+	filteredIssues, filteredSuppressions := runner.filterToAssessmentRoot(repoRoot, issues, suppressions)
+
+	if len(filteredIssues) != 0 {
+		t.Fatalf("expected unlocatable issues to be dropped, got %+v", filteredIssues)
+	}
+	if len(filteredSuppressions) != 0 {
+		t.Fatalf("expected unlocatable suppressions to be dropped, got %+v", filteredSuppressions)
+	}
+}

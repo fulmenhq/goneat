@@ -182,6 +182,8 @@ func (r *SecurityAssessmentRunner) Assess(ctx context.Context, target string, co
 		allSuppressions = append(allSuppressions, rres.suppressions...)
 	}
 
+	issues, allSuppressions = r.filterToAssessmentRoot(target, issues, allSuppressions)
+
 	// Filter out known noise paths (e.g., test fixtures) from security scans
 	issues = r.filterSecurityNoise(issues, config)
 
@@ -1054,6 +1056,70 @@ func (r *SecurityAssessmentRunner) filterSecurityNoise(in []Issue, cfg Assessmen
 		out = append(out, is)
 	}
 	return out
+}
+
+func (r *SecurityAssessmentRunner) filterToAssessmentRoot(target string, issues []Issue, suppressions []Suppression) ([]Issue, []Suppression) {
+	root := filepath.Clean(target)
+	if absRoot, err := filepath.Abs(root); err == nil {
+		root = absRoot
+	}
+
+	filteredIssues := make([]Issue, 0, len(issues))
+	droppedIssues := 0
+	var droppedIssueFiles []string
+	for _, issue := range issues {
+		if !pathWithinAssessmentRoot(root, issue.File) {
+			droppedIssues++
+			if strings.TrimSpace(issue.File) != "" {
+				droppedIssueFiles = append(droppedIssueFiles, issue.File)
+			}
+			continue
+		}
+		filteredIssues = append(filteredIssues, issue)
+	}
+
+	filteredSuppressions := make([]Suppression, 0, len(suppressions))
+	droppedSuppressions := 0
+	var droppedSuppressionFiles []string
+	for _, suppression := range suppressions {
+		if !pathWithinAssessmentRoot(root, suppression.File) {
+			droppedSuppressions++
+			if strings.TrimSpace(suppression.File) != "" {
+				droppedSuppressionFiles = append(droppedSuppressionFiles, suppression.File)
+			}
+			continue
+		}
+		filteredSuppressions = append(filteredSuppressions, suppression)
+	}
+
+	if droppedIssues > 0 || droppedSuppressions > 0 {
+		logger.Warn(fmt.Sprintf("security: dropped %d issue(s) and %d suppression(s) outside assessment root %s", droppedIssues, droppedSuppressions, root))
+		if len(droppedIssueFiles) > 0 {
+			logger.Debug(fmt.Sprintf("security: dropped out-of-scope issue files: %v", droppedIssueFiles))
+		}
+		if len(droppedSuppressionFiles) > 0 {
+			logger.Debug(fmt.Sprintf("security: dropped out-of-scope suppression files: %v", droppedSuppressionFiles))
+		}
+	}
+
+	return filteredIssues, filteredSuppressions
+}
+
+func pathWithinAssessmentRoot(root, candidate string) bool {
+	if strings.TrimSpace(candidate) == "" {
+		return false
+	}
+
+	cleanCandidate := filepath.Clean(candidate)
+	if filepath.IsAbs(cleanCandidate) {
+		rel, err := filepath.Rel(root, cleanCandidate)
+		if err != nil {
+			return false
+		}
+		return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)))
+	}
+
+	return cleanCandidate != ".." && !strings.HasPrefix(cleanCandidate, ".."+string(os.PathSeparator))
 }
 
 // pathMatchesAny checks if path contains any of the include anchors (substring match, absolute-safe)
