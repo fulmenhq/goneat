@@ -1066,9 +1066,13 @@ func (r *SecurityAssessmentRunner) filterToAssessmentRoot(target string, issues 
 
 	filteredIssues := make([]Issue, 0, len(issues))
 	droppedIssues := 0
+	var droppedIssueFiles []string
 	for _, issue := range issues {
 		if !pathWithinAssessmentRoot(root, issue.File) {
 			droppedIssues++
+			if strings.TrimSpace(issue.File) != "" {
+				droppedIssueFiles = append(droppedIssueFiles, issue.File)
+			}
 			continue
 		}
 		filteredIssues = append(filteredIssues, issue)
@@ -1076,9 +1080,13 @@ func (r *SecurityAssessmentRunner) filterToAssessmentRoot(target string, issues 
 
 	filteredSuppressions := make([]Suppression, 0, len(suppressions))
 	droppedSuppressions := 0
+	var droppedSuppressionFiles []string
 	for _, suppression := range suppressions {
 		if !pathWithinAssessmentRoot(root, suppression.File) {
 			droppedSuppressions++
+			if strings.TrimSpace(suppression.File) != "" {
+				droppedSuppressionFiles = append(droppedSuppressionFiles, suppression.File)
+			}
 			continue
 		}
 		filteredSuppressions = append(filteredSuppressions, suppression)
@@ -1086,6 +1094,12 @@ func (r *SecurityAssessmentRunner) filterToAssessmentRoot(target string, issues 
 
 	if droppedIssues > 0 || droppedSuppressions > 0 {
 		logger.Warn(fmt.Sprintf("security: dropped %d issue(s) and %d suppression(s) outside assessment root %s", droppedIssues, droppedSuppressions, root))
+		if len(droppedIssueFiles) > 0 {
+			logger.Debug(fmt.Sprintf("security: dropped out-of-scope issue files: %v", droppedIssueFiles))
+		}
+		if len(droppedSuppressionFiles) > 0 {
+			logger.Debug(fmt.Sprintf("security: dropped out-of-scope suppression files: %v", droppedSuppressionFiles))
+		}
 	}
 
 	return filteredIssues, filteredSuppressions
@@ -1093,7 +1107,7 @@ func (r *SecurityAssessmentRunner) filterToAssessmentRoot(target string, issues 
 
 func pathWithinAssessmentRoot(root, candidate string) bool {
 	if strings.TrimSpace(candidate) == "" {
-		return true
+		return false
 	}
 
 	cleanCandidate := filepath.Clean(candidate)
