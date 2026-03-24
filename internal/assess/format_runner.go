@@ -105,17 +105,12 @@ func (r *FormatAssessmentRunner) Assess(ctx context.Context, target string, conf
 	pyFiles := filterByExtensions(supportedFiles, []string{".py"})
 	jsFiles := filterByExtensions(supportedFiles, []string{".js", ".jsx", ".ts", ".tsx"})
 
-	yamlIssues, yamlErr := r.runYAMLFormatAssessment(target, config, yamlFiles)
-	if yamlErr != nil {
-		return &AssessmentResult{
-			CommandName:   r.commandName,
-			Category:      CategoryFormat,
-			Success:       false,
-			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
-			Error:         fmt.Sprintf("yaml format failed: %v", yamlErr),
-		}, nil
-	}
+	yamlIssues := r.runYAMLFormatAssessment(ctx, config, yamlFiles)
 	allIssues = append(allIssues, yamlIssues...)
+	yamlFileSet := make(map[string]struct{}, len(yamlFiles))
+	for _, yamlFile := range yamlFiles {
+		yamlFileSet[filepath.Clean(yamlFile)] = struct{}{}
+	}
 
 	ruffFmtIssues, ruffFmtErr := runRuffFormat(target, config, pyFiles)
 	if ruffFmtErr != nil {
@@ -147,6 +142,9 @@ func (r *FormatAssessmentRunner) Assess(ctx context.Context, target string, conf
 		cleanFilePath := filepath.Clean(filePath)
 		if strings.Contains(cleanFilePath, "..") {
 			logger.Warn(fmt.Sprintf("Skipping file with path traversal: %s", cleanFilePath))
+			continue
+		}
+		if _, ok := yamlFileSet[cleanFilePath]; ok {
 			continue
 		}
 		content, readErr := os.ReadFile(cleanFilePath)
@@ -272,9 +270,9 @@ func (r *FormatAssessmentRunner) Assess(ctx context.Context, target string, conf
 	}, nil
 }
 
-func (r *FormatAssessmentRunner) runYAMLFormatAssessment(target string, assessConfig AssessmentConfig, yamlFiles []string) ([]Issue, error) {
+func (r *FormatAssessmentRunner) runYAMLFormatAssessment(ctx context.Context, assessConfig AssessmentConfig, yamlFiles []string) []Issue {
 	if len(yamlFiles) == 0 {
-		return nil, nil
+		return nil
 	}
 
 	cfg, err := projectconfig.LoadProjectConfig()
@@ -283,7 +281,14 @@ func (r *FormatAssessmentRunner) runYAMLFormatAssessment(target string, assessCo
 	}
 
 	processor := work.NewFormatProcessorWithOptions(cfg, work.FormatProcessorOptions{
-		FinalizerOptions:   finalizer.NormalizationOptions{},
+		FinalizerOptions: finalizer.NormalizationOptions{
+			EnsureEOF:                  true,
+			TrimTrailingWhitespace:     true,
+			NormalizeLineEndings:       "\n",
+			RemoveUTF8BOM:              true,
+			PreserveMarkdownHardBreaks: true,
+			EncodingPolicy:             "utf8-only",
+		},
 		IgnoreMissingTools: true,
 	})
 
@@ -299,12 +304,12 @@ func (r *FormatAssessmentRunner) runYAMLFormatAssessment(target string, assessCo
 		item := &work.WorkItem{Path: cleanFilePath, ContentType: "yaml"}
 		switch assessConfig.Mode {
 		case AssessmentModeFix:
-			result := processor.ProcessWorkItem(context.Background(), item, false, false)
+			result := processor.ProcessWorkItem(ctx, item, false, false)
 			if !result.Success {
 				runErr = fmt.Errorf("%s", strings.TrimSpace(result.Error))
 			}
 		default:
-			result := processor.ProcessWorkItem(context.Background(), item, false, true)
+			result := processor.ProcessWorkItem(ctx, item, false, true)
 			if !result.Success {
 				runErr = fmt.Errorf("%s", strings.TrimSpace(result.Error))
 			}
@@ -341,10 +346,18 @@ func (r *FormatAssessmentRunner) runYAMLFormatAssessment(target string, assessCo
 			continue
 		}
 
-		return nil, runErr
+		issues = append(issues, Issue{
+			File:          cleanFilePath,
+			Severity:      SeverityHigh,
+			Message:       msg,
+			Category:      CategoryFormat,
+			SubCategory:   "yaml-format-error",
+			AutoFixable:   false,
+			EstimatedTime: HumanReadableDuration(5 * time.Minute),
+		})
 	}
 
-	return issues, nil
+	return issues
 }
 
 // CanRunInParallel implements AssessmentRunner.CanRunInParallel

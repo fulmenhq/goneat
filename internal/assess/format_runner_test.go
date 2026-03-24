@@ -149,6 +149,9 @@ func TestFormatRunner_FixMode_AppliesYAMLFormatterChanges(t *testing.T) {
 	if string(updated) == original {
 		t.Fatalf("Expected fix mode to rewrite YAML file, but content was unchanged: %q", string(updated))
 	}
+	if !strings.Contains(string(updated), "key: value # comment") {
+		t.Fatalf("Expected fix mode to normalize inline comment spacing, got %q", string(updated))
+	}
 
 	checkResult, err := runner.Assess(context.Background(), tmpDir, AssessmentConfig{
 		Mode:         AssessmentModeCheck,
@@ -162,5 +165,39 @@ func TestFormatRunner_FixMode_AppliesYAMLFormatterChanges(t *testing.T) {
 		if issue.File == testFile && issue.SubCategory == "yaml-format" {
 			t.Fatalf("Expected no YAML formatting issue after fix, got %+v", issue)
 		}
+	}
+}
+
+func TestFormatRunner_CheckMode_ReportsYAMLSyntaxIssues(t *testing.T) {
+	if _, err := exec.LookPath("yamlfmt"); err != nil {
+		t.Skip("yamlfmt not available")
+	}
+
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "broken.yaml")
+	content := "key: [unterminated\n"
+	if err := os.WriteFile(testFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	runner := NewFormatAssessmentRunner()
+	result, err := runner.Assess(context.Background(), tmpDir, AssessmentConfig{
+		Mode:         AssessmentModeCheck,
+		IncludeFiles: []string{filepath.Base(testFile)},
+	})
+	if err != nil {
+		t.Fatalf("Assessment failed: %v", err)
+	}
+
+	foundSyntaxIssue := false
+	for _, issue := range result.Issues {
+		if issue.File == testFile && issue.SubCategory == "yaml-syntax" {
+			foundSyntaxIssue = true
+			break
+		}
+	}
+
+	if !foundSyntaxIssue {
+		t.Fatalf("Expected YAML syntax issue for %s, got %+v", testFile, result.Issues)
 	}
 }
