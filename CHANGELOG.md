@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.9] - 2026-03-24
+
+### Fixed
+
+- **YAML format parity**: `goneat assess --categories format` now routes YAML files through the same formatter path as `goneat format`, so check/fix mode catches and applies the same `yamlfmt` rewrites instead of silently missing inline-comment spacing changes.
+- **Go security scope filtering**: security assessment now drops `gosec` findings and suppressions whose file paths resolve outside the assessed repository root, preventing `GOCACHE` and `go-build` artifacts from tripping `--fail-on` gates.
+
+### Changed
+
+- **Maintainer PR workflow**: `main` now runs as a protected pull-request-only branch with squash/rebase merges, `make pr-final` as the merge-readiness target, and generated local hooks defaulting away from guardian browser interception.
+- **golangci-lint tool alignment**: the recommended `golangci-lint` version in foundation defaults now matches CI at `2.11.2`.
+
 ## [v0.5.8] - 2026-03-13
 
 ### Fixed

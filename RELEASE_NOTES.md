@@ -1,3 +1,77 @@
+# Goneat v0.5.9 — YAML Parity, Repo-Scoped gosec, and PR Workflow Refresh
+
+**Release Date**: 2026-03-24
+**Status**: Stable
+
+## TL;DR
+
+- **YAML format parity**: `goneat assess --categories format` now sees and fixes the same `yamlfmt` rewrites as `goneat format`
+- **Repo-scoped gosec**: security assessment no longer lets `GOCACHE` or other out-of-repo Go build artifacts block releases
+- **Maintainer workflow refresh**: goneat now uses a protected `main` + pull request flow, with `make pr-final` as the final merge-readiness check
+
+## What Changed
+
+### YAML Format / Assess Parity
+
+`3leaps/sysprims` exposed a correctness gap in the format pipeline: `goneat format`
+could rewrite YAML inline comments into a form that later failed strict
+`yamllint`, while `goneat assess --categories format --check` still reported the
+tree as format clean.
+
+v0.5.9 closes that gap by routing YAML files through the shared format processor
+during format assessment. In practice:
+
+- `goneat format` and `goneat assess --categories format --fix` now apply the
+  same `yamlfmt`-driven rewrites
+- `goneat assess --categories format --check` now fails when the fix path would
+  rewrite the file
+- invalid YAML syntax still surfaces as a format error instead of being hidden
+
+This restores the expected contract that developers can format first and then
+trust the assess/check path used by hooks and CI.
+
+### Repo-Scoped gosec Findings
+
+The second `sysprims` blocker came from `gosec` findings emitted for files under
+the Go build cache rather than the repository under assessment. The findings
+followed `GOCACHE` when it was redirected, which showed the issue was scope
+leakage rather than repo-local code.
+
+v0.5.9 now filters security issues and suppressions back to the assessment root
+before severity aggregation and `--fail-on` gating. That means:
+
+- findings under `GOCACHE`, `go-build`, and similar external paths are dropped
+- relative path escapes are rejected
+- only repo-owned source files can block security gates
+
+### Maintainer Workflow Refresh
+
+goneat now operates with a protected `main` branch and pull-request-based merge
+flow. This is a maintainer/workflow change rather than an end-user CLI feature,
+but it is part of the v0.5.9 hardening work:
+
+- `main` is PR-only with squash/rebase merges enabled
+- `make pr-final` is available as the standard final merge-readiness target
+- generated local hooks default away from guardian browser interception for the
+  normal feature-branch workflow
+
+### golangci-lint Tool Alignment
+
+The advisory CI lint step and the recommended tool defaults are now aligned on
+`golangci-lint` `2.11.2`, reducing surprise when contributors compare local tool
+guidance with CI behavior.
+
+## Upgrade Notes
+
+Drop-in replacement for v0.5.8. No config migration required.
+
+## Contributors
+
+- GPT-5.4 (devlead)
+- @3leapsdave (supervision)
+
+---
+
 # Goneat v0.5.8 — Windows Portability, Dependency Remediation & Non-Go Lint Fix
 
 **Release Date**: 2026-03-13
