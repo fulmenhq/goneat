@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	projectconfig "github.com/fulmenhq/goneat/pkg/config"
 	"github.com/fulmenhq/goneat/pkg/format/finalizer"
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/fulmenhq/goneat/pkg/safeio"
@@ -100,8 +101,21 @@ func (r *FormatAssessmentRunner) Assess(ctx context.Context, target string, conf
 	}
 
 	// Language-aware format tools (only when tool present)
+	yamlFiles := filterByExtensions(supportedFiles, []string{".yaml", ".yml"})
 	pyFiles := filterByExtensions(supportedFiles, []string{".py"})
 	jsFiles := filterByExtensions(supportedFiles, []string{".js", ".jsx", ".ts", ".tsx"})
+
+	yamlIssues, yamlErr := r.runYAMLFormatAssessment(target, config, yamlFiles)
+	if yamlErr != nil {
+		return &AssessmentResult{
+			CommandName:   r.commandName,
+			Category:      CategoryFormat,
+			Success:       false,
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
+			Error:         fmt.Sprintf("yaml format failed: %v", yamlErr),
+		}, nil
+	}
+	allIssues = append(allIssues, yamlIssues...)
 
 	ruffFmtIssues, ruffFmtErr := runRuffFormat(target, config, pyFiles)
 	if ruffFmtErr != nil {
@@ -256,6 +270,81 @@ func (r *FormatAssessmentRunner) Assess(ctx context.Context, target string, conf
 		ExecutionTime: HumanReadableDuration(time.Since(startTime)),
 		Issues:        allIssues,
 	}, nil
+}
+
+func (r *FormatAssessmentRunner) runYAMLFormatAssessment(target string, assessConfig AssessmentConfig, yamlFiles []string) ([]Issue, error) {
+	if len(yamlFiles) == 0 {
+		return nil, nil
+	}
+
+	cfg, err := projectconfig.LoadProjectConfig()
+	if err != nil {
+		cfg = &projectconfig.Config{}
+	}
+
+	processor := work.NewFormatProcessorWithOptions(cfg, work.FormatProcessorOptions{
+		FinalizerOptions:   finalizer.NormalizationOptions{},
+		IgnoreMissingTools: true,
+	})
+
+	issues := make([]Issue, 0, len(yamlFiles))
+	for _, filePath := range yamlFiles {
+		cleanFilePath := filepath.Clean(filePath)
+		if strings.Contains(cleanFilePath, "..") {
+			logger.Warn(fmt.Sprintf("Skipping file with path traversal: %s", cleanFilePath))
+			continue
+		}
+
+		var runErr error
+		item := &work.WorkItem{Path: cleanFilePath, ContentType: "yaml"}
+		switch assessConfig.Mode {
+		case AssessmentModeFix:
+			result := processor.ProcessWorkItem(context.Background(), item, false, false)
+			if !result.Success {
+				runErr = fmt.Errorf("%s", strings.TrimSpace(result.Error))
+			}
+		default:
+			result := processor.ProcessWorkItem(context.Background(), item, false, true)
+			if !result.Success {
+				runErr = fmt.Errorf("%s", strings.TrimSpace(result.Error))
+			}
+		}
+
+		if runErr == nil {
+			continue
+		}
+
+		msg := strings.TrimSpace(runErr.Error())
+		if strings.Contains(msg, "needs formatting") {
+			issues = append(issues, Issue{
+				File:          cleanFilePath,
+				Severity:      SeverityMedium,
+				Message:       "YAML file needs formatting",
+				Category:      CategoryFormat,
+				SubCategory:   "yaml-format",
+				AutoFixable:   true,
+				EstimatedTime: HumanReadableDuration(30 * time.Second),
+			})
+			continue
+		}
+
+		if strings.Contains(msg, "invalid YAML syntax") || strings.Contains(msg, "has invalid YAML syntax") {
+			issues = append(issues, Issue{
+				File:          cleanFilePath,
+				Severity:      SeverityMedium,
+				Message:       msg,
+				Category:      CategoryFormat,
+				SubCategory:   "yaml-syntax",
+				AutoFixable:   false,
+				EstimatedTime: HumanReadableDuration(5 * time.Minute),
+			})
+			continue
+		}
+
+		return nil, runErr
+	}
+
+	return issues, nil
 }
 
 // CanRunInParallel implements AssessmentRunner.CanRunInParallel

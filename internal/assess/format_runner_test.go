@@ -6,6 +6,7 @@ package assess
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -83,5 +84,83 @@ func TestFormatRunner_ConsistencyWithFormatCommand(t *testing.T) {
 
 	if hasIssues, _ := finalizer.DetectWhitespaceIssues([]byte(content), options); !hasIssues {
 		t.Error("Shared detection function should detect whitespace issues")
+	}
+}
+
+func TestFormatRunner_CheckMode_DetectsYAMLFormattingNeeds(t *testing.T) {
+	if _, err := exec.LookPath("yamlfmt"); err != nil {
+		t.Skip("yamlfmt not available")
+	}
+
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.yaml")
+	content := "key: value  # comment\n"
+	if err := os.WriteFile(testFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	runner := NewFormatAssessmentRunner()
+	result, err := runner.Assess(context.Background(), tmpDir, AssessmentConfig{
+		Mode:         AssessmentModeCheck,
+		IncludeFiles: []string{filepath.Base(testFile)},
+	})
+	if err != nil {
+		t.Fatalf("Assessment failed: %v", err)
+	}
+
+	foundYAMLFormattingIssue := false
+	for _, issue := range result.Issues {
+		if issue.File == testFile && issue.SubCategory == "yaml-format" {
+			foundYAMLFormattingIssue = true
+			break
+		}
+	}
+
+	if !foundYAMLFormattingIssue {
+		t.Fatalf("Expected YAML formatting issue for %s, got %+v", testFile, result.Issues)
+	}
+}
+
+func TestFormatRunner_FixMode_AppliesYAMLFormatterChanges(t *testing.T) {
+	if _, err := exec.LookPath("yamlfmt"); err != nil {
+		t.Skip("yamlfmt not available")
+	}
+
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.yaml")
+	original := "key: value  # comment\n"
+	if err := os.WriteFile(testFile, []byte(original), 0o644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	runner := NewFormatAssessmentRunner()
+	if _, err := runner.Assess(context.Background(), tmpDir, AssessmentConfig{
+		Mode:         AssessmentModeFix,
+		IncludeFiles: []string{filepath.Base(testFile)},
+	}); err != nil {
+		t.Fatalf("Fix assessment failed: %v", err)
+	}
+
+	updated, err := os.ReadFile(testFile)
+	if err != nil {
+		t.Fatalf("Failed to read updated file: %v", err)
+	}
+
+	if string(updated) == original {
+		t.Fatalf("Expected fix mode to rewrite YAML file, but content was unchanged: %q", string(updated))
+	}
+
+	checkResult, err := runner.Assess(context.Background(), tmpDir, AssessmentConfig{
+		Mode:         AssessmentModeCheck,
+		IncludeFiles: []string{filepath.Base(testFile)},
+	})
+	if err != nil {
+		t.Fatalf("Check assessment failed after fix: %v", err)
+	}
+
+	for _, issue := range checkResult.Issues {
+		if issue.File == testFile && issue.SubCategory == "yaml-format" {
+			t.Fatalf("Expected no YAML formatting issue after fix, got %+v", issue)
+		}
 	}
 }
