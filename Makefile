@@ -44,7 +44,7 @@ LDFLAGS := -ldflags "\
 	-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
-.PHONY: help build hooks-ensure clean clean-go clean-testcache clean-vendor clean-coverage clean-os-metadata clean-backups clean-release clean-all test fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites prerequisites-build-goneat prerequisites-check-go prerequisites-check-git prerequisites-check-tools prerequisites-install-tools sync-crucible sync-ssot verify-crucible verify-crucible-clean verify-schemas bootstrap tools lint release-check release-prepare release-build release-clean release-verify-checksums check-all prepush precommit update-homebrew-formula update-scoop-manifest verify-release-key local-ci-check local-ci all
+.PHONY: help build hooks-ensure clean clean-go clean-testcache clean-vendor clean-coverage clean-os-metadata clean-backups clean-release clean-all test fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites prerequisites-build-goneat prerequisites-check-go prerequisites-check-git prerequisites-check-tools prerequisites-install-tools sync-crucible sync-ssot verify-crucible verify-crucible-clean verify-schemas bootstrap tools lint release-check release-prepare release-build release-clean release-verify-checksums check-all pr-final prepush precommit update-homebrew-formula update-scoop-manifest verify-release-key local-ci-check local-ci all
 
 # Default target
 all: clean build format-all
@@ -796,6 +796,9 @@ precommit: build test ## Run pre-commit hooks (uses existing binary, skips embed
 	@echo "Running pre-commit checks with goneat..."
 	$(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-commit
 	@echo "✅ Pre-commit checks passed"
+
+pr-final: prepush ## Run final PR merge-readiness checks
+	@echo "✅ PR final checks passed"
 
 prepush: release-check verify-crucible-clean build-all ## Run comprehensive pre-push validation
 	@echo "Running pre-push checks with goneat..."

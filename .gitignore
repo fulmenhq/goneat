@@ -63,7 +63,7 @@ goneat
 test_temp/
 test_dir/
 
-# Plans folder - ignore all except PROMPT.md
+# Plans folder - local scratch only; durable briefs live elsewhere
 .plans/
 !.plans/PROMPT.md
 
@@ -87,7 +87,7 @@ Thumbs.db
 # Claude Code settings
 .claude/settings.local.json
 
-# Local agent instructions (never commit)
+# Local agent instructions (never commit; may point to private productbook)
 AGENTS.local.md
 
 # Log files

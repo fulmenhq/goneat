@@ -2,10 +2,11 @@
 
 ## Read First
 
-1. Check `AGENTS.local.md` if it exists (gitignored, tactical session guidance)
+1. Check `AGENTS.local.md` if it exists (gitignored, tactical session guidance, planning-source hints)
 2. Read `MAINTAINERS.md` for contacts and governance
 3. Review this document for operational protocols
 4. Understand project scope before making changes
+5. If the current feature brief or planning source is unclear, ask the maintainer/supervisor where the source of truth lives before proceeding
 
 ## Operating Model
 
@@ -42,6 +43,7 @@ See [agent-identity standard](https://crucible.3leaps.dev/repository/agent-ident
 ### Before Changes
 
 - Read relevant code and docs first
+- Read `AGENTS.local.md` for local planning and environment guidance when present
 - Follow [Session Initialization Protocol](docs/ops/templates/session-initialization-protocol.md)
 - Understand the scope
 - Keep changes minimal and focused
@@ -170,21 +172,27 @@ Release notes live under `docs/releases/v<semver>.md` and are embedded into the 
 
 ### Never Push Without Approval
 
-Git push operations require explicit, per-incident human maintainer approval:
+Git push operations require explicit, per-incident human maintainer approval. The default workflow is feature branch -> pull request -> merge into `main`; do not push directly to `main`.
 
 ```bash
-git add <files>       # OK
-git commit -m "..."   # OK
-git push              # NEVER without explicit approval
+git checkout -b feature/...    # OK
+git add <files>                # OK
+git commit -m "..."            # OK
+git push -u origin feature/... # OK with explicit approval
+git push origin main           # NEVER for normal work
 ```
+
+Branch protection on `main` should stay strict by default. Do not assume a standing bypass exists; if an emergency requires one, ask the maintainer to configure it explicitly for that incident.
 
 ### Never Commit Plans
 
-`.plans/` directory is gitignored - planning documents stay local:
+`.plans/` directory is gitignored and remains local scratch space. The durable source of truth for active briefs may live in the private productbook location referenced by `AGENTS.local.md`.
 
 ```bash
 git add .plans/       # NEVER - gitignored
 ```
+
+If `AGENTS.local.md` is missing or stale and you need the current brief, pause and ask the maintainer/supervisor for the correct planning location.
 
 ### Always Use Make Targets
 

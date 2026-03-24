@@ -34,12 +34,11 @@ jobs:
         run: make verify-embeds
       - name: Test
         run: make test || true
-      - name: Install golangci-lint (v2)
+      - name: golangci-lint (informational)
+        continue-on-error: true
         uses: golangci/golangci-lint-action@v7
         with:
-          version: v2.4.0
-      - name: Lint (informational)
-        run: golangci-lint run || true
+          version: v2.11.2
       - name: Upload goneat binary
         uses: actions/upload-artifact@v4.6.2
         with:

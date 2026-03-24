@@ -44,7 +44,7 @@ This document establishes standard operating procedures for Goneat repository op
 
 ### Standard Commit Workflow
 
-> 🔐 **Guardian policy**: Commits to protected branches (`main`, `master`, release/\*) must be executed through guardian approval. Perform staging and validation as usual, then wrap the actual commit in `goneat guardian approve git commit -- git commit ...`. Feature branches remain unprotected for day-to-day work.
+> 🔐 **Repository policy**: Do day-to-day work on feature branches. `main` is pull-request-only and should remain protected without a standing bypass. If an emergency requires a temporary bypass or direct maintenance action, get explicit approval from @3leapsdave for that incident.
 
 #### 1. Pre-Commit Quality Check
 
@@ -132,8 +132,8 @@ make precommit
 #### 5. Commit Execution
 
 ```bash
-# Standard commit with guardian approval (protected branches)
-goneat guardian approve git commit -- git commit -m "feat: enhance format command with work planning
+# Standard commit on your feature branch
+git commit -m "feat: enhance format command with work planning
 
 - Add work planning integration (branch, priority, dependencies)
 - Implement environment detection (development/production)
@@ -158,7 +158,7 @@ Coverage: 70%"
 
 **RESTRICTED OPERATION - Requires Supervisor Approval**
 
-⚠️ Skipping hooks also skips guardian enforcement. Use only for documented emergencies and notify @3leapsdave. Expect remote enforcement (v0.2.9) to reject unapproved pushes automatically.
+⚠️ Skipping hooks bypasses local validation. Use only for documented emergencies and notify @3leapsdave.
 
 ##### Minimum Requirements (Even in Emergency)
 
@@ -181,7 +181,7 @@ Supervisor: @3leapsdave
 Ticket: URGENT-001
 Reason: Production formatting vulnerability
 Formatting: Applied (make fmt + make fmt-docs)
-Guardian: Skipped (documented emergency; notify @3leapsdave)
+Hooks: Skipped (documented emergency; notify @3leapsdave)
 
 Will address quality gates in follow-up commit"
 ```
@@ -197,7 +197,7 @@ Supervisor: @3leapsdave
 Ticket: DEV-456
 Reason: End-of-day checkpoint, tests incomplete
 Formatting: Applied (make fmt + make fmt-docs)
-Guardian: Skipped (feature branch; log reason)
+Hooks: Skipped (feature branch; log reason)
 
 Will complete implementation and tests in next commit"
 ```
@@ -226,7 +226,7 @@ Will complete implementation and tests in next commit"
 
 ## Push Operations
 
-> 🔐 **Guardian policy**: All pushes to protected branches require guardian approval. Run validations, then execute `goneat guardian approve git push -- git push origin <branch>` so the push happens only after the approval server is satisfied. Feature branches may push normally unless the guardian config enforces additional scopes. Remote enforcement (pre-receive/CI) is planned for v0.2.9 to reject pushes that bypass guardian.
+> 🔐 **Repository policy**: Push feature branches for review and merge into `main` via pull request after checks pass. Do not rely on a standing bypass for `main`; if direct `main` intervention is ever required, configure it explicitly for that incident.
 
 ### Standard Push Workflow
 
@@ -319,16 +319,16 @@ git tag -l -n9 v0.1.0
 
 ```bash
 # Standard push (set upstream on first push)
-goneat guardian approve git push -- git push -u origin main
+git push -u origin feature/my-change
 
-# Push tag immediately after successful branch push
-goneat guardian approve git push -- git push origin v0.1.0
+# Push tag immediately after the approved release workflow
+git push origin v0.1.0
 
-# Force push after rebase (if needed)
-goneat guardian approve git push -- git push --force-with-lease origin main
+# Force push after rebase (if needed, feature branch only)
+git push --force-with-lease origin feature/my-change
 ```
 
-**IMPORTANT**: Always push tags immediately after successful branch push to maintain version consistency.
+**IMPORTANT**: Merge to `main` through the PR UI. Tag pushes are separate from branch protection and still require explicit maintainer approval.
 
 ## Git Hooks Integration
 
@@ -349,7 +349,6 @@ Goneat includes git hooks for automated quality validation:
 - **Purpose**: Runs `make prepush` before allowing pushes
 - **Validation**: Full test suite, security scans, production-ready coverage
 - **Bypass**: Use `git push --no-verify` (requires supervisor approval per SOP)
-- **Guardian**: Executes guardian checks/approvals when enabled. Remote enforcement (v0.2.9) will backstop hooks on the server side.
 
 ### Hook Setup Verification
 
@@ -376,8 +375,8 @@ make prepush
 git add .
 git commit -m "fix: resolve work planning timeout issue"
 
-# 3. Push immediately
-git push origin main
+# 3. Push branch and open PR
+git push -u origin feature/resolve-timeout
 ```
 
 ## Quality Gate Details
