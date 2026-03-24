@@ -182,6 +182,8 @@ func (r *SecurityAssessmentRunner) Assess(ctx context.Context, target string, co
 		allSuppressions = append(allSuppressions, rres.suppressions...)
 	}
 
+	issues, allSuppressions = r.filterToAssessmentRoot(target, issues, allSuppressions)
+
 	// Filter out known noise paths (e.g., test fixtures) from security scans
 	issues = r.filterSecurityNoise(issues, config)
 
@@ -1054,6 +1056,56 @@ func (r *SecurityAssessmentRunner) filterSecurityNoise(in []Issue, cfg Assessmen
 		out = append(out, is)
 	}
 	return out
+}
+
+func (r *SecurityAssessmentRunner) filterToAssessmentRoot(target string, issues []Issue, suppressions []Suppression) ([]Issue, []Suppression) {
+	root := filepath.Clean(target)
+	if absRoot, err := filepath.Abs(root); err == nil {
+		root = absRoot
+	}
+
+	filteredIssues := make([]Issue, 0, len(issues))
+	droppedIssues := 0
+	for _, issue := range issues {
+		if !pathWithinAssessmentRoot(root, issue.File) {
+			droppedIssues++
+			continue
+		}
+		filteredIssues = append(filteredIssues, issue)
+	}
+
+	filteredSuppressions := make([]Suppression, 0, len(suppressions))
+	droppedSuppressions := 0
+	for _, suppression := range suppressions {
+		if !pathWithinAssessmentRoot(root, suppression.File) {
+			droppedSuppressions++
+			continue
+		}
+		filteredSuppressions = append(filteredSuppressions, suppression)
+	}
+
+	if droppedIssues > 0 || droppedSuppressions > 0 {
+		logger.Warn(fmt.Sprintf("security: dropped %d issue(s) and %d suppression(s) outside assessment root %s", droppedIssues, droppedSuppressions, root))
+	}
+
+	return filteredIssues, filteredSuppressions
+}
+
+func pathWithinAssessmentRoot(root, candidate string) bool {
+	if strings.TrimSpace(candidate) == "" {
+		return true
+	}
+
+	cleanCandidate := filepath.Clean(candidate)
+	if filepath.IsAbs(cleanCandidate) {
+		rel, err := filepath.Rel(root, cleanCandidate)
+		if err != nil {
+			return false
+		}
+		return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)))
+	}
+
+	return cleanCandidate != ".." && !strings.HasPrefix(cleanCandidate, ".."+string(os.PathSeparator))
 }
 
 // pathMatchesAny checks if path contains any of the include anchors (substring match, absolute-safe)
