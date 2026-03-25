@@ -44,6 +44,15 @@ properties:
             examples:
               - 80
               - 120
+          pad_line_comments:
+            type: integer
+            description: Number of spaces to insert before inline YAML comments
+            minimum: 1
+            maximum: 8
+            default: 2
+            examples:
+              - 2
+              - 3
           quote_style:
             type: string
             description: Quote style for strings

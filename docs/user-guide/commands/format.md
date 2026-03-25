@@ -103,6 +103,24 @@ formatter:
 
 For linting, this repo disables the `document-start` rule by default in `.yamllint`. If your team prefers `---` document starts, re-enable that rule in your own `.yamllint`.
 
+**YAML Comment Padding and Tool Precedence**
+
+Inline YAML comment spacing is a common source of formatter/linter drift:
+
+- `yamllint`'s default `comments` rule expects `2` spaces before inline comments
+- `yamlfmt`'s default `pad_line_comments` behavior is `1`
+- goneat therefore carries a built-in YAML formatting default of `pad_line_comments: 2` so `goneat format` and `goneat assess --categories format` stay compatible with strict `yamllint` defaults
+
+Practical precedence:
+
+- `.yamllint` remains the source of truth for YAML lint policy
+- goneat's YAML formatter settings are the source of truth for formatter behavior that goneat pins directly, including inline comment padding
+- `.yamlfmt` is still the right place for underlying formatter settings such as indent and line endings
+
+If your team intentionally wants a different inline comment spacing policy, keep your formatter and linter aligned explicitly. In goneat-managed repos, prefer setting formatter behavior in goneat config and make sure `.yamllint` agrees.
+
+See [YAML Format/Lint Alignment](../../appnotes/yaml-format-lint-alignment.md) for the rationale and examples.
+
 **Impact**
 
 - ✅ Eliminates false positive formatting issues

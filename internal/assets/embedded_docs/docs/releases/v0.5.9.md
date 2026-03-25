@@ -1,34 +1,63 @@
-# Goneat v0.5.9 — YAML Parity, Repo-Scoped gosec, and PR Workflow Refresh
+# Goneat v0.5.9 — YAML Comment Parity, Repo-Scoped gosec, and PR Workflow Refresh
 
-**Release Date**: 2026-03-24
+**Release Date**: 2026-03-25
 **Status**: Stable
 
 ## TL;DR
 
-- **YAML format parity**: `goneat assess --categories format` now sees and fixes the same `yamlfmt` rewrites as `goneat format`
+- **YAML comment parity**: `goneat format`, `goneat assess --categories format`, and strict `yamllint` now agree on inline comment spacing by default
 - **Repo-scoped gosec**: security assessment no longer lets `GOCACHE` or other out-of-repo Go build artifacts block releases
 - **Maintainer workflow refresh**: goneat now uses a protected `main` + pull request flow, with `make pr-final` as the final merge-readiness check
+- **golangci-lint tool alignment**: recommended local tool guidance now matches CI at `2.11.2`
 
 ## What Changed
 
-### YAML Format / Assess Parity
+### YAML Format/Lint Alignment
 
-`3leaps/sysprims` exposed a correctness gap in the format pipeline: `goneat format`
-could rewrite YAML inline comments into a form that later failed strict
-`yamllint`, while `goneat assess --categories format --check` still reported the
-tree as format clean.
+`3leaps/sysprims` exposed a real dogfood gap in YAML handling.
 
-v0.5.9 closes that gap by routing YAML files through the shared format processor
-during format assessment. In practice:
+Before this fix, `goneat format` and `goneat assess --categories format --fix`
+could rewrite inline comments into the one-space form:
 
-- `goneat format` and `goneat assess --categories format --fix` now apply the
-  same `yamlfmt`-driven rewrites
-- `goneat assess --categories format --check` now fails when the fix path would
-  rewrite the file
-- invalid YAML syntax still surfaces as a format error instead of being hidden
+```yaml
+enabled: true # inline comment
+```
+
+while strict `yamllint` still expected:
+
+```yaml
+enabled: true  # inline comment
+```
+
+The underlying issue is that `yamllint` defaults to `2` spaces before inline
+comments, while `yamlfmt` defaults to `1` via `pad_line_comments`.
+
+v0.5.9 fixes this in three ways:
+
+- `goneat assess --categories format` now routes YAML files through the same formatter path as `goneat format`
+- goneat pins YAML inline comment padding to a lint-compatible default of `2`
+- goneat passes that same setting into both YAML format and YAML check flows so
+  `format`, `assess --categories format --check`, and `assess --categories format --fix`
+  stay aligned
 
 This restores the expected contract that developers can format first and then
-trust the assess/check path used by hooks and CI.
+trust hook and CI checks.
+
+### Evergreen YAML Guidance
+
+Because many teams use both `.yamlfmt` and `.yamllint`, goneat now documents the
+precedence model explicitly:
+
+- `.yamllint` defines lint policy
+- goneat config defines formatter behavior for settings that goneat pins
+- `.yamlfmt` defines the remaining formatter-native behavior
+
+That guidance is now available in the binary docs via:
+
+```bash
+goneat docs show user-guide/commands/format
+goneat docs show appnotes/yaml-format-lint-alignment
+```
 
 ### Repo-Scoped gosec Findings
 
@@ -64,6 +93,9 @@ guidance with CI behavior.
 ## Upgrade Notes
 
 Drop-in replacement for v0.5.8. No config migration required.
+
+Teams that intentionally use non-default YAML inline comment spacing should keep
+goneat formatter settings and `.yamllint` policy aligned explicitly.
 
 ## Contributors
 

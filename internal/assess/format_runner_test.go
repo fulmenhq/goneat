@@ -94,7 +94,7 @@ func TestFormatRunner_CheckMode_DetectsYAMLFormattingNeeds(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.yaml")
-	content := "key: value  # comment\n"
+	content := "key: value # comment\n"
 	if err := os.WriteFile(testFile, []byte(content), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
@@ -128,7 +128,7 @@ func TestFormatRunner_FixMode_AppliesYAMLFormatterChanges(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.yaml")
-	original := "key: value  # comment\n"
+	original := "key: value # comment\n"
 	if err := os.WriteFile(testFile, []byte(original), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestFormatRunner_FixMode_AppliesYAMLFormatterChanges(t *testing.T) {
 	if string(updated) == original {
 		t.Fatalf("Expected fix mode to rewrite YAML file, but content was unchanged: %q", string(updated))
 	}
-	if !strings.Contains(string(updated), "key: value # comment") {
+	if !strings.Contains(string(updated), "key: value  # comment") {
 		t.Fatalf("Expected fix mode to normalize inline comment spacing, got %q", string(updated))
 	}
 

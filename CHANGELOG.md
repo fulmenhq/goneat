@@ -9,11 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [v0.5.9] - 2026-03-24
+## [v0.5.9] - 2026-03-25
 
 ### Fixed
 
-- **YAML format parity**: `goneat assess --categories format` now routes YAML files through the same formatter path as `goneat format`, so check/fix mode catches and applies the same `yamlfmt` rewrites instead of silently missing inline-comment spacing changes.
+- **YAML format/lint parity**: `goneat assess --categories format` now routes YAML files through the same formatter path as `goneat format`, and both paths keep inline comment spacing compatible with strict `yamllint` defaults by pinning `pad_line_comments: 2` in the formatter and check paths.
+- **YAML formatter guidance**: goneat now documents precedence between `.yamllint`, goneat YAML formatter settings, and `.yamlfmt` so teams know where inline comment spacing is controlled.
 - **Go security scope filtering**: security assessment now drops `gosec` findings and suppressions whose file paths resolve outside the assessed repository root, preventing `GOCACHE` and `go-build` artifacts from tripping `--fail-on` gates.
 
 ### Changed
