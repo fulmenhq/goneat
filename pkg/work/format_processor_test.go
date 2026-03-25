@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -43,7 +45,15 @@ func TestNewFormatProcessor(t *testing.T) {
 }
 
 func TestFormatProcessor_ProcessWorkItem_DryRun(t *testing.T) {
-	cfg := &config.Config{}
+	cfg := &config.Config{
+		Format: config.FormatConfig{
+			YAML: config.YAMLFormatConfig{
+				Indent:          2,
+				LineLength:      80,
+				PadLineComments: 2,
+			},
+		},
+	}
 	processor := newTestProcessor(cfg)
 
 	item := &WorkItem{
@@ -71,7 +81,15 @@ func TestFormatProcessor_ProcessWorkItem_DryRun(t *testing.T) {
 }
 
 func TestFormatProcessor_ProcessWorkItem_NoOp(t *testing.T) {
-	cfg := &config.Config{}
+	cfg := &config.Config{
+		Format: config.FormatConfig{
+			YAML: config.YAMLFormatConfig{
+				Indent:          2,
+				LineLength:      80,
+				PadLineComments: 2,
+			},
+		},
+	}
 	processor := newTestProcessor(cfg)
 
 	// Create a temporary directory for test files
@@ -162,7 +180,15 @@ func TestFormatProcessor_ProcessWorkItem_NoOp(t *testing.T) {
 }
 
 func TestFormatProcessor_ProcessWorkItem_Format(t *testing.T) {
-	cfg := &config.Config{}
+	cfg := &config.Config{
+		Format: config.FormatConfig{
+			YAML: config.YAMLFormatConfig{
+				Indent:          2,
+				LineLength:      80,
+				PadLineComments: 2,
+			},
+		},
+	}
 	processor := newTestProcessor(cfg)
 
 	tests := []struct {
@@ -280,6 +306,51 @@ func TestFormatProcessor_ProcessWorkItem_Context_Cancellation(t *testing.T) {
 
 	if result.WorkItemID != item.ID {
 		t.Errorf("expected work item ID '%s', got '%s'", item.ID, result.WorkItemID)
+	}
+}
+
+func TestFormatProcessor_ProcessWorkItem_YAMLPreservesLintCompatibleCommentPadding(t *testing.T) {
+	if _, err := exec.LookPath("yamlfmt"); err != nil {
+		t.Skip("yamlfmt not available")
+	}
+
+	cfg := &config.Config{
+		Format: config.FormatConfig{
+			YAML: config.YAMLFormatConfig{
+				Indent:          2,
+				LineLength:      80,
+				PadLineComments: 2,
+			},
+		},
+	}
+	processor := newTestProcessor(cfg)
+
+	tempDir := t.TempDir()
+	testFile := filepath.Join(tempDir, "test.yaml")
+	content := []byte("lint:\n  sample:\n    enabled: true  # inline comment\n")
+	if err := os.WriteFile(testFile, content, 0o644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	item := &WorkItem{
+		ID:          "yaml-padding",
+		Path:        testFile,
+		ContentType: "yaml",
+		Size:        int64(len(content)),
+	}
+
+	result := processor.ProcessWorkItem(context.Background(), item, false, false)
+	if !result.Success {
+		t.Fatalf("expected YAML format success, got: %s", result.Error)
+	}
+
+	updated, err := os.ReadFile(testFile)
+	if err != nil {
+		t.Fatalf("Failed to read formatted file: %v", err)
+	}
+
+	if !strings.Contains(string(updated), "enabled: true  # inline comment") {
+		t.Fatalf("expected lint-compatible two-space comment padding, got %q", string(updated))
 	}
 }
 

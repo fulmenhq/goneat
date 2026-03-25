@@ -24,6 +24,9 @@ func TestLoadConfig(t *testing.T) {
 	if config.Format.YAML.Indent != 2 {
 		t.Errorf("Expected default YAML indent to be 2, got %d", config.Format.YAML.Indent)
 	}
+	if config.Format.YAML.PadLineComments != 2 {
+		t.Errorf("Expected default YAML pad_line_comments to be 2, got %d", config.Format.YAML.PadLineComments)
+	}
 	if config.Format.JSON.Indent != "  " {
 		t.Errorf("Expected default JSON indent to be '  ', got %q", config.Format.JSON.Indent)
 	}
@@ -51,6 +54,7 @@ func TestConfigGetterMethods(t *testing.T) {
 			YAML: YAMLFormatConfig{
 				Indent:          4,
 				LineLength:      100,
+				PadLineComments: 3,
 				QuoteStyle:      "single",
 				TrailingNewline: false,
 			},
@@ -76,7 +80,7 @@ func TestConfigGetterMethods(t *testing.T) {
 	}
 
 	yamlConfig := config.GetYAMLConfig()
-	if yamlConfig.Indent != 4 || yamlConfig.LineLength != 100 {
+	if yamlConfig.Indent != 4 || yamlConfig.LineLength != 100 || yamlConfig.PadLineComments != 3 {
 		t.Error("GetYAMLConfig() should return correct YAML config")
 	}
 
@@ -265,6 +269,7 @@ func TestLoadProjectConfigWithValidYAML(t *testing.T) {
     simplify: false
   yaml:
     indent: 4
+    pad_line_comments: 3
 security:
   fail_on: medium
   enable:
@@ -285,6 +290,9 @@ security:
 	}
 	if config.Format.YAML.Indent != 4 {
 		t.Errorf("Expected YAML indent to be 4, got %d", config.Format.YAML.Indent)
+	}
+	if config.Format.YAML.PadLineComments != 3 {
+		t.Errorf("Expected YAML pad_line_comments to be 3, got %d", config.Format.YAML.PadLineComments)
 	}
 	if config.Security.FailOn != "medium" {
 		t.Errorf("Expected FailOn to be 'medium', got %q", config.Security.FailOn)

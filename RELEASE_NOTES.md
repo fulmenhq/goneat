@@ -1,3 +1,109 @@
+# Goneat v0.5.9 — YAML Comment Parity, Repo-Scoped gosec, and PR Workflow Refresh
+
+**Release Date**: 2026-03-25
+**Status**: Stable
+
+## TL;DR
+
+- **YAML comment parity**: `goneat format`, `goneat assess --categories format`, and strict `yamllint` now agree on inline comment spacing by default
+- **Repo-scoped gosec**: security assessment no longer lets `GOCACHE` or other out-of-repo Go build artifacts block releases
+- **Maintainer workflow refresh**: goneat now uses a protected `main` + pull request flow, with `make pr-final` as the final merge-readiness check
+- **golangci-lint tool alignment**: recommended local tool guidance now matches CI at `2.11.2`
+
+## What Changed
+
+### YAML Format/Lint Alignment
+
+`3leaps/sysprims` exposed a real dogfood gap in YAML handling.
+
+Before this fix, `goneat format` and `goneat assess --categories format --fix`
+could rewrite inline comments into the one-space form:
+
+```yaml
+enabled: true # inline comment
+```
+
+while strict `yamllint` still expected:
+
+```yaml
+enabled: true  # inline comment
+```
+
+The underlying issue is that `yamllint` defaults to `2` spaces before inline
+comments, while `yamlfmt` defaults to `1` via `pad_line_comments`.
+
+v0.5.9 fixes this in three ways:
+
+- `goneat assess --categories format` now routes YAML files through the same formatter path as `goneat format`
+- goneat pins YAML inline comment padding to a lint-compatible default of `2`
+- goneat passes that same setting into both YAML format and YAML check flows so
+  `format`, `assess --categories format --check`, and `assess --categories format --fix`
+  stay aligned
+
+This restores the expected contract that developers can format first and then
+trust hook and CI checks.
+
+### Evergreen YAML Guidance
+
+Because many teams use both `.yamlfmt` and `.yamllint`, goneat now documents the
+precedence model explicitly:
+
+- `.yamllint` defines lint policy
+- goneat config defines formatter behavior for settings that goneat pins
+- `.yamlfmt` defines the remaining formatter-native behavior
+
+That guidance is now available in the binary docs via:
+
+```bash
+goneat docs show user-guide/commands/format
+goneat docs show appnotes/yaml-format-lint-alignment
+```
+
+### Repo-Scoped gosec Findings
+
+The second `sysprims` blocker came from `gosec` findings emitted for files under
+the Go build cache rather than the repository under assessment. The findings
+followed `GOCACHE` when it was redirected, which showed the issue was scope
+leakage rather than repo-local code.
+
+v0.5.9 now filters security issues and suppressions back to the assessment root
+before severity aggregation and `--fail-on` gating. That means:
+
+- findings under `GOCACHE`, `go-build`, and similar external paths are dropped
+- relative path escapes are rejected
+- only repo-owned source files can block security gates
+
+### Maintainer Workflow Refresh
+
+goneat now operates with a protected `main` branch and pull-request-based merge
+flow. This is a maintainer/workflow change rather than an end-user CLI feature,
+but it is part of the v0.5.9 hardening work:
+
+- `main` is PR-only with squash/rebase merges enabled
+- `make pr-final` is available as the standard final merge-readiness target
+- generated local hooks default away from guardian browser interception for the
+  normal feature-branch workflow
+
+### golangci-lint Tool Alignment
+
+The advisory CI lint step and the recommended tool defaults are now aligned on
+`golangci-lint` `2.11.2`, reducing surprise when contributors compare local tool
+guidance with CI behavior.
+
+## Upgrade Notes
+
+Drop-in replacement for v0.5.8. No config migration required.
+
+Teams that intentionally use non-default YAML inline comment spacing should keep
+goneat formatter settings and `.yamllint` policy aligned explicitly.
+
+## Contributors
+
+- GPT-5.4 (devlead)
+- @3leapsdave (supervision)
+
+---
+
 # Goneat v0.5.8 — Windows Portability, Dependency Remediation & Non-Go Lint Fix
 
 **Release Date**: 2026-03-13

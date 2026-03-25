@@ -39,6 +39,7 @@ type GoFormatConfig struct {
 type YAMLFormatConfig struct {
 	Indent          int    `mapstructure:"indent"`
 	LineLength      int    `mapstructure:"line_length"`
+	PadLineComments int    `mapstructure:"pad_line_comments"`
 	QuoteStyle      string `mapstructure:"quote_style"` // "single", "double"
 	TrailingNewline bool   `mapstructure:"trailing_newline"`
 }
@@ -67,6 +68,7 @@ var defaultConfig = Config{
 		YAML: YAMLFormatConfig{
 			Indent:          2,
 			LineLength:      80,
+			PadLineComments: 2,
 			QuoteStyle:      "double",
 			TrailingNewline: true,
 		},
@@ -132,6 +134,7 @@ func LoadConfig() (*Config, error) {
 	v.SetDefault("format.go.simplify", defaultConfig.Format.Go.Simplify)
 	v.SetDefault("format.yaml.indent", defaultConfig.Format.YAML.Indent)
 	v.SetDefault("format.yaml.line_length", defaultConfig.Format.YAML.LineLength)
+	v.SetDefault("format.yaml.pad_line_comments", defaultConfig.Format.YAML.PadLineComments)
 	v.SetDefault("format.yaml.quote_style", defaultConfig.Format.YAML.QuoteStyle)
 	v.SetDefault("format.yaml.trailing_newline", defaultConfig.Format.YAML.TrailingNewline)
 	v.SetDefault("format.json.indent", defaultConfig.Format.JSON.Indent)

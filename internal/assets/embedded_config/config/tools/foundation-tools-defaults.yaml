@@ -206,7 +206,7 @@ go_tools:
     auto_install_safe: true
     version_scheme: "semver"
     minimum_version: "2.0.0"
-    recommended_version: "2.10.0"
+    recommended_version: "2.11.2"
   - name: goimports
     description: "Go import formatter"
     kind: "go"

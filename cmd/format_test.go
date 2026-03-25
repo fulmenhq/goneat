@@ -187,6 +187,39 @@ nested:
 	}
 }
 
+func TestFormatCommand_YAMLUsesLintCompatibleCommentPadding(t *testing.T) {
+	if _, err := exec.LookPath("yamlfmt"); err != nil {
+		t.Skip("yamlfmt not available")
+	}
+
+	tempDir := t.TempDir()
+	yamlFile := filepath.Join(tempDir, "test.yaml")
+	yamlContent := "lint:\n  sample:\n    enabled: true  # inline comment\n"
+	if err := os.WriteFile(yamlFile, []byte(yamlContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := exec.Command("go", "run", ".", "format", "--files", yamlFile, "--quiet")
+	cmd.Dir = ".."
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("format command failed: %v\nOutput: %s", err, output)
+	}
+
+	updated, err := os.ReadFile(yamlFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(updated), "enabled: true  # inline comment") {
+		t.Fatalf("expected two spaces before inline comment after format, got %q", string(updated))
+	}
+
+	lintCmd := exec.Command("yamllint", yamlFile)
+	lintOutput, err := lintCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("yamllint rejected formatted YAML: %v\nOutput: %s", err, lintOutput)
+	}
+}
+
 // TestFormatCommand_QuietMode tests quiet mode functionality
 func TestFormatCommand_QuietMode(t *testing.T) {
 	// Create a temporary directory with test files

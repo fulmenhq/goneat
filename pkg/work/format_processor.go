@@ -328,6 +328,9 @@ func (p *FormatProcessor) formatYAMLFile(filePath string) error {
 	if yamlConfig.LineLength != 80 {
 		formatterOpts = append(formatterOpts, fmt.Sprintf("line_length=%d", yamlConfig.LineLength))
 	}
+	if yamlConfig.PadLineComments != 1 {
+		formatterOpts = append(formatterOpts, fmt.Sprintf("pad_line_comments=%d", yamlConfig.PadLineComments))
+	}
 
 	for _, opt := range formatterOpts {
 		args = append(args, "-formatter", opt)
@@ -455,8 +458,23 @@ func (p *FormatProcessor) checkYAMLFile(filePath string) error {
 	}
 
 	// Run yamlfmt with -lint flag to check if formatting is needed
+	args := []string{"-lint"}
+	var formatterOpts []string
+	if yamlConfig := p.config.GetYAMLConfig(); yamlConfig.Indent != 2 {
+		formatterOpts = append(formatterOpts, fmt.Sprintf("indent=%d", yamlConfig.Indent))
+	}
+	if yamlConfig := p.config.GetYAMLConfig(); yamlConfig.LineLength != 80 {
+		formatterOpts = append(formatterOpts, fmt.Sprintf("line_length=%d", yamlConfig.LineLength))
+	}
+	if yamlConfig := p.config.GetYAMLConfig(); yamlConfig.PadLineComments != 1 {
+		formatterOpts = append(formatterOpts, fmt.Sprintf("pad_line_comments=%d", yamlConfig.PadLineComments))
+	}
+	for _, opt := range formatterOpts {
+		args = append(args, "-formatter", opt)
+	}
+	args = append(args, filePath)
 	// #nosec G204 -- yamlfmtPath comes from exec.LookPath which validates the path
-	cmd := exec.Command(yamlfmtPath, "-lint", filePath)
+	cmd := exec.Command(yamlfmtPath, args...)
 	output, err := cmd.CombinedOutput()
 
 	if err != nil {
