@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.10] - 2026-03-30
+
+### Fixed
+
+- **License exception evaluation in assess**: `goneat assess --categories dependencies` now honors `licenses.exceptions` from `.goneat/dependencies.yaml` before emitting forbidden-license findings, including exact package/license matching and date-based activation with `approved_date` and `until`.
+- **Dependency policy schema drift**: the embedded `dependencies-policy-v1.0.0` schema now accepts the vulnerability allowlist metadata already used by goneat's own repo policy (`status`, `sdr`, `analysis`, `verified_by`, `verified_date`), removing the recurring `dependencies: policy failed schema validation` warning from dogfood dependency assessment.
+
+### Changed
+
+- **Dependency policy docs/schema alignment**: license exception examples, troubleshooting guidance, and the dependency policy schema now document temporary license overrides more accurately, including optional expiry dates.
+
 ## [v0.5.9] - 2026-03-25
 
 ### Fixed
