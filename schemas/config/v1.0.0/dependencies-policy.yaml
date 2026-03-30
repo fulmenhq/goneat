@@ -161,14 +161,27 @@ properties:
             id:
               type: string
               description: Vulnerability identifier (CVE/GHSA)
+            status:
+              type: string
+              description: Optional triage status for the suppression record
             until:
               type: string
               description: Optional expiry date
             reason:
               type: string
+            sdr:
+              type: string
+              description: Optional security decision record reference
+            analysis:
+              type: string
+              description: Optional detailed rationale for the suppression
             approved_by:
               type: string
             approved_date:
+              type: string
+            verified_by:
+              type: string
+            verified_date:
               type: string
             ticket:
               type: string

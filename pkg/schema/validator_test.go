@@ -79,6 +79,28 @@ func TestGetEmbeddedValidator(t *testing.T) {
 	}
 }
 
+func TestDependenciesPolicyRepoConfigValidates(t *testing.T) {
+	t.Parallel()
+
+	data, err := os.ReadFile(filepath.Clean("../../.goneat/dependencies.yaml"))
+	if err != nil {
+		t.Fatalf("failed to read dependencies config: %v", err)
+	}
+
+	var doc interface{}
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		t.Fatalf("failed to parse dependencies config: %v", err)
+	}
+
+	res, err := Validate(doc, "dependencies-policy-v1.0.0")
+	if err != nil {
+		t.Fatalf("validation error: %v", err)
+	}
+	if !res.Valid {
+		t.Fatalf("expected repo dependencies policy to validate, got errors: %+v", res.Errors)
+	}
+}
+
 func TestNewValidatorFromBytes(t *testing.T) {
 	t.Parallel()
 	schemaBytes := []byte(`{
