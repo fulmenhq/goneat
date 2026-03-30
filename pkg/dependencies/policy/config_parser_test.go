@@ -45,6 +45,121 @@ func TestParseCoolingConfig_Enabled(t *testing.T) {
 	}
 }
 
+func TestParseLicenseConfig_WithPackageException(t *testing.T) {
+	policyData := map[string]interface{}{
+		"licenses": map[string]interface{}{
+			"forbidden": []interface{}{"GPL-3.0", "AGPL-3.0"},
+			"exceptions": []interface{}{
+				map[string]interface{}{
+					"package":       "github.com/hashicorp/go-cleanhttp",
+					"license":       "GPL-3.0",
+					"reason":        "Upstream license manually verified",
+					"approved_by":   "@legal",
+					"approved_date": "2026-03-30",
+					"until":         "2026-06-30",
+					"ticket":        "GNT-008",
+				},
+			},
+		},
+	}
+
+	cfg, err := ParseLicenseConfig(policyData)
+	if err != nil {
+		t.Fatalf("ParseLicenseConfig failed: %v", err)
+	}
+
+	if cfg == nil {
+		t.Fatal("Expected config, got nil")
+	}
+
+	if len(cfg.Forbidden) != 2 {
+		t.Fatalf("Expected 2 forbidden licenses, got %d", len(cfg.Forbidden))
+	}
+	if len(cfg.Exceptions) != 1 {
+		t.Fatalf("Expected 1 exception, got %d", len(cfg.Exceptions))
+	}
+
+	exc := cfg.Exceptions[0]
+	if exc.Package != "github.com/hashicorp/go-cleanhttp" {
+		t.Errorf("Expected package to be parsed, got %q", exc.Package)
+	}
+	if exc.License != "GPL-3.0" {
+		t.Errorf("Expected license to be parsed, got %q", exc.License)
+	}
+	if exc.Until != "2026-06-30" {
+		t.Errorf("Expected until to be parsed, got %q", exc.Until)
+	}
+	if exc.ApprovedDate != "2026-03-30" {
+		t.Errorf("Expected approved_date to be parsed, got %q", exc.ApprovedDate)
+	}
+}
+
+func TestParseLicenseConfig_WithNameAndLicensesException(t *testing.T) {
+	policyData := map[string]interface{}{
+		"licenses": map[string]interface{}{
+			"exceptions": []interface{}{
+				map[string]interface{}{
+					"name":     "github.com/hashicorp/go-retryablehttp",
+					"licenses": []interface{}{"GPL-3.0", "MPL-2.0"},
+					"reason":   "Multiple acceptable observed classifier outputs",
+				},
+			},
+		},
+	}
+
+	cfg, err := ParseLicenseConfig(policyData)
+	if err != nil {
+		t.Fatalf("ParseLicenseConfig failed: %v", err)
+	}
+
+	if cfg == nil {
+		t.Fatal("Expected config, got nil")
+	}
+	if len(cfg.Exceptions) != 1 {
+		t.Fatalf("Expected 1 exception, got %d", len(cfg.Exceptions))
+	}
+
+	exc := cfg.Exceptions[0]
+	if exc.Name != "github.com/hashicorp/go-retryablehttp" {
+		t.Errorf("Expected name to be parsed, got %q", exc.Name)
+	}
+	if len(exc.Licenses) != 2 {
+		t.Fatalf("Expected 2 licenses, got %d", len(exc.Licenses))
+	}
+}
+
+func TestParseLicenseConfig_MalformedExceptions(t *testing.T) {
+	policyData := map[string]interface{}{
+		"licenses": map[string]interface{}{
+			"exceptions": []interface{}{
+				map[string]interface{}{
+					"package": "github.com/valid/pkg",
+					"license": "GPL-3.0",
+				},
+				map[string]interface{}{
+					"package": "github.com/missing/license",
+				},
+				map[string]interface{}{
+					"license": "GPL-3.0",
+				},
+				"invalid-type",
+			},
+		},
+	}
+
+	cfg, err := ParseLicenseConfig(policyData)
+	if err != nil {
+		t.Fatalf("ParseLicenseConfig failed: %v", err)
+	}
+
+	if cfg == nil {
+		t.Fatal("Expected config, got nil")
+	}
+	if len(cfg.Exceptions) != 1 {
+		t.Fatalf("Expected 1 valid exception, got %d", len(cfg.Exceptions))
+	}
+}
+
 func TestParseCoolingConfig_Defaults(t *testing.T) {
 	policyData := map[string]interface{}{
 		"cooling": map[string]interface{}{

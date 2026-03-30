@@ -1,8 +1,30 @@
 package policy
 
 import (
+	"time"
+
 	"github.com/fulmenhq/goneat/pkg/config"
 )
+
+// ParseLicenseConfig extracts and validates license policy configuration from raw policy data.
+func ParseLicenseConfig(policyData map[string]interface{}) (*config.LicensePolicyConfig, error) {
+	licenseCfg, ok := policyData["licenses"].(map[string]interface{})
+	if !ok {
+		return nil, nil
+	}
+
+	cfg := config.LicensePolicyConfig{
+		Forbidden: parseStringArray(licenseCfg["forbidden"]),
+		Allowed:   parseStringArray(licenseCfg["allowed"]),
+		Allow:     parseStringArray(licenseCfg["allow"]),
+	}
+
+	if exceptions, ok := licenseCfg["exceptions"].([]interface{}); ok {
+		cfg.Exceptions = parseLicenseExceptions(exceptions)
+	}
+
+	return &cfg, nil
+}
 
 // ParseCoolingConfig extracts and validates cooling policy configuration from raw policy data.
 // It applies sensible defaults for any missing values.
@@ -83,4 +105,63 @@ func parseExceptions(exceptions []interface{}) []config.CoolingException {
 	}
 
 	return result
+}
+
+func parseLicenseExceptions(exceptions []interface{}) []config.LicenseException {
+	var result []config.LicenseException
+
+	for _, exc := range exceptions {
+		excMap, ok := exc.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		exception := config.LicenseException{
+			Package:      readString(excMap["package"]),
+			Name:         readString(excMap["name"]),
+			License:      readString(excMap["license"]),
+			Licenses:     parseStringArray(excMap["licenses"]),
+			Reason:       readString(excMap["reason"]),
+			Until:        readString(excMap["until"]),
+			ApprovedBy:   readString(excMap["approved_by"]),
+			ApprovedDate: readString(excMap["approved_date"]),
+			Ticket:       readString(excMap["ticket"]),
+		}
+
+		if (exception.Package == "" && exception.Name == "") || (exception.License == "" && len(exception.Licenses) == 0) {
+			continue
+		}
+
+		result = append(result, exception)
+	}
+
+	return result
+}
+
+func parseStringArray(value interface{}) []string {
+	switch v := value.(type) {
+	case []string:
+		return append([]string(nil), v...)
+	case []interface{}:
+		result := make([]string, 0, len(v))
+		for _, item := range v {
+			if s := readString(item); s != "" {
+				result = append(result, s)
+			}
+		}
+		return result
+	default:
+		return nil
+	}
+}
+
+func readString(value interface{}) string {
+	switch v := value.(type) {
+	case string:
+		return v
+	case time.Time:
+		return v.Format("2006-01-02")
+	default:
+		return ""
+	}
 }

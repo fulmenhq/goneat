@@ -57,6 +57,7 @@ licenses:
   #     reason: "Legal team approved after review"
   #     approved_by: "@legal-team"
   #     approved_date: "2025-10-28"
+  #     until: "2026-06-30"  # Optional expiry for temporary overrides
   #     ticket: "LEGAL-1234"
 
 # ============================================================================

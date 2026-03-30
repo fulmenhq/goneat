@@ -63,6 +63,7 @@ licenses:
       reason: "License manually verified from GitHub"
       approved_by: "@yourname"
       approved_date: "$(date +%Y-%m-%d)"
+      until: "2026-06-30"  # Optional for temporary overrides
 EOF
 ```
 

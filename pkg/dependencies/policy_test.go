@@ -1,11 +1,12 @@
 package dependencies
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/fulmenhq/goneat/pkg/dependencies/policy"
 	"gopkg.in/yaml.v3"
 )
 
@@ -128,10 +129,6 @@ licenses:
 		},
 	}
 
-	// Manually test policy evaluation (simulating what Analyze does)
-	ctx := context.Background()
-	_ = ctx
-
 	// Load policy
 	policyData, err := os.ReadFile(policyPath)
 	if err != nil {
@@ -144,28 +141,12 @@ licenses:
 		t.Fatalf("Failed to parse policy: %v", err)
 	}
 
-	// Check forbidden licenses
-	var issues []Issue
-	passed := true
-
-	if licensesConfig, ok := policyConfig["licenses"].(map[string]interface{}); ok {
-		if forbidden, ok := licensesConfig["forbidden"].([]interface{}); ok {
-			for i := range deps {
-				dep := &deps[i]
-				for _, forbiddenLicense := range forbidden {
-					if dep.License.Type == forbiddenLicense.(string) {
-						issues = append(issues, Issue{
-							Type:       "license",
-							Severity:   "critical",
-							Message:    "Forbidden license detected",
-							Dependency: dep,
-						})
-						passed = false
-					}
-				}
-			}
-		}
+	licenseCfg, err := policy.ParseLicenseConfig(policyConfig)
+	if err != nil {
+		t.Fatalf("Failed to parse license config: %v", err)
 	}
+
+	issues, passed := evaluateForbiddenLicenses(deps, licenseCfg, time.Date(2026, time.March, 30, 12, 0, 0, 0, time.UTC))
 
 	// Verify results
 	if passed {
@@ -182,6 +163,9 @@ licenses:
 		}
 		if issues[0].Severity != "critical" {
 			t.Errorf("Expected critical severity, got %s", issues[0].Severity)
+		}
+		if issues[0].Message != "Package test/gpl-package uses forbidden license: GPL-3.0" {
+			t.Errorf("Unexpected message: %q", issues[0].Message)
 		}
 		if issues[0].Dependency.License.Type != "GPL-3.0" {
 			t.Errorf("Expected GPL-3.0 violation, got %s", issues[0].Dependency.License.Type)
