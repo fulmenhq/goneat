@@ -357,6 +357,25 @@ type DependenciesConfig struct {
 	AutoDetect bool               `mapstructure:"auto_detect"`
 }
 
+type LicensePolicyConfig struct {
+	Forbidden  []string           `mapstructure:"forbidden"`
+	Allowed    []string           `mapstructure:"allowed"`
+	Allow      []string           `mapstructure:"allow"`
+	Exceptions []LicenseException `mapstructure:"exceptions"`
+}
+
+type LicenseException struct {
+	Package      string   `mapstructure:"package"`
+	Name         string   `mapstructure:"name"`
+	License      string   `mapstructure:"license"`
+	Licenses     []string `mapstructure:"licenses"`
+	Reason       string   `mapstructure:"reason"`
+	Until        string   `mapstructure:"until"`
+	ApprovedBy   string   `mapstructure:"approved_by"`
+	ApprovedDate string   `mapstructure:"approved_date"`
+	Ticket       string   `mapstructure:"ticket"`
+}
+
 type PolicyEngineConfig struct {
 	Type      string       `mapstructure:"type"` // "embedded", "remote"
 	Remote    RemoteConfig `mapstructure:"remote"`

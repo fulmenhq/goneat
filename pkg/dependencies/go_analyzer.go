@@ -198,20 +198,11 @@ func (a *GoAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisCon
 					policyConfig = nil
 				}
 				if checkLicenses {
-					if licensesConfig, ok := policyConfig["licenses"].(map[string]interface{}); ok {
-						if forbidden, ok := licensesConfig["forbidden"].([]interface{}); ok {
-							for i := range deps {
-								dep := &deps[i]
-								if dep.License == nil {
-									continue
-								}
-								for _, forbiddenLicense := range forbidden {
-									if dep.License.Type == forbiddenLicense.(string) {
-										issues = append(issues, Issue{Type: "license", Severity: "critical", Message: fmt.Sprintf("Package %s uses forbidden license: %s", dep.Name, dep.License.Type), Dependency: dep})
-										passed = false
-									}
-								}
-							}
+					if licenseCfg, err := policy.ParseLicenseConfig(policyConfig); err == nil {
+						licenseIssues, licensePassed := evaluateForbiddenLicenses(deps, licenseCfg, time.Now())
+						issues = append(issues, licenseIssues...)
+						if !licensePassed {
+							passed = false
 						}
 					}
 				}

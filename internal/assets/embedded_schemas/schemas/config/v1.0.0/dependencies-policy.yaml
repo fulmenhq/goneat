@@ -50,6 +50,8 @@ properties:
                   type: string
                 approved_by:
                   type: string
+                until:
+                  type: string
                 approved_date:
                   type: string
                 ticket:
@@ -67,6 +69,8 @@ properties:
                 reason:
                   type: string
                 approved_by:
+                  type: string
+                until:
                   type: string
                 approved_date:
                   type: string
