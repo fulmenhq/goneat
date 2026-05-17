@@ -718,8 +718,9 @@ func createInternalCommandHandler(cmd *cobra.Command, hookType string, hookConfi
 	return func(ctx context.Context, command string, args []string) error {
 		switch command {
 		case "assess":
-			// Run assessment with args parsed from manifest
-			return runInternalAssess(cmd, hookType, hookConfig, baseConfig, outFormat, args)
+			// Run assessment with args parsed from manifest. Pass ctx so the
+			// per-command timeout enforced by HookExecutor reaches the engine.
+			return runInternalAssess(ctx, cmd, hookType, hookConfig, baseConfig, outFormat, args)
 		case "format":
 			// Run format command
 			return runInternalFormat(ctx, args)
@@ -735,7 +736,9 @@ func createInternalCommandHandler(cmd *cobra.Command, hookType string, hookConfi
 }
 
 // runInternalAssess runs the internal assessment logic for hook mode.
-func runInternalAssess(cmd *cobra.Command, hookType string, hookConfig *HookConfig, config assess.AssessmentConfig, outFormat assess.OutputFormat, args []string) error {
+// ctx carries the per-command timeout from the hooks manifest (via HookExecutor)
+// and must be propagated to the engine so dates/lint/security work honors it.
+func runInternalAssess(ctx context.Context, cmd *cobra.Command, hookType string, hookConfig *HookConfig, config assess.AssessmentConfig, outFormat assess.OutputFormat, args []string) error {
 	// Parse flags from args (supports both --flag value and --flag=value syntax)
 	for i, arg := range args {
 		// Handle --flag=value syntax
@@ -811,10 +814,11 @@ func runInternalAssess(cmd *cobra.Command, hookType string, hookConfig *HookConf
 	config.SecurityExcludeFixtures = true
 	config.SecurityFixturePatterns = []string{"tests/fixtures/", "test-fixtures/"}
 
-	// Create assessment engine and run
+	// Create assessment engine and run. Use the handler ctx (carries hook
+	// manifest's per-command timeout) rather than cmd.Context().
 	engine := assess.NewAssessmentEngine()
 	target := "."
-	report, err := engine.RunAssessment(cmd.Context(), target, config)
+	report, err := engine.RunAssessment(ctx, target, config)
 	if err != nil {
 		return fmt.Errorf("assessment failed: %w", err)
 	}
@@ -835,17 +839,16 @@ func runInternalAssess(cmd *cobra.Command, hookType string, hookConfig *HookConf
 }
 
 // runInternalFormat runs the internal format command.
+// ctx carries the per-command timeout from the hooks manifest.
 func runInternalFormat(ctx context.Context, args []string) error {
-	// For now, delegate to the format command via cobra
-	// This preserves existing format behavior
 	formatCmd := formatCmd
 	formatCmd.SetArgs(args)
 	return formatCmd.ExecuteContext(ctx)
 }
 
 // runInternalDependencies runs the internal dependencies command.
+// ctx carries the per-command timeout from the hooks manifest.
 func runInternalDependencies(ctx context.Context, args []string) error {
-	// For now, delegate to the dependencies command via cobra
 	depCmd := dependenciesCmd
 	depCmd.SetArgs(args)
 	return depCmd.ExecuteContext(ctx)

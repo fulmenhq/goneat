@@ -333,8 +333,25 @@ func NewDatesRunnerWithConfig(config DatesConfig) *DatesRunner {
 	return &DatesRunner{config: config}
 }
 
-// Assess scans target for date issues according to config
-func (r *DatesRunner) Assess(ctx context.Context, target string, _ interface{}) (*DatesResult, error) {
+// Assess scans target for date issues according to config.
+//
+// The extra parameter accepts an optional []string of repo-relative file paths.
+// When provided and non-empty, the runner skips its own file discovery and scans
+// only those files (still subject to include/exclude filtering). This is used by
+// the assess wrapper when invoked with --staged-only so a small staged set
+// produces a single scan rather than N full-repo walks.
+func (r *DatesRunner) Assess(ctx context.Context, target string, extra interface{}) (*DatesResult, error) {
+	// explicitMode is true when the caller passed a []string (even empty) via
+	// extra. In that case we skip discovery and scan exactly that set — empty
+	// means "zero files", not "fall back to walking the tree".
+	var explicitFiles []string
+	var explicitMode bool
+	if extra != nil {
+		if fl, ok := extra.([]string); ok {
+			explicitFiles = fl
+			explicitMode = true
+		}
+	}
 	start := time.Now()
 	cfg := r.config
 	if !cfg.Enabled {
@@ -437,9 +454,30 @@ func (r *DatesRunner) Assess(ctx context.Context, target string, _ interface{}) 
 	st, err := os.Stat(target)
 	isSingleFile := err == nil && !st.IsDir()
 
-	logger.Debug(fmt.Sprintf("Dates file discovery: target=%s, isSingleFile=%v", target, isSingleFile))
+	logger.Debug(fmt.Sprintf("Dates file discovery: target=%s, isSingleFile=%v, explicitMode=%v, explicitFiles=%d", target, isSingleFile, explicitMode, len(explicitFiles)))
 
-	if isSingleFile {
+	if explicitMode && !isSingleFile {
+		// Caller provided a pre-discovered file list (e.g., staged files from the assess wrapper).
+		// Skip walk/git-status discovery; apply include/exclude filtering and dedup.
+		// An explicit empty slice is honored as "scan zero files" — we deliberately
+		// do not fall back to discovery.
+		seen := make(map[string]struct{}, len(explicitFiles))
+		for _, rel := range explicitFiles {
+			rel = filepath.ToSlash(rel)
+			if _, dup := seen[rel]; dup {
+				continue
+			}
+			seen[rel] = struct{}{}
+			abs := filepath.Join(target, rel)
+			info, statErr := os.Stat(abs)
+			if statErr != nil || info.IsDir() {
+				continue
+			}
+			if includeFile(rel, info) {
+				files = append(files, rel)
+			}
+		}
+	} else if isSingleFile {
 		// Target is a single file. Check if it should be included.
 		// For single files, we need to check the full relative path from cwd or the filename
 		rel := filepath.Base(target)
@@ -469,6 +507,9 @@ func (r *DatesRunner) Assess(ctx context.Context, target string, _ interface{}) 
 		if len(changedOnly) > 0 {
 			// Incremental: filter changedOnly by include/exclude
 			for _, rel := range changedOnly {
+				if err := ctx.Err(); err != nil {
+					return &DatesResult{Success: false, Issues: nil, Metrics: map[string]interface{}{"cancelled": true}, ExecutionTime: time.Since(start).String(), Error: err.Error()}, err
+				}
 				abs := filepath.Join(target, rel)
 				if st, err := os.Stat(abs); err == nil && !st.IsDir() {
 					if includeFile(filepath.ToSlash(rel), st) {
@@ -478,7 +519,10 @@ func (r *DatesRunner) Assess(ctx context.Context, target string, _ interface{}) 
 			}
 		}
 		if len(files) == 0 {
-			_ = filepath.WalkDir(target, func(path string, d fs.DirEntry, err error) error {
+			walkErr := filepath.WalkDir(target, func(path string, d fs.DirEntry, err error) error {
+				if cerr := ctx.Err(); cerr != nil {
+					return cerr // abort the walk on ctx cancellation
+				}
 				if err != nil {
 					return nil
 				}
@@ -492,6 +536,9 @@ func (r *DatesRunner) Assess(ctx context.Context, target string, _ interface{}) 
 				}
 				return nil
 			})
+			if walkErr != nil && ctx.Err() != nil {
+				return &DatesResult{Success: false, Issues: nil, Metrics: map[string]interface{}{"cancelled": true}, ExecutionTime: time.Since(start).String(), Error: ctx.Err().Error()}, ctx.Err()
+			}
 		}
 	}
 
@@ -514,6 +561,11 @@ func (r *DatesRunner) Assess(ctx context.Context, target string, _ interface{}) 
 		go func() {
 			defer wg.Done()
 			for file := range ch {
+				// Honor cancellation between files so a hook manifest timeout
+				// (propagated via ctx) preempts the runner promptly.
+				if ctx.Err() != nil {
+					return
+				}
 				var abs, rel string
 				if isSingleFile {
 					// For a single file, use the original target path as absolute, file as relative
@@ -727,6 +779,12 @@ func (r *DatesRunner) Assess(ctx context.Context, target string, _ interface{}) 
 		}()
 	}
 	wg.Wait()
+
+	// Surface ctx cancellation so the hook executor reports DeadlineExceeded
+	// instead of a "successful" partial scan.
+	if err := ctx.Err(); err != nil {
+		return &DatesResult{Success: false, Issues: nil, Metrics: map[string]interface{}{"cancelled": true}, ExecutionTime: time.Since(start).String(), Error: err.Error()}, err
+	}
 
 	success := true // Always successful unless there's a critical error - issues are expected
 	logger.Debug(fmt.Sprintf("Dates assessment complete: %d issues found", len(issues)))

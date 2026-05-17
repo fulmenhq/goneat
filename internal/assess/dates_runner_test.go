@@ -272,6 +272,83 @@ rules:
 	}
 }
 
+// TestDatesRunner_IncludeFilesSingleScan is a regression test for the v0.5.11
+// hang where the assess wrapper looped a full-repo dates scan once per
+// IncludeFiles entry. With three offending files the buggy code produced
+// 3× the issue count and walked the tree three times. The fix routes the
+// include set through the internal runner in a single pass.
+func TestDatesRunner_IncludeFilesSingleScan(t *testing.T) {
+	tempDir := t.TempDir()
+
+	testFiles := map[string]string{
+		"a.md":     "## v1 - 2099-12-31",
+		"b.md":     "## v2 - 2099-11-30",
+		"c.md":     "## v3 - 2099-10-29",
+		"other.md": "## v4 - 2099-09-28", // present in tree but NOT in IncludeFiles
+	}
+	for file, content := range testFiles {
+		filePath := filepath.Join(tempDir, file)
+		if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+			t.Fatalf("Failed to create file %s: %v", filePath, err)
+		}
+	}
+
+	// dates.yaml that includes **/*.md so all four would be discovered in a
+	// full walk; the IncludeFiles filter is what should narrow the scan.
+	goneatDir := filepath.Join(tempDir, ".goneat")
+	if err := os.MkdirAll(goneatDir, 0755); err != nil {
+		t.Fatalf("mkdir .goneat: %v", err)
+	}
+	cfg := `enabled: true
+files:
+  include:
+    - "**/*.md"
+date_patterns:
+  - regex: "(\\d{4})-(\\d{2})-(\\d{2})"
+    order: "YMD"
+rules:
+  future_dates:
+    enabled: true
+    max_skew: "0h"
+    severity: "high"
+`
+	if err := os.WriteFile(filepath.Join(goneatDir, "dates.yaml"), []byte(cfg), 0644); err != nil {
+		t.Fatalf("write dates.yaml: %v", err)
+	}
+
+	runner := NewDatesAssessmentRunner()
+	cfgAssess := AssessmentConfig{
+		Mode:         AssessmentModeCheck,
+		IncludeFiles: []string{"a.md", "b.md", "c.md"},
+	}
+
+	result, err := runner.Assess(context.Background(), tempDir, cfgAssess)
+	if err != nil {
+		t.Fatalf("Assess() error = %v", err)
+	}
+	if !result.Success {
+		t.Errorf("expected success=true, got %v (err=%q)", result.Success, result.Error)
+	}
+
+	// Pre-fix behavior: each IncludeFiles entry triggered a full-tree scan,
+	// so other.md would appear AND every issue would be duplicated N times.
+	files := map[string]int{}
+	for _, iss := range result.Issues {
+		files[iss.File]++
+	}
+	if _, leaked := files["other.md"]; leaked {
+		t.Errorf("other.md must not be scanned when IncludeFiles excludes it; got issues for it")
+	}
+	for _, want := range []string{"a.md", "b.md", "c.md"} {
+		if files[want] == 0 {
+			t.Errorf("expected at least one issue for %s, got none (files=%v)", want, files)
+		}
+		if files[want] > 1 {
+			t.Errorf("expected exactly one issue per included file, got %d for %s (N×scan regression)", files[want], want)
+		}
+	}
+}
+
 func TestDatesRunner_Assess_Disabled(t *testing.T) {
 	tempDir := t.TempDir()
 

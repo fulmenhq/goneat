@@ -187,6 +187,46 @@ func TestExecuteHookCommands_TimeoutEnforcement(t *testing.T) {
 	}
 }
 
+// TestExecuteHookCommands_InternalHandlerCtxCarriesTimeout is a regression test
+// for the v0.5.11 hook-timeout-swallowed defect. Prior to the fix, internal
+// handlers (assess/format/dependencies) ignored the ctx passed in and used
+// cmd.Context() instead, so the per-command manifest timeout never reached
+// the engine. This test fails if the handler's ctx does not carry the
+// 50ms WithTimeout from HookExecutor.
+func TestExecuteHookCommands_InternalHandlerCtxCarriesTimeout(t *testing.T) {
+	executor := NewHookExecutor("/tmp")
+
+	var observedErr error
+	executor.InternalHandler = func(ctx context.Context, command string, args []string) error {
+		// Simulate a long-running operation that respects ctx (as RunAssessment does).
+		select {
+		case <-ctx.Done():
+			observedErr = ctx.Err()
+			return ctx.Err()
+		case <-time.After(5 * time.Second):
+			return nil
+		}
+	}
+
+	commands := []HookCommand{
+		{Command: "assess", Args: []string{}, Priority: 1, Timeout: "50ms"},
+	}
+
+	start := time.Now()
+	err := executor.ExecuteHookCommands(context.Background(), commands)
+	elapsed := time.Since(start)
+
+	if err == nil {
+		t.Fatal("expected timeout error from executor, got nil")
+	}
+	if elapsed > 2*time.Second {
+		t.Errorf("internal handler ctx did not honor manifest timeout (took %v)", elapsed)
+	}
+	if !errors.Is(observedErr, context.DeadlineExceeded) {
+		t.Errorf("expected handler ctx to report DeadlineExceeded, got %v", observedErr)
+	}
+}
+
 func TestExecuteHookCommands_DefaultTimeout(t *testing.T) {
 	executor := NewHookExecutor("/tmp")
 

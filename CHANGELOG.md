@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.11] - 2026-05-17
+
+### Fixed
+
+- **Pre-commit hang in dates assessment under `--staged-only`**: `goneat assess --hook pre-commit --staged-only --package-mode` with `dates` in the categories no longer hangs. The dates assess runner previously looped a full-repository dates scan once per file in `IncludeFiles`, multiplying a 3-second scan into multi-minute work and duplicating every finding N times. The runner now does a single scoped scan over the include set via `internal/dates/dates.DatesRunner.Assess`'s explicit-files path.
+- **Hook manifest timeouts now enforced for internal commands**: per-command `timeout` values in `.goneat/hooks.yaml` now reach the internal `assess`/`format`/`dependencies` handlers. Previously `cmd/assess.go::runInternalAssess` passed `cmd.Context()` to the engine instead of the `context.WithTimeout`-wrapped ctx supplied by `HookExecutor`, so manifest timeouts were silently dropped.
+- **Dates runner observes context cancellation**: the runner now checks `ctx.Done()` in the directory-discovery loop, in the `filepath.WalkDir` callback, at each worker iteration, and after `wg.Wait()`, surfacing `context.DeadlineExceeded` instead of running a stuck scan to completion as a "successful" partial result.
+- **Explicit empty include set is honored**: when staged-file filtering drops every file (e.g. all matched `.goneatignore` patterns), the dates runner now scans zero files instead of falling back to a full-repo discovery.
+- **STDOUT hygiene in dates assess wrapper**: removed a stray `fmt.Printf("DEBUG: …")` that printed to STDOUT on per-file processing errors.
+
+### Changed
+
+- **CI runner image pinned**: `.github/workflows/ci.yml` container jobs now use `ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.4.1` instead of `:latest`, eliminating floating-tag drift across PRs and `main`.
+- **CI lint anchors to runner image**: `build-test-lint` invokes the runner-bundled `golangci-lint` binary instead of `golangci/golangci-lint-action@v7`, removing CI's dependency on a network fetch from `golangci-lint.run`. Lint remains advisory (`continue-on-error: true`); the active `go version` and `golangci-lint --version` are logged for auditability.
+
 ## [v0.5.10] - 2026-03-30
 
 ### Fixed
