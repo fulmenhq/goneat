@@ -19,7 +19,7 @@ jobs:
         runner: [ubuntu-latest-x64-s, ubuntu-latest-arm64-s]
     runs-on: ${{ matrix.runner }}
     container:
-      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:latest
+      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.4.1
       # glibc runner image includes make/go/rust toolchains for both x64+arm64
       options: --user 1001
     env:
@@ -36,9 +36,10 @@ jobs:
         run: make test || true
       - name: golangci-lint (informational)
         continue-on-error: true
-        uses: golangci/golangci-lint-action@v7
-        with:
-          version: v2.11.2
+        run: |
+          go version
+          golangci-lint --version
+          golangci-lint run ./...
       - name: Upload goneat binary
         uses: actions/upload-artifact@v4.6.2
         with:
@@ -59,7 +60,7 @@ jobs:
         runner: [ubuntu-latest-x64-s, ubuntu-latest-arm64-s]
     runs-on: ${{ matrix.runner }}
     container:
-      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:latest
+      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.4.1
       # ghcr.io/fulmenhq/goneat-tools-runner-glibc runs as a non-root user.
       # GitHub mounts runner temp/work directories into the container
       # under /__w.
@@ -115,7 +116,7 @@ jobs:
         runner: [ubuntu-latest-x64-s, ubuntu-latest-arm64-s]
     runs-on: ${{ matrix.runner }}
     container:
-      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:latest
+      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.4.1
       # glibc runner image includes make/go/rust toolchains for both x64+arm64
       options: --user 1001
     env:

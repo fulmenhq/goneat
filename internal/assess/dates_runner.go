@@ -6,7 +6,6 @@ package assess
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,16 +41,21 @@ func (r *DatesAssessmentRunner) Assess(ctx context.Context, target string, confi
 	// Create a runner with the loaded configuration
 	configRunner := dates.NewDatesRunnerWithConfig(datesConfig)
 
-	// If the caller explicitly provided files (via assessment IncludeFiles), filter them and process directly.
-	// Otherwise, delegate discovery and analysis to the internal dates runner (respects dates config include/exclude).
-	explicitInclude := len(config.IncludeFiles) > 0
-	var filteredIncludeFiles []string
-	if explicitInclude {
-		filteredIncludeFiles = r.filterFilesRespectingIgnores(config.IncludeFiles, target)
-		return r.assessSpecificFiles(ctx, target, datesConfig, filteredIncludeFiles)
+	// If the caller explicitly provided files (via assessment IncludeFiles, e.g.
+	// --staged-only), pass them down so the internal runner does a single scoped
+	// scan instead of walking the whole tree. We pass a non-nil (possibly empty)
+	// slice to signal explicit mode even when the filter drops everything — an
+	// empty include set means "scan zero files", not "scan everything".
+	var extra interface{}
+	if len(config.IncludeFiles) > 0 {
+		filtered := r.filterFilesRespectingIgnores(config.IncludeFiles, target)
+		if filtered == nil {
+			filtered = []string{}
+		}
+		extra = filtered
 	}
-	// Delegate to internal dates runner for full discovery + analysis
-	dResult, err := configRunner.Assess(ctx, target, nil)
+
+	dResult, err := configRunner.Assess(ctx, target, extra)
 	if err != nil {
 		return &AssessmentResult{
 			CommandName:   "dates",
@@ -220,92 +224,6 @@ func (r *DatesAssessmentRunner) matchesGlobPattern(filePath, pattern string) boo
 	}
 
 	return false
-}
-
-// assessSpecificFiles processes a specific list of files directly, bypassing the internal dates runner
-func (r *DatesAssessmentRunner) assessSpecificFiles(ctx context.Context, target string, config dates.DatesConfig, files []string) (*AssessmentResult, error) {
-	start := time.Now()
-	var issues []Issue
-
-	for _, file := range files {
-		select {
-		case <-ctx.Done():
-			return &AssessmentResult{
-				CommandName:   "dates",
-				Category:      CategoryDates,
-				Success:       false,
-				ExecutionTime: HumanReadableDuration(time.Since(start)),
-				Error:         "context cancelled",
-			}, nil
-		default:
-		}
-
-		// Process each file directly
-		fileIssues, err := r.processFile(ctx, target, config, file)
-		if err != nil {
-			// Log error but continue processing other files
-			fmt.Printf("DEBUG: Error processing file %s: %v\n", file, err)
-			continue
-		}
-		issues = append(issues, fileIssues...)
-	}
-
-	return &AssessmentResult{
-		CommandName:   "dates",
-		Category:      CategoryDates,
-		Success:       true,
-		ExecutionTime: HumanReadableDuration(time.Since(start)),
-		Issues:        issues,
-		Metrics:       map[string]interface{}{"files_processed": len(files)},
-	}, nil
-}
-
-// processFile processes a single file for date validation
-func (r *DatesAssessmentRunner) processFile(ctx context.Context, target string, config dates.DatesConfig, file string) ([]Issue, error) {
-	var issues []Issue
-
-	// Determine the full path to read
-	var fullPath string
-	if filepath.IsAbs(file) {
-		// file is already an absolute path
-		fullPath = file
-	} else {
-		// Check if target is a single file
-		if stat, err := os.Stat(target); err == nil && !stat.IsDir() {
-			// target is a single file, use it directly
-			fullPath = target
-		} else {
-			// target is a directory, join with file
-			fullPath = filepath.Join(target, file)
-		}
-	}
-
-	// Verify the file exists (we don't need to read it here since the dates runner will do that)
-	if _, err := os.Stat(fullPath); err != nil {
-		return nil, fmt.Errorf("failed to access file %s: %w", fullPath, err)
-	}
-
-	// Use the enhanced dates runner for sophisticated analysis
-	tempRunner := dates.NewDatesRunnerWithConfig(config)
-	dResult, err := tempRunner.Assess(ctx, target, nil)
-	if err != nil {
-		return issues, err
-	}
-
-	// Convert DatesIssue to Issue
-	for _, di := range dResult.Issues {
-		issues = append(issues, Issue{
-			File:        di.File,
-			Line:        di.Line,
-			Column:      di.Column,
-			Severity:    IssueSeverity(di.Severity),
-			Message:     di.Message,
-			Category:    CategoryDates,
-			AutoFixable: di.AutoFixable,
-		})
-	}
-
-	return issues, nil
 }
 
 func init() {

@@ -618,3 +618,91 @@ func TestFileDiscovery(t *testing.T) {
 }
 
 // Helper
+
+// TestDatesRunner_Assess_HonorsCtxCancellation is a regression test for the
+// v0.5.11 cooperative-timeout finding. The DatesRunner must observe ctx.Done
+// during the worker loop / discovery walk so that a hook manifest timeout
+// (propagated as a cancelled ctx) actually preempts the scan instead of
+// silently running to completion. Pre-fix, the worker pool never checked ctx
+// and could grind through hundreds of files past the deadline.
+func TestDatesRunner_Assess_HonorsCtxCancellation(t *testing.T) {
+	tempDir := t.TempDir()
+	// Seed enough files that, without preemption, the worker pool would do
+	// nontrivial work. Cancel immediately so the runner has no excuse.
+	for i := 0; i < 200; i++ {
+		content := "## v - 2099-12-31\n"
+		path := filepath.Join(tempDir, "f"+itoa(i)+".md")
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+			t.Fatalf("seed %d: %v", i, err)
+		}
+	}
+
+	cfg := DefaultDatesConfig()
+	cfg.Files.Include = []string{"**/*.md"}
+	runner := NewDatesRunnerWithConfig(cfg)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // already cancelled before Assess starts
+
+	start := time.Now()
+	res, err := runner.Assess(ctx, tempDir, nil)
+	elapsed := time.Since(start)
+
+	if err == nil {
+		t.Fatalf("expected ctx error, got nil (result=%+v)", res)
+	}
+	if ctxErr := ctx.Err(); err != ctxErr && !contains(err.Error(), "context") {
+		t.Errorf("expected ctx-derived error, got %v", err)
+	}
+	if elapsed > 2*time.Second {
+		t.Errorf("runner did not preempt promptly under cancelled ctx (took %v)", elapsed)
+	}
+	if res != nil && res.Success {
+		t.Errorf("expected Success=false on cancellation, got %+v", res)
+	}
+}
+
+// TestDatesRunner_Assess_ExplicitEmptyFiles is a regression test for the
+// v0.5.11 explicit-empty finding. When the caller passes an explicit (non-nil)
+// empty []string, the runner must scan zero files — NOT fall back to
+// discovering the whole tree. Pre-fix, len(explicitFiles)==0 was conflated
+// with "no explicit list given".
+func TestDatesRunner_Assess_ExplicitEmptyFiles(t *testing.T) {
+	tempDir := t.TempDir()
+	// Seed a file that WOULD be picked up by discovery so that a fallback
+	// would produce issues we can detect.
+	bait := filepath.Join(tempDir, "bait.md")
+	if err := os.WriteFile(bait, []byte("## v - 2099-12-31\n"), 0644); err != nil {
+		t.Fatalf("seed bait: %v", err)
+	}
+
+	cfg := DefaultDatesConfig()
+	cfg.Files.Include = []string{"**/*.md"}
+	runner := NewDatesRunnerWithConfig(cfg)
+
+	res, err := runner.Assess(context.Background(), tempDir, []string{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(res.Issues) != 0 {
+		t.Errorf("explicit empty include must scan zero files; got %d issues (regression: fell back to full discovery)", len(res.Issues))
+	}
+}
+
+func itoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	var buf [20]byte
+	i := len(buf)
+	for n > 0 {
+		i--
+		buf[i] = byte('0' + n%10)
+		n /= 10
+	}
+	return string(buf[i:])
+}
+
+func contains(s, substr string) bool {
+	return strings.Contains(s, substr)
+}
