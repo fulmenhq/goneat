@@ -1,9 +1,13 @@
-# Fixture for v0.5.12 yamlfmt divergence regression test
-# Mirrors limensafe symptom: inline comments need 2-space padding
+# Fixture for v0.5.12 yamlfmt divergence regression
+# Intentionally in the "broken" pre-format state:
+#   - inline comments use 1-space padding (yamlfmt default; goneat canonical is 2)
+#   - blank lines mid-block that yamlfmt removes
+# Wired to TestFormatProcessor_YAMLDivergenceFixture_FixesAndAgrees in
+# pkg/work/format_processor_test.go and TestYamlfmtAgreesAfterGoneatFormat.
 allowed:
-  - MIT  # permissive
-  - Apache-2.0  # permissive
-  - BSD-3-Clause  # widely used
+  - MIT # permissive
+  - Apache-2.0 # permissive
+  - BSD-3-Clause # widely used
 
 # Bind address
 

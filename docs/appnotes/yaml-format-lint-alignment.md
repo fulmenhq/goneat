@@ -58,11 +58,15 @@ This keeps these goneat-internal paths aligned:
 - `goneat assess --categories format --fix`
 - `goneat assess --categories lint`
 
-As of v0.5.12 these paths share a single arg builder
-(`pkg/config.YAMLFormatConfig.YamlfmtFormatterArgs`) — prior to v0.5.12 the
-sequential `goneat format` path silently omitted `pad_line_comments`, causing
-it to be a no-op on files the parallel and assess paths would correctly
-flag. See the v0.5.12 release notes.
+As of v0.5.12 all three paths — sequential format (`cmd/format.go::formatYAMLFile`),
+parallel format (`pkg/work/format_processor.go::formatYAMLFile`), and the
+assess/check path (`pkg/work/format_processor.go::checkYAMLFile`) — pass
+yamlfmt the same arguments via a single shared builder,
+`pkg/config.YAMLFormatConfig.YamlfmtFormatterArgs`. Prior to v0.5.12 each
+of these had its own copy of the arg-construction logic, and the sequential
+path silently omitted `pad_line_comments`, so `goneat format` was a no-op
+on files the parallel and assess paths would correctly flag. See the v0.5.12
+release notes.
 
 > 🛑 **Goneat's internal alignment does NOT extend to tools you invoke
 > outside goneat.** Direct `yamlfmt -lint` from a CI job, hook, or script

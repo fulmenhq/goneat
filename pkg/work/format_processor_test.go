@@ -354,6 +354,85 @@ func TestFormatProcessor_ProcessWorkItem_YAMLPreservesLintCompatibleCommentPaddi
 	}
 }
 
+// TestFormatProcessor_YAMLDivergenceFixture_FixesAndAgrees is the v0.5.12
+// regression for the limensafe-surfaced bug: `goneat format` (sequential),
+// `pkg/work/format_processor.formatYAMLFile` (parallel), and
+// `pkg/work/format_processor.checkYAMLFile` (assess check) must all pass the
+// same args to yamlfmt. Prior to v0.5.12 the sequential cmd/format.go path
+// omitted pad_line_comments and the check path had its own copy of the
+// arg-builder logic; both are now wired through
+// pkg/config.YAMLFormatConfig.YamlfmtFormatterArgs.
+//
+// The fixture intentionally ships with 1-space inline comments and
+// mid-block blanks — the broken state limensafe was hitting. This test
+// proves: check flags it; format fixes it; second check is clean; and the
+// post-format content also agrees with bare `yamlfmt -lint
+// -formatter pad_line_comments=2`, the canonical CI invocation.
+func TestFormatProcessor_YAMLDivergenceFixture_FixesAndAgrees(t *testing.T) {
+	yamlfmtPath, err := exec.LookPath("yamlfmt")
+	if err != nil {
+		t.Skip("yamlfmt not available")
+	}
+
+	fixtureSrc := filepath.Join("..", "..", "tests", "fixtures", "yaml-format", "v0_5_12", "divergent.yaml")
+	original, err := os.ReadFile(fixtureSrc)
+	if err != nil {
+		t.Fatalf("Failed to read fixture: %v", err)
+	}
+
+	tempDir := t.TempDir()
+	testFile := filepath.Join(tempDir, "divergent.yaml")
+	if err := os.WriteFile(testFile, original, 0o644); err != nil {
+		t.Fatalf("Failed to seed temp file: %v", err)
+	}
+
+	cfg := &config.Config{
+		Format: config.FormatConfig{
+			YAML: config.YAMLFormatConfig{
+				Indent:          2,
+				LineLength:      80,
+				PadLineComments: 2,
+			},
+		},
+	}
+	processor := newTestProcessor(cfg)
+
+	// 1. checkYAMLFile flags the broken fixture.
+	if err := processor.checkYAMLFile(testFile); err == nil {
+		t.Fatalf("expected checkYAMLFile to flag divergent fixture, got nil")
+	} else if !strings.Contains(err.Error(), "needs formatting") {
+		t.Fatalf("expected 'needs formatting' error, got: %v", err)
+	}
+
+	// 2. formatYAMLFile applies the fix.
+	if err := processor.formatYAMLFile(testFile); err != nil {
+		t.Fatalf("formatYAMLFile returned error: %v", err)
+	}
+
+	// 3. checkYAMLFile is now clean (proves check + format agree).
+	if err := processor.checkYAMLFile(testFile); err != nil {
+		t.Fatalf("post-format checkYAMLFile failed: %v", err)
+	}
+
+	// 4. Cross-tool agreement: bare yamlfmt -lint with the canonical
+	// pad_line_comments=2 setting must also accept the formatted output.
+	// This is what limensafe's CI runs directly; the v0.5.12 guidance
+	// requires both paths to converge here.
+	cmd := exec.Command(yamlfmtPath, "-lint", "-formatter", "pad_line_comments=2", testFile)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("yamlfmt -lint -formatter pad_line_comments=2 disagrees with goneat format: %v\nOutput: %s", err, string(out))
+	}
+
+	// Sanity: post-format file must contain 2-space comment padding.
+	formatted, err := os.ReadFile(testFile)
+	if err != nil {
+		t.Fatalf("Failed to read formatted file: %v", err)
+	}
+	if !strings.Contains(string(formatted), "- MIT  # permissive") {
+		t.Fatalf("expected 2-space comment padding after format, got:\n%s", string(formatted))
+	}
+}
+
 func TestFormatProcessor_GetSupportedContentTypes(t *testing.T) {
 	cfg := &config.Config{}
 	processor := newTestProcessor(cfg)
