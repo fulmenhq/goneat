@@ -5,6 +5,7 @@ package assess
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"sort"
@@ -95,6 +96,85 @@ func TestLintAssessmentRunner_verifyGolangciConfig(t *testing.T) {
 			}
 			if !tt.expectError && err != nil {
 				t.Errorf("Expected no error but got: %v", err)
+			}
+		})
+	}
+}
+
+func TestLooksLikeGolangciLintNetworkError(t *testing.T) {
+	cases := []struct {
+		name   string
+		output string
+		err    error
+		want   bool
+	}{
+		{
+			name:   "nil error returns false",
+			output: "anything",
+			err:    nil,
+			want:   false,
+		},
+		{
+			name:   "dial tcp pattern matches",
+			output: "Get \"https://golangci-lint.run/schemas/golangci.next.jsonschema.json\": dial tcp: lookup golangci-lint.run: no such host",
+			err:    errors.New("exit status 7"),
+			want:   true,
+		},
+		{
+			name:   "i/o timeout matches",
+			output: "failed to fetch schema: i/o timeout",
+			err:    errors.New("exit status 1"),
+			want:   true,
+		},
+		{
+			name:   "failed to get schema matches",
+			output: "Failed to get schema: read tcp connection reset",
+			err:    errors.New("exit status 1"),
+			want:   true,
+		},
+		{
+			name:   "connection refused matches",
+			output: "dial tcp 127.0.0.1:443: connection refused",
+			err:    errors.New("exit status 7"),
+			want:   true,
+		},
+		{
+			name:   "context deadline exceeded matches",
+			output: "context deadline exceeded while fetching schema",
+			err:    errors.New("exit status 1"),
+			want:   true,
+		},
+		{
+			name:   "tls handshake timeout matches",
+			output: "net/http: TLS handshake timeout",
+			err:    errors.New("exit status 1"),
+			want:   true,
+		},
+		{
+			name:   "structural schema violation does NOT match",
+			output: "Error: failed to validate config: linters.enable[3]: unknown linter \"nosuchlinter\"",
+			err:    errors.New("exit status 1"),
+			want:   false,
+		},
+		{
+			name:   "yaml parse error does NOT match",
+			output: "yaml: line 5: did not find expected ',' or '}'",
+			err:    errors.New("exit status 1"),
+			want:   false,
+		},
+		{
+			name:   "case-insensitive match works",
+			output: "Dial TCP: lookup failed",
+			err:    errors.New("exit status 1"),
+			want:   true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := looksLikeGolangciLintNetworkError(tc.output, tc.err)
+			if got != tc.want {
+				t.Fatalf("looksLikeGolangciLintNetworkError(%q, %v) = %v, want %v", tc.output, tc.err, got, tc.want)
 			}
 		})
 	}

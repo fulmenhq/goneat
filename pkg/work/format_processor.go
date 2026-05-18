@@ -316,25 +316,10 @@ func (p *FormatProcessor) formatYAMLFile(filePath string) error {
 		return fmt.Errorf("failed to read file %s: %w", filePath, err)
 	}
 
-	// Get YAML config
-	yamlConfig := p.config.GetYAMLConfig()
-
-	// Build yamlfmt arguments with formatter options
-	var args []string
-	var formatterOpts []string
-	if yamlConfig.Indent != 2 {
-		formatterOpts = append(formatterOpts, fmt.Sprintf("indent=%d", yamlConfig.Indent))
-	}
-	if yamlConfig.LineLength != 80 {
-		formatterOpts = append(formatterOpts, fmt.Sprintf("line_length=%d", yamlConfig.LineLength))
-	}
-	if yamlConfig.PadLineComments != 1 {
-		formatterOpts = append(formatterOpts, fmt.Sprintf("pad_line_comments=%d", yamlConfig.PadLineComments))
-	}
-
-	for _, opt := range formatterOpts {
-		args = append(args, "-formatter", opt)
-	}
+	// Build yamlfmt arguments via the shared helper so this parallel/assess
+	// path and cmd/format.go (sequential) cannot drift on what they pass to
+	// yamlfmt. See pkg/config.YAMLFormatConfig.YamlfmtFormatterArgs.
+	args := p.config.GetYAMLConfig().YamlfmtFormatterArgs()
 	args = append(args, filePath)
 
 	logger.Debug(fmt.Sprintf("Running yamlfmt with args: %v", args))

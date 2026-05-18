@@ -779,15 +779,18 @@ license-audit: ## Audit dependencies for forbidden licenses; fail on detection
 	fi
 	@mkdir -p dist/reports; \
 	forbidden='GPL|LGPL|AGPL|MPL|CDDL'; \
-		out=$$(go-licenses csv .); \
-		echo "$$out" > dist/reports/license-inventory.csv; \
-		if echo "$$out" | rg "$$forbidden" >/dev/null; then \
-			echo "❌ Forbidden license detected. See dist/reports/license-inventory.csv"; \
-			echo "   Forbidden patterns: $$forbidden"; \
-			exit 1; \
-		else \
-			echo "✅ No forbidden licenses detected"; \
-		fi
+	allowlist='^github\.com/cyphar/filepath-securejoin,.*,MPL-2\.0$$'; \
+	out=$$(go-licenses csv .); \
+	echo "$$out" > dist/reports/license-inventory.csv; \
+	filtered=$$(echo "$$out" | grep -Ev "$$allowlist" || true); \
+	if echo "$$filtered" | grep -E "$$forbidden" >/dev/null; then \
+		echo "❌ Forbidden license detected. See dist/reports/license-inventory.csv"; \
+		echo "   Forbidden patterns: $$forbidden"; \
+		echo "$$filtered" | grep -E "$$forbidden" >&2; \
+		exit 1; \
+	else \
+		echo "✅ No forbidden licenses detected (allowlist: cyphar/filepath-securejoin MPL-2.0; see .goneat/dependencies.yaml)"; \
+	fi
 
 update-licenses: license-inventory license-save ## Update license inventory and third-party texts
 

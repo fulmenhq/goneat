@@ -302,6 +302,32 @@ func (c *Config) GetYAMLConfig() YAMLFormatConfig {
 	return c.Format.YAML
 }
 
+// YamlfmtFormatterArgs returns the canonical `-formatter k=v` argument pairs
+// that goneat passes to `yamlfmt`. Centralizing this here keeps the
+// sequential (cmd/format.go), parallel (pkg/work/format_processor.go), and
+// assess paths in agreement so a YAML file accepted by one path is accepted
+// by all three.
+//
+// Behavior: a flag is emitted only when the configured value diverges from
+// yamlfmt's own default. yamlfmt defaults are indent=2, line_length=80, and
+// pad_line_comments=1; goneat's canonical pad_line_comments=2 therefore
+// always materializes as an explicit `-formatter pad_line_comments=2` flag
+// under default configuration, which is the source of truth for the limensafe
+// v0.5.12 divergence.
+func (y YAMLFormatConfig) YamlfmtFormatterArgs() []string {
+	var args []string
+	if y.Indent != 2 {
+		args = append(args, "-formatter", fmt.Sprintf("indent=%d", y.Indent))
+	}
+	if y.LineLength != 80 {
+		args = append(args, "-formatter", fmt.Sprintf("line_length=%d", y.LineLength))
+	}
+	if y.PadLineComments != 1 {
+		args = append(args, "-formatter", fmt.Sprintf("pad_line_comments=%d", y.PadLineComments))
+	}
+	return args
+}
+
 // GetJSONConfig returns JSON formatting configuration
 func (c *Config) GetJSONConfig() JSONFormatConfig {
 	return c.Format.JSON
