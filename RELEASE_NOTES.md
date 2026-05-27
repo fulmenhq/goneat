@@ -261,8 +261,11 @@ fulmen-toolbox cut, and so on.
   landed, `.goneat/dependencies.yaml` becomes the audit SSOT and the
   Makefile allowlist filter from this release can be retired.
 - **Deterministic Go patch pin for release.yml.** This release moves the
-  CI workflows from `'1.25.x'` to `'1.26.x'` (`check-latest` semantics
-  via the `.x` shorthand). A future release may pin a specific patch
+  CI workflows from `'1.25.x'` to `'1.26.x'` — `setup-go` resolves this
+  as a semver range to whatever the latest cached Go 1.26 patch is on
+  the runner image at job start (note: this is *not* the same as
+  `setup-go`'s `check-latest: true` option, which forces a fresh
+  upstream check every run). A future release may pin a specific patch
   (e.g. `'1.26.3'`) in `release.yml` for deterministic supply-chain
   reproducibility, per @agent-kilo-devrev's original v0.5.12 proposal.
   Keeping `.x` for v0.5.12 to minimize churn in this fast-follow.
@@ -273,11 +276,13 @@ fulmen-toolbox cut, and so on.
 
 ## Out of Scope (Intentionally)
 
-`fulmen-toolbox` runner image rebuild is **not** bundled with this
-release. The toolbox is decoupled: a separate `v0.4.2` cut in
-`~/dev/fulmenhq/fulmen-toolbox/` will pick up the new goneat binary
-post-release. No change to `.github/workflows/ci.yml` runner pin in
-this release.
+**No new `fulmen-toolbox` rebuild is part of this PR.** goneat v0.5.12
+*consumes* the already-published `ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.4.2`
+image (which was cut as a normal `fulmen-toolbox` release after the Go
+1.26.x toolchain bump) — see the "CI Go Runtime Bumped to 1.26.x" section
+above for the runner-pin change. A future `fulmen-toolbox` cut after this
+goneat release ships is normal-cadence operation in the circular goneat ↔
+toolbox loop, but it is not a release blocker and is not part of v0.5.12.
 
 ## Upgrade Notes
 
