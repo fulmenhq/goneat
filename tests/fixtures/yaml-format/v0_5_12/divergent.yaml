@@ -1,0 +1,18 @@
+# Fixture for v0.5.12 yamlfmt divergence regression
+# Intentionally in the "broken" pre-format state:
+#   - inline comments use 1-space padding (yamlfmt default; goneat canonical is 2)
+#   - blank lines mid-block that yamlfmt removes
+# Wired to TestFormatProcessor_YAMLDivergenceFixture_FixesAndAgrees in
+# pkg/work/format_processor_test.go. That single test covers four checks:
+# broken-input flagged by checkYAMLFile, formatYAMLFile fixes it, second
+# checkYAMLFile is clean, and direct yamlfmt -lint -formatter pad_line_comments=2
+# agrees with the goneat-formatted output.
+allowed:
+  - MIT # permissive
+  - Apache-2.0 # permissive
+  - BSD-3-Clause # widely used
+
+# Bind address
+
+port: 8080
+host: 0.0.0.0

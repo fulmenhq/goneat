@@ -1262,10 +1262,47 @@ func (r *LintAssessmentRunner) verifyGolangciConfig(target string, env golangciL
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		// `golangci-lint config verify` fetches its JSON schema from
+		// golangci-lint.run. Offline/sandboxed dev environments hit this and
+		// surface as "Lint: error" even though hook gating is correct. Demote
+		// network-class failures to a warning so users in those environments
+		// aren't misled. Structural schema errors still propagate.
+		if looksLikeGolangciLintNetworkError(string(output), err) {
+			logger.Warn(fmt.Sprintf("golangci-lint schema verification skipped (offline): %s", strings.TrimSpace(string(output))))
+			return nil
+		}
 		return fmt.Errorf("golangci-lint config validation failed: %v\nOutput: %s\n\nPlease check your .golangci.yml file against the golangci-lint v2.4.0 schema.\nFor migration help, see: https://golangci-lint.run/usage/configuration/", err, string(output))
 	}
 
 	return nil
+}
+
+// looksLikeGolangciLintNetworkError reports whether a failed `golangci-lint
+// config verify` invocation looks like a schema-fetch connectivity problem
+// rather than a structural config error. Used to demote offline/sandboxed
+// dev failures from "Lint: error" to a warn-and-skip path.
+func looksLikeGolangciLintNetworkError(output string, err error) bool {
+	if err == nil {
+		return false
+	}
+	haystack := strings.ToLower(output + " " + err.Error())
+	patterns := []string{
+		"dial tcp",
+		"no such host",
+		"i/o timeout",
+		"failed to get schema",
+		"connection refused",
+		"network is unreachable",
+		"tls handshake timeout",
+		"context deadline exceeded",
+		"temporary failure in name resolution",
+	}
+	for _, p := range patterns {
+		if strings.Contains(haystack, p) {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *LintAssessmentRunner) detectGolangciLintEnvironment() golangciLintEnvironment {

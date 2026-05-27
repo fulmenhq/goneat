@@ -10,7 +10,7 @@ lint:
       - ".github/workflows/**/*.yml"
       - ".github/workflows/**/*.yaml"
     ignore:
-      - ".git/**"
+      - ".git"
       - "node_modules/**"
       - "vendor/**"
       - "target/**"
@@ -24,12 +24,12 @@ lint:
         - ".github/workflows/**/*.yml"
         - ".github/workflows/**/*.yaml"
       ignore:
-        - ".git/**"
+        - ".git"
         - ".plans/**"
   shell:
     paths: ["**/*.sh", "scripts/**/*"]
     ignore:
-      - ".git/**"
+      - ".git"
       - "node_modules/**"
       - "vendor/**"
       - "target/**"
@@ -50,5 +50,5 @@ lint:
         min_phony_targets: ["all", "clean", "test"]
     paths: ["**/Makefile"]
     ignore:
-      - ".git/**"
+      - ".git"
       - ".plans/**"

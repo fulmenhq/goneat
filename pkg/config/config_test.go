@@ -95,6 +95,86 @@ func TestConfigGetterMethods(t *testing.T) {
 	}
 }
 
+func TestYAMLFormatConfig_YamlfmtFormatterArgs(t *testing.T) {
+	cases := []struct {
+		name string
+		cfg  YAMLFormatConfig
+		want []string
+	}{
+		{
+			name: "goneat default emits pad_line_comments=2 only",
+			cfg: YAMLFormatConfig{
+				Indent:          2,
+				LineLength:      80,
+				PadLineComments: 2,
+			},
+			want: []string{"-formatter", "pad_line_comments=2"},
+		},
+		{
+			name: "matches yamlfmt defaults emits nothing",
+			cfg: YAMLFormatConfig{
+				Indent:          2,
+				LineLength:      80,
+				PadLineComments: 1,
+			},
+			want: nil,
+		},
+		{
+			name: "custom indent + default rest",
+			cfg: YAMLFormatConfig{
+				Indent:          4,
+				LineLength:      80,
+				PadLineComments: 1,
+			},
+			want: []string{"-formatter", "indent=4"},
+		},
+		{
+			name: "all non-default",
+			cfg: YAMLFormatConfig{
+				Indent:          4,
+				LineLength:      120,
+				PadLineComments: 3,
+			},
+			want: []string{
+				"-formatter", "indent=4",
+				"-formatter", "line_length=120",
+				"-formatter", "pad_line_comments=3",
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := tc.cfg.YamlfmtFormatterArgs()
+			if len(got) != len(tc.want) {
+				t.Fatalf("got %v, want %v", got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Fatalf("arg[%d]: got %q, want %q (full got=%v, want=%v)", i, got[i], tc.want[i], got, tc.want)
+				}
+			}
+		})
+	}
+}
+
+// TestDefaultConfig_YAMLFormat_EmitsPadLineCommentsTwo guards the v0.5.12
+// limensafe regression: goneat's canonical default for pad_line_comments is 2
+// and MUST be passed explicitly to yamlfmt (whose default is 1). If this test
+// fails, sequential `goneat format` and parallel/assess paths will silently
+// diverge on inline-comment spacing again.
+func TestDefaultConfig_YAMLFormat_EmitsPadLineCommentsTwo(t *testing.T) {
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	args := cfg.GetYAMLConfig().YamlfmtFormatterArgs()
+	joined := strings.Join(args, " ")
+	if !strings.Contains(joined, "pad_line_comments=2") {
+		t.Fatalf("default goneat config must emit pad_line_comments=2; got args=%v", args)
+	}
+}
+
 func TestGetGoneatHome(t *testing.T) {
 	home, err := GetGoneatHome()
 	if err != nil {

@@ -106,23 +106,33 @@ REMOTE_SHA512_SORTED="$TMP_DIR/SHA512SUMS.github"
 LOCAL_SHA256_SORTED="$TMP_DIR/SHA256SUMS.local"
 LOCAL_SHA512_SORTED="$TMP_DIR/SHA512SUMS.local"
 
->"$REMOTE_SHA256_SORTED"
->"$REMOTE_SHA512_SORTED"
+REMOTE_SHA256_RAW="$TMP_DIR/SHA256SUMS.github.raw"
+REMOTE_SHA512_RAW="$TMP_DIR/SHA512SUMS.github.raw"
+>"$REMOTE_SHA256_RAW"
+>"$REMOTE_SHA512_RAW"
 # Compute hashes from TMP_DIR since remote_files contains relative paths
 cd "$TMP_DIR"
 for file in "${remote_files[@]}"; do
-	compute_hash_line 256 "$file" >>"$REMOTE_SHA256_SORTED"
-	compute_hash_line 512 "$file" >>"$REMOTE_SHA512_SORTED"
+	compute_hash_line 256 "$file" >>"$REMOTE_SHA256_RAW"
+	compute_hash_line 512 "$file" >>"$REMOTE_SHA512_RAW"
 done
 cd "$REPO_ROOT" # Return to repo root
+# Sort recomputed sums by filename so we compare like-to-like with LOCAL.
+sort -k 2 "$REMOTE_SHA256_RAW" >"$REMOTE_SHA256_SORTED"
+sort -k 2 "$REMOTE_SHA512_RAW" >"$REMOTE_SHA512_SORTED"
 
-sort "$LOCAL_SHA" >"$LOCAL_SHA256_SORTED"
+# Sort by filename column (field 2) so identical content with different
+# line ordering compares clean. Default lexical sort on full line is
+# hash-first and produced false-positive mismatches during v0.5.11
+# verification when local vs uploaded SHA256SUMS had identical
+# (hash, filename) pairs in different orders.
+sort -k 2 "$LOCAL_SHA" >"$LOCAL_SHA256_SORTED"
 LOCAL_SHA512="$DIST_RELEASE/SHA512SUMS"
 if [[ ! -f "$LOCAL_SHA512" ]]; then
 	echo "Local SHA512SUMS not found at $LOCAL_SHA512" >&2
 	exit 6
 fi
-sort "$LOCAL_SHA512" >"$LOCAL_SHA512_SORTED"
+sort -k 2 "$LOCAL_SHA512" >"$LOCAL_SHA512_SORTED"
 
 diff -u "$LOCAL_SHA256_SORTED" "$REMOTE_SHA256_SORTED" >"$TMP_DIR/diff256" || {
 	echo "❌ Remote artifacts do not match local SHA256SUMS" >&2
@@ -139,12 +149,11 @@ diff -u "$LOCAL_SHA512_SORTED" "$REMOTE_SHA512_SORTED" >"$TMP_DIR/diff512" || {
 for sums in SHA256SUMS SHA512SUMS; do
 	gh release download "$VERSION" --dir "$TMP_DIR" --pattern "$sums" --clobber >/dev/null
 	if [[ -f "$TMP_DIR/$sums" ]]; then
-		sort "$TMP_DIR/$sums" >"$TMP_DIR/${sums}.remote"
-		local_sorted="$TMP_DIR/${sums}.local"
+		sort -k 2 "$TMP_DIR/$sums" >"$TMP_DIR/${sums}.remote"
 		if [[ "$sums" == "SHA256SUMS" ]]; then
-			cp "$LOCAL_SHA256_SORTED" "$local_sorted"
+			local_sorted="$LOCAL_SHA256_SORTED"
 		else
-			cp "$LOCAL_SHA512_SORTED" "$local_sorted"
+			local_sorted="$LOCAL_SHA512_SORTED"
 		fi
 		diff -u "$local_sorted" "$TMP_DIR/${sums}.remote" >"$TMP_DIR/${sums}.diff" || {
 			echo "❌ Uploaded $sums asset differs from local copy" >&2

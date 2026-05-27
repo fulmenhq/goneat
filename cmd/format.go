@@ -645,23 +645,13 @@ func formatYAMLFile(file string, checkOnly bool, cfg *config.Config, options fin
 		return err
 	}
 
-	// Build yamlfmt arguments
-	var args []string
-
-	// Add configuration options using -formatter flag
-	var formatterOpts []string
-	if yamlConfig.Indent != 2 {
-		formatterOpts = append(formatterOpts, fmt.Sprintf("indent=%d", yamlConfig.Indent))
-	}
-	if yamlConfig.LineLength != 80 {
-		formatterOpts = append(formatterOpts, fmt.Sprintf("line_length=%d", yamlConfig.LineLength))
-	}
-	// Note: yamlfmt's current version has limited formatter options
-	// Quote style and other options would need a .yamlfmt config file
-
-	for _, opt := range formatterOpts {
-		args = append(args, "-formatter", opt)
-	}
+	// Build yamlfmt arguments via the shared helper so this sequential path,
+	// pkg/work/format_processor.go (parallel/assess), and any future caller
+	// pass identical formatter options. Limensafe v0.5.12 surfaced a drift
+	// here: this path previously omitted pad_line_comments, so `goneat
+	// format` was a no-op on YAML that `yamlfmt -lint` (and goneat assess
+	// format) correctly flagged. See docs/appnotes/yaml-format-lint-alignment.md.
+	args := yamlConfig.YamlfmtFormatterArgs()
 
 	if checkOnly {
 		// Use -lint flag for check mode
