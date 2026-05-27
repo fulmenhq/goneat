@@ -1,6 +1,6 @@
 # Goneat v0.5.12 — Format-Runner Unification, Offline Lint UX, and Supply-Chain Hygiene
 
-**Release Date**: 2026-05-20
+**Release Date**: 2026-05-27
 **Status**: Stable
 
 ## TL;DR
@@ -11,6 +11,7 @@
 - **CI license-audit silent false-green is fixed** — `Makefile` `rg → grep -E` plus a narrow allowlist for the MPL-2.0 `cyphar/filepath-securejoin` dependency (transitive of `go-git/go-billy`, entarch-reviewed).
 - **`scripts/verify-release-assets.sh` now actually works** — sorts by filename column (`sort -k 2`) for all three SHA256/SHA512 compares, plus a pre-existing `cp src dest`-where-src=dest fix.
 - **Dependency hygiene**: `go-git/v5` 5.16.5 → 5.19.0, `go-billy/v5` 5.7.0 → 5.9.0, `grpc` 1.78.0 → 1.81.1, `otel/sdk` 1.40.0 → 1.43.0, `x/crypto` 0.47.0 → 0.51.0 (+ resolver-permitted `x/*` group coherence).
+- **CI Go runtime bumped to 1.26.x (security-driven)** — CI containers now run `goneat-tools-runner-glibc:v0.4.2` (Go 1.26.2 + golangci-lint v2.12.1) instead of `:v0.4.1`. The Go 1.26.x line includes fixes for CVE-2026-33810 and other security advisories that landed after v0.5.11. `go.mod`'s minimum Go directive stays at `1.25.0` for downstream compatibility.
 - **No config migration required** — drop-in replacement for v0.5.11.
 
 ## What Changed
@@ -206,6 +207,40 @@ broadening to other indirect deps (OPA et al. left untouched).
 required upgrade for `go-billy` v5.9.0 / `go-git` v5.19.0; covered by
 the MPL-2.0 allowlist landed in this same release.
 
+### CI Go Runtime Bumped to 1.26.x (Security-Driven)
+
+The original v0.5.12 punchlist deferred the Go runtime pin strategy to
+v0.5.13 — the intent was a deliberate research pass against the
+`fulmen-toolbox` CVE-driven pin patterns. That research surfaced
+`fulmen-toolbox v0.3.5` ("Go 1.26.2 toolchain bump (CVE-2026-33810)"),
+which means the existing `:v0.4.1` runner pin in `.github/workflows/ci.yml`
+is on a Go 1.25.x line that lacks the v0.3.5 fix and other 1.26.x
+security advisories. With local dev already moved to Go 1.26.3 and
+fulmen-toolbox already publishing a `:v0.4.2` image that bundles Go
+1.26.2 + golangci-lint v2.12.1, the right move is to pull the bump
+into v0.5.12 rather than ship a release on the older runtime.
+
+Changes in this release:
+
+- `.github/workflows/ci.yml` — three container references bumped from
+  `ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.4.1` to `:v0.4.2`
+  (build-test-lint, container-probe, bootstrap-probe).
+- `.github/workflows/release.yml` — `go-version: '1.25.x'` →
+  `'1.26.x'` for the release-artifact build.
+- `.github/workflows/license-audit.yml` — same `'1.25.x'` →
+  `'1.26.x'` bump.
+
+`go.mod`'s `go 1.25.0` directive is intentionally **unchanged** — the
+floor for downstream consumers and `go install` stays at 1.25.0. This
+release simply ships its own binaries built on the newer runtime; it
+does not require downstreams to upgrade their build environment.
+
+This is the "circular" goneat ↔ fulmen-toolbox relationship in normal
+operation: the toolbox release that picked up the Go 1.26.x line (and
+the matching golangci-lint v2.12.1 line) became available, so goneat
+v0.5.12 consumes it. A future goneat release will trigger another
+fulmen-toolbox cut, and so on.
+
 ## Known Issues Deferred to v0.5.13+
 
 - **Defect C — hook-level vs per-command timeout placement.** Fix B in
@@ -225,11 +260,12 @@ the MPL-2.0 allowlist landed in this same release.
   Changes bootstrap/build ordering and deserves its own review. Once
   landed, `.goneat/dependencies.yaml` becomes the audit SSOT and the
   Makefile allowlist filter from this release can be retired.
-- **Go runtime pin strategy.** v0.5.11 release artifacts were built on
-  `go1.25.9`; `go1.25.10` was current at the time. Per @3leapsdave, the
-  `go-version: '1.25.x'` strategy stays as-is for v0.5.12 — a v0.5.13
-  research item will compare against `~/dev/fulmenhq/fulmen-toolbox`'s
-  CVE-driven pin patterns before changing course.
+- **Deterministic Go patch pin for release.yml.** This release moves the
+  CI workflows from `'1.25.x'` to `'1.26.x'` (`check-latest` semantics
+  via the `.x` shorthand). A future release may pin a specific patch
+  (e.g. `'1.26.3'`) in `release.yml` for deterministic supply-chain
+  reproducibility, per @agent-kilo-devrev's original v0.5.12 proposal.
+  Keeping `.x` for v0.5.12 to minimize churn in this fast-follow.
 - **Pre-existing format issues in synced `config/crucible-go/` and
   `schemas/crucible-go/` content.** Medium severity, do not block
   `--fail-on high`. The content is SSOT-mirrored from
