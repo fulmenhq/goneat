@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/fulmenhq/goneat/pkg/config"
+	"github.com/fulmenhq/goneat/pkg/format/finalizer"
 	"github.com/spf13/cobra"
 )
 
@@ -218,6 +220,111 @@ func TestFormatCommand_YAMLUsesLintCompatibleCommentPadding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("yamllint rejected formatted YAML: %v\nOutput: %s", err, lintOutput)
 	}
+}
+
+// TestFormatCommand_YAMLPreservesFileMode is the v0.5.13 regression for the
+// kilo-devrev review finding: the sequential YAML apply path must preserve a
+// file's existing mode (e.g. 0644) rather than tightening it to 0600 when it
+// rewrites content.
+func TestFormatCommand_YAMLPreservesFileMode(t *testing.T) {
+	if _, err := exec.LookPath("yamlfmt"); err != nil {
+		t.Skip("yamlfmt not available")
+	}
+
+	tempDir := t.TempDir()
+	yamlFile := filepath.Join(tempDir, "perms.yaml")
+	// 1-space inline comment → yamlfmt rewrites to 2-space, so the write path runs.
+	yamlContent := "root:\n  enabled: true # inline comment\n"
+	if err := os.WriteFile(yamlFile, []byte(yamlContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := exec.Command("go", "run", ".", "format", "--strategy", "sequential", "--files", yamlFile, "--quiet")
+	cmd.Dir = ".."
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("format command failed: %v\nOutput: %s", err, output)
+	}
+
+	updated, err := os.ReadFile(yamlFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(updated), "enabled: true  # inline comment") {
+		t.Fatalf("expected content to be reformatted (2-space comment), got %q", string(updated))
+	}
+
+	info, err := os.Stat(yamlFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != 0o644 {
+		t.Fatalf("sequential format changed file mode: want 0644, got %o", got)
+	}
+}
+
+// TestFormatYAMLFile_SequentialCheckEqualsApply is the v0.5.13 regression for the
+// sequential (cmd/format.go) path: `format --check` must agree with `format`
+// (apply) even on the yamlfmt-EOF-divergence case that historically produced the
+// false positive, and must still flag genuine misformatting. Mirrors the
+// parallel-path coverage in pkg/work.
+func TestFormatYAMLFile_SequentialCheckEqualsApply(t *testing.T) {
+	yamlfmtPath, err := exec.LookPath("yamlfmt")
+	if err != nil {
+		t.Skip("yamlfmt not available")
+	}
+
+	cfg := &config.Config{
+		Format: config.FormatConfig{
+			YAML: config.YAMLFormatConfig{Indent: 2, LineLength: 80, PadLineComments: 2},
+		},
+	}
+	opts := finalizer.NormalizationOptions{EnsureEOF: true, TrimTrailingWhitespace: true, EncodingPolicy: "utf8-only"}
+
+	t.Run("EOF divergence reports already-formatted (check == apply)", func(t *testing.T) {
+		tempDir := t.TempDir()
+		f := filepath.Join(tempDir, "eof.yaml")
+		canonical := []byte("a: 1\n---\n")
+		if err := os.WriteFile(f, canonical, 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		// Guard: bare yamlfmt -lint must diverge here, else we're not exercising the bug.
+		if out, lerr := exec.Command(yamlfmtPath, "-formatter", "pad_line_comments=2", "-lint", f).CombinedOutput(); lerr == nil {
+			t.Skipf("yamlfmt -lint no longer diverges on EOF fixture; revisit. Output: %s", out)
+		}
+
+		// check: already-formatted, NOT "needs formatting" (the historical false positive).
+		if err := formatYAMLFile(f, true, cfg, opts); err == nil || !strings.Contains(err.Error(), "already formatted") {
+			t.Fatalf("sequential check: want 'already formatted', got: %v", err)
+		}
+		// apply: already-formatted and bytes unchanged.
+		if err := formatYAMLFile(f, false, cfg, opts); err == nil || !strings.Contains(err.Error(), "already formatted") {
+			t.Fatalf("sequential apply: want 'already formatted', got: %v", err)
+		}
+		after, _ := os.ReadFile(f)
+		if !bytes.Equal(after, canonical) {
+			t.Fatalf("sequential apply mutated an already-canonical file: %q", after)
+		}
+	})
+
+	t.Run("genuine misformat is flagged then fixed", func(t *testing.T) {
+		tempDir := t.TempDir()
+		f := filepath.Join(tempDir, "bad.yaml")
+		if err := os.WriteFile(f, []byte("root:\n  x: 1 # c\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		// check flags it.
+		if err := formatYAMLFile(f, true, cfg, opts); err == nil || !strings.Contains(err.Error(), "needs formatting") {
+			t.Fatalf("sequential check: want 'needs formatting', got: %v", err)
+		}
+		// apply fixes it (nil), then re-check is clean.
+		if err := formatYAMLFile(f, false, cfg, opts); err != nil {
+			t.Fatalf("sequential apply returned error: %v", err)
+		}
+		if err := formatYAMLFile(f, true, cfg, opts); err == nil || !strings.Contains(err.Error(), "already formatted") {
+			t.Fatalf("post-apply re-check: want 'already formatted', got: %v", err)
+		}
+	})
 }
 
 // TestFormatCommand_QuietMode tests quiet mode functionality

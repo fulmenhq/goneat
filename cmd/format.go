@@ -653,89 +653,31 @@ func formatYAMLFile(file string, checkOnly bool, cfg *config.Config, options fin
 	// format) correctly flagged. See docs/appnotes/yaml-format-lint-alignment.md.
 	args := yamlConfig.YamlfmtFormatterArgs()
 
-	if checkOnly {
-		// Use -lint flag for check mode
-		args = append(args, "-lint", file)
-
-		logger.Debug(fmt.Sprintf("Running yamlfmt with args: %v", args))
-
-		// #nosec G204 - yamlfmtPath comes from findToolPath which validates paths
-		cmd := exec.Command(yamlfmtPath, args...)
-		output, err := cmd.CombinedOutput()
-
-		if err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
-				outStr := string(output)
-				if work.LooksLikeYAMLParseError(outStr) {
-					return fmt.Errorf("invalid YAML syntax:\n%s", strings.TrimSpace(outStr))
-				}
-				return fmt.Errorf("needs formatting")
-			}
-			// Real error
-			return fmt.Errorf("yamlfmt failed: %v\nOutput: %s", err, string(output))
-		}
-		// Exit code 0 means file is already formatted
-		return fmt.Errorf("already formatted")
-	}
-
-	// For format mode, we need to detect if changes will be made
-	// First run with -dry flag to check
-	dryArgs := append([]string{"-dry"}, args...)
-	dryArgs = append(dryArgs, file)
-
-	// #nosec G204 - yamlfmtPath comes from findToolPath which validates paths
-	dryCmd := exec.Command(yamlfmtPath, dryArgs...)
-	dryOutput, dryErr := dryCmd.CombinedOutput()
-
-	if dryErr != nil && !strings.Contains(string(dryOutput), "---") {
-		// Real error, not just formatting output
-		return fmt.Errorf("yamlfmt dry run failed: %v\nOutput: %s", dryErr, string(dryOutput))
-	}
-
-	// Check if yamlfmt formatting is needed by comparing dry output
-	yamlfmtWillChange := len(dryOutput) > 0 && !bytes.Equal(originalContent, dryOutput)
-
-	// Check if finalizer would make changes
-	finalizerWillChange := false
-	if options.EnsureEOF || options.TrimTrailingWhitespace || options.NormalizeLineEndings != "" || options.RemoveUTF8BOM {
-		if _, changed, err := finalizer.ComprehensiveFileNormalization(originalContent, options); err == nil && changed {
-			finalizerWillChange = true
-		}
-	}
-
-	if !yamlfmtWillChange && !finalizerWillChange {
-		return fmt.Errorf("already formatted")
-	}
-
-	// Now apply the formatting
-	formatArgs := append(args, file)
-	logger.Debug(fmt.Sprintf("Running yamlfmt with args: %v", formatArgs))
-
-	// #nosec G204 - yamlfmtPath comes from findToolPath which validates paths
-	cmd := exec.Command(yamlfmtPath, formatArgs...)
-	output, err := cmd.CombinedOutput()
-
+	// Route both check and apply through the shared yamlfmt+finalizer helper so
+	// they compare against the identical canonical output. The previous check
+	// path used `yamlfmt -lint` (flags differences the finalizer reverts → false
+	// "needs formatting") and the previous apply path compared `-dry` *text*
+	// output against file *content* (always unequal → spurious "will change").
+	runFinalizer := options.EnsureEOF || options.TrimTrailingWhitespace || options.NormalizeLineEndings != "" || options.RemoveUTF8BOM
+	formatted, err := work.FormatYAMLContent(yamlfmtPath, args, originalContent, options, runFinalizer)
 	if err != nil {
-		return fmt.Errorf("yamlfmt failed: %v\nOutput: %s", err, string(output))
+		return err
 	}
 
-	// Apply finalizer options if requested (EOF, trailing whitespace, etc.)
-	// Re-read the file to get the current content after yamlfmt formatting
-	currentContent, readErr := os.ReadFile(file)
-	if readErr != nil {
-		return fmt.Errorf("failed to re-read file after formatting: %v", readErr)
+	if bytes.Equal(originalContent, formatted) {
+		return fmt.Errorf("already formatted")
 	}
 
-	if options.EnsureEOF || options.TrimTrailingWhitespace || options.NormalizeLineEndings != "" || options.RemoveUTF8BOM {
-		finalized, changed, err := finalizer.ComprehensiveFileNormalization(currentContent, options)
-		if err != nil {
-			return fmt.Errorf("finalizer error: %v", err)
-		}
-		if changed {
-			if err := safeio.WriteFileValidated(file, finalized, 0o600); err != nil {
-				return fmt.Errorf("failed to write finalized file: %v", err)
-			}
-		}
+	if checkOnly {
+		return fmt.Errorf("needs formatting")
+	}
+
+	// Preserve the file's existing mode. This full-file write now handles the
+	// primary YAML rewrite (previously delegated to in-place `yamlfmt`, which
+	// preserves mode); writing a fixed 0o600 here would otherwise tighten a
+	// normal 0644 YAML file. (Per kilo-devrev review of v0.5.13.)
+	if err := safeio.WriteFilePreservePerms(file, formatted); err != nil {
+		return fmt.Errorf("failed to write formatted file: %v", err)
 	}
 
 	logger.Info(fmt.Sprintf("Applying YAML formatting changes to %s", file))
