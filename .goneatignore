@@ -82,5 +82,12 @@ target/
 testdata/
 vendor/
 
+# Crucible-synced SSOT mirrors are formatted upstream and are restored by
+# make sync-crucible during release checks. Do not report local YAML drift here.
+config/crucible-go/
+schemas/crucible-go/
+internal/assets/embedded_config/config/crucible-go/
+internal/assets/embedded_schemas/schemas/crucible-go/
+
 # OpenCode integration files
 .plans/PROMPT.md

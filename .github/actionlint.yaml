@@ -1,6 +1,5 @@
 # actionlint configuration
 # https://github.com/rhysd/actionlint/blob/main/docs/config.md
-
 self-hosted-runner:
   labels:
     - ubuntu-latest-x64-s

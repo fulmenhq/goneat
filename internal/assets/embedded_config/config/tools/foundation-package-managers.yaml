@@ -86,8 +86,8 @@ package_managers:
       default_prefix: "$HOME/homebrew-local"
     detection_command: "brew --version"
     detection_notes: "Enhanced detection (v0.3.7+) supports system (/opt/homebrew, /usr/local, /home/linuxbrew) and user-local ($HOME/homebrew-local) installations"
-    priority: 5 # Elevated from 10: user-local brew is sudo-free and CI-safe
-    recommended: true # User-local brew is recommended; runtime detection determines sudo requirement
+    priority: 5  # Elevated from 10: user-local brew is sudo-free and CI-safe
+    recommended: true  # User-local brew is recommended; runtime detection determines sudo requirement
     notes: "User-local installation only. Runtime detection supports system brew for existing installations, but auto-install always uses user-local method."
   # Built-in language package managers
   - name: go-install
@@ -200,13 +200,13 @@ repo_type_detection:
 # Platform-specific recommendations (opinionated defaults)
 recommendations:
   darwin:
-    primary: ["brew", "bun", "mise"] # brew (user-local) is sudo-free and widely supported
+    primary: ["brew", "bun", "mise"]  # brew (user-local) is sudo-free and widely supported
     fallback: ["go-install", "uv", "npm", "cargo"]
-    avoid: [] # System brew requires sudo but user-local is safe; runtime detection handles this
+    avoid: []  # System brew requires sudo but user-local is safe; runtime detection handles this
   linux:
-    primary: ["brew", "bun", "mise"] # brew (user-local) is sudo-free and CI-friendly
+    primary: ["brew", "bun", "mise"]  # brew (user-local) is sudo-free and CI-friendly
     fallback: ["go-install", "uv", "npm", "cargo"]
-    avoid: ["apt-get", "pacman", "dnf"] # System package managers require sudo
+    avoid: ["apt-get", "pacman", "dnf"]  # System package managers require sudo
   windows:
     primary: ["bun", "scoop", "winget"]
     fallback: ["go-install", "npm"]

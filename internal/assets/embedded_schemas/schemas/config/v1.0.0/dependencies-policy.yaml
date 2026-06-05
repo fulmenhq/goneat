@@ -1,7 +1,6 @@
 $schema: https://json-schema.org/draft/2020-12/schema
 $schemaVersion: 1.0.0
 title: Goneat Dependencies Policy
-
 description: Schema for dependency policy configuration (licenses, cooling, sbom, vulnerabilities)
 type: object
 properties:
@@ -15,7 +14,6 @@ properties:
     type: string
     description: Policy file version
     enum: [v1]
-
   licenses:
     type: object
     description: License compliance policy
@@ -79,7 +77,6 @@ properties:
               required: [name, licenses, reason]
               additionalProperties: false
     additionalProperties: false
-
   cooling:
     type: object
     description: Supply-chain cooling policy
@@ -122,7 +119,6 @@ properties:
           required: [pattern]
           additionalProperties: false
     additionalProperties: false
-
   sbom:
     type: object
     description: SBOM generation configuration
@@ -135,7 +131,6 @@ properties:
       include_dev_dependencies:
         type: boolean
     additionalProperties: false
-
   vulnerabilities:
     type: object
     description: Vulnerability scanning policy configuration
@@ -227,7 +222,6 @@ properties:
             maximum: 10
         additionalProperties: false
     additionalProperties: false
-
   languages:
     type: array
     description: Optional language detection overrides
@@ -242,17 +236,14 @@ properties:
             type: string
       required: [language]
       additionalProperties: false
-
   python:
     type: object
     description: Python-specific settings
     additionalProperties: true
-
   node:
     type: object
     description: Node/Bun-specific settings
     additionalProperties: true
-
   policy_engine:
     type: object
     description: Policy engine configuration
@@ -279,7 +270,6 @@ properties:
         items:
           type: string
     additionalProperties: false
-
 additionalProperties: false
 required: [version]
 examples:

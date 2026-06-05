@@ -53,42 +53,42 @@ terminals:
 # These are commonly problematic characters across terminals
 test_sequences:
   emoji_with_vs:
-    - "ℹ️" # Information source
-    - "⚠️" # Warning sign
-    - "⏱️" # Stopwatch
-    - "🛠️" # Hammer and wrench
-    - "⭐️" # Star
-    - "▶️" # Play button
-    - "◀️" # Reverse button
-    - "⏸️" # Pause button
-    - "⏹️" # Stop button
+    - "ℹ️"  # Information source
+    - "⚠️"  # Warning sign
+    - "⏱️"  # Stopwatch
+    - "🛠️"  # Hammer and wrench
+    - "⭐️"  # Star
+    - "▶️"  # Play button
+    - "◀️"  # Reverse button
+    - "⏸️"  # Pause button
+    - "⏹️"  # Stop button
   emoji_without_vs:
-    - "🚀" # Rocket
-    - "📋" # Clipboard
-    - "🔗" # Link
-    - "💻" # Computer
-    - "📂" # Folder
-    - "🎯" # Target
-    - "📊" # Bar chart
-    - "🔍" # Magnifying glass
+    - "🚀"  # Rocket
+    - "📋"  # Clipboard
+    - "🔗"  # Link
+    - "💻"  # Computer
+    - "📂"  # Folder
+    - "🎯"  # Target
+    - "📊"  # Bar chart
+    - "🔍"  # Magnifying glass
   special_symbols:
-    - "✓" # Check mark
-    - "✗" # X mark
-    - "➜" # Arrow right
-    - "…" # Horizontal ellipsis
-    - "•" # Bullet
-    - "▸" # Triangle right
-    - "▪" # Square
-    - "◆" # Diamond
+    - "✓"  # Check mark
+    - "✗"  # X mark
+    - "➜"  # Arrow right
+    - "…"  # Horizontal ellipsis
+    - "•"  # Bullet
+    - "▸"  # Triangle right
+    - "▪"  # Square
+    - "◆"  # Diamond
   box_drawing:
-    - "┌" # Top left corner
-    - "┐" # Top right corner
-    - "└" # Bottom left corner
-    - "┘" # Bottom right corner
-    - "─" # Horizontal line
-    - "│" # Vertical line
-    - "├" # Vertical right
-    - "┤" # Vertical left
-    - "┬" # Horizontal down
-    - "┴" # Horizontal up
-    - "┼" # Cross
+    - "┌"  # Top left corner
+    - "┐"  # Top right corner
+    - "└"  # Bottom left corner
+    - "┘"  # Bottom right corner
+    - "─"  # Horizontal line
+    - "│"  # Vertical line
+    - "├"  # Vertical right
+    - "┤"  # Vertical left
+    - "┬"  # Horizontal down
+    - "┴"  # Horizontal up
+    - "┼"  # Cross
