@@ -415,6 +415,53 @@ func LooksLikeYAMLParseError(output string) bool {
 	return false
 }
 
+// FormatYAMLContent returns the canonical formatted form of YAML `input`:
+// yamlfmt (run in stdin mode so it never touches the file) followed by the
+// finalizer normalization when `runFinalizer` is true. The check and apply
+// paths both route through this so their verdicts cannot diverge.
+//
+// History: `format --check` previously used `yamlfmt -lint`, which flags
+// differences the finalizer would immediately revert — most notably the
+// trailing EOF newline yamlfmt's basic formatter adds and EnsureEOF then
+// collapses. That produced false "needs formatting" reports on files that
+// `goneat format` left byte-identical. Comparing against the *combined*
+// yamlfmt+finalizer output removes that class of false positive by
+// construction.
+//
+// yamlfmt discovers its `.yamlfmt` config from the process working directory
+// (walking upward), identical to the apply path which passes a file path from
+// the same cwd. Callers MUST NOT change cwd, or check/apply config discovery
+// could drift.
+func FormatYAMLContent(yamlfmtPath string, formatterArgs []string, input []byte, opts finalizer.NormalizationOptions, runFinalizer bool) ([]byte, error) {
+	args := append([]string{}, formatterArgs...)
+	args = append(args, "-") // read YAML from stdin, write formatted YAML to stdout
+
+	// #nosec G204 -- yamlfmtPath comes from toolPath/LookPath which validates the path
+	cmd := exec.Command(yamlfmtPath, args...)
+	cmd.Stdin = bytes.NewReader(input)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		combined := strings.TrimSpace(stdout.String() + stderr.String())
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 && LooksLikeYAMLParseError(combined) {
+			return nil, fmt.Errorf("invalid YAML syntax:\n%s", combined)
+		}
+		return nil, fmt.Errorf("yamlfmt failed: %v\nOutput: %s", err, combined)
+	}
+
+	formatted := stdout.Bytes()
+	if runFinalizer {
+		final, _, ferr := finalizer.ComprehensiveFileNormalization(formatted, opts)
+		if ferr != nil {
+			return nil, fmt.Errorf("finalizer error: %w", ferr)
+		}
+		formatted = final
+	}
+	return formatted, nil
+}
+
 // checkYAMLFile checks if a YAML file needs formatting without modifying it
 func (p *FormatProcessor) checkYAMLFile(filePath string) error {
 	logger.Debug(fmt.Sprintf("Checking YAML file formatting: %s", filePath))
@@ -442,31 +489,28 @@ func (p *FormatProcessor) checkYAMLFile(filePath string) error {
 		return fmt.Errorf("yamlfmt not found. Install with: goneat doctor tools --install yamlfmt")
 	}
 
-	// Build yamlfmt args via the shared helper so this check path agrees
-	// with cmd/format.go (sequential) and pkg/work/format_processor.go::formatYAMLFile
-	// (parallel format) on what gets passed to yamlfmt. Without this, a file
-	// can pass the check path while flagging the format path (or vice versa).
-	args := append([]string{"-lint"}, p.config.GetYAMLConfig().YamlfmtFormatterArgs()...)
-	args = append(args, filePath)
-	// #nosec G204 -- yamlfmtPath comes from exec.LookPath which validates the path
-	cmd := exec.Command(yamlfmtPath, args...)
-	output, err := cmd.CombinedOutput()
-
+	// Read the original so we can compare it against the fully-formatted
+	// candidate. We deliberately do NOT use `yamlfmt -lint` here: lint reports
+	// yamlfmt's raw opinion, which includes the trailing EOF newline the
+	// finalizer immediately reverts, so it flags files that `goneat format`
+	// leaves byte-identical. Compare against yamlfmt+finalizer instead so the
+	// check verdict matches the apply outcome exactly.
+	originalContent, err := os.ReadFile(filePath) // #nosec G304 -- path already validated
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
-			outStr := string(output)
-			if LooksLikeYAMLParseError(outStr) {
-				return fmt.Errorf("file %s has invalid YAML syntax:\n%s", filePath, strings.TrimSpace(outStr))
-			}
-			return fmt.Errorf("file %s needs formatting", filePath)
-		}
-		// Real error
-		return fmt.Errorf("yamlfmt lint failed for %s: %v\nOutput: %s", filePath, err, string(output))
+		return fmt.Errorf("failed to read file %s: %w", filePath, err)
 	}
 
-	// Also check finalizer issues (EOF, trailing whitespace, etc.)
-	if p.finalizerEnabled() {
-		return p.checkYAMLFileFinalizerOnly(filePath)
+	args := p.config.GetYAMLConfig().YamlfmtFormatterArgs()
+	formatted, err := FormatYAMLContent(yamlfmtPath, args, originalContent, p.finalizerOptions, p.finalizerEnabled())
+	if err != nil {
+		if strings.Contains(err.Error(), "invalid YAML syntax") {
+			return fmt.Errorf("file %s has %v", filePath, err)
+		}
+		return fmt.Errorf("yamlfmt check failed for %s: %w", filePath, err)
+	}
+
+	if !bytes.Equal(originalContent, formatted) {
+		return fmt.Errorf("file %s needs formatting", filePath)
 	}
 	return nil
 }

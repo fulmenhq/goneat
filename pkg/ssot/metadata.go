@@ -1,6 +1,7 @@
 package ssot
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -392,7 +393,19 @@ func writePerSourceMirror(source *SourceMetadata, format string, sourceConfig *S
 	if format == "json" {
 		data, err = json.MarshalIndent(singleSource, "", "  ")
 	} else {
-		data, err = yaml.Marshal(singleSource)
+		// Encode at 2-space indent to match the galaxy `.yamlfmt`/yamlfmt
+		// formatter. yaml.v3's default Marshal emits 4-space indent, which
+		// `goneat format` then immediately wants to rewrite — so every sync
+		// produced metadata.yaml that failed its own formatter check.
+		var buf bytes.Buffer
+		enc := yaml.NewEncoder(&buf)
+		enc.SetIndent(2)
+		if encErr := enc.Encode(singleSource); encErr != nil {
+			err = encErr
+		} else {
+			err = enc.Close()
+		}
+		data = buf.Bytes()
 	}
 
 	if err != nil {

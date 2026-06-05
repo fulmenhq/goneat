@@ -577,5 +577,13 @@ func TestYAMLMirrorFormat(t *testing.T) {
 
 		assert.Equal(t, "test", decoded.Sources[0].Name)
 		assert.Equal(t, "1.0.0", decoded.Sources[0].Version)
+
+		// v0.5.13 regression: the mirror must be written at 2-space indent to
+		// match the galaxy `.yamlfmt`/yamlfmt formatter. yaml.v3's default
+		// Marshal emits 4-space indent, which `goneat format` then wants to
+		// rewrite — producing a sync output that fails its own formatter check.
+		text := string(data)
+		require.Contains(t, text, "schema:\n  ", "schema children must be indented 2 spaces")
+		require.NotContains(t, text, "schema:\n    ", "schema children must not be indented 4 spaces")
 	})
 }

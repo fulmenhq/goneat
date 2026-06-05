@@ -433,6 +433,129 @@ func TestFormatProcessor_YAMLDivergenceFixture_FixesAndAgrees(t *testing.T) {
 	}
 }
 
+// TestFormatProcessor_YAMLCheckMatchesApply_EOFDivergence is the v0.5.13
+// regression for the crucible-sync-surfaced bug: `goneat format --check` (and
+// `assess --categories format`) reported "needs formatting" on files that
+// `goneat format` left byte-identical.
+//
+// Root cause: yamlfmt's basic formatter appends a trailing EOF newline that
+// goneat's finalizer (EnsureEOF) immediately collapses back to one. The check
+// path used bare `yamlfmt -lint`, which sees yamlfmt's raw opinion (wants the
+// extra newline) and flags the file — even though the combined yamlfmt+finalizer
+// apply pipeline is a no-op. checkYAMLFile now compares against that combined
+// output, so check and apply cannot disagree.
+//
+// The fixture (a doc ending in a trailing `---` marker) is a minimal,
+// deterministic trigger for yamlfmt's EOF-newline behavior. The test asserts
+// the divergence still exists at the yamlfmt level (else it is not exercising
+// the bug) AND that goneat's check correctly reports the file as already
+// formatted.
+func TestFormatProcessor_YAMLCheckMatchesApply_EOFDivergence(t *testing.T) {
+	yamlfmtPath, err := exec.LookPath("yamlfmt")
+	if err != nil {
+		t.Skip("yamlfmt not available")
+	}
+
+	// Already in goneat-canonical form (2-space, single trailing newline).
+	canonical := []byte("a: 1\n---\n")
+
+	tempDir := t.TempDir()
+	testFile := filepath.Join(tempDir, "eof-divergent.yaml")
+	if err := os.WriteFile(testFile, canonical, 0o644); err != nil {
+		t.Fatalf("Failed to seed temp file: %v", err)
+	}
+
+	cfg := &config.Config{
+		Format: config.FormatConfig{
+			YAML: config.YAMLFormatConfig{
+				Indent:          2,
+				LineLength:      80,
+				PadLineComments: 2,
+			},
+		},
+	}
+	processor := newTestProcessor(cfg)
+
+	// Guard: confirm bare `yamlfmt -lint` actually diverges here. If a future
+	// yamlfmt stops adding the EOF newline, this fixture no longer exercises the
+	// bug and the test should be revisited rather than silently passing.
+	lint := exec.Command(yamlfmtPath, "-formatter", "pad_line_comments=2", "-lint", testFile)
+	if out, err := lint.CombinedOutput(); err == nil {
+		t.Skipf("yamlfmt -lint no longer diverges on the EOF fixture; revisit fixture. Output: %s", string(out))
+	}
+
+	// 1. checkYAMLFile must report the canonical file as clean, despite the
+	//    bare -lint divergence above. This is the bug being regression-tested.
+	if err := processor.checkYAMLFile(testFile); err != nil {
+		t.Fatalf("checkYAMLFile flagged an already-canonical file (regression): %v", err)
+	}
+
+	// 2. formatYAMLFile must leave it byte-identical (apply is a no-op).
+	if err := processor.formatYAMLFile(testFile); err != nil {
+		t.Fatalf("formatYAMLFile returned error: %v", err)
+	}
+	after, err := os.ReadFile(testFile)
+	if err != nil {
+		t.Fatalf("Failed to read file after format: %v", err)
+	}
+	if string(after) != string(canonical) {
+		t.Fatalf("format mutated an already-canonical file: check and apply disagree\nwant: %q\ngot:  %q", canonical, after)
+	}
+
+	// 3. check is still clean after apply (idempotent).
+	if err := processor.checkYAMLFile(testFile); err != nil {
+		t.Fatalf("post-format checkYAMLFile failed: %v", err)
+	}
+}
+
+// TestFormatYAMLContent_FlagsGenuineFormatting guards against the check path
+// becoming a no-op: a genuinely misformatted file (4-space indent, trailing
+// whitespace) must still differ from the canonical FormatYAMLContent output.
+func TestFormatYAMLContent_FlagsGenuineFormatting(t *testing.T) {
+	yamlfmtPath, err := exec.LookPath("yamlfmt")
+	if err != nil {
+		t.Skip("yamlfmt not available")
+	}
+
+	opts := finalizer.NormalizationOptions{EnsureEOF: true, TrimTrailingWhitespace: true, EncodingPolicy: "utf8-only"}
+	bad := []byte("root:\n    child: value   \n    other: 1")
+
+	formatted, err := FormatYAMLContent(yamlfmtPath, []string{"-formatter", "pad_line_comments=2"}, bad, opts, true)
+	if err != nil {
+		t.Fatalf("FormatYAMLContent error: %v", err)
+	}
+	if string(formatted) == string(bad) {
+		t.Fatalf("expected canonical output to differ from misformatted input")
+	}
+	// Re-running on the canonical output is a fixed point.
+	again, err := FormatYAMLContent(yamlfmtPath, []string{"-formatter", "pad_line_comments=2"}, formatted, opts, true)
+	if err != nil {
+		t.Fatalf("FormatYAMLContent (second pass) error: %v", err)
+	}
+	if string(again) != string(formatted) {
+		t.Fatalf("FormatYAMLContent is not idempotent:\nfirst:  %q\nsecond: %q", formatted, again)
+	}
+}
+
+// TestFormatYAMLContent_DetectsSyntaxError ensures malformed YAML surfaces as an
+// "invalid YAML syntax" error rather than being misreported as a formatting diff
+// (which would otherwise show up as a spurious "needs formatting").
+func TestFormatYAMLContent_DetectsSyntaxError(t *testing.T) {
+	yamlfmtPath, err := exec.LookPath("yamlfmt")
+	if err != nil {
+		t.Skip("yamlfmt not available")
+	}
+
+	opts := finalizer.NormalizationOptions{EnsureEOF: true, EncodingPolicy: "utf8-only"}
+	_, err = FormatYAMLContent(yamlfmtPath, []string{"-formatter", "pad_line_comments=2"}, []byte("a: [unclosed\n"), opts, true)
+	if err == nil {
+		t.Fatal("expected an error for malformed YAML, got nil")
+	}
+	if !strings.Contains(err.Error(), "invalid YAML syntax") {
+		t.Fatalf("expected 'invalid YAML syntax' error, got: %v", err)
+	}
+}
+
 func TestFormatProcessor_GetSupportedContentTypes(t *testing.T) {
 	cfg := &config.Config{}
 	processor := newTestProcessor(cfg)
