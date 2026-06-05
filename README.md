@@ -68,7 +68,8 @@ goneat provides **language-aware assessment** with automatic tool detection:
 | **TypeScript/JS**  | Yes  | Yes    | Yes       | [biome](https://biomejs.dev/), tsc   | `brew install biome`                  |
 | **Rust**           | Yes  | Yes    | —         | cargo-clippy, rustfmt, cargo-deny    | `rustup component add clippy rustfmt` |
 | **YAML**           | Yes  | Yes    | —         | yamllint, yamlfmt                    | `brew install yamllint yamlfmt`       |
-| **Markdown/JSON**  | —    | Yes    | —         | prettier                             | `npm install -g prettier`             |
+| **Markdown**       | Yes  | Yes    | —         | built-in artifact check, prettier    | `npm install -g prettier`             |
+| **JSON**           | —    | Yes    | —         | prettier                             | `npm install -g prettier`             |
 | **Shell**          | Yes  | —      | —         | shellcheck, shfmt                    | `brew install shellcheck shfmt`       |
 | **Makefiles**      | Yes  | —      | —         | checkmake                            | `brew install checkmake`              |
 | **GitHub Actions** | Yes  | —      | —         | actionlint                           | `brew install actionlint`             |
