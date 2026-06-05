@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.13] - 2026-06-05
+
+### Added
+
+- **Markdown AI transcript artifact linting**: `goneat assess --categories lint` now detects common AI transcript fragments in authored Markdown, including orphan content closing tags, xai function-call closing fragments, and parameter-name blocks. The scanner is fence-aware, so examples inside fenced code blocks do not suppress later real findings.
+
+### Fixed
+
+- **YAML format check/apply agreement**: `goneat format --check` now compares YAML after the same finalizer normalization used by apply mode, eliminating false positives where files were already stable after formatting.
+- **SSOT metadata indentation**: `goneat ssot sync` now writes metadata YAML with the repository's canonical 2-space indentation instead of regenerating `.crucible/metadata/metadata.yaml` at 4 spaces.
+
+### Changed
+
+- **YAML format noise cleanup**: pre-existing goneat-owned YAML comment-padding and indentation drift has been normalized so the repository starts v0.5.13 clean.
+- **Crucible-synced mirror handling**: Crucible-synced config and schema mirrors are now excluded from local format drift checks so upstream-owned content is not churned by goneat-local formatting.
+- **README language matrix**: Markdown now advertises both built-in artifact linting and prettier-backed formatting, while JSON remains format-only.
+
 ## [v0.5.12] - 2026-05-27
 
 ### Fixed

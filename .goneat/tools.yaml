@@ -16,7 +16,6 @@
 #
 # Validate changes with: goneat doctor tools validate
 # See schema: schemas/tools/v1.1.0/tools-config.yaml
-
 scopes:
   foundation:
     description: Language-agnostic tools for all projects
@@ -32,7 +31,6 @@ scopes:
       - actionlint
       - checkmake
       - minisign
-
   go:
     description: Go development tools
     tools:
@@ -43,35 +41,29 @@ scopes:
       - gofmt
       - gosec
       - govulncheck
-
   rust:
     description: Rust development tools (Cargo plugins)
     tools:
       - cargo-deny
       - cargo-audit
-
   python:
     description: Python development tools
     tools:
       - ruff
-
   typescript:
     description: TypeScript/JavaScript development tools
     tools:
       - biome
       - tsc
-
   security:
     description: Cross-language security scanning
     tools:
       - gitleaks
-
   sbom:
     description: Software Bill of Materials (SBOM) generation and vulnerability scanning
     tools:
       - syft
       - grype
-
 tools:
   # ==========================================================================
   # FOUNDATION TOOLS - Language-agnostic
@@ -96,7 +88,6 @@ tools:
     version_scheme: semver
     minimum_version: "14.0.0"
     recommended_version: "14.1.0"
-
   jq:
     name: jq
     description: JSON processor - used in CI/CD scripts
@@ -117,7 +108,6 @@ tools:
     version_scheme: semver
     minimum_version: "1.7.0"
     recommended_version: "1.7.1"
-
   yq:
     name: yq
     description: YAML processor
@@ -137,8 +127,7 @@ tools:
         - winget
     version_scheme: semver
     minimum_version: "4.40.0"
-    recommended_version: "4.44.0"
-
+    recommended_version: "4.53.2"
   yamlfmt:
     name: yamlfmt
     description: YAML formatter
@@ -155,7 +144,6 @@ tools:
     version_scheme: semver
     minimum_version: "0.16.0"
     recommended_version: "0.21.0"
-
   # NOTE: prettier is in foundation because it's our ONLY Markdown formatter.
   # For TypeScript/JavaScript projects, biome handles TS/JS/JSON formatting.
   prettier:
@@ -174,7 +162,6 @@ tools:
     version_scheme: semver
     minimum_version: "3.0.0"
     recommended_version: "3.8.0"
-
   yamllint:
     name: yamllint
     description: YAML syntax linting
@@ -194,7 +181,6 @@ tools:
     version_scheme: semver
     minimum_version: "1.33.0"
     recommended_version: "1.38.0"
-
   shfmt:
     name: shfmt
     description: Shell script formatter
@@ -208,7 +194,6 @@ tools:
     installer_priority:
       all:
         - go-install
-
   shellcheck:
     name: shellcheck
     description: Shell script analyzer
@@ -229,7 +214,6 @@ tools:
     version_scheme: semver
     minimum_version: "0.9.0"
     recommended_version: "0.11.0"
-
   actionlint:
     name: actionlint
     description: GitHub Actions workflow linter
@@ -246,7 +230,6 @@ tools:
     version_scheme: semver
     minimum_version: "1.7.0"
     recommended_version: "1.7.8"
-
   checkmake:
     name: checkmake
     description: Makefile linter
@@ -263,7 +246,6 @@ tools:
     version_scheme: semver
     minimum_version: "0.2.0"
     recommended_version: "0.3.0"
-
   minisign:
     name: minisign
     description: Minimal signing utility for release artifacts
@@ -280,7 +262,6 @@ tools:
         - brew
       windows:
         - scoop
-
   # ==========================================================================
   # GO TOOLS
   # ==========================================================================
@@ -302,9 +283,8 @@ tools:
         - scoop
         - winget
     version_scheme: semver
-    minimum_version: "1.21.0"
-    recommended_version: "1.23.0"
-
+    minimum_version: "1.25.0"
+    recommended_version: "1.26.4"
   go-licenses:
     name: go-licenses
     description: License compliance for Go dependencies
@@ -316,7 +296,6 @@ tools:
     installer_priority:
       all:
         - go-install
-
   golangci-lint:
     name: golangci-lint
     description: Fast linters runner for Go
@@ -339,7 +318,6 @@ tools:
     version_scheme: semver
     minimum_version: "2.0.0"
     recommended_version: "2.10.0"
-
   goimports:
     name: goimports
     description: Go import formatter
@@ -351,7 +329,6 @@ tools:
     installer_priority:
       all:
         - go-install
-
   gofmt:
     name: gofmt
     description: Go formatter (bundled with Go toolchain)
@@ -362,7 +339,6 @@ tools:
     installer_priority:
       all:
         - builtin
-
   gosec:
     name: gosec
     description: Go security checker
@@ -385,7 +361,6 @@ tools:
     version_scheme: semver
     minimum_version: "2.18.0"
     recommended_version: "2.23.0"
-
   govulncheck:
     name: govulncheck
     description: Go vulnerability checker
@@ -402,7 +377,6 @@ tools:
     version_scheme: semver
     minimum_version: "1.0.0"
     recommended_version: "1.1.0"
-
   # ==========================================================================
   # RUST TOOLS
   # ==========================================================================
@@ -424,7 +398,6 @@ tools:
     version_scheme: semver
     minimum_version: "0.14.0"
     recommended_version: "0.16.0"
-
   cargo-audit:
     name: cargo-audit
     description: Rust security vulnerability scanner (RustSec advisories)
@@ -443,7 +416,6 @@ tools:
     version_scheme: semver
     minimum_version: "0.18.0"
     recommended_version: "0.21.0"
-
   # ==========================================================================
   # PYTHON TOOLS
   # ==========================================================================
@@ -467,7 +439,6 @@ tools:
     version_scheme: semver
     minimum_version: "0.8.0"
     recommended_version: "0.15.0"
-
   # ==========================================================================
   # TYPESCRIPT TOOLS
   # ==========================================================================
@@ -489,7 +460,6 @@ tools:
     version_scheme: semver
     minimum_version: "2.0.0"
     recommended_version: "2.4.0"
-
   tsc:
     name: tsc
     description: TypeScript compiler for type checking
@@ -508,7 +478,6 @@ tools:
     version_scheme: semver
     minimum_version: "5.0.0"
     recommended_version: "5.7.0"
-
   # ==========================================================================
   # SECURITY TOOLS
   # ==========================================================================
@@ -525,7 +494,6 @@ tools:
     installer_priority:
       all:
         - go-install
-
   # ==========================================================================
   # SBOM TOOLS
   # ==========================================================================
@@ -551,8 +519,7 @@ tools:
         - scoop
     version_scheme: semver
     minimum_version: "1.0.0"
-    recommended_version: "1.42.0"
-
+    recommended_version: "1.45.0"
   grype:
     name: grype
     description: Vulnerability scanner for container images and SBOMs
@@ -575,4 +542,4 @@ tools:
         - scoop
     version_scheme: semver
     minimum_version: "0.80.0"
-    recommended_version: "0.109.0"
+    recommended_version: "0.113.0"
