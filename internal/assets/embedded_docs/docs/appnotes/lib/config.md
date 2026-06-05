@@ -532,6 +532,4 @@ config validate --schema schema.json config.yaml
 ---
 
 **Version:** 1.0.0
-**Last Updated:** September 20, 2025</content>
-</xai:function_call: write>
-<parameter name="filePath">docs/appnotes/lib/config.md
+**Last Updated:** September 20, 2025

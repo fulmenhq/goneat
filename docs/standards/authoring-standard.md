@@ -191,6 +191,4 @@ make test         # Tests
 
 **Status**: Approved
 **Last Updated**: 2025-08-28
-**Author**: @3leapsdave</content>
-</xai:function_call name="bash">
-<parameter name="command">mkdir -p goneat/docs/standards/templates
+**Author**: @3leapsdave

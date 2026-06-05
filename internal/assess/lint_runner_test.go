@@ -180,6 +180,94 @@ func TestLooksLikeGolangciLintNetworkError(t *testing.T) {
 	}
 }
 
+func TestScanContentArtifactFile(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    int
+	}{
+		{
+			name:    "clean markdown",
+			content: "# Title\n\nRegular content.\n",
+			want:    0,
+		},
+		{
+			name:    "orphan content close appended to prose",
+			content: "# Title\n\n**Status:** Done</content>\n",
+			want:    1,
+		},
+		{
+			name:    "xai function call transcript markers",
+			content: "# Title\n</xai:function_call name=\"bash\">\n<parameter name=\"command\">make build\n",
+			want:    2,
+		},
+		{
+			name:    "balanced content tag is allowed",
+			content: "# Title\n\n<content>\nbody\n</content>\n",
+			want:    0,
+		},
+		{
+			name:    "code fence example is allowed",
+			content: "# Title\n\n```xml\n</content>\n</xai:function_call>\n<parameter name=\"command\">make build\n```\n",
+			want:    0,
+		},
+		{
+			name:    "fenced content opener does not suppress later orphan close",
+			content: "# Title\n\n```xml\n<content>\n```\n\n**Status:** Done</content>\n",
+			want:    1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := scanContentArtifactFile("doc.md", []byte(tt.content))
+			if len(got) != tt.want {
+				t.Fatalf("scanContentArtifactFile issues = %d, want %d: %#v", len(got), tt.want, got)
+			}
+			for _, issue := range got {
+				if issue.Category != CategoryLint {
+					t.Fatalf("issue category = %s, want %s", issue.Category, CategoryLint)
+				}
+				if issue.SubCategory != "content-artifact" {
+					t.Fatalf("issue subcategory = %q, want content-artifact", issue.SubCategory)
+				}
+				if issue.Severity != SeverityLow {
+					t.Fatalf("issue severity = %s, want %s", issue.Severity, SeverityLow)
+				}
+			}
+		})
+	}
+}
+
+func TestLintAssessmentRunner_ContentArtifactAssessment(t *testing.T) {
+	dir := t.TempDir()
+	mustWriteFile(t, filepath.Join(dir, "docs", "bad.md"), "# Bad\n\nDone</content>\n")
+	mustWriteFile(t, filepath.Join(dir, "docs", "clean.md"), "# Clean\n")
+	mustWriteFile(t, filepath.Join(dir, "internal", "assets", "embedded_docs", "docs", "bad.md"), "# Generated\n\nDone</content>\n")
+
+	runner := NewLintAssessmentRunner()
+	issues, err := runner.runContentArtifactAssessment(dir, DefaultAssessmentConfig())
+	if err != nil {
+		t.Fatalf("runContentArtifactAssessment error: %v", err)
+	}
+	if len(issues) != 1 {
+		t.Fatalf("issues = %d, want 1: %#v", len(issues), issues)
+	}
+	if issues[0].File != "docs/bad.md" {
+		t.Fatalf("issue file = %q, want docs/bad.md", issues[0].File)
+	}
+}
+
+func mustWriteFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		t.Fatalf("MkdirAll(%s): %v", filepath.Dir(path), err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("WriteFile(%s): %v", path, err)
+	}
+}
+
 func TestLintAssessmentRunner_Assess_WithInvalidConfig(t *testing.T) {
 	t.Skip("Test temporarily disabled due to malformed test structure")
 	if testing.Short() {

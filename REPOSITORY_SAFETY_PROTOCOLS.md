@@ -505,6 +505,4 @@ When hooks fail but code is correct:
 
 **Maintained by**: Repository Safety Committee
 **Last Updated**: 2025-08-28
-**Next Review**: Quarterly</content>
-</xai:function_call name="bash">
-<parameter name="command">cd goneat && make build
+**Next Review**: Quarterly

@@ -22,6 +22,7 @@ import (
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/fulmenhq/goneat/pkg/ignore"
 	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/safeio"
 	"github.com/fulmenhq/goneat/pkg/versioning"
 )
 
@@ -47,6 +48,8 @@ type golangciLintEnvironment struct {
 	version   *versioning.Version
 	detectErr error
 }
+
+var contentOpenMarkerRE = regexp.MustCompile(`<content(?:\s|>|/)`)
 
 // LintConfig contains configuration for lint assessment
 type LintConfig struct {
@@ -288,6 +291,18 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 		}, nil
 	}
 	issues = append(issues, makeIssues...)
+
+	contentIssues, contentErr := r.runContentArtifactAssessment(target, config)
+	if contentErr != nil {
+		return &AssessmentResult{
+			CommandName:   r.commandName,
+			Category:      CategoryLint,
+			Success:       false,
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
+			Error:         fmt.Sprintf("content artifact check failed: %v", contentErr),
+		}, nil
+	}
+	issues = append(issues, contentIssues...)
 
 	modeStr := r.getModeString(config.Mode)
 	logger.Info(fmt.Sprintf("lint %s completed: %d issues found", modeStr, len(issues)))
@@ -724,6 +739,139 @@ func (r *LintAssessmentRunner) runCheckmakeAssessment(target string, config Asse
 		}
 	}
 	return issues, nil
+}
+
+func (r *LintAssessmentRunner) runContentArtifactAssessment(target string, config AssessmentConfig) ([]Issue, error) {
+	files, err := r.collectMarkdownLintFiles(target, config)
+	if err != nil {
+		return nil, err
+	}
+	return scanContentArtifactMarkers(target, files)
+}
+
+func (r *LintAssessmentRunner) collectMarkdownLintFiles(target string, config AssessmentConfig) ([]string, error) {
+	if len(config.IncludeFiles) > 0 && hasActualFiles(config.IncludeFiles) {
+		files := filterByExtensions(config.IncludeFiles, []string{".md", ".markdown"})
+		files = r.filterFilesRespectingIgnores(files, target, config)
+		return normalizeRelativeFiles(target, files), nil
+	}
+
+	excludes := append([]string{}, config.ExcludeFiles...)
+	excludes = append(excludes,
+		"internal/assets/embedded_docs/**",
+		"**/internal/assets/embedded_docs/**",
+	)
+	return collectFilesWithScope(target, []string{"**/*.md", "**/*.markdown"}, excludes, config)
+}
+
+func normalizeRelativeFiles(root string, files []string) []string {
+	if len(files) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(files))
+	seen := make(map[string]struct{}, len(files))
+	for _, file := range files {
+		rel := filepath.ToSlash(strings.TrimSpace(file))
+		if rel == "" {
+			continue
+		}
+		if filepath.IsAbs(rel) {
+			if r, err := filepath.Rel(root, rel); err == nil {
+				rel = filepath.ToSlash(r)
+			}
+		}
+		for strings.HasPrefix(rel, "./") {
+			rel = strings.TrimPrefix(rel, "./")
+		}
+		if _, ok := seen[rel]; ok {
+			continue
+		}
+		seen[rel] = struct{}{}
+		out = append(out, rel)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func scanContentArtifactMarkers(root string, files []string) ([]Issue, error) {
+	var issues []Issue
+	for _, file := range files {
+		rel := filepath.ToSlash(file)
+		path := filepath.Join(root, filepath.FromSlash(rel))
+		content, err := safeio.ReadFileContained(root, path)
+		if err != nil {
+			return nil, fmt.Errorf("read %s: %w", rel, err)
+		}
+		issues = append(issues, scanContentArtifactFile(rel, content)...)
+	}
+	return issues, nil
+}
+
+func scanContentArtifactFile(file string, content []byte) []Issue {
+	lines := strings.SplitAfter(string(content), "\n")
+	hasContentOpen := hasContentOpenOutsideFence(lines)
+	issues := make([]Issue, 0)
+	inFence := false
+	for i, raw := range lines {
+		line := strings.TrimRight(raw, "\r\n")
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
+			inFence = !inFence
+			continue
+		}
+		if inFence {
+			continue
+		}
+
+		marker := ""
+		switch {
+		case strings.Contains(line, "</content>") && !hasContentOpen:
+			marker = "</content>"
+		case strings.Contains(line, "</xai:function_call"):
+			marker = "</xai:function_call"
+		case strings.Contains(line, "<parameter name="):
+			marker = "<parameter name="
+		}
+		if marker == "" {
+			continue
+		}
+
+		column := strings.Index(line, marker) + 1
+		if column <= 0 {
+			column = 1
+		}
+		issues = append(issues, Issue{
+			File:          filepath.ToSlash(file),
+			Line:          i + 1,
+			Column:        column,
+			Severity:      SeverityLow,
+			Message:       fmt.Sprintf("AI transcript artifact marker %q found in Markdown content", marker),
+			Category:      CategoryLint,
+			SubCategory:   "content-artifact",
+			AutoFixable:   false,
+			EstimatedTime: HumanReadableDuration(2 * time.Minute),
+		})
+	}
+	return issues
+}
+
+func hasContentOpenOutsideFence(lines []string) bool {
+	inFence := false
+	for _, raw := range lines {
+		line := strings.TrimRight(raw, "\r\n")
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
+			inFence = !inFence
+			continue
+		}
+		if inFence {
+			continue
+		}
+		if contentOpenMarkerRE.FindStringIndex(line) != nil {
+			return true
+		}
+	}
+	return false
 }
 
 func collectFilesWithScope(root string, includes, excludes []string, config AssessmentConfig) ([]string, error) {
