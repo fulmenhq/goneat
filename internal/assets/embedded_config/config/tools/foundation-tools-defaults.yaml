@@ -425,7 +425,7 @@ scopes:
       - jq
       - yq
       - yamlfmt
-      - prettier # Markdown formatter (only one we have)
+      - prettier  # Markdown formatter (only one we have)
       - yamllint
       - shfmt
       - shellcheck
