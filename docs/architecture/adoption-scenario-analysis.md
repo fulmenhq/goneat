@@ -358,10 +358,6 @@ Result: Compatibility enables internal validation → Better product → Faster 
 
 **Recommendation:** Include Lefthook compatibility in v0.1.2
 **Rationale:** Accelerates adoption, reduces risk, enables faster iteration
-**Next Steps:** Implement compatibility layer, prepare adoption materials</content>
-</xai:function_call/>
-**Recommendation:** Include Lefthook compatibility in v0.1.2
-**Rationale:** Accelerates adoption, reduces risk, enables faster iteration
 **Next Steps:** Implement compatibility layer, prepare adoption materials
 
 ---

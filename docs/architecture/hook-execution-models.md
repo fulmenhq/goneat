@@ -202,10 +202,8 @@ goneat assess --format json --output reports/
 ---
 
 **Current Implementation:** Model 1 (Orchestrated Assessment)
-**Status:** Ready for clarification and potential model switch</content>
-</xai:function_call/>
-**Recommendation:** Model 1 (Orchestrated Assessment)
 **Status:** Ready for clarification and potential model switch
+**Recommendation:** Model 1 (Orchestrated Assessment)
 
 ---
 

@@ -116,6 +116,4 @@ tags: ["api", "reference", "cli"]
 
 **Status**: Approved
 **Last Updated**: 2025-08-28
-**Author**: @3leapsdave</content>
-</xai:function_call name="write">
-<parameter name="filePath">goneat/docs/standards/copyright-template.md
+**Author**: @3leapsdave

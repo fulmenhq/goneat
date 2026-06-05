@@ -783,7 +783,4 @@ Goneat hooks provide a seamless upgrade from basic git hooks to intelligent vali
 
 **Ready to set up your hooks?** Start with `goneat hooks init` and experience the difference intelligent validation makes in your development workflow.
 
-**Happy coding with intelligent validation!** 🎯✨</content>
-</xai:function_call/>
-</xai:function_call name="list">
-<parameter name="path">/Users/davethompson/dev/fulmenhq/goneat/goneat/docs/user-guide/commands
+**Happy coding with intelligent validation!** 🎯✨
