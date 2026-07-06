@@ -18,6 +18,7 @@ import (
 
 	"runtime"
 
+	"github.com/fulmenhq/goneat/pkg/ignore"
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/fulmenhq/goneat/pkg/pattern"
 )
@@ -310,29 +311,32 @@ func (r *SecurityAssessmentRunner) runGosec(ctx context.Context, moduleRoot stri
 		dirs = r.uniqueDirs(config.IncludeFiles)
 	} else {
 		// Discover Go package directories across multi-module repos
-		if moduleDirs, err := r.findModuleDirs(moduleRoot); err == nil && len(moduleDirs) > 0 {
+		discoveredModules := false
+		listedAnyModule := false
+		if moduleDirs, err := r.findModuleDirs(moduleRoot, config); err == nil && len(moduleDirs) > 0 {
+			discoveredModules = true
 			pkgSet := make(map[string]struct{})
 			for _, mdir := range moduleDirs {
-				if pkgs, err := r.listGoPackageDirs(mdir); err == nil {
-					for _, p := range pkgs {
-						// Convert to relative from moduleRoot if possible for nicer args
-						rel := p
-						if rel2, err2 := filepath.Rel(moduleRoot, p); err2 == nil {
-							rel = rel2
-						}
-						// Honor .goneatignore patterns
-						if r.pathIgnored(filepath.Join(moduleRoot, rel)) {
-							continue
-						}
-						pkgSet[rel] = struct{}{}
+				pkgs, err := r.listGoPackageDirs(moduleRoot, mdir, config)
+				if err != nil {
+					logger.Warn(fmt.Sprintf("go package discovery failed for %s: %v", mdir, err))
+					continue
+				}
+				listedAnyModule = true
+				for _, p := range pkgs {
+					// Convert to relative from moduleRoot if possible for nicer args
+					rel := p
+					if rel2, err2 := filepath.Rel(moduleRoot, p); err2 == nil {
+						rel = rel2
 					}
+					pkgSet[rel] = struct{}{}
 				}
 			}
 			for p := range pkgSet {
 				dirs = append(dirs, p)
 			}
 		}
-		if len(dirs) == 0 {
+		if len(dirs) == 0 && (!discoveredModules || !listedAnyModule) {
 			// Fallback to single shard
 			dirs = []string{"./..."}
 		}
@@ -356,6 +360,9 @@ func (r *SecurityAssessmentRunner) runGosec(ctx context.Context, moduleRoot stri
 	// expose shard/pool metrics via package-level variables (single-process assumption)
 	lastShardCount = len(dirs)
 	lastPoolSize = workers
+	if len(dirs) == 0 {
+		return nil, nil, nil
+	}
 
 	type shardResult struct {
 		issues       []Issue
@@ -495,14 +502,15 @@ var (
 	lastPoolSize   int
 )
 
-// listGoPackageDirs returns absolute directories for all packages under moduleRoot.
-func (r *SecurityAssessmentRunner) listGoPackageDirs(moduleRoot string) ([]string, error) {
+// listGoPackageDirs returns absolute directories for all in-scope packages under moduleRoot.
+func (r *SecurityAssessmentRunner) listGoPackageDirs(scopeRoot, moduleRoot string, config AssessmentConfig) ([]string, error) {
 	cmd := exec.Command("go", "list", "-f", "{{.Dir}}", "./...")
 	cmd.Dir = moduleRoot
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, err
 	}
+	matcher := r.newIgnoreMatcher(scopeRoot, config)
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 	var dirs []string
 	for _, line := range lines {
@@ -510,8 +518,12 @@ func (r *SecurityAssessmentRunner) listGoPackageDirs(moduleRoot string) ([]strin
 		if d == "" {
 			continue
 		}
-		// Skip vendor and node_modules as a safety measure
-		if strings.Contains(d, string(filepath.Separator)+"vendor"+string(filepath.Separator)) || strings.Contains(d, string(filepath.Separator)+"node_modules"+string(filepath.Separator)) {
+		rel, err := filepath.Rel(scopeRoot, d)
+		if err != nil {
+			continue
+		}
+		rel = filepath.ToSlash(rel)
+		if r.isIgnoredSecurityPath(rel, true, matcher, config) {
 			continue
 		}
 		dirs = append(dirs, d)
@@ -520,21 +532,22 @@ func (r *SecurityAssessmentRunner) listGoPackageDirs(moduleRoot string) ([]strin
 }
 
 // findModuleDirs finds all directories containing a go.mod starting from root (multi-module aware)
-func (r *SecurityAssessmentRunner) findModuleDirs(root string) ([]string, error) {
+func (r *SecurityAssessmentRunner) findModuleDirs(root string, config AssessmentConfig) ([]string, error) {
 	var dirs []string
+	matcher := r.newIgnoreMatcher(root, config)
 	// Always include root if it has go.mod or go.work references modules
 	if _, err := os.Stat(filepath.Join(root, "go.mod")); err == nil {
 		dirs = append(dirs, root)
 	}
 
-	// Walk and collect go.mod holders, skipping vendor/node_modules/.git
+	// Walk and collect go.mod holders, pruning ignored directories before package discovery.
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
 		if info.IsDir() {
-			base := filepath.Base(path)
-			if base == ".git" || base == "vendor" || base == "node_modules" {
+			rel, relErr := filepath.Rel(root, path)
+			if relErr == nil && rel != "." && r.isIgnoredSecurityPath(rel, true, matcher, config) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -558,120 +571,81 @@ func (r *SecurityAssessmentRunner) findModuleDirs(root string) ([]string, error)
 	return dirs, nil
 }
 
-// pathIgnored checks .goneatignore patterns using standardized config resolution
-func (r *SecurityAssessmentRunner) pathIgnored(path string) bool {
-	// Get ignore file locations using standardized resolver
-	ignoreFiles := r.getIgnoreFiles(path)
-
-	for _, ignoreFilePath := range ignoreFiles {
-		if r.matchesIgnoreFile(path, ignoreFilePath) {
-			return true
-		}
+func (r *SecurityAssessmentRunner) newIgnoreMatcher(root string, config AssessmentConfig) *ignore.Matcher {
+	if config.NoIgnore {
+		return nil
 	}
-	return false
-}
-
-// getIgnoreFiles returns .goneatignore files in hierarchical order (Pattern 3: like .gitignore)
-// Returns files from most specific (closest to target) to least specific (user global)
-func (r *SecurityAssessmentRunner) getIgnoreFiles(targetPath string) []string {
-	var ignoreFiles []string
-
-	// Get the directory to start from (file's dir or target dir itself)
-	startDir := targetPath
-	if info, err := os.Stat(targetPath); err == nil && !info.IsDir() {
-		startDir = filepath.Dir(targetPath)
-	}
-
-	// Convert to absolute path for consistent behavior
-	if absDir, err := filepath.Abs(startDir); err == nil {
-		startDir = absDir
-	}
-
-	// Walk up the directory hierarchy looking for .goneatignore files
-	currentDir := startDir
-	for {
-		ignoreFile := filepath.Join(currentDir, ".goneatignore")
-		if _, err := os.Stat(ignoreFile); err == nil {
-			ignoreFiles = append(ignoreFiles, ignoreFile)
-		}
-
-		parentDir := filepath.Dir(currentDir)
-		if parentDir == currentDir {
-			// Reached filesystem root
-			break
-		}
-		currentDir = parentDir
-	}
-
-	// Add user-level global ignore (GONEAT_HOME/.goneatignore)
-	if homeDir := os.Getenv("GONEAT_HOME"); homeDir != "" {
-		userIgnore := filepath.Join(homeDir, ".goneatignore")
-		if _, err := os.Stat(userIgnore); err == nil { // #nosec G703 - userIgnore from GONEAT_HOME env var, env-based paths are by design
-			ignoreFiles = append(ignoreFiles, userIgnore)
-		}
-	} else if homeDir, err := os.UserHomeDir(); err == nil {
-		// Standard location: ~/.goneat/.goneatignore
-		userIgnore := filepath.Join(homeDir, ".goneat", ".goneatignore")
-		if _, err := os.Stat(userIgnore); err == nil {
-			ignoreFiles = append(ignoreFiles, userIgnore)
-		}
-	}
-
-	return ignoreFiles
-}
-
-// matchesIgnoreFile checks if a path matches patterns in an ignore file
-func (r *SecurityAssessmentRunner) matchesIgnoreFile(filePath, ignoreFilePath string) bool {
-	// Validate ignore file path to prevent path traversal
-	ignoreFilePath = filepath.Clean(ignoreFilePath)
-	if strings.Contains(ignoreFilePath, "..") {
-		return false
-	}
-	f, err := os.Open(ignoreFilePath)
+	matcher, err := ignore.NewMatcher(root)
 	if err != nil {
-		return false
+		logger.Warn(fmt.Sprintf("security ignore matcher unavailable: %v", err))
+		return nil
 	}
-	defer func() { _ = f.Close() }()
-	var patterns []string
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		patterns = append(patterns, line)
-	}
-	// Relativize
-	rel := filePath
-	if wd, err := os.Getwd(); err == nil {
-		if rp, err := filepath.Rel(wd, filePath); err == nil {
-			rel = rp
-		}
-	}
-	for _, p := range patterns {
-		if matchIgnorePattern(p, rel) || matchIgnorePattern(p, filePath) {
-			return true
-		}
-	}
-	return false
+	return matcher
 }
 
-// matchIgnorePattern performs simple glob and substring matching
-func matchIgnorePattern(pattern, path string) bool {
-	// negations not supported in this minimal helper
-	pattern = strings.TrimPrefix(pattern, "!")
-	if strings.Contains(pattern, "*") {
-		if ok, _ := filepath.Match(pattern, filepath.Base(path)); ok {
-			return true
-		}
-		if ok, _ := filepath.Match(pattern, path); ok {
-			return true
-		}
+func (r *SecurityAssessmentRunner) isIgnoredSecurityPath(rel string, isDir bool, matcher *ignore.Matcher, config AssessmentConfig) bool {
+	if config.NoIgnore || matcher == nil {
+		return false
 	}
-	if strings.Contains(path, pattern) || filepath.Base(path) == pattern {
+	rel = filepath.ToSlash(rel)
+	if matchesForceInclude(rel, config.ForceInclude) || forceIncludeDescendsFrom(rel, config.ForceInclude) {
+		return false
+	}
+	if isDir {
+		return matcher.IsIgnoredDirRel(rel)
+	}
+	return matcher.IsIgnoredRel(rel)
+}
+
+func forceIncludeDescendsFrom(rel string, patterns []string) bool {
+	if len(patterns) == 0 {
+		return false
+	}
+	rel = strings.TrimSuffix(filepath.ToSlash(rel), "/")
+	if rel == "" || rel == "." {
 		return true
 	}
+	for _, raw := range patterns {
+		pat := filepath.ToSlash(strings.TrimSpace(raw))
+		if pat == "" {
+			continue
+		}
+		for strings.HasPrefix(pat, "./") {
+			pat = strings.TrimPrefix(pat, "./")
+		}
+		pat = strings.TrimSuffix(pat, "/**")
+		if strings.ContainsAny(pat, "*?[") {
+			prefix := forceIncludeStaticDirPrefix(pat)
+			if prefix != "" && (prefix == rel || strings.HasPrefix(prefix, rel+"/")) {
+				return true
+			}
+			continue
+		}
+		if pat == rel || strings.HasPrefix(pat, rel+"/") {
+			return true
+		}
+	}
 	return false
+}
+
+func forceIncludeStaticDirPrefix(pattern string) string {
+	pattern = strings.TrimPrefix(filepath.ToSlash(pattern), "./")
+	wild := strings.IndexAny(pattern, "*?[")
+	if wild < 0 {
+		return strings.TrimSuffix(pattern, "/")
+	}
+	prefix := pattern[:wild]
+	if prefix == "" {
+		return ""
+	}
+	if strings.HasSuffix(prefix, "/") {
+		return strings.TrimSuffix(prefix, "/")
+	}
+	slash := strings.LastIndex(prefix, "/")
+	if slash < 0 {
+		return ""
+	}
+	return strings.TrimSuffix(prefix[:slash], "/")
 }
 
 // parseGosecOutput converts gosec JSON to issues

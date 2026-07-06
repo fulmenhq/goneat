@@ -2,10 +2,13 @@ package assess
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -148,6 +151,161 @@ func TestParseIgnorePatternsForGosec_ConvertsAndLogsSkips(t *testing.T) {
 	}
 }
 
+func TestFindModuleDirsHonorsGitignoreAndNoIgnore(t *testing.T) {
+	runner := NewSecurityAssessmentRunner()
+	repo := t.TempDir()
+
+	writeTestFile(t, filepath.Join(repo, "go.mod"), "module example.com/root\n\ngo 1.23\n")
+	writeTestFile(t, filepath.Join(repo, ".gitignore"), ".cache/\n")
+	cachedModule := filepath.Join(repo, ".cache", "go-mod", "pkg", "mod", "example.com", "dep")
+	writeTestFile(t, filepath.Join(cachedModule, "go.mod"), "module example.com/dep\n\ngo 1.23\n")
+
+	config := DefaultAssessmentConfig()
+	dirs, err := runner.findModuleDirs(repo, config)
+	if err != nil {
+		t.Fatalf("findModuleDirs failed: %v", err)
+	}
+	if !containsCleanPath(dirs, repo) {
+		t.Fatalf("expected root module in dirs, got %v", dirs)
+	}
+	if containsCleanPath(dirs, cachedModule) {
+		t.Fatalf("expected gitignored cached module to be pruned, got %v", dirs)
+	}
+
+	config.NoIgnore = true
+	dirs, err = runner.findModuleDirs(repo, config)
+	if err != nil {
+		t.Fatalf("findModuleDirs with NoIgnore failed: %v", err)
+	}
+	if !containsCleanPath(dirs, cachedModule) {
+		t.Fatalf("expected --no-ignore to include cached module, got %v", dirs)
+	}
+}
+
+func TestListGoPackageDirsFiltersIgnoredGeneratedPackages(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go not available")
+	}
+
+	runner := NewSecurityAssessmentRunner()
+	repo := t.TempDir()
+	writeTestFile(t, filepath.Join(repo, "go.mod"), "module example.com/root\n\ngo 1.23\n")
+	writeTestFile(t, filepath.Join(repo, ".gitignore"), "generated/\n")
+	writeTestFile(t, filepath.Join(repo, "pkg", "pkg.go"), "package pkg\n")
+	writeTestFile(t, filepath.Join(repo, "generated", "gen.go"), "package generated\n")
+
+	config := DefaultAssessmentConfig()
+	dirs, err := runner.listGoPackageDirs(repo, repo, config)
+	if err != nil {
+		t.Fatalf("listGoPackageDirs failed: %v", err)
+	}
+	if !containsCleanPath(dirs, filepath.Join(repo, "pkg")) {
+		t.Fatalf("expected normal package dir in result, got %v", dirs)
+	}
+	if containsCleanPath(dirs, filepath.Join(repo, "generated")) {
+		t.Fatalf("expected gitignored generated package to be filtered, got %v", dirs)
+	}
+
+	config.NoIgnore = true
+	dirs, err = runner.listGoPackageDirs(repo, repo, config)
+	if err != nil {
+		t.Fatalf("listGoPackageDirs with NoIgnore failed: %v", err)
+	}
+	if !containsCleanPath(dirs, filepath.Join(repo, "generated")) {
+		t.Fatalf("expected --no-ignore to include generated package, got %v", dirs)
+	}
+}
+
+func TestRunGosecFallsBackWhenPackageDiscoveryFails(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go not available")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-based fake gosec is not supported on Windows")
+	}
+
+	runner := NewSecurityAssessmentRunner()
+	repo := t.TempDir()
+	writeTestFile(t, filepath.Join(repo, "go.mod"), "module example.com/root\n\ngo 1.23\nrequire (\n")
+
+	binDir := filepath.Join(repo, "bin")
+	capturePath := filepath.Join(repo, "gosec-args.txt")
+	script := "#!/bin/sh\n" +
+		"printf '%s\\n' \"$@\" > " + shellQuote(capturePath) + "\n" +
+		"printf '{\"Issues\":[]}'\n"
+	writeExecutableTestFile(t, filepath.Join(binDir, "gosec"), script)
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	config := DefaultAssessmentConfig()
+	config.Concurrency = 1
+	_, _, err := runner.runGosec(context.Background(), repo, config)
+	if err != nil {
+		t.Fatalf("runGosec returned error: %v", err)
+	}
+
+	args, err := os.ReadFile(capturePath)
+	if err != nil {
+		t.Fatalf("expected fallback gosec invocation, failed to read captured args: %v", err)
+	}
+	if !strings.Contains(string(args), "./...") {
+		t.Fatalf("expected fallback gosec invocation to include ./..., got args:\n%s", string(args))
+	}
+}
+
+func TestForceIncludeDescendsFromDoesNotReopenAllIgnoredDirsForBroadGlobs(t *testing.T) {
+	tests := []struct {
+		name     string
+		rel      string
+		patterns []string
+		want     bool
+	}{
+		{
+			name:     "broad recursive go glob does not descend into cache",
+			rel:      ".cache",
+			patterns: []string{"**/*.go"},
+			want:     false,
+		},
+		{
+			name:     "specific ignored recursive glob descends into matching dir",
+			rel:      "ignored",
+			patterns: []string{"ignored/**/*.go"},
+			want:     true,
+		},
+		{
+			name:     "specific ignored glob does not descend into unrelated cache",
+			rel:      ".cache",
+			patterns: []string{"ignored/**/*.go"},
+			want:     false,
+		},
+		{
+			name:     "exact forced descendant descends into cache",
+			rel:      ".cache",
+			patterns: []string{".cache/go-mod/pkg/mod/example.com/dep/main.go"},
+			want:     true,
+		},
+		{
+			name:     "directory recursive force include descends into cache",
+			rel:      ".cache",
+			patterns: []string{".cache/**"},
+			want:     true,
+		},
+		{
+			name:     "file glob under concrete dir descends into that dir",
+			rel:      "generated",
+			patterns: []string{"generated/*.go"},
+			want:     true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := forceIncludeDescendsFrom(tc.rel, tc.patterns); got != tc.want {
+				t.Fatalf("forceIncludeDescendsFrom(%q, %v) = %v, want %v", tc.rel, tc.patterns, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestPathWithinAssessmentRoot(t *testing.T) {
 	root := filepath.Join(string(os.PathSeparator), "repo")
 
@@ -171,6 +329,40 @@ func TestPathWithinAssessmentRoot(t *testing.T) {
 			}
 		})
 	}
+}
+
+func writeTestFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+}
+
+func writeExecutableTestFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o755); err != nil {
+		t.Fatalf("write executable %s: %v", path, err)
+	}
+}
+
+func shellQuote(path string) string {
+	return "'" + strings.ReplaceAll(path, "'", "'\\''") + "'"
+}
+
+func containsCleanPath(paths []string, want string) bool {
+	want = filepath.Clean(want)
+	for _, path := range paths {
+		if filepath.Clean(path) == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestFilterToAssessmentRoot_DropsExternalSecurityFindings(t *testing.T) {

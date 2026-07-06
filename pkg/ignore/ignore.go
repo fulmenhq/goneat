@@ -32,7 +32,16 @@ func NewMatcher(repoRoot string) (*Matcher, error) {
 	var allPatterns []gitignore.Pattern
 
 	// Add default patterns that should always be ignored (highest priority)
-	defaultPatterns := []string{".git/**", "node_modules/**", ".scratchpad/**"}
+	defaultPatterns := []string{
+		".git/**",
+		"node_modules/**",
+		".scratchpad/**",
+		".cache/**",
+		"bin/**",
+		"dist/**",
+		"sbom/**",
+		"vendor/**",
+	}
 	for _, pattern := range defaultPatterns {
 		allPatterns = append(allPatterns, gitignore.ParsePattern(pattern, nil))
 	}

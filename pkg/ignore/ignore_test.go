@@ -72,6 +72,11 @@ docs/
 		{".git/config", true, "git directory"},
 		{"node_modules/package.json", true, "node_modules directory"},
 		{".scratchpad/temp.txt", true, "scratchpad directory"},
+		{".cache/go-mod/pkg/mod/example.com/dep/main.go", true, "cache directory"},
+		{"bin/goneat", true, "bin directory"},
+		{"dist/goneat", true, "dist directory"},
+		{"sbom/goneat.cdx.json", true, "sbom directory"},
+		{"vendor/example.com/dep/main.go", true, "vendor directory"},
 
 		// .gitignore patterns
 		{"error.log", true, "*.log pattern"},
@@ -112,6 +117,11 @@ docs/
 		{".git", true, "git directory"},
 		{"node_modules", true, "node_modules directory"},
 		{".scratchpad", true, "scratchpad directory"},
+		{".cache", true, "cache directory"},
+		{"bin", true, "bin directory"},
+		{"dist", true, "dist directory"},
+		{"sbom", true, "sbom directory"},
+		{"vendor", true, "vendor directory"},
 
 		// .gitignore patterns
 		{".temp", true, ".temp directory"},
@@ -265,6 +275,11 @@ func TestMatcherWithNoIgnoreFiles(t *testing.T) {
 		{".git/config", true, "git directory should be ignored by default"},
 		{"node_modules/lib.js", true, "node_modules should be ignored by default"},
 		{".scratchpad/temp.txt", true, "scratchpad should be ignored by default"},
+		{".cache/go-mod/pkg/mod/example.com/dep/main.go", true, "cache should be ignored by default"},
+		{"bin/goneat", true, "bin should be ignored by default"},
+		{"dist/goneat", true, "dist should be ignored by default"},
+		{"sbom/goneat.cdx.json", true, "sbom should be ignored by default"},
+		{"vendor/example.com/dep/main.go", true, "vendor should be ignored by default"},
 		{"main.go", false, "regular file should not be ignored"},
 	}
 
