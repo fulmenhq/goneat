@@ -25,16 +25,16 @@ var initCmd = &cobra.Command{
 It automatically detects languages in your repository and generates relevant ignore patterns.
 
 DESIGN PHILOSOPHY:
-The .goneatignore file is comprehensive and independent of .gitignore. This ensures goneat
-works reliably regardless of .gitignore configuration. While there may be some overlap with
-typical .gitignore patterns, this approach prioritizes user experience and safety.
+The .goneatignore file is a committed goneat policy layer. Goneat also reads .gitignore
+for commands that perform scoped discovery, but a project-level .goneatignore makes scan
+scope explicit, works in non-git archives, and can document goneat-specific exclusions.
 
 KEY BEHAVIORS:
 • .goneatignore should be COMMITTED to git (not gitignored)
 • Applies ONLY to goneat commands (assess, format, etc.)
-• RESPECTS .gitignore - goneat will still process files that are gitignored
+• Reads .gitignore where goneat owns file/package selection before tool invocation
 • Can FORCE inclusion of files by adding negative patterns (e.g., "!important-file.txt")
-• Independent of .gitignore - works even if .gitignore doesn't exist
+• Keeps generated/tooling paths such as .cache/, bin/, dist/, sbom/, and vendor/ out of default scan scope
 
 RECOMMENDED USAGE:
 • Run 'goneat init' immediately after installing goneat
@@ -276,7 +276,7 @@ func generatePatterns(languages []string) ([]string, error) {
 
 	// Always include universal patterns
 	templatesFS := assets.GetTemplatesFS()
-	universalContent, err := fs.ReadFile(templatesFS, "goneatignore/universal.txt")
+	universalContent, err := readGoneatignoreTemplate(templatesFS, "universal.txt")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load universal template: %w", err)
 	}
@@ -286,9 +286,7 @@ func generatePatterns(languages []string) ([]string, error) {
 
 	// Add language-specific patterns
 	for _, lang := range languages {
-		templatePath := fmt.Sprintf("goneatignore/%s.txt", lang)
-		templatesFS := assets.GetTemplatesFS()
-		content, err := fs.ReadFile(templatesFS, templatePath)
+		content, err := readGoneatignoreTemplate(templatesFS, fmt.Sprintf("%s.txt", lang))
 		if err != nil {
 			logger.Warn(fmt.Sprintf("Template not found for language %s: %v", lang, err))
 			continue
@@ -311,6 +309,15 @@ func generatePatterns(languages []string) ([]string, error) {
 
 	sort.Strings(unique)
 	return unique, nil
+}
+
+func readGoneatignoreTemplate(templatesFS fs.FS, name string) ([]byte, error) {
+	data, err := fs.ReadFile(templatesFS, filepath.ToSlash(filepath.Join("templates", "goneatignore", name)))
+	if err == nil {
+		return data, nil
+	}
+
+	return fs.ReadFile(templatesFS, filepath.ToSlash(filepath.Join("goneatignore", name)))
 }
 
 func generateFileContent(patterns []string, languages []string) string {

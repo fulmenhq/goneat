@@ -57,6 +57,8 @@ func init() {
 	dependenciesCmd.Flags().String("sbom-input", "", "Use an existing SBOM file (skips syft) for vulnerability scanning")
 	dependenciesCmd.Flags().Bool("sbom-stdout", false, "Output SBOM to stdout instead of file")
 	dependenciesCmd.Flags().String("sbom-platform", "", "Target platform for SBOM (e.g., linux/amd64)")
+	dependenciesCmd.Flags().Bool("no-ignore", false, "Disable .goneatignore/.gitignore excludes for fallback vulnerability scans")
+	dependenciesCmd.Flags().StringSlice("force-include", []string{}, "Force-include paths or globs even if ignored during fallback vulnerability scans")
 
 	// Failure controls
 	dependenciesCmd.Flags().String("fail-on", "critical", "Fail on severity (critical, high, medium, low)")
@@ -236,7 +238,12 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 		// Vulnerability scan is orchestrated here (SBOM + grype) because it is language-agnostic.
 		if runVuln {
 			sbomInput, _ := cmd.Flags().GetString("sbom-input")
-			vulnResult, vulnIssues, vErr := dependencies.RunVulnerabilityScan(context.Background(), target, policyPath, sbomInput, 10*time.Minute)
+			noIgnore, _ := cmd.Flags().GetBool("no-ignore")
+			forceInclude, _ := cmd.Flags().GetStringSlice("force-include")
+			vulnResult, vulnIssues, vErr := dependencies.RunVulnerabilityScanWithOptions(context.Background(), target, policyPath, sbomInput, 10*time.Minute, dependencies.VulnerabilityScanOptions{
+				NoIgnore:     noIgnore,
+				ForceInclude: forceInclude,
+			})
 			if vErr != nil {
 				return vErr
 			}

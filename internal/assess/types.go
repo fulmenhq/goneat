@@ -121,6 +121,8 @@ type Issue struct {
 	EstimatedTime HumanReadableDuration `json:"estimated_time,omitempty"`
 	ChangeRelated bool                  `json:"change_related,omitempty"`
 	LinesModified []int                 `json:"lines_modified,omitempty"`
+	SourceType    string                `json:"source_type,omitempty"`
+	SourcePath    string                `json:"source_path,omitempty"`
 }
 
 // CategoryResult represents the assessment results for a specific category

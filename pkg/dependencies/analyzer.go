@@ -76,6 +76,8 @@ type Issue struct {
 	Severity   string
 	Message    string
 	Dependency *Dependency
+	SourceType string `json:"source_type,omitempty"`
+	SourcePath string `json:"source_path,omitempty"`
 }
 
 // PolicyResult represents policy evaluation result

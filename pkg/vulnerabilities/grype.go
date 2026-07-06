@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/fulmenhq/goneat/pkg/tools"
@@ -65,6 +66,9 @@ func (g *GrypeInvoker) ScanSBOM(ctx context.Context, sbomPath string, outputPath
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, "", fmt.Errorf("grype scan failed: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0o750); err != nil {
+		return nil, "", fmt.Errorf("failed to create grype output directory: %w", err)
 	}
 	if err := os.WriteFile(outputPath, out, 0o600); err != nil {
 		return nil, "", fmt.Errorf("failed to write grype output: %w", err)
