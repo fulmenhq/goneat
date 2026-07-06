@@ -22,6 +22,8 @@ type Finding struct {
 	AdvisoryURLs   []string `json:"advisory_urls,omitempty"`
 	Suppressed     bool     `json:"suppressed"`
 	SuppressReason string   `json:"suppress_reason,omitempty"`
+	SourceType     string   `json:"source_type,omitempty"`
+	SourcePaths    []string `json:"source_paths,omitempty"`
 }
 
 type Summary struct {
@@ -62,9 +64,12 @@ type grypeAvailable struct {
 type grypeReport struct {
 	Matches []struct {
 		Artifact struct {
-			Name    string `json:"name"`
-			Version string `json:"version"`
-			PURL    string `json:"purl"`
+			Name      string `json:"name"`
+			Version   string `json:"version"`
+			PURL      string `json:"purl"`
+			Locations []struct {
+				Path string `json:"path"`
+			} `json:"locations"`
 		} `json:"artifact"`
 		Vulnerability struct {
 			ID            string `json:"id"`
@@ -129,12 +134,19 @@ func ParseGrype(raw []byte) ([]Finding, map[Severity]int, error) {
 		if purl != "" {
 			f.PURLs = append(f.PURLs, purl)
 		}
+		for _, loc := range m.Artifact.Locations {
+			path := strings.TrimSpace(loc.Path)
+			if path != "" {
+				f.SourcePaths = append(f.SourcePaths, path)
+			}
+		}
 	}
 
 	findings := make([]Finding, 0, len(byID))
 	for _, f := range byID {
 		f.PackageNames = dedupeStrings(f.PackageNames)
 		f.PURLs = dedupeStrings(f.PURLs)
+		f.SourcePaths = dedupeStrings(f.SourcePaths)
 		f.PackageCount = len(f.PackageNames)
 		findings = append(findings, *f)
 	}

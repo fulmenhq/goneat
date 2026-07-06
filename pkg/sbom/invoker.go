@@ -15,11 +15,12 @@ import (
 )
 
 type Config struct {
-	TargetPath string
-	OutputPath string
-	Format     string
-	Stdout     bool
-	Platform   string
+	TargetPath      string
+	OutputPath      string
+	Format          string
+	Stdout          bool
+	Platform        string
+	ExcludePatterns []string
 }
 
 type Result struct {
@@ -162,6 +163,13 @@ func (s *SyftInvoker) Generate(ctx context.Context, config Config) (*Result, err
 
 	if config.Platform != "" {
 		args = append(args, "--platform", config.Platform)
+	}
+	for _, pattern := range config.ExcludePatterns {
+		pattern = strings.TrimSpace(pattern)
+		if pattern == "" {
+			continue
+		}
+		args = append(args, "--exclude", pattern)
 	}
 
 	// Use new --output FORMAT=PATH syntax (or FORMAT for stdout)
