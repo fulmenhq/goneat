@@ -97,6 +97,7 @@ install: ## Install built binary to user-space bin dir (~/.local/bin) - assumes 
 	fi
 	@echo "Installing $(BINARY_NAME) to $(INSTALL_DIR)..."
 	@mkdir -p "$(INSTALL_DIR)"
+	@rm -f "$(INSTALL_DIR)/$(BINARY_NAME)"
 	@cp "$(BUILD_DIR)/$(BINARY_NAME)" "$(INSTALL_DIR)/$(BINARY_NAME)"
 	@chmod +x "$(INSTALL_DIR)/$(BINARY_NAME)"
 	@echo "✅ Installed: $(INSTALL_DIR)/$(BINARY_NAME)"
