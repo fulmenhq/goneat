@@ -140,7 +140,7 @@ goneat dependencies --sbom
 goneat assess --categories dependencies --fail-on high
 ```
 
-**Vulnerability scanning** uses syft (SBOM generation) and grype (CVE detection) to identify known vulnerabilities across Go, Rust, Python, and TypeScript dependencies. Configure policy in `.goneat/dependencies.yaml`:
+**Vulnerability scanning** uses grype (CVE detection) with SBOM input to identify known vulnerabilities across Go, Rust, Python, and TypeScript dependencies. For Go repositories, goneat scans the module graph from `go list -m -json all` instead of recursively cataloging the workspace, which keeps generated directories, dependency caches, and copied release artifacts out of the vulnerability surface. Configure policy in `.goneat/dependencies.yaml`:
 
 ```yaml
 vulnerabilities:
@@ -231,6 +231,8 @@ goneat assess --new-issues-only          # Only new issues since HEAD~
 goneat assess --include "src/**" --exclude "vendor/**"
 goneat assess --force-include "tests/fixtures/**"  # Override .gitignore
 ```
+
+Goneat applies `.gitignore`, `.goneatignore`, and built-in generated-directory defaults across supported assessment paths. See [File Selection and Ignore Semantics](docs/appnotes/file-selection-and-ignore-semantics.md) for category-specific behavior and the exact effect of `--no-ignore` and `--force-include`.
 
 ## Commands
 

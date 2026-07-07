@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.14] - 2026-07-07
+
+### Added
+
+- **File-selection and ignore semantics app note**: documented how `.gitignore`, `.goneatignore`, built-in generated defaults, `--no-ignore`, and `--force-include` apply across assessment categories and external tools.
+- **Starter `.goneatignore` templates**: `goneat init` now writes language-specific starter ignore files from source templates, including shared generated/tooling defaults for `.cache/`, `bin/`, `dist/`, `sbom/`, and `vendor/`.
+- **Vulnerability source provenance**: dependency vulnerability reports and JSON issues now include source type and source path metadata for Go module graph, SBOM-file, and fallback file-walk scans.
+
+### Fixed
+
+- **Security scan scope**: gosec package discovery now honors goneat's unified ignore matcher before nested module and package inputs are passed to gosec, reducing false findings from ignored/generated paths.
+- **Dependency vulnerability scope**: Go vulnerability scans now use a module-graph SBOM from `go list -m -json all`, avoiding recursive workspace scans of caches, generated SBOMs, release artifacts, and vendored examples.
+- **Install replacement behavior**: `make install` removes an existing installed binary before copying the replacement, avoiding platform-specific overwrite failures.
+
+### Changed
+
+- **Dependency updates**: refreshed key Go modules including `golang.org/x/crypto` v0.53.0, `golang.org/x/net` v0.56.0, `github.com/go-git/go-git/v5` v5.19.1, `github.com/open-policy-agent/opa` v1.18.2, and the OpenTelemetry OTLP trace HTTP exporter v1.44.0 while keeping `go.mod` at `go 1.25.0`.
+
 ## [v0.5.13] - 2026-06-05
 
 ### Added
