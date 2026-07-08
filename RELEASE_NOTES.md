@@ -1,71 +1,62 @@
-# Goneat v0.5.13 - YAML Check Fidelity and Markdown Artifact Guardrails
+# Goneat v0.5.14 - Scoped Scans and Dependency Maintenance
 
-**Release Date**: 2026-06-05
+**Release Date**: 2026-07-07
 **Status**: Stable
 
 ## TL;DR
 
-- **YAML `format --check` now agrees with apply mode**. Check mode runs the same finalizer normalization used by formatting before deciding whether a YAML file needs changes, eliminating false positives on already-stable files.
-- **SSOT metadata YAML now regenerates at 2-space indentation**. `goneat ssot sync` no longer rewrites `.crucible/metadata/metadata.yaml` with 4-space nested maps.
-- **Goneat-owned YAML drift is cleaned up**. The remaining medium-severity YAML comment-padding and indentation noise in this repository has been normalized, and Crucible-synced mirrors are ignored for local format drift.
-- **Markdown lint now catches AI transcript artifacts**. Authored Markdown is scanned for common transcript fragments such as orphan content closing tags, xai function-call closing fragments, and parameter-name blocks.
-- **No config migration required**. v0.5.13 is a drop-in replacement for v0.5.12.
+- **Security scans now honor ignore scope before gosec runs**. Ignored nested modules and generated package directories are pruned before gosec receives package input.
+- **Go vulnerability scans use the module graph**. `dependencies --vuln` now feeds grype a CycloneDX SBOM generated from `go list -m -json all` for Go projects instead of recursively cataloging the workspace.
+- **Generated defaults are shared**. `.cache/`, `bin/`, `dist/`, `sbom/`, and `vendor/` are part of goneat's default ignore model for categories that use the unified matcher.
+- **`goneat init` ships starter `.goneatignore` templates from source**. New projects get a committed scan-policy file with the common generated/tooling directories.
+- **Vulnerability findings now include provenance**. Reports and JSON issues carry `source_type` and `source_path` for graph, SBOM-file, and fallback file-walk scans.
+- **`make install` replaces existing binaries more reliably**. The install target removes the target binary before copying the newly built one, avoiding platform-specific replacement failures.
+- **Go modules are refreshed while keeping the public Go floor**. Dependency updates include `golang.org/x/crypto` v0.53.0, `golang.org/x/net` v0.56.0, `github.com/go-git/go-git/v5` v5.19.1, `github.com/open-policy-agent/opa` v1.18.2, and the OpenTelemetry OTLP trace HTTP exporter v1.44.0. `go.mod` remains at `go 1.25.0`.
 
 ## What Changed
 
-### YAML Check/Apply Alignment
+### Security Scope
 
-v0.5.12 fixed a real YAML formatter argument divergence, but validation in downstream repositories exposed a second check-mode reliability problem: `goneat format --check` could still report a file as dirty even when applying `goneat format` produced no committed byte changes. The affected examples were already stable after goneat's finalizer rules, but check mode compared an intermediate formatter output and skipped the finalizer normalization used by apply mode.
+Gosec module discovery now uses goneat's unified ignore matcher. Ignored directories are pruned before nested `go.mod` files are discovered, and package directories returned by `go list` are filtered before gosec is invoked.
 
-v0.5.13 routes YAML check candidates through the same finalizer normalization before comparing bytes. The check path now writes a temporary normalized candidate through `safeio.WriteFilePreservePerms`, preserving the permission behavior expected by the file finalizer while avoiding permanent writes to the assessed file.
+`--no-ignore` remains the explicit escape hatch for full-scope security discovery. `--force-include` can re-include concrete ignored descendants without reopening every generated directory for broad glob patterns.
 
-Result: `goneat format --check` now answers the same question users care about: would apply mode leave this file changed?
+### Dependency Vulnerability Scope
 
-### SSOT Metadata YAML Indentation
+For Go projects, vulnerability scanning now derives SBOM input from the root module graph using `go list -m -json all`. This prevents dependency caches, copied release binaries, generated SBOM output, and dependency example trees from being scanned as if they were project dependencies.
 
-`goneat ssot sync` previously regenerated `.crucible/metadata/metadata.yaml` with 4-space indentation for nested maps, even though the repository's canonical YAML style is 2 spaces. v0.5.13 updates the metadata writer so regenerated metadata stays aligned with the formatter and repository policy.
+Explicit `--sbom-input` scans are reported as `source_type=sbom-file`. Go graph scans are reported as `source_type=go-module-graph`. Non-Go fallback scans remain `source_type=file-walk` and receive generated-dir plus ignore-derived syft excludes unless `--no-ignore` is set.
 
-This was validated against the downstream reproduction that originally showed the drift.
+For Go roots, the graph path is intentional: `--no-ignore` and `--force-include` do not turn `dependencies --vuln` into a full recursive workspace scan. Use an explicit SBOM input when auditing a different artifact set.
 
-### YAML Format Noise Cleanup
+### File Selection Documentation
 
-After the formatter fixes, this release also clears the remaining pre-existing goneat-owned YAML drift on `main`, including repository metadata, GitHub actionlint config, foundation tool defaults, dependency policy schema data, and embedded mirrors.
+The new app note at `docs/appnotes/file-selection-and-ignore-semantics.md` documents ignore sources, precedence, `--no-ignore`, `--force-include`, and a tool matrix covering gosec, govulncheck, gitleaks, syft, grype, golangci-lint, Biome, Ruff, yamllint, shellcheck/shfmt, and Go module graph scans.
 
-Crucible-synced config and schema mirror trees are now listed in `.goneatignore` because `make sync-crucible` restores them from upstream. That keeps local assessment focused on goneat-owned files instead of repeatedly reporting upstream-owned formatting differences.
+### Starter `.goneatignore`
 
-### Markdown AI Transcript Artifact Detection
+The `goneat init` templates now live under source `templates/goneatignore/` and are regenerated into embedded assets. Universal defaults include the shared generated/tooling set: `.cache/`, `bin/`, `dist/`, `sbom/`, and `vendor/`.
 
-Several authored Markdown files had accumulated pasted AI transcript fragments. v0.5.13 adds a built-in lint sentinel for these markers so future fragments are caught during normal lint assessment.
+### Install Target Replacement
 
-The scanner detects:
+`make install` now removes `$(INSTALL_DIR)/$(BINARY_NAME)` before copying `dist/goneat` into place. This keeps local install workflows reliable on systems that can reject direct overwrite of an existing executable.
 
-- Orphan content closing tags when no matching opener exists outside fenced code blocks
-- xai function-call closing fragments
-- parameter-name block fragments
+### Dependency Updates
 
-The check respects existing include/ignore handling and skips generated embedded-doc discovery. It is also fence-aware: examples inside fenced code blocks do not hide a later real orphan marker outside the fence.
+The Go module graph has been refreshed to pick up current security and compatibility updates while preserving the downstream module floor:
 
-The existing transcript fragments were removed from authored docs and their embedded mirrors where applicable.
+- `golang.org/x/crypto` v0.51.0 -> v0.53.0
+- `golang.org/x/net` v0.53.0 -> v0.56.0
+- `github.com/go-git/go-git/v5` v5.19.0 -> v5.19.1
+- `github.com/open-policy-agent/opa` v1.12.3 -> v1.18.2
+- `go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp` v1.43.0 -> v1.44.0
+
+The module directive remains `go 1.25.0`; no dependency in the updated graph declares a higher Go version requirement.
 
 ## Upgrade Notes
 
-No configuration changes are required. Existing `goneat format`, `goneat format --check`, `goneat assess`, and generated hook workflows can move from v0.5.12 to v0.5.13 directly.
+Most repositories need no config change. Repositories with generated directories or local dependency caches should see fewer false high/critical findings from ignored paths.
 
-Teams with Markdown-heavy repositories may see new low-severity lint findings if old transcript fragments are present in authored documentation. These findings indicate real cleanup work, not a migration requirement.
+Teams should keep `.goneatignore` committed as a scan-policy layer, even though goneat now respects ordinary `.gitignore` for the fixed security and dependency paths. This makes scan scope explicit for archives, CI workspaces, and future tool integrations.
 
-## Deferred Follow-Up
-
-The release validation also surfaced cache-hardening ideas that remain tracked outside this patch release:
-
-- Include goneat version, formatter configuration, and content in formatter cache keys
-- Add a `--no-cache` escape hatch for check-mode investigations
-- Emit the diff that `--check` wants when reporting a formatting failure
-
-These are useful robustness improvements, but they are not required for v0.5.13.
-
-## Contributors
-
-- GPT-5 Codex via Codex CLI under supervision of @3leapsdave
-- @3leapsdave for review, merge coordination, and release direction
-- rsfulmen and tsfulmen validation for downstream YAML and hook scenarios
-- secrev review for the Markdown artifact sentinel
+If you use `make install` from a local checkout, no workflow change is required. The target still expects `dist/goneat` to exist; use `make build install` when you want rebuild plus install in one command.
