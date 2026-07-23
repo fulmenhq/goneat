@@ -11,6 +11,7 @@ import (
 	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/fulmenhq/goneat/pkg/buildinfo"
 	"github.com/fulmenhq/goneat/pkg/exitcode"
+	formatpkg "github.com/fulmenhq/goneat/pkg/format"
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/spf13/cobra"
 )
@@ -122,7 +123,11 @@ var rootCmd = newRootCommand()
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
-		logger.Error("Command execution failed", logger.Err(err))
+		fields := []logger.Field{logger.Err(err)}
+		if class := formatpkg.ClassOf(err); class != "" {
+			fields = append(fields, logger.String("result_class", string(class)))
+		}
+		logger.Error("Command execution failed", fields...)
 		os.Exit(exitcode.GeneralError)
 	}
 }

@@ -76,13 +76,14 @@ goneat provides **language-aware assessment** with automatic tool detection:
 
 **TypeScript type checking** (v0.5.0+): Run `goneat assess --categories typecheck` to catch type errors via `tsc --noEmit`. Complements biome's lint/format with full type analysis.
 
-**Graceful degradation**: Missing a tool? goneat skips it and logs what was skipped—no errors, no broken builds. Add tools incrementally as your needs grow.
+**Missing-tool policy**: `goneat assess` skips unavailable optional language tools and logs what was skipped. Standalone `goneat format` is fail-closed once files requiring an external formatter are selected, so CI cannot silently claim coverage it did not perform. Use `goneat format --ignore-missing-tools` only when finalizer-only processing is acceptable.
 
 **Automatic installation**: Use [doctor tools](docs/user-guide/commands/doctor.md) to install everything at once:
 
 ```bash
 goneat doctor tools init                           # Generate .goneat/tools.yaml for your repo
 goneat doctor tools --scope foundation --install   # Install rg, jq, yq, prettier, yamlfmt...
+goneat doctor tools --scope python --install       # Install ruff
 goneat doctor tools --scope security --install     # Install gosec, govulncheck, gitleaks
 goneat doctor tools --scope all --install          # Install everything
 ```

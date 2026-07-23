@@ -5,14 +5,20 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/fulmenhq/goneat/pkg/config"
+	formatpkg "github.com/fulmenhq/goneat/pkg/format"
 	"github.com/fulmenhq/goneat/pkg/format/finalizer"
+	"github.com/fulmenhq/goneat/pkg/logger"
+	"github.com/fulmenhq/goneat/pkg/work"
 	"github.com/spf13/cobra"
 )
 
@@ -294,11 +300,11 @@ func TestFormatYAMLFile_SequentialCheckEqualsApply(t *testing.T) {
 		}
 
 		// check: already-formatted, NOT "needs formatting" (the historical false positive).
-		if err := formatYAMLFile(f, true, cfg, opts); err == nil || !strings.Contains(err.Error(), "already formatted") {
+		if err := formatYAMLFile(f, true, cfg, opts, findToolPath("yamlfmt")); err == nil || !strings.Contains(err.Error(), "already formatted") {
 			t.Fatalf("sequential check: want 'already formatted', got: %v", err)
 		}
 		// apply: already-formatted and bytes unchanged.
-		if err := formatYAMLFile(f, false, cfg, opts); err == nil || !strings.Contains(err.Error(), "already formatted") {
+		if err := formatYAMLFile(f, false, cfg, opts, findToolPath("yamlfmt")); err == nil || !strings.Contains(err.Error(), "already formatted") {
 			t.Fatalf("sequential apply: want 'already formatted', got: %v", err)
 		}
 		after, _ := os.ReadFile(f)
@@ -314,14 +320,14 @@ func TestFormatYAMLFile_SequentialCheckEqualsApply(t *testing.T) {
 			t.Fatal(err)
 		}
 		// check flags it.
-		if err := formatYAMLFile(f, true, cfg, opts); err == nil || !strings.Contains(err.Error(), "needs formatting") {
+		if err := formatYAMLFile(f, true, cfg, opts, findToolPath("yamlfmt")); err == nil || !strings.Contains(err.Error(), "needs formatting") {
 			t.Fatalf("sequential check: want 'needs formatting', got: %v", err)
 		}
 		// apply fixes it (nil), then re-check is clean.
-		if err := formatYAMLFile(f, false, cfg, opts); err != nil {
+		if err := formatYAMLFile(f, false, cfg, opts, findToolPath("yamlfmt")); err != nil {
 			t.Fatalf("sequential apply returned error: %v", err)
 		}
-		if err := formatYAMLFile(f, true, cfg, opts); err == nil || !strings.Contains(err.Error(), "already formatted") {
+		if err := formatYAMLFile(f, true, cfg, opts, findToolPath("yamlfmt")); err == nil || !strings.Contains(err.Error(), "already formatted") {
 			t.Fatalf("post-apply re-check: want 'already formatted', got: %v", err)
 		}
 	})
@@ -525,9 +531,603 @@ func TestFormatCommand_UseGoimportsWithIgnoreMissingTools(t *testing.T) {
 
 // TestFormatCommand_UseGoimportsFailsWhenMissingTool ensures we fail fast when goimports is requested but not installed
 func TestFormatCommand_UseGoimportsFailsWhenMissingTool(t *testing.T) {
-	// This scenario triggers os.Exit via the execution pipeline when errors are encountered,
-	// which requires a subprocess harness to test correctly. Skipping in unit test.
-	t.Skip("Skipped: failure path uses os.Exit; requires subprocess harness to assert safely")
+	tempDir := t.TempDir()
+	goFile := filepath.Join(tempDir, "main.go")
+	if err := os.WriteFile(goFile, []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	restoreFormatToolResolver(t, func(string) string { return "" })
+
+	cmd := &cobra.Command{}
+	setupFormatCommandFlags(cmd)
+	if err := cmd.Flags().Set("files", goFile); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("use-goimports", "true"); err != nil {
+		t.Fatal(err)
+	}
+
+	err := RunFormat(cmd, nil)
+	if !errors.Is(err, formatpkg.ErrToolUnavailable) {
+		t.Fatalf("expected typed tool-unavailable error, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "goneat doctor tools --scope go --install") {
+		t.Fatalf("expected doctor install guidance, got %v", err)
+	}
+}
+
+func TestPreflightFormatTools_MissingRuffResolvedOnce(t *testing.T) {
+	var ruffLookups int
+	restoreFormatToolResolver(t, func(tool string) string {
+		if tool != "ruff" {
+			t.Fatalf("unexpected tool lookup: %s", tool)
+		}
+		ruffLookups++
+		return ""
+	})
+
+	_, err := preflightFormatTools([]string{"one.py", "two.py", "types.pyi"}, false, false)
+	if !errors.Is(err, formatpkg.ErrToolUnavailable) {
+		t.Fatalf("expected tool-unavailable classification, got %v", err)
+	}
+	if class := formatpkg.ClassOf(err); class != formatpkg.ResultToolUnavailable {
+		t.Fatalf("expected %q class, got %q", formatpkg.ResultToolUnavailable, class)
+	}
+	if ruffLookups != 1 {
+		t.Fatalf("expected one ruff lookup for multiple Python files, got %d", ruffLookups)
+	}
+	if !strings.Contains(err.Error(), "goneat doctor tools --scope python --install") {
+		t.Fatalf("expected goneat doctor guidance, got %v", err)
+	}
+}
+
+func TestPreflightFormatTools_RecognizedExternalExtensions(t *testing.T) {
+	tests := []struct {
+		extension    string
+		tool         string
+		useGoimports bool
+	}{
+		{extension: ".go", tool: "goimports", useGoimports: true},
+		{extension: ".yaml", tool: "yamlfmt"},
+		{extension: ".yml", tool: "yamlfmt"},
+		{extension: ".md", tool: "prettier"},
+		{extension: ".markdown", tool: "prettier"},
+		{extension: ".py", tool: "ruff"},
+		{extension: ".pyi", tool: "ruff"},
+		{extension: ".js", tool: "biome"},
+		{extension: ".jsx", tool: "biome"},
+		{extension: ".mjs", tool: "biome"},
+		{extension: ".cjs", tool: "biome"},
+		{extension: ".ts", tool: "biome"},
+		{extension: ".tsx", tool: "biome"},
+		{extension: ".mts", tool: "biome"},
+		{extension: ".cts", tool: "biome"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.extension, func(t *testing.T) {
+			var lookups []string
+			restoreFormatToolResolver(t, func(tool string) string {
+				lookups = append(lookups, tool)
+				return ""
+			})
+
+			file := "sample" + test.extension
+			if contentType := getContentTypeFromPath(file); contentType == "unknown" {
+				t.Fatalf("%s is not recognized by the canonical format mapping", test.extension)
+			}
+
+			_, err := preflightFormatTools([]string{file}, test.useGoimports, false)
+			if !errors.Is(err, formatpkg.ErrToolUnavailable) {
+				t.Fatalf("expected strict missing-tool failure for %s, got %v", test.extension, err)
+			}
+			if len(lookups) != 1 || lookups[0] != test.tool {
+				t.Fatalf("expected one %s lookup for %s, got %v", test.tool, test.extension, lookups)
+			}
+		})
+	}
+}
+
+func TestFormatCommand_MarkdownLongExtensionFailsClosed(t *testing.T) {
+	restoreFormatToolResolver(t, func(tool string) string {
+		if tool != "prettier" {
+			t.Fatalf("unexpected tool lookup: %s", tool)
+		}
+		return ""
+	})
+
+	for _, strategy := range []string{"sequential", "parallel"} {
+		t.Run(strategy, func(t *testing.T) {
+			markdownFile := filepath.Join(t.TempDir(), "README.markdown")
+			original := []byte("# Heading\n")
+			if err := os.WriteFile(markdownFile, original, 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			cmd := &cobra.Command{}
+			setupFormatCommandFlags(cmd)
+			if err := cmd.Flags().Set("files", markdownFile); err != nil {
+				t.Fatal(err)
+			}
+			if err := cmd.Flags().Set("strategy", strategy); err != nil {
+				t.Fatal(err)
+			}
+
+			err := RunFormat(cmd, nil)
+			if !errors.Is(err, formatpkg.ErrToolUnavailable) {
+				t.Fatalf("expected strict missing-prettier failure, got %v", err)
+			}
+			after, readErr := os.ReadFile(markdownFile)
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			if !bytes.Equal(after, original) {
+				t.Fatalf("preflight failure mutated .markdown file: got %q want %q", after, original)
+			}
+		})
+	}
+}
+
+func TestFormatCommand_MissingRuffSelectionModes(t *testing.T) {
+	restoreFormatToolResolver(t, func(string) string { return "" })
+
+	tests := []struct {
+		name      string
+		configure func(t *testing.T, cmd *cobra.Command, pythonFile string)
+	}{
+		{
+			name: "explicit files",
+			configure: func(t *testing.T, cmd *cobra.Command, pythonFile string) {
+				t.Helper()
+				if err := cmd.Flags().Set("files", pythonFile); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
+			name: "discovery",
+			configure: func(t *testing.T, cmd *cobra.Command, pythonFile string) {
+				t.Helper()
+				if err := cmd.Flags().Set("folders", filepath.Dir(pythonFile)); err != nil {
+					t.Fatal(err)
+				}
+				if err := cmd.Flags().Set("types", "python"); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
+			name: "staged only",
+			configure: func(t *testing.T, cmd *cobra.Command, pythonFile string) {
+				t.Helper()
+				old := formatStagedFiles
+				formatStagedFiles = func() ([]string, error) { return []string{pythonFile}, nil }
+				t.Cleanup(func() { formatStagedFiles = old })
+				if err := cmd.Flags().Set("staged-only", "true"); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			pythonFile := filepath.Join(tempDir, "sample.py")
+			original := []byte("print('hello')\n")
+			if err := os.WriteFile(pythonFile, original, 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			cmd := &cobra.Command{}
+			setupFormatCommandFlags(cmd)
+			test.configure(t, cmd, pythonFile)
+
+			err := RunFormat(cmd, nil)
+			if !errors.Is(err, formatpkg.ErrToolUnavailable) {
+				t.Fatalf("expected tool-unavailable classification, got %v", err)
+			}
+			if !cmd.Root().SilenceErrors || !cmd.Root().SilenceUsage {
+				t.Fatal("typed format errors should be rendered once by the root structured logger")
+			}
+			after, readErr := os.ReadFile(pythonFile)
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			if !bytes.Equal(after, original) {
+				t.Fatalf("preflight failure mutated file: got %q want %q", after, original)
+			}
+		})
+	}
+}
+
+func TestFormatCommand_MissingRuffDoesNotFallbackSequential(t *testing.T) {
+	restoreFormatToolResolver(t, func(string) string { return "" })
+
+	tempDir := t.TempDir()
+	pythonFile := filepath.Join(tempDir, "sample.py")
+	original := []byte("print('hello')   ")
+	if err := os.WriteFile(pythonFile, original, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := &cobra.Command{}
+	setupFormatCommandFlags(cmd)
+	if err := cmd.Flags().Set("files", pythonFile); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("strategy", "parallel"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("fallback-sequential", "true"); err != nil {
+		t.Fatal(err)
+	}
+
+	err := RunFormat(cmd, nil)
+	if !errors.Is(err, formatpkg.ErrToolUnavailable) {
+		t.Fatalf("expected deterministic preflight failure, got %v", err)
+	}
+	after, readErr := os.ReadFile(pythonFile)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if !bytes.Equal(after, original) {
+		t.Fatalf("fallback ran after preflight failure: got %q want %q", after, original)
+	}
+}
+
+func TestFormatCommand_MissingRuffPlanModesDoNotPreflight(t *testing.T) {
+	var lookups int
+	restoreFormatToolResolver(t, func(string) string {
+		lookups++
+		return ""
+	})
+
+	for _, flag := range []string{"plan-only", "dry-run"} {
+		t.Run(flag, func(t *testing.T) {
+			tempDir := t.TempDir()
+			pythonFile := filepath.Join(tempDir, "sample.py")
+			if err := os.WriteFile(pythonFile, []byte("print('hello')\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			cmd := &cobra.Command{}
+			setupFormatCommandFlags(cmd)
+			if err := cmd.Flags().Set("files", pythonFile); err != nil {
+				t.Fatal(err)
+			}
+			if err := cmd.Flags().Set(flag, "true"); err != nil {
+				t.Fatal(err)
+			}
+			if err := RunFormat(cmd, nil); err != nil {
+				t.Fatalf("%s should not require ruff: %v", flag, err)
+			}
+		})
+	}
+	if lookups != 0 {
+		t.Fatalf("non-executing plan modes performed %d tool lookups", lookups)
+	}
+}
+
+func TestFormatCommand_IgnoreMissingRuffFinalizerOnly(t *testing.T) {
+	restoreFormatToolResolver(t, func(string) string { return "" })
+
+	var logOutput bytes.Buffer
+	if err := logger.Initialize(logger.Config{Level: logger.InfoLevel, JSON: true, Component: "goneat"}); err != nil {
+		t.Fatal(err)
+	}
+	logger.SetOutput(&logOutput)
+	t.Cleanup(func() {
+		_ = logger.Initialize(logger.Config{Level: logger.InfoLevel, Component: "goneat"})
+	})
+
+	tempDir := t.TempDir()
+	needsFinalizer := filepath.Join(tempDir, "needs.py")
+	alreadyClean := filepath.Join(tempDir, "clean.py")
+	if err := os.WriteFile(needsFinalizer, []byte("x = 1   "), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cleanContent := []byte("y = 2\n")
+	if err := os.WriteFile(alreadyClean, cleanContent, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := &cobra.Command{}
+	setupFormatCommandFlags(cmd)
+	if err := cmd.Flags().Set("files", strings.Join([]string{needsFinalizer, alreadyClean}, ",")); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("ignore-missing-tools", "true"); err != nil {
+		t.Fatal(err)
+	}
+	if err := RunFormat(cmd, nil); err != nil {
+		t.Fatalf("finalizer-only format failed: %v", err)
+	}
+
+	got, err := os.ReadFile(needsFinalizer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "x = 1\n" {
+		t.Fatalf("expected finalizer-only normalization, got %q", got)
+	}
+	gotClean, err := os.ReadFile(alreadyClean)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(gotClean, cleanContent) {
+		t.Fatalf("already-clean file changed: got %q want %q", gotClean, cleanContent)
+	}
+	if count := strings.Count(logOutput.String(), "ruff unavailable for python"); count != 1 {
+		t.Fatalf("expected one degraded-mode warning, got %d:\n%s", count, logOutput.String())
+	}
+	var classified bool
+	for _, line := range strings.Split(strings.TrimSpace(logOutput.String()), "\n") {
+		var entry struct {
+			Message string         `json:"message"`
+			Fields  map[string]any `json:"fields"`
+		}
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			t.Fatalf("invalid JSON log line: %v\n%s", err, line)
+		}
+		if strings.Contains(entry.Message, "ruff unavailable for python") {
+			classified = entry.Fields["result_class"] == string(formatpkg.ResultToolUnavailable)
+		}
+	}
+	if !classified {
+		t.Fatalf("missing structured tool-unavailable classification:\n%s", logOutput.String())
+	}
+}
+
+func TestFormatCommand_IgnoreMissingRuffParallelCheckDoesNotMutate(t *testing.T) {
+	restoreFormatToolResolver(t, func(string) string { return "" })
+
+	tempDir := t.TempDir()
+	pythonFile := filepath.Join(tempDir, "sample.py")
+	original := []byte("x = 1   ")
+	if err := os.WriteFile(pythonFile, original, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := &cobra.Command{}
+	setupFormatCommandFlags(cmd)
+	if err := cmd.Flags().Set("files", pythonFile); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("strategy", "parallel"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("check", "true"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("ignore-missing-tools", "true"); err != nil {
+		t.Fatal(err)
+	}
+
+	err := RunFormat(cmd, nil)
+	if !errors.Is(err, formatpkg.ErrFormatDrift) {
+		t.Fatalf("expected typed format drift from finalizer-only check, got %v", err)
+	}
+	after, readErr := os.ReadFile(pythonFile)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if !bytes.Equal(after, original) {
+		t.Fatalf("--check mutated file: got %q want %q", after, original)
+	}
+}
+
+func TestFormatCommand_ParallelDegradedRuffDiagnosticOnce(t *testing.T) {
+	restoreFormatToolResolver(t, func(tool string) string {
+		if tool != "ruff" {
+			t.Fatalf("unexpected tool lookup: %s", tool)
+		}
+		return ""
+	})
+
+	for _, checkOnly := range []bool{false, true} {
+		name := "apply"
+		if checkOnly {
+			name = "check"
+		}
+		t.Run(name, func(t *testing.T) {
+			var logOutput bytes.Buffer
+			if err := logger.Initialize(logger.Config{Level: logger.InfoLevel, JSON: true, Component: "goneat"}); err != nil {
+				t.Fatal(err)
+			}
+			logger.SetOutput(&logOutput)
+			t.Cleanup(func() {
+				_ = logger.Initialize(logger.Config{Level: logger.InfoLevel, Component: "goneat"})
+			})
+
+			tempDir := t.TempDir()
+			var files []string
+			for i := 0; i < 3; i++ {
+				file := filepath.Join(tempDir, "sample-"+string(rune('a'+i))+".py")
+				if err := os.WriteFile(file, []byte("x = 1\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				files = append(files, file)
+			}
+
+			cmd := &cobra.Command{}
+			setupFormatCommandFlags(cmd)
+			if err := cmd.Flags().Set("files", strings.Join(files, ",")); err != nil {
+				t.Fatal(err)
+			}
+			if err := cmd.Flags().Set("strategy", "parallel"); err != nil {
+				t.Fatal(err)
+			}
+			if err := cmd.Flags().Set("ignore-missing-tools", "true"); err != nil {
+				t.Fatal(err)
+			}
+			if checkOnly {
+				if err := cmd.Flags().Set("check", "true"); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			if err := RunFormat(cmd, nil); err != nil {
+				t.Fatalf("parallel degraded %s failed: %v", name, err)
+			}
+			logs := logOutput.String()
+			if count := strings.Count(logs, "ruff unavailable for python"); count != 1 {
+				t.Fatalf("expected one preflight diagnostic for three files, got %d:\n%s", count, logs)
+			}
+			if strings.Contains(logs, "ruff not found") {
+				t.Fatalf("processor emitted a per-file missing-tool diagnostic:\n%s", logs)
+			}
+		})
+	}
+}
+
+func TestFormatExecutionClassification_ParallelAndSequential(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test uses a POSIX failing formatter shim")
+	}
+
+	shim := filepath.Join(t.TempDir(), "prettier-fail")
+	if err := os.WriteFile(shim, []byte("#!/bin/sh\nexit 2\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &config.Config{}
+	options := finalizer.NormalizationOptions{
+		EnsureEOF:                  true,
+		TrimTrailingWhitespace:     true,
+		PreserveMarkdownHardBreaks: true,
+		EncodingPolicy:             "utf8-only",
+	}
+	formatterCases := []struct {
+		name      string
+		extension string
+		toolPaths formatToolPaths
+	}{
+		{
+			name:      "yaml",
+			extension: ".yaml",
+			toolPaths: formatToolPaths{FormatProcessorToolPaths: work.FormatProcessorToolPaths{Yamlfmt: shim}},
+		},
+		{
+			name:      "markdown",
+			extension: ".markdown",
+			toolPaths: formatToolPaths{FormatProcessorToolPaths: work.FormatProcessorToolPaths{Prettier: shim}},
+		},
+		{
+			name:      "python",
+			extension: ".py",
+			toolPaths: formatToolPaths{FormatProcessorToolPaths: work.FormatProcessorToolPaths{Ruff: shim}},
+		},
+		{
+			name:      "javascript",
+			extension: ".js",
+			toolPaths: formatToolPaths{FormatProcessorToolPaths: work.FormatProcessorToolPaths{Biome: shim}},
+		},
+		{
+			name:      "typescript",
+			extension: ".ts",
+			toolPaths: formatToolPaths{FormatProcessorToolPaths: work.FormatProcessorToolPaths{Biome: shim}},
+		},
+	}
+
+	for _, checkOnly := range []bool{false, true} {
+		mode := "apply"
+		if checkOnly {
+			mode = "check"
+		}
+
+		for _, formatterCase := range formatterCases {
+			t.Run(mode+"/tool-execution/"+formatterCase.name, func(t *testing.T) {
+				tempDir := t.TempDir()
+				files := []string{
+					filepath.Join(tempDir, "one"+formatterCase.extension),
+					filepath.Join(tempDir, "two"+formatterCase.extension),
+				}
+				for _, file := range files {
+					if err := os.WriteFile(file, []byte("# formatter input\n"), 0o644); err != nil {
+						t.Fatal(err)
+					}
+				}
+
+				assertFormatExecutionCounts(
+					t,
+					executeParallel(files, cfg, true, checkOnly, false, false, options, true, "  ", 2, 500, 2, formatterCase.toolPaths),
+					0,
+					len(files),
+					0,
+				)
+				assertFormatExecutionCounts(
+					t,
+					executeSequentialWithOptions(files, checkOnly, true, cfg, false, options, false, true, "  ", 2, 500, "  ", 2, 500, formatterCase.toolPaths),
+					0,
+					len(files),
+					0,
+				)
+			})
+		}
+
+		t.Run(mode+"/file-io", func(t *testing.T) {
+			files := []string{filepath.Join(t.TempDir(), "missing.markdown")}
+			toolPaths := formatToolPaths{
+				FormatProcessorToolPaths: work.FormatProcessorToolPaths{Prettier: shim},
+			}
+
+			assertFormatExecutionCounts(
+				t,
+				executeParallel(files, cfg, true, checkOnly, false, false, options, true, "  ", 2, 500, 1, toolPaths),
+				len(files),
+				0,
+				0,
+			)
+			assertFormatExecutionCounts(
+				t,
+				executeSequentialWithOptions(files, checkOnly, true, cfg, false, options, false, true, "  ", 2, 500, "  ", 2, 500, toolPaths),
+				len(files),
+				0,
+				0,
+			)
+		})
+	}
+}
+
+func assertFormatExecutionCounts(t *testing.T, err error, fileIO, toolExecution, other int) {
+	t.Helper()
+	var runErr *formatExecutionError
+	if !errors.As(err, &runErr) {
+		t.Fatalf("expected aggregate format execution error, got %v", err)
+	}
+	if runErr.fileIO != fileIO || runErr.toolExecution != toolExecution || runErr.other != other {
+		t.Fatalf(
+			"unexpected classification counts: file-io=%d tool-execution=%d other=%d; want file-io=%d tool-execution=%d other=%d (%v)",
+			runErr.fileIO,
+			runErr.toolExecution,
+			runErr.other,
+			fileIO,
+			toolExecution,
+			other,
+			err,
+		)
+	}
+}
+
+func TestFormatAndDoctorHelpIncludeCurrentTypesAndScopes(t *testing.T) {
+	typesUsage := formatCmd.Flags().Lookup("types").Usage
+	for _, contentType := range formatpkg.SupportedContentTypes() {
+		if !strings.Contains(typesUsage, contentType) {
+			t.Errorf("format --types help omits %q: %s", contentType, typesUsage)
+		}
+	}
+	if scopeUsage := doctorToolsCmd.Flags().Lookup("scope").Usage; !strings.Contains(scopeUsage, "python") {
+		t.Fatalf("doctor tools --scope help omits python: %s", scopeUsage)
+	}
+}
+
+func restoreFormatToolResolver(t *testing.T, resolver func(string) string) {
+	t.Helper()
+	old := formatToolResolver
+	formatToolResolver = resolver
+	t.Cleanup(func() { formatToolResolver = old })
 }
 
 // Test helper functions
@@ -535,20 +1135,33 @@ func TestFormatCommand_UseGoimportsFailsWhenMissingTool(t *testing.T) {
 // setupFormatCommandFlags sets up all the flags needed for format command testing
 func setupFormatCommandFlags(cmd *cobra.Command) {
 	cmd.Flags().StringSliceP("files", "f", []string{}, "Specific files to format")
+	cmd.Flags().StringSlice("patterns", []string{}, "Glob patterns to filter files")
 	cmd.Flags().Bool("check", false, "Check if files are formatted without modifying")
 	cmd.Flags().Bool("quiet", false, "Suppress output except for errors")
+	cmd.Flags().Bool("verbose", false, "Show detailed information")
 	cmd.Flags().Bool("dry-run", false, "Show what would be done without executing")
 	cmd.Flags().Bool("plan-only", false, "Generate and display work plan without executing")
 	cmd.Flags().String("plan-file", "", "Write work plan to specified file")
 	cmd.Flags().StringSlice("folders", []string{}, "Folders to process (alternative to positional args)")
-	cmd.Flags().StringSlice("types", []string{}, "Content types to include (go, yaml, json, markdown)")
+	cmd.Flags().Bool("include-config-dirs", false, "Include common configuration directories")
+	cmd.Flags().StringSlice("types", []string{}, "Content types to include ("+formatpkg.SupportedContentTypesHelp()+")")
 	cmd.Flags().Int("max-depth", -1, "Maximum directory depth to traverse")
 	cmd.Flags().String("strategy", "sequential", "Execution strategy (sequential, parallel)")
+	cmd.Flags().Bool("fallback-sequential", false, "Retry sequentially if parallel execution fails")
+	cmd.Flags().Int("workers", 0, "Number of parallel workers")
 	cmd.Flags().Bool("group-by-size", false, "Group work items by file size")
 	cmd.Flags().Bool("group-by-type", false, "Group work items by content type")
 	cmd.Flags().Bool("no-op", false, "Run in assessment mode without making changes")
+	cmd.Flags().Bool("staged-only", false, "Only format staged files")
 	// Additional flags used by new features
-	cmd.Flags().Bool("ignore-missing-tools", false, "Skip files requiring external formatters if tools are missing")
+	cmd.Flags().Bool("ignore-missing-tools", false, "Use finalizer-only processing when a formatter is missing")
+	cmd.Flags().Bool("finalize-eof", true, "Ensure files end with exactly one newline")
+	cmd.Flags().Bool("finalize-trim-trailing-spaces", true, "Remove trailing whitespace")
+	cmd.Flags().String("finalize-line-endings", "", "Normalize line endings")
+	cmd.Flags().Bool("finalize-remove-bom", false, "Remove byte order marks")
+	cmd.Flags().Bool("text-normalize", true, "Apply generic text normalization")
+	cmd.Flags().String("text-encoding-policy", "utf8-only", "Text encoding policy")
+	cmd.Flags().Bool("preserve-md-linebreaks", true, "Preserve Markdown hard line breaks")
 	cmd.Flags().Bool("use-goimports", false, "Organize Go imports with goimports (after gofmt)")
 	cmd.Flags().String("json-indent", "  ", "Indentation for JSON prettification")
 	cmd.Flags().Int("json-indent-count", 2, "Number of spaces for JSON indentation")
