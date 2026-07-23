@@ -7,26 +7,29 @@ import (
 	"sync"
 	"time"
 
+	formatpkg "github.com/fulmenhq/goneat/pkg/format"
 	"github.com/fulmenhq/goneat/pkg/logger"
 )
 
 // ExecutionResult represents the result of processing a work item
 type ExecutionResult struct {
-	WorkItemID string        `json:"work_item_id"`
-	Success    bool          `json:"success"`
-	Error      string        `json:"error,omitempty"`
-	Duration   time.Duration `json:"duration"`
-	Output     string        `json:"output,omitempty"`
+	WorkItemID  string                `json:"work_item_id"`
+	Success     bool                  `json:"success"`
+	Error       string                `json:"error,omitempty"`
+	ResultClass formatpkg.ResultClass `json:"-"`
+	Duration    time.Duration         `json:"duration"`
+	Output      string                `json:"output,omitempty"`
 }
 
 // ExecutionSummary provides a summary of the execution
 type ExecutionSummary struct {
-	TotalItems    int           `json:"total_items"`
-	Successful    int           `json:"successful"`
-	Failed        int           `json:"failed"`
-	TotalDuration time.Duration `json:"total_duration"`
-	WorkerStats   WorkerStats   `json:"worker_stats"`
-	GroupResults  []GroupResult `json:"group_results"`
+	TotalItems    int               `json:"total_items"`
+	Successful    int               `json:"successful"`
+	Failed        int               `json:"failed"`
+	TotalDuration time.Duration     `json:"total_duration"`
+	WorkerStats   WorkerStats       `json:"worker_stats"`
+	GroupResults  []GroupResult     `json:"group_results"`
+	Results       []ExecutionResult `json:"-"`
 }
 
 // WorkerStats provides statistics about worker performance
@@ -186,6 +189,7 @@ func (d *Dispatcher) ExecuteManifest(ctx context.Context, manifest *WorkManifest
 			PeakUtilization:    d.config.MaxWorkers,
 		},
 		GroupResults: groupResultsSlice,
+		Results:      results,
 	}
 
 	logger.Info(fmt.Sprintf("Execution completed: %d successful, %d failed in %v", successful, failed, totalDuration))

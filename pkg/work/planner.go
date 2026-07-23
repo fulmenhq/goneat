@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	formatpkg "github.com/fulmenhq/goneat/pkg/format"
 	"github.com/fulmenhq/goneat/pkg/ignore"
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"golang.org/x/text/cases"
@@ -404,31 +405,19 @@ func (p *Planner) shouldIncludeFile(path string) bool {
 
 // getContentType determines content type from file extension
 func (p *Planner) getContentType(ext string) string {
+	if contentType := formatpkg.ContentTypeForExtension(ext); contentType != "unknown" {
+		return contentType
+	}
+
 	switch ext {
-	case ".go":
-		return "go"
-	case ".yaml", ".yml":
-		return "yaml"
-	case ".json":
-		return "json"
-	case ".md", ".markdown":
-		return "markdown"
 	case ".txt":
 		return "text"
 	case ".sh":
 		return "shell"
-	case ".py":
-		return "python"
-	case ".js", ".jsx":
-		return "javascript"
-	case ".ts", ".tsx":
-		return "typescript"
 	case ".html", ".htm":
 		return "html"
 	case ".css":
 		return "css"
-	case ".xml":
-		return "xml"
 	case ".toml":
 		return "toml"
 	case ".ini", ".cfg", ".conf":

@@ -340,9 +340,9 @@ goneat format --check --files my.xml
 Notes:
 
 - `--strategy parallel` is the default. When parallel is used, goimports is currently skipped with a warning. Use `--strategy sequential` for import alignment until the parallel processor is extended.
-- If `goimports` is not installed:
-  - With `--ignore-missing-tools`: import alignment is skipped (warn once).
-  - Without `--ignore-missing-tools`: the command fails fast with a helpful error that includes install guidance (`go install golang.org/x/tools/cmd/goimports@latest`) and mentions the planned `goneat doctor` workflow.
+- Standalone `format` checks required external formatters after selecting files and fails before execution when one is unavailable. `assess` retains its optional-tool skip behavior.
+- `--ignore-missing-tools` explicitly selects degraded, finalizer-only processing for content whose primary formatter is unavailable. The warning is emitted once per missing formatter, not once per file.
+- Install Python formatting support with `goneat doctor tools --scope python --install`.
 
 ### Execution Control Flags
 
@@ -359,7 +359,7 @@ Notes:
 | Flag                     | Type    | Description                 | Example                  |
 | ------------------------ | ------- | --------------------------- | ------------------------ |
 | `--staged-only`          | boolean | Only staged files (git)     | `--staged-only`          |
-| `--ignore-missing-tools` | boolean | Skip missing external tools | `--ignore-missing-tools` |
+| `--ignore-missing-tools` | boolean | Use finalizer-only processing when a selected external formatter is missing | `--ignore-missing-tools` |
 | `--include`              | strings | Include patterns            | `--include "*.go"`       |
 | `--exclude`              | strings | Exclude patterns            | `--exclude "vendor/**"`  |
 
@@ -373,6 +373,9 @@ Notes:
 | **YAML**     | `.yaml`, `.yml`    | yamlfmt         | YAML structure formatting      |
 | **JSON**     | `.json`            | Built-in (Go)   | JSON formatting and validation |
 | **Markdown** | `.md`, `.markdown` | prettier        | Markdown formatting            |
+| **Python**   | `.py`, `.pyi`      | ruff            | Python formatting              |
+| **JavaScript** | `.js`, `.jsx`, `.mjs`, `.cjs` | biome | JavaScript formatting |
+| **TypeScript** | `.ts`, `.tsx`, `.mts`, `.cts` | biome | TypeScript formatting |
 
 ### Extended File Operations
 
@@ -735,21 +738,22 @@ ls -la
 goneat format --folders .
 
 # Check supported file types
-goneat format --plan-only --types go,yaml,json,markdown
+goneat format --plan-only --types go,yaml,json,markdown,python,javascript,typescript
 ```
 
 **"Tool not found" errors**
 
 ```bash
 # Check tool availability
-which gofmt yamlfmt prettier
+which gofmt yamlfmt prettier ruff biome
 
-# Skip missing tools
+# Explicitly use finalizer-only processing for missing formatters
 goneat format --ignore-missing-tools
 
-# Install missing tools
-go install golang.org/x/tools/cmd/goimports@latest
-npm install -g prettier yamlfmt
+# Install missing tools by scope
+goneat doctor tools --scope foundation --install
+goneat doctor tools --scope python --install
+goneat doctor tools --scope typescript --install
 ```
 
 **"Permission denied" errors**

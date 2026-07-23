@@ -124,7 +124,7 @@ func init() {
 	doctorToolsCmd.Flags().StringSliceVar(&flagDoctorTools, "tools", []string{}, "Comma-separated list of tools (e.g., gosec,govulncheck,goimports,gofmt)")
 	doctorToolsCmd.Flags().BoolVar(&flagDoctorPrintInstructions, "print-instructions", false, "Print install instructions for missing tools")
 	doctorToolsCmd.Flags().BoolVar(&flagDoctorYes, "yes", false, "Assume 'yes' for prompts (non-interactive)")
-	doctorToolsCmd.Flags().StringVar(&flagDoctorScope, "scope", "security", "Tool scope to target (security|format|foundation|all)")
+	doctorToolsCmd.Flags().StringVar(&flagDoctorScope, "scope", "security", "Tool scope to target (foundation|go|rust|python|typescript|security|sbom|cicd|all)")
 	doctorToolsCmd.Flags().BoolVar(&flagDoctorCheckUpdates, "check-updates", false, "Check for available updates (preview; informational only)")
 	doctorToolsCmd.Flags().BoolVar(&flagDoctorInstallPkgMgr, "install-package-managers", false, "Install missing package managers (requires --yes for non-interactive)")
 	doctorToolsCmd.Flags().StringVar(&flagDoctorConfig, "config", "", "Path to custom tools configuration file")

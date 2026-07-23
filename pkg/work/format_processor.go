@@ -27,6 +27,7 @@ type FormatProcessor struct {
 	jsonIndentCount    int
 	jsonSizeWarningMB  int
 	toolPaths          FormatProcessorToolPaths
+	toolsResolved      bool
 }
 
 // FormatProcessorToolPaths allows callers to supply tool paths discovered externally.
@@ -46,6 +47,7 @@ type FormatProcessorOptions struct {
 	JSONIndentCount    int
 	JSONSizeWarningMB  int
 	ToolPaths          FormatProcessorToolPaths
+	ToolsResolved      bool
 }
 
 // NewFormatProcessor creates a new format processor
@@ -77,6 +79,7 @@ func NewFormatProcessorWithOptions(cfg *config.Config, opts FormatProcessorOptio
 		jsonIndentCount:    opts.JSONIndentCount,
 		jsonSizeWarningMB:  opts.JSONSizeWarningMB,
 		toolPaths:          opts.ToolPaths,
+		toolsResolved:      opts.ToolsResolved,
 	}
 }
 
@@ -134,6 +137,7 @@ func (p *FormatProcessor) ProcessWorkItem(ctx context.Context, item *WorkItem, d
 
 		if err != nil {
 			result.Error = err.Error()
+			result.ResultClass = formatpkg.ClassOf(err)
 			logger.Debug(fmt.Sprintf("Check failed for %s: %v", item.Path, err))
 		} else {
 			result.Success = true
@@ -171,6 +175,7 @@ func (p *FormatProcessor) ProcessWorkItem(ctx context.Context, item *WorkItem, d
 
 		if err != nil {
 			result.Error = err.Error()
+			result.ResultClass = formatpkg.ClassOf(err)
 			logger.Debug(fmt.Sprintf("Failed to format %s: %v", item.Path, err))
 		} else {
 			result.Success = true
@@ -191,7 +196,7 @@ func (p *FormatProcessor) formatGoFile(filePath string) error {
 	if !filepath.IsAbs(filePath) {
 		abs, err := filepath.Abs(filePath)
 		if err != nil {
-			return fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err)
+			return formatpkg.FileIO(filePath, fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err))
 		}
 		filePath = abs
 	}
@@ -199,13 +204,13 @@ func (p *FormatProcessor) formatGoFile(filePath string) error {
 	// Read the file content
 	original, err := os.ReadFile(filePath) // #nosec G304 -- repo file read after Clean+Abs normalization
 	if err != nil {
-		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+		return formatpkg.FileIO(filePath, fmt.Errorf("failed to read file %s: %w", filePath, err))
 	}
 
 	// Apply gofmt formatting
 	formatted, err := format.Source(original)
 	if err != nil {
-		return fmt.Errorf("gofmt failed for %s: %w", filePath, err)
+		return formatpkg.ToolExecution(filePath, "gofmt", fmt.Errorf("gofmt failed for %s: %w", filePath, err))
 	}
 
 	// Apply finalizer normalization (EOF, trailing whitespace, etc.)
@@ -227,7 +232,7 @@ func (p *FormatProcessor) formatGoFile(filePath string) error {
 
 	// Write back the formatted content
 	if err := safeio.WriteFileValidated(filePath, finalContent, 0o600); err != nil {
-		return fmt.Errorf("failed to write formatted content to %s: %w", filePath, err)
+		return formatpkg.FileIO(filePath, fmt.Errorf("failed to write formatted content to %s: %w", filePath, err))
 	}
 
 	if finalizerChanged {
@@ -248,7 +253,7 @@ func (p *FormatProcessor) checkGoFile(filePath string) error {
 	if !filepath.IsAbs(filePath) {
 		abs, err := filepath.Abs(filePath)
 		if err != nil {
-			return fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err)
+			return formatpkg.FileIO(filePath, fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err))
 		}
 		filePath = abs
 	}
@@ -256,13 +261,13 @@ func (p *FormatProcessor) checkGoFile(filePath string) error {
 	// Read the file content
 	original, err := os.ReadFile(filePath) // #nosec G304 -- repo file read after Clean+Abs normalization
 	if err != nil {
-		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+		return formatpkg.FileIO(filePath, fmt.Errorf("failed to read file %s: %w", filePath, err))
 	}
 
 	// Apply gofmt formatting (without writing)
 	formatted, err := format.Source(original)
 	if err != nil {
-		return fmt.Errorf("gofmt check failed for %s: %w", filePath, err)
+		return formatpkg.ToolExecution(filePath, "gofmt", fmt.Errorf("gofmt check failed for %s: %w", filePath, err))
 	}
 
 	finalContent := formatted
@@ -276,7 +281,7 @@ func (p *FormatProcessor) checkGoFile(filePath string) error {
 
 	// Compare original with what formatted would be
 	if !bytes.Equal(original, finalContent) {
-		return fmt.Errorf("file %s needs formatting", filePath)
+		return formatpkg.FormatDrift(filePath)
 	}
 
 	logger.Debug(fmt.Sprintf("File %s is properly formatted", filePath))
@@ -292,7 +297,7 @@ func (p *FormatProcessor) formatYAMLFile(filePath string) error {
 	if !filepath.IsAbs(filePath) {
 		abs, err := filepath.Abs(filePath)
 		if err != nil {
-			return fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err)
+			return formatpkg.FileIO(filePath, fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err))
 		}
 		filePath = abs
 	}
@@ -301,19 +306,19 @@ func (p *FormatProcessor) formatYAMLFile(filePath string) error {
 	yamlfmtPath := p.toolPath("yamlfmt")
 	if yamlfmtPath == "" {
 		if p.ignoreMissingTools {
-			logger.Warn("yamlfmt not found; skipping YAML formatter and applying finalizer only")
+			p.logMissingToolFallback("yamlfmt not found; skipping YAML formatter and applying finalizer only", true)
 			if !p.finalizerEnabled() {
 				return nil
 			}
 			return p.formatYAMLFileFinalizerOnly(filePath)
 		}
-		return fmt.Errorf("yamlfmt not found. Install with: goneat doctor tools --install yamlfmt")
+		return formatpkg.ToolUnavailable(filePath, "yamlfmt", "Install with: goneat doctor tools --scope foundation --install")
 	}
 
 	// Read original content for change detection
 	originalContent, err := os.ReadFile(filePath) // #nosec G304 -- path already validated
 	if err != nil {
-		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+		return formatpkg.FileIO(filePath, fmt.Errorf("failed to read file %s: %w", filePath, err))
 	}
 
 	// Build yamlfmt arguments via the shared helper so this parallel/assess
@@ -328,14 +333,14 @@ func (p *FormatProcessor) formatYAMLFile(filePath string) error {
 	cmd := exec.Command(yamlfmtPath, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("yamlfmt failed for %s: %v\nOutput: %s", filePath, err, string(output))
+		return formatpkg.ToolExecution(filePath, "yamlfmt", fmt.Errorf("yamlfmt failed for %s: %v\nOutput: %s", filePath, err, string(output)))
 	}
 
 	// Apply finalizer normalization after yamlfmt
 	if p.finalizerEnabled() {
 		currentContent, err := os.ReadFile(filePath) // #nosec G304 -- path already validated
 		if err != nil {
-			return fmt.Errorf("failed to re-read file after yamlfmt: %w", err)
+			return formatpkg.FileIO(filePath, fmt.Errorf("failed to re-read file after yamlfmt: %w", err))
 		}
 
 		finalContent, finalizerChanged, err := finalizer.ComprehensiveFileNormalization(currentContent, p.finalizerOptions)
@@ -345,7 +350,7 @@ func (p *FormatProcessor) formatYAMLFile(filePath string) error {
 
 		if finalizerChanged {
 			if err := safeio.WriteFileValidated(filePath, finalContent, 0o600); err != nil {
-				return fmt.Errorf("failed to write finalized content to %s: %w", filePath, err)
+				return formatpkg.FileIO(filePath, fmt.Errorf("failed to write finalized content to %s: %w", filePath, err))
 			}
 		}
 	}
@@ -353,7 +358,7 @@ func (p *FormatProcessor) formatYAMLFile(filePath string) error {
 	// Check if overall content changed
 	finalResult, err := os.ReadFile(filePath) // #nosec G304 -- path already validated
 	if err != nil {
-		return fmt.Errorf("failed to read file after formatting: %w", err)
+		return formatpkg.FileIO(filePath, fmt.Errorf("failed to read file after formatting: %w", err))
 	}
 	if bytes.Equal(originalContent, finalResult) {
 		logger.Debug(fmt.Sprintf("No formatting changes needed for %s", filePath))
@@ -371,7 +376,7 @@ func (p *FormatProcessor) formatYAMLFileFinalizerOnly(filePath string) error {
 	}
 	content, err := os.ReadFile(filePath) // #nosec G304 -- path already validated by caller
 	if err != nil {
-		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+		return formatpkg.FileIO(filePath, fmt.Errorf("failed to read file %s: %w", filePath, err))
 	}
 
 	finalContent, changed, err := finalizer.ComprehensiveFileNormalization(content, p.finalizerOptions)
@@ -381,7 +386,7 @@ func (p *FormatProcessor) formatYAMLFileFinalizerOnly(filePath string) error {
 
 	if changed {
 		if err := safeio.WriteFileValidated(filePath, finalContent, 0o600); err != nil {
-			return fmt.Errorf("failed to write finalized content to %s: %w", filePath, err)
+			return formatpkg.FileIO(filePath, fmt.Errorf("failed to write finalized content to %s: %w", filePath, err))
 		}
 		logger.Debug(fmt.Sprintf("Applied finalizer normalization to %s", filePath))
 	} else {
@@ -471,7 +476,7 @@ func (p *FormatProcessor) checkYAMLFile(filePath string) error {
 	if !filepath.IsAbs(filePath) {
 		abs, err := filepath.Abs(filePath)
 		if err != nil {
-			return fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err)
+			return formatpkg.FileIO(filePath, fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err))
 		}
 		filePath = abs
 	}
@@ -480,13 +485,13 @@ func (p *FormatProcessor) checkYAMLFile(filePath string) error {
 	yamlfmtPath := p.toolPath("yamlfmt")
 	if yamlfmtPath == "" {
 		if p.ignoreMissingTools {
-			logger.Warn("yamlfmt not found; skipping YAML formatter and checking finalizer only")
+			p.logMissingToolFallback("yamlfmt not found; skipping YAML formatter and checking finalizer only", true)
 			if !p.finalizerEnabled() {
 				return nil
 			}
 			return p.checkYAMLFileFinalizerOnly(filePath)
 		}
-		return fmt.Errorf("yamlfmt not found. Install with: goneat doctor tools --install yamlfmt")
+		return formatpkg.ToolUnavailable(filePath, "yamlfmt", "Install with: goneat doctor tools --scope foundation --install")
 	}
 
 	// Read the original so we can compare it against the fully-formatted
@@ -497,7 +502,7 @@ func (p *FormatProcessor) checkYAMLFile(filePath string) error {
 	// check verdict matches the apply outcome exactly.
 	originalContent, err := os.ReadFile(filePath) // #nosec G304 -- path already validated
 	if err != nil {
-		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+		return formatpkg.FileIO(filePath, fmt.Errorf("failed to read file %s: %w", filePath, err))
 	}
 
 	args := p.config.GetYAMLConfig().YamlfmtFormatterArgs()
@@ -506,11 +511,11 @@ func (p *FormatProcessor) checkYAMLFile(filePath string) error {
 		if strings.Contains(err.Error(), "invalid YAML syntax") {
 			return fmt.Errorf("file %s has %v", filePath, err)
 		}
-		return fmt.Errorf("yamlfmt check failed for %s: %w", filePath, err)
+		return formatpkg.ToolExecution(filePath, "yamlfmt", fmt.Errorf("yamlfmt check failed for %s: %w", filePath, err))
 	}
 
 	if !bytes.Equal(originalContent, formatted) {
-		return fmt.Errorf("file %s needs formatting", filePath)
+		return formatpkg.FormatDrift(filePath)
 	}
 	return nil
 }
@@ -522,7 +527,7 @@ func (p *FormatProcessor) checkYAMLFileFinalizerOnly(filePath string) error {
 	}
 	content, err := os.ReadFile(filePath) // #nosec G304 -- path already validated
 	if err != nil {
-		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+		return formatpkg.FileIO(filePath, fmt.Errorf("failed to read file %s: %w", filePath, err))
 	}
 
 	_, changed, err := finalizer.ComprehensiveFileNormalization(content, p.finalizerOptions)
@@ -531,7 +536,7 @@ func (p *FormatProcessor) checkYAMLFileFinalizerOnly(filePath string) error {
 	}
 
 	if changed {
-		return fmt.Errorf("file %s needs formatting (EOF, trailing whitespace, or line ending issues)", filePath)
+		return formatpkg.FormatDrift(filePath)
 	}
 
 	logger.Debug(fmt.Sprintf("File %s is properly formatted", filePath))
@@ -547,7 +552,7 @@ func (p *FormatProcessor) formatJSONFile(filePath string) error {
 	if !filepath.IsAbs(filePath) {
 		abs, err := filepath.Abs(filePath)
 		if err != nil {
-			return fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err)
+			return formatpkg.FileIO(filePath, fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err))
 		}
 		filePath = abs
 	}
@@ -555,7 +560,7 @@ func (p *FormatProcessor) formatJSONFile(filePath string) error {
 	// Read original content
 	originalContent, err := os.ReadFile(filePath) // #nosec G304 -- path already validated
 	if err != nil {
-		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+		return formatpkg.FileIO(filePath, fmt.Errorf("failed to read file %s: %w", filePath, err))
 	}
 
 	// Get JSON config
@@ -596,7 +601,7 @@ func (p *FormatProcessor) formatJSONFile(filePath string) error {
 
 	// Write back the formatted content
 	if err := safeio.WriteFileValidated(filePath, finalContent, 0o600); err != nil {
-		return fmt.Errorf("failed to write formatted content to %s: %w", filePath, err)
+		return formatpkg.FileIO(filePath, fmt.Errorf("failed to write formatted content to %s: %w", filePath, err))
 	}
 
 	logger.Debug(fmt.Sprintf("Applied JSON formatting to %s", filePath))
@@ -612,7 +617,7 @@ func (p *FormatProcessor) checkJSONFile(filePath string) error {
 	if !filepath.IsAbs(filePath) {
 		abs, err := filepath.Abs(filePath)
 		if err != nil {
-			return fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err)
+			return formatpkg.FileIO(filePath, fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err))
 		}
 		filePath = abs
 	}
@@ -620,7 +625,7 @@ func (p *FormatProcessor) checkJSONFile(filePath string) error {
 	// Read original content
 	original, err := os.ReadFile(filePath) // #nosec G304 -- path already validated
 	if err != nil {
-		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+		return formatpkg.FileIO(filePath, fmt.Errorf("failed to read file %s: %w", filePath, err))
 	}
 
 	// Get JSON config
@@ -656,7 +661,7 @@ func (p *FormatProcessor) checkJSONFile(filePath string) error {
 	// Only compare final output to original - intermediate change flags are irrelevant
 	// if the final result matches the original
 	if !bytes.Equal(original, finalContent) {
-		return fmt.Errorf("file %s needs formatting", filePath)
+		return formatpkg.FormatDrift(filePath)
 	}
 
 	logger.Debug(fmt.Sprintf("File %s is properly formatted", filePath))
@@ -672,7 +677,7 @@ func (p *FormatProcessor) formatMarkdownFile(filePath string) error {
 	if !filepath.IsAbs(filePath) {
 		abs, err := filepath.Abs(filePath)
 		if err != nil {
-			return fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err)
+			return formatpkg.FileIO(filePath, fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err))
 		}
 		filePath = abs
 	}
@@ -680,20 +685,20 @@ func (p *FormatProcessor) formatMarkdownFile(filePath string) error {
 	// Read the original content
 	originalContent, err := os.ReadFile(filePath) // #nosec G304 -- repo file read after Clean+Abs normalization
 	if err != nil {
-		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+		return formatpkg.FileIO(filePath, fmt.Errorf("failed to read file %s: %w", filePath, err))
 	}
 
 	// Check if prettier is available
 	prettierPath := p.toolPath("prettier")
 	if prettierPath == "" {
 		if p.ignoreMissingTools {
-			logger.Warn("prettier not found; skipping Markdown formatter and applying finalizer only")
+			p.logMissingToolFallback("prettier not found; skipping Markdown formatter and applying finalizer only", true)
 			if !p.finalizerEnabled() {
 				return nil
 			}
 			return p.formatMarkdownFileFinalizerOnly(filePath, originalContent)
 		}
-		return fmt.Errorf("prettier not found. Install with: goneat doctor tools --install prettier")
+		return formatpkg.ToolUnavailable(filePath, "prettier", "Install with: goneat doctor tools --scope foundation --install")
 	}
 
 	// Get Markdown config
@@ -727,7 +732,7 @@ func (p *FormatProcessor) formatMarkdownFile(filePath string) error {
 	cmd.Stdin = bytes.NewReader(originalContent)
 	prettierOutput, err := cmd.Output()
 	if err != nil {
-		return fmt.Errorf("prettier failed for %s: %w", filePath, err)
+		return formatpkg.ToolExecution(filePath, "prettier", fmt.Errorf("prettier failed for %s: %w", filePath, err))
 	}
 
 	finalContent, err := p.normalizeMarkdownContent(prettierOutput, mdConfig)
@@ -742,8 +747,8 @@ func (p *FormatProcessor) formatMarkdownFile(filePath string) error {
 	}
 
 	// Write back the formatted content
-	if err := os.WriteFile(filePath, finalContent, 0600); err != nil {
-		return fmt.Errorf("failed to write formatted content to %s: %w", filePath, err)
+	if err := safeio.WriteFileValidated(filePath, finalContent, 0o600); err != nil {
+		return formatpkg.FileIO(filePath, fmt.Errorf("failed to write formatted content to %s: %w", filePath, err))
 	}
 
 	logger.Debug(fmt.Sprintf("Applied Markdown formatting to %s", filePath))
@@ -763,7 +768,7 @@ func (p *FormatProcessor) formatMarkdownFileFinalizerOnly(filePath string, conte
 
 	if changed {
 		if err := safeio.WriteFileValidated(filePath, finalContent, 0o600); err != nil {
-			return fmt.Errorf("failed to write finalized content to %s: %w", filePath, err)
+			return formatpkg.FileIO(filePath, fmt.Errorf("failed to write finalized content to %s: %w", filePath, err))
 		}
 		logger.Debug(fmt.Sprintf("Applied finalizer normalization to %s", filePath))
 	} else {
@@ -782,7 +787,7 @@ func (p *FormatProcessor) checkMarkdownFile(filePath string) error {
 	if !filepath.IsAbs(filePath) {
 		abs, err := filepath.Abs(filePath)
 		if err != nil {
-			return fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err)
+			return formatpkg.FileIO(filePath, fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err))
 		}
 		filePath = abs
 	}
@@ -790,20 +795,20 @@ func (p *FormatProcessor) checkMarkdownFile(filePath string) error {
 	// Read the original content
 	originalContent, err := os.ReadFile(filePath) // #nosec G304 -- path already validated
 	if err != nil {
-		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+		return formatpkg.FileIO(filePath, fmt.Errorf("failed to read file %s: %w", filePath, err))
 	}
 
 	// Check if prettier is available
 	prettierPath := p.toolPath("prettier")
 	if prettierPath == "" {
 		if p.ignoreMissingTools {
-			logger.Warn("prettier not found; skipping Markdown formatter and checking finalizer only")
+			p.logMissingToolFallback("prettier not found; skipping Markdown formatter and checking finalizer only", true)
 			if !p.finalizerEnabled() {
 				return nil
 			}
 			return p.checkMarkdownFileFinalizerOnly(filePath, originalContent)
 		}
-		return fmt.Errorf("prettier not found. Install with: goneat doctor tools --install prettier")
+		return formatpkg.ToolUnavailable(filePath, "prettier", "Install with: goneat doctor tools --scope foundation --install")
 	}
 
 	// Get Markdown config
@@ -829,7 +834,7 @@ func (p *FormatProcessor) checkMarkdownFile(filePath string) error {
 	cmd.Stdin = bytes.NewReader(originalContent)
 	prettierOutput, err := cmd.Output()
 	if err != nil {
-		return fmt.Errorf("prettier check failed for %s: %w", filePath, err)
+		return formatpkg.ToolExecution(filePath, "prettier", fmt.Errorf("prettier check failed for %s: %w", filePath, err))
 	}
 
 	finalContent, err := p.normalizeMarkdownContent(prettierOutput, mdConfig)
@@ -839,7 +844,7 @@ func (p *FormatProcessor) checkMarkdownFile(filePath string) error {
 
 	// Compare original with what formatted would be
 	if !bytes.Equal(originalContent, finalContent) {
-		return fmt.Errorf("file %s needs formatting", filePath)
+		return formatpkg.FormatDrift(filePath)
 	}
 
 	logger.Debug(fmt.Sprintf("File %s is properly formatted", filePath))
@@ -858,7 +863,7 @@ func (p *FormatProcessor) checkMarkdownFileFinalizerOnly(filePath string, conten
 	}
 
 	if changed {
-		return fmt.Errorf("file %s needs formatting (EOF, trailing whitespace, or line ending issues)", filePath)
+		return formatpkg.FormatDrift(filePath)
 	}
 
 	logger.Debug(fmt.Sprintf("File %s is properly formatted", filePath))
@@ -874,29 +879,25 @@ func (p *FormatProcessor) formatPythonFile(filePath string) error {
 	if !filepath.IsAbs(filePath) {
 		abs, err := filepath.Abs(filePath)
 		if err != nil {
-			return fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err)
+			return formatpkg.FileIO(filePath, fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err))
 		}
 		filePath = abs
 	}
 
 	// Check if ruff is available (prefer caller-supplied path for shim parity)
-	ruffPath := p.toolPaths.Ruff
+	ruffPath := p.toolPath("ruff")
 	if ruffPath == "" {
-		var err error
-		ruffPath, err = exec.LookPath("ruff")
-		if err != nil {
-			if p.ignoreMissingTools {
-				logger.Info("ruff not found, falling back to finalizer-only formatting for Python")
-				return p.formatFileFinalizerOnly(filePath)
-			}
-			return fmt.Errorf("ruff not found. Install with: pip install ruff")
+		if p.ignoreMissingTools {
+			p.logMissingToolFallback("ruff not found, falling back to finalizer-only formatting for Python", false)
+			return p.formatFileFinalizerOnly(filePath)
 		}
+		return formatpkg.ToolUnavailable(filePath, "ruff", "Install with: goneat doctor tools --scope python --install")
 	}
 
 	// Read original content for change detection
 	originalContent, err := os.ReadFile(filePath) // #nosec G304 -- path already validated
 	if err != nil {
-		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+		return formatpkg.FileIO(filePath, fmt.Errorf("failed to read file %s: %w", filePath, err))
 	}
 
 	// Format the file with ruff
@@ -904,13 +905,13 @@ func (p *FormatProcessor) formatPythonFile(filePath string) error {
 	cmd := exec.Command(ruffPath, "format", filePath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("ruff format failed for %s: %v\nOutput: %s", filePath, err, string(output))
+		return formatpkg.ToolExecution(filePath, "ruff", fmt.Errorf("ruff format failed for %s: %v\nOutput: %s", filePath, err, string(output)))
 	}
 
 	// Re-read formatted content
 	formattedContent, err := os.ReadFile(filePath) // #nosec G304 -- path already validated
 	if err != nil {
-		return fmt.Errorf("failed to re-read file after ruff format: %w", err)
+		return formatpkg.FileIO(filePath, fmt.Errorf("failed to re-read file after ruff format: %w", err))
 	}
 
 	// Apply finalizer normalization
@@ -921,7 +922,7 @@ func (p *FormatProcessor) formatPythonFile(filePath string) error {
 		}
 		if changed {
 			if err := safeio.WriteFileValidated(filePath, finalContent, 0o600); err != nil {
-				return fmt.Errorf("failed to write finalized content to %s: %w", filePath, err)
+				return formatpkg.FileIO(filePath, fmt.Errorf("failed to write finalized content to %s: %w", filePath, err))
 			}
 			formattedContent = finalContent
 		}
@@ -946,23 +947,19 @@ func (p *FormatProcessor) checkPythonFile(filePath string) error {
 	if !filepath.IsAbs(filePath) {
 		abs, err := filepath.Abs(filePath)
 		if err != nil {
-			return fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err)
+			return formatpkg.FileIO(filePath, fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err))
 		}
 		filePath = abs
 	}
 
 	// Check if ruff is available (prefer caller-supplied path for shim parity)
-	ruffPath := p.toolPaths.Ruff
+	ruffPath := p.toolPath("ruff")
 	if ruffPath == "" {
-		var err error
-		ruffPath, err = exec.LookPath("ruff")
-		if err != nil {
-			if p.ignoreMissingTools {
-				logger.Info("ruff not found, falling back to finalizer-only check for Python")
-				return p.checkFileFinalizerOnly(filePath)
-			}
-			return fmt.Errorf("ruff not found. Install with: pip install ruff")
+		if p.ignoreMissingTools {
+			p.logMissingToolFallback("ruff not found, falling back to finalizer-only check for Python", false)
+			return p.checkFileFinalizerOnly(filePath)
 		}
+		return formatpkg.ToolUnavailable(filePath, "ruff", "Install with: goneat doctor tools --scope python --install")
 	}
 
 	// Use ruff format --check
@@ -973,9 +970,9 @@ func (p *FormatProcessor) checkPythonFile(filePath string) error {
 	if err != nil {
 		// ruff returns exit code 1 if formatting is needed
 		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
-			return fmt.Errorf("file %s needs formatting", filePath)
+			return formatpkg.FormatDrift(filePath)
 		}
-		return fmt.Errorf("ruff format check failed for %s: %v\nOutput: %s", filePath, err, string(output))
+		return formatpkg.ToolExecution(filePath, "ruff", fmt.Errorf("ruff format check failed for %s: %v\nOutput: %s", filePath, err, string(output)))
 	}
 
 	// Also check finalizer issues
@@ -996,35 +993,31 @@ func (p *FormatProcessor) formatJavaScriptFile(filePath string) error {
 	if !filepath.IsAbs(filePath) {
 		abs, err := filepath.Abs(filePath)
 		if err != nil {
-			return fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err)
+			return formatpkg.FileIO(filePath, fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err))
 		}
 		filePath = abs
 	}
 
 	// Check if biome is available (prefer caller-supplied path for shim parity)
-	biomePath := p.toolPaths.Biome
+	biomePath := p.toolPath("biome")
 	if biomePath == "" {
-		var err error
-		biomePath, err = exec.LookPath("biome")
-		if err != nil {
-			if p.ignoreMissingTools {
-				logger.Info("biome not found, falling back to finalizer-only formatting for JavaScript/TypeScript")
-				return p.formatFileFinalizerOnly(filePath)
-			}
-			return fmt.Errorf("biome not found. Install with: npm install -g @biomejs/biome")
+		if p.ignoreMissingTools {
+			p.logMissingToolFallback("biome not found, falling back to finalizer-only formatting for JavaScript/TypeScript", false)
+			return p.formatFileFinalizerOnly(filePath)
 		}
+		return formatpkg.ToolUnavailable(filePath, "biome", "Install with: goneat doctor tools --scope typescript --install")
 	}
 
 	// Read original content for change detection
 	originalContent, err := os.ReadFile(filePath) // #nosec G304 -- path already validated
 	if err != nil {
-		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+		return formatpkg.FileIO(filePath, fmt.Errorf("failed to read file %s: %w", filePath, err))
 	}
 
 	// Resolve biome invocation context for nested config support
 	cmdDir, fileArg, err := ResolveBiomeContext(filePath)
 	if err != nil {
-		return fmt.Errorf("biome context resolution failed for %s: %w", filePath, err)
+		return formatpkg.FileIO(filePath, fmt.Errorf("biome context resolution failed for %s: %w", filePath, err))
 	}
 
 	// Format the file with biome
@@ -1033,13 +1026,13 @@ func (p *FormatProcessor) formatJavaScriptFile(filePath string) error {
 	cmd.Dir = cmdDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("biome format failed for %s: %v\nOutput: %s", filePath, err, string(output))
+		return formatpkg.ToolExecution(filePath, "biome", fmt.Errorf("biome format failed for %s: %v\nOutput: %s", filePath, err, string(output)))
 	}
 
 	// Re-read formatted content
 	formattedContent, err := os.ReadFile(filePath) // #nosec G304 -- path already validated
 	if err != nil {
-		return fmt.Errorf("failed to re-read file after biome format: %w", err)
+		return formatpkg.FileIO(filePath, fmt.Errorf("failed to re-read file after biome format: %w", err))
 	}
 
 	// Apply finalizer normalization
@@ -1050,7 +1043,7 @@ func (p *FormatProcessor) formatJavaScriptFile(filePath string) error {
 		}
 		if changed {
 			if err := safeio.WriteFileValidated(filePath, finalContent, 0o600); err != nil {
-				return fmt.Errorf("failed to write finalized content to %s: %w", filePath, err)
+				return formatpkg.FileIO(filePath, fmt.Errorf("failed to write finalized content to %s: %w", filePath, err))
 			}
 			formattedContent = finalContent
 		}
@@ -1075,34 +1068,30 @@ func (p *FormatProcessor) checkJavaScriptFile(filePath string) error {
 	if !filepath.IsAbs(filePath) {
 		abs, err := filepath.Abs(filePath)
 		if err != nil {
-			return fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err)
+			return formatpkg.FileIO(filePath, fmt.Errorf("failed to resolve absolute path for %s: %w", filePath, err))
 		}
 		filePath = abs
 	}
 
 	// Check if biome is available (prefer caller-supplied path for shim parity)
-	biomePath := p.toolPaths.Biome
+	biomePath := p.toolPath("biome")
 	if biomePath == "" {
-		var err error
-		biomePath, err = exec.LookPath("biome")
-		if err != nil {
-			if p.ignoreMissingTools {
-				logger.Info("biome not found, falling back to finalizer-only check for JavaScript/TypeScript")
-				return p.checkFileFinalizerOnly(filePath)
-			}
-			return fmt.Errorf("biome not found. Install with: npm install -g @biomejs/biome")
+		if p.ignoreMissingTools {
+			p.logMissingToolFallback("biome not found, falling back to finalizer-only check for JavaScript/TypeScript", false)
+			return p.checkFileFinalizerOnly(filePath)
 		}
+		return formatpkg.ToolUnavailable(filePath, "biome", "Install with: goneat doctor tools --scope typescript --install")
 	}
 
 	// Verify biome version is 2.x (1.x used --check which was removed in 2.x)
 	if err := checkBiomeVersion(biomePath); err != nil {
-		return err
+		return formatpkg.ToolExecution(filePath, "biome", err)
 	}
 
 	// Resolve biome invocation context for nested config support
 	cmdDir, fileArg, err := ResolveBiomeContext(filePath)
 	if err != nil {
-		return fmt.Errorf("biome context resolution failed for %s: %w", filePath, err)
+		return formatpkg.FileIO(filePath, fmt.Errorf("biome context resolution failed for %s: %w", filePath, err))
 	}
 
 	// Use biome format (without --write) to check formatting
@@ -1115,9 +1104,9 @@ func (p *FormatProcessor) checkJavaScriptFile(filePath string) error {
 	if err != nil {
 		// biome returns exit code 1 if formatting is needed
 		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
-			return fmt.Errorf("file %s needs formatting", filePath)
+			return formatpkg.FormatDrift(filePath)
 		}
-		return fmt.Errorf("biome format check failed for %s: %v\nOutput: %s", filePath, err, string(output))
+		return formatpkg.ToolExecution(filePath, "biome", fmt.Errorf("biome format check failed for %s: %v\nOutput: %s", filePath, err, string(output)))
 	}
 
 	// Also check finalizer issues
@@ -1133,7 +1122,7 @@ func (p *FormatProcessor) checkJavaScriptFile(filePath string) error {
 func (p *FormatProcessor) formatFileFinalizerOnly(filePath string) error {
 	content, err := os.ReadFile(filePath) // #nosec G304 -- path already validated by caller
 	if err != nil {
-		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+		return formatpkg.FileIO(filePath, fmt.Errorf("failed to read file %s: %w", filePath, err))
 	}
 
 	if !p.finalizerEnabled() {
@@ -1147,7 +1136,7 @@ func (p *FormatProcessor) formatFileFinalizerOnly(filePath string) error {
 
 	if changed {
 		if err := safeio.WriteFileValidated(filePath, finalContent, 0o600); err != nil {
-			return fmt.Errorf("failed to write finalized content to %s: %w", filePath, err)
+			return formatpkg.FileIO(filePath, fmt.Errorf("failed to write finalized content to %s: %w", filePath, err))
 		}
 		logger.Debug(fmt.Sprintf("Applied finalizer normalization to %s", filePath))
 	} else {
@@ -1161,7 +1150,7 @@ func (p *FormatProcessor) formatFileFinalizerOnly(filePath string) error {
 func (p *FormatProcessor) checkFileFinalizerOnly(filePath string) error {
 	content, err := os.ReadFile(filePath) // #nosec G304 -- path already validated by caller
 	if err != nil {
-		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+		return formatpkg.FileIO(filePath, fmt.Errorf("failed to read file %s: %w", filePath, err))
 	}
 
 	if !p.finalizerEnabled() {
@@ -1174,7 +1163,7 @@ func (p *FormatProcessor) checkFileFinalizerOnly(filePath string) error {
 	}
 
 	if changed {
-		return fmt.Errorf("file %s needs formatting (EOF, trailing whitespace, or line ending issues)", filePath)
+		return formatpkg.FormatDrift(filePath)
 	}
 
 	logger.Debug(fmt.Sprintf("File %s is properly formatted", filePath))
@@ -1183,7 +1172,7 @@ func (p *FormatProcessor) checkFileFinalizerOnly(filePath string) error {
 
 // GetSupportedContentTypes returns the content types supported by this processor
 func (p *FormatProcessor) GetSupportedContentTypes() []string {
-	return []string{"go", "yaml", "json", "markdown", "python", "javascript", "typescript"}
+	return formatpkg.SupportedContentTypes()
 }
 
 // ValidateWorkItem validates that a work item can be processed
@@ -1250,11 +1239,33 @@ func (p *FormatProcessor) toolPath(name string) string {
 		if p.toolPaths.Prettier != "" {
 			return p.toolPaths.Prettier
 		}
+	case "ruff":
+		if p.toolPaths.Ruff != "" {
+			return p.toolPaths.Ruff
+		}
+	case "biome":
+		if p.toolPaths.Biome != "" {
+			return p.toolPaths.Biome
+		}
+	}
+	if p.toolsResolved {
+		return ""
 	}
 	if path, err := exec.LookPath(name); err == nil {
 		return path
 	}
 	return ""
+}
+
+func (p *FormatProcessor) logMissingToolFallback(message string, warn bool) {
+	if p.toolsResolved {
+		return
+	}
+	if warn {
+		logger.Warn(message)
+	} else {
+		logger.Info(message)
+	}
 }
 
 func (p *FormatProcessor) computeJSONIndent() (string, error) {

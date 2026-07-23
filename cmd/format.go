@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"go/format"
 	"os"
@@ -20,7 +21,6 @@ import (
 	"github.com/fulmenhq/goneat/internal/doctor"
 	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/fulmenhq/goneat/pkg/config"
-	"github.com/fulmenhq/goneat/pkg/exitcode"
 	formatpkg "github.com/fulmenhq/goneat/pkg/format"
 	"github.com/fulmenhq/goneat/pkg/format/finalizer"
 	"github.com/fulmenhq/goneat/pkg/logger"
@@ -65,7 +65,7 @@ func init() {
 	formatCmd.Flags().String("plan-file", "", "Write work plan to specified file")
 
 	// Discovery and filtering flags
-	formatCmd.Flags().StringSlice("types", []string{}, "Content types to include (go, yaml, json, markdown)")
+	formatCmd.Flags().StringSlice("types", []string{}, "Content types to include ("+formatpkg.SupportedContentTypesHelp()+")")
 	formatCmd.Flags().Int("max-depth", -1, "Maximum directory depth to traverse")
 
 	// Execution strategy flags
@@ -77,7 +77,7 @@ func init() {
 
 	// Dogfooding helpers
 	formatCmd.Flags().Bool("staged-only", false, "Only format staged files in git (changed and added)")
-	formatCmd.Flags().Bool("ignore-missing-tools", false, "Skip files requiring external formatters if tools are missing")
+	formatCmd.Flags().Bool("ignore-missing-tools", false, "Use finalizer-only processing when a selected external formatter is missing")
 
 	// EOF/Text normalization flags
 	formatCmd.Flags().Bool("finalize-eof", true, "Ensure files end with exactly one newline")
@@ -148,12 +148,91 @@ func findToolPath(toolName string) string {
 	return ""
 }
 
-// toolExists checks if a tool is available (in PATH or shim directories)
-func toolExists(toolName string) bool {
-	return findToolPath(toolName) != ""
+var formatToolResolver = findToolPath
+
+type formatToolPaths struct {
+	work.FormatProcessorToolPaths
+	Goimports string
 }
 
-func RunFormat(cmd *cobra.Command, args []string) error {
+type formatToolRequirement struct {
+	name        string
+	contentType string
+	guidance    string
+}
+
+func preflightFormatTools(files []string, useGoimports, ignoreMissingTools bool) (formatToolPaths, error) {
+	selectedTypes := make(map[string]bool)
+	for _, file := range files {
+		selectedTypes[getContentTypeFromPath(file)] = true
+	}
+
+	requirements := []formatToolRequirement{
+		{name: "goimports", contentType: "go", guidance: "Install with: goneat doctor tools --scope go --install"},
+		{name: "yamlfmt", contentType: "yaml", guidance: "Install with: goneat doctor tools --scope foundation --install"},
+		{name: "prettier", contentType: "markdown", guidance: "Install with: goneat doctor tools --scope foundation --install"},
+		{name: "ruff", contentType: "python", guidance: "Install with: goneat doctor tools --scope python --install"},
+		{name: "biome", contentType: "javascript/typescript", guidance: "Install with: goneat doctor tools --scope typescript --install"},
+	}
+
+	var paths formatToolPaths
+	var unavailable []error
+	for _, requirement := range requirements {
+		required := selectedTypes[requirement.contentType]
+		switch requirement.name {
+		case "goimports":
+			required = useGoimports && selectedTypes["go"]
+		case "biome":
+			required = selectedTypes["javascript"] || selectedTypes["typescript"]
+		}
+		if !required {
+			continue
+		}
+
+		path := formatToolResolver(requirement.name)
+		switch requirement.name {
+		case "goimports":
+			paths.Goimports = path
+		case "yamlfmt":
+			paths.Yamlfmt = path
+		case "prettier":
+			paths.Prettier = path
+		case "ruff":
+			paths.Ruff = path
+		case "biome":
+			paths.Biome = path
+		}
+		if path != "" {
+			continue
+		}
+
+		err := formatpkg.ToolUnavailable("", requirement.name, requirement.guidance)
+		if ignoreMissingTools {
+			logger.Warn(
+				fmt.Sprintf("%s unavailable for %s; using finalizer-only processing", requirement.name, requirement.contentType),
+				logger.String("result_class", string(formatpkg.ResultToolUnavailable)),
+				logger.String("tool", requirement.name),
+				logger.String("content_type", requirement.contentType),
+				logger.String("policy", "finalizer-only"),
+			)
+			continue
+		}
+		unavailable = append(unavailable, err)
+	}
+
+	return paths, errors.Join(unavailable...)
+}
+
+func RunFormat(cmd *cobra.Command, args []string) (runErr error) {
+	defer func() {
+		if formatpkg.ClassOf(runErr) == "" {
+			return
+		}
+		root := cmd.Root()
+		root.SilenceErrors = true
+		root.SilenceUsage = true
+	}()
+
 	logger.Info("Starting format command")
 
 	// Load configuration
@@ -259,7 +338,7 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 		}
 
 		// Create planner configuration
-		supportedTypes := []string{"go", "yaml", "json", "markdown", "python", "javascript", "typescript"}
+		supportedTypes := formatpkg.SupportedContentTypes()
 		if textNormalize {
 			supportedTypes = append(supportedTypes, "unknown")
 		}
@@ -287,7 +366,7 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 		if len(explicitFiles) > 0 {
 			return fmt.Errorf("cannot use --staged-only with --files: staged mode discovers files from git, --files specifies exact files")
 		}
-		staged, err := getStagedFilesFormat()
+		staged, err := formatStagedFiles()
 		if err != nil {
 			return fmt.Errorf("failed to get staged files: %v", err)
 		}
@@ -353,6 +432,12 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	requireGoimports := useGoimports && (strategy != "parallel" || fallbackSequential || stagedOnly)
+	toolPaths, err := preflightFormatTools(filesToProcess, requireGoimports, ignoreMissingTools)
+	if err != nil {
+		return err
+	}
+
 	if !quiet {
 		logger.Info(fmt.Sprintf("Processing %d files using %s strategy", len(filesToProcess), strategy))
 	}
@@ -372,77 +457,62 @@ func RunFormat(cmd *cobra.Command, args []string) error {
 		if useGoimports {
 			logger.Warn("use-goimports is enabled but parallel processor does not apply goimports yet; skipping import alignment in parallel mode")
 		}
-		err := executeParallel(filesToProcess, cfg, quiet, checkOnly, noOp, ignoreMissingTools, options, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB, workers)
+		err := executeParallel(filesToProcess, cfg, quiet, checkOnly, noOp, ignoreMissingTools, options, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB, workers, toolPaths)
 		if err == nil || !fallbackSequential {
 			return err
 		}
 		logger.Warn(fmt.Sprintf("Parallel strategy failed (%v); retrying sequentially", err))
-		return executeSequentialWithOptions(filesToProcess, checkOnly || noOp, quiet, cfg, ignoreMissingTools, options, useGoimports, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB, xmlIndent, xmlIndentCount, xmlSizeWarningMB)
+		return executeSequentialWithOptions(filesToProcess, checkOnly || noOp, quiet, cfg, ignoreMissingTools, options, useGoimports, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB, xmlIndent, xmlIndentCount, xmlSizeWarningMB, toolPaths)
 	}
 
-	return executeSequentialWithOptions(filesToProcess, checkOnly || noOp, quiet, cfg, ignoreMissingTools, options, useGoimports, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB, xmlIndent, xmlIndentCount, xmlSizeWarningMB)
+	return executeSequentialWithOptions(filesToProcess, checkOnly || noOp, quiet, cfg, ignoreMissingTools, options, useGoimports, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB, xmlIndent, xmlIndentCount, xmlSizeWarningMB, toolPaths)
 }
 
 // removed unused findSupportedFiles helper
 
-func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignoreMissingTools bool, options finalizer.NormalizationOptions, useGoimports bool, textNormalize bool, jsonIndent string, jsonIndentCount int, jsonSizeWarningMB int, xmlIndent string, xmlIndentCount int, xmlSizeWarningMB int) error {
+func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignoreMissingTools bool, options finalizer.NormalizationOptions, useGoimports bool, textNormalize bool, jsonIndent string, jsonIndentCount int, jsonSizeWarningMB int, xmlIndent string, xmlIndentCount int, xmlSizeWarningMB int, toolPaths formatToolPaths) error {
 	ext := filepath.Ext(file)
+	contentType := formatpkg.ContentTypeForExtension(ext)
 
 	var err error
 
-	switch ext {
-	case ".go":
-		err = formatGoFile(file, checkOnly, cfg, useGoimports, ignoreMissingTools, options)
+	switch contentType {
+	case "go":
+		err = formatGoFile(file, checkOnly, cfg, useGoimports, ignoreMissingTools, options, toolPaths.Goimports)
 
-	case ".yaml", ".yml":
-		// Skip if yamlfmt missing and ignoring missing tools
-		if ignoreMissingTools {
-			if !toolExists("yamlfmt") {
-				logger.Warn("yamlfmt not found; skipping YAML formatting for this file")
-				// Even if skipping primary formatter, still allow finalizer below
-				break
-			}
+	case "yaml":
+		if toolPaths.Yamlfmt == "" {
+			err = formatpkg.ErrAlreadyFormatted
+			break
 		}
-		err = formatYAMLFile(file, checkOnly, cfg, options)
+		err = formatYAMLFile(file, checkOnly, cfg, options, toolPaths.Yamlfmt)
 
-	case ".json":
-		if ignoreMissingTools {
-			if !toolExists("jq") {
-				logger.Warn("jq not found; skipping JSON formatting for this file")
-				break
-			}
-		}
+	case "json":
 		err = formatJSONFile(file, checkOnly, cfg, options, jsonIndent, jsonIndentCount, jsonSizeWarningMB)
 
-	case ".xml":
+	case "xml":
 		err = formatXMLFile(file, checkOnly, cfg, options, xmlIndent, xmlIndentCount, xmlSizeWarningMB)
 
-	case ".md":
-		if ignoreMissingTools {
-			if !toolExists("prettier") {
-				logger.Warn("prettier not found; skipping Markdown formatting for this file")
-				break
-			}
+	case "markdown":
+		if toolPaths.Prettier == "" {
+			err = formatpkg.ErrAlreadyFormatted
+			break
 		}
-		err = formatMarkdownFile(file, checkOnly, cfg, options)
+		err = formatMarkdownFile(file, checkOnly, cfg, options, toolPaths.Prettier)
 
-	case ".py", ".pyi":
-		if ignoreMissingTools {
-			if !toolExists("ruff") {
-				logger.Warn("ruff not found; skipping Python formatting for this file")
-				break
-			}
+	case "python":
+		if toolPaths.Ruff == "" {
+			err = formatpkg.ErrAlreadyFormatted
+			break
 		}
-		err = formatPythonFile(file, checkOnly, cfg, options, ignoreMissingTools)
+		err = formatPythonFile(file, checkOnly, cfg, options, ignoreMissingTools, toolPaths.Ruff)
 
-	case ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts":
-		if ignoreMissingTools {
-			if !toolExists("biome") {
-				logger.Warn("biome not found; skipping JavaScript/TypeScript formatting for this file")
-				break
-			}
+	case "javascript", "typescript":
+		if toolPaths.Biome == "" {
+			err = formatpkg.ErrAlreadyFormatted
+			break
 		}
-		err = formatJavaScriptFile(file, checkOnly, cfg, options, ignoreMissingTools)
+		err = formatJavaScriptFile(file, checkOnly, cfg, options, ignoreMissingTools, toolPaths.Biome)
 
 	default:
 		// Check if file is XML by content (starts with <?xml)
@@ -470,18 +540,18 @@ func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignore
 		if finalizer.IsSupportedExtension(ext) {
 			if ferr := applyFinalizer(file, checkOnly, options); ferr != nil {
 				// If finalizer made changes, it takes precedence over primary formatter
-				if ferr.Error() == "finalized" || ferr.Error() == "needs formatting" {
+				if errors.Is(ferr, formatpkg.ErrFinalized) || errors.Is(ferr, formatpkg.ErrFormatDrift) {
 					// Finalizer found issues - return needs formatting
-					return fmt.Errorf("needs formatting")
+					return formatpkg.FormatDrift(file)
 				}
 				// If primary formatter said "needs formatting", that takes precedence
 				// over finalizer saying "already formatted"
-				if err != nil && err.Error() == "needs formatting" {
+				if errors.Is(err, formatpkg.ErrFormatDrift) {
 					return err
 				}
 				// If primary formatter said "already formatted" but finalizer found changes,
 				// the finalizer result takes precedence
-				if err != nil && err.Error() == "already formatted" {
+				if errors.Is(err, formatpkg.ErrAlreadyFormatted) {
 					return ferr
 				}
 				// If primary formatter had other errors, return the primary error
@@ -493,7 +563,7 @@ func processFile(file string, checkOnly bool, _ bool, cfg *config.Config, ignore
 			}
 			// Finalizer says file is OK ("already formatted" in check mode, nil in format mode)
 			// If primary formatter said "needs formatting", that takes precedence
-			if err != nil && err.Error() == "needs formatting" {
+			if errors.Is(err, formatpkg.ErrFormatDrift) {
 				return err
 			}
 		}
@@ -513,7 +583,7 @@ func applyFinalizer(file string, checkOnly bool, options finalizer.Normalization
 	// Read the file content
 	content, err := os.ReadFile(file)
 	if err != nil {
-		return err
+		return formatpkg.FileIO(file, err)
 	}
 
 	if checkOnly {
@@ -522,9 +592,9 @@ func applyFinalizer(file string, checkOnly bool, options finalizer.Normalization
 			return fmt.Errorf("normalization error: %v", err)
 		} else if changed {
 			logger.Info(fmt.Sprintf("File %s needs formatting (EOF, trailing whitespace, line endings, or BOM issues)", file))
-			return fmt.Errorf("needs formatting")
+			return formatpkg.FormatDrift(file)
 		}
-		return fmt.Errorf("already formatted")
+		return formatpkg.ErrAlreadyFormatted
 	}
 
 	// Apply comprehensive normalization
@@ -536,17 +606,17 @@ func applyFinalizer(file string, checkOnly bool, options finalizer.Normalization
 	if changed {
 		// Write back the finalized content
 		if err := safeio.WriteFileValidated(file, finalized, 0o600); err != nil {
-			return fmt.Errorf("failed to write finalized file: %v", err)
+			return formatpkg.FileIO(file, fmt.Errorf("failed to write finalized file: %v", err))
 		}
 		// Return an error to indicate changes were made (finalizer takes precedence)
-		return fmt.Errorf("finalized")
+		return formatpkg.ErrFinalized
 	}
 
 	// No changes needed
 	return nil
 }
 
-func formatGoFile(file string, checkOnly bool, cfg *config.Config, useGoimports bool, ignoreMissingTools bool, options finalizer.NormalizationOptions) error {
+func formatGoFile(file string, checkOnly bool, cfg *config.Config, useGoimports bool, ignoreMissingTools bool, options finalizer.NormalizationOptions, goimportsPath string) error {
 	// Validate file path to prevent path traversal
 	file = filepath.Clean(file)
 	if strings.Contains(file, "..") {
@@ -555,7 +625,7 @@ func formatGoFile(file string, checkOnly bool, cfg *config.Config, useGoimports 
 
 	original, err := os.ReadFile(file)
 	if err != nil {
-		return err
+		return formatpkg.FileIO(file, err)
 	}
 
 	// Get Go formatting configuration
@@ -568,16 +638,15 @@ func formatGoFile(file string, checkOnly bool, cfg *config.Config, useGoimports 
 	}
 	gofmtOut, err := format.Source(original)
 	if err != nil {
-		return err
+		return formatpkg.ToolExecution(file, "gofmt", fmt.Errorf("gofmt failed for %s: %w", file, err))
 	}
 
 	final := gofmtOut
 	// Step 2: goimports (optional)
 	if useGoimports {
-		goimportsPath := findToolPath("goimports")
 		if goimportsPath == "" {
 			if !ignoreMissingTools {
-				return fmt.Errorf("goimports not found but --use-goimports was specified.\nInstall with: go install golang.org/x/tools/cmd/goimports@latest\nOr run: goneat doctor tools --install goimports\nTip: use --ignore-missing-tools to skip import alignment")
+				return formatpkg.ToolUnavailable(file, "goimports", "Install with: goneat doctor tools --scope go --install")
 			}
 			logger.Debug("goimports not found; skipping import alignment due to --ignore-missing-tools")
 		} else {
@@ -587,7 +656,7 @@ func formatGoFile(file string, checkOnly bool, cfg *config.Config, useGoimports 
 			cmd.Stdin = strings.NewReader(string(final))
 			out, cmdErr := cmd.Output()
 			if cmdErr != nil {
-				return fmt.Errorf("goimports failed for %s: %v\nTry: go install golang.org/x/tools/cmd/goimports@latest or 'goneat doctor tools --install goimports'", file, cmdErr)
+				return formatpkg.ToolExecution(file, "goimports", fmt.Errorf("goimports failed for %s: %v", file, cmdErr))
 			}
 			final = out
 		}
@@ -605,9 +674,9 @@ func formatGoFile(file string, checkOnly bool, cfg *config.Config, useGoimports 
 
 	if checkOnly {
 		if changed || finalizerWillChange {
-			return fmt.Errorf("needs formatting")
+			return formatpkg.FormatDrift(file)
 		}
-		return fmt.Errorf("already formatted")
+		return formatpkg.ErrAlreadyFormatted
 	}
 
 	if changed || finalizerWillChange {
@@ -621,20 +690,21 @@ func formatGoFile(file string, checkOnly bool, cfg *config.Config, useGoimports 
 		}
 
 		logger.Info(fmt.Sprintf("Applying Go formatting changes to %s", file))
-		return safeio.WriteFileValidated(file, final, 0o600)
+		if err := safeio.WriteFileValidated(file, final, 0o600); err != nil {
+			return formatpkg.FileIO(file, err)
+		}
+		return nil
 	}
 
-	return fmt.Errorf("already formatted")
+	return formatpkg.ErrAlreadyFormatted
 }
 
-func formatYAMLFile(file string, checkOnly bool, cfg *config.Config, options finalizer.NormalizationOptions) error {
+func formatYAMLFile(file string, checkOnly bool, cfg *config.Config, options finalizer.NormalizationOptions, yamlfmtPath string) error {
 	// Clean file path to prevent path traversal
 	file = filepath.Clean(file)
 
-	// Find yamlfmt (checks PATH, then shim directories for CI environments)
-	yamlfmtPath := findToolPath("yamlfmt")
 	if yamlfmtPath == "" {
-		return fmt.Errorf("yamlfmt not found. Install with: goneat doctor tools --install yamlfmt")
+		return formatpkg.ToolUnavailable(file, "yamlfmt", "Install with: goneat doctor tools --scope foundation --install")
 	}
 
 	yamlConfig := cfg.GetYAMLConfig()
@@ -642,7 +712,7 @@ func formatYAMLFile(file string, checkOnly bool, cfg *config.Config, options fin
 	// For proper change detection, read original content first
 	originalContent, err := os.ReadFile(file)
 	if err != nil {
-		return err
+		return formatpkg.FileIO(file, err)
 	}
 
 	// Build yamlfmt arguments via the shared helper so this sequential path,
@@ -661,15 +731,15 @@ func formatYAMLFile(file string, checkOnly bool, cfg *config.Config, options fin
 	runFinalizer := options.EnsureEOF || options.TrimTrailingWhitespace || options.NormalizeLineEndings != "" || options.RemoveUTF8BOM
 	formatted, err := work.FormatYAMLContent(yamlfmtPath, args, originalContent, options, runFinalizer)
 	if err != nil {
-		return err
+		return formatpkg.ToolExecution(file, "yamlfmt", err)
 	}
 
 	if bytes.Equal(originalContent, formatted) {
-		return fmt.Errorf("already formatted")
+		return formatpkg.ErrAlreadyFormatted
 	}
 
 	if checkOnly {
-		return fmt.Errorf("needs formatting")
+		return formatpkg.FormatDrift(file)
 	}
 
 	// Preserve the file's existing mode. This full-file write now handles the
@@ -677,7 +747,7 @@ func formatYAMLFile(file string, checkOnly bool, cfg *config.Config, options fin
 	// preserves mode); writing a fixed 0o600 here would otherwise tighten a
 	// normal 0644 YAML file. (Per kilo-devrev review of v0.5.13.)
 	if err := safeio.WriteFilePreservePerms(file, formatted); err != nil {
-		return fmt.Errorf("failed to write formatted file: %v", err)
+		return formatpkg.FileIO(file, fmt.Errorf("failed to write formatted file: %v", err))
 	}
 
 	logger.Info(fmt.Sprintf("Applying YAML formatting changes to %s", file))
@@ -717,7 +787,7 @@ func formatJSONFile(file string, checkOnly bool, cfg *config.Config, options fin
 	// Read the original content
 	originalContent, err := os.ReadFile(file)
 	if err != nil {
-		return err
+		return formatpkg.FileIO(file, err)
 	}
 
 	// Use built-in JSON prettification
@@ -771,18 +841,18 @@ func formatJSONFile(file string, checkOnly bool, cfg *config.Config, options fin
 	contentChanged := !bytes.Equal(originalContent, []byte(formatted))
 
 	if !contentChanged {
-		if checkOnly {
-			return fmt.Errorf("already formatted")
-		}
-		return fmt.Errorf("already formatted") // Signal that no changes were made
+		return formatpkg.ErrAlreadyFormatted
 	}
 
 	if checkOnly {
-		return fmt.Errorf("needs formatting")
+		return formatpkg.FormatDrift(file)
 	}
 
 	logger.Info(fmt.Sprintf("Applying JSON formatting changes to %s", file))
-	return safeio.WriteFileValidated(file, []byte(formatted), 0o600)
+	if err := safeio.WriteFileValidated(file, []byte(formatted), 0o600); err != nil {
+		return formatpkg.FileIO(file, err)
+	}
+	return nil
 }
 
 func formatXMLFile(file string, checkOnly bool, cfg *config.Config, options finalizer.NormalizationOptions, xmlIndent string, xmlIndentCount int, xmlSizeWarningMB int) error {
@@ -816,7 +886,7 @@ func formatXMLFile(file string, checkOnly bool, cfg *config.Config, options fina
 	// Read the original content
 	originalContent, err := os.ReadFile(file)
 	if err != nil {
-		return err
+		return formatpkg.FileIO(file, err)
 	}
 
 	// Use built-in XML prettification
@@ -852,31 +922,29 @@ func formatXMLFile(file string, checkOnly bool, cfg *config.Config, options fina
 	contentChanged := !bytes.Equal(originalContent, []byte(formatted))
 
 	if !contentChanged {
-		if checkOnly {
-			return fmt.Errorf("already formatted")
-		}
-		return fmt.Errorf("already formatted") // Signal that no changes were made
+		return formatpkg.ErrAlreadyFormatted
 	}
 
 	if checkOnly {
-		return fmt.Errorf("needs formatting")
+		return formatpkg.FormatDrift(file)
 	}
 
 	logger.Info(fmt.Sprintf("Applying XML formatting changes to %s", file))
-	return safeio.WriteFileValidated(file, []byte(formatted), 0o600)
+	if err := safeio.WriteFileValidated(file, []byte(formatted), 0o600); err != nil {
+		return formatpkg.FileIO(file, err)
+	}
+	return nil
 }
 
-func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config, options finalizer.NormalizationOptions) error {
+func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config, options finalizer.NormalizationOptions, prettierPath string) error {
 	// Validate file path to prevent path traversal
 	file = filepath.Clean(file)
 	if strings.Contains(file, "..") {
 		return fmt.Errorf("invalid file path: contains path traversal")
 	}
 
-	// Find prettier (checks PATH, then shim directories for CI environments)
-	prettierPath := findToolPath("prettier")
 	if prettierPath == "" {
-		return fmt.Errorf("prettier not found. Install with: goneat doctor tools --install prettier")
+		return formatpkg.ToolUnavailable(file, "prettier", "Install with: goneat doctor tools --scope foundation --install")
 	}
 
 	mdConfig := cfg.GetMarkdownConfig()
@@ -884,7 +952,7 @@ func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config, options
 	// Read the original content
 	originalContent, err := os.ReadFile(file)
 	if err != nil {
-		return err
+		return formatpkg.FileIO(file, err)
 	}
 
 	// Build prettier arguments
@@ -916,7 +984,7 @@ func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config, options
 	cmd.Stdin = strings.NewReader(string(originalContent))
 	output, cmdErr := cmd.Output()
 	if cmdErr != nil {
-		return fmt.Errorf("prettier failed: %v", cmdErr)
+		return formatpkg.ToolExecution(file, "prettier", fmt.Errorf("prettier failed: %v", cmdErr))
 	}
 
 	// Handle trailing spaces - use finalizer options if specified, otherwise use config
@@ -973,42 +1041,40 @@ func formatMarkdownFile(file string, checkOnly bool, cfg *config.Config, options
 	contentChanged := !bytes.Equal(originalContent, []byte(formatted))
 
 	if !contentChanged {
-		if checkOnly {
-			return fmt.Errorf("already formatted")
-		}
-		return fmt.Errorf("already formatted") // Signal that no changes were made
+		return formatpkg.ErrAlreadyFormatted
 	}
 
 	if checkOnly {
-		return fmt.Errorf("needs formatting")
+		return formatpkg.FormatDrift(file)
 	}
 
 	logger.Info(fmt.Sprintf("Applying Markdown formatting changes to %s", file))
-	return safeio.WriteFileValidated(file, []byte(formatted), 0o600)
+	if err := safeio.WriteFileValidated(file, []byte(formatted), 0o600); err != nil {
+		return formatpkg.FileIO(file, err)
+	}
+	return nil
 }
 
 // formatPythonFile formats a Python file using ruff format
-func formatPythonFile(file string, checkOnly bool, _ *config.Config, options finalizer.NormalizationOptions, ignoreMissingTools bool) error {
+func formatPythonFile(file string, checkOnly bool, _ *config.Config, options finalizer.NormalizationOptions, ignoreMissingTools bool, ruffPath string) error {
 	// Validate file path to prevent path traversal
 	file = filepath.Clean(file)
 	if strings.Contains(file, "..") {
 		return fmt.Errorf("invalid file path: contains path traversal")
 	}
 
-	// Find ruff
-	ruffPath := findToolPath("ruff")
 	if ruffPath == "" {
 		if ignoreMissingTools {
 			// Fall back to finalizer-only
 			return applyFinalizer(file, checkOnly, options)
 		}
-		return fmt.Errorf("ruff not found. Install with: pip install ruff")
+		return formatpkg.ToolUnavailable(file, "ruff", "Install with: goneat doctor tools --scope python --install")
 	}
 
 	// Read the original content
 	originalContent, err := os.ReadFile(file)
 	if err != nil {
-		return err
+		return formatpkg.FileIO(file, err)
 	}
 
 	if checkOnly {
@@ -1020,12 +1086,12 @@ func formatPythonFile(file string, checkOnly bool, _ *config.Config, options fin
 		if err != nil {
 			// ruff returns exit code 1 if formatting is needed
 			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
-				return fmt.Errorf("needs formatting")
+				return formatpkg.FormatDrift(file)
 			}
-			return fmt.Errorf("ruff format check failed: %v\nOutput: %s", err, string(output))
+			return formatpkg.ToolExecution(file, "ruff", fmt.Errorf("ruff format check failed: %v\nOutput: %s", err, string(output)))
 		}
 		// Exit code 0 means file is already formatted
-		return fmt.Errorf("already formatted")
+		return formatpkg.ErrAlreadyFormatted
 	}
 
 	// Format the file
@@ -1033,13 +1099,13 @@ func formatPythonFile(file string, checkOnly bool, _ *config.Config, options fin
 	cmd := exec.Command(ruffPath, "format", file)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("ruff format failed: %v\nOutput: %s", err, string(output))
+		return formatpkg.ToolExecution(file, "ruff", fmt.Errorf("ruff format failed: %v\nOutput: %s", err, string(output)))
 	}
 
 	// Re-read formatted content
 	formattedContent, err := os.ReadFile(file)
 	if err != nil {
-		return fmt.Errorf("failed to re-read file after ruff format: %v", err)
+		return formatpkg.FileIO(file, fmt.Errorf("failed to re-read file after ruff format: %v", err))
 	}
 
 	// Apply finalizer
@@ -1050,7 +1116,7 @@ func formatPythonFile(file string, checkOnly bool, _ *config.Config, options fin
 		}
 		if changed {
 			if err := safeio.WriteFileValidated(file, finalized, 0o600); err != nil {
-				return fmt.Errorf("failed to write finalized file: %v", err)
+				return formatpkg.FileIO(file, fmt.Errorf("failed to write finalized file: %v", err))
 			}
 			formattedContent = finalized
 		}
@@ -1058,7 +1124,7 @@ func formatPythonFile(file string, checkOnly bool, _ *config.Config, options fin
 
 	// Check if content changed
 	if bytes.Equal(originalContent, formattedContent) {
-		return fmt.Errorf("already formatted")
+		return formatpkg.ErrAlreadyFormatted
 	}
 
 	logger.Info(fmt.Sprintf("Applying Python formatting changes to %s", file))
@@ -1066,38 +1132,36 @@ func formatPythonFile(file string, checkOnly bool, _ *config.Config, options fin
 }
 
 // formatJavaScriptFile formats a JavaScript/TypeScript file using biome format
-func formatJavaScriptFile(file string, checkOnly bool, _ *config.Config, options finalizer.NormalizationOptions, ignoreMissingTools bool) error {
+func formatJavaScriptFile(file string, checkOnly bool, _ *config.Config, options finalizer.NormalizationOptions, ignoreMissingTools bool, biomePath string) error {
 	// Validate file path to prevent path traversal
 	file = filepath.Clean(file)
 	if strings.Contains(file, "..") {
 		return fmt.Errorf("invalid file path: contains path traversal")
 	}
 
-	// Find biome
-	biomePath := findToolPath("biome")
 	if biomePath == "" {
 		if ignoreMissingTools {
 			// Fall back to finalizer-only
 			return applyFinalizer(file, checkOnly, options)
 		}
-		return fmt.Errorf("biome not found. Install with: npm install -g @biomejs/biome")
+		return formatpkg.ToolUnavailable(file, "biome", "Install with: goneat doctor tools --scope typescript --install")
 	}
 
 	// Verify biome version is 2.x (1.x used --check which was removed in 2.x)
 	if err := checkBiomeVersionCmd(biomePath); err != nil {
-		return err
+		return formatpkg.ToolExecution(file, "biome", err)
 	}
 
 	// Read the original content
 	originalContent, err := os.ReadFile(file)
 	if err != nil {
-		return err
+		return formatpkg.FileIO(file, err)
 	}
 
 	// Resolve biome invocation context for nested config support
 	cmdDir, fileArg, err := work.ResolveBiomeContext(file)
 	if err != nil {
-		return fmt.Errorf("biome context resolution failed for %s: %w", file, err)
+		return formatpkg.FileIO(file, fmt.Errorf("biome context resolution failed for %s: %w", file, err))
 	}
 
 	if checkOnly {
@@ -1111,12 +1175,12 @@ func formatJavaScriptFile(file string, checkOnly bool, _ *config.Config, options
 		if err != nil {
 			// biome returns exit code 1 if formatting is needed
 			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
-				return fmt.Errorf("needs formatting")
+				return formatpkg.FormatDrift(file)
 			}
-			return fmt.Errorf("biome format check failed: %v\nOutput: %s", err, string(output))
+			return formatpkg.ToolExecution(file, "biome", fmt.Errorf("biome format check failed: %v\nOutput: %s", err, string(output)))
 		}
 		// Exit code 0 means file is already formatted
-		return fmt.Errorf("already formatted")
+		return formatpkg.ErrAlreadyFormatted
 	}
 
 	// Format the file
@@ -1125,13 +1189,13 @@ func formatJavaScriptFile(file string, checkOnly bool, _ *config.Config, options
 	cmd.Dir = cmdDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("biome format failed: %v\nOutput: %s", err, string(output))
+		return formatpkg.ToolExecution(file, "biome", fmt.Errorf("biome format failed: %v\nOutput: %s", err, string(output)))
 	}
 
 	// Re-read formatted content
 	formattedContent, err := os.ReadFile(file)
 	if err != nil {
-		return fmt.Errorf("failed to re-read file after biome format: %v", err)
+		return formatpkg.FileIO(file, fmt.Errorf("failed to re-read file after biome format: %v", err))
 	}
 
 	// Apply finalizer
@@ -1142,7 +1206,7 @@ func formatJavaScriptFile(file string, checkOnly bool, _ *config.Config, options
 		}
 		if changed {
 			if err := safeio.WriteFileValidated(file, finalized, 0o600); err != nil {
-				return fmt.Errorf("failed to write finalized file: %v", err)
+				return formatpkg.FileIO(file, fmt.Errorf("failed to write finalized file: %v", err))
 			}
 			formattedContent = finalized
 		}
@@ -1150,7 +1214,7 @@ func formatJavaScriptFile(file string, checkOnly bool, _ *config.Config, options
 
 	// Check if content changed
 	if bytes.Equal(originalContent, formattedContent) {
-		return fmt.Errorf("already formatted")
+		return formatpkg.ErrAlreadyFormatted
 	}
 
 	logger.Info(fmt.Sprintf("Applying JavaScript/TypeScript formatting changes to %s", file))
@@ -1158,9 +1222,38 @@ func formatJavaScriptFile(file string, checkOnly bool, _ *config.Config, options
 }
 
 // executeSequential executes work items sequentially
-func executeSequentialWithOptions(files []string, checkOnly, quiet bool, cfg *config.Config, ignoreMissingTools bool, options finalizer.NormalizationOptions, useGoimports bool, textNormalize bool, jsonIndent string, jsonIndentCount int, jsonSizeWarningMB int, xmlIndent string, xmlIndentCount int, xmlSizeWarningMB int) error {
+type formatExecutionError struct {
+	formatDrift     int
+	toolUnavailable int
+	toolExecution   int
+	fileIO          int
+	other           int
+	causes          []error
+}
+
+func (e *formatExecutionError) Error() string {
+	if e.toolUnavailable == 0 && e.toolExecution == 0 && e.fileIO == 0 && e.other == 0 {
+		return fmt.Sprintf("%d files need formatting", e.formatDrift)
+	}
+	return fmt.Sprintf(
+		"format failed: need-format=%d, tool-unavailable=%d, tool-execution=%d, file-io=%d, other=%d",
+		e.formatDrift,
+		e.toolUnavailable,
+		e.toolExecution,
+		e.fileIO,
+		e.other,
+	)
+}
+
+func (e *formatExecutionError) Unwrap() []error {
+	return e.causes
+}
+
+// executeSequential executes work items sequentially
+func executeSequentialWithOptions(files []string, checkOnly, quiet bool, cfg *config.Config, ignoreMissingTools bool, options finalizer.NormalizationOptions, useGoimports bool, textNormalize bool, jsonIndent string, jsonIndentCount int, jsonSizeWarningMB int, xmlIndent string, xmlIndentCount int, xmlSizeWarningMB int, toolPaths formatToolPaths) error {
 	start := time.Now()
-	var formattedCount, unchangedCount, errorCount int
+	var formattedCount, unchangedCount int
+	runErr := &formatExecutionError{}
 	totalFiles := len(files)
 	showProgress := totalFiles > 10 && !quiet // Show progress for larger file sets
 
@@ -1169,27 +1262,47 @@ func executeSequentialWithOptions(files []string, checkOnly, quiet bool, cfg *co
 	}
 
 	for i, file := range files {
-		if err := processFile(file, checkOnly, quiet, cfg, ignoreMissingTools, options, useGoimports, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB, xmlIndent, xmlIndentCount, xmlSizeWarningMB); err != nil {
-			if err.Error() == "needs formatting" || err.Error() == "finalized" {
+		if err := processFile(file, checkOnly, quiet, cfg, ignoreMissingTools, options, useGoimports, textNormalize, jsonIndent, jsonIndentCount, jsonSizeWarningMB, xmlIndent, xmlIndentCount, xmlSizeWarningMB, toolPaths); err != nil {
+			if errors.Is(err, formatpkg.ErrFormatDrift) || errors.Is(err, formatpkg.ErrFinalized) {
 				// "finalized" is returned when finalizer makes changes (EOF, trailing spaces, line endings)
 				// It should be treated as successful formatting, not an error
 				if checkOnly {
-					logger.Error(fmt.Sprintf("Failed to process %s", file), logger.Err(err))
-					errorCount++
+					logger.Error(
+						fmt.Sprintf("Formatting differs for %s", file),
+						logger.Err(err),
+						logger.String("result_class", string(formatpkg.ResultFormatDrift)),
+					)
+					runErr.formatDrift++
+					runErr.causes = append(runErr.causes, err)
 				} else {
 					formattedCount++
 					if !quiet {
 						logger.Info(fmt.Sprintf("Formatted %s", file))
 					}
 				}
-			} else if err.Error() == "already formatted" {
+			} else if errors.Is(err, formatpkg.ErrAlreadyFormatted) {
 				unchangedCount++
 				if !quiet && !checkOnly {
 					logger.Debug(fmt.Sprintf("%s already properly formatted", file))
 				}
 			} else {
-				logger.Error(fmt.Sprintf("Failed to process %s", file), logger.Err(err))
-				errorCount++
+				class := formatpkg.ClassOf(err)
+				fields := []logger.Field{logger.Err(err)}
+				if class != "" {
+					fields = append(fields, logger.String("result_class", string(class)))
+				}
+				logger.Error(fmt.Sprintf("Failed to process %s", file), fields...)
+				switch class {
+				case formatpkg.ResultToolUnavailable:
+					runErr.toolUnavailable++
+				case formatpkg.ResultToolExecution:
+					runErr.toolExecution++
+				case formatpkg.ResultFileIO:
+					runErr.fileIO++
+				default:
+					runErr.other++
+				}
+				runErr.causes = append(runErr.causes, err)
 			}
 		} else {
 			// For cases where no error is returned (shouldn't happen with new logic)
@@ -1203,7 +1316,7 @@ func executeSequentialWithOptions(files []string, checkOnly, quiet bool, cfg *co
 		if showProgress && (i+1)%10 == 0 {
 			progress := float64(i+1) / float64(totalFiles) * 100
 			logger.Info(fmt.Sprintf("Progress: %d/%d files (%.1f%%) - %d formatted, %d unchanged, %d errors",
-				i+1, totalFiles, progress, formattedCount, unchangedCount, errorCount))
+				i+1, totalFiles, progress, formattedCount, unchangedCount, len(runErr.causes)))
 		}
 	}
 
@@ -1211,26 +1324,21 @@ func executeSequentialWithOptions(files []string, checkOnly, quiet bool, cfg *co
 
 	if !quiet {
 		if checkOnly {
-			if errorCount > 0 {
-				logger.Warn(fmt.Sprintf("Found %d files that need formatting", errorCount))
+			if runErr.formatDrift > 0 {
+				logger.Warn(fmt.Sprintf("Found %d files that need formatting", runErr.formatDrift))
 			} else {
 				logger.Info("All files are properly formatted")
 			}
-			logger.Info(fmt.Sprintf("Summary (sequential): files=%d, ok=%d, need-format=%d, runtime=%v",
-				len(files), unchangedCount, errorCount, duration))
+			logger.Info(fmt.Sprintf("Summary (sequential): files=%d, ok=%d, need-format=%d, tool-unavailable=%d, tool-execution=%d, file-io=%d, other=%d, runtime=%v",
+				len(files), unchangedCount, runErr.formatDrift, runErr.toolUnavailable, runErr.toolExecution, runErr.fileIO, runErr.other, duration))
 		} else {
 			logger.Info(fmt.Sprintf("Processed %d files (%d formatted, %d unchanged, %d errors) in %v (workers=1)",
-				len(files), formattedCount, unchangedCount, errorCount, duration))
+				len(files), formattedCount, unchangedCount, len(runErr.causes), duration))
 		}
 	}
 
-	if checkOnly && errorCount > 0 {
-		logger.Error(fmt.Sprintf("%d files need formatting", errorCount))
-		os.Exit(exitcode.GeneralError)
-	}
-
-	if errorCount > 0 {
-		os.Exit(exitcode.GeneralError)
+	if len(runErr.causes) > 0 {
+		return runErr
 	}
 
 	return nil
@@ -1253,17 +1361,14 @@ func getStagedFilesFormat() ([]string, error) {
 	return files, nil
 }
 
+var formatStagedFiles = getStagedFilesFormat
+
 // executeParallel executes work items in parallel using the dispatcher
-func executeParallel(files []string, cfg *config.Config, quiet bool, checkOnly bool, noOp bool, ignoreMissingTools bool, options finalizer.NormalizationOptions, textNormalize bool, jsonIndent string, jsonIndentCount int, jsonSizeWarningMB int, workers int) error {
+func executeParallel(files []string, cfg *config.Config, quiet bool, checkOnly bool, noOp bool, ignoreMissingTools bool, options finalizer.NormalizationOptions, textNormalize bool, jsonIndent string, jsonIndentCount int, jsonSizeWarningMB int, workers int, toolPaths formatToolPaths) error {
 	// Supported content types for parallel processing (must match FormatProcessor.GetSupportedContentTypes)
-	supportedTypes := map[string]bool{
-		"go":         true,
-		"yaml":       true,
-		"json":       true,
-		"markdown":   true,
-		"python":     true,
-		"javascript": true,
-		"typescript": true,
+	supportedTypes := make(map[string]bool)
+	for _, contentType := range formatpkg.SupportedContentTypes() {
+		supportedTypes[contentType] = true
 	}
 	if textNormalize {
 		supportedTypes["unknown"] = true
@@ -1347,12 +1452,8 @@ func executeParallel(files []string, cfg *config.Config, quiet bool, checkOnly b
 		JSONIndent:         jsonIndent,
 		JSONIndentCount:    jsonIndentCount,
 		JSONSizeWarningMB:  jsonSizeWarningMB,
-		ToolPaths: work.FormatProcessorToolPaths{
-			Yamlfmt:  findToolPath("yamlfmt"),
-			Prettier: findToolPath("prettier"),
-			Ruff:     findToolPath("ruff"),
-			Biome:    findToolPath("biome"),
-		},
+		ToolPaths:          toolPaths.FormatProcessorToolPaths,
+		ToolsResolved:      true,
 	})
 
 	// Progress tracking for parallel execution
@@ -1376,7 +1477,11 @@ func executeParallel(files []string, cfg *config.Config, quiet bool, checkOnly b
 						logger.Info(fmt.Sprintf("Processed %s", result.WorkItemID))
 					}
 				} else {
-					logger.Error(fmt.Sprintf("Failed %s: %s", result.WorkItemID, result.Error))
+					fields := []logger.Field{logger.String("work_item_id", result.WorkItemID)}
+					if result.ResultClass != "" {
+						fields = append(fields, logger.String("result_class", string(result.ResultClass)))
+					}
+					logger.Error(fmt.Sprintf("Failed %s: %s", result.WorkItemID, result.Error), fields...)
 				}
 			}
 		},
@@ -1389,18 +1494,40 @@ func executeParallel(files []string, cfg *config.Config, quiet bool, checkOnly b
 		return fmt.Errorf("parallel execution failed: %v", err)
 	}
 
+	runErr := &formatExecutionError{}
+	for _, result := range summary.Results {
+		if result.Success {
+			continue
+		}
+		resultErr := formatpkg.NewResultError(result.ResultClass, "", "", errors.New(result.Error))
+		switch result.ResultClass {
+		case formatpkg.ResultFormatDrift:
+			runErr.formatDrift++
+		case formatpkg.ResultToolUnavailable:
+			runErr.toolUnavailable++
+		case formatpkg.ResultToolExecution:
+			runErr.toolExecution++
+		case formatpkg.ResultFileIO:
+			runErr.fileIO++
+		default:
+			runErr.other++
+			resultErr = errors.New(result.Error)
+		}
+		runErr.causes = append(runErr.causes, resultErr)
+	}
+
 	// Report results
 	if !quiet {
 		avgPerFile := time.Duration(0)
 		if len(files) > 0 {
 			avgPerFile = summary.TotalDuration / time.Duration(len(files))
 		}
-		logger.Info(fmt.Sprintf("Parallel execution: files=%d, workers=%d, ok=%d, failed=%d, total=%v, avg/file=%v",
-			len(files), workerCount, summary.Successful, summary.Failed, summary.TotalDuration, avgPerFile))
+		logger.Info(fmt.Sprintf("Parallel execution: files=%d, workers=%d, ok=%d, need-format=%d, tool-unavailable=%d, tool-execution=%d, file-io=%d, other=%d, total=%v, avg/file=%v",
+			len(files), workerCount, summary.Successful, runErr.formatDrift, runErr.toolUnavailable, runErr.toolExecution, runErr.fileIO, runErr.other, summary.TotalDuration, avgPerFile))
 	}
 
 	if summary.Failed > 0 {
-		return fmt.Errorf("%d files failed to process", summary.Failed)
+		return runErr
 	}
 
 	return nil
@@ -1422,27 +1549,7 @@ func resolveParallelWorkers(requested int) int {
 
 // getContentTypeFromPath determines content type from file path
 func getContentTypeFromPath(path string) string {
-	ext := strings.ToLower(filepath.Ext(path))
-	switch ext {
-	case ".go":
-		return "go"
-	case ".yaml", ".yml":
-		return "yaml"
-	case ".json":
-		return "json"
-	case ".xml":
-		return "xml"
-	case ".md":
-		return "markdown"
-	case ".py", ".pyi":
-		return "python"
-	case ".js", ".jsx", ".mjs", ".cjs":
-		return "javascript"
-	case ".ts", ".tsx", ".mts", ".cts":
-		return "typescript"
-	default:
-		return "unknown"
-	}
+	return formatpkg.ContentTypeForPath(path)
 }
 
 // isXMLFile checks if a file is XML by reading the first few bytes
