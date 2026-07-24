@@ -60,7 +60,7 @@ licenses:
   exceptions:
     - package: "github.com/cyphar/filepath-securejoin"
       license: "MPL-2.0"
-      reason: "Transitive bounded-filesystem dependency of go-git/go-billy (pkg/ignore → go-billy/v5/osfs → filepath-securejoin); required by go-billy v5.9.0 / go-git v5.19.0. Replacement would force a rewrite of gitignore semantics, dirty-worktree checks, SSOT clone/ref resolution, dates, and propagation — blast radius too high for a patch release. MPL-2.0 is file-level weak copyleft; condition: unmodified dependency only, no MPL-covered files vendored or modified. Reviewed by @agent-entarch-fulmenhq."
+      reason: "Transitive bounded-filesystem dependency of go-git/go-billy (pkg/ignore → go-billy/v5/osfs → filepath-securejoin); required by go-billy v5.9.0 / go-git v5.19.1 and refreshed to filepath-securejoin v0.7.0 for upstream maintenance and optional libpathrs compatibility. Replacement would force a rewrite of gitignore semantics, dirty-worktree checks, SSOT clone/ref resolution, dates, and propagation — blast radius too high for a patch release. MPL-2.0 is file-level weak copyleft; condition: unmodified dependency only, no MPL-covered files vendored or modified."
       approved_by: "@3leapsdave"
       approved_date: "2026-05-17"
       until: "2026-09-30"  # Revisit at v0.5.13 or v0.6.0
