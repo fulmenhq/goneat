@@ -95,7 +95,7 @@ licenses:
 
 ```
 ERROR: go-licenses binary not found
-ERROR: Install with: go install github.com/google/go-licenses@latest
+ERROR: Install with: go install github.com/google/go-licenses/v2@v2.0.1
 ```
 
 **Solution:**
@@ -105,7 +105,7 @@ ERROR: Install with: go install github.com/google/go-licenses@latest
 goneat doctor tools --scope dependencies --install --yes
 
 # Option 2: Manual install
-go install github.com/google/go-licenses@latest
+go install github.com/google/go-licenses/v2@v2.0.1
 
 # Option 3: System package manager
 # macOS:

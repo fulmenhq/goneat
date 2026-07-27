@@ -34,7 +34,7 @@ tools:
     description: "License compliance tool"
     kind: "go"
     detect_command: "go-licenses -h"
-    install_package: "github.com/google/go-licenses@latest"
+    install_package: "github.com/google/go-licenses/v2@v2.0.1"
 `
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("Failed to create test config: %v", err)

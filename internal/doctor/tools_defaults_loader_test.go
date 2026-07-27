@@ -32,6 +32,27 @@ func TestLoadToolsDefaultsConfig(t *testing.T) {
 	}
 }
 
+func TestGoLicensesInstallPackagePinnedToV2(t *testing.T) {
+	t.Parallel()
+
+	config, err := LoadToolsDefaultsConfig()
+	if err != nil {
+		t.Fatalf("Failed to load tools defaults config: %v", err)
+	}
+
+	const want = "github.com/google/go-licenses/v2@v2.0.1"
+	for _, tool := range config.GetAllTools() {
+		if tool.Name == "go-licenses" {
+			if tool.InstallPackage != want {
+				t.Fatalf("go-licenses install package = %q, want %q", tool.InstallPackage, want)
+			}
+			return
+		}
+	}
+
+	t.Fatal("go-licenses tool definition not found")
+}
+
 func TestGetAllTools(t *testing.T) {
 	t.Parallel()
 	config, err := LoadToolsDefaultsConfig()
