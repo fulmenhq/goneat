@@ -113,7 +113,7 @@ brew install go-licenses
 
 # Verify:
 which go-licenses
-go-licenses version
+go version -m "$(command -v go-licenses)"
 ```
 
 ---
@@ -625,7 +625,7 @@ goneat dependencies --licenses --cooling --format json >> diagnostics.txt
 echo "=== Tool Versions ===" >> diagnostics.txt
 goneat version >> diagnostics.txt
 go version >> diagnostics.txt
-go-licenses version >> diagnostics.txt 2>&1 || echo "go-licenses not found" >> diagnostics.txt
+go version -m "$(command -v go-licenses)" >> diagnostics.txt 2>&1 || echo "go-licenses not found" >> diagnostics.txt
 syft version >> diagnostics.txt 2>&1 || echo "syft not found" >> diagnostics.txt
 
 # Config

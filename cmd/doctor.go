@@ -1016,12 +1016,23 @@ func handleUpgrade(cmd *cobra.Command, selected []intdoctor.Tool) error {
 		res := intdoctor.UpgradeTool(tool)
 		if res.Error != nil {
 			logger.Error(fmt.Sprintf("Upgrade failed for %s: %v", tool.Name, res.Error))
+			if res.Instructions != "" {
+				logger.Info(res.Instructions)
+			}
 			failed++
 			continue
 		}
 
 		// Re-detect version after upgrade
 		newStatus := intdoctor.CheckTool(tool)
+		if err := intdoctor.ValidateUpgradeResult(tool, newStatus); err != nil {
+			logger.Error(fmt.Sprintf("Upgrade verification failed for %s: %v", tool.Name, err))
+			if res.Instructions != "" {
+				logger.Info(res.Instructions)
+			}
+			failed++
+			continue
+		}
 		if newStatus.Version != "" {
 			logger.Info(fmt.Sprintf("%s upgraded to %s", tool.Name, newStatus.Version))
 		} else {

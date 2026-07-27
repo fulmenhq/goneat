@@ -192,6 +192,9 @@ go_tools:
     package_managers:
       all: ["go-install"]
     auto_install_safe: true
+    version_scheme: "semver"
+    minimum_version: "2.0.1"
+    recommended_version: "2.0.1"
   - name: golangci-lint
     description: "Fast linters runner for Go"
     kind: "go"
