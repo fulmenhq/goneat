@@ -16,7 +16,7 @@ require (
 	github.com/go-git/go-billy/v5 v5.9.0
 	github.com/go-git/go-git/v5 v5.19.1
 	github.com/google/go-licenses/v2 v2.0.1
-	github.com/mattn/go-runewidth v0.0.19
+	github.com/mattn/go-runewidth v0.0.24
 	github.com/open-policy-agent/opa v1.18.2
 	github.com/pelletier/go-toml/v2 v2.4.3
 	github.com/spf13/cobra v1.10.2
@@ -35,7 +35,7 @@ require (
 	github.com/ProtonMail/go-crypto v1.4.1 // indirect
 	github.com/agnivade/levenshtein v1.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/clipperhouse/uax29/v2 v2.6.0 // indirect
+	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/cloudflare/circl v1.6.4 // indirect
 	github.com/cyphar/filepath-securejoin v0.7.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect

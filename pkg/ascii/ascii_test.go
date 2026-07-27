@@ -194,7 +194,7 @@ func TestRuneWidth(t *testing.T) {
 		{'\U0001f3fb', 2, "emoji modifier"},
 		{'\U0001f1e6', 1, "regional indicator"},
 		{'\u0000', 0, "null character"},
-		{'\ufe0f', 1, "variation selector"},
+		{'\ufe0f', 0, "zero-width variation selector"},
 	}
 
 	for _, tt := range tests {
