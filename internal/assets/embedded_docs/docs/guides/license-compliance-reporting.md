@@ -362,7 +362,7 @@ For maximum confidence, verify goneat's results with independent tools:
 
 ```bash
 # Install go-licenses
-go install github.com/google/go-licenses@latest
+go install github.com/google/go-licenses/v2@v2.0.1
 
 # Run audit
 go-licenses csv github.com/yourorg/yourproject | grep -i "gpl"

@@ -6,7 +6,7 @@ func TestInferRepoFromGoInstallPackage(t *testing.T) {
 	if got := inferRepoFromGoInstallPackage("github.com/rhysd/actionlint/cmd/actionlint@latest"); got != "rhysd/actionlint" {
 		t.Fatalf("expected rhysd/actionlint, got %q", got)
 	}
-	if got := inferRepoFromGoInstallPackage("github.com/google/go-licenses@latest"); got != "google/go-licenses" {
+	if got := inferRepoFromGoInstallPackage("github.com/google/go-licenses/v2@v2.0.1"); got != "google/go-licenses" {
 		t.Fatalf("expected google/go-licenses, got %q", got)
 	}
 	if got := inferRepoFromGoInstallPackage("golang.org/x/vuln/cmd/govulncheck@latest"); got != "" {

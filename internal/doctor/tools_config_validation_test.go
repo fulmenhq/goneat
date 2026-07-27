@@ -268,7 +268,7 @@ tools:
     description: "License compliance checker"
     kind: "go"
     detect_command: "go-licenses version"
-    install_package: "github.com/google/go-licenses@latest"
+    install_package: "github.com/google/go-licenses/v2@v2.0.1"
 
   yamllint:
     name: "yamllint"

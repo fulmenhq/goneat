@@ -23,7 +23,7 @@ and how to configure or suppress them.
 | `golangci-lint`       | lint         | `brew install golangci-lint`                                           |
 | `gosec`               | security     | `brew install gosec`                                                   |
 | `govulncheck`         | security     | `go install golang.org/x/vuln/cmd/govulncheck@latest`                  |
-| `go-licenses`         | dependencies | `go install github.com/google/go-licenses@latest`                      |
+| `go-licenses`         | dependencies | `go install github.com/google/go-licenses/v2@v2.0.1`                   |
 
 ```bash
 # Install all Go tools via goneat

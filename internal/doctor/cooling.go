@@ -102,7 +102,7 @@ func CheckToolCoolingPolicy(tool Tool, disableCooling bool, reg *metadata.Regist
 func inferRepoFromGoInstallPackage(installPackage string) string {
 	// Examples:
 	// - github.com/rhysd/actionlint/cmd/actionlint@latest -> rhysd/actionlint
-	// - github.com/google/go-licenses@latest -> google/go-licenses
+	// - github.com/google/go-licenses/v2@v2.0.1 -> google/go-licenses
 	installPackage = strings.TrimSpace(installPackage)
 	if installPackage == "" {
 		return ""

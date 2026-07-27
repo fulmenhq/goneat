@@ -757,7 +757,7 @@ license-inventory: ## Generate CSV inventory of dependency licenses
 	@mkdir -p docs/licenses dist/reports
 	@if ! command -v go-licenses >/dev/null 2>&1; then \
 		echo "Installing go-licenses..."; \
-		GOBIN=$$(go env GOPATH)/bin go install github.com/google/go-licenses@latest; \
+		GOBIN=$$(go env GOPATH)/bin go install github.com/google/go-licenses/v2@v2.0.1; \
 	fi
 	@go-licenses csv . | tee docs/licenses/inventory.csv >/dev/null
 	@echo "✅ Wrote docs/licenses/inventory.csv"
@@ -767,7 +767,7 @@ license-save: ## Save third-party license texts (for distribution)
 	@rm -rf docs/licenses/third-party
 	@if ! command -v go-licenses >/dev/null 2>&1; then \
 		echo "Installing go-licenses..."; \
-		GOBIN=$$(go env GOPATH)/bin go install github.com/google/go-licenses@latest; \
+		GOBIN=$$(go env GOPATH)/bin go install github.com/google/go-licenses/v2@v2.0.1; \
 	fi
 	@go-licenses save . --save_path=docs/licenses/third-party
 	@echo "✅ Saved third-party licenses to docs/licenses/third-party"
@@ -776,7 +776,7 @@ license-audit: ## Audit dependencies for forbidden licenses; fail on detection
 	@echo "🧪 Auditing dependency licenses..."
 	@if ! command -v go-licenses >/dev/null 2>&1; then \
 		echo "Installing go-licenses..."; \
-		GOBIN=$$(go env GOPATH)/bin go install github.com/google/go-licenses@latest; \
+		GOBIN=$$(go env GOPATH)/bin go install github.com/google/go-licenses/v2@v2.0.1; \
 	fi
 	@mkdir -p dist/reports; \
 	forbidden='GPL|LGPL|AGPL|MPL|CDDL'; \
