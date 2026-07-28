@@ -92,18 +92,3 @@ func ParseConfig(configBytes []byte) (*ToolsConfig, error) {
 func ValidateConfig(configPath string) error {
 	return pkgtools.ValidateFile(configPath)
 }
-
-// CreateDefaultConfig creates a default configuration file on disk.
-func CreateDefaultConfig(configPath string) error {
-	dir := filepath.Dir(configPath)
-	if err := os.MkdirAll(dir, 0o750); err != nil {
-		return fmt.Errorf("failed to create config directory: %w", err)
-	}
-
-	cfgBytes := GetDefaultToolsConfig()
-	if err := os.WriteFile(configPath, cfgBytes, 0o600); err != nil {
-		return fmt.Errorf("failed to write config file: %w", err)
-	}
-
-	return nil
-}

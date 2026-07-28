@@ -1,7 +1,9 @@
 # Tools Runner Usage Guide
 
-**Version**: v0.3.0  
-**Last Updated**: 2025-10-14  
+**Version**: v0.3.0
+
+**Last Updated**: 2026-07-28
+
 **Component**: Infrastructure Tools Management
 
 ## Overview
@@ -29,8 +31,8 @@ The Tools Runner is goneat's infrastructure tools management system that provide
 ### Schema Location
 
 - **Schema**: `schemas/tools/v1.0.0/tools-config.yaml`
-- **Default Config**: `internal/doctor/tools-defaults.yaml` (embedded)
-- **User Override**: `.goneat/tools.yaml` (optional)
+- **Foundation Defaults**: `config/tools/foundation-tools-defaults.yaml` (embedded for `goneat doctor tools init`)
+- **Repository Config**: `.goneat/tools.yaml` (explicit runtime source of truth; no hidden defaults merge)
 
 ### Schema Structure
 
