@@ -107,7 +107,7 @@ tools:
         - winget
     version_scheme: semver
     minimum_version: "1.7.0"
-    recommended_version: "1.7.1"
+    recommended_version: "1.8.2"
   yq:
     name: yq
     description: YAML processor
@@ -127,7 +127,7 @@ tools:
         - winget
     version_scheme: semver
     minimum_version: "4.40.0"
-    recommended_version: "4.53.2"
+    recommended_version: "4.53.3"
   yamlfmt:
     name: yamlfmt
     description: YAML formatter
@@ -161,7 +161,7 @@ tools:
         - npm
     version_scheme: semver
     minimum_version: "3.0.0"
-    recommended_version: "3.8.0"
+    recommended_version: "3.9.6"
   yamllint:
     name: yamllint
     description: YAML syntax linting
@@ -194,6 +194,8 @@ tools:
     installer_priority:
       all:
         - go-install
+    version_scheme: semver
+    recommended_version: "3.13.1"
   shellcheck:
     name: shellcheck
     description: Shell script analyzer
@@ -229,7 +231,7 @@ tools:
         - go-install
     version_scheme: semver
     minimum_version: "1.7.0"
-    recommended_version: "1.7.8"
+    recommended_version: "1.7.12"
   checkmake:
     name: checkmake
     description: Makefile linter
@@ -284,7 +286,7 @@ tools:
         - winget
     version_scheme: semver
     minimum_version: "1.25.0"
-    recommended_version: "1.26.4"
+    recommended_version: "1.26.5"
   go-licenses:
     name: go-licenses
     description: License compliance for Go dependencies
@@ -320,7 +322,7 @@ tools:
         - go-install
     version_scheme: semver
     minimum_version: "2.0.0"
-    recommended_version: "2.10.0"
+    recommended_version: "2.12.2"
   goimports:
     name: goimports
     description: Go import formatter
@@ -363,7 +365,7 @@ tools:
         - go-install
     version_scheme: semver
     minimum_version: "2.18.0"
-    recommended_version: "2.23.0"
+    recommended_version: "2.28.0"
   govulncheck:
     name: govulncheck
     description: Go vulnerability checker
@@ -379,7 +381,7 @@ tools:
         - go-install
     version_scheme: semver
     minimum_version: "1.0.0"
-    recommended_version: "1.1.0"
+    recommended_version: "1.6.0"
   # ==========================================================================
   # RUST TOOLS
   # ==========================================================================
@@ -441,7 +443,7 @@ tools:
         - pip
     version_scheme: semver
     minimum_version: "0.8.0"
-    recommended_version: "0.15.0"
+    recommended_version: "0.15.22"
   # ==========================================================================
   # TYPESCRIPT TOOLS
   # ==========================================================================
@@ -462,7 +464,7 @@ tools:
         - npm
     version_scheme: semver
     minimum_version: "2.0.0"
-    recommended_version: "2.4.0"
+    recommended_version: "2.5.5"
   tsc:
     name: tsc
     description: TypeScript compiler for type checking
@@ -497,6 +499,8 @@ tools:
     installer_priority:
       all:
         - go-install
+    version_scheme: semver
+    recommended_version: "8.30.1"
   # ==========================================================================
   # SBOM TOOLS
   # ==========================================================================
@@ -522,7 +526,7 @@ tools:
         - scoop
     version_scheme: semver
     minimum_version: "1.0.0"
-    recommended_version: "1.45.0"
+    recommended_version: "1.50.0"
   grype:
     name: grype
     description: Vulnerability scanner for container images and SBOMs
@@ -545,4 +549,4 @@ tools:
         - scoop
     version_scheme: semver
     minimum_version: "0.80.0"
-    recommended_version: "0.113.0"
+    recommended_version: "0.116.0"

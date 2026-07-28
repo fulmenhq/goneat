@@ -65,6 +65,89 @@ func TestGoLicensesDefaultsPinnedToV2(t *testing.T) {
 	t.Fatal("go-licenses tool definition not found")
 }
 
+func TestRecommendedToolVersionLock(t *testing.T) {
+	t.Parallel()
+
+	defaults, err := LoadToolsDefaultsConfig()
+	if err != nil {
+		t.Fatalf("Failed to load tools defaults config: %v", err)
+	}
+	repository, err := LoadToolsConfig()
+	if err != nil {
+		t.Fatalf("Failed to load repository tools config: %v", err)
+	}
+
+	type expectedVersion struct {
+		recommended       string
+		defaultMinimum    string
+		repositoryMinimum string
+	}
+	expected := map[string]expectedVersion{
+		"actionlint":    {recommended: "1.7.12", defaultMinimum: "1.7.0", repositoryMinimum: "1.7.0"},
+		"biome":         {recommended: "2.5.5", defaultMinimum: "2.0.0", repositoryMinimum: "2.0.0"},
+		"gitleaks":      {recommended: "8.30.1"},
+		"go":            {recommended: "1.26.5", defaultMinimum: "1.21.0", repositoryMinimum: "1.25.0"},
+		"go-licenses":   {recommended: "2.0.1", defaultMinimum: "2.0.1", repositoryMinimum: "2.0.1"},
+		"golangci-lint": {recommended: "2.12.2", defaultMinimum: "2.0.0", repositoryMinimum: "2.0.0"},
+		"gosec":         {recommended: "2.28.0", defaultMinimum: "2.18.0", repositoryMinimum: "2.18.0"},
+		"govulncheck":   {recommended: "1.6.0", defaultMinimum: "1.0.0", repositoryMinimum: "1.0.0"},
+		"grype":         {recommended: "0.116.0", defaultMinimum: "0.80.0", repositoryMinimum: "0.80.0"},
+		"jq":            {recommended: "1.8.2", defaultMinimum: "1.7.0", repositoryMinimum: "1.7.0"},
+		"prettier":      {recommended: "3.9.6", defaultMinimum: "3.0.0", repositoryMinimum: "3.0.0"},
+		"ruff":          {recommended: "0.15.22", defaultMinimum: "0.8.0", repositoryMinimum: "0.8.0"},
+		"shfmt":         {recommended: "3.13.1"},
+		"syft":          {recommended: "1.50.0", defaultMinimum: "1.0.0", repositoryMinimum: "1.0.0"},
+		"yamlfmt":       {recommended: "0.21.0", defaultMinimum: "0.16.0", repositoryMinimum: "0.16.0"},
+		"yamllint":      {recommended: "1.38.0", defaultMinimum: "1.33.0", repositoryMinimum: "1.33.0"},
+		"yq":            {recommended: "4.53.3", defaultMinimum: "4.40.0", repositoryMinimum: "4.40.0"},
+	}
+
+	defaultTools := make(map[string]ToolDefinition)
+	for _, tool := range defaults.GetAllTools() {
+		defaultTools[tool.Name] = tool
+	}
+
+	for name, want := range expected {
+		t.Run(name, func(t *testing.T) {
+			defaultTool, ok := defaultTools[name]
+			if !ok {
+				t.Fatalf("default tool %q not found", name)
+			}
+			assertToolVersionLock(t, "defaults", defaultTool.VersionScheme, defaultTool.MinimumVersion,
+				defaultTool.RecommendedVersion, want.defaultMinimum, want.recommended)
+
+			repositoryTool, ok := repository.Tools[name]
+			if !ok {
+				t.Fatalf("repository tool %q not found", name)
+			}
+			assertToolVersionLock(t, "repository", repositoryTool.VersionScheme, repositoryTool.MinimumVersion,
+				repositoryTool.RecommendedVersion, want.repositoryMinimum, want.recommended)
+		})
+	}
+}
+
+func assertToolVersionLock(
+	t *testing.T,
+	surface string,
+	versionScheme string,
+	minimumVersion string,
+	recommendedVersion string,
+	wantMinimum string,
+	wantRecommended string,
+) {
+	t.Helper()
+
+	if versionScheme != "semver" {
+		t.Errorf("%s version scheme = %q, want semver", surface, versionScheme)
+	}
+	if minimumVersion != wantMinimum {
+		t.Errorf("%s minimum version = %q, want %q", surface, minimumVersion, wantMinimum)
+	}
+	if recommendedVersion != wantRecommended {
+		t.Errorf("%s recommended version = %q, want %q", surface, recommendedVersion, wantRecommended)
+	}
+}
+
 func TestGetAllTools(t *testing.T) {
 	t.Parallel()
 	config, err := LoadToolsDefaultsConfig()
