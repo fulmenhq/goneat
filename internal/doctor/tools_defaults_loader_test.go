@@ -32,7 +32,7 @@ func TestLoadToolsDefaultsConfig(t *testing.T) {
 	}
 }
 
-func TestGoLicensesInstallPackagePinnedToV2(t *testing.T) {
+func TestGoLicensesDefaultsPinnedToV2(t *testing.T) {
 	t.Parallel()
 
 	config, err := LoadToolsDefaultsConfig()
@@ -40,11 +40,23 @@ func TestGoLicensesInstallPackagePinnedToV2(t *testing.T) {
 		t.Fatalf("Failed to load tools defaults config: %v", err)
 	}
 
-	const want = "github.com/google/go-licenses/v2@v2.0.1"
+	const (
+		wantPackage = "github.com/google/go-licenses/v2@v2.0.1"
+		wantVersion = "2.0.1"
+	)
 	for _, tool := range config.GetAllTools() {
 		if tool.Name == "go-licenses" {
-			if tool.InstallPackage != want {
-				t.Fatalf("go-licenses install package = %q, want %q", tool.InstallPackage, want)
+			if tool.InstallPackage != wantPackage {
+				t.Fatalf("go-licenses install package = %q, want %q", tool.InstallPackage, wantPackage)
+			}
+			if tool.VersionScheme != "semver" {
+				t.Fatalf("go-licenses version scheme = %q, want semver", tool.VersionScheme)
+			}
+			if tool.MinimumVersion != wantVersion {
+				t.Fatalf("go-licenses minimum version = %q, want %q", tool.MinimumVersion, wantVersion)
+			}
+			if tool.RecommendedVersion != wantVersion {
+				t.Fatalf("go-licenses recommended version = %q, want %q", tool.RecommendedVersion, wantVersion)
 			}
 			return
 		}

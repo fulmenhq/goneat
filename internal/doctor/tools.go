@@ -159,20 +159,11 @@ func CheckTool(t Tool) Status {
 		logger.Warn(fmt.Sprintf("resolver error for %s: %v", t.Name, err))
 	}
 
-	if _, err := exec.LookPath(t.Name); err == nil {
-		version := detectVersion(t)
-		if version == "" && t.DetectCommand != "" {
-			parts := strings.Fields(t.DetectCommand)
-			if len(parts) > 0 {
-				if output, ok := tryCommand(parts[0], parts[1:]...); ok {
-					version = sanitizeVersion(output)
-				}
-			}
-		}
+	if binaryPath, err := exec.LookPath(t.Name); err == nil {
 		status := Status{
 			Name:    t.Name,
 			Present: true,
-			Version: version,
+			Version: detectVersionWithPath(t, binaryPath),
 		}
 		applyVersionPolicy(t, &status)
 		return status
@@ -232,6 +223,12 @@ func CheckTool(t Tool) Status {
 
 // checkGoToolInstallation provides enhanced detection for Go-installed tools
 func checkGoToolInstallation(t Tool) Status {
+	return checkGoToolInstallationWith(t, detectVersionWithPath)
+}
+
+type toolVersionDetector func(Tool, string) string
+
+func checkGoToolInstallationWith(t Tool, detect toolVersionDetector) Status {
 	// Check if Go is available for installation
 	goAvailable := commandExists("go")
 	if !goAvailable {
@@ -258,6 +255,7 @@ func checkGoToolInstallation(t Tool) Status {
 			return Status{
 				Name:         t.Name,
 				Present:      false,
+				Version:      detect(t, candidatePath),
 				Instructions: buildEnhancedPathInstructions(candidatePath, t.Name),
 			}
 		}
@@ -543,9 +541,19 @@ func detectVersionWithPath(t Tool, binaryPath string) string {
 	if binaryPath == "" {
 		return ""
 	}
+
+	if t.Kind == "go" {
+		return detectGoToolVersionAtPathWith(t, binaryPath, detectGoBinaryVersion)
+	}
+
 	if len(t.VersionArgs) > 0 {
 		if output, ok := tryCommand(binaryPath, t.VersionArgs...); ok {
 			return sanitizeVersion(output)
+		}
+	}
+	if len(t.CheckArgs) > 0 {
+		if output, ok := tryCommand(binaryPath, t.CheckArgs...); ok {
+			return extractFirstVersionToken(output)
 		}
 	}
 	if t.DetectCommand != "" {
@@ -557,6 +565,37 @@ func detectVersionWithPath(t Tool, binaryPath string) string {
 		}
 	}
 	return ""
+}
+
+type goBinaryVersionReader func(string) string
+
+func detectGoToolVersionAtPathWith(t Tool, binaryPath string, readBuildVersion goBinaryVersionReader) string {
+	for _, args := range [][]string{t.VersionArgs, t.CheckArgs} {
+		if len(args) == 0 {
+			continue
+		}
+		if output, ok := tryCommand(binaryPath, args...); ok {
+			if version := extractFirstVersionToken(output); version != "" {
+				return version
+			}
+		}
+	}
+
+	if t.DetectCommand != "" {
+		parts := strings.Fields(t.DetectCommand)
+		if len(parts) > 0 {
+			if output, ok := tryCommand(binaryPath, parts[1:]...); ok {
+				if version := extractFirstVersionToken(output); version != "" {
+					return version
+				}
+			}
+		}
+	}
+
+	if readBuildVersion == nil {
+		return ""
+	}
+	return readBuildVersion(binaryPath)
 }
 
 func installGoTool(t Tool) Status {
@@ -585,22 +624,25 @@ func installGoTool(t Tool) Status {
 		}
 	}
 
+	installedPath := goInstalledBinaryPath(t.Name)
 	status := Status{
 		Name:      t.Name,
 		Installed: true,
-		Version:   detectVersion(t),
 	}
-	if _, err := exec.LookPath(t.Name); err == nil {
+	if binaryPath, err := exec.LookPath(t.Name); err == nil {
 		status.Present = true
+		status.Version = detectVersionWithPath(t, binaryPath)
 		applyVersionPolicy(t, &status)
+		verifyGoInstallResult(t, &status, binaryPath, installedPath)
 		return status
 	}
 
-	if goBin := getGoBinPath(); goBin != "" {
-		candidate := filepath.Join(goBin, t.Name)
-		if _, err := os.Stat(candidate); err == nil {
+	if installedPath != "" {
+		if _, err := os.Stat(installedPath); err == nil {
 			status.Present = false
-			status.Instructions = buildPathInstructions(candidate)
+			status.Version = detectVersionWithPath(t, installedPath)
+			status.Error = fmt.Errorf("go install wrote %s, but %s is not active in PATH", installedPath, t.Name)
+			status.Instructions = buildPathInstructions(installedPath)
 			return status
 		}
 	}
@@ -609,6 +651,94 @@ func installGoTool(t Tool) Status {
 	status.Error = fmt.Errorf("go install succeeded but %s not found in PATH", t.Name)
 	status.Instructions = fmt.Sprintf("Tool should be available under %s. Update PATH and retry.", getGoBinPath())
 	return status
+}
+
+func goInstalledBinaryPath(toolName string) string {
+	goBin := getGoBinPath()
+	if goBin == "" {
+		return ""
+	}
+	name := toolName
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	return filepath.Join(goBin, name)
+}
+
+func verifyGoInstallResult(t Tool, status *Status, activePath, installedPath string) {
+	if status == nil {
+		return
+	}
+	if err := ValidateUpgradeResult(t, *status); err != nil {
+		if installedPath != "" && !sameBinaryFile(activePath, installedPath) {
+			if _, statErr := os.Stat(installedPath); statErr == nil {
+				status.Error = fmt.Errorf(
+					"go install wrote %s, but PATH still resolves %s %s at %s: %w",
+					installedPath,
+					t.Name,
+					versionOrUnknown(status.Version),
+					activePath,
+					err,
+				)
+				status.Instructions = fmt.Sprintf(
+					"Put %s before %s in PATH, then rerun 'goneat doctor tools --tools %s'.",
+					filepath.Dir(installedPath),
+					filepath.Dir(activePath),
+					t.Name,
+				)
+				return
+			}
+		}
+		status.Error = fmt.Errorf("go install completed, but the active %s binary does not satisfy the configured policy: %w", t.Name, err)
+	}
+}
+
+func sameBinaryFile(left, right string) bool {
+	leftAbs, leftErr := filepath.Abs(left)
+	rightAbs, rightErr := filepath.Abs(right)
+	if leftErr == nil && rightErr == nil && filepath.Clean(leftAbs) == filepath.Clean(rightAbs) {
+		return true
+	}
+
+	leftInfo, leftErr := os.Stat(left)
+	rightInfo, rightErr := os.Stat(right)
+	return leftErr == nil && rightErr == nil && os.SameFile(leftInfo, rightInfo)
+}
+
+func versionOrUnknown(version string) string {
+	if strings.TrimSpace(version) == "" {
+		return "(version unknown)"
+	}
+	return version
+}
+
+// ValidateUpgradeResult verifies that the active binary satisfies the configured
+// version policy after an installer reports success.
+func ValidateUpgradeResult(t Tool, status Status) error {
+	if !status.Present {
+		return fmt.Errorf("%s is not active in PATH after upgrade", t.Name)
+	}
+	if t.VersionPolicy.IsZero() {
+		return nil
+	}
+	if status.PolicyError != nil {
+		return status.PolicyError
+	}
+	if status.PolicyEvaluation == nil {
+		return fmt.Errorf("unable to evaluate active %s version %q", t.Name, status.Version)
+	}
+
+	eval := status.PolicyEvaluation
+	if eval.IsDisallowed {
+		return fmt.Errorf("active version %s is disallowed", eval.ActualVersion)
+	}
+	if !eval.MeetsMinimum {
+		return fmt.Errorf("active version %s is below minimum %s", eval.ActualVersion, eval.MinimumVersion)
+	}
+	if strings.TrimSpace(eval.RecommendedVersion) != "" && !eval.MeetsRecommended {
+		return fmt.Errorf("active version %s is below recommended %s", eval.ActualVersion, eval.RecommendedVersion)
+	}
+	return nil
 }
 
 func installCargoTool(t Tool) Status {
@@ -665,19 +795,11 @@ func installCargoTool(t Tool) Status {
 }
 
 func detectVersion(t Tool) string {
-	// Try version args first
-	if len(t.VersionArgs) > 0 {
-		if ver, ok := tryCommand(t.Name, t.VersionArgs...); ok {
-			return sanitizeVersion(ver)
-		}
+	binaryPath := t.Name
+	if resolvedPath, err := exec.LookPath(t.Name); err == nil {
+		binaryPath = resolvedPath
 	}
-	// Fallback: run with help and try to parse a version-like token (best-effort)
-	if len(t.CheckArgs) > 0 {
-		if help, ok := tryCommand(t.Name, t.CheckArgs...); ok {
-			return extractFirstVersionToken(help)
-		}
-	}
-	return ""
+	return detectVersionWithPath(t, binaryPath)
 }
 
 func tryCommand(name string, args ...string) (string, bool) {
