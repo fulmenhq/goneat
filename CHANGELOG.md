@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.15] - 2026-07-28
+
+### Fixed
+
+- **Standalone formatter coverage**: `goneat format` now fails when a required external formatter is unavailable, with `--ignore-missing-tools` as the explicit degradation path.
+- **Doctor upgrade verification**: Go-tool upgrades retain versions for binaries discovered outside PATH, re-resolve the active binary after installation, detect PATH shadowing, and honor configured CLI version probes.
+
+### Changed
+
+- **go-licenses v2 alignment**: maintained Make, CI, doctor, policy, embedded-default, and documentation surfaces now pin `github.com/google/go-licenses/v2@v2.0.1`.
+- **Tool configuration cleanup**: removed the deprecated hidden doctor defaults path; embedded foundation defaults initialize policy, while `.goneat/tools.yaml` remains the runtime source of truth.
+- **Dependency maintenance**: refreshed direct, security-sensitive, resolver, and Unicode dependencies while retaining the `go 1.25.0` module floor and existing MPL-2.0 exception for unmodified `filepath-securejoin`.
+- **Foundation recommendations**: refreshed recommended tool versions without raising minimum versions or changing the v0.4.2 CI runner; Syft 1.50.0 is a narrow named-High remediation exception, and Homebrew reached that version before release closeout.
+
 ## [v0.5.14] - 2026-07-07
 
 ### Added
