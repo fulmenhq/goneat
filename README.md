@@ -84,11 +84,13 @@ goneat provides **language-aware assessment** with automatic tool detection:
 goneat doctor tools init                           # Generate .goneat/tools.yaml for your repo
 goneat doctor tools --scope foundation --install   # Install rg, jq, yq, prettier, yamlfmt...
 goneat doctor tools --scope python --install       # Install ruff
-goneat doctor tools --scope security --install     # Install gosec, govulncheck, gitleaks
+goneat doctor tools --scope go --install           # Install Go tools, including gosec and govulncheck
+goneat doctor tools --scope security --install     # Install cross-language gitleaks
+goneat doctor tools --scope sbom --install         # Install syft and grype
 goneat doctor tools --scope all --install          # Install everything
 ```
 
-The `foundation` scope includes common DX tools (ripgrep, jq, yq) plus language-specific formatters. All tool configuration lives in `.goneat/tools.yaml`—no hidden defaults.
+The `foundation` scope includes common DX tools (ripgrep, jq, yq) plus shared formatters and linters. All tool configuration lives in `.goneat/tools.yaml`—no hidden defaults.
 
 ## Core Capabilities
 
