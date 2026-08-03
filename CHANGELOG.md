@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **CI tools runner pin**: `.github/workflows/ci.yml` container jobs now use
+  `ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.1` (was `:v0.4.2`). That image
+  is the fulmen-toolbox v0.5.0 content cut (republished as v0.5.1 for release-
+  pipeline hygiene) and includes `ruff` for Python format/lint parity with
+  goneat v0.5.15 fail-closed formatter preflight, plus Go 1.26.5 and the v0.5.0
+  CVE/tool sweep. Container-probe smoke now checks `ruff --version`.
+
 ## [v0.5.15] - 2026-07-28
 
 ### Fixed
