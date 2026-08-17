@@ -222,7 +222,7 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 				Config:        &depsCfg,
 			}
 
-			analysisResult, err := analyzer.Analyze(context.Background(), target, analysisConfig)
+			analysisResult, err := dependencies.RunCoolingAwareAnalysis(context.Background(), target, analysisConfig, lang, analyzer, dependencies.NewRustAnalyzer())
 			if err != nil {
 				return err
 			}

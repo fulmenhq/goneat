@@ -216,16 +216,7 @@ func (a *GoAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisCon
 							if err != nil {
 								continue
 							}
-							if !coolingResult.Passed {
-								for _, violation := range coolingResult.Violations {
-									message := violation.Message
-									if violation.Type != "" {
-										message = fmt.Sprintf("[%s] %s", violation.Type, violation.Message)
-									}
-									issues = append(issues, Issue{Type: string(violation.Type), Severity: string(violation.Severity), Message: message, Dependency: dep})
-									passed = false
-								}
-							}
+							recordCoolingResult(&issues, &passed, dep, coolingResult)
 						}
 					}
 				}

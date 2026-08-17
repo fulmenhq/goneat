@@ -9,16 +9,37 @@ import (
 	"time"
 )
 
-// CratesClient implements Client for crates.io registry
-type CratesClient struct {
-	baseURL string
-	cache   map[string]*cacheEntry
-	mu      sync.RWMutex
-	ttl     time.Duration
-	fetcher HTTPFetcher
+// cratesIOMinInterval is the crates.io crawler-policy maximum: 1 request/sec.
+// https://crates.io/data-access
+const cratesIOMinInterval = time.Second
+
+// cratesIOUserAgent identifies goneat and how to reach us (required + recommended).
+const cratesIOUserAgent = "goneat (https://github.com/fulmenhq/goneat; hello@3leaps.net)"
+
+type crateVersionMeta struct {
+	createdAt time.Time
+	downloads int
 }
 
-// NewCratesClient creates a CratesClient with real HTTP for production use
+type crateRecord struct {
+	totalDownloads int
+	versions       map[string]crateVersionMeta
+	expiry         time.Time
+}
+
+// CratesClient implements Client for crates.io registry
+type CratesClient struct {
+	baseURL     string
+	cache       map[string]*crateRecord // keyed by crate name
+	mu          sync.RWMutex
+	ttl         time.Duration
+	fetcher     HTTPFetcher
+	minInterval time.Duration
+	lastFetch   time.Time
+	rateMu      sync.Mutex
+}
+
+// NewCratesClient creates a CratesClient with real HTTP and 1 req/s throttling.
 func NewCratesClient(ttl time.Duration) Client {
 	client := &http.Client{
 		Timeout: 30 * time.Second,
@@ -29,38 +50,56 @@ func NewCratesClient(ttl time.Duration) Client {
 		},
 	}
 
-	return NewCratesClientWithFetcher(ttl, NewRealHTTPFetcher(client))
+	return newCratesClient(ttl, NewRealHTTPFetcher(client), cratesIOMinInterval)
 }
 
-// NewCratesClientWithFetcher creates a CratesClient with injectable HTTP for testing
+// NewCratesClientWithFetcher creates a CratesClient with injectable HTTP for testing.
+// Tests use minInterval=0 so they do not sleep.
 func NewCratesClientWithFetcher(ttl time.Duration, fetcher HTTPFetcher) Client {
+	return newCratesClient(ttl, fetcher, 0)
+}
+
+func newCratesClient(ttl time.Duration, fetcher HTTPFetcher, minInterval time.Duration) *CratesClient {
 	return &CratesClient{
-		baseURL: "https://crates.io/api/v1",
-		cache:   make(map[string]*cacheEntry),
-		ttl:     ttl,
-		fetcher: fetcher,
+		baseURL:     "https://crates.io/api/v1",
+		cache:       make(map[string]*crateRecord),
+		ttl:         ttl,
+		fetcher:     fetcher,
+		minInterval: minInterval,
 	}
 }
 
 func (c *CratesClient) GetMetadata(name, version string) (*Metadata, error) {
-	key := fmt.Sprintf("%s@%s", name, version)
-	c.mu.RLock()
-	entry, ok := c.cache[key]
-	c.mu.RUnlock()
-
-	if ok && time.Now().Before(entry.expiry) {
-		return entry.meta, nil
+	if rec := c.cachedCrate(name); rec != nil {
+		return metadataFromCrate(rec, version)
 	}
 
-	// Fetch crate metadata
-	crateURL := fmt.Sprintf("%s/crates/%s", c.baseURL, name)
+	rec, err := c.fetchCrate(name)
+	if err != nil {
+		return nil, err
+	}
+	return metadataFromCrate(rec, version)
+}
 
-	// Create request with User-Agent (required by crates.io)
+func (c *CratesClient) cachedCrate(name string) *crateRecord {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	rec, ok := c.cache[name]
+	if !ok || rec == nil || time.Now().After(rec.expiry) {
+		return nil
+	}
+	return rec
+}
+
+func (c *CratesClient) fetchCrate(name string) (*crateRecord, error) {
+	c.throttle()
+
+	crateURL := fmt.Sprintf("%s/crates/%s", c.baseURL, name)
 	req, err := http.NewRequest("GET", crateURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	req.Header.Set("User-Agent", "goneat/0.3.0 (https://github.com/fulmenhq/goneat)")
+	req.Header.Set("User-Agent", cratesIOUserAgent)
 
 	crateResp, err := c.fetcher.Do(req)
 	if err != nil {
@@ -84,37 +123,48 @@ func (c *CratesClient) GetMetadata(name, version string) (*Metadata, error) {
 	}
 
 	if err := json.NewDecoder(crateResp.Body).Decode(&crateData); err != nil {
-		_ = crateResp.Body.Close()
 		return nil, fmt.Errorf("failed to decode crate metadata: %w", err)
 	}
 
-	// Find the requested version
-	var publishDate time.Time
-	var versionDownloads int
-	found := false
-
+	rec := &crateRecord{
+		totalDownloads: crateData.Crate.Downloads,
+		versions:       make(map[string]crateVersionMeta, len(crateData.Versions)),
+		expiry:         time.Now().Add(c.ttl),
+	}
 	for _, v := range crateData.Versions {
-		if v.Num == version {
-			publishDate = v.CreatedAt
-			versionDownloads = v.Downloads
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		return nil, fmt.Errorf("version %s not found in crate metadata", version)
-	}
-
-	meta := &Metadata{
-		PublishDate:     publishDate,
-		TotalDownloads:  crateData.Crate.Downloads,
-		RecentDownloads: versionDownloads,
+		rec.versions[v.Num] = crateVersionMeta{createdAt: v.CreatedAt, downloads: v.Downloads}
 	}
 
 	c.mu.Lock()
-	c.cache[key] = &cacheEntry{meta: meta, expiry: time.Now().Add(c.ttl)}
+	c.cache[name] = rec
 	c.mu.Unlock()
+	return rec, nil
+}
 
-	return meta, nil
+func (c *CratesClient) throttle() {
+	if c.minInterval <= 0 {
+		return
+	}
+	c.rateMu.Lock()
+	defer c.rateMu.Unlock()
+	if !c.lastFetch.IsZero() {
+		if wait := c.minInterval - time.Since(c.lastFetch); wait > 0 {
+			time.Sleep(wait)
+		}
+	}
+	c.lastFetch = time.Now()
+}
+
+func metadataFromCrate(rec *crateRecord, version string) (*Metadata, error) {
+	v, ok := rec.versions[version]
+	if !ok {
+		return nil, fmt.Errorf("version %s not found in crate metadata", version)
+	}
+	// RecentDownloads stays the crates.io per-version lifetime count.
+	// Rust cooling must not treat this as a 30-day window.
+	return &Metadata{
+		PublishDate:     v.createdAt,
+		TotalDownloads:  rec.totalDownloads,
+		RecentDownloads: v.downloads,
+	}, nil
 }

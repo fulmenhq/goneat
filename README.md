@@ -74,6 +74,18 @@ goneat provides **language-aware assessment** with automatic tool detection:
 | **Makefiles**      | Yes  | —      | —         | checkmake                            | `brew install checkmake`              |
 | **GitHub Actions** | Yes  | —      | —         | actionlint                           | `brew install actionlint`             |
 
+**Package cooling** (`goneat dependencies --cooling`) is language-specific. Only wired engines enforce age:
+
+| Language        | Cooling registry                         | Status                                                                 |
+| --------------- | ---------------------------------------- | ---------------------------------------------------------------------- |
+| **Go**          | `proxy.golang.org`                       | Wired                                                                  |
+| **Rust**        | crates.io                                | Wired (`Cargo.lock` / `cargo metadata`; not `cargo-deny`)              |
+| **JavaScript**  | npm client exists                        | Not wired — analyzer is a stub                                         |
+| **Python**      | PyPI client exists                       | Not wired — analyzer is a stub                                         |
+| **C#**          | NuGet client exists                      | Not wired — analyzer is a stub                                         |
+
+Rust **license** gating stays on `cargo-deny` / `--licenses`. Do not treat crates.io cooling as covering npm, PyPI, or NuGet.
+
 **TypeScript type checking** (v0.5.0+): Run `goneat assess --categories typecheck` to catch type errors via `tsc --noEmit`. Complements biome's lint/format with full type analysis.
 
 **Missing-tool policy**: `goneat assess` skips unavailable optional language tools and logs what was skipped. Standalone `goneat format` is fail-closed once files requiring an external formatter are selected, so CI cannot silently claim coverage it did not perform. Use `goneat format --ignore-missing-tools` only when finalizer-only processing is acceptable.
@@ -155,7 +167,7 @@ vulnerabilities:
       reason: "Vendor patch pending"
 ```
 
-**Package cooling** blocks newly published dependencies until vetted. 80% of supply chain attacks are detected within 7 days—the ua-parser-js attack (8M+ weekly downloads) would have been blocked.
+**Package cooling** blocks newly published **Go modules** and **crates.io** crates until they meet `min_age_days` (default 7). npm, PyPI, and NuGet cooling are not wired. 80% of supply chain attacks are detected within 7 days.
 
 ### Language-Neutral Hooks
 

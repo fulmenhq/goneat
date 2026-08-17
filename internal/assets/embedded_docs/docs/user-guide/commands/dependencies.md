@@ -57,8 +57,12 @@ goneat dependencies --cooling .
 
 - Minimum package age enforcement (e.g., 7 days)
 - Download threshold validation
-- Exception patterns for trusted packages
-- Conservative fallback when registry APIs fail
+- Exception patterns for trusted packages (Go module paths and crate names are different)
+- Wired engines: Go (`proxy.golang.org`) and Rust (crates.io). npm/PyPI/NuGet clients are not used by those analyzers yet.
+- Missing `age_days` is not a pass. Go still stamps a 365-day fallback on registry errors; Rust leaves age unset (fail-closed).
+- Rust `--cooling` without a policy file applies a built-in 7-day age gate (not a configuration error).
+- Polyglot: if `Cargo.toml` exists beside `go.mod`, Rust cooling still runs (first-match detection alone would skip crates).
+- `PackagesScanned` is the vuln/SBOM count. Cooling inventory is `Dependencies`.
 
 ### SBOM Generation (Wave 3 ✅)
 
@@ -404,7 +408,7 @@ goneat dependencies --licenses --fail-on any .
 | JavaScript | `package.json`                       | ✅ Wave 2 Phase 1 |
 | TypeScript | `package.json`                       | ✅ Wave 2 Phase 1 |
 | Python     | `pyproject.toml`, `requirements.txt` | ✅ Wave 2 Phase 1 |
-| Rust       | `Cargo.toml`                         | ✅ Wave 2 Phase 1 |
+| Rust       | `Cargo.toml`                         | ✅ licenses via cargo-deny; cooling via crates.io |
 | C#         | `*.csproj`                           | ✅ Wave 2 Phase 1 |
 
 ### Language Auto-Detection

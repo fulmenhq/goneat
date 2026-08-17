@@ -1,0 +1,35 @@
+version: v1
+
+cooling:
+  enabled: true
+  min_age_days: 7
+  min_downloads: 0
+  min_downloads_recent: 0
+  alert_only: false
+  grace_period_days: 0
+
+  exceptions:
+    - pattern: "github.com/3leaps/*"
+      reason: "Go module path — must not match crates.io crate names"
+      approved_by: "@3leapsdave"
+      approved_date: "2026-08-17"
+    - pattern: "3leaps-*"
+      reason: "Estate crate-name prefix"
+      approved_by: "@3leapsdave"
+      approved_date: "2026-08-17"
+    - pattern: "lanyte-*"
+      reason: "Estate crate-name prefix"
+      approved_by: "@3leapsdave"
+      approved_date: "2026-08-17"
+    - pattern: "fulmen-*"
+      reason: "Estate crate-name prefix"
+      approved_by: "@3leapsdave"
+      approved_date: "2026-08-17"
+    - pattern: "birchton-*"
+      reason: "Estate crate-name prefix"
+      approved_by: "@3leapsdave"
+      approved_date: "2026-08-17"
+    - pattern: "estate-helper"
+      reason: "Exact estate crate name"
+      approved_by: "@3leapsdave"
+      approved_date: "2026-08-17"

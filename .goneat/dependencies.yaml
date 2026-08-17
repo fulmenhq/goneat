@@ -134,17 +134,61 @@ cooling:
   # Allow specific packages to bypass cooling period
   # ⚠️  USE SPARINGLY - each exception reduces security effectiveness
   #
-  # Exception patterns use glob syntax:
-  #   - github.com/myorg/*        matches all packages in your org
+  # Exception patterns use glob syntax and match the dependency *name*:
+  #   - github.com/myorg/*        Go modules in your org (not crates.io names)
+  #   - 3leaps-*                  crates.io crate-name prefix
+  #   - sysprims                  exact crate name
   #   - */cobra                   matches any package named "cobra"
-  #   - github.com/spf13/*        matches all packages by spf13
   #
   exceptions:
-    # Trust FulmenHQ organization's internal packages
+    # Trust FulmenHQ organization's internal Go modules.
+    # github.com/org/* matches Go module paths only — it does NOT match
+    # crates.io crate names (e.g. github.com/3leaps/* will not except "serde").
     - pattern: "github.com/fulmenhq/*"
-      reason: "Internal FulmenHQ packages are pre-vetted by maintainers"
+      reason: "Internal FulmenHQ Go modules are pre-vetted by maintainers"
       approved_by: "@3leapsdave"
       approved_date: "2025-10-28"
+
+    # Estate crate-name prefixes (crates.io). Required for Rust cooling;
+    # Go-style github.com/org/* patterns do not apply to crate names.
+    - pattern: "3leaps-*"
+      reason: "Estate crate-name prefix (crates.io)"
+      approved_by: "@3leapsdave"
+      approved_date: "2026-08-17"
+    - pattern: "lanyte-*"
+      reason: "Estate crate-name prefix (crates.io)"
+      approved_by: "@3leapsdave"
+      approved_date: "2026-08-17"
+    - pattern: "fulmen-*"
+      reason: "Estate crate-name prefix (crates.io)"
+      approved_by: "@3leapsdave"
+      approved_date: "2026-08-17"
+    - pattern: "birchton-*"
+      reason: "Estate crate-name prefix (crates.io)"
+      approved_by: "@3leapsdave"
+      approved_date: "2026-08-17"
+
+    # Exact estate crate names that do not carry a hyphenated prefix
+    - pattern: "sysprims"
+      reason: "Estate crate (exact name)"
+      approved_by: "@3leapsdave"
+      approved_date: "2026-08-17"
+    - pattern: "waitprims"
+      reason: "Estate crate (exact name)"
+      approved_by: "@3leapsdave"
+      approved_date: "2026-08-17"
+    - pattern: "lanyte"
+      reason: "Estate crate (exact name)"
+      approved_by: "@3leapsdave"
+      approved_date: "2026-08-17"
+    - pattern: "fulmen"
+      reason: "Estate crate (exact name)"
+      approved_by: "@3leapsdave"
+      approved_date: "2026-08-17"
+    - pattern: "birchton"
+      reason: "Estate crate (exact name)"
+      approved_by: "@3leapsdave"
+      approved_date: "2026-08-17"
     
     # Example: Trust established maintainer
     # - pattern: "github.com/spf13/*"

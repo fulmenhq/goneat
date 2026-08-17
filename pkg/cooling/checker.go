@@ -75,15 +75,20 @@ func (c *Checker) Check(dep *types.Dependency) (*CheckResult, error) {
 
 	var violations []Violation
 
-	// Get age from metadata
-	ageDays, ok := dep.Metadata["age_days"].(int)
+	// Age is required for cooling. Missing age_days is fail-closed (not a pass).
+	// Go always stamps age_days (including a 365-day fallback on registry errors);
+	// Rust leaves age_days unset when crates.io metadata is missing so this fires.
+	ageDays, ok := ageDaysFromMetadata(dep.Metadata)
 	if !ok {
-		// If no age data, assume it passes (conservative)
-		return &CheckResult{Passed: true}, nil
-	}
-
-	// Age validation
-	if ageDays < c.config.MinAgeDays {
+		violations = append(violations, Violation{
+			Type:     AgeViolation,
+			Severity: SeverityHigh,
+			Message: fmt.Sprintf("Package %s (%s) has unknown age; cooling requires age_days (missing metadata is not a pass)",
+				dep.Name, dep.Version),
+			Actual:   nil,
+			Expected: c.config.MinAgeDays,
+		})
+	} else if ageDays < c.config.MinAgeDays {
 		violations = append(violations, Violation{
 			Type:     AgeViolation,
 			Severity: SeverityHigh,
@@ -121,16 +126,13 @@ func (c *Checker) Check(dep *types.Dependency) (*CheckResult, error) {
 		}
 	}
 
-	// Check if we're in grace period
+	// Grace is slack against min_age_days: in grace only when
+	// age + grace >= min_age (near the threshold). It is NOT
+	// publish + min_age + grace (that made every young package pass).
+	// A 2-day crate with min_age=7 and grace=3 still fails (2+3 < 7).
 	inGracePeriod := false
-	if c.config.GracePeriodDays > 0 && len(violations) > 0 {
-		// Check if publish date is within grace period
-		if publishDate, ok := dep.Metadata["publish_date"].(time.Time); ok {
-			gracePeriodEnd := publishDate.AddDate(0, 0, c.config.MinAgeDays+c.config.GracePeriodDays)
-			if time.Now().Before(gracePeriodEnd) {
-				inGracePeriod = true
-			}
-		}
+	if c.config.GracePeriodDays > 0 && ok && ageDays < c.config.MinAgeDays {
+		inGracePeriod = ageDays+c.config.GracePeriodDays >= c.config.MinAgeDays
 	}
 
 	// Determine if check passes
@@ -186,4 +188,26 @@ func (c *Checker) matchesPattern(pkgName, pattern string) bool {
 	}
 
 	return false
+}
+
+// ageDaysFromMetadata reads age_days from dependency metadata.
+// Accepts int/int64/float64 so JSON/YAML round-trips still count as present.
+func ageDaysFromMetadata(meta map[string]interface{}) (int, bool) {
+	if meta == nil {
+		return 0, false
+	}
+	switch v := meta["age_days"].(type) {
+	case int:
+		return v, true
+	case int32:
+		return int(v), true
+	case int64:
+		return int(v), true
+	case float64:
+		return int(v), true
+	case float32:
+		return int(v), true
+	default:
+		return 0, false
+	}
 }
