@@ -1,0 +1,248 @@
+package dependencies
+
+import (
+	"context"
+	"fmt"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/fulmenhq/goneat/pkg/registry"
+)
+
+type stubCratesClient struct {
+	meta map[string]*registry.Metadata
+	err  map[string]error
+}
+
+func (s *stubCratesClient) GetMetadata(name, version string) (*registry.Metadata, error) {
+	key := name + "@" + version
+	if s.err != nil {
+		if err, ok := s.err[key]; ok {
+			return nil, err
+		}
+	}
+	if s.meta != nil {
+		if m, ok := s.meta[key]; ok {
+			return m, nil
+		}
+	}
+	return nil, fmt.Errorf("version %s not found in crate metadata", version)
+}
+
+func rustCoolingFixture(t *testing.T) string {
+	t.Helper()
+	abs, err := filepath.Abs(filepath.Join("testdata", "rust-cooling"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return abs
+}
+
+func rustCoolingPolicy(t *testing.T) string {
+	t.Helper()
+	return filepath.Join(rustCoolingFixture(t), "policy-age.yaml")
+}
+
+func stubMeta(ageDays, downloads int) *registry.Metadata {
+	return &registry.Metadata{
+		PublishDate:    time.Now().Add(-time.Duration(ageDays) * 24 * time.Hour),
+		TotalDownloads: downloads,
+	}
+}
+
+func TestRustAnalyzer_Cooling_YoungCrateFails(t *testing.T) {
+	client := &stubCratesClient{
+		meta: map[string]*registry.Metadata{
+			"young-crate@0.1.0":     stubMeta(1, 5000),
+			"estate-helper@0.2.0":   stubMeta(1, 5000),
+			"serde@1.0.195":         stubMeta(400, 250000000),
+			"3leaps-internal@0.1.0": stubMeta(1, 10),
+		},
+	}
+
+	analyzer := NewRustAnalyzerWithClient(client)
+	result, err := analyzer.Analyze(context.Background(), rustCoolingFixture(t), AnalysisConfig{
+		PolicyPath:    rustCoolingPolicy(t),
+		CheckCooling:  true,
+		CheckLicenses: false,
+	})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	if result.Passed {
+		t.Fatal("expected cooling to fail a crates.io package younger than min_age_days")
+	}
+
+	var youngFailed, serdeFailed, estateFailed, prefixFailed, gitFailed bool
+	for _, issue := range result.Issues {
+		if issue.Dependency == nil {
+			continue
+		}
+		switch issue.Dependency.Name {
+		case "young-crate":
+			youngFailed = true
+		case "serde":
+			serdeFailed = true
+		case "estate-helper":
+			estateFailed = true
+		case "3leaps-internal":
+			prefixFailed = true
+		case "git-only-dep":
+			gitFailed = true
+		}
+	}
+
+	if !youngFailed {
+		t.Error("young-crate (1 day old) must fail cooling")
+	}
+	if serdeFailed {
+		t.Error("serde (old enough) should not fail age cooling")
+	}
+	if estateFailed {
+		t.Error("estate-helper exact name must be excepted")
+	}
+	if prefixFailed {
+		t.Error("3leaps-internal must match 3leaps-* and not trip cooling")
+	}
+	if !gitFailed {
+		t.Error("git-only-dep has no age_days and must fail closed")
+	}
+
+	// github.com/3leaps/* is in the policy; a crates.io crate must not be excepted by it.
+	for _, dep := range result.Dependencies {
+		if dep.Name != "young-crate" {
+			continue
+		}
+		if _, ok := dep.Metadata["age_days"].(int); !ok {
+			t.Error("young-crate should have age_days from crates.io metadata")
+		}
+		if dep.Metadata["recent_downloads"] != nil {
+			t.Error("Rust cooling must not set recent_downloads (crates.io recent is per-version lifetime)")
+		}
+	}
+}
+
+func TestRustAnalyzer_Cooling_GithubOrgPatternDoesNotPassCrate(t *testing.T) {
+	client := &stubCratesClient{
+		meta: map[string]*registry.Metadata{
+			"young-crate@0.1.0": stubMeta(1, 5000),
+		},
+	}
+	analyzer := NewRustAnalyzerWithClient(client)
+	result, err := analyzer.Analyze(context.Background(), rustCoolingFixture(t), AnalysisConfig{
+		PolicyPath:    rustCoolingPolicy(t),
+		CheckCooling:  true,
+		CheckLicenses: false,
+	})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+
+	found := false
+	for _, issue := range result.Issues {
+		if issue.Dependency != nil && issue.Dependency.Name == "young-crate" && issue.Type == "age_violation" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("github.com/3leaps/* must not silently pass young-crate")
+	}
+}
+
+func TestRustAnalyzer_Cooling_MissingAgeDaysFails(t *testing.T) {
+	client := &stubCratesClient{
+		err: map[string]error{
+			"young-crate@0.1.0":     fmt.Errorf("crates.io registry returned status 404"),
+			"estate-helper@0.2.0":   fmt.Errorf("crates.io registry returned status 404"),
+			"serde@1.0.195":         fmt.Errorf("crates.io registry returned status 404"),
+			"3leaps-internal@0.1.0": fmt.Errorf("crates.io registry returned status 404"),
+		},
+	}
+	analyzer := NewRustAnalyzerWithClient(client)
+	result, err := analyzer.Analyze(context.Background(), rustCoolingFixture(t), AnalysisConfig{
+		PolicyPath:    rustCoolingPolicy(t),
+		CheckCooling:  true,
+		CheckLicenses: false,
+	})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	if result.Passed {
+		t.Fatal("missing age_days must not pass cooling")
+	}
+
+	var serdeUnknown bool
+	for _, dep := range result.Dependencies {
+		if dep.Name != "serde" {
+			continue
+		}
+		if _, ok := dep.Metadata["age_days"]; ok {
+			t.Error("failed crates.io lookup must not stamp a fallback age_days")
+		}
+		if unknown, _ := dep.Metadata["age_unknown"].(bool); !unknown {
+			t.Error("failed crates.io lookup should set age_unknown")
+		}
+		serdeUnknown = true
+	}
+	if !serdeUnknown {
+		t.Fatal("expected serde in enumerated deps")
+	}
+
+	foundSerdeIssue := false
+	for _, issue := range result.Issues {
+		if issue.Dependency != nil && issue.Dependency.Name == "serde" && issue.Type == "age_violation" {
+			foundSerdeIssue = true
+		}
+	}
+	if !foundSerdeIssue {
+		t.Error("serde with missing age_days must produce an age_violation")
+	}
+}
+
+func TestAttachCratesIOMetadata_DoesNotSetRecentDownloads(t *testing.T) {
+	deps := []Dependency{{
+		Module: Module{Name: "serde", Version: "1.0.195", Language: LanguageRust},
+		Metadata: map[string]interface{}{
+			"registry": "crates.io",
+		},
+	}}
+	client := &stubCratesClient{
+		meta: map[string]*registry.Metadata{
+			"serde@1.0.195": {
+				PublishDate:     time.Now().Add(-400 * 24 * time.Hour),
+				TotalDownloads:  250000000,
+				RecentDownloads: 5000000, // crates.io version lifetime; must not be copied
+			},
+		},
+	}
+	attachCratesIOMetadata(deps, client)
+	if deps[0].Metadata["recent_downloads"] != nil {
+		t.Fatalf("recent_downloads must not be attached: %v", deps[0].Metadata["recent_downloads"])
+	}
+	if deps[0].Metadata["total_downloads"] != 250000000 {
+		t.Errorf("total_downloads = %v", deps[0].Metadata["total_downloads"])
+	}
+}
+
+func TestEnumerateRustCrates_FromCargoLock(t *testing.T) {
+	deps := enumerateRustCratesForCooling(context.Background(), rustCoolingFixture(t), time.Second)
+	if len(deps) < 5 {
+		t.Fatalf("expected Cargo.lock crates, got %d", len(deps))
+	}
+	var foundLocal, foundYoung bool
+	for _, dep := range deps {
+		if dep.Name == "cooling-fixture" {
+			foundLocal = true
+			if isLocal, _ := dep.Metadata["is_local"].(bool); !isLocal {
+				t.Error("workspace package should be is_local")
+			}
+		}
+		if dep.Name == "young-crate" {
+			foundYoung = true
+		}
+	}
+	if !foundLocal || !foundYoung {
+		t.Fatalf("lock enumeration missing expected crates (local=%v young=%v)", foundLocal, foundYoung)
+	}
+}

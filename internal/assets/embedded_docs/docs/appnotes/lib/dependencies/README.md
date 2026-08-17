@@ -25,7 +25,7 @@ The Dependencies package provides comprehensive dependency analysis for multi-la
 
 - **License detection and compliance** - Identify and validate software licenses
 - **Cooling policy enforcement** - Supply chain security for newly published packages
-- **Multi-language support** - Go (Wave 2), npm/PyPI/crates/NuGet (planned)
+- **Multi-language support** - Go cooling (proxy.golang.org) and Rust cooling (crates.io) are wired. npm/PyPI/NuGet registry clients exist but are not used by those language analyzers yet.
 - **Policy engine integration** - OPA-based policy evaluation with Rego v1
 - **SBOM generation** _(planned Wave 2 Phase 5)_ - Software Bill of Materials
 
@@ -34,6 +34,7 @@ The Dependencies package provides comprehensive dependency analysis for multi-la
 - The **core `Analyzer` interface** (see `pkg/dependencies/analyzer.go`) exposes dependency analysis with policy enforcement
 - The **Cooling Policy Checker** (see `pkg/cooling/checker.go`) validates packages against supply chain security rules
 - The **Registry Clients** (see `pkg/registry/`) fetch package metadata from multiple ecosystems
+- The **Cargo lock/metadata parser** (see `pkg/cargo/`) is a boring extractable package: name, version, source (`registry`/`git`/`path`). Cooling uses it; `cargo-deny` stays on the license path.
 - The **`goneat dependencies` CLI** wraps the analyzer for command-line usage
 
 ## Current Status
@@ -44,7 +45,7 @@ The Dependencies package provides comprehensive dependency analysis for multi-la
 - ✅ **Phase 2 Complete**: Cooling policy checker implementation
 - ✅ **Phase 3 Complete**: Integration with Go analyzer
 - ✅ **Phase 4 Complete**: End-to-end testing with real repositories
-- 🚧 **Phase 5 Pending**: Wire-up verification and documentation
+- ✅ **Rust cooling**: `RustAnalyzer` enumerates crates via `pkg/cargo` (`Cargo.lock` or `cargo metadata` JSON — not `cargo-deny`), attaches crates.io metadata, and runs `cooling.Checker`. Missing `age_days` is fail-closed. `min_downloads_recent` is not applied to crates (crates.io "recent" is per-version lifetime). License gating remains `deny.toml` / `--licenses`.
 
 ## Quick Start
 
@@ -99,8 +100,9 @@ cooling:
     - pattern: "golang.org/x/*"
       reason: "Go extended standard library"
     - pattern: "github.com/myorg/*"
-      reason: "Internal packages"
-      until: "2026-12-31"
+      reason: "Internal Go modules (does not match crates.io names)"
+    - pattern: "3leaps-*"
+      reason: "Estate crate-name prefix"
 ```
 
 ## Testing
@@ -135,9 +137,9 @@ See [`testing.md`](testing.md) for detailed testing documentation.
 
 - **Phase 1 (✅ Complete)**: Registry clients with mockable HTTP
 - **Phase 2 (✅ Complete)**: Cooling policy checker implementation
-- **Phase 3 (✅ Complete)**: Multi-language analyzer integration
+- **Phase 3 (✅ Complete)**: Go analyzer cooling integration
 - **Phase 4 (✅ Complete)**: End-to-end testing with real repositories
-- **Phase 5 (Pending)**: Wire-up verification and final documentation
+- **Rust cooling (✅)**: crates.io age/cooling on `RustAnalyzer` (GNT-TASK-006). npm/PyPI/NuGet still unwired.
 
 ## See Also
 
@@ -155,5 +157,5 @@ See [`testing.md`](testing.md) for detailed testing documentation.
 
 ---
 
-**Last Updated**: October 10, 2025
-**Status**: Wave 2 Phase 4 Complete
+**Last Updated**: August 17, 2026
+**Status**: Go + Rust cooling wired; other ecosystems planned

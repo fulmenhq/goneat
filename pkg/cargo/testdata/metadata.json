@@ -1,0 +1,19 @@
+{
+  "packages": [
+    {
+      "name": "cooling-fixture",
+      "version": "0.1.0",
+      "source": null
+    },
+    {
+      "name": "young-crate",
+      "version": "0.1.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "git-only-dep",
+      "version": "0.3.0",
+      "source": "git+https://github.com/example/git-only-dep#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ]
+}

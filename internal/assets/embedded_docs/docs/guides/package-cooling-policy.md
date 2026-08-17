@@ -101,16 +101,19 @@ graph TD
     D -->|Matches Pattern| E[Allow - Exception]
     D -->|No Match| F{Query Registry}
 
-    F -->|Network Error| G[Conservative Fallback]
+    F -->|Go registry error| G[Go fallback age_days=365]
+    F -->|Rust metadata missing| N[Leave age_days unset]
     F -->|Success| H{Check Age}
 
     H -->|Age >= 7 days| I[Allow - Policy Met]
     H -->|Age < 7 days| J{Check Downloads}
+    H -->|age_days missing| L[Block - Unknown Age]
 
     J -->|Downloads >= 100| K[Allow - Established]
     J -->|Downloads < 100| L[Block - Too New]
 
     G --> M[Log Warning + Allow]
+    N --> L
 
     style C fill:#9f6
     style E fill:#9f6
@@ -118,13 +121,30 @@ graph TD
     style K fill:#9f6
     style M fill:#fc6
     style L fill:#f96
+    style N fill:#f96
 ```
+
+### Engine coverage (what is actually wired)
+
+Cooling is **not** enabled for every ecosystem just because a registry client exists.
+
+| Ecosystem | Analyzer | Registry used for cooling | Status |
+| --------- | -------- | ------------------------- | ------ |
+| Go | `GoAnalyzer` | `proxy.golang.org` | Wired |
+| Rust | `RustAnalyzer` + `pkg/cargo` | crates.io (`CratesClient`) | Wired. Enumeration is `Cargo.lock` / `cargo metadata` JSON (not `cargo-deny`). Parser uses already-vendored `pelletier/go-toml/v2` (MIT). |
+| npm / JavaScript | stub / license-only | npm client exists, unused by analyzer | Not wired |
+| PyPI / Python | stub | PyPI client exists, unused by analyzer | Not wired |
+| NuGet / C# | stub | NuGet client exists, unused by analyzer | Not wired |
+
+`goneat dependencies --cooling` on a Rust crate enumerates `Cargo.lock` (or `cargo metadata --format-version 1` JSON) via `pkg/cargo`, attaches crates.io publish metadata, and runs `cooling.Checker`. Cooling does **not** use `cargo-deny list`. License policy for Rust stays on `deny.toml` / `--licenses`.
+
+**crates.io download caveat:** crates.io "recent" counts on a version are that version's *lifetime* downloads, not a 30-day window. goneat does **not** apply `min_downloads_recent` on the Rust path (a fresh MIT version of a popular crate would otherwise fail). Lifetime `min_downloads` may still apply when total crate downloads are present.
 
 ### What Gets Checked
 
-When a dependency is analyzed, goneat:
+When a **wired** dependency is analyzed, goneat:
 
-1. **Queries the package registry** (npm, PyPI, Go proxy, crates.io, NuGet)
+1. **Queries the package registry** for that language (Go proxy or crates.io)
 2. **Retrieves publish metadata** (publish date, download counts)
 3. **Calculates package age** (time since publication)
 4. **Evaluates policy rules** (min_age_days, min_downloads)
@@ -227,11 +247,13 @@ cooling:
 
 **Exception Pattern Syntax:**
 
-- Glob patterns: `github.com/org/*`, `*/specific-name`
-- Exact matches: `github.com/owner/repo`
-- Wildcards: `*` matches any path component
+- Glob patterns match the dependency **name** as the analyzer reports it
+- Go modules: `github.com/org/*`, `github.com/owner/repo`
+- crates.io crate names: `3leaps-*`, `lanyte-*`, `fulmen-*`, `birchton-*`, or an exact crate name (`sysprims`)
+- `github.com/org/*` does **not** silently pass a crates.io crate (`serde` is not `github.com/org/serde`)
+- Wildcards: `*` matches any path component (`filepath.Match` plus `prefix/` matching)
 
-**⚠️ Use Exceptions Sparingly** - Each exception reduces security effectiveness.
+**⚠️ Use Exceptions Sparingly** - Each exception reduces security effectiveness. Do not except all MIT/Apache crates.
 
 ### Development vs Production
 
@@ -441,17 +463,19 @@ hooks:
       timeout: "45s"
 ```
 
-### Conservative Fallback
+### Missing age and registry failures
 
-When registry APIs fail, goneat uses safe defaults:
+Cooling is **fail-closed** when `age_days` is missing: that is not a pass.
+
+| Language | Registry failure behavior |
+| -------- | ------------------------- |
+| Go | Stamps `age_days=365` plus `age_unknown=true` (legacy conservative pass) |
+| Rust | Leaves `age_days` unset, sets `age_unknown=true` / `registry_error` — checker fails |
 
 ```bash
-[WARN] Registry API failed for package X: rate limit exceeded
-[INFO] Using conservative fallback: assuming package age = 365 days
-[INFO] Dependency marked with age_unknown=true in report
+[WARN] crates.io metadata failed for crate X: status 404
+[INFO] age_days omitted; cooling treats unknown age as a violation
 ```
-
-**Result:** Build succeeds, but dependency is flagged for manual review.
 
 ## Troubleshooting
 
@@ -703,6 +727,6 @@ goneat processes dependencies in parallel:
 
 ---
 
-**Last Updated:** October 28, 2025  
+**Last Updated:** August 17, 2026  
 **Status:** Active  
-**Part of:** goneat v0.3.0 Dependency Protection Features
+**Part of:** goneat dependency protection (Go + Rust cooling engines)

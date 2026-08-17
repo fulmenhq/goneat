@@ -1,0 +1,10 @@
+[package]
+name = "cooling-fixture"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+young-crate = "0.1.0"
+estate-helper = "0.2.0"
+serde = "1.0.195"
+3leaps-internal = "0.1.0"

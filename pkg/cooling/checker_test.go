@@ -308,9 +308,72 @@ func TestChecker_Check_NoMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Should pass conservatively when no metadata
-	if !result.Passed {
-		t.Error("Should pass when no age metadata available (conservative)")
+	if result.Passed {
+		t.Error("Should fail when age_days is missing (fail-closed)")
+	}
+	if len(result.Violations) != 1 {
+		t.Fatalf("Expected 1 violation, got %d", len(result.Violations))
+	}
+	if result.Violations[0].Type != AgeViolation {
+		t.Errorf("Expected age violation for missing age_days, got %s", result.Violations[0].Type)
+	}
+}
+
+func TestChecker_Check_GithubPatternDoesNotMatchCrateName(t *testing.T) {
+	cfg := config.CoolingConfig{
+		Enabled:    true,
+		MinAgeDays: 7,
+		Exceptions: []config.CoolingException{
+			{Pattern: "github.com/3leaps/*", Reason: "Go modules only"},
+		},
+	}
+	checker := NewChecker(cfg)
+
+	dep := &types.Dependency{
+		Module: types.Module{
+			Name:    "young-crate",
+			Version: "0.1.0",
+		},
+		Metadata: map[string]interface{}{
+			"age_days": 1,
+		},
+	}
+
+	result, err := checker.Check(dep)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Passed || result.IsException {
+		t.Error("github.com/3leaps/* must not silently pass a crates.io crate name")
+	}
+}
+
+func TestChecker_Check_CrateNamePrefixException(t *testing.T) {
+	cfg := config.CoolingConfig{
+		Enabled:    true,
+		MinAgeDays: 7,
+		Exceptions: []config.CoolingException{
+			{Pattern: "3leaps-*", Reason: "Estate crate prefix"},
+		},
+	}
+	checker := NewChecker(cfg)
+
+	dep := &types.Dependency{
+		Module: types.Module{
+			Name:    "3leaps-internal",
+			Version: "0.1.0",
+		},
+		Metadata: map[string]interface{}{
+			"age_days": 1,
+		},
+	}
+
+	result, err := checker.Check(dep)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Passed || !result.IsException {
+		t.Error("3leaps-* should except estate crate names")
 	}
 }
 
@@ -329,6 +392,14 @@ func TestChecker_matchesPattern_Wildcard(t *testing.T) {
 		{"github.com/other/package", "github.com/spf13/*", false},
 		{"exact-match", "exact-match", true},
 		{"not-match", "exact-match", false},
+		{"3leaps-sysprims", "3leaps-*", true},
+		{"lanyte-core", "lanyte-*", true},
+		{"fulmen-cli", "fulmen-*", true},
+		{"birchton-util", "birchton-*", true},
+		{"sysprims", "sysprims", true},
+		{"serde", "github.com/3leaps/*", false},
+		{"3leaps-foo", "github.com/3leaps/*", false},
+		{"serde", "github.com/fulmenhq/*", false},
 	}
 
 	for _, tt := range tests {
