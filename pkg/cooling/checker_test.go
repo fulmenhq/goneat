@@ -348,6 +348,90 @@ func TestChecker_Check_GithubPatternDoesNotMatchCrateName(t *testing.T) {
 	}
 }
 
+func TestChecker_Check_GraceDoesNotPassFarYoungPackage(t *testing.T) {
+	cfg := config.CoolingConfig{
+		Enabled:         true,
+		MinAgeDays:      7,
+		GracePeriodDays: 3,
+	}
+	checker := NewChecker(cfg)
+
+	dep := &types.Dependency{
+		Module: types.Module{Name: "uuid", Version: "1.24.1"},
+		Metadata: map[string]interface{}{
+			"age_days": 2,
+		},
+	}
+
+	result, err := checker.Check(dep)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.InGracePeriod {
+		t.Error("age 2 + grace 3 < min_age 7 must not be in grace")
+	}
+	if result.Passed {
+		t.Error("2-day package must fail min_age_days=7 even with grace_period_days=3")
+	}
+	if len(result.Violations) == 0 {
+		t.Error("expected age_violation")
+	}
+}
+
+func TestChecker_Check_GraceNearThreshold(t *testing.T) {
+	cfg := config.CoolingConfig{
+		Enabled:         true,
+		MinAgeDays:      7,
+		GracePeriodDays: 3,
+	}
+	checker := NewChecker(cfg)
+
+	dep := &types.Dependency{
+		Module: types.Module{Name: "almost-aged", Version: "1.0.0"},
+		Metadata: map[string]interface{}{
+			"age_days": 5, // 5+3 >= 7
+		},
+	}
+
+	result, err := checker.Check(dep)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.InGracePeriod {
+		t.Error("age 5 + grace 3 >= min_age 7 should be in grace")
+	}
+	if !result.Passed {
+		t.Error("near-threshold grace should not fail the gate")
+	}
+	if len(result.Violations) == 0 {
+		t.Error("grace must still record the age_violation (not drop it)")
+	}
+}
+
+func TestChecker_Check_FiveDaysNoGraceFails(t *testing.T) {
+	cfg := config.CoolingConfig{
+		Enabled:         true,
+		MinAgeDays:      7,
+		GracePeriodDays: 0,
+	}
+	checker := NewChecker(cfg)
+
+	dep := &types.Dependency{
+		Module: types.Module{Name: "num-integer", Version: "0.1.47"},
+		Metadata: map[string]interface{}{
+			"age_days": 5,
+		},
+	}
+
+	result, err := checker.Check(dep)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Passed || result.InGracePeriod {
+		t.Error("5-day crate with no grace must age_violation-fail")
+	}
+}
+
 func TestChecker_Check_CrateNamePrefixException(t *testing.T) {
 	cfg := config.CoolingConfig{
 		Enabled:    true,

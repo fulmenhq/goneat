@@ -60,6 +60,9 @@ goneat dependencies --cooling .
 - Exception patterns for trusted packages (Go module paths and crate names are different)
 - Wired engines: Go (`proxy.golang.org`) and Rust (crates.io). npm/PyPI/NuGet clients are not used by those analyzers yet.
 - Missing `age_days` is not a pass. Go still stamps a 365-day fallback on registry errors; Rust leaves age unset (fail-closed).
+- Rust `--cooling` without a policy file applies a built-in 7-day age gate (not a configuration error).
+- Polyglot: if `Cargo.toml` exists beside `go.mod`, Rust cooling still runs (first-match detection alone would skip crates).
+- `PackagesScanned` is the vuln/SBOM count. Cooling inventory is `Dependencies`.
 
 ### SBOM Generation (Wave 3 ✅)
 

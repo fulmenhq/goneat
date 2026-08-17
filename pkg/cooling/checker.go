@@ -126,16 +126,13 @@ func (c *Checker) Check(dep *types.Dependency) (*CheckResult, error) {
 		}
 	}
 
-	// Check if we're in grace period
+	// Grace is slack against min_age_days: in grace only when
+	// age + grace >= min_age (near the threshold). It is NOT
+	// publish + min_age + grace (that made every young package pass).
+	// A 2-day crate with min_age=7 and grace=3 still fails (2+3 < 7).
 	inGracePeriod := false
-	if c.config.GracePeriodDays > 0 && len(violations) > 0 {
-		// Check if publish date is within grace period
-		if publishDate, ok := dep.Metadata["publish_date"].(time.Time); ok {
-			gracePeriodEnd := publishDate.AddDate(0, 0, c.config.MinAgeDays+c.config.GracePeriodDays)
-			if time.Now().Before(gracePeriodEnd) {
-				inGracePeriod = true
-			}
-		}
+	if c.config.GracePeriodDays > 0 && ok && ageDays < c.config.MinAgeDays {
+		inGracePeriod = ageDays+c.config.GracePeriodDays >= c.config.MinAgeDays
 	}
 
 	// Determine if check passes

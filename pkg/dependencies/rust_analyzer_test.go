@@ -3,6 +3,7 @@ package dependencies
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -223,6 +224,158 @@ func TestAttachCratesIOMetadata_DoesNotSetRecentDownloads(t *testing.T) {
 	if deps[0].Metadata["total_downloads"] != 250000000 {
 		t.Errorf("total_downloads = %v", deps[0].Metadata["total_downloads"])
 	}
+}
+
+func TestRustAnalyzer_Cooling_NoPolicyUsesSevenDayDefault(t *testing.T) {
+	client := &stubCratesClient{
+		meta: map[string]*registry.Metadata{
+			"young-crate@0.1.0":     stubMeta(1, 5000),
+			"estate-helper@0.2.0":   stubMeta(400, 5000),
+			"serde@1.0.195":         stubMeta(400, 250000000),
+			"3leaps-internal@0.1.0": stubMeta(400, 10),
+		},
+	}
+	analyzer := NewRustAnalyzerWithClient(client)
+	result, err := analyzer.Analyze(context.Background(), rustCoolingFixture(t), AnalysisConfig{
+		PolicyPath:    filepath.Join(t.TempDir(), "missing-policy.yaml"),
+		CheckCooling:  true,
+		CheckLicenses: false,
+	})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	if result.Passed {
+		t.Fatal("missing policy must apply 7-day default, not vacuous-pass")
+	}
+	var youngFailed, configFail bool
+	for _, issue := range result.Issues {
+		if issue.Type == "configuration" {
+			configFail = true
+		}
+		if issue.Dependency != nil && issue.Dependency.Name == "young-crate" && issue.Type == "age_violation" {
+			youngFailed = true
+		}
+	}
+	if configFail {
+		t.Error("missing policy must not be a configuration fail")
+	}
+	if !youngFailed {
+		t.Error("1-day crate must fail the built-in 7-day default")
+	}
+}
+
+func TestApplyRustCooling_GraceTwoDayUUIDFails(t *testing.T) {
+	policyPath := filepath.Join(t.TempDir(), "grace.yaml")
+	if err := os.WriteFile(policyPath, []byte(`version: v1
+cooling:
+  enabled: true
+  min_age_days: 7
+  min_downloads: 0
+  min_downloads_recent: 0
+  grace_period_days: 3
+  alert_only: false
+`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	deps := []Dependency{{
+		Module: Module{Name: "uuid", Version: "1.24.1", Language: LanguageRust},
+		Metadata: map[string]interface{}{
+			"age_days":     2,
+			"publish_date": time.Now().Add(-2 * 24 * time.Hour),
+		},
+	}}
+	issues, passed := applyRustCooling(deps, policyPath)
+	if passed {
+		t.Fatal("uuid 2 days old with min_age=7 grace=3 must fail")
+	}
+	found := false
+	for _, issue := range issues {
+		if issue.Type == "age_violation" && issue.Dependency != nil && issue.Dependency.Name == "uuid" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected age_violation for uuid, issues=%v", issues)
+	}
+}
+
+func TestPolyglot_GoFirstMatchStillCoolsRust(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/polyglot\n\ngo 1.25\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	src := rustCoolingFixture(t)
+	for _, name := range []string{"Cargo.toml", "Cargo.lock"} {
+		data, err := os.ReadFile(filepath.Join(src, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name), data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	det := NewDetector(nil)
+	lang, _, err := det.Detect(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lang != LanguageGo {
+		t.Fatalf("expected Go first-match, got %s", lang)
+	}
+	if !ShouldAlsoCoolRust(dir, lang) {
+		t.Fatal("Cargo.toml beside go.mod must trigger supplemental Rust cooling")
+	}
+
+	client := &stubCratesClient{
+		meta: map[string]*registry.Metadata{
+			"young-crate@0.1.0":     stubMeta(1, 5000),
+			"estate-helper@0.2.0":   stubMeta(400, 5000),
+			"serde@1.0.195":         stubMeta(400, 250000000),
+			"3leaps-internal@0.1.0": stubMeta(400, 10),
+		},
+	}
+	primary := &stubAnalyzer{result: &AnalysisResult{
+		Dependencies: []Dependency{{Module: Module{Name: "example.com/polyglot", Language: LanguageGo}}},
+		Issues:       []Issue{},
+		Passed:       true,
+	}}
+	result, err := RunCoolingAwareAnalysis(context.Background(), dir, AnalysisConfig{
+		PolicyPath:    rustCoolingPolicy(t),
+		CheckCooling:  true,
+		CheckLicenses: false,
+	}, lang, primary, NewRustAnalyzerWithClient(client))
+	if err != nil {
+		t.Fatalf("RunCoolingAwareAnalysis: %v", err)
+	}
+	if result.Passed {
+		t.Fatal("polyglot must not vacuous-pass: young rust crate should fail cooling")
+	}
+	var sawGo, sawYoung bool
+	for _, dep := range result.Dependencies {
+		if dep.Name == "example.com/polyglot" {
+			sawGo = true
+		}
+		if dep.Name == "young-crate" {
+			sawYoung = true
+		}
+	}
+	if !sawGo || !sawYoung {
+		t.Fatalf("expected merged Go+Rust inventory (go=%v rust=%v)", sawGo, sawYoung)
+	}
+}
+
+type stubAnalyzer struct {
+	result *AnalysisResult
+}
+
+func (s *stubAnalyzer) Analyze(context.Context, string, AnalysisConfig) (*AnalysisResult, error) {
+	return s.result, nil
+}
+
+func (s *stubAnalyzer) DetectLanguages(string) ([]Language, error) {
+	return []Language{LanguageGo}, nil
 }
 
 func TestEnumerateRustCrates_FromCargoLock(t *testing.T) {

@@ -90,7 +90,7 @@ func (r *DependenciesRunner) Assess(ctx context.Context, target string, assessCo
 		Config:        &depsCfg,
 	}
 
-	result, err := r.analyzer.Analyze(ctx, target, analysisConfig)
+	result, err := dependencies.RunCoolingAwareAnalysis(ctx, target, analysisConfig, lang, r.analyzer, dependencies.NewRustAnalyzer())
 	if err != nil {
 		logger.Error(fmt.Sprintf("Dependencies analysis failed: %v", err))
 		return &AssessmentResult{

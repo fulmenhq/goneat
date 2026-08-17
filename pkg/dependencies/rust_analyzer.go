@@ -145,8 +145,12 @@ func (a *RustAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisC
 		}
 	}
 
+	// cargo-deny license/ban findings fail the run; cooling pass/fail is
+	// already decided by applyRustCooling (grace/alert_only may list
+	// high issues without failing the gate).
 	for _, issue := range issues {
-		if issue.Severity == "high" || issue.Severity == "critical" {
+		if (issue.Type == "rust:cargo-deny:license" || issue.Type == "rust:cargo-deny") &&
+			(issue.Severity == "high" || issue.Severity == "critical") {
 			passed = false
 			break
 		}

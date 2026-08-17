@@ -45,7 +45,7 @@ The Dependencies package provides comprehensive dependency analysis for multi-la
 - ✅ **Phase 2 Complete**: Cooling policy checker implementation
 - ✅ **Phase 3 Complete**: Integration with Go analyzer
 - ✅ **Phase 4 Complete**: End-to-end testing with real repositories
-- ✅ **Rust cooling**: `RustAnalyzer` enumerates crates via `pkg/cargo` (`Cargo.lock` or `cargo metadata` JSON — not `cargo-deny`), attaches crates.io metadata, and runs `cooling.Checker`. Missing `age_days` is fail-closed. `min_downloads_recent` is not applied to crates (crates.io "recent" is per-version lifetime). License gating remains `deny.toml` / `--licenses`.
+- ✅ **Rust cooling**: `RustAnalyzer` enumerates crates via `pkg/cargo` (`Cargo.lock` or `cargo metadata` JSON — not `cargo-deny`), attaches crates.io metadata, and runs `cooling.Checker`. Missing `age_days` is fail-closed. Missing policy YAML applies a 7-day age default. `grace_period_days` is near-threshold slack (`age+grace < min_age` still fails). Polyglot trees with `Cargo.toml` beside `go.mod` still run Rust cooling. `min_downloads_recent` is not applied to crates. License gating remains `deny.toml` / `--licenses`.
 
 ## Quick Start
 

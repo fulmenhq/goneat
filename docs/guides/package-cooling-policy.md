@@ -138,6 +138,12 @@ Cooling is **not** enabled for every ecosystem just because a registry client ex
 
 `goneat dependencies --cooling` on a Rust crate enumerates `Cargo.lock` (or `cargo metadata --format-version 1` JSON) via `pkg/cargo`, attaches crates.io publish metadata, and runs `cooling.Checker`. Cooling does **not** use `cargo-deny list`. License policy for Rust stays on `deny.toml` / `--licenses`.
 
+**No policy YAML:** Rust `--cooling` applies a built-in **7-day age gate** (no `min_downloads_recent`). It is not a configuration-fail and not a vacuous pass.
+
+**Polyglot repos:** language detection is first-match (`go.mod` before `Cargo.toml`). If `Cargo.toml` exists beside another language, Rust cooling still runs. A Go-only inventory with `Passed=true` is not acceptable when crates were skipped.
+
+**`PackagesScanned`:** that field is the vuln/SBOM package count. `--cooling` inventory is `Dependencies` / `dependency_count`.
+
 **crates.io download caveat:** crates.io "recent" counts on a version are that version's *lifetime* downloads, not a 30-day window. goneat does **not** apply `min_downloads_recent` on the Rust path (a fresh MIT version of a popular crate would otherwise fail). Lifetime `min_downloads` may still apply when total crate downloads are present.
 
 ### What Gets Checked
@@ -210,13 +216,15 @@ Ensures package is actively maintained:
 
 #### grace_period_days
 
-**Recommended: 3 days**
+**Recommended: 3 days** as near-threshold slack, **not** a `min_age + grace` window.
 
-Allows time to fix violations without blocking development:
+Grace means: fail while `age + grace < min_age`. A crate that is 2 days old with `min_age_days: 7` and `grace_period_days: 3` still fails (`2+3 < 7`). A crate that is 5 days old with grace 3 is in the near-threshold window (`5+3 >= 7`): the `age_violation` is **reported** but does not fail the gate.
 
-- **0:** No grace period, strict enforcement
-- **3:** Standard grace period (recommended)
-- **7:** Extended grace period for large teams
+This is **not** `publish + min_age + grace` (a 10-day window). That interpretation swallowed every young package, including uuid 1.24.1 at 2 days.
+
+- **0:** No grace, strict enforcement (5-day crate fails a 7-day gate)
+- **3:** Slack only in the last 3 days before `min_age`
+- **7:** Near-threshold slack equal to the full cooling window (only useful with a higher min_age)
 
 ### Exception Patterns
 
