@@ -1,23 +1,14 @@
 package cargo
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/pelletier/go-toml/v2"
+	"strconv"
+	"strings"
 )
-
-// lockFile is the Cargo.lock TOML shape we care about.
-type lockFile struct {
-	Package []lockPackage `toml:"package"`
-}
-
-type lockPackage struct {
-	Name    string `toml:"name"`
-	Version string `toml:"version"`
-	Source  string `toml:"source"`
-}
 
 // FindLock returns dir/Cargo.lock if that file exists.
 func FindLock(dir string) string {
@@ -40,30 +31,87 @@ func ParseLockFile(path string) ([]Package, error) {
 	return ParseLock(data)
 }
 
-// ParseLock parses Cargo.lock bytes via pelletier/go-toml/v2 (MIT, already
-// a goneat dependency). No cargo-deny CLI is involved.
+// ParseLock parses Cargo.lock [[package]] tables with a boring line scanner.
+// No third-party TOML helper — Entarch confirmed PARSE in-tree so this
+// package stays extractable (e.g. gofulmen / pkg/cargolock later).
 func ParseLock(data []byte) ([]Package, error) {
-	var lf lockFile
-	if err := toml.Unmarshal(data, &lf); err != nil {
+	if data == nil {
+		return nil, fmt.Errorf("parse Cargo.lock: empty input")
+	}
+
+	var out []Package
+	var cur *Package
+	inPackage := false
+	seen := map[string]bool{}
+
+	flush := func() {
+		if !inPackage || cur == nil || cur.Name == "" {
+			cur = nil
+			inPackage = false
+			return
+		}
+		key := cur.Name + "@" + cur.Version
+		if !seen[key] {
+			seen[key] = true
+			cur.Source = ClassifySource(cur.RawSource)
+			out = append(out, *cur)
+		}
+		cur = nil
+		inPackage = false
+	}
+
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "[") {
+			flush()
+			if line == "[[package]]" {
+				inPackage = true
+				cur = &Package{}
+			}
+			continue
+		}
+		if !inPackage || cur == nil {
+			continue
+		}
+		key, val, ok := parseTOMLStringField(line)
+		if !ok {
+			continue
+		}
+		switch key {
+		case "name":
+			cur.Name = val
+		case "version":
+			cur.Version = val
+		case "source":
+			cur.RawSource = val
+		}
+	}
+	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("parse Cargo.lock: %w", err)
 	}
-	out := make([]Package, 0, len(lf.Package))
-	seen := map[string]bool{}
-	for _, p := range lf.Package {
-		if p.Name == "" {
-			continue
-		}
-		key := p.Name + "@" + p.Version
-		if seen[key] {
-			continue
-		}
-		seen[key] = true
-		out = append(out, Package{
-			Name:      p.Name,
-			Version:   p.Version,
-			Source:    ClassifySource(p.Source),
-			RawSource: p.Source,
-		})
-	}
+	flush()
 	return out, nil
+}
+
+func parseTOMLStringField(line string) (key, val string, ok bool) {
+	eq := strings.Index(line, "=")
+	if eq < 0 {
+		return "", "", false
+	}
+	key = strings.TrimSpace(line[:eq])
+	raw := strings.TrimSpace(line[eq+1:])
+	if raw == "" {
+		return key, "", true
+	}
+	if raw[0] == '"' || raw[0] == '\'' {
+		if unq, err := strconv.Unquote(raw); err == nil {
+			return key, unq, true
+		}
+		return key, strings.Trim(raw, `"'`), true
+	}
+	return key, raw, true
 }

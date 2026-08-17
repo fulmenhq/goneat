@@ -1,7 +1,7 @@
 // Package cargo parses Cargo.lock and `cargo metadata` JSON into boring
-// crate records (name, version, source). It is intentionally free of
-// goneat policy, crates.io HTTP, and cargo-deny so it can be extracted
-// later (e.g. into gofulmen).
+// crate records (name, version, source). Hand-rolled PARSE only — no
+// third-party TOML helper. Free of goneat policy, crates.io HTTP, and
+// cargo-deny so it can be extracted later (e.g. gofulmen / pkg/cargolock).
 package cargo
 
 import "strings"

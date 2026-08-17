@@ -131,7 +131,7 @@ Cooling is **not** enabled for every ecosystem just because a registry client ex
 | Ecosystem | Analyzer | Registry used for cooling | Status |
 | --------- | -------- | ------------------------- | ------ |
 | Go | `GoAnalyzer` | `proxy.golang.org` | Wired |
-| Rust | `RustAnalyzer` + `pkg/cargo` | crates.io (`CratesClient`) | Wired. Enumeration is `Cargo.lock` / `cargo metadata` JSON (not `cargo-deny`). Parser uses already-vendored `pelletier/go-toml/v2` (MIT). |
+| Rust | `RustAnalyzer` + `pkg/cargo` | crates.io (`CratesClient`) | Wired. Enumeration is hand-rolled `Cargo.lock` / `cargo metadata` JSON PARSE in `pkg/cargo` (no third-party TOML helper, not `cargo-deny`). `CratesClient` sends a contact User-Agent and throttles to 1 req/s. |
 | npm / JavaScript | stub / license-only | npm client exists, unused by analyzer | Not wired |
 | PyPI / Python | stub | PyPI client exists, unused by analyzer | Not wired |
 | NuGet / C# | stub | NuGet client exists, unused by analyzer | Not wired |
