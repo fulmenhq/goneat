@@ -146,6 +146,8 @@ Cooling is **not** enabled for every ecosystem just because a registry client ex
 
 **crates.io download caveat:** crates.io "recent" counts on a version are that version's *lifetime* downloads, not a 30-day window. goneat does **not** apply `min_downloads_recent` on the Rust path (a fresh MIT version of a popular crate would otherwise fail). Lifetime `min_downloads` may still apply when total crate downloads are present.
 
+**Source gating:** only `registry` sources that are crates.io are queried. git, path, and other-registry crates stay `age_unknown` and fail-closed. A git crate that shares a public crates.io name+version must not inherit that publish age. Path/workspace packages are `is_local` and skipped.
+
 ### What Gets Checked
 
 When a **wired** dependency is analyzed, goneat:

@@ -34,6 +34,18 @@ func attachCratesIOMetadata(deps []Dependency, client registry.Client) {
 			}
 			continue
 		}
+		// Only crates.io registry sources may be queried. A git/path/other-registry
+		// crate that shares a public crates.io name+version must not inherit that age.
+		if !isCratesIORegistry(dep.Metadata) {
+			if _, hasAge := dep.Metadata["age_days"]; hasAge {
+				delete(dep.Metadata, "age_days")
+			}
+			dep.Metadata["age_unknown"] = true
+			if _, ok := dep.Metadata["registry_error"]; !ok {
+				dep.Metadata["registry_error"] = "not a crates.io package"
+			}
+			continue
+		}
 		if client == nil {
 			dep.Metadata["age_unknown"] = true
 			dep.Metadata["registry_error"] = "crates.io client not configured"
@@ -59,6 +71,14 @@ func attachCratesIOMetadata(deps []Dependency, client registry.Client) {
 		dep.Metadata["total_downloads"] = meta.TotalDownloads
 		dep.Metadata["registry"] = "crates.io"
 	}
+}
+
+func isCratesIORegistry(meta map[string]interface{}) bool {
+	if meta == nil {
+		return false
+	}
+	reg, _ := meta["registry"].(string)
+	return reg == "crates.io"
 }
 
 func loadPolicyConfig(path string) (map[string]interface{}, error) {

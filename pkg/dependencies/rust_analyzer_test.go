@@ -12,12 +12,14 @@ import (
 )
 
 type stubCratesClient struct {
-	meta map[string]*registry.Metadata
-	err  map[string]error
+	meta    map[string]*registry.Metadata
+	err     map[string]error
+	queried []string
 }
 
 func (s *stubCratesClient) GetMetadata(name, version string) (*registry.Metadata, error) {
 	key := name + "@" + version
+	s.queried = append(s.queried, key)
 	if s.err != nil {
 		if err, ok := s.err[key]; ok {
 			return nil, err
@@ -109,6 +111,11 @@ func TestRustAnalyzer_Cooling_YoungCrateFails(t *testing.T) {
 	if !gitFailed {
 		t.Error("git-only-dep has no age_days and must fail closed")
 	}
+	for _, q := range client.queried {
+		if q == "git-only-dep@0.3.0" {
+			t.Error("git-only-dep must not be queried on crates.io")
+		}
+	}
 
 	// github.com/3leaps/* is in the policy; a crates.io crate must not be excepted by it.
 	for _, dep := range result.Dependencies {
@@ -198,6 +205,58 @@ func TestRustAnalyzer_Cooling_MissingAgeDaysFails(t *testing.T) {
 	}
 	if !foundSerdeIssue {
 		t.Error("serde with missing age_days must produce an age_violation")
+	}
+}
+
+func TestAttachCratesIOMetadata_GitAndOtherRegistryNotQueried(t *testing.T) {
+	client := &stubCratesClient{
+		meta: map[string]*registry.Metadata{
+			"serde@1.0.195": stubMeta(400, 250000000),
+		},
+	}
+	deps := []Dependency{
+		{
+			Module: Module{Name: "serde", Version: "1.0.195", Language: LanguageRust},
+			Metadata: map[string]interface{}{
+				"source":         "git+https://github.com/example/serde#aaaaaaaa",
+				"age_unknown":    true,
+				"registry_error": "not a crates.io package",
+			},
+		},
+		{
+			Module: Module{Name: "serde", Version: "1.0.195", Language: LanguageRust},
+			Metadata: map[string]interface{}{
+				"source":         "registry+https://example.invalid/index",
+				"age_unknown":    true,
+				"registry_error": "not a crates.io package",
+			},
+		},
+		{
+			Module:   Module{Name: "local-app", Version: "0.1.0", Language: LanguageRust},
+			Metadata: map[string]interface{}{"is_local": true, "age_days": 0},
+		},
+		{
+			Module:   Module{Name: "serde", Version: "1.0.195", Language: LanguageRust},
+			Metadata: map[string]interface{}{"registry": "crates.io"},
+		},
+	}
+
+	attachCratesIOMetadata(deps, client)
+
+	if len(client.queried) != 1 || client.queried[0] != "serde@1.0.195" {
+		t.Fatalf("only the crates.io serde must be queried, got %v", client.queried)
+	}
+	if _, ok := deps[0].Metadata["age_days"]; ok {
+		t.Error("git serde must not inherit crates.io age (false-pass risk)")
+	}
+	if _, ok := deps[1].Metadata["age_days"]; ok {
+		t.Error("other-registry serde must not inherit crates.io age")
+	}
+	if isLocal, _ := deps[2].Metadata["is_local"].(bool); !isLocal {
+		t.Error("path/workspace skip is required")
+	}
+	if _, ok := deps[3].Metadata["age_days"].(int); !ok {
+		t.Error("crates.io serde should receive age_days")
 	}
 }
 

@@ -34,7 +34,7 @@ The Dependencies package provides comprehensive dependency analysis for multi-la
 - The **core `Analyzer` interface** (see `pkg/dependencies/analyzer.go`) exposes dependency analysis with policy enforcement
 - The **Cooling Policy Checker** (see `pkg/cooling/checker.go`) validates packages against supply chain security rules
 - The **Registry Clients** (see `pkg/registry/`) fetch package metadata from multiple ecosystems
-- The **Cargo lock/metadata parser** (see `pkg/cargo/`) is a boring extractable PARSE package: name, version, source (`registry`/`git`/`path`). No third-party TOML helper. Cooling uses it; `cargo-deny` stays on the license path. `CratesClient` throttles to 1 req/s with a contact User-Agent.
+- The **Cargo lock/metadata parser** (see `pkg/cargo/`) is a boring extractable PARSE package: name, version, source (`registry`/`git`/`path`). No third-party TOML helper. Cooling uses it; `cargo-deny` stays on the license path. `CratesClient` throttles to 1 req/s with a contact User-Agent and is only called for crates.io registry sources (git/other-registry stay unknown / fail-closed).
 - The **`goneat dependencies` CLI** wraps the analyzer for command-line usage
 
 ## Current Status
