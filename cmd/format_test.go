@@ -178,10 +178,17 @@ nested:
 		t.Fatal(err)
 	}
 
-	// Run goneat format --check as a subprocess to properly test exit code
-	// since the command uses os.Exit() internally
-	cmd := exec.Command("go", "run", ".", "format", "--check", yamlFile)
-	cmd.Dir = ".."
+	// Positional discovery skips out-of-repo temp files (0 work items, exit 0).
+	// --files targets the fixture explicitly so yamlfmt's "needs formatting"
+	// result is what we assert, not planner ignore behavior.
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("failed to resolve test file path")
+	}
+	repoRoot := filepath.Join(filepath.Dir(thisFile), "..")
+
+	cmd := exec.Command("go", "run", ".", "format", "--check", "--files", yamlFile)
+	cmd.Dir = repoRoot
 	output, err := cmd.CombinedOutput()
 
 	// Should return non-zero exit code because yamlfmt detects formatting issues
