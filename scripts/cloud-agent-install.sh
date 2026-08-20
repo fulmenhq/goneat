@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 # Cursor Cloud Agent install script for goneat.
 #
-# The environment is based on the same container goneat CI uses
-# (ghcr.io/fulmenhq/goneat-tools-runner-glibc), which already ships the Go
-# toolchain plus the foundation/lint tooling goneat drives. "The container IS
-# the contract" (see docs/cicd/local-runner.md), so this script only:
+# Runs on the default Cursor base image (which already provides Go, Node,
+# Python, and Cargo on the standard PATH) and bootstraps the dev toolchain
+# goneat drives from a bare image. It is deliberately image-agnostic so the
+# same script works for local/other-agent bootstrap too. It:
 #   1. primes the Go module cache,
-#   2. tops up any dev tool the image does not already provide, and
+#   2. installs any dev tool that is not already on PATH, and
 #   3. builds the goneat binary with embedded assets.
 #
 # It is idempotent: re-running is safe and skips tools that already resolve on
-# PATH. Top-up tools install into ~/.local/bin so no system paths are mutated.
+# PATH. Installed tools go into ~/.local/bin, which is on PATH via ~/.profile,
+# so no system paths or shell profiles are mutated.
 set -euo pipefail
 
 echo "=== cloud-agent-install: environment ==="

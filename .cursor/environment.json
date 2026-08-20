@@ -1,6 +1,5 @@
 {
   "name": "goneat",
-  "user": "node",
-  "image": "ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.1",
+  "user": "ubuntu",
   "install": "bash scripts/cloud-agent-install.sh"
 }
