@@ -32,13 +32,14 @@ echo "=== cloud-agent-install: priming Go module cache ==="
 go mod download
 
 # ensure_go <binary> <go-install-package>
-# Installs the Go tool only when it is not already provided by the base image.
+# Installs a Go tool if it is not already on PATH. Never aborts the whole
+# install on a single tool failure; the required-tool check below is the gate.
 ensure_go() {
 	if command -v "$1" >/dev/null 2>&1; then
 		echo "present : $1 -> $(command -v "$1")"
 	else
 		echo "install : $1 ($2)"
-		go install "$2"
+		go install "$2" || echo "WARN    : failed to install $1"
 	fi
 }
 
@@ -51,11 +52,13 @@ ensure_go yamlfmt github.com/google/yamlfmt/cmd/yamlfmt@latest
 ensure_go shfmt mvdan.cc/sh/v3/cmd/shfmt@latest
 ensure_go actionlint github.com/rhysd/actionlint/cmd/actionlint@latest
 ensure_go go-licenses github.com/google/go-licenses/v2@v2.0.1
-ensure_go checkmake github.com/mrtazz/checkmake@latest
+# checkmake's module moved to github.com/checkmake/checkmake and its main lives
+# under cmd/checkmake (the old github.com/mrtazz path is not `go install`-able).
+ensure_go checkmake github.com/checkmake/checkmake/cmd/checkmake@latest
 
 echo "=== cloud-agent-install: ensuring foundation formatters/linters ==="
-command -v yamllint >/dev/null 2>&1 || python3 -m pip install --user --quiet yamllint || true
-command -v prettier >/dev/null 2>&1 || npm install -g --prefix "${HOME}/.local" prettier@3 || true
+command -v yamllint >/dev/null 2>&1 || python3 -m pip install --user --quiet yamllint || echo "WARN    : failed to install yamllint"
+command -v prettier >/dev/null 2>&1 || npm install -g --prefix "${HOME}/.local" prettier@3 >/dev/null || echo "WARN    : failed to install prettier"
 if ! command -v shellcheck >/dev/null 2>&1; then
 	sc_ver="v0.10.0"
 	sc_arch="$(uname -m)"
@@ -63,8 +66,20 @@ if ! command -v shellcheck >/dev/null 2>&1; then
 	{ curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/${sc_ver}/shellcheck-${sc_ver}.linux.${sc_arch}.tar.xz" -o "${sc_tmp}/sc.tar.xz" &&
 		tar -xJf "${sc_tmp}/sc.tar.xz" -C "${sc_tmp}" &&
 		install -m 0755 "${sc_tmp}/shellcheck-${sc_ver}/shellcheck" "${LOCAL_BIN}/shellcheck"; } ||
-		echo "shellcheck install skipped"
+		echo "WARN    : failed to install shellcheck"
 	rm -rf "${sc_tmp}"
+fi
+
+# Gate the build on the tools the core dev loop (build/test/lint/assess) needs.
+# Optional extras (checkmake, prettier, yamllint, shellcheck) only warn above.
+echo "=== cloud-agent-install: verifying required tools ==="
+missing=""
+for req in go gofmt make git golangci-lint goimports gosec govulncheck go-licenses yamlfmt shfmt actionlint; do
+	command -v "$req" >/dev/null 2>&1 || missing="${missing} ${req}"
+done
+if [ -n "${missing}" ]; then
+	echo "ERROR   : required tools missing after install:${missing}" >&2
+	exit 1
 fi
 
 echo "=== cloud-agent-install: building goneat ==="
