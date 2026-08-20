@@ -79,7 +79,9 @@ Thumbs.db
 # IDE files
 .vscode/
 .idea/
-.cursor/
+.cursor/*
+# Keep the Cursor Cloud Agent environment definition version-controlled.
+!.cursor/environment.json
 *.swp
 *.swo
 *~
