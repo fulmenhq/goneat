@@ -10,14 +10,20 @@
 #   3. builds the goneat binary with embedded assets.
 #
 # It is idempotent: re-running is safe and skips tools that already resolve on
-# PATH. Installed tools go into ~/.local/bin, which is on PATH via ~/.profile,
-# so no system paths or shell profiles are mutated.
+# PATH (presence only; it does not replace a mismatched version). Installed
+# tools go into ~/.local/bin, which is on PATH via ~/.profile, so no system
+# paths or shell profiles are mutated.
 #
 # Tool versions are pinned to recommended_version in
 # config/tools/foundation-tools-defaults.yaml (dev↔CI parity). Do not use
-# @latest: golangci-lint v2.13+ requires Go >= 1.26 and will download a new
-# toolchain on the Go 1.25 Cursor base image.
+# @latest: golangci-lint v2.13+ requires Go >= 1.26.
+#
+# The default Cursor image's /usr/bin/go is often Go 1.22 with GOTOOLCHAIN=auto,
+# which reports go1.25.0 for this module but will jump to a cached newer
+# toolchain (e.g. go1.26.7) during `go install`. Pin GOTOOLCHAIN to go.mod's
+# 1.25.0 so pinned tools actually build with Go 1.25.
 set -euo pipefail
+export GOTOOLCHAIN="${GOTOOLCHAIN:-go1.25.0}"
 
 # Pins: config/tools/foundation-tools-defaults.yaml recommended_version.
 # goimports has no recommended pin there; match go.mod's golang.org/x/tools.
@@ -37,6 +43,7 @@ SHELLCHECK_VERSION="v0.11.0"
 echo "=== cloud-agent-install: environment ==="
 id 2>/dev/null || true
 echo "HOME=${HOME} PWD=$(pwd)"
+echo "GOTOOLCHAIN=${GOTOOLCHAIN}"
 go version || true
 echo "GOPATH=$(go env GOPATH) GOMODCACHE=$(go env GOMODCACHE)"
 
@@ -52,8 +59,9 @@ echo "=== cloud-agent-install: priming Go module cache ==="
 go mod download
 
 # ensure_go <binary> <go-install-package>
-# Installs a Go tool if it is not already on PATH. Never aborts the whole
-# install on a single tool failure; the required-tool check below is the gate.
+# Installs a Go tool if it is not already on PATH. Presence skips the pin
+# (cold-install / missing-tool only). Never aborts the whole install on a
+# single tool failure; the required-tool check below is the gate.
 ensure_go() {
 	if command -v "$1" >/dev/null 2>&1; then
 		echo "present : $1 -> $(command -v "$1")"
