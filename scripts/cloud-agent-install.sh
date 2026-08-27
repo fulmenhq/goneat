@@ -23,6 +23,7 @@
 # toolchain (e.g. go1.26.7) during `go install`. Pin GOTOOLCHAIN to the 1.25
 # line so pinned tools do not follow that jump. Use 1.25.8 (not go.mod's
 # 1.25.0): gosec v2.28.0 requires go >= 1.25.8 and fails closed on 1.25.0.
+# Override with GOTOOLCHAIN=... when a newer 1.25 patch is required.
 set -euo pipefail
 export GOTOOLCHAIN="${GOTOOLCHAIN:-go1.25.8}"
 
