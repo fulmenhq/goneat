@@ -41,6 +41,9 @@ CHECKMAKE_VERSION="v0.3.0"
 PRETTIER_VERSION="3.9.6"
 YAMLLINT_VERSION="1.38.0"
 SHELLCHECK_VERSION="v0.11.0"
+# arch-specific SHA256 of the upstream shellcheck release tarball (verified 2026-09-01)
+SHELLCHECK_SHA256_X86_64="8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198"
+SHELLCHECK_SHA256_AARCH64="12b331c1d2db6b9eb13cfca64306b1b157a86eb69db83023e261eaa7e7c14588"
 
 echo "=== cloud-agent-install: environment ==="
 id 2>/dev/null || true
@@ -60,13 +63,47 @@ export GOBIN="${LOCAL_BIN}"
 echo "=== cloud-agent-install: priming Go module cache ==="
 go mod download
 
+# pin_version_cmp <tool> <pinned-token>
+# Compare a tool's self-reported version against the pinned version token.
+# Returns 0 = match (optional leading v tolerated), 1 = determined mismatch,
+# 2 = indeterminate (tool rejects --version or prints no recognizable
+# version). The caller treats 2 as "no verdict" per the best-effort contract.
+pin_version_cmp() {
+	tool="$1"
+	pinned_norm="${2#v}"
+	out="$("$tool" --version 2>/dev/null)" || return 2
+	[ -z "$out" ] && return 2
+	inst=$(printf '%s' "$out" | grep -oE 'v?[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1 | sed 's/^v//')
+	[ -z "$inst" ] && return 2
+	[ "$inst" = "$pinned_norm" ] && return 0 || return 1
+}
+
 # ensure_go <binary> <go-install-package>
-# Installs a Go tool if it is not already on PATH. Presence skips the pin
-# (cold-install / missing-tool only). Never aborts the whole install on a
-# single tool failure; the required-tool check below is the gate.
+# Installs a Go tool if it is not already on PATH. Presence skips the install
+# (cold-install / missing-tool only); the pin is advisory at run time: an
+# already-installed binary is NOT downgraded or replaced, and pin_version_cmp
+# provides a best-effort version compare that WARNs on a determined mismatch
+# (optional leading v normalized; tools without usable --version output get
+# no verdict and no warning). Never aborts the whole install on a single
+# tool failure; the required-tool check below is the gate.
 ensure_go() {
 	if command -v "$1" >/dev/null 2>&1; then
 		echo "present : $1 -> $(command -v "$1")"
+		# Advisory pin check — deterministic verdicts, best-effort contract.
+		if
+			pinned_ver=$(printf '%s' "$2" | sed -n 's/.*@\(v\{0,1\}[0-9][0-9a-zA-Z.-]*\)$/\1/p')
+			[ -n "$pinned_ver" ]
+		then
+			if pin_version_cmp "$1" "$pinned_ver"; then
+				:
+			else
+				rc=$?
+				if [ "$rc" -eq 1 ]; then
+					echo "WARN    : $1 installed version does not match pin $pinned_ver (advisory only; not corrected)"
+				fi
+				# rc=2: tool version indeterminate -> no verdict, no warning
+			fi
+		fi
 	else
 		echo "install : $1 ($2)"
 		go install "$2" || echo "WARN    : failed to install $1"
@@ -92,8 +129,25 @@ command -v prettier >/dev/null 2>&1 || npm install -g --prefix "${HOME}/.local" 
 if ! command -v shellcheck >/dev/null 2>&1; then
 	sc_ver="${SHELLCHECK_VERSION}"
 	sc_arch="$(uname -m)"
+	case "$sc_arch" in
+	x86_64) sc_expected_sha="${SHELLCHECK_SHA256_X86_64}" ;;
+	aarch64 | arm64) sc_expected_sha="${SHELLCHECK_SHA256_AARCH64}" ;;
+	*)
+		echo "WARN    : unsupported arch for shellcheck checksum verification: $sc_arch"
+		sc_expected_sha=""
+		;;
+	esac
 	sc_tmp="$(mktemp -d)"
 	{ curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/${sc_ver}/shellcheck-${sc_ver}.linux.${sc_arch}.tar.xz" -o "${sc_tmp}/sc.tar.xz" &&
+		if [ -n "$sc_expected_sha" ]; then
+			echo "${sc_expected_sha}  ${sc_tmp}/sc.tar.xz" | sha256sum -c - ||
+				{
+					echo "ERROR   : shellcheck tarball checksum mismatch; aborting shellcheck install" >&2
+					exit 1
+				}
+		else
+			echo "WARN    : no shellcheck checksum pin for this arch; skipping checksum verification"
+		fi &&
 		tar -xJf "${sc_tmp}/sc.tar.xz" -C "${sc_tmp}" &&
 		install -m 0755 "${sc_tmp}/shellcheck-${sc_ver}/shellcheck" "${LOCAL_BIN}/shellcheck"; } ||
 		echo "WARN    : failed to install shellcheck"
