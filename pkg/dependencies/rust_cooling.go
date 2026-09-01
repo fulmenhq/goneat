@@ -37,9 +37,7 @@ func attachCratesIOMetadata(deps []Dependency, client registry.Client) {
 		// Only crates.io registry sources may be queried. A git/path/other-registry
 		// crate that shares a public crates.io name+version must not inherit that age.
 		if !isCratesIORegistry(dep.Metadata) {
-			if _, hasAge := dep.Metadata["age_days"]; hasAge {
-				delete(dep.Metadata, "age_days")
-			}
+			delete(dep.Metadata, "age_days")
 			dep.Metadata["age_unknown"] = true
 			if _, ok := dep.Metadata["registry_error"]; !ok {
 				dep.Metadata["registry_error"] = "not a crates.io package"

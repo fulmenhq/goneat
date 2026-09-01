@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.6.0] - 2026-09-01
+
+### Added
+
+- **Rust crates.io cooling**: `goneat dependencies` now wires crates.io registry cooling for Rust dependencies — crates.io publish age is attached as cooling metadata for registry-sourced crates only, with `age_unknown`/`registry_error` metadata for non-registry sources (#28).
+
+### Changed
+
+- **CI tools runner pin (Go 1.26.6)**: `.github/workflows/ci.yml` container jobs now use `ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.4` (was `:v0.5.1`) at all three sites. That image is the fulmen-toolbox v0.5.4 content cut: Go 1.26.6 (clears the Go-stdlib HIGH advisory cluster in in-runner-built binaries), node 22.23.2, glibc jq 1.8.2, and the musl openssl 3.5.8-r0 security pins. The `go 1.25.0` module floor is unchanged — runner toolchain and language compatibility stay decoupled.
+- **Cloud bootstrap pins**: repository-managed Cursor Cloud Agent environment added (#29); bootstrap tool versions pinned to recommended pins (#31); `GOTOOLCHAIN` pin raised to `go1.25.8` for gosec (#32).
+- **Cloud agent install hardening**: `scripts/cloud-agent-install.sh` now verifies the shellcheck release tarball against arch-specific SHA256 pins (x86_64/aarch64) before install, and `ensure_go` performs a best-effort version compare that WARNs (never fails the host) when an already-installed tool does not match its pin. Tool pins remain install-time; version comparison at run time is advisory.
+- **MPL-2.0 exception renewed**: the `filepath-securejoin` exception (transitive via go-git/go-billy) is renewed through 2027-03-31 with unchanged conditions (unmodified dependency only); removal/refactor of the go-git path is tracked for a future v0.6.x release.
+
+### Fixed
+
+- **YAML format precedence**: format targeting now honors explicit `--files` over YAML precedence fixtures (#30).
+- **Lint**: removed an unnecessary guard around `delete` in `pkg/dependencies/rust_cooling.go`; `make lint` is clean.
+
 ## [v0.5.16] - 2026-08-03
 
 ### Changed

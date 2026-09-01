@@ -44,7 +44,7 @@ LDFLAGS := -ldflags "\
 	-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
-.PHONY: help build hooks-ensure clean clean-go clean-testcache clean-vendor clean-coverage clean-os-metadata clean-backups clean-release clean-all test fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites prerequisites-build-goneat prerequisites-check-go prerequisites-check-git prerequisites-check-tools prerequisites-install-tools sync-crucible sync-ssot verify-crucible verify-crucible-clean verify-schemas bootstrap tools lint release-check release-prepare release-build release-clean release-verify-checksums check-all pr-final prepush precommit update-homebrew-formula update-scoop-manifest verify-release-key local-ci-check local-ci all
+.PHONY: help build hooks-ensure clean clean-go clean-testcache clean-vendor clean-coverage clean-os-metadata clean-backups clean-release clean-all test test-scripts fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites prerequisites-build-goneat prerequisites-check-go prerequisites-check-git prerequisites-check-tools prerequisites-install-tools sync-crucible sync-ssot verify-crucible verify-crucible-clean verify-schemas bootstrap tools lint release-check release-prepare release-build release-clean release-verify-checksums check-all pr-final prepush precommit update-homebrew-formula update-scoop-manifest verify-release-key local-ci-check local-ci all
 
 # Default target
 all: clean build format-all
@@ -516,8 +516,12 @@ clean-all: clean ## Deep clean including Go build cache (slow - use before major
 	@echo "✅ Deep clean completed (next build will be slower)"
 
 # Test targets
-test: test-unit test-integration-cooling-synthetic ## Run all tests (unit + Tier 1 integration)
+test: test-unit test-integration-cooling-synthetic test-scripts ## Run all tests (unit + Tier 1 integration + script checks)
 	@echo "✅ Test suite completed"
+
+test-scripts: ## Run deterministic script checks (ensure_go pin compare etc.)
+	@echo "Running script tests..."
+	@bash scripts/test-ensure-go.sh
 
 test-unit: ## Run unit tests only
 	@echo "Running unit tests..."
