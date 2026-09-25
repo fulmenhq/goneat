@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Minimum Go is now 1.26**: `go.mod` declares `go 1.26.0` (was `1.25.0`), required by `golang.org/x/crypto` v0.56.0. Building from source or via `go install` needs Go 1.26 or later; release binaries are built with Go 1.26.6+. `.goneat/tools.yaml` Go minimum raised to 1.26.0, and the cloud bootstrap `GOTOOLCHAIN` default is now `go1.26.6`.
+- **Dependency refresh**: `open-policy-agent/opa` 1.18.2 → 1.20.2 (selects `grpc` 1.83.2, `oras-go` 2.6.2, OpenTelemetry 1.46.0, `klauspost/compress` 1.19.1), `golang.org/x/mod` 0.38.0 → 0.41.0, `golang.org/x/sync` 0.22.0 → 0.23.0, `golang.org/x/text` 0.40.0 → 0.42.0, `stretchr/testify` 1.11.1 → 1.12.1.
+- **Recommended tool pins**: Go 1.26.5 → 1.26.6, `cargo-deny` 0.16.0 → 0.20.2, `cargo-audit` 0.21.0 → 0.22.2 (shared defaults, repository tools config, and the Rust example).
+
+### Fixed
+
+- **License audit fails closed**: `make license-audit` and `make license-inventory` now fail when `go-licenses` exits with an error or returns an empty inventory, instead of reporting success. A `go-licenses` binary built with a different Go toolchain than the active one is the usual cause; the error message names the reinstall command.
+
+### Security
+
+- **go-git** 5.19.1 → 5.19.2 and **go-billy** 5.9.0 → 5.9.1: fixes GO-2026-6213 (worktree symlink following) and GO-2026-6214 (ref-name path traversal).
+- **golang.org/x/crypto** 0.54.0 → 0.56.0: fixes SSH denial-of-service advisories GO-2026-6354 and GO-2026-6355.
+- Module-graph advisories in `grpc`, `oras-go`, `x/mod`, OpenTelemetry and `klauspost/compress` are resolved by the updates above.
+
 ## [v0.6.0] - 2026-09-01
 
 ### Added

@@ -184,7 +184,7 @@ go_tools:
     auto_install_safe: true
     version_scheme: "semver"
     minimum_version: "1.21.0"
-    recommended_version: "1.26.5"
+    recommended_version: "1.26.6"
   - name: go-licenses
     description: "License compliance for Go dependencies"
     kind: "go"
@@ -275,7 +275,7 @@ rust_tools:
     auto_install_safe: true
     version_scheme: "semver"
     minimum_version: "0.14.0"
-    recommended_version: "0.16.0"
+    recommended_version: "0.20.2"
   - name: cargo-audit
     description: "Rust security vulnerability scanner (RustSec advisories)"
     kind: "cargo"
@@ -288,7 +288,7 @@ rust_tools:
     auto_install_safe: true
     version_scheme: "semver"
     minimum_version: "0.18.0"
-    recommended_version: "0.21.0"
+    recommended_version: "0.22.2"
 # =============================================================================
 # PYTHON SCOPE - Python development tools
 # =============================================================================
