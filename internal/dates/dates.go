@@ -5,16 +5,19 @@ package dates
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/bmatcuk/doublestar/v4"
+	"github.com/fulmenhq/goneat/internal/gitrepo"
 	"github.com/fulmenhq/goneat/pkg/ignore"
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/fulmenhq/goneat/pkg/schema"
@@ -387,34 +390,31 @@ func (r *DatesRunner) Assess(ctx context.Context, target string, extra interface
 	var files []string
 	var changedOnly []string
 	var repoPtr *git.Repository
-	if os.Getenv("GONEAT_DATES_NO_INC") == "" {
-		if repo, err := git.PlainOpen(target); err == nil {
-			repoPtr = repo
-			if wt, err2 := repo.Worktree(); err2 == nil {
-				if st, err3 := wt.Status(); err3 == nil {
-					for rel, s := range st {
-						// ACMR-like: Added/Modified/Renamed (ignore deleted/unmodified)
-						if s.Worktree == git.Unmodified && s.Staging == git.Unmodified {
-							continue
-						}
-						if s.Worktree == git.Deleted || s.Staging == git.Deleted {
-							continue
-						}
-						changedOnly = append(changedOnly, filepath.ToSlash(rel))
-					}
-				}
-			}
+	// repoOpenErr is set when target has Git metadata that cannot be opened
+	// (for example a linked worktree's .git file pointing nowhere). No .git
+	// at all means "not a repository" and is not an error.
+	var repoOpenErr error
+	if repo, err := gitrepo.OpenAt(target); err == nil {
+		repoPtr = repo
+		// GONEAT_DATES_NO_INC disables only incremental file selection; the
+		// repository is still needed for the chronology check.
+		if os.Getenv("GONEAT_DATES_NO_INC") == "" {
+			// On a status error changedOnly stays empty and the full walk below runs.
+			changedOnly, _ = changedFiles(repo)
 		}
+	} else if _, statErr := os.Lstat(filepath.Join(target, ".git")); statErr == nil {
+		repoOpenErr = err
 	}
 
 	// Determine repository birth time (earliest commit)
 	var repoBirth time.Time
 	hasRepoBirth := false
+	var repoBirthErr error
 	if repoPtr != nil {
-		if t, ok := repoFirstCommitTime(repoPtr); ok {
-			repoBirth = t
-			hasRepoBirth = true
-		}
+		repoBirth, repoBirthErr = repoFirstCommitTime(repoPtr)
+		hasRepoBirth = repoBirthErr == nil
+	} else if repoOpenErr != nil {
+		repoBirthErr = repoOpenErr
 	}
 
 	// Create ignore matcher to respect .gitignore and .goneatignore
@@ -548,6 +548,10 @@ func (r *DatesRunner) Assess(ctx context.Context, target string, extra interface
 	}
 
 	issues := make([]DatesIssue, 0, 16)
+	if repoBirthErr != nil {
+		// Do not drop the impossible-chronology check silently.
+		issues = append(issues, DatesIssue{File: "repository", Severity: "info", Message: fmt.Sprintf("Impossible-chronology check skipped: repository creation date could not be determined (%v)", repoBirthErr), Category: "dates"})
+	}
 	var mu sync.Mutex
 	ch := make(chan string, len(files))
 	for _, f := range files {
@@ -1097,14 +1101,39 @@ func findRepoRoot(target string) (string, error) {
 }
 
 // repoFirstCommitTime returns the earliest commit timestamp across all refs
-func repoFirstCommitTime(repo *git.Repository) (time.Time, bool) {
+// changedFiles lists ACMR-like changed paths (added, modified, renamed;
+// deleted and unmodified excluded) for incremental dates scanning.
+func changedFiles(repo *git.Repository) ([]string, error) {
+	wt, err := repo.Worktree()
+	if err != nil {
+		return nil, err
+	}
+	st, err := wt.Status()
+	if err != nil {
+		return nil, err
+	}
+	var changed []string
+	for rel, s := range st {
+		if s.Worktree == git.Unmodified && s.Staging == git.Unmodified {
+			continue
+		}
+		if s.Worktree == git.Deleted || s.Staging == git.Deleted {
+			continue
+		}
+		changed = append(changed, filepath.ToSlash(rel))
+	}
+	sort.Strings(changed)
+	return changed, nil
+}
+
+func repoFirstCommitTime(repo *git.Repository) (time.Time, error) {
 	iter, err := repo.Log(&git.LogOptions{All: true})
 	if err != nil {
-		return time.Time{}, false
+		return time.Time{}, err
 	}
 	defer iter.Close()
 	earliest := time.Time{}
-	_ = iter.ForEach(func(c *object.Commit) error {
+	walkErr := iter.ForEach(func(c *object.Commit) error {
 		t := c.Author.When
 		if c.Committer.When.Before(t) {
 			t = c.Committer.When
@@ -1114,8 +1143,12 @@ func repoFirstCommitTime(repo *git.Repository) (time.Time, bool) {
 		}
 		return nil
 	})
-	if earliest.IsZero() {
-		return time.Time{}, false
+	if walkErr != nil {
+		// A partial history walk could report a too-late creation date.
+		return time.Time{}, walkErr
 	}
-	return earliest, true
+	if earliest.IsZero() {
+		return time.Time{}, errors.New("repository has no commits")
+	}
+	return earliest, nil
 }
