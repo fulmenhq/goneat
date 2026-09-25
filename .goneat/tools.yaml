@@ -285,8 +285,8 @@ tools:
         - scoop
         - winget
     version_scheme: semver
-    minimum_version: "1.25.0"
-    recommended_version: "1.26.5"
+    minimum_version: "1.26.0"
+    recommended_version: "1.26.6"
   go-licenses:
     name: go-licenses
     description: License compliance for Go dependencies
@@ -402,7 +402,7 @@ tools:
         - cargo-install
     version_scheme: semver
     minimum_version: "0.14.0"
-    recommended_version: "0.16.0"
+    recommended_version: "0.20.2"
   cargo-audit:
     name: cargo-audit
     description: Rust security vulnerability scanner (RustSec advisories)
@@ -420,7 +420,7 @@ tools:
         - cargo-install
     version_scheme: semver
     minimum_version: "0.18.0"
-    recommended_version: "0.21.0"
+    recommended_version: "0.22.2"
   # ==========================================================================
   # PYTHON TOOLS
   # ==========================================================================

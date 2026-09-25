@@ -30,7 +30,7 @@ tools:
       all: ["manual"]
     version_scheme: semver
     minimum_version: "0.14.0"
-    recommended_version: "0.16.0"
+    recommended_version: "0.20.2"
 
   cargo-audit:
     name: cargo-audit
@@ -44,4 +44,4 @@ tools:
       all: ["manual"]
     version_scheme: semver
     minimum_version: "0.18.0"
-    recommended_version: "0.21.0"
+    recommended_version: "0.22.2"

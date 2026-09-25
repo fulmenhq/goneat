@@ -86,7 +86,7 @@ func TestRecommendedToolVersionLock(t *testing.T) {
 		"actionlint":    {recommended: "1.7.12", defaultMinimum: "1.7.0", repositoryMinimum: "1.7.0"},
 		"biome":         {recommended: "2.5.5", defaultMinimum: "2.0.0", repositoryMinimum: "2.0.0"},
 		"gitleaks":      {recommended: "8.30.1"},
-		"go":            {recommended: "1.26.5", defaultMinimum: "1.21.0", repositoryMinimum: "1.25.0"},
+		"go":            {recommended: "1.26.6", defaultMinimum: "1.21.0", repositoryMinimum: "1.26.0"},
 		"go-licenses":   {recommended: "2.0.1", defaultMinimum: "2.0.1", repositoryMinimum: "2.0.1"},
 		"golangci-lint": {recommended: "2.12.2", defaultMinimum: "2.0.0", repositoryMinimum: "2.0.0"},
 		"gosec":         {recommended: "2.28.0", defaultMinimum: "2.18.0", repositoryMinimum: "2.18.0"},

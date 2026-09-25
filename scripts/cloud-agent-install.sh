@@ -19,13 +19,13 @@
 # @latest: golangci-lint v2.13+ requires Go >= 1.26.
 #
 # The default Cursor image's /usr/bin/go is often Go 1.22 with GOTOOLCHAIN=auto,
-# which reports go1.25.0 for this module but will jump to a cached newer
-# toolchain (e.g. go1.26.7) during `go install`. Pin GOTOOLCHAIN to the 1.25
-# line so pinned tools do not follow that jump. Use 1.25.8 (not go.mod's
-# 1.25.0): gosec v2.28.0 requires go >= 1.25.8 and fails closed on 1.25.0.
-# Override with GOTOOLCHAIN=... when a newer 1.25 patch is required.
+# which reports go1.26.0 for this module but will jump to a cached newer
+# toolchain (e.g. go1.27.x) during `go install`. Pin GOTOOLCHAIN to the 1.26
+# line so pinned tools do not follow that jump. Use 1.26.6 (not go.mod's
+# 1.26.0) to match the CI runner and pick up standard-library security fixes.
+# Override with GOTOOLCHAIN=... when a newer 1.26 patch is required.
 set -euo pipefail
-export GOTOOLCHAIN="${GOTOOLCHAIN:-go1.25.8}"
+export GOTOOLCHAIN="${GOTOOLCHAIN:-go1.26.6}"
 
 # Pins: config/tools/foundation-tools-defaults.yaml recommended_version.
 # goimports has no recommended pin there; match go.mod's golang.org/x/tools.
