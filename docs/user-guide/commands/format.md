@@ -343,6 +343,7 @@ Notes:
 - Standalone `format` checks required external formatters after selecting files and fails before execution when one is unavailable. `assess` retains its optional-tool skip behavior.
 - `--ignore-missing-tools` explicitly selects degraded, finalizer-only processing for content whose primary formatter is unavailable. The warning is emitted once per missing formatter, not once per file.
 - Install Python formatting support with `goneat doctor tools --scope python --install`.
+- Rust is formatted per Cargo workspace with `cargo fmt --all` (`--check` runs `cargo fmt --all -- --check -l`). With `--files`, Rust runs only when a `.rs` file is selected, and fix mode warns that the whole workspace may be rewritten. `--types` excludes Rust unless it lists `rust`. A missing rustfmt fails closed unless `--ignore-missing-tools` (which does not cover a toolchain named in `format.rust.toolchain`). Unlike other formatters, `assess` also fails when Rust is in scope and rustfmt is missing. Disable with `format.rust.enabled: false` in `.goneat.yaml`. See [Rust toolchain](../toolchains/rust.md).
 
 ### Execution Control Flags
 

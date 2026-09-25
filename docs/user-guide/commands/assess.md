@@ -19,7 +19,7 @@ The `goneat assess` command provides comprehensive codebase assessment with inte
 Goneat uses a small set of repo-local configuration files under `.goneat/`:
 
 - `.goneat/hooks.yaml` - Git hook orchestration (what runs on pre-commit/pre-push)
-- `.goneat/assess.yaml` - Lint/typecheck tuning for `assess` (shell, Makefiles, GitHub Actions, TypeScript)
+- `.goneat/assess.yaml` - Lint/typecheck tuning for `assess` (shell, Makefiles, GitHub Actions, TypeScript, Rust clippy). Only `version`, `lint` and `typecheck` are read at the top level. Any other top-level key is ignored with one warning per run, and the rest of the file still applies. A top-level `rust:` block moves to `format.rust` in `.goneat.yaml` and `lint.rust.clippy` here. A top-level `format:` block is also not read: formatter options belong in the `format:` block of the project `.goneat.yaml`, and path exclusions in `.goneatignore`.
 - `.goneat/tools.yaml` - Tools manifest used by `goneat doctor tools`
 - `.goneat/schema-mappings.yaml` - Optional config-to-schema mapping rules for schema validation
 

@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Rust formatting**: `goneat format` and `goneat assess --categories format` run `cargo fmt --all` for the containing Cargo workspace (check mode: `cargo fmt --all -- --check -l`, one issue per unformatted file). Configure with `format.rust.enabled` / `format.rust.toolchain` in `.goneat.yaml`. When Rust is in scope, a missing cargo or rustfmt fails both commands; opt out with `format.rust.enabled: false` (or `--ignore-missing-tools` on `goneat format`, except for a configured toolchain). `assess <target>` reads the target's `.goneat.yaml`; when Rust is in scope, an invalid project config fails the check with the file path instead of falling back to defaults.
+- **Clippy configuration**: `lint.rust.clippy` in `.goneat/assess.yaml` sets toolchain, `all_targets`, `all_features`, `features`, `no_default_features`, `locked`, `packages` and `targets` (one run per target triple, duplicate findings merged). Values are passed as separate arguments and option-shaped values are rejected. Defaults are unchanged.
+
 ### Changed
 
 - **Minimum Go is now 1.26**: `go.mod` declares `go 1.26.0` (was `1.25.0`), required by `golang.org/x/crypto` v0.56.0. Building from source or via `go install` needs Go 1.26 or later; release binaries are built with Go 1.26.6+. `.goneat/tools.yaml` Go minimum raised to 1.26.0, and the cloud bootstrap `GOTOOLCHAIN` default is now `go1.26.6`.
@@ -17,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Clippy fails closed**: a non-zero Cargo exit now fails the lint category (manifest or dependency errors, build-script failures, missing toolchain or target), with Cargo's stderr tail. Diagnostics parsed before the failure are kept. goneat disables rustup auto-install for these runs.
+- **biome and cargo-audit fail closed**: a timeout, a killed process, or a non-zero exit that the report does not explain is now an error instead of a clean result. For biome (lint, format check, config check), any `internalError` diagnostic (such as an unreadable or missing file) fails the run even at exit 0. A non-zero exit is accepted only with ordinary diagnostics, or when biome reports that every selected path is ignored by its own configuration. `format --write` failures are reported. For cargo-audit, the JSON must contain a vulnerabilities section, and a non-zero exit must come with advisories.
+- **assess config root**: `.goneat/assess.yaml` schema now rejects unknown top-level keys (the root `additionalProperties: false` was nested under `properties`). The loader warns once per run about each unknown top-level key and ignores it, keeping the other sections. The warning names where the key belongs: a legacy `rust:` block moves to `format.rust` (`.goneat.yaml`) and `lint.rust.clippy`. A top-level `format:` block in `assess.yaml` has never been read; formatter options belong in the project `.goneat.yaml` and exclusions in `.goneatignore`.
 - **License audit fails closed**: `make license-audit` and `make license-inventory` now fail when `go-licenses` exits with an error or returns an empty inventory, instead of reporting success. A `go-licenses` binary built with a different Go toolchain than the active one is the usual cause; the error message names the reinstall command.
 
 ### Security

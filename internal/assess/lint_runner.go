@@ -152,11 +152,13 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 
 	rustIssues, rustErr := runCargoClippyLint(target, config)
 	if rustErr != nil {
+		// Keep diagnostics parsed before the failure; the run error still fails the category.
 		return &AssessmentResult{
 			CommandName:   r.commandName,
 			Category:      CategoryLint,
 			Success:       false,
 			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
+			Issues:        append(issues, rustIssues...),
 			Error:         fmt.Sprintf("cargo-clippy failed: %v", rustErr),
 		}, nil
 	}

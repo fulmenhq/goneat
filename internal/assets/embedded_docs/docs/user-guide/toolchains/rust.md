@@ -30,33 +30,125 @@ goneat doctor tools --scope rust --install --yes
 
 ## Format
 
-goneat uses `rustfmt` (via `cargo fmt --check`) to verify Rust formatting.
+goneat runs `cargo fmt --all` for the Cargo workspace that contains the target.
+rustfmt reads `rustfmt.toml` / `.rustfmt.toml` and the crate edition as usual.
 
 ```bash
-goneat format                             # fix formatting
-goneat assess --categories format         # check only
+goneat format                             # rewrite: cargo fmt --all
+goneat format --check                     # check: cargo fmt --all -- --check -l
+goneat assess --categories format         # report one issue per unformatted file
 ```
 
-`goneat` invokes formatting either per-workspace or per-crate depending on the structure found. It is aware of Cargo editions (2018, 2021, 2024), delegating directly to `cargo fmt` which utilizes `rustfmt.toml` configurations implicitly.
+- **Scope**: discovery runs cover the Cargo project containing each path. With
+  `--files` or `--staged-only`, Rust is in scope only when a selected file ends
+  in `.rs`. Selected `.rs` files are never given to the per-file formatter:
+  inside a Cargo project they are formatted by `cargo fmt`, and otherwise
+  (Rust disabled, excluded by `--types`, or no Cargo project) they are skipped
+  with a log line. `--types` excludes Rust unless it lists `rust`.
+- **Whole workspace**: `cargo fmt` always formats the whole workspace. When a file
+  subset is selected in fix mode, goneat warns that other files may change.
+  Check mode reports only the selected files.
+- **Failures**: a parse error, manifest error or `rustfmt.toml` error fails the
+  run. rustfmt `Warning:` lines (for example nightly-only options on stable) do not.
+- **Missing rustfmt**: when Rust is in scope and cargo or rustfmt is missing,
+  both `goneat format` and `goneat assess` fail rather than pass unchecked Rust.
+  Opt out with `format.rust.enabled: false`, or with `--ignore-missing-tools` on
+  `goneat format`. A toolchain named in config that lacks rustfmt always fails;
+  `--ignore-missing-tools` does not cover it.
+
+Configure in the project `.goneat.yaml`, which is used by both `goneat format`
+and `goneat assess --categories format`. `goneat format` reads it from the working
+directory; `goneat assess <target>` reads it from the target directory.
+
+```yaml
+format:
+  rust:
+    enabled: true # default true; false skips cargo fmt
+    toolchain: stable # optional: cargo +stable fmt (must already be installed)
+```
 
 ### Common Findings
 
-| Finding                 | Meaning                        | Fix                                |
-| ----------------------- | ------------------------------ | ---------------------------------- |
-| "File needs formatting" | rustfmt would rewrite the file | Run `cargo fmt` or `goneat format` |
+| Finding                               | Meaning                        | Fix                                |
+| ------------------------------------- | ------------------------------ | ---------------------------------- |
+| "Rust file not formatted (cargo fmt)" | rustfmt would rewrite the file | Run `goneat format` or `cargo fmt` |
 
 ## Lint
 
-goneat runs `cargo clippy` to surface lint findings. Clippy lints range from
-style to correctness to performance.
+goneat runs `cargo clippy --message-format=json` (plus `--workspace` for
+workspaces) and maps clippy warnings to medium and errors to high severity.
+Use `--fail-on medium` to gate on warnings; `-D warnings` is not needed.
 
 ```bash
-goneat assess --categories lint
+goneat assess --categories lint --fail-on medium
 ```
 
-`goneat` parses the JSON message format emitted by `cargo clippy --message-format=json`. It intelligently maps Rust's warning/error levels into its own standard output.
+**Fail-closed**: if Cargo exits non-zero, the lint category fails even when
+some diagnostics were parsed. Compilation errors appear as high-severity issues;
+failures before a lint run completes (manifest or dependency resolution errors,
+build-script failures, missing toolchain or target) are reported with the tail of
+Cargo's stderr. Diagnostics parsed before the failure are kept.
 
-### Configuration
+### Clippy invocation (`.goneat/assess.yaml`)
+
+All fields are optional; unset fields keep the default invocation.
+
+```yaml
+version: 1
+lint:
+  rust:
+    clippy:
+      enabled: true # default true
+      toolchain: stable # cargo +stable clippy (must already be installed)
+      all_targets: true # --all-targets (tests, benches, examples)
+      all_features: false # --all-features
+      features: [async] # --features async
+      no_default_features: false # --no-default-features
+      locked: true # --locked
+      packages: [] # -p <pkg> each; empty = whole workspace
+      targets: [] # one run per triple, duplicate findings merged
+```
+
+- Values are passed to Cargo as separate arguments, never through a shell.
+  A value that does not look like the Cargo token it names (for example one that
+  starts with `-`) is rejected and the lint category fails.
+- goneat never installs toolchains or targets. rustup auto-install is disabled
+  for these runs; a missing toolchain or target standard library fails with a
+  `rustup` hint. Install them in your bootstrap step.
+- There is no free-form command string.
+
+Example: a stable CI lint over all targets and features, and a cross-target lint
+of selected crates for Linux and Windows (one configuration per CI job):
+
+```yaml
+# Host job
+version: 1
+lint:
+  rust:
+    clippy:
+      toolchain: stable
+      all_targets: true
+      all_features: true
+```
+
+```yaml
+# Cross-target job (install targets first with rustup target add)
+version: 1
+lint:
+  rust:
+    clippy:
+      toolchain: stable
+      locked: true
+      packages: [mycrate-transport, mycrate-frame, mycrate-peer]
+      all_targets: true
+      features: [async]
+      targets: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, x86_64-pc-windows-msvc]
+```
+
+A top-level `rust:` block in `.goneat/assess.yaml` is not supported. goneat
+warns and ignores it; other sections in the file still apply.
+
+### Clippy rule configuration
 
 Clippy can be configured per-crate in `Cargo.toml`:
 
@@ -101,9 +193,9 @@ While `goneat dependencies --vuln` uses `grype` for general SBOM scanning, `carg
 
 ## Known Behaviors and Edge Cases
 
-**Workspace projects**: goneat discovers Rust projects by `Cargo.toml` presence.
-In workspaces, goneat operates on the workspace root. Per-member linting is not
-currently supported separately.
+**Workspace projects**: goneat discovers Rust projects by `Cargo.toml` presence,
+including a `Cargo.toml` in a parent directory. In workspaces, goneat operates on
+the workspace root; use `lint.rust.clippy.packages` to lint selected members.
 
 **cargo-deny output format**: cargo-deny writes diagnostics to stderr by design.
 goneat reads from stderr for this tool. Rich output (crate names, license
