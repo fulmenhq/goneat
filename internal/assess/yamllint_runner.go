@@ -31,6 +31,7 @@ type lintOverrides struct {
 	Shell         *shellOverrides      `yaml:"shell"`
 	GitHubActions *githubActionsConfig `yaml:"github_actions"`
 	Make          *makeOverrides       `yaml:"make"`
+	Rust          *rustLintOverrides   `yaml:"rust"`
 }
 
 type yamllintOverrides struct {
@@ -132,6 +133,7 @@ func loadAssessOverrides(target string) *assessOverrides {
 	if _, ok := raw["version"]; !ok {
 		raw["version"] = 1
 	}
+	stripUnknownAssessKeys(raw, configPath)
 
 	result, err := schema.Validate(raw, "assess-config-v1.0.0")
 	if err != nil {
@@ -160,6 +162,44 @@ func loadAssessOverrides(target string) *assessOverrides {
 	}
 	assessConfigCache.Store(absTarget, &overrides)
 	return &overrides
+}
+
+// assessConfigTopLevelKeys are the root properties of assess-config-v1.0.0.
+var assessConfigTopLevelKeys = map[string]bool{"version": true, "lint": true, "typecheck": true}
+
+// assessKeyMigrations points known misplaced top-level keys at their real home.
+var assessKeyMigrations = map[string]string{
+	"rust":   "use format.rust in .goneat.yaml and lint.rust.clippy in .goneat/assess.yaml",
+	"format": "formatter options belong in the format: block of the project .goneat.yaml, and path exclusions in .goneatignore",
+}
+
+// assessKeyWarned records (config path, key) pairs already warned about, so
+// each ignored key is reported once per run however many runners load it.
+var assessKeyWarned sync.Map
+
+// stripUnknownAssessKeys warns about and removes unknown top-level keys so a
+// stray section (for example a legacy rust: or format: block) is ignored
+// instead of failing schema validation and discarding the valid sections
+// beside it.
+func stripUnknownAssessKeys(raw map[string]any, configPath string) {
+	var unknown []string
+	for key := range raw {
+		if !assessConfigTopLevelKeys[key] {
+			unknown = append(unknown, key)
+		}
+	}
+	sort.Strings(unknown)
+	for _, key := range unknown {
+		delete(raw, key)
+		if _, seen := assessKeyWarned.LoadOrStore(configPath+"\x00"+key, true); seen {
+			continue
+		}
+		if hint, ok := assessKeyMigrations[key]; ok {
+			logger.Warn(fmt.Sprintf("%s: top-level %s: is not read from this file and is ignored; %s", configPath, key, hint))
+		} else {
+			logger.Warn(fmt.Sprintf("%s: unknown top-level key %q is ignored", configPath, key))
+		}
+	}
 }
 
 func (o *lintOverrides) yamllintConfig() *yamllintOverrides {

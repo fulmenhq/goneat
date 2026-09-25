@@ -28,6 +28,21 @@ type FormatConfig struct {
 	YAML     YAMLFormatConfig     `mapstructure:"yaml"`
 	JSON     JSONFormatConfig     `mapstructure:"json"`
 	Markdown MarkdownFormatConfig `mapstructure:"markdown"`
+	Rust     RustFormatConfig     `mapstructure:"rust"`
+}
+
+// RustFormatConfig holds Rust formatting options (cargo fmt).
+type RustFormatConfig struct {
+	// Enabled toggles cargo fmt in assess and format (default true when unset).
+	Enabled *bool `mapstructure:"enabled"`
+	// Toolchain selects a rustup toolchain (cargo +<toolchain> fmt); it must
+	// already be installed.
+	Toolchain string `mapstructure:"toolchain"`
+}
+
+// IsEnabled reports whether Rust formatting is enabled (default true).
+func (r RustFormatConfig) IsEnabled() bool {
+	return r.Enabled == nil || *r.Enabled
 }
 
 // GoFormatConfig holds Go formatting options
@@ -207,8 +222,15 @@ func LoadConfig() (*Config, error) {
 	return &config, nil
 }
 
-// LoadProjectConfig loads project-specific configuration
+// LoadProjectConfig loads project-specific configuration from the current
+// working directory.
 func LoadProjectConfig() (*Config, error) {
+	return LoadProjectConfigAt(".")
+}
+
+// LoadProjectConfigAt loads project-specific configuration from dir (for
+// example an assessment target that is not the working directory).
+func LoadProjectConfigAt(dir string) (*Config, error) {
 	// First load global config
 	globalConfig, err := LoadConfig()
 	if err != nil {
@@ -227,9 +249,10 @@ func LoadProjectConfig() (*Config, error) {
 
 	var rawData []byte
 	var configFile string
-	for _, cf := range projectConfigs {
+	for _, name := range projectConfigs {
+		cf := filepath.Join(dir, name)
 		if info, err := os.Stat(cf); err == nil && !info.IsDir() {
-			// #nosec G304
+			// #nosec G304 -- fixed config file names under the caller's project directory
 			if data, err := os.ReadFile(cf); err == nil {
 				rawData = data
 				configFile = cf
@@ -268,7 +291,7 @@ func LoadProjectConfig() (*Config, error) {
 		for _, ve := range valResult.Errors {
 			errs = append(errs, fmt.Sprintf("%s: %s", ve.Path, ve.Message))
 		}
-		return nil, fmt.Errorf("project config validation failed: %s", strings.Join(errs, "; "))
+		return nil, fmt.Errorf("project config validation failed (%s): %s", configFile, strings.Join(errs, "; "))
 	}
 
 	// Unmarshal to struct if valid

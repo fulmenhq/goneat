@@ -65,7 +65,7 @@ func init() {
 	formatCmd.Flags().String("plan-file", "", "Write work plan to specified file")
 
 	// Discovery and filtering flags
-	formatCmd.Flags().StringSlice("types", []string{}, "Content types to include ("+formatpkg.SupportedContentTypesHelp()+")")
+	formatCmd.Flags().StringSlice("types", []string{}, "Content types to include ("+formatpkg.SupportedContentTypesHelp()+", rust)")
 	formatCmd.Flags().Int("max-depth", -1, "Maximum directory depth to traverse")
 
 	// Execution strategy flags
@@ -308,6 +308,7 @@ func RunFormat(cmd *cobra.Command, args []string) (runErr error) {
 	var filesToProcess []string
 	var usePlanner = true
 	var plannerConfig work.PlannerConfig
+	var discoveryPaths []string
 
 	// Handle explicit files mode (highest priority)
 	if len(explicitFiles) > 0 {
@@ -330,6 +331,7 @@ func RunFormat(cmd *cobra.Command, args []string) (runErr error) {
 		} else {
 			paths = []string{"."}
 		}
+		discoveryPaths = paths
 
 		forceInclude := append([]string(nil), explicitFiles...)
 		// Also treat positional args as explicit targets (avoid ignore surprises for .goneat/, etc.)
@@ -389,6 +391,9 @@ func RunFormat(cmd *cobra.Command, args []string) (runErr error) {
 				}
 			}
 			ct := getContentTypeFromPath(f)
+			if strings.EqualFold(filepath.Ext(f), ".rs") {
+				ct = "rust" // formatted per workspace by the cargo fmt step
+			}
 			if len(allowed) == 0 || allowed[ct] {
 				filesToProcess = append(filesToProcess, f)
 			}
@@ -425,7 +430,16 @@ func RunFormat(cmd *cobra.Command, args []string) (runErr error) {
 		return handlePlanOnly(cmd, synth, planFile, dryRun)
 	}
 
+	rustScope, err := resolveRustFormatScope(cfg, usePlanner, discoveryPaths, filesToProcess, contentTypes)
+	if err != nil {
+		return err
+	}
+	filesToProcess = rustScope.withoutRustFiles(filesToProcess)
+
 	if len(filesToProcess) == 0 {
+		if len(rustScope.roots) > 0 {
+			return mergeFormatErrors(nil, runRustFormatStep(rustScope, checkOnly || noOp, ignoreMissingTools, quiet))
+		}
 		if !quiet {
 			logger.Info("No supported files found to format")
 		}
@@ -437,6 +451,11 @@ func RunFormat(cmd *cobra.Command, args []string) (runErr error) {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if len(rustScope.roots) > 0 {
+			runErr = mergeFormatErrors(runErr, runRustFormatStep(rustScope, checkOnly || noOp, ignoreMissingTools, quiet))
+		}
+	}()
 
 	if !quiet {
 		logger.Info(fmt.Sprintf("Processing %d files using %s strategy", len(filesToProcess), strategy))

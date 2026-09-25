@@ -30,7 +30,8 @@ resolver = "2"
 		"if [[ \"$1\" == \"clippy\" ]]; then\n" +
 		"  if [[ -n \"${CARGO_ARGS_OUT:-}\" ]]; then printf '%s\n' \"$@\" > \"$CARGO_ARGS_OUT\"; fi\n" +
 		"  echo '{\"reason\":\"compiler-message\",\"message\":{\"message\":\"lint warning\",\"level\":\"warning\",\"spans\":[{\"file_name\":\"src/lib.rs\",\"line_start\":1,\"column_start\":1,\"is_primary\":true}]}}'\n" +
-		"  exit 1\n" +
+		"  echo '{\"reason\":\"build-finished\",\"success\":true}'\n" +
+		"  exit 0\n" +
 		"fi\n" +
 		"if [[ \"$1\" == \"--version\" ]]; then echo 'cargo 1.75.0'; exit 0; fi\n" +
 		"exit 0\n"

@@ -211,6 +211,14 @@ func (p *RustProject) EffectiveRoot() string {
 	return p.RootPath
 }
 
+// EffectiveRootOr returns EffectiveRoot, or fallback when it is empty.
+func (p *RustProject) EffectiveRootOr(fallback string) string {
+	if root := p.EffectiveRoot(); root != "" {
+		return root
+	}
+	return fallback
+}
+
 // CheckRustToolPresence checks if a Rust tool is available and meets minimum version
 func CheckRustToolPresence(tool, minVersion string) RustToolPresence {
 	result := RustToolPresence{

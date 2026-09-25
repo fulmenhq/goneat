@@ -88,7 +88,7 @@ Rust **license** gating stays on `cargo-deny` / `--licenses`. Do not treat crate
 
 **TypeScript type checking** (v0.5.0+): Run `goneat assess --categories typecheck` to catch type errors via `tsc --noEmit`. Complements biome's lint/format with full type analysis.
 
-**Missing-tool policy**: `goneat assess` skips unavailable optional language tools and logs what was skipped. Standalone `goneat format` is fail-closed once files requiring an external formatter are selected, so CI cannot silently claim coverage it did not perform. Use `goneat format --ignore-missing-tools` only when finalizer-only processing is acceptable.
+**Missing-tool policy**: `goneat assess` skips unavailable optional language tools and logs what was skipped (exception: Rust formatting fails when a Cargo project is in scope and rustfmt is missing; opt out with `format.rust.enabled: false`). Standalone `goneat format` is fail-closed once files requiring an external formatter are selected, so CI cannot silently claim coverage it did not perform. Use `goneat format --ignore-missing-tools` only when finalizer-only processing is acceptable.
 
 **Automatic installation**: Use [doctor tools](docs/user-guide/commands/doctor.md) to install everything at once:
 

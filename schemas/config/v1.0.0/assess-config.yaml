@@ -138,6 +138,55 @@ properties:
             items:
               type: string
         additionalProperties: false
+      rust:
+        type: object
+        description: Rust lint settings
+        properties:
+          clippy:
+            type: object
+            description: >-
+              cargo clippy invocation. Unset fields keep the default
+              (cargo clippy --message-format=json, plus --workspace for workspaces).
+              Values are passed as individual arguments, never through a shell;
+              values that do not look like the Cargo token they name are rejected.
+            properties:
+              enabled:
+                type: boolean
+                description: Enable or disable cargo clippy (default true)
+              toolchain:
+                type: string
+                description: rustup toolchain (runs cargo +<toolchain> clippy); must already be installed
+              all_targets:
+                type: boolean
+                description: Lint tests, benches and examples (--all-targets)
+              all_features:
+                type: boolean
+                description: Enable all features (--all-features)
+              features:
+                type: array
+                description: Features to enable (--features)
+                items:
+                  type: string
+              no_default_features:
+                type: boolean
+                description: Disable default features (--no-default-features)
+              locked:
+                type: boolean
+                description: Require Cargo.lock to be up to date (--locked)
+              packages:
+                type: array
+                description: Packages to lint (-p each); empty lints the workspace
+                items:
+                  type: string
+              targets:
+                type: array
+                description: >-
+                  Target triples; one clippy run per triple with duplicate
+                  findings merged. The target's standard library must already be installed.
+                items:
+                  type: string
+            additionalProperties: false
+        additionalProperties: false
     additionalProperties: false
   typecheck:
     type: object
@@ -164,4 +213,4 @@ properties:
             description: Enable file-at-a-time typecheck when a single file is included
         additionalProperties: false
     additionalProperties: false
-  additionalProperties: false
+additionalProperties: false

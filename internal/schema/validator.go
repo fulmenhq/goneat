@@ -31,18 +31,22 @@ func isOfflineMode() bool {
 	return os.Getenv("GONEAT_OFFLINE_SCHEMA_VALIDATION") == "true"
 }
 
+// registrySchemaPaths maps schema names to embedded paths. Paths must be under
+// embedded_schemas/schemas/, the tree make embed-assets syncs from schemas/
+// (see TestRegistryUsesSyncedSchemas).
+var registrySchemaPaths = map[string]string{
+	"goneat-config-v1.0.0":       "embedded_schemas/schemas/config/v1.0.0/goneat-config.yaml",
+	"dates":                      "embedded_schemas/schemas/config/v1.0.0/dates.yaml",
+	"tools-config-v1.0.0":        "embedded_schemas/schemas/tools/v1.0.0/tools-config.yaml",
+	"tools-config-v1.1.0":        "embedded_schemas/schemas/tools/v1.1.0/tools-config.yaml",
+	"assess-config-v1.0.0":       "embedded_schemas/schemas/config/v1.0.0/assess-config.yaml",
+	"dependencies-policy-v1.0.0": "embedded_schemas/schemas/config/v1.0.0/dependencies-policy.yaml",
+	// Add more as needed
+}
+
 // init populates the registry with known schemas.
 func init() {
-	known := map[string]string{
-		"goneat-config-v1.0.0":       "embedded_schemas/config/goneat-config-v1.0.0.yaml",
-		"dates":                      "embedded_schemas/schemas/config/dates.yaml",
-		"tools-config-v1.0.0":        "embedded_schemas/schemas/tools/v1.0.0/tools-config.yaml",
-		"tools-config-v1.1.0":        "embedded_schemas/schemas/tools/v1.1.0/tools-config.yaml",
-		"assess-config-v1.0.0":       "embedded_schemas/schemas/config/v1.0.0/assess-config.yaml",
-		"dependencies-policy-v1.0.0": "embedded_schemas/schemas/config/v1.0.0/dependencies-policy.yaml",
-		// Add more as needed
-	}
-	for name, path := range known {
+	for name, path := range registrySchemaPaths {
 		if schemaBytes, ok := assets.GetSchema(path); ok && len(schemaBytes) > 0 {
 			// Convert YAML to JSON for gojsonschema
 			var schemaData interface{}

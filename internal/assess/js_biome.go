@@ -3,6 +3,7 @@ package assess
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -78,6 +79,66 @@ func parseBiomeReport(out []byte) (biomeV2Report, error) {
 	return report, nil
 }
 
+// biomeReportFromRun parses a biome --reporter json run and fails closed when
+// the run did not check what it was given:
+//   - any internalError diagnostic (unreadable or missing file, I/O) fails,
+//     whatever the exit code: biome can exit 0 while skipping such a file;
+//   - a non-zero exit is accepted only when ordinary diagnostics explain it,
+//     or when biome reports that every selected path is ignored by its own
+//     configuration (exit 1, no diagnostics, "provided but ignored"), which
+//     is a deliberate no-op like .goneatignore.
+func biomeReportFromRun(run toolRun, what string) (biomeV2Report, error) {
+	if run.failedWithoutOutput() {
+		return biomeV2Report{}, run.runFailure(what)
+	}
+	report, err := parseBiomeReport(run.Stdout)
+	if err != nil {
+		return biomeV2Report{}, fmt.Errorf("failed to parse biome json: %w", err)
+	}
+	var internal []string
+	ordinary := 0
+	for _, d := range report.Diagnostics {
+		if strings.HasPrefix(d.Category, "internalError") {
+			msg := strings.TrimSpace(d.Message)
+			if msg == "" {
+				msg = strings.TrimSpace(d.Description)
+			}
+			path := d.Location.Path.File
+			if path != "" {
+				msg = path + ": " + msg
+			}
+			internal = append(internal, fmt.Sprintf("%s: %s", d.Category, msg))
+			continue
+		}
+		ordinary++
+	}
+	switch {
+	case len(internal) > 0:
+		if len(internal) > 5 {
+			internal = internal[:5]
+		}
+		return biomeV2Report{}, fmt.Errorf("%s could not check every file (exit %d): %s", what, run.ExitCode, strings.Join(internal, "; "))
+	case run.ExitCode == 0 || ordinary > 0:
+		return report, nil
+	case biomeAllPathsIgnored(run):
+		logger.Debug(fmt.Sprintf("%s: all selected paths are ignored by biome configuration", what))
+		return report, nil
+	}
+	msg := fmt.Sprintf("%s exited %d without completing", what, run.ExitCode)
+	if tail := run.stderrTail(10); tail != "" {
+		msg += "\n" + tail
+	}
+	return biomeV2Report{}, errors.New(msg)
+}
+
+// biomeAllPathsIgnored recognizes biome's "No files were processed ... These
+// paths were provided but ignored" result (observed with biome 2.4).
+func biomeAllPathsIgnored(run toolRun) bool {
+	stderr := string(run.Stderr)
+	return run.ExitCode == 1 && strings.Contains(stderr, "No files were processed") &&
+		strings.Contains(stderr, "provided but ignored")
+}
+
 func groupBiomeFiles(target string, files []string) (map[string][]string, error) {
 	groups := make(map[string][]string)
 	for _, f := range files {
@@ -140,17 +201,13 @@ func runBiomeLint(target string, config AssessmentConfig, files []string) ([]Iss
 		args = append(args, "--changed", "--since="+base)
 		logger.Debug(fmt.Sprintf("biome lint: incremental mode enabled (since=%s)", base))
 
-		out, err := runToolStdoutOnly(target, "biome", args, config.Timeout)
+		run, err := runToolSplit(target, "biome", args, config.Timeout)
 		if err != nil {
 			return nil, err
 		}
-		if len(bytes.TrimSpace(out)) == 0 {
-			return nil, nil
-		}
-
-		report, uerr := parseBiomeReport(out)
-		if uerr != nil {
-			return nil, fmt.Errorf("failed to parse biome json: %w", uerr)
+		report, rerr := biomeReportFromRun(run, "biome lint")
+		if rerr != nil {
+			return nil, rerr
 		}
 
 		for _, d := range report.Diagnostics {
@@ -186,17 +243,13 @@ func runBiomeLint(target string, config AssessmentConfig, files []string) ([]Iss
 
 	for cmdDir, groupFiles := range groups {
 		args := append([]string{"lint", "--reporter", "json"}, groupFiles...)
-		out, err := runToolStdoutOnly(cmdDir, "biome", args, config.Timeout)
+		run, err := runToolSplit(cmdDir, "biome", args, config.Timeout)
 		if err != nil {
 			return nil, err
 		}
-		if len(bytes.TrimSpace(out)) == 0 {
-			continue
-		}
-
-		report, uerr := parseBiomeReport(out)
-		if uerr != nil {
-			return nil, fmt.Errorf("failed to parse biome json: %w", uerr)
+		report, rerr := biomeReportFromRun(run, "biome lint")
+		if rerr != nil {
+			return nil, rerr
 		}
 
 		for _, d := range report.Diagnostics {
@@ -244,14 +297,14 @@ func runBiomeConfigCheck(target string, config AssessmentConfig) ([]Issue, error
 	}
 
 	args := []string{"check", "--reporter", "json", "--formatter-enabled=false", "--linter-enabled=false"}
-	out, _, err := runToolCapture(target, "biome", args, config.Timeout)
+	run, err := runToolSplit(target, "biome", args, config.Timeout)
 	if err != nil {
 		return nil, err
 	}
 
-	report, uerr := parseBiomeReport(out)
-	if uerr != nil {
-		return nil, fmt.Errorf("failed to parse biome json: %w", uerr)
+	report, rerr := biomeReportFromRun(run, "biome config check")
+	if rerr != nil {
+		return nil, rerr
 	}
 	if len(report.Diagnostics) == 0 {
 		return nil, nil
@@ -308,21 +361,26 @@ func runBiomeFormat(target string, config AssessmentConfig, files []string) ([]I
 	for cmdDir, groupFiles := range groups {
 		if config.Mode == AssessmentModeFix {
 			args := append([]string{"format", "--write"}, groupFiles...)
-			if err := runTool(cmdDir, "biome", args, config.Timeout); err != nil {
+			run, err := runToolSplit(cmdDir, "biome", args, config.Timeout)
+			if err != nil {
 				return nil, err
+			}
+			// format --write exits non-zero only when it could not format (parse or config error).
+			if run.ExitCode != 0 {
+				return nil, fmt.Errorf("biome format --write exited %d:\n%s", run.ExitCode, run.stderrTail(10))
 			}
 			continue
 		}
 
 		args := append([]string{"check", "--formatter-enabled=true", "--linter-enabled=false", "--reporter", "json"}, groupFiles...)
-		out, _, err := runToolCapture(cmdDir, "biome", args, config.Timeout)
+		run, err := runToolSplit(cmdDir, "biome", args, config.Timeout)
 		if err != nil {
 			return nil, err
 		}
 
-		report, uerr := parseBiomeReport(out)
-		if uerr != nil {
-			return nil, fmt.Errorf("failed to parse biome json: %w", uerr)
+		report, rerr := biomeReportFromRun(run, "biome format check")
+		if rerr != nil {
+			return nil, rerr
 		}
 
 		for _, d := range report.Diagnostics {

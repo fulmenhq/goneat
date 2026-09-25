@@ -151,6 +151,22 @@ properties:
               - indented
         additionalProperties: false
         required: []
+      rust:
+        type: object
+        description: Rust formatting via cargo fmt (used by both goneat format and goneat assess --categories format)
+        properties:
+          enabled:
+            type: boolean
+            description: Run cargo fmt for Cargo projects (default true)
+            default: true
+          toolchain:
+            type: string
+            description: rustup toolchain for cargo fmt (runs cargo +<toolchain> fmt); must already be installed
+            examples:
+              - stable
+              - nightly
+        additionalProperties: false
+        required: []
     additionalProperties: false
     required: []
   security:

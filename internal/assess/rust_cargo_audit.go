@@ -48,10 +48,17 @@ func (c *cargoAuditAdapter) Run(_ context.Context) ([]Issue, error) {
 	}
 
 	args := []string{"audit", "--json"}
-	out, err := runToolStdoutOnly(root, "cargo", args, c.cfg.Timeout)
+	run, err := runToolSplit(root, "cargo", args, c.cfg.Timeout)
 	if err != nil {
 		return nil, err
 	}
+	// cargo-audit exits non-zero when it finds advisories (report on stdout);
+	// a non-zero exit with no report means it did not run (no lockfile,
+	// advisory DB fetch failure, bad config).
+	if run.failedWithoutOutput() {
+		return nil, run.runFailure("cargo audit")
+	}
+	out := run.Stdout
 	if len(bytes.TrimSpace(out)) == 0 {
 		return nil, nil
 	}
@@ -59,6 +66,14 @@ func (c *cargoAuditAdapter) Run(_ context.Context) ([]Issue, error) {
 	var report cargoAuditOutput
 	if uerr := json.Unmarshal(out, &report); uerr != nil {
 		return nil, fmt.Errorf("failed to parse cargo-audit json: %w", uerr)
+	}
+	// A real report always carries a vulnerabilities section. A non-zero exit
+	// is only explained by advisories; anything else did not complete.
+	if report.Vulnerabilities == nil {
+		return nil, fmt.Errorf("cargo audit exited %d without a vulnerability report: %s", run.ExitCode, strings.TrimSpace(run.stderrTail(10)))
+	}
+	if run.ExitCode != 0 && len(report.Vulnerabilities.List) == 0 {
+		return nil, fmt.Errorf("cargo audit exited %d with no advisories in its report: %s", run.ExitCode, strings.TrimSpace(run.stderrTail(10)))
 	}
 
 	issues := make([]Issue, 0, len(report.Vulnerabilities.List))
@@ -89,7 +104,7 @@ func (c *cargoAuditAdapter) Run(_ context.Context) ([]Issue, error) {
 }
 
 type cargoAuditOutput struct {
-	Vulnerabilities struct {
+	Vulnerabilities *struct {
 		List []cargoAuditVuln `json:"list"`
 	} `json:"vulnerabilities"`
 }

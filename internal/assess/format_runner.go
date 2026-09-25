@@ -136,6 +136,19 @@ func (r *FormatAssessmentRunner) Assess(ctx context.Context, target string, conf
 	}
 	allIssues = append(allIssues, biomeFmtIssues...)
 
+	rustFmtIssues, rustFmtErr := runRustFormatAssessment(target, config)
+	if rustFmtErr != nil {
+		return &AssessmentResult{
+			CommandName:   r.commandName,
+			Category:      CategoryFormat,
+			Success:       false,
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
+			Issues:        allIssues,
+			Error:         fmt.Sprintf("rustfmt failed: %v", rustFmtErr),
+		}, nil
+	}
+	allIssues = append(allIssues, rustFmtIssues...)
+
 	// Normalization policy for assess: enforce LF, single EOF, trim trailing whitespace, remove BOM
 	for _, filePath := range supportedFiles {
 		// Validate file path to prevent path traversal
