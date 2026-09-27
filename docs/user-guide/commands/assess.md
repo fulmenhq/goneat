@@ -287,6 +287,7 @@ Goneat assess supports multiple validation categories:
   - Shell: shfmt (check/fix), shellcheck (verify-only, opt-in GPL)
   - GitHub Actions: actionlint
   - Make: checkmake
+- Each tool is skipped on its own when it is not installed. Without `golangci-lint`, only Go lint is skipped, and the report carries a note saying so; the other linters still run.
 - **Typical Issues:** Unused variables, style violations, shell hygiene, workflow bugs, Makefile hygiene
 - **Auto-fixable:** Partial (tool-dependent; no unsafe fixes)
 
@@ -440,6 +441,15 @@ These categories are available for specialized assessments:
 - **Tools (`tools`)**: Tool presence and version checks.
 - **Maturity (`maturity`)**: Repo hygiene and readiness checks (metadata completeness).
 - **Repo Status (`repo-status`)**: Git/worktree state checks (dirty tree, untracked files).
+
+### Requested categories that do not run
+
+With `--categories` (or a hook's category list), goneat checks every name before running anything:
+
+- An unknown name, such as a misspelling, fails the run and lists the valid category names. No category in that list runs.
+- A known category that cannot run on this machine (for example `security` when none of gosec, govulncheck, gitleaks, cargo-audit or cargo-deny applies and is installed, or `static-analysis` without `go`) is reported with status `skipped` and a `reason`, in human and JSON output. A skipped category does not fail the run.
+
+`goneat hooks validate` also warns about unknown category names in `.goneat/hooks.yaml`.
 
 ## Force-Include Override
 

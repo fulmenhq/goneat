@@ -203,6 +203,22 @@ func (r *AssessmentRunnerRegistry) GetAvailableCategories() []AssessmentCategory
 	return categories
 }
 
+// UnavailableReasoner is implemented by runners that can explain why
+// IsAvailable reports false.
+type UnavailableReasoner interface {
+	UnavailableReason() string
+}
+
+// unavailableReason explains why runner cannot run.
+func unavailableReason(runner AssessmentRunner) string {
+	if r, ok := runner.(UnavailableReasoner); ok {
+		if reason := r.UnavailableReason(); reason != "" {
+			return reason
+		}
+	}
+	return "no available runner"
+}
+
 // GetAllCategories returns all registered categories (available or not)
 func (r *AssessmentRunnerRegistry) GetAllCategories() []AssessmentCategory {
 	var categories []AssessmentCategory

@@ -112,6 +112,7 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 	}
 
 	var issues []Issue
+	var notes []string
 
 	// Language-aware lint tools
 	langFiles, err := collectLanguageFiles(target, config)
@@ -193,8 +194,10 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 	if len(goFiles) > 0 {
 		if !r.hasGoModule(target) {
 			logger.Info("No go.mod at target root; skipping golangci-lint (Go files may exist in subdirectories)")
-		} else if !r.IsAvailable() {
-			logger.Info("golangci-lint not found; skipping Go lint")
+		} else if !golangciLintAvailable() {
+			const note = "golangci-lint not found; Go lint skipped"
+			logger.Warn(note)
+			notes = append(notes, note)
 		} else {
 			env := r.detectGolangciLintEnvironment()
 			if env.detectErr != nil {
@@ -326,6 +329,7 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 		Success:       true,
 		ExecutionTime: HumanReadableDuration(time.Since(startTime)),
 		Issues:        issues,
+		Notes:         notes,
 	}, nil
 }
 
@@ -1313,8 +1317,15 @@ func (r *LintAssessmentRunner) GetEstimatedTime(target string) time.Duration {
 	return time.Duration(estimatedMs) * time.Millisecond
 }
 
-// IsAvailable implements AssessmentRunner.IsAvailable
+// IsAvailable implements AssessmentRunner.IsAvailable. Lint runs several
+// tools (golangci-lint, clippy, ruff, biome, shell and YAML linters), each of
+// which skips itself when missing, so the category is always available.
 func (r *LintAssessmentRunner) IsAvailable() bool {
+	return true
+}
+
+// golangciLintAvailable reports whether golangci-lint is on PATH.
+func golangciLintAvailable() bool {
 	_, err := exec.LookPath("golangci-lint")
 	return err == nil
 }

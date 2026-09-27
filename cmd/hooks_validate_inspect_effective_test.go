@@ -210,3 +210,52 @@ func withCwd(t *testing.T, dir string, fn func()) {
 	t.Cleanup(func() { _ = os.Chdir(cwd) })
 	fn()
 }
+
+func TestHooksValidateReportsUnknownCategory(t *testing.T) {
+	tmpDir := t.TempDir()
+	writeHooksFixture(t, tmpDir, `version: "1.0.0"
+hooks:
+  pre-commit:
+    - command: "assess"
+      args: ["--categories", "format,lnt", "--fail-on", "high"]
+      priority: 10
+      timeout: "2m"
+`)
+	var buf bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	withCwd(t, tmpDir, func() {
+		if err := runHooksValidate(cmd, nil); err != nil {
+			t.Fatalf("runHooksValidate failed: %v\noutput:\n%s", err, buf.String())
+		}
+	})
+	if !strings.Contains(buf.String(), `unknown assessment category "lnt"`) {
+		t.Fatalf("validate must report the unknown category, got:\n%s", buf.String())
+	}
+}
+
+func TestHooksValidateReportsUnknownCategoryEqualsForm(t *testing.T) {
+	tmpDir := t.TempDir()
+	writeHooksFixture(t, tmpDir, `version: "1.0.0"
+hooks:
+  pre-push:
+    - command: "assess"
+      args: ["--categories=lint,lnt", "--fail-on=high"]
+      priority: 10
+      timeout: "2m"
+`)
+	var buf bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	withCwd(t, tmpDir, func() {
+		if err := runHooksValidate(cmd, nil); err != nil {
+			t.Fatalf("runHooksValidate failed: %v\noutput:\n%s", err, buf.String())
+		}
+	})
+	out := buf.String()
+	if !strings.Contains(out, `unknown assessment category "lnt"`) || !strings.Contains(out, "fail-on: high") {
+		t.Fatalf("validate must parse --flag=value forms, got:\n%s", out)
+	}
+}

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/fulmenhq/goneat/internal/assess"
 	"github.com/fulmenhq/goneat/internal/assets"
 	"github.com/fulmenhq/goneat/internal/guardian"
 	"github.com/fulmenhq/goneat/internal/ops"
@@ -984,13 +985,18 @@ func hooksGetOptimizationSnapshot(opt map[string]any) hooksOptimizationSnapshot 
 	}
 }
 
+// hooksExtractFlagValue returns the value of flag given as "--flag value" or
+// "--flag=value". As in the hook executor, a later occurrence wins.
 func hooksExtractFlagValue(args []string, flag string) string {
+	value := ""
 	for i, arg := range args {
 		if arg == flag && i+1 < len(args) {
-			return strings.TrimSpace(args[i+1])
+			value = strings.TrimSpace(args[i+1])
+		} else if strings.HasPrefix(arg, flag+"=") {
+			value = strings.TrimSpace(strings.TrimPrefix(arg, flag+"="))
 		}
 	}
-	return ""
+	return value
 }
 
 func hooksExtractCategories(args []string) []string {
@@ -1154,6 +1160,9 @@ func hooksAnalyzeHook(manifest *hooksManifestForInspection, hook string) hooksHo
 
 		if strings.TrimSpace(entry.Command) == "assess" {
 			assessFound = true
+			for _, name := range assess.UnknownCategories(hooksExtractCategories(entry.Args)) {
+				analysis.Warnings = append(analysis.Warnings, fmt.Sprintf("unknown assessment category %q; the hook will fail (valid: %s)", name, assess.ValidCategories()))
+			}
 		}
 	}
 
