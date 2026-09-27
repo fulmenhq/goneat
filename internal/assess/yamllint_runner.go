@@ -1,6 +1,7 @@
 package assess
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -98,34 +99,74 @@ var defaultYamllintPatterns = []string{
 
 var yamllintLinePattern = regexp.MustCompile(`^([^:]+):(\d+):(\d+):\s+\[([^\]]+)\]\s+(.*)$`)
 
-func loadAssessOverrides(target string) *assessOverrides {
+// AssessConfigError reports a present .goneat/assess.yaml that could not be
+// read, parsed or validated. Runners that consume the overrides fail rather
+// than falling back to defaults.
+type AssessConfigError struct {
+	Path     string
+	Problems []string // key-level validation messages ("path: message"), if any
+	Err      error
+}
+
+func (e *AssessConfigError) Error() string {
+	msg := "invalid assess configuration " + e.Path
+	if len(e.Problems) > 0 {
+		msg += ": " + strings.Join(e.Problems, "; ")
+	}
+	if e.Err != nil {
+		msg += ": " + e.Err.Error()
+	}
+	return msg
+}
+
+func (e *AssessConfigError) Unwrap() error { return e.Err }
+
+type assessConfigEntry struct {
+	overrides *assessOverrides
+	err       error
+}
+
+// validateAssessConfig checks raw against the assess config schema. It is a
+// variable so tests can inject a schema-engine failure.
+var validateAssessConfig = func(raw map[string]any) (*schema.Result, error) {
+	return schema.Validate(raw, "assess-config-v1.0.0")
+}
+
+// loadAssessOverrides returns the parsed .goneat/assess.yaml for target. An
+// absent file returns (nil, nil) and callers use defaults. A present file
+// that cannot be read, parsed or validated returns an *AssessConfigError.
+// Either outcome is cached per target, so repeated loads agree.
+func loadAssessOverrides(target string) (*assessOverrides, error) {
 	absTarget, err := filepath.Abs(target)
 	if err != nil {
 		absTarget = target
 	}
 	if cached, ok := assessConfigCache.Load(absTarget); ok {
-		if cached == nil {
-			return nil
-		}
-		return cached.(*assessOverrides)
+		entry := cached.(assessConfigEntry)
+		return entry.overrides, entry.err
 	}
+	overrides, err := readAssessOverrides(filepath.Join(absTarget, ".goneat", "assess.yaml"))
+	assessConfigCache.Store(absTarget, assessConfigEntry{overrides: overrides, err: err})
+	return overrides, err
+}
 
-	configPath := filepath.Join(absTarget, ".goneat", "assess.yaml")
+func readAssessOverrides(configPath string) (*assessOverrides, error) {
 	// #nosec G304 -- configPath is repo-rooted (.goneat/assess.yaml) and cleaned above
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		if !os.IsNotExist(err) {
-			logger.Warn(fmt.Sprintf("Failed to read %s: %v", configPath, err))
+		// Only a missing entry means "no config". A dangling symlink also
+		// reads as not-exist, but the file is present and unreadable.
+		if os.IsNotExist(err) {
+			if _, lerr := os.Lstat(configPath); os.IsNotExist(lerr) {
+				return nil, nil
+			}
 		}
-		assessConfigCache.Store(absTarget, nil)
-		return nil
+		return nil, &AssessConfigError{Path: configPath, Err: fmt.Errorf("read: %w", err)}
 	}
 
 	var raw map[string]any
 	if err := yaml.Unmarshal(data, &raw); err != nil {
-		logger.Warn(fmt.Sprintf("Failed to parse %s: %v", configPath, err))
-		assessConfigCache.Store(absTarget, nil)
-		return nil
+		return nil, &AssessConfigError{Path: configPath, Err: fmt.Errorf("parse: %w", err)}
 	}
 	if raw == nil {
 		raw = map[string]any{}
@@ -135,33 +176,26 @@ func loadAssessOverrides(target string) *assessOverrides {
 	}
 	stripUnknownAssessKeys(raw, configPath)
 
-	result, err := schema.Validate(raw, "assess-config-v1.0.0")
+	result, err := validateAssessConfig(raw)
 	if err != nil {
-		logger.Warn(fmt.Sprintf("Failed to validate %s: %v", configPath, err))
-		assessConfigCache.Store(absTarget, nil)
-		return nil
+		return nil, &AssessConfigError{Path: configPath, Err: fmt.Errorf("schema validation: %w", err)}
 	}
 	if !result.Valid {
-		var messages []string
+		problems := make([]string, 0, len(result.Errors))
 		for _, v := range result.Errors {
-			messages = append(messages, fmt.Sprintf("%s: %s", v.Path, v.Message))
+			problems = append(problems, fmt.Sprintf("%s: %s", v.Path, v.Message))
 		}
-		logger.Warn(fmt.Sprintf("assess.yaml failed schema validation: %s", strings.Join(messages, "; ")))
-		assessConfigCache.Store(absTarget, nil)
-		return nil
+		return nil, &AssessConfigError{Path: configPath, Problems: problems}
 	}
 
 	var overrides assessOverrides
 	if err := yaml.Unmarshal(data, &overrides); err != nil {
-		logger.Warn(fmt.Sprintf("Failed to parse %s: %v", configPath, err))
-		assessConfigCache.Store(absTarget, nil)
-		return nil
+		return nil, &AssessConfigError{Path: configPath, Err: fmt.Errorf("parse: %w", err)}
 	}
 	if overrides.Version == 0 {
 		overrides.Version = 1
 	}
-	assessConfigCache.Store(absTarget, &overrides)
-	return &overrides
+	return &overrides, nil
 }
 
 // assessConfigTopLevelKeys are the root properties of assess-config-v1.0.0.
@@ -277,7 +311,8 @@ func (r *LintAssessmentRunner) runYamllintAssessment(target string, config Asses
 	defer cancel()
 
 	args := []string{"--format", "parsable"}
-	if yamllintCfg == nil || yamllintCfg.strictEnabled() {
+	strict := yamllintCfg == nil || yamllintCfg.strictEnabled()
+	if strict {
 		args = append(args, "--strict")
 	}
 	args = append(args, files...)
@@ -287,22 +322,49 @@ func (r *LintAssessmentRunner) runYamllintAssessment(target string, config Asses
 	// file paths from controlled discovery, not user-provided shell input.
 	cmd := exec.CommandContext(ctx, yamllintBin, args...)
 	cmd.Dir = target
-	output, err := cmd.CombinedOutput()
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err = cmd.Run()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
-			if exitErr.ExitCode() != 1 {
-				return nil, fmt.Errorf("yamllint failed: %v\n%s", err, string(output))
+			// yamllint exits 1 when it reports errors and, with --strict, 2
+			// when it reports only warnings. Any other code means it could
+			// not lint (bad config, unreadable file).
+			if code := exitErr.ExitCode(); code != 1 && (code != 2 || !strict) {
+				return nil, fmt.Errorf("yamllint failed: %v\n%s%s", err, stdout.String(), stderr.String())
 			}
 		} else {
 			return nil, fmt.Errorf("yamllint execution failed: %v", err)
 		}
 	}
 
-	issues := parseYamllintOutput(string(output), target)
+	issues := parseYamllintOutput(stdout.String(), target)
+	if err != nil {
+		// A findings exit is a completed lint run only when yamllint wrote
+		// nothing to stderr and every stdout line is a parsable finding.
+		unparsed := unparsedYamllintLines(stdout.String())
+		if len(issues) == 0 || len(unparsed) > 0 || strings.TrimSpace(stderr.String()) != "" {
+			return nil, fmt.Errorf("yamllint failed: %v without a clean parsable report\n%s%s", err, stdout.String(), stderr.String())
+		}
+	}
 	if len(issues) > 0 {
 		logger.Info(fmt.Sprintf("yamllint completed: %d issues", len(issues)))
 	}
 	return issues, nil
+}
+
+// unparsedYamllintLines returns non-blank lines that are not parsable-format
+// findings.
+func unparsedYamllintLines(output string) []string {
+	var out []string
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" && len(yamllintLinePattern.FindStringSubmatch(line)) != 6 {
+			out = append(out, line)
+		}
+	}
+	return out
 }
 
 func resolveYamllintTargets(root string, config AssessmentConfig, cfg *yamllintOverrides) ([]string, error) {

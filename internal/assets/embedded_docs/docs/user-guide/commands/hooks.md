@@ -1014,6 +1014,7 @@ The `.goneat/hooks.yaml` file executes commands with the same privileges as the 
 1. **Logs commands before execution** - aids debugging and provides an audit trail
 2. **Enforces timeouts** - prevents runaway commands from blocking hooks
 3. **Propagates exit codes** - command failures properly fail the hook
+4. **Fails on incomplete assessments** - an `assess` category that ends in `error` status (it could not complete, for example invalid `.goneat/assess.yaml` or a missing required tool) fails the hook whatever the `--fail-on` threshold
 
 ### What Goneat Does NOT Do
 

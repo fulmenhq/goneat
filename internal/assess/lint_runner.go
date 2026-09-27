@@ -98,6 +98,19 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 	modeDescription := r.getModeDescription(config.Mode)
 	logger.Info(fmt.Sprintf("Running lint assessment on %s (%s)", target, modeDescription))
 
+	// A present but invalid .goneat/assess.yaml fails lint instead of
+	// running every tool under defaults.
+	overrides, err := loadAssessOverrides(target)
+	if err != nil {
+		return &AssessmentResult{
+			CommandName:   r.commandName,
+			Category:      CategoryLint,
+			Success:       false,
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
+			Error:         err.Error(),
+		}, nil
+	}
+
 	var issues []Issue
 
 	// Language-aware lint tools
@@ -229,8 +242,6 @@ func (r *LintAssessmentRunner) Assess(ctx context.Context, target string, config
 	} else {
 		logger.Debug("No Go files found; skipping Go lint")
 	}
-
-	overrides := loadAssessOverrides(target)
 
 	yamlIssues, yamlErr := r.runYamllintAssessment(target, config, overrides)
 	if yamlErr != nil {
@@ -365,6 +376,10 @@ func (r *LintAssessmentRunner) runShfmtAssessment(target string, config Assessme
 		return nil, err
 	}
 	if len(files) == 0 {
+		return nil, nil
+	}
+	if _, err := exec.LookPath("shfmt"); err != nil {
+		logger.Info("shfmt not found in PATH; skipping shell format lint")
 		return nil, nil
 	}
 

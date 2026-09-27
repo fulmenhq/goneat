@@ -15,7 +15,11 @@ import (
 )
 
 func runCargoClippyLint(target string, config AssessmentConfig) ([]Issue, error) {
-	settings := clippySettingsFrom(loadAssessOverrides(target))
+	overrides, err := loadAssessOverrides(target)
+	if err != nil {
+		return nil, err
+	}
+	settings := clippySettingsFrom(overrides)
 	if !settings.enabled() {
 		logger.Info("cargo-clippy disabled by lint.rust.clippy.enabled; skipping Rust lint")
 		return nil, nil

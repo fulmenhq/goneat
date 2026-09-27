@@ -20,9 +20,9 @@ func TestLoadAssessOverridesDefaultsVersion(t *testing.T) {
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	overrides := loadAssessOverrides(root)
-	if overrides == nil {
-		t.Fatalf("expected overrides to load")
+	overrides, err := loadAssessOverrides(root)
+	if err != nil || overrides == nil {
+		t.Fatalf("expected overrides to load, err=%v", err)
 	}
 	if overrides.Version != 1 {
 		t.Fatalf("expected version default to 1, got %d", overrides.Version)
@@ -42,8 +42,8 @@ func TestLoadAssessOverridesInvalidSchema(t *testing.T) {
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	overrides := loadAssessOverrides(root)
-	if overrides != nil {
-		t.Fatalf("expected overrides to be nil for invalid config")
+	overrides, err := loadAssessOverrides(root)
+	if overrides != nil || err == nil {
+		t.Fatalf("expected an error for invalid config, got overrides=%+v err=%v", overrides, err)
 	}
 }
