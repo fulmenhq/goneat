@@ -93,8 +93,8 @@ lint:
 	logger.SetOutput(&logBuf)
 	defer logger.SetOutput(io.Discard)
 
-	overrides := loadAssessOverrides(repo)
-	if overrides == nil || overrides.Lint == nil {
+	overrides, err := loadAssessOverrides(repo)
+	if err != nil || overrides == nil || overrides.Lint == nil {
 		t.Fatalf("valid sections must survive a legacy rust: block, got %+v", overrides)
 	}
 	if overrides.Lint.yamllintConfig().enabled() {
@@ -152,8 +152,8 @@ lint:
 	for i := 0; i < 3; i++ {
 		absRepo, _ := filepath.Abs(repo)
 		assessConfigCache.Delete(absRepo) // simulate separate loads by different runners
-		overrides := loadAssessOverrides(repo)
-		if overrides == nil || overrides.Lint.yamllintConfig().enabled() {
+		overrides, err := loadAssessOverrides(repo)
+		if err != nil || overrides == nil || overrides.Lint.yamllintConfig().enabled() {
 			t.Fatalf("sibling lint settings must survive a top-level format: block")
 		}
 	}

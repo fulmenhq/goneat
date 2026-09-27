@@ -52,7 +52,16 @@ func (r *TypecheckAssessmentRunner) Assess(ctx context.Context, target string, c
 		}, nil
 	}
 
-	overrides := loadAssessOverrides(target)
+	overrides, err := loadAssessOverrides(target)
+	if err != nil {
+		return &AssessmentResult{
+			CommandName:   r.commandName,
+			Category:      CategoryTypecheck,
+			Success:       false,
+			ExecutionTime: HumanReadableDuration(time.Since(startTime)),
+			Error:         err.Error(),
+		}, nil
+	}
 	if overrides != nil && overrides.Typecheck != nil {
 		if !boolWithDefault(overrides.Typecheck.Enabled, true) {
 			return r.skippedResult(startTime, "typecheck disabled via assess.yaml"), nil

@@ -1149,6 +1149,16 @@ func shouldFailHook(report *assess.AssessmentReport, config *HookConfig) bool {
 		}
 	}
 
+	// A category that could not run (for example invalid assess
+	// configuration or an unavailable required tool) fails the hook, as it
+	// fails a direct assess run.
+	for _, categoryResult := range report.Categories {
+		if categoryResult.Status == "error" {
+			logger.Error(fmt.Sprintf("Category %s failed with error: %s", categoryResult.Category, categoryResult.Error))
+			return true
+		}
+	}
+
 	return false
 }
 
