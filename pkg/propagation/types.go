@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fulmenhq/goneat/internal/gitrepo"
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/fulmenhq/goneat/pkg/pathfinder"
-	git "github.com/go-git/go-git/v5"
 )
 
 // PackageManager defines the interface for package manager implementations
@@ -200,8 +200,8 @@ func (p *Propagator) checkGuards(policy *VersionPolicy) error {
 
 // getCurrentBranch returns the current git branch name using go-git
 func (p *Propagator) getCurrentBranch() (string, error) {
-	// Open repository at current directory (follows pattern from internal/gitctx/gitctx.go)
-	repo, err := git.PlainOpenWithOptions(".", &git.PlainOpenOptions{DetectDotGit: true})
+	// Open the repository containing the current directory (linked worktrees included)
+	repo, err := gitrepo.Open(".")
 	if err != nil {
 		// Not a git repository or can't access it
 		return "", fmt.Errorf("failed to open git repository: %w", err)
@@ -218,8 +218,8 @@ func (p *Propagator) getCurrentBranch() (string, error) {
 
 // isWorktreeDirty checks if the git worktree has uncommitted changes using go-git
 func (p *Propagator) isWorktreeDirty() (bool, error) {
-	// Open repository at current directory (follows pattern from internal/gitctx/gitctx.go)
-	repo, err := git.PlainOpenWithOptions(".", &git.PlainOpenOptions{DetectDotGit: true})
+	// Open the repository containing the current directory (linked worktrees included)
+	repo, err := gitrepo.Open(".")
 	if err != nil {
 		// Not a git repository or can't access it
 		return false, fmt.Errorf("failed to open git repository: %w", err)

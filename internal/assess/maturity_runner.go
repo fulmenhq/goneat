@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fulmenhq/goneat/internal/gitrepo"
 	"github.com/fulmenhq/goneat/internal/maturity"
-	git "github.com/go-git/go-git/v5"
 )
 
 // MaturityRunner implements AssessmentRunner for maturity validation
@@ -117,38 +117,29 @@ func (r *MaturityRunner) Assess(ctx context.Context, target string, config Asses
 			releasePhaseStr := strings.TrimSpace(string(releasePhaseContent))
 			releasePhase := maturity.ReleasePhase(releasePhaseStr)
 			if releasePhase == maturity.ReleaseRC || releasePhase == maturity.ReleaseGA || releasePhase == maturity.ReleaseRelease {
-				repo, err := git.PlainOpenWithOptions(target, &git.PlainOpenOptions{DetectDotGit: true})
-				if err == nil {
-					wt, err := repo.Worktree()
-					if err == nil {
-						st, err := wt.Status()
-						if err == nil {
-							dirty := false
-							var dirtyFiles []string
-							for path, fs := range st {
-								// Skip untracked files (these don't block releases)
-								if fs.Staging == git.Untracked {
-									continue
-								}
-								if fs.Worktree != git.Unmodified || fs.Staging != git.Unmodified {
-									dirty = true
-									dirtyFiles = append(dirtyFiles, path)
-								}
-							}
-							if dirty {
-								issues = append(issues, Issue{
-									File:        "repository",
-									Line:        0,
-									Severity:    SeverityHigh,
-									SubCategory: "git-state",
-									Message:     fmt.Sprintf("Dirty git state (uncommitted changes) not allowed in %s phase - commit or stash all changes. Files: %v", releasePhaseStr, dirtyFiles),
-									Category:    r.GetCategory(),
-								})
-								// Attach dirty files for metrics later
-								dirtyFilesList = append(dirtyFilesList, dirtyFiles...)
-							}
-						}
-					}
+				// A release gate must not pass when status cannot be read.
+				st, err := gitrepo.WorktreeStatus(target)
+				if err != nil {
+					issues = append(issues, Issue{
+						File:        "repository",
+						Line:        0,
+						Severity:    SeverityHigh,
+						SubCategory: "git-status-error",
+						Message:     fmt.Sprintf("Cannot read git repository state (%v); a clean tree is required in %s phase", err, releasePhaseStr),
+						Category:    r.GetCategory(),
+					})
+				} else if dirtyFiles := gitrepo.TrackedChanges(st); len(dirtyFiles) > 0 {
+					// Untracked files do not block releases.
+					issues = append(issues, Issue{
+						File:        "repository",
+						Line:        0,
+						Severity:    SeverityHigh,
+						SubCategory: "git-state",
+						Message:     fmt.Sprintf("Dirty git state (uncommitted changes) not allowed in %s phase - commit or stash all changes. Files: %v", releasePhaseStr, dirtyFiles),
+						Category:    r.GetCategory(),
+					})
+					// Attach dirty files for metrics later
+					dirtyFilesList = append(dirtyFilesList, dirtyFiles...)
 				}
 			}
 		}

@@ -3,9 +3,9 @@ package assess
 import (
 	"context"
 	"fmt"
-	git "github.com/go-git/go-git/v5"
 	"time"
 
+	"github.com/fulmenhq/goneat/internal/gitrepo"
 	"github.com/fulmenhq/goneat/pkg/logger"
 )
 
@@ -24,64 +24,30 @@ func (r *RepoStatusRunner) Assess(ctx context.Context, target string, config Ass
 	var issues []Issue
 	var allUncommitted []string
 
-	// Check if repository has unstaged changes using go-git
-	repo, err := git.PlainOpenWithOptions(target, &git.PlainOpenOptions{DetectDotGit: true})
+	// Read working-tree status (linked worktrees included). A failure to read
+	// status is reported as its own high finding, never as dirty-file metrics.
+	st, err := gitrepo.WorktreeStatus(target)
 	if err != nil {
 		issues = append(issues, Issue{
-			File:     "repository",
-			Line:     0,
-			Severity: SeverityHigh,
-			Message:  fmt.Sprintf("Failed to open git repository: %v", err),
-			Category: r.GetCategory(),
+			File:        "repository",
+			Line:        0,
+			Severity:    SeverityHigh,
+			SubCategory: "git-status-error",
+			Message:     fmt.Sprintf("Cannot read git repository state (%v); repository status is unknown", err),
+			Category:    r.GetCategory(),
 		})
-	} else {
-		wt, err := repo.Worktree()
-		if err != nil {
-			issues = append(issues, Issue{
-				File:     "repository",
-				Line:     0,
-				Severity: SeverityHigh,
-				Message:  fmt.Sprintf("Failed to get worktree: %v", err),
-				Category: r.GetCategory(),
-			})
-		} else {
-			st, err := wt.Status()
-			if err != nil {
-				issues = append(issues, Issue{
-					File:     "repository",
-					Line:     0,
-					Severity: SeverityHigh,
-					Message:  fmt.Sprintf("Failed to get git status: %v", err),
-					Category: r.GetCategory(),
-				})
-			} else {
-				// Check for uncommitted changes in tracked files only (ignore untracked files)
-				var uncommittedFiles []string
-				for path, fileStatus := range st {
-					// Skip untracked files (these don't block releases)
-					if fileStatus.Staging == git.Untracked {
-						continue
-					}
-					// Check for any uncommitted changes in tracked files - fail if Staging or Worktree != Unmodified
-					if fileStatus.Worktree != git.Unmodified || fileStatus.Staging != git.Unmodified {
-						uncommittedFiles = append(uncommittedFiles, path)
-					}
-				}
-
-				if len(uncommittedFiles) > 0 {
-					logger.Debug(fmt.Sprintf("repo-status: detected %d uncommitted files", len(uncommittedFiles)))
-					allUncommitted = append(allUncommitted, uncommittedFiles...)
-					issues = append(issues, Issue{
-						File:        "repository",
-						Line:        0,
-						Severity:    SeverityHigh,
-						SubCategory: "git-state",
-						Message:     fmt.Sprintf("Repository has %d uncommitted changes (staged or unstaged) - commit all before pushing. Files: %v", len(uncommittedFiles), uncommittedFiles),
-						Category:    r.GetCategory(),
-					})
-				}
-			}
-		}
+	} else if uncommittedFiles := gitrepo.TrackedChanges(st); len(uncommittedFiles) > 0 {
+		// Untracked files alone do not block releases.
+		logger.Debug(fmt.Sprintf("repo-status: detected %d uncommitted files", len(uncommittedFiles)))
+		allUncommitted = append(allUncommitted, uncommittedFiles...)
+		issues = append(issues, Issue{
+			File:        "repository",
+			Line:        0,
+			Severity:    SeverityHigh,
+			SubCategory: "git-state",
+			Message:     fmt.Sprintf("Repository has %d uncommitted changes (staged or unstaged) - commit all before pushing. Files: %v", len(uncommittedFiles), uncommittedFiles),
+			Category:    r.GetCategory(),
+		})
 	}
 
 	// Determine overall success
