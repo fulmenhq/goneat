@@ -116,6 +116,8 @@ func (f *Formatter) formatConcise(report *AssessmentReport) string {
 			statusStr = yellow(fmt.Sprintf("%d issue(s)", res.IssueCount))
 		} else if res.Status == "error" && strings.TrimSpace(res.Error) != "" {
 			statusStr = red("error")
+		} else if res.Status == "skipped" && res.Reason != "" {
+			statusStr = yellow("skipped")
 		} else {
 			statusStr = green("ok")
 		}
@@ -175,6 +177,12 @@ func (f *Formatter) formatConcise(report *AssessmentReport) string {
 		if res.Status == "error" && strings.TrimSpace(res.Error) != "" {
 			fmt.Fprintf(&sb, "   %s %s\n", red("!"), res.Error)
 		}
+		if res.Status == "skipped" && res.Reason != "" {
+			fmt.Fprintf(&sb, "   not run: %s\n", res.Reason)
+		}
+		for _, note := range res.Notes {
+			fmt.Fprintf(&sb, "   note: %s\n", note)
+		}
 	}
 
 	// Footer pass/fail
@@ -228,6 +236,9 @@ func (f *Formatter) formatMarkdown(report *AssessmentReport) string {
 	for _, category := range orderedCategories {
 		result := report.Categories[category]
 		if result.Status == "skipped" {
+			if result.Reason != "" {
+				fmt.Fprintf(&sb, "### %s %s (Priority: %d)\n\n**Status:** Skipped - %s\n\n", f.getStatusEmoji(result.Status), titleCase(category), result.Priority, result.Reason)
+			}
 			continue
 		}
 
@@ -243,6 +254,9 @@ func (f *Formatter) formatMarkdown(report *AssessmentReport) string {
 		fmt.Fprintf(&sb, "**Status:** %d issues found\n", result.IssueCount)
 		fmt.Fprintf(&sb, "**Estimated Time:** %s\n", f.formatDuration(time.Duration(result.EstimatedTime)))
 		fmt.Fprintf(&sb, "**Parallelizable:** %s\n\n", f.formatBool(result.Parallelizable))
+		for _, note := range result.Notes {
+			fmt.Fprintf(&sb, "**Note:** %s\n\n", note)
+		}
 
 		if metricsBlock := f.formatCategoryMetricsMarkdown(category, result.Metrics); metricsBlock != "" {
 			sb.WriteString(metricsBlock)

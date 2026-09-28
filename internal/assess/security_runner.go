@@ -143,6 +143,18 @@ func (r *SecurityAssessmentRunner) Assess(ctx context.Context, target string, co
 		name         string
 	}
 	adapters := GetSecurityToolRegistry().SelectAdapters(config, r, moduleRoot)
+	if len(adapters) == 0 {
+		const reason = "no applicable security tool found in PATH (gosec, govulncheck, gitleaks, cargo-audit, cargo-deny)"
+		logger.Warn("security assessment skipped: " + reason)
+		return &AssessmentResult{
+			CommandName:   r.commandName,
+			Category:      CategorySecurity,
+			Success:       true,
+			ExecutionTime: HumanReadableDuration(time.Since(start)),
+			Issues:        []Issue{},
+			SkipReason:    reason,
+		}, nil
+	}
 	ranGosec := false
 	for _, a := range adapters {
 		if a.Name() == "gosec" {
@@ -242,10 +254,12 @@ func (r *SecurityAssessmentRunner) GetEstimatedTime(target string) time.Duration
 	return 5 * time.Second
 }
 
-// IsAvailable implements AssessmentRunner.IsAvailable
+// IsAvailable implements AssessmentRunner.IsAvailable. Which security tools
+// apply depends on the target (Go scanners, cargo-audit and cargo-deny for
+// Cargo projects, gitleaks for secrets), so the category is always
+// available and Assess reports a skip when none of them can run.
 func (r *SecurityAssessmentRunner) IsAvailable() bool {
-	// Available if either gosec or govulncheck is in PATH
-	return r.toolAvailable("gosec") || r.toolAvailable("govulncheck")
+	return true
 }
 
 func (r *SecurityAssessmentRunner) toolAvailable(name string) bool {

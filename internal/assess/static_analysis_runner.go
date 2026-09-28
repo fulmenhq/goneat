@@ -121,6 +121,11 @@ func (r *StaticAnalysisAssessmentRunner) IsAvailable() bool {
 	return err == nil
 }
 
+// UnavailableReason implements UnavailableReasoner.
+func (r *StaticAnalysisAssessmentRunner) UnavailableReason() string {
+	return "go not found in PATH"
+}
+
 // findGoFiles finds all Go files in the target directory
 func (r *StaticAnalysisAssessmentRunner) findGoFiles(target string, config AssessmentConfig) ([]string, error) {
 	var goFiles []string

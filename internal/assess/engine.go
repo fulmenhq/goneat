@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -114,6 +115,51 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 
 	// Run assessments for each category (with optional concurrency)
 	categoryResults := make(map[string]CategoryResult)
+
+	// Requested category names are checked before anything runs. An unknown
+	// name is an error and nothing is assessed. A known category that cannot
+	// run is reported as skipped with a reason rather than left out.
+	if unknown := e.unknownCategories(config.SelectedCategories); len(unknown) > 0 {
+		valid := e.validCategoryList()
+		for _, name := range unknown {
+			msg := fmt.Sprintf("unknown assessment category %q (valid: %s)", name, valid)
+			logger.Error(msg)
+			categoryResults[name] = CategoryResult{
+				Category: AssessmentCategory(name),
+				Priority: e.priorityManager.GetPriority(AssessmentCategory(name)),
+				Issues:   []Issue{},
+				Status:   "error",
+				Error:    msg,
+			}
+		}
+		orderedCategories = nil
+	} else {
+		for _, name := range config.SelectedCategories {
+			category := AssessmentCategory(strings.TrimSpace(name))
+			if category == "" {
+				continue
+			}
+			if _, done := categoryResults[string(category)]; done {
+				continue
+			}
+			runner, ok := e.runnerRegistry.GetRunner(category)
+			if ok && runner.IsAvailable() {
+				continue
+			}
+			reason := "no assessment runner is available for this category"
+			if ok {
+				reason = unavailableReason(runner)
+			}
+			logger.Warn(fmt.Sprintf("%s assessment skipped: %s", category, reason))
+			categoryResults[string(category)] = CategoryResult{
+				Category: category,
+				Priority: e.priorityManager.GetPriority(category),
+				Issues:   []Issue{},
+				Status:   "skipped",
+				Reason:   reason,
+			}
+		}
+	}
 	var allIssues []Issue
 	var commandsRun []string
 	// Track per-category runtimes
@@ -208,6 +254,13 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 					cr.Status = "skipped"
 				}
 				logger.Info(fmt.Sprintf("%s assessment completed in %v: %d issues found", category, runDur, len(cr.Issues)))
+			}
+			if result != nil {
+				cr.Notes = result.Notes
+				if result.SkipReason != "" && cr.Status != "error" {
+					cr.Status = "skipped"
+					cr.Reason = result.SkipReason
+				}
 			}
 			categoryResults[string(category)] = cr
 		}
@@ -304,6 +357,13 @@ func (e *AssessmentEngine) RunAssessment(ctx context.Context, target string, con
 					if result != nil {
 						commandsRun = append(commandsRun, result.CommandName)
 						allIssues = append(allIssues, cr.Issues...)
+					}
+					if result != nil {
+						cr.Notes = result.Notes
+						if result.SkipReason != "" && cr.Status != "error" {
+							cr.Status = "skipped"
+							cr.Reason = result.SkipReason
+						}
 					}
 					categoryResults[string(j.category)] = cr
 					mu.Unlock()
@@ -672,4 +732,65 @@ func max(a, b float64) float64 {
 		return a
 	}
 	return b
+}
+
+// unknownCategories returns the requested names that are neither a defined
+// category nor a registered runner.
+func (e *AssessmentEngine) unknownCategories(requested []string) []string {
+	return unknownCategoriesIn(e.runnerRegistry, requested)
+}
+
+// validCategoryList is the sorted, comma-separated list of category names.
+func (e *AssessmentEngine) validCategoryList() string {
+	return validCategoriesIn(e.runnerRegistry)
+}
+
+// UnknownCategories returns the requested names goneat does not recognize,
+// in request order without duplicates. Surrounding spaces are trimmed and
+// empty entries ignored, as category lists have always been parsed.
+func UnknownCategories(requested []string) []string {
+	return unknownCategoriesIn(GetAssessmentRunnerRegistry(), requested)
+}
+
+// ValidCategories is the sorted, comma-separated list of category names.
+func ValidCategories() string {
+	return validCategoriesIn(GetAssessmentRunnerRegistry())
+}
+
+func knownCategorySet(registry *AssessmentRunnerRegistry) map[string]bool {
+	set := make(map[string]bool)
+	for _, c := range KnownCategories {
+		set[string(c)] = true
+	}
+	if registry != nil {
+		for _, c := range registry.GetAllCategories() {
+			set[string(c)] = true
+		}
+	}
+	return set
+}
+
+func unknownCategoriesIn(registry *AssessmentRunnerRegistry, requested []string) []string {
+	known := knownCategorySet(registry)
+	var unknown []string
+	seen := make(map[string]bool)
+	for _, name := range requested {
+		name = strings.TrimSpace(name)
+		if name == "" || known[name] || seen[name] {
+			continue
+		}
+		seen[name] = true
+		unknown = append(unknown, name)
+	}
+	return unknown
+}
+
+func validCategoriesIn(registry *AssessmentRunnerRegistry) string {
+	set := knownCategorySet(registry)
+	names := make([]string, 0, len(set))
+	for n := range set {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	return strings.Join(names, ", ")
 }

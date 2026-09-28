@@ -97,6 +97,13 @@ const (
 	CategoryTypecheck      AssessmentCategory = "typecheck"
 )
 
+// KnownCategories lists every assessment category goneat defines.
+var KnownCategories = []AssessmentCategory{
+	CategoryFormat, CategoryLint, CategoryStaticAnalysis, CategorySecurity,
+	CategoryPerformance, CategorySchema, CategoryDates, CategoryTools,
+	CategoryMaturity, CategoryRepoStatus, CategoryDependencies, CategoryTypecheck,
+}
+
 // IssueSeverity represents the severity level of an assessment issue
 type IssueSeverity string
 
@@ -135,6 +142,8 @@ type CategoryResult struct {
 	Parallelizable    bool                   `json:"parallelizable"`
 	Status            string                 `json:"status"` // "success", "error", "skipped", "issues"
 	Error             string                 `json:"error,omitempty"`
+	Reason            string                 `json:"reason,omitempty"` // why a skipped category did not run
+	Notes             []string               `json:"notes,omitempty"`  // parts of the category that did not run
 	Metrics           map[string]interface{} `json:"metrics,omitempty"`
 	SuppressionReport *SuppressionReport     `json:"suppression_report,omitempty"`
 }
@@ -147,6 +156,8 @@ type AssessmentResult struct {
 	ExecutionTime HumanReadableDuration  `json:"execution_time"`
 	Issues        []Issue                `json:"issues"`
 	Error         string                 `json:"error,omitempty"`
+	Notes         []string               `json:"notes,omitempty"`       // parts of the category that did not run
+	SkipReason    string                 `json:"skip_reason,omitempty"` // set when the whole category did not run
 	Metrics       map[string]interface{} `json:"metrics,omitempty"`
 }
 
