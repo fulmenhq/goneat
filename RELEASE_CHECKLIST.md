@@ -234,17 +234,52 @@ export GONEAT_COOLING_TEST_ROOT=$HOME/dev/playground
 make test-integration-cooling-quick  # Hugo baseline (~8s)
 ```
 
-**3. Tag and Push** (only after validation passes)
+**3. Tag and Push** (only after validation passes and the release commit is merged)
+
+Release tags are GPG-signed annotated tags with a declared tagger identity.
+Run these on the operator machine, never in CI. Every step needs:
+
+| Variable | Meaning |
+| --- | --- |
+| `GONEAT_RELEASE_TAG` | tag to create, verify or push; must equal the `VERSION` file |
+| `GONEAT_PGP_KEY_ID` | signing key: 40-hex fingerprint or 16-hex long key id; a trailing `!` forces that exact (sub)key |
+| `GONEAT_GPG_HOMEDIR` | isolated gpg homedir holding the signing key; the default keyring is never used |
+| `GONEAT_TAGGER_NAME` | tagger name recorded on the tag |
+| `GONEAT_TAGGER_EMAIL` | tagger email; must be a uid email on the signing key |
 
 ```bash
-# Using make target
-make release-tag   # Creates annotated tag from VERSION file
+# 1. Create the signed tag on HEAD and verify it. Refuses unless on a clean main
+#    equal to a freshly fetched origin/main, and if the tag exists locally or on
+#    origin. A tag that fails verification is deleted. Does not push.
+make release-tag
 
-# Or manually
-git tag -a v0.3.6 -m "Release v0.3.6"
-git push origin v0.3.6
-git push origin main  # Push commits
+# 2. Check it before anything leaves the machine: annotated, named for VERSION,
+#    at HEAD, tagger identity as declared, one good signature by the selected key.
+make release-tag-verify
+git show --no-patch "$GONEAT_RELEASE_TAG"
+
+# 3. Push only refs/tags/<tag> to origin. Repeats the checks from steps 1 and 2,
+#    refuses if origin already has the tag, and confirms that origin's tag
+#    object and commit match the local ones. Never forced; does not push main,
+#    other tags or other remotes.
+make release-tag-push
 ```
+
+To check the published tag from any clone:
+
+```bash
+TAG="$(cat VERSION)"
+git fetch origin tag "$TAG"
+git cat-file -t "$TAG"   # tag
+git tag -v "$TAG"        # with the release public key imported
+```
+
+`make test-release-tag` runs the script's tests against a disposable repository
+and throwaway keys.
+
+`make release-push` (main plus the verified tag, to origin and the optional
+`gitlab` backup remote) and the aggregate `make release` are not part of this
+procedure. Sync a backup remote as its own step.
 
 **4. Build Release Artifacts**
 
@@ -608,35 +643,24 @@ goneat doctor tools --scope foundation
 
 ### Rollback Plan
 
-**If critical issue discovered immediately after release:**
+**If a critical issue is found after release:**
 
-```bash
-# 1. Delete tag (local and remote)
-git tag -d v0.3.6
-git push origin :refs/tags/v0.3.6
+A published release tag is never deleted, moved or reused, and `VERSION` is
+never set back to an earlier release. Fix forward instead:
 
-# 2. Delete GitHub release
-# (via GitHub web UI)
+1. Mark the affected release: edit the GitHub release to state the issue and
+   point users to the previous good version. Mark it as a pre-release if it
+   should stop being shown as latest.
+2. If needed, hold or revert the Homebrew formula and Scoop manifest to the
+   previous good version. These are separate commits in those repositories.
+3. Fix the issue on `main` through a normal pull request, bump to the next
+   patch version, and release it with the full checklist, including a new
+   signed tag.
+4. Notify users: open a GitHub issue that explains the problem and names the
+   fixed version, and note it in the release notes.
 
-# 3. Revert VERSION file
-echo "v0.3.5" > VERSION
-git add VERSION
-git commit -m "revert: rollback to v0.3.5 due to critical issue"
-
-# 4. Notify users
-# - GitHub issue explaining rollback
-# - Update release notes
-```
-
-### Recovery Checklist
-
-**After rollback:**
-
-- Verify local and remote repos in sync
-- Check GitLab backup has correct state
-- Inform all stakeholders
-- Create hotfix branch if needed
-- Re-run full validation before re-release
+Deleting or replacing a published tag is outside this procedure and needs
+separate maintainer authorization.
 
 ### Invalid Signature Recovery
 
@@ -717,7 +741,8 @@ make prepush
 
 - `scripts/build-all.sh` - Multi-platform build orchestration
 - `scripts/package-artifacts.sh` - Archive creation and checksums
-- `scripts/push-to-remotes.sh` - Push to all configured remotes
+- `scripts/release-tag.sh` - Create, verify and push the signed release tag (tests: `scripts/release_tag_test.go`)
+- `scripts/push-to-remotes.sh` - Push main and the verified release tag to all configured remotes
 - `scripts/generate-release-notes.sh` - Release notes generation
 
 ### Future Automation (Planned)
@@ -817,11 +842,9 @@ git checkout -b release/v0.3.6
 # 3. Full validation
 make prepush
 
-# 4. Merge to main and tag
-git checkout main
-git merge release/v0.3.6
-git tag -a v0.3.6 -m "Release v0.3.6"
-git push origin main v0.3.6
+# 4. Open a pull request and merge it to main, then tag the merged main
+#    with the signed-tag steps in "3. Tag and Push" above:
+#    make release-tag, make release-tag-verify, make release-tag-push
 ```
 
 ## Best Practices Summary

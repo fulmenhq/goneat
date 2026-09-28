@@ -1,8 +1,17 @@
 #!/bin/bash
-# Push to multiple git remotes for redundancy
+# Push main and one release tag to multiple git remotes for redundancy
 # Supports GitHub (primary) and GitLab (backup) repositories
+#
+# Usage: scripts/push-to-remotes.sh <tag>
+#
+# Only the named tag is pushed; other local tags are never pushed. The tag is
+# verified first with scripts/release-tag.sh verify (needs the GONEAT_PGP_KEY_ID,
+# GONEAT_GPG_HOMEDIR and GONEAT_TAGGER_* settings). For a release ceremony use
+# make release-tag-push.
 
 set -e
+
+TAG="${1:?usage: scripts/push-to-remotes.sh <tag>}"
 
 # Configuration
 PRIMARY_REMOTE="origin"
@@ -13,7 +22,15 @@ echo "🚀 Pushing to all remotes..."
 echo "   Primary: $PRIMARY_REMOTE (GitHub)"
 echo "   Backup:  $BACKUP_REMOTE (GitLab)"
 echo "   Branch:  $BRANCH"
+echo "   Tag:     $TAG"
 echo ""
+
+# The tag must be the signed VERSION tag at HEAD of a clean main
+if [ "$TAG" != "$(tr -d '[:space:]' <VERSION)" ]; then
+	echo "❌ $TAG does not match VERSION"
+	exit 1
+fi
+GONEAT_RELEASE_TAG="$TAG" ./scripts/release-tag.sh verify
 
 # Function to check if remote exists
 remote_exists() {
@@ -43,12 +60,13 @@ else
 	exit 1
 fi
 
-# Push tags to primary
-echo "🏷️  Pushing tags to primary remote..."
-if git push "$PRIMARY_REMOTE" --tags; then
-	echo "✅ Primary tags push successful"
+# Push the release tag to primary
+echo "🏷️  Pushing $TAG to primary remote..."
+if git push "$PRIMARY_REMOTE" "refs/tags/$TAG:refs/tags/$TAG"; then
+	echo "✅ Primary tag push successful"
 else
-	echo "⚠️  Primary tags push failed (continuing...)"
+	echo "❌ Primary tag push failed"
+	exit 1
 fi
 
 # Push to backup remote (if configured)
@@ -63,12 +81,12 @@ if [ -n "$BACKUP_REMOTE" ]; then
 		echo "   Primary push was successful - continuing..."
 	fi
 
-	# Push tags to backup
-	echo "🏷️  Pushing tags to backup remote..."
-	if git push "$BACKUP_REMOTE" --tags; then
-		echo "✅ Backup tags push successful"
+	# Push the release tag to backup
+	echo "🏷️  Pushing $TAG to backup remote..."
+	if git push "$BACKUP_REMOTE" "refs/tags/$TAG:refs/tags/$TAG"; then
+		echo "✅ Backup tag push successful"
 	else
-		echo "⚠️  Backup tags push failed (continuing...)"
+		echo "⚠️  Backup tag push failed (continuing...)"
 	fi
 else
 	echo ""
@@ -85,5 +103,4 @@ if [ -n "$BACKUP_REMOTE" ]; then
 else
 	echo "   ⚠️  Backup remote:  Not configured"
 fi
-echo "   ✅ Tags:           Pushed to all remotes"
-echo "   ✅ Tags:           Pushed to all remotes"
+echo "   ✅ Tag:            $TAG"
