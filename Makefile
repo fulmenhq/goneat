@@ -44,7 +44,7 @@ LDFLAGS := -ldflags "\
 	-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
-.PHONY: help build hooks-ensure clean clean-go clean-testcache clean-vendor clean-coverage clean-os-metadata clean-backups clean-release clean-all test test-scripts fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites prerequisites-build-goneat prerequisites-check-go prerequisites-check-git prerequisites-check-tools prerequisites-install-tools sync-crucible sync-ssot verify-crucible verify-crucible-clean verify-schemas bootstrap tools lint release-check release-prepare release-build release-clean release-verify-checksums check-all pr-final prepush precommit update-homebrew-formula update-scoop-manifest verify-release-key local-ci-check local-ci all
+.PHONY: help build hooks-ensure clean clean-go clean-testcache clean-vendor clean-coverage clean-os-metadata clean-backups clean-release clean-all test test-scripts fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites prerequisites-build-goneat prerequisites-check-go prerequisites-check-git prerequisites-check-tools prerequisites-install-tools sync-crucible sync-ssot verify-crucible verify-crucible-clean verify-schemas bootstrap tools lint release-check release-prepare release-build release-clean release-verify-checksums check-all pr-final prepush precommit update-homebrew-formula update-scoop-manifest verify-release-key release-tag release-tag-verify release-tag-push release-push test-release-tag local-ci-check local-ci all
 
 # Default target
 all: clean build format-all
@@ -918,14 +918,21 @@ release-prep: ## Prepare for release (run tests, coverage gate, build, etc.)
 	$(MAKE) release-notes
 	@echo "✅ Release preparation complete"
 
-release-tag: ## Create git tag for release
-	@echo "🏷️  Creating release tag $(VERSION)..."
-	git tag -a $(VERSION) -m "Release $(VERSION)"
-	@echo "✅ Tag created: $(VERSION)"
+release-tag: ## Create a GPG-signed annotated tag for GONEAT_RELEASE_TAG on HEAD and verify it (does not push)
+	@./scripts/release-tag.sh create
 
-release-push: ## Push release to all remotes
+release-tag-verify: ## Verify the local release tag: signature, signing key, tagger identity, target
+	@./scripts/release-tag.sh verify
+
+release-tag-push: ## Re-check, verify, then push only the release tag ref to origin (never forced)
+	@./scripts/release-tag.sh push
+
+test-release-tag: ## Run the release-tag script tests (fails, rather than skips, without git/gpg)
+	GONEAT_REQUIRE_CRYPTO_TOOLS=1 $(GOTEST) ./scripts/ -run ReleaseTag -count=1 -v
+
+release-push: ## Push main and the verified VERSION tag to all remotes (not used for tag ceremonies)
 	@echo "📤 Pushing release to all remotes..."
-	./scripts/push-to-remotes.sh
+	./scripts/push-to-remotes.sh "$$(tr -d '[:space:]' < VERSION)"
 	@echo "✅ Release pushed to all remotes"
 
 verify-release-key: ## Verify GPG public key for release signing (must run before upload)
