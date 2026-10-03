@@ -3,6 +3,7 @@ package assess
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -124,36 +125,89 @@ func TestEngine_SelectedCategoriesFilter(t *testing.T) {
 	}
 }
 
-func TestEngine_ConcurrencyMappingAffectsWallTime(t *testing.T) {
+type signaledRunner struct {
+	fakeRunner
+	started     chan<- AssessmentCategory
+	release     <-chan struct{}
+	finished    *atomic.Bool
+	predecessor *atomic.Bool
+}
+
+func (r *signaledRunner) Assess(ctx context.Context, target string, cfg AssessmentConfig) (*AssessmentResult, error) {
+	if r.predecessor != nil && !r.predecessor.Load() {
+		return nil, errors.New("sequential runner started before its predecessor completed")
+	}
+	defer r.finished.Store(true)
+	select {
+	case r.started <- r.category:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-r.release:
+		return r.fakeRunner.Assess(ctx, target, cfg)
+	}
+}
+
+func TestEngine_ConcurrencyMappingControlsWorkers(t *testing.T) {
 	old := GetAssessmentRunnerRegistry()
 	globalRunnerRegistry = NewAssessmentRunnerRegistry()
 	t.Cleanup(func() { globalRunnerRegistry = old })
 
-	// Two runners with noticeable delay
-	RegisterAssessmentRunner(CategoryFormat, &fakeRunner{category: CategoryFormat, available: true, delay: 150 * time.Millisecond})
-	RegisterAssessmentRunner(CategoryLint, &fakeRunner{category: CategoryLint, available: true, delay: 150 * time.Millisecond})
-
-	engine := NewAssessmentEngine()
-
-	// Sequential
-	cfgSeq := DefaultAssessmentConfig()
-	cfgSeq.Concurrency = 1
-	rptSeq, err := engine.RunAssessment(context.Background(), ".", cfgSeq)
-	if err != nil {
-		t.Fatalf("seq run error: %v", err)
-	}
-
-	// Parallel-ish (2 workers)
-	cfgPar := DefaultAssessmentConfig()
-	cfgPar.Concurrency = 2
-	rptPar, err := engine.RunAssessment(context.Background(), ".", cfgPar)
-	if err != nil {
-		t.Fatalf("par run error: %v", err)
-	}
-
-	// Expect parallel execution to be faster than sequential by a meaningful margin
-	if rptPar.Metadata.ExecutionTime >= rptSeq.Metadata.ExecutionTime {
-		t.Fatalf("expected parallel exec time %v < sequential %v", rptPar.Metadata.ExecutionTime, rptSeq.Metadata.ExecutionTime)
+	for _, workers := range []int{1, 2} {
+		started := make(chan AssessmentCategory, 2)
+		release := make(chan struct{})
+		formatFinished := &atomic.Bool{}
+		for _, category := range []AssessmentCategory{CategoryFormat, CategoryLint} {
+			runner := &signaledRunner{
+				fakeRunner: fakeRunner{category: category, available: true, canParallel: true},
+				started:    started, release: release,
+				finished: &atomic.Bool{},
+			}
+			if category == CategoryFormat {
+				runner.finished = formatFinished
+			} else if workers == 1 {
+				runner.predecessor = formatFinished
+			}
+			RegisterAssessmentRunner(category, runner)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		cfg := DefaultAssessmentConfig()
+		cfg.Concurrency = workers
+		done := make(chan error, 1)
+		go func() {
+			report, err := NewAssessmentEngine().RunAssessment(ctx, ".", cfg)
+			if err == nil && (report.Categories["format"].Status != "success" || report.Categories["lint"].Status != "success") {
+				err = errors.New("runner did not complete successfully")
+			}
+			done <- err
+		}()
+		// With two workers both must start before either is released. With one,
+		// each start requires releasing the preceding runner. No speed assertion.
+		for i := 0; i < 2; i++ {
+			select {
+			case <-started:
+			case <-ctx.Done():
+				cancel()
+				t.Fatal("configured workers failed to start")
+			}
+			if workers == 1 {
+				release <- struct{}{}
+			}
+		}
+		close(release)
+		select {
+		case err := <-done:
+			cancel()
+			if err != nil {
+				t.Fatal(err)
+			}
+		case <-ctx.Done():
+			cancel()
+			t.Fatal("assessment failed to complete")
+		}
 	}
 }
 

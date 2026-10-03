@@ -7,29 +7,23 @@ on:
     tags:
       - 'v*'
 permissions:
-  contents: write
+  contents: read
 jobs:
+  candidate-contracts:
+    if: ${{ !github.event.repository.private || vars.ALLOW_PRIVATE_RELEASES == 'true' }}
+    uses: ./.github/workflows/native-contracts.yml
   build-and-release:
+    needs: candidate-contracts
     if: ${{ !github.event.repository.private || vars.ALLOW_PRIVATE_RELEASES == 'true' }}
     environment: public-release
+    permissions:
+      contents: write
     # Use Fulmen-managed runner labels (x64/arm64 variants) instead of GitHub-hosted defaults.
     # This keeps CI consistent across repos and makes architecture selection explicit.
     runs-on: ubuntu-latest-x64-s
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.26.x'
-      - name: Install signing prerequisites
-        run: |
-          # Install GPG for future signing automation
-          # Note: Actual signing is manual for v0.3.3
-          # This prepares CI for future automation
-          sudo apt-get update
-          sudo apt-get install -y gnupg2
-          gpg --version
       - name: Validate VERSION matches tag
         run: |
           VERSION_FILE=$(cat VERSION)
@@ -41,35 +35,25 @@ jobs:
             exit 1
           fi
           echo "✅ VERSION matches tag"
-      - name: Build all platforms
-        run: |
-          chmod +x scripts/build-all.sh
-          ./scripts/build-all.sh
-      - name: Smoke test linux binary (musl + glibc)
+      - name: Download the exact natively accepted candidate bytes
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: release-candidate
+          path: dist/release
+      - name: Verify original manifests before publication
         run: |
           set -euo pipefail
-          test -x "./bin/goneat-linux-amd64"
-
-          echo "Running in Alpine (musl)..."
-          docker run --rm \
-            -v "$PWD/bin:/work" \
-            alpine:3.21 \
-            /work/goneat-linux-amd64 version
-
-          echo "Running in Debian (glibc)..."
-          docker run --rm \
-            -v "$PWD/bin:/work" \
-            debian:bookworm-slim \
-            /work/goneat-linux-amd64 version
-      - name: Package artifacts
-        run: |
-          chmod +x scripts/package-artifacts.sh
-          ./scripts/package-artifacts.sh
+          cd dist/release
+          sha256sum --check SHA256SUMS
+          sha512sum --check SHA512SUMS
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/release/*
+            dist/release/goneat_*.tar.gz
+            dist/release/goneat_*.zip
+            dist/release/SHA256SUMS
+            dist/release/SHA512SUMS
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

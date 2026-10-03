@@ -84,6 +84,7 @@ type VersionArtifacts struct {
 	LinuxAMD64   *Artifact `yaml:"linux_amd64,omitempty" json:"linux_amd64,omitempty"`
 	LinuxARM64   *Artifact `yaml:"linux_arm64,omitempty" json:"linux_arm64,omitempty"`
 	WindowsAMD64 *Artifact `yaml:"windows_amd64,omitempty" json:"windows_amd64,omitempty"`
+	WindowsARM64 *Artifact `yaml:"windows_arm64,omitempty" json:"windows_arm64,omitempty"`
 }
 
 // Artifact represents a single downloadable artifact with integrity verification.

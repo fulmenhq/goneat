@@ -160,9 +160,10 @@ func InstallArtifact(tool Tool, opts InstallOptions) (*InstallResult, error) {
 }
 
 func selectArtifactForPlatform(artifacts VersionArtifacts) (*Artifact, error) {
-	goos := runtime.GOOS
-	goarch := runtime.GOARCH
+	return selectArtifact(artifacts, runtime.GOOS, runtime.GOARCH)
+}
 
+func selectArtifact(artifacts VersionArtifacts, goos, goarch string) (*Artifact, error) {
 	platformKey := fmt.Sprintf("%s_%s", goos, goarch)
 
 	switch platformKey {
@@ -185,6 +186,10 @@ func selectArtifactForPlatform(artifacts VersionArtifacts) (*Artifact, error) {
 	case "windows_amd64":
 		if artifacts.WindowsAMD64 != nil {
 			return artifacts.WindowsAMD64, nil
+		}
+	case "windows_arm64":
+		if artifacts.WindowsARM64 != nil {
+			return artifacts.WindowsARM64, nil
 		}
 	}
 

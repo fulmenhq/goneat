@@ -59,6 +59,13 @@ goneat hooks init && goneat hooks install
 
 ## Language Support
 
+Beginning with v0.6.2, release archives cover **Darwin ARM64, Linux amd64/ARM64,
+and Windows amd64/ARM64**. Windows ARM64 uses its native executable, not an
+emulated x64 build. Intel macOS archives end at v0.6.1; v0.6.2 does not provide
+a Darwin amd64 download. Existing third-party Darwin amd64 tool artifacts are
+unaffected. External integrations have their own platform limits: Grype on
+Windows ARM64 is unsupported, not a successful vulnerability scan.
+
 goneat provides **language-aware assessment** with automatic tool detection:
 
 | Language           | Lint | Format | Typecheck | Tool                                 | Install                               |

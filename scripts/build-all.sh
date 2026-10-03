@@ -2,7 +2,11 @@
 # Cross-platform build script for goneat
 # Builds binaries for all supported platforms from a single machine
 
-set -e
+set -euo pipefail
+
+# shellcheck source=scripts/release-platforms.sh
+source "$(dirname "${BASH_SOURCE[0]}")/release-platforms.sh"
+export GOTOOLCHAIN="${GOTOOLCHAIN:-go1.26.6}"
 
 # Get version from VERSION file (already contains 'v' prefix)
 VERSION=$(cat VERSION)
@@ -14,25 +18,20 @@ echo "   Git commit: ${GIT_COMMIT:0:8}"
 
 # Ensure embedded assets are synced from SSOT
 echo "📦 Syncing embedded assets (templates/, schemas/)..."
-make -s embed-assets
+env -u GOOS -u GOARCH make -s embed-assets verify-embeds
 
-# Define build targets
-TARGETS=(
-	"linux/amd64"
-	"linux/arm64"
-	"darwin/amd64"
-	"darwin/arm64"
-	"windows/amd64"
-)
+# Generators above must run on the host, not a cross-compilation target.
+HOST_OS=$(env -u GOOS -u GOARCH go env GOHOSTOS)
+HOST_ARCH=$(env -u GOOS -u GOARCH go env GOHOSTARCH)
 
 # Create build directory
 mkdir -p bin
 
-echo "📦 Building for ${#TARGETS[@]} platforms..."
+echo "📦 Building for ${#RELEASE_TARGETS[@]} platforms..."
 
-for target in "${TARGETS[@]}"; do
-	GOOS=$(echo $target | cut -d/ -f1)
-	GOARCH=$(echo $target | cut -d/ -f2)
+for target in "${RELEASE_TARGETS[@]}"; do
+	GOOS=${target%/*}
+	GOARCH=${target#*/}
 
 	echo "🏗️  Building for $GOOS/$GOARCH..."
 
@@ -45,25 +44,14 @@ for target in "${TARGETS[@]}"; do
 	# Build with version information embedded via ldflags
 	# Must match pkg/buildinfo/buildinfo.go variable paths
 	#
-	# Linux release artifacts must run in both glibc and musl environments (e.g. Alpine).
-	# Build Linux binaries with CGO disabled to avoid libc linkage.
-	if [ "$GOOS" = "linux" ]; then
-		CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build \
-			-ldflags "\
-				-X 'github.com/fulmenhq/goneat/pkg/buildinfo.BinaryVersion=$VERSION' \
-				-X 'github.com/fulmenhq/goneat/pkg/buildinfo.BuildTime=$BUILD_TIME' \
-				-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$GIT_COMMIT'" \
-			-o "bin/goneat-$GOOS-$GOARCH$EXT" \
-			.
-	else
-		GOOS=$GOOS GOARCH=$GOARCH go build \
-			-ldflags "\
-				-X 'github.com/fulmenhq/goneat/pkg/buildinfo.BinaryVersion=$VERSION' \
-				-X 'github.com/fulmenhq/goneat/pkg/buildinfo.BuildTime=$BUILD_TIME' \
-				-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$GIT_COMMIT'" \
-			-o "bin/goneat-$GOOS-$GOARCH$EXT" \
-			.
-	fi
+	# No libc linkage: Linux artifacts must work with both glibc and musl.
+	env CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" go build \
+		-ldflags "\
+			-X 'github.com/fulmenhq/goneat/pkg/buildinfo.BinaryVersion=$VERSION' \
+			-X 'github.com/fulmenhq/goneat/pkg/buildinfo.BuildTime=$BUILD_TIME' \
+			-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$GIT_COMMIT'" \
+		-o "bin/goneat-$GOOS-$GOARCH$EXT" \
+		.
 
 	# Verify the binary was created and is executable
 	if [ -f "bin/goneat-$GOOS-$GOARCH$EXT" ]; then
@@ -78,11 +66,10 @@ for target in "${TARGETS[@]}"; do
 			fi
 		fi
 
-		# Quick test to ensure binary works (native platforms only)
-		if "./bin/goneat-$GOOS-$GOARCH$EXT" version >/dev/null 2>&1; then
+		# Never execute a foreign target or silently pass a failing native binary.
+		if [ "$GOOS/$GOARCH" = "$HOST_OS/$HOST_ARCH" ]; then
+			"./bin/goneat-$GOOS-$GOARCH$EXT" version >/dev/null
 			echo "🧪 Binary functional: $GOOS/$GOARCH"
-		else
-			echo "⚠️  Binary test failed: $GOOS/$GOARCH"
 		fi
 	else
 		echo "❌ Build failed: $GOOS/$GOARCH"
@@ -98,9 +85,9 @@ ls -lh bin/
 
 echo ""
 echo "📊 Build summary:"
-echo "   Platforms: ${#TARGETS[@]}"
+echo "   Platforms: ${#RELEASE_TARGETS[@]}"
 echo "   Version: $VERSION"
-echo "   Total binaries: $(ls bin/ | wc -l)"
+echo "   Total binaries in bin/: $(find bin/ -maxdepth 1 -type f | wc -l)"
 
 echo ""
 echo "🚀 Ready for distribution!"
