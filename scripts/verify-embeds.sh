@@ -28,6 +28,26 @@ check_dir() {
 	# Capture first: pipefail plus grep -q can mask drift on a SIGPIPE, and a
 	# failed rsync must not be interpreted as an empty/clean comparison.
 	local changes
+	# Minimal non-root build containers need not include rsync. diff compares
+	# contents and names recursively, including missing/extra mirror files.
+	if ! command -v rsync >/dev/null 2>&1; then
+		local status=0
+		changes=$(diff -qr "$src" "$dst" 2>&1) || status=$?
+		case "$status" in
+		0) echo "✅ $name: in sync" ;;
+		1)
+			echo "❌ $name: drift detected between SSOT and embedded mirror" >&2
+			printf '%s\n' "$changes" >&2
+			fail=1
+			;;
+		*)
+			echo "❌ $name: mirror comparison failed" >&2
+			printf '%s\n' "$changes" >&2
+			fail=1
+			;;
+		esac
+		return
+	fi
 	if ! changes=$(rsync -anic --delete "$src"/ "$dst"/); then
 		echo "❌ $name: mirror comparison failed" >&2
 		fail=1
