@@ -139,16 +139,19 @@ make version-set-prerelease VERSION_SET=v0.3.6-rc.1
 ### Cross-Platform Build Validation
 
 ```bash
-make build-all  # Builds 6 platform targets (for inspection - CI builds actual release artifacts)
+make build-all  # Builds 5 platform targets (for inspection - CI builds actual release artifacts)
 
 # Platforms:
 # - Linux AMD64/ARM64
-# - macOS AMD64/ARM64 (Darwin)
-# - Windows AMD64
-# - (Windows ARM64 planned for future)
+# - macOS ARM64 (Darwin)
+# - Windows AMD64/ARM64
 ```
 
-Binary testing is automatic for compatible platforms. Non-compatible platforms (e.g., Windows on macOS) will show test warnings but still produce binaries.
+The host-native binary is tested during cross-building; a failure stops the build.
+Foreign targets are not executed locally. Required native CI cells execute the
+same packaged candidate bytes on all five targets before release publication.
+Both manifests must contain the exact five archive names; missing binaries or
+stale retired archives fail packaging. Darwin amd64 downloads end at v0.6.1.
 
 **Note**: Release artifacts are built by CI, not local `make build-all`. Use `make build-all` for pre-release inspection and validation only.
 

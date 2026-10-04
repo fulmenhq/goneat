@@ -1,0 +1,108 @@
+# yamllint disable rule:document-start
+# yamllint disable rule:truthy
+# yamllint disable rule:line-length
+name: Native candidate contracts
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  candidate:
+    runs-on: ubuntu-latest-x64-s
+    outputs:
+      version: ${{ steps.identity.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.6'
+      - name: Record candidate identity
+        id: identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+          test "$(go env GOVERSION)" = go1.26.6
+      - name: Test candidate integrity and architecture negative controls
+        run: python3 scripts/test_native_contract.py
+      - name: Build and package the five release targets
+        env:
+          GOTOOLCHAIN: go1.26.6
+        run: make release-build
+      - name: Record producer provenance
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          Path('dist/release/candidate.json').write_text(json.dumps({
+              'source_sha': os.environ['GITHUB_SHA'],
+              'version': Path('VERSION').read_text().strip(),
+              'compiler': 'go1.26.6',
+          }))
+          PY
+      - uses: actions/upload-artifact@v4.6.2
+        with:
+          name: release-candidate
+          path: dist/release/
+          if-no-files-found: error
+          retention-days: 7
+  native:
+    needs: [candidate]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest-x64-s
+            target: linux/amd64
+          - runner: ubuntu-latest-arm64-s
+            target: linux/arm64
+          - runner: macos-15
+            target: darwin/arm64
+          - runner: windows-latest
+            target: windows/amd64
+          - runner: windows-latest-arm64-s
+            target: windows/arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+          architecture: ${{ endsWith(matrix.target, '/arm64') && 'arm64' || 'x64' }}
+      - uses: actions/download-artifact@v4.1.8
+        with:
+          name: release-candidate
+          path: candidate
+      - name: Verify archive hashes, native identity and core contracts
+        run: python scripts/native-contract.py --directory candidate --target ${{ matrix.target }} --version ${{ needs.candidate.outputs.version }} --source-sha ${{ github.sha }}
+      - name: Linux glibc and musl acceptance of candidate bytes
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          VERSION: ${{ needs.candidate.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p candidate-bin
+          tar -xzf "candidate/goneat_${VERSION}_${TARGET//\//_}.tar.gz" -C candidate-bin goneat
+          chmod +x candidate-bin/goneat
+          docker run --rm -v "$PWD/candidate-bin:/work:ro" alpine:3.21 /work/goneat version
+          docker run --rm -v "$PWD/candidate-bin:/work:ro" debian:bookworm-slim /work/goneat version
+  required:
+    if: always()
+    needs: [candidate, native]
+    runs-on: ubuntu-latest-x64-s
+    steps:
+      - name: Require producer and every native cell to succeed
+        env:
+          CANDIDATE_RESULT: ${{ needs.candidate.result }}
+          NATIVE_RESULT: ${{ needs.native.result }}
+        run: |
+          set -euo pipefail
+          test "$CANDIDATE_RESULT" = success
+          test "$NATIVE_RESULT" = success

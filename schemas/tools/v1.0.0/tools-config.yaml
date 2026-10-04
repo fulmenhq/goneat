@@ -183,6 +183,8 @@ $defs:
         $ref: "#/$defs/artifact"
       windows_amd64:
         $ref: "#/$defs/artifact"
+      windows_arm64:
+        $ref: "#/$defs/artifact"
     minProperties: 1
     additionalProperties: false
   artifact:

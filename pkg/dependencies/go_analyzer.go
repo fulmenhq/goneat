@@ -21,23 +21,38 @@ import (
 	"github.com/fulmenhq/goneat/pkg/safeio"
 	"github.com/fulmenhq/goneat/pkg/schema"
 
-	"github.com/google/go-licenses/v2/licenses"
 	"gopkg.in/yaml.v3"
 )
 
 // GoAnalyzer implements Analyzer for Go dependencies.
-type GoAnalyzer struct{}
+type GoAnalyzer struct {
+	collect func(context.Context) (map[string]*License, bool, error)
+}
 
 type goListModule struct {
-	Path    string `json:"Path"`
-	Version string `json:"Version"`
-	Dir     string `json:"Dir"`
+	Path    string        `json:"Path"`
+	Version string        `json:"Version"`
+	Dir     string        `json:"Dir"`
+	Replace *goListModule `json:"Replace"`
 }
 
 type goListPackage struct {
-	ImportPath string        `json:"ImportPath"`
-	Standard   bool          `json:"Standard"`
-	Module     *goListModule `json:"Module"`
+	ImportPath                                                                                              string        `json:"ImportPath"`
+	Standard                                                                                                bool          `json:"Standard"`
+	Module                                                                                                  *goListModule `json:"Module"`
+	Dir                                                                                                     string        `json:"Dir"`
+	Goroot                                                                                                  bool          `json:"Goroot"`
+	GoFiles, CgoFiles, CFiles, CXXFiles, MFiles, HFiles, FFiles, SFiles, SwigFiles, SwigCXXFiles, SysoFiles []string
+	TestGoFiles, XTestGoFiles                                                                               []string
+}
+
+func (p goListPackage) hasSourceFiles() bool {
+	for _, files := range [][]string{p.GoFiles, p.CgoFiles, p.CFiles, p.CXXFiles, p.MFiles, p.HFiles, p.FFiles, p.SFiles, p.SwigFiles, p.SwigCXXFiles, p.SysoFiles} {
+		if len(files) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 type goListMainModule struct {
@@ -134,54 +149,17 @@ func (a *GoAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisCon
 	}
 
 	if checkLicenses {
-		licenseMap, degraded, licErr := collectLicenses(ctx)
-		if licErr != nil {
-			logger.Warn("dependencies: license detection failed", logger.Err(licErr))
-			issues = append(issues, Issue{Type: "license", Severity: "medium", Message: fmt.Sprintf("License detection degraded: %v", licErr), Dependency: nil})
-			degraded = true
+		collector := a.collect
+		if collector == nil {
+			collector = collectLicenses
 		}
-
-		if degraded {
-			// Best-effort: scan module dirs for license-file presence
-			for i := range deps {
-				dep := &deps[i]
-				if dep.Metadata == nil {
-					dep.Metadata = map[string]interface{}{}
-				}
-				if dep.License != nil {
-					continue
-				}
-				moduleDir, _ := dep.Metadata["module_dir"].(string)
-				if moduleDir == "" {
-					continue
-				}
-				lp := findLicenseFile(moduleDir)
-				if lp == "" {
-					continue
-				}
-				licenseType := "Unknown"
-				// Use safe read to ensure license file is contained within module directory
-				if data, err := safeio.ReadFileContained(moduleDir, lp); err == nil {
-					licenseType = detectLicenseType(string(data))
-				}
-				dep.License = &License{Name: filepath.Base(lp), Type: licenseType, URL: getLicenseURL(licenseType)}
-				dep.Metadata["license_path"] = lp
-				dep.Metadata["license_detection"] = "module_dir"
-			}
-		} else {
-			for i := range deps {
-				dep := &deps[i]
-				k := dep.Name + "@" + dep.Version
-				if lic, ok := licenseMap[k]; ok {
-					dep.License = lic
-					if dep.Metadata == nil {
-						dep.Metadata = map[string]interface{}{}
-					}
-					dep.Metadata["license_detection"] = "go_licenses"
-				}
-			}
-		}
+		licenseMap, degraded, licErr := collector(ctx)
+		licenseIssues, licensePassed := applyGoLicenseInventory(deps, licenseMap, degraded, licErr)
+		issues = append(issues, licenseIssues...)
+		passed = passed && licensePassed
 	}
+
+	var licenseCfg *config.LicensePolicyConfig
 
 	if cfg.PolicyPath != "" {
 		policyData, err := os.ReadFile(cfg.PolicyPath)
@@ -198,13 +176,7 @@ func (a *GoAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisCon
 					policyConfig = nil
 				}
 				if checkLicenses {
-					if licenseCfg, err := policy.ParseLicenseConfig(policyConfig); err == nil {
-						licenseIssues, licensePassed := evaluateForbiddenLicenses(deps, licenseCfg, time.Now())
-						issues = append(issues, licenseIssues...)
-						if !licensePassed {
-							passed = false
-						}
-					}
+					licenseCfg, _ = policy.ParseLicenseConfig(policyConfig)
 				}
 
 				if checkCooling {
@@ -236,6 +208,14 @@ func (a *GoAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisCon
 					}
 				}
 			}
+		}
+	}
+	if checkLicenses {
+		// A fallback is diagnostic evidence only, not a policy-quality inventory.
+		if !hasLicenseCollectionError(issues) {
+			licenseIssues, licensePassed := evaluateForbiddenLicenses(deps, licenseCfg, time.Now())
+			issues = append(issues, licenseIssues...)
+			passed = passed && licensePassed
 		}
 	}
 
@@ -322,49 +302,57 @@ func discoverModules(ctx context.Context) ([]goListModule, error) {
 	return mods, nil
 }
 
-func collectLicenses(ctx context.Context) (map[string]*License, bool, error) {
-	classifier, err := licenses.NewClassifier()
-	if err != nil {
-		return nil, true, err
+func applyGoLicenseInventory(deps []Dependency, inventory map[string]*License, degraded bool, collectionErr error) ([]Issue, bool) {
+	var problems []string
+	if collectionErr != nil {
+		problems = append(problems, collectionErr.Error())
 	}
-
-	libraries, err := licenses.Libraries(ctx, classifier, false, nil, "./...")
-	if err != nil {
-		// Stdlib module info errors are harmless - go-licenses logs warnings about
-		// standard library packages not having module info, but these packages are
-		// covered by Go's BSD license and don't affect third-party license detection.
-		if isStdlibModuleInfoError(err) {
-			// If we got library results despite the stdlib noise, proceed normally.
-			// Only fail if we truly have no results.
-			if len(libraries) == 0 {
-				return nil, true, err
-			}
-			// Fall through with valid results - ignore stdlib noise
-		} else {
-			return nil, true, err
+	if degraded {
+		problems = append(problems, "license collection is degraded; module-directory fallback is not full assurance")
+	}
+	if len(inventory) == 0 || len(deps) == 0 {
+		problems = append(problems, "license inventory is empty")
+	}
+	for i := range deps {
+		dep := &deps[i]
+		if dep.Metadata == nil {
+			dep.Metadata = map[string]interface{}{}
+		}
+		if lic, ok := inventory[dep.Name+"@"+dep.Version]; ok {
+			dep.License = lic
+			dep.Metadata["license_detection"] = "go_licenses"
+			continue
+		}
+		problems = append(problems, fmt.Sprintf("license inventory has no coverage for %s@%s", dep.Name, dep.Version))
+		// Diagnostic fallback only. It can never clear a collection error.
+		moduleDir, _ := dep.Metadata["module_dir"].(string)
+		if moduleDir == "" {
+			continue
+		}
+		lp := findLicenseFile(moduleDir)
+		if lp == "" {
+			continue
+		}
+		if data, err := safeio.ReadFileContained(moduleDir, lp); err == nil {
+			licenseType := detectLicenseType(string(data))
+			dep.License = &License{Name: filepath.Base(lp), Type: licenseType, URL: getLicenseURL(licenseType)}
+			dep.Metadata["license_path"] = lp
+			dep.Metadata["license_detection"] = "module_dir"
 		}
 	}
-
-	out := map[string]*License{}
-	for _, lib := range libraries {
-		licenseType := "Unknown"
-		licenseName := filepath.Base(lib.LicenseFile)
-		if data, err := os.ReadFile(lib.LicenseFile); err == nil {
-			licenseType = detectLicenseType(string(data))
-		}
-		if licenseType == "Unknown" {
-			licenseType = detectLicenseType(licenseName)
-		}
-		k := lib.Name() + "@" + lib.Version()
-		out[k] = &License{Name: licenseName, Type: licenseType, URL: getLicenseURL(licenseType)}
+	if len(problems) == 0 {
+		return nil, true
 	}
-
-	return out, false, nil
+	return []Issue{{Type: "license_error", Severity: "critical", Message: "License collection failed: " + strings.Join(problems, "; ")}}, false
 }
 
-func isStdlibModuleInfoError(err error) bool {
-	msg := err.Error()
-	return strings.Contains(msg, "does not have module info") && strings.Contains(msg, "Non go modules projects")
+func hasLicenseCollectionError(issues []Issue) bool {
+	for _, issue := range issues {
+		if issue.Type == "license_error" {
+			return true
+		}
+	}
+	return false
 }
 
 func findLicenseFile(moduleDir string) string {

@@ -22,7 +22,7 @@ sync_dir() {
 		if command -v rsync >/dev/null 2>&1; then
 			rsync -a --delete "$src"/ "$dst"/
 		else
-			rm -rf "$dst"/*
+			rm -rf "${dst:?}"/*
 			(cd "$src" && find . -type d -print0 | xargs -0 -I{} mkdir -p "$dst/{}")
 			(cd "$src" && find . -type f -print0 | xargs -0 -I{} cp -f "$src/{}" "$dst/{}")
 		fi
@@ -59,8 +59,6 @@ echo "📦 Embedding curated docs (docs/ -> internal/assets/embedded_docs/docs v
 # This avoids chicken-and-egg problem where build depends on embed-assets
 DOCS_TARGET="$ROOT_DIR/internal/assets/embedded_docs/docs"
 mkdir -p "$DOCS_TARGET"
-(cd "$ROOT_DIR" && go run . content embed --manifest docs/embed-manifest.yaml --root docs --target "$DOCS_TARGET" --json >/dev/null) || {
-	echo "⚠️  Content embedding failed; leaving docs mirror unchanged" >&2
-}
+(cd "$ROOT_DIR" && go run . content embed --manifest docs/embed-manifest.yaml --root docs --target "$DOCS_TARGET" --json >/dev/null)
 
 echo "✅ Embed assets sync complete"

@@ -99,13 +99,25 @@ func renderDependenciesText(result *dependencies.AnalysisResult) string {
 		lines = append(lines, fmt.Sprintf("- medium: %d", issuesBySev["medium"]))
 		lines = append(lines, fmt.Sprintf("- low: %d", issuesBySev["low"]))
 		lines = append(lines, fmt.Sprintf("- info: %d", issuesBySev["info"]))
+		for _, issue := range result.Issues {
+			if issue.Type == "license" || issue.Type == "license_error" {
+				lines = append(lines, fmt.Sprintf("- %s: %s", issue.Type, issue.Message))
+			}
+		}
 	}
 	lines = append(lines, "")
 	return strings.Join(lines, "\n")
 }
 
 func shouldFailDependencies(result *dependencies.AnalysisResult, failOn string) bool {
-	if !result.Passed && failOn == "any" {
+	for _, issue := range result.Issues {
+		if issue.Type == "license_error" {
+			return true
+		}
+	}
+	// Explicit gate failure is never cleared by a severity threshold. In
+	// particular, combined cooling/licenses requires both gates to pass.
+	if !result.Passed {
 		return true
 	}
 
@@ -135,6 +147,10 @@ func shouldFailDependencies(result *dependencies.AnalysisResult, failOn string) 
 }
 
 func runDependencies(cmd *cobra.Command, args []string) error {
+	return runDependenciesWithGoAnalyzer(cmd, args, nil)
+}
+
+func runDependenciesWithGoAnalyzer(cmd *cobra.Command, args []string, goAnalyzer dependencies.Analyzer) error {
 	quiet, _ := cmd.Flags().GetBool("quiet")
 	if quiet {
 		// Best-effort: suppress goneat's own logs; external tool output may still appear.
@@ -202,6 +218,9 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 				analyzer = dependencies.NewRustAnalyzer()
 			case dependencies.LanguageGo:
 				analyzer = dependencies.NewGoAnalyzer()
+				if goAnalyzer != nil {
+					analyzer = goAnalyzer
+				}
 			case dependencies.LanguageTypeScript:
 				analyzer = dependencies.NewTypeScriptAnalyzer()
 			case dependencies.LanguagePython:
@@ -224,7 +243,13 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 
 			analysisResult, err := dependencies.RunCoolingAwareAnalysis(context.Background(), target, analysisConfig, lang, analyzer, dependencies.NewRustAnalyzer())
 			if err != nil {
-				return err
+				if !licensesFlag {
+					return err
+				}
+				analysisResult = &dependencies.AnalysisResult{
+					Passed: false,
+					Issues: []dependencies.Issue{{Type: "license_error", Severity: "critical", Message: "Requested license analysis failed: " + err.Error()}},
+				}
 			}
 			result = analysisResult
 			if result.Dependencies == nil {
@@ -297,6 +322,11 @@ func runDependencies(cmd *cobra.Command, args []string) error {
 
 		failOn, _ := cmd.Flags().GetString("fail-on")
 		if shouldFailDependencies(result, failOn) {
+			for _, issue := range result.Issues {
+				if issue.Type == "license_error" {
+					return errors.New(issue.Message)
+				}
+			}
 			return errors.New("analysis failed")
 		}
 	}

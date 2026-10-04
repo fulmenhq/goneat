@@ -9,8 +9,8 @@ import (
 )
 
 func evaluateForbiddenLicenses(deps []Dependency, licenseCfg *config.LicensePolicyConfig, now time.Time) ([]Issue, bool) {
-	if licenseCfg == nil || len(licenseCfg.Forbidden) == 0 {
-		return nil, true
+	if licenseCfg == nil {
+		licenseCfg = &config.LicensePolicyConfig{}
 	}
 
 	forbidden := make(map[string]struct{}, len(licenseCfg.Forbidden))
@@ -26,26 +26,31 @@ func evaluateForbiddenLicenses(deps []Dependency, licenseCfg *config.LicensePoli
 
 	for i := range deps {
 		dep := &deps[i]
-		if dep.License == nil {
-			continue
-		}
-
-		licenseType := strings.TrimSpace(dep.License.Type)
-		if _, ok := forbidden[licenseType]; !ok {
-			continue
-		}
-
 		if matchesLicenseException(*dep, licenseCfg.Exceptions, now) {
 			continue
 		}
-
-		issues = append(issues, Issue{
-			Type:       "license",
-			Severity:   "critical",
-			Message:    fmt.Sprintf("Package %s uses forbidden license: %s", dep.Name, dep.License.Type),
-			Dependency: dep,
-		})
-		passed = false
+		licenseType := "Unknown"
+		if dep.License != nil && strings.TrimSpace(dep.License.Type) != "" {
+			licenseType = strings.TrimSpace(dep.License.Type)
+		}
+		for _, component := range strings.Split(licenseType, " AND ") {
+			component = strings.TrimSpace(component)
+			candidate := *dep
+			candidate.License = &License{Type: component}
+			if matchesLicenseException(candidate, licenseCfg.Exceptions, now) {
+				continue
+			}
+			message := ""
+			if component == "" || strings.EqualFold(component, "unknown") || strings.EqualFold(component, "NOASSERTION") {
+				message = fmt.Sprintf("Package %s has an unresolved required license", dep.Name)
+			} else if _, ok := forbidden[component]; ok {
+				message = fmt.Sprintf("Package %s uses forbidden license: %s", dep.Name, component)
+			}
+			if message != "" {
+				issues = append(issues, Issue{Type: "license", Severity: "critical", Message: message, Dependency: dep})
+				passed = false
+			}
+		}
 	}
 
 	return issues, passed

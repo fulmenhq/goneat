@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=scripts/release-platforms.sh
+source "$(dirname "${BASH_SOURCE[0]}")/release-platforms.sh"
+
 PROJECT="goneat"
 VERSION=$(cat VERSION)
 BIN_DIR="bin"
@@ -9,6 +12,31 @@ OUT_DIR="dist/release"
 OUT_DIR_ABS="$(mkdir -p "$OUT_DIR" && cd "$OUT_DIR" && pwd)"
 
 mkdir -p "$OUT_DIR"
+# Refuse an incomplete matrix before changing existing manifests or archives.
+for target in "${RELEASE_TARGETS[@]}"; do
+	binary="$BIN_DIR/$PROJECT-${target/\//-}"
+	[[ "$target" != windows/* ]] || binary="$binary.exe"
+	if [[ ! -s "$binary" ]]; then
+		echo "Missing required binary: $binary" >&2
+		exit 1
+	fi
+done
+# A stale retired archive must not be uploaded via dist/release/*.
+for archive in "$OUT_DIR"/"${PROJECT}_"*.tar.gz "$OUT_DIR"/"${PROJECT}_"*.zip; do
+	[[ -e "$archive" ]] || continue
+	expected=false
+	for target in "${RELEASE_TARGETS[@]}"; do
+		ext=tar.gz
+		[[ "$target" != windows/* ]] || ext=zip
+		if [[ "$(basename "$archive")" == "${PROJECT}_${VERSION}_${target/\//_}.$ext" ]]; then
+			expected=true
+		fi
+	done
+	if [[ "$expected" != true ]]; then
+		echo "Unexpected release archive: $archive; use a fresh release directory" >&2
+		exit 1
+	fi
+done
 rm -f "$OUT_DIR"/SHA256SUMS "$OUT_DIR"/SHA512SUMS
 
 compute_hash() {
@@ -74,8 +102,8 @@ package() {
 	fi
 
 	if [[ ! -f "$bin" ]]; then
-		echo "Skipping $os/$arch: binary not found: $bin" >&2
-		return
+		echo "Missing required binary: $bin" >&2
+		return 1
 	fi
 
 	tmpdir=$(mktemp -d)
@@ -104,12 +132,9 @@ package() {
 	echo "Packaged $archive_name"
 }
 
-# Matrix
-package linux amd64
-package linux arm64
-package darwin amd64
-package darwin arm64
-package windows amd64
+for target in "${RELEASE_TARGETS[@]}"; do
+	package "${target%/*}" "${target#*/}"
+done
 
 # Optional GPG signing
 if [[ "${SIGN:-}" == "1" ]]; then

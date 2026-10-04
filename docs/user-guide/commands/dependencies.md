@@ -13,7 +13,7 @@ category: "user-guide"
 
 The `dependencies` command analyzes project dependencies for license compliance, supply chain security (cooling policy), and SBOM generation.
 
-Note: License compliance is currently strongest for Go projects (via `go-licenses`). SBOM generation uses Syft and can inventory polyglot repos and container images, but SBOM-to-license-inventory ingestion is planned (v0.3.22+).
+License inventory coverage is verified for Go projects (via `go-licenses`). This is not universal license assurance: TypeScript/JavaScript, Python, and C# license collectors are unsupported. Rust license findings use cargo-deny, but complete crate coverage is not proven. SBOM generation uses Syft for polyglot repos and container images; license checks do not ingest SBOM license fields.
 
 ## Usage
 
@@ -43,7 +43,20 @@ goneat dependencies --licenses .
 - Forbidden license enforcement (GPL, AGPL, etc.)
 - Integration with `go-licenses` for Go projects
 
-**Monorepos / nested Go modules:** Some repos place `go.mod` in a subdirectory (e.g. `server/`) but keep `LICENSE*` at the repo root. In these cases `go-licenses` may report the local module’s license as `Unknown`. Goneat includes that local module for context (`is_local: true`) but policy gating is intended to focus on third-party dependencies.
+An explicit `--licenses` request fails on collection errors, empty inventory,
+degraded fallback, or incomplete coverage. JSON and text report `Passed: false`
+and an actionable diagnostic; the command exits nonzero. A complete inventory
+with an unresolved required license is a policy violation. An active, exact
+package/license exception resolves that package only; it cannot clear a
+collection error. Module-directory fallback is diagnostic evidence, not a
+complete inventory. Go's standard library is identified from the selected Go
+toolchain and excluded from third-party rows.
+
+**Monorepos / nested Go modules:** If `go.mod` is in a subdirectory but
+`LICENSE*` exists only above the module root, the local module's license can be
+unresolved. That remains a policy violation unless an active package-specific
+exception covers it. Place the license in the module's searchable tree or
+configure an approved exception; `is_local: true` is not a license exemption.
 
 ### Cooling Policy (Wave 2 Phase 2)
 
@@ -231,14 +244,19 @@ For workflow guidance see [Dependency Gating Workflow](../workflows/dependency-g
 
 **Applies to**: License compliance and cooling policy checks. SBOM generation failures are treated independently and will terminate the command if Syft cannot be invoked or produces invalid output.
 
+`--fail-on` does not turn a failed gate into a pass. Collection errors and
+explicit policy failures exit nonzero regardless of this severity threshold.
+With `--licenses --cooling`, both gates must pass. To make cooling advisory,
+configure its `alert_only` policy rather than suppressing a failed gate.
+
 **Severity Mapping**:
 
-| Severity   | License Issues     | Cooling Issues  | Exit Code                 |
-| ---------- | ------------------ | --------------- | ------------------------- |
-| `critical` | Forbidden licenses | N/A             | 1                         |
-| `high`     | Missing licenses   | Age < threshold | 1                         |
-| `medium`   | Warnings           | N/A             | 1 (if `--fail-on medium`) |
-| `low`      | Informational      | N/A             | 1 (if `--fail-on low`)    |
+| Severity   | License Issues                                      | Cooling Issues  | Exit Code                     |
+| ---------- | --------------------------------------------------- | --------------- | ----------------------------- |
+| `critical` | Collection errors, forbidden or unresolved licenses | N/A             | 1                             |
+| `high`     | N/A                                                 | Age < threshold | 1 when the cooling gate fails |
+| `medium`   | Warnings                                            | N/A             | 1 (if `--fail-on medium`)     |
+| `low`      | Informational                                       | N/A             | 1 (if `--fail-on low`)        |
 
 **SBOM Generation Failures**:
 
@@ -251,7 +269,7 @@ SBOM generation has its own failure modes independent of `--fail-on`:
 **Example**:
 
 ```bash
-# Fail on any license issue, but only warn on cooling
+# Require both license and cooling gates; also fail on high-severity findings
 goneat dependencies --licenses --cooling --fail-on high .
 
 # Generate SBOM alongside checks (SBOM failure is independent)
@@ -402,14 +420,14 @@ goneat dependencies --licenses --fail-on any .
 
 ### Supported Languages
 
-| Language   | Detection                            | Status            |
-| ---------- | ------------------------------------ | ----------------- |
-| Go         | `go.mod`                             | ✅ Wave 1         |
-| JavaScript | `package.json`                       | ✅ Wave 2 Phase 1 |
-| TypeScript | `package.json`                       | ✅ Wave 2 Phase 1 |
-| Python     | `pyproject.toml`, `requirements.txt` | ✅ Wave 2 Phase 1 |
-| Rust       | `Cargo.toml`                         | ✅ licenses via cargo-deny; cooling via crates.io |
-| C#         | `*.csproj`                           | ✅ Wave 2 Phase 1 |
+| Language   | Detection                            | Status                                                              |
+| ---------- | ------------------------------------ | ------------------------------------------------------------------- |
+| Go         | `go.mod`                             | Verified license package coverage                                   |
+| JavaScript | `package.json`                       | Detected; requested license checks error as unsupported             |
+| TypeScript | `package.json`                       | Detected; requested license checks error as unsupported             |
+| Python     | `pyproject.toml`, `requirements.txt` | Detected; requested license checks error as unsupported             |
+| Rust       | `Cargo.toml`                         | cargo-deny findings; crate coverage unproven; cooling via crates.io |
+| C#         | `*.csproj`                           | Detected; requested license checks error as unsupported             |
 
 ### Language Auto-Detection
 

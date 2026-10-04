@@ -26,7 +26,7 @@ func TestGoAnalyzer_Analyze(t *testing.T) {
 	}
 
 	if !result.Passed {
-		t.Error("Expected analysis to pass")
+		t.Errorf("Expected analysis to pass: issues=%+v", result.Issues)
 	}
 
 	if result.Duration == 0 {

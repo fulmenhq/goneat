@@ -197,7 +197,8 @@ package: ## Package binaries into distribution archives (dist/release/*.tar.gz, 
 	@./scripts/package-artifacts.sh
 	@echo "✅ Release artifacts packaged in dist/release/"
 
-release-build: build-all package ## Build release artifacts (binaries + checksums) for distribution
+release-build: build-all ## Build release artifacts (binaries + checksums) for distribution
+	@$(MAKE) package
 	@echo "📦 Release build completed"
 
 check-all: build ## Run all checks (lint, test, typecheck)
@@ -227,7 +228,7 @@ build-linux-arm64: ## Build for Linux ARM64
 	@echo "Building for Linux ARM64..."
 	GOOS=linux GOARCH=arm64 $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 ./$(SRC_DIR)
 
-build-darwin-amd64: ## Build for macOS AMD64
+build-darwin-amd64: ## Source-only macOS AMD64 build (not a release target)
 	@echo "Building for macOS AMD64..."
 	GOOS=darwin GOARCH=amd64 $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 ./$(SRC_DIR)
 
@@ -238,6 +239,11 @@ build-darwin-arm64: ## Build for macOS ARM64
 build-windows-amd64: ## Build for Windows AMD64
 	@echo "Building for Windows AMD64..."
 	GOOS=windows GOARCH=amd64 $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe ./$(SRC_DIR)
+
+build-windows-arm64: ## Build for Windows ARM64
+	@env -u GOOS -u GOARCH $(MAKE) embed-assets verify-embeds
+	@echo "Building for Windows ARM64..."
+	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME_NOEXT)-windows-arm64.exe ./$(SRC_DIR)
 
 # Clean targets
 # NOTE: internal/assets/embedded_* directories are NOT cleaned - they contain embedded assets
@@ -763,7 +769,7 @@ license-inventory: ## Generate CSV inventory of dependency licenses
 		echo "Installing go-licenses..."; \
 		GOBIN=$$(go env GOPATH)/bin go install github.com/google/go-licenses/v2@v2.0.1; \
 	fi
-	@out=$$(go-licenses csv .) || { echo "❌ go-licenses failed; inventory not written. If it was built with a different Go toolchain than $$(go env GOVERSION), reinstall: go install github.com/google/go-licenses/v2@v2.0.1"; exit 1; }; \
+	@out=$$(bash scripts/go-licenses.sh csv .) || { echo "❌ go-licenses failed; inventory not written."; exit 1; }; \
 	if [ -z "$$out" ]; then echo "❌ go-licenses returned an empty inventory; inventory not written."; exit 1; fi; \
 	printf '%s\n' "$$out" > docs/licenses/inventory.csv
 	@echo "✅ Wrote docs/licenses/inventory.csv"
@@ -775,7 +781,7 @@ license-save: ## Save third-party license texts (for distribution)
 		echo "Installing go-licenses..."; \
 		GOBIN=$$(go env GOPATH)/bin go install github.com/google/go-licenses/v2@v2.0.1; \
 	fi
-	@go-licenses save . --save_path=docs/licenses/third-party
+	@bash scripts/go-licenses.sh save . --save_path=docs/licenses/third-party
 	@echo "✅ Saved third-party licenses to docs/licenses/third-party"
 
 license-audit: ## Audit dependencies for forbidden licenses; fail on detection
@@ -787,9 +793,8 @@ license-audit: ## Audit dependencies for forbidden licenses; fail on detection
 	@mkdir -p dist/reports; \
 	forbidden='GPL|LGPL|AGPL|MPL|CDDL'; \
 	allowlist='^github\.com/cyphar/filepath-securejoin,.*,MPL-2\.0$$'; \
-	if ! out=$$(go-licenses csv .); then \
+	if ! out=$$(bash scripts/go-licenses.sh csv .); then \
 		echo "❌ go-licenses failed; license inventory is incomplete."; \
-		echo "   If go-licenses was built with a different Go toolchain than $$(go env GOVERSION), reinstall: go install github.com/google/go-licenses/v2@v2.0.1"; \
 		exit 1; \
 	fi; \
 	if [ -z "$$out" ]; then \
