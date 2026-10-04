@@ -46,6 +46,7 @@ func RunCoolingAwareAnalysis(ctx context.Context, target string, cfg AnalysisCon
 	if result == nil {
 		result = &AnalysisResult{Dependencies: []Dependency{}, Issues: []Issue{}, Passed: true}
 	}
+	enforceRequestedLicenseAssurance(result, cfg, primary)
 
 	if !cfg.CheckCooling || rustAnalyzer == nil || !ShouldAlsoCoolRust(target, primary) {
 		return result, nil

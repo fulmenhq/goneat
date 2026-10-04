@@ -769,7 +769,7 @@ license-inventory: ## Generate CSV inventory of dependency licenses
 		echo "Installing go-licenses..."; \
 		GOBIN=$$(go env GOPATH)/bin go install github.com/google/go-licenses/v2@v2.0.1; \
 	fi
-	@out=$$(go-licenses csv .) || { echo "❌ go-licenses failed; inventory not written. If it was built with a different Go toolchain than $$(go env GOVERSION), reinstall: go install github.com/google/go-licenses/v2@v2.0.1"; exit 1; }; \
+	@out=$$(bash scripts/go-licenses.sh csv .) || { echo "❌ go-licenses failed; inventory not written."; exit 1; }; \
 	if [ -z "$$out" ]; then echo "❌ go-licenses returned an empty inventory; inventory not written."; exit 1; fi; \
 	printf '%s\n' "$$out" > docs/licenses/inventory.csv
 	@echo "✅ Wrote docs/licenses/inventory.csv"
@@ -781,7 +781,7 @@ license-save: ## Save third-party license texts (for distribution)
 		echo "Installing go-licenses..."; \
 		GOBIN=$$(go env GOPATH)/bin go install github.com/google/go-licenses/v2@v2.0.1; \
 	fi
-	@go-licenses save . --save_path=docs/licenses/third-party
+	@bash scripts/go-licenses.sh save . --save_path=docs/licenses/third-party
 	@echo "✅ Saved third-party licenses to docs/licenses/third-party"
 
 license-audit: ## Audit dependencies for forbidden licenses; fail on detection
@@ -793,9 +793,8 @@ license-audit: ## Audit dependencies for forbidden licenses; fail on detection
 	@mkdir -p dist/reports; \
 	forbidden='GPL|LGPL|AGPL|MPL|CDDL'; \
 	allowlist='^github\.com/cyphar/filepath-securejoin,.*,MPL-2\.0$$'; \
-	if ! out=$$(go-licenses csv .); then \
+	if ! out=$$(bash scripts/go-licenses.sh csv .); then \
 		echo "❌ go-licenses failed; license inventory is incomplete."; \
-		echo "   If go-licenses was built with a different Go toolchain than $$(go env GOVERSION), reinstall: go install github.com/google/go-licenses/v2@v2.0.1"; \
 		exit 1; \
 	fi; \
 	if [ -z "$$out" ]; then \
