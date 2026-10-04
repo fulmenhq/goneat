@@ -101,65 +101,26 @@ func init() {
 // and is documented here for maintainability.
 // See: pkg/dependencies/cargo_deny.go for the canonical implementation.
 func RunCargoDenyDependencyChecks(target string, timeout time.Duration) ([]Issue, error) {
-	if !IsCargoAvailable() {
-		return nil, nil
-	}
-
 	project := DetectRustProject(target)
 	if project == nil || project.CargoTomlPath == "" {
 		return nil, nil
 	}
-
-	presence := CheckRustToolPresence("cargo-deny", cargoDenyMinVersion)
-	if !presence.Present {
-		logger.Debug("cargo-deny not available, skipping Rust dependency checks")
-		return nil, nil
-	}
-	if !presence.MeetsMin && presence.Version != "" {
-		logger.Warn(fmt.Sprintf("cargo-deny %s below minimum %s; results may be unreliable", presence.Version, cargoDenyMinVersion))
-	}
-
-	// Use the canonical cargo-deny implementation from pkg/dependencies
-	// which correctly handles:
-	// 1. Command order: --format json BEFORE check subcommand
-	// 2. STDERR output: cargo-deny outputs JSON to stderr, not stdout
-	// 3. NDJSON parsing: diagnostic entries with type: "diagnostic" and fields
-	// 4. Rich labels: file:line refs, license names, version context
 	ctx := context.Background()
-	result, err := dependencies.RunCargoDeny(ctx, target, []dependencies.CargoDenyCheckType{
-		dependencies.CargoDenyCheckLicenses,
-		dependencies.CargoDenyCheckBans,
-	}, timeout)
-
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+	// Standalone callers use the same inventory and result contract as the
+	// dependencies command. The assessment runner does not call this twice.
+	result, err := dependencies.NewRustAnalyzer().Analyze(ctx, target, dependencies.AnalysisConfig{CheckLicenses: true})
 	if err != nil {
 		return nil, err
 	}
-	if result == nil {
-		return nil, nil
+	issues := NewDependenciesRunner().convertToAssessmentIssues(result)
+	for i := range issues {
+		issues[i].File = filepath.ToSlash(project.CargoTomlPath)
 	}
-
-	issues := make([]Issue, 0, len(result.Findings))
-	for _, finding := range result.Findings {
-		// Map finding type to subcategory
-		subCategory := "rust:cargo-deny"
-		if finding.IsLicenseFinding() {
-			subCategory = "rust:cargo-deny:license"
-		} else if finding.IsBanFinding() {
-			subCategory = "rust:cargo-deny:bans"
-		}
-
-		issues = append(issues, Issue{
-			File:          filepath.ToSlash(result.ReportFile),
-			Severity:      mapCargoDenyDependencySeverity(finding),
-			Message:       finding.FormatMessage(),
-			Category:      CategoryDependencies,
-			SubCategory:   subCategory,
-			AutoFixable:   false,
-			EstimatedTime: HumanReadableDuration(30 * time.Minute), // License/ban issues require manual review
-		})
-	}
-
-	logger.Debug(fmt.Sprintf("cargo-deny dependency checks found %d issues", len(issues)))
 	return issues, nil
 }
 

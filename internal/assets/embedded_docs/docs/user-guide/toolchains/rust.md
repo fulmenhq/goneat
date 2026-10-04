@@ -142,7 +142,12 @@ lint:
       packages: [mycrate-transport, mycrate-frame, mycrate-peer]
       all_targets: true
       features: [async]
-      targets: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, x86_64-pc-windows-msvc]
+      targets:
+        [
+          x86_64-unknown-linux-gnu,
+          aarch64-unknown-linux-gnu,
+          x86_64-pc-windows-msvc,
+        ]
 ```
 
 A top-level `rust:` block in `.goneat/assess.yaml` is not supported. goneat
@@ -183,7 +188,20 @@ goneat integrates with `cargo-deny` for the `--licenses` flag.
 goneat dependencies --licenses
 ```
 
-It parses your `deny.toml` file to check allowable licenses. `cargo-deny` robustly understands SPDX expressions (e.g., `MIT OR Apache-2.0`), which `goneat` normalizes and presents cleanly.
+An explicit workspace-root `deny.toml` supplies license and ban policy. goneat
+captures one Cargo metadata snapshot, reconciles crate-oriented cargo-deny JSON
+against its resolved workspace graph, and preserves package IDs, source identity,
+and declared SPDX expressions, including `AND` and `OR`.
+
+Supported license scope is all workspace roots and all targets, with configured
+feature selection and no graph exclusions. Target filters, exclusions, and other
+unreconciled graph configurations fail with an actionable collection error;
+they never silently select a default graph. Missing tools, empty/partial or
+malformed evidence, and any nonzero license/ban check fail the run. The same
+result contract applies to `assess --categories dependencies`.
+
+See [Rust license scope](../commands/dependencies.md#license-compliance-wave-1-)
+for feature configuration, supported graph boundaries, and collection diagnostics.
 
 ### Vulnerability Scanning
 
@@ -202,8 +220,9 @@ goneat reads from stderr for this tool. Rich output (crate names, license
 names, deny.toml file:line references) was added in goneat v0.4.5.
 
 **License expressions**: Rust crates commonly use SPDX expression syntax
-(`MIT OR Apache-2.0`). goneat normalizes these for reporting alongside
-Go and Python license data.
+(`MIT OR Apache-2.0`). goneat preserves the authoritative metadata expression;
+it does not reconstruct `OR` from a flattened license list. Python license
+collection is unsupported.
 
 ## See Also
 

@@ -13,7 +13,7 @@ category: "user-guide"
 
 The `dependencies` command analyzes project dependencies for license compliance, supply chain security (cooling policy), and SBOM generation.
 
-License inventory coverage is verified for Go projects (via `go-licenses`). This is not universal license assurance: TypeScript/JavaScript, Python, and C# license collectors are unsupported. Rust license findings use cargo-deny, but complete crate coverage is not proven. SBOM generation uses Syft for polyglot repos and container images; license checks do not ingest SBOM license fields.
+License inventory coverage is verified for Go projects (via `go-licenses`) and for supported Rust workspace graphs (via Cargo metadata and `cargo-deny`). This is not universal license assurance: TypeScript/JavaScript, Python, and C# license collectors are unsupported. SBOM generation uses Syft for polyglot repos and container images; license checks do not ingest SBOM license fields.
 
 ## Usage
 
@@ -57,6 +57,35 @@ toolchain and excluded from third-party rows.
 unresolved. That remains a policy violation unless an active package-specific
 exception covers it. Place the license in the module's searchable tree or
 configure an approved exception; `is_local: true` is not a license exemption.
+
+**Rust scope:** `--licenses` requires Cargo, cargo-deny, and an explicit
+`deny.toml` at the workspace root. One Cargo metadata snapshot supplies both
+`cargo deny list --format json --layout crate` and the license/ban check.
+Inventory rows reconcile exact package name, version, and source identities;
+metadata package IDs and declared SPDX expressions retain their original
+`AND`/`OR` operators. Flattened license IDs cannot substitute for an expression.
+An unresolved declared expression remains a policy violation.
+
+The supported graph includes all workspace roots and all targets, with no graph
+exclusions. Default features apply unless `features`, `all-features`, or
+`no-default-features` select another feature set in `[graph]` (or the legacy
+top-level keys). Non-workspace dev dependencies are excluded, matching
+cargo-deny's graph builder. License-stage filtering must not remove retained
+graph crates: a dev-only crate requires `[licenses].include-dev = true`, and
+build-only crates require `include-build = true` (the cargo-deny default).
+Otherwise goneat reports the unsupported filtered license scope without changing
+your policy. Nonempty `targets` or `exclude`,
+enabled `exclude-dev` or `exclude-unpublished`, mixed legacy/current graph keys,
+and other unreconciled configurations return an actionable `license_error`.
+They do not silently fall back to a different graph.
+
+License/ban policy and local license exceptions remain cargo-deny's responsibility.
+A missing tool, failed metadata/list operation, malformed or incomplete evidence,
+changed snapshot/configuration, or inconsistent license evidence fails collection.
+Any nonzero check result fails the run even for a medium-severity ban and even
+with `--fail-on none`. `assess --categories dependencies` uses the same analyzer
+and cannot clear its failed result with a severity threshold. Combined
+`--licenses --cooling` requires both gates to pass.
 
 ### Cooling Policy (Wave 2 Phase 2)
 
@@ -420,14 +449,14 @@ goneat dependencies --licenses --fail-on any .
 
 ### Supported Languages
 
-| Language   | Detection                            | Status                                                              |
-| ---------- | ------------------------------------ | ------------------------------------------------------------------- |
-| Go         | `go.mod`                             | Verified license package coverage                                   |
-| JavaScript | `package.json`                       | Detected; requested license checks error as unsupported             |
-| TypeScript | `package.json`                       | Detected; requested license checks error as unsupported             |
-| Python     | `pyproject.toml`, `requirements.txt` | Detected; requested license checks error as unsupported             |
-| Rust       | `Cargo.toml`                         | cargo-deny findings; crate coverage unproven; cooling via crates.io |
-| C#         | `*.csproj`                           | Detected; requested license checks error as unsupported             |
+| Language   | Detection                            | Status                                                             |
+| ---------- | ------------------------------------ | ------------------------------------------------------------------ |
+| Go         | `go.mod`                             | Verified license package coverage                                  |
+| JavaScript | `package.json`                       | Detected; requested license checks error as unsupported            |
+| TypeScript | `package.json`                       | Detected; requested license checks error as unsupported            |
+| Python     | `pyproject.toml`, `requirements.txt` | Detected; requested license checks error as unsupported            |
+| Rust       | `Cargo.toml`                         | Verified supported-workspace crate coverage; cooling via crates.io |
+| C#         | `*.csproj`                           | Detected; requested license checks error as unsupported            |
 
 ### Language Auto-Detection
 

@@ -100,7 +100,7 @@ func renderDependenciesText(result *dependencies.AnalysisResult) string {
 		lines = append(lines, fmt.Sprintf("- low: %d", issuesBySev["low"]))
 		lines = append(lines, fmt.Sprintf("- info: %d", issuesBySev["info"]))
 		for _, issue := range result.Issues {
-			if issue.Type == "license" || issue.Type == "license_error" {
+			if issue.Type == "license" || issue.Type == "license_error" || strings.HasPrefix(issue.Type, "rust:cargo-deny") {
 				lines = append(lines, fmt.Sprintf("- %s: %s", issue.Type, issue.Message))
 			}
 		}

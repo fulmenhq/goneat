@@ -6,11 +6,61 @@ package assess
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/fulmenhq/goneat/pkg/dependencies"
 )
+
+func TestDependenciesRunner_RustTruthfulGate(t *testing.T) {
+	if !dependencies.IsCargoAvailable() || !dependencies.CheckCargoDenyPresence().Present {
+		t.Skip("cargo and cargo-deny required")
+	}
+	t.Setenv("CARGO_NET_OFFLINE", "true")
+	root := t.TempDir()
+	t.Chdir(root)
+	if err := os.Mkdir("src", 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for name, data := range map[string]string{
+		"Cargo.toml": "[package]\nname='assess-license-root'\nversion='0.1.0'\nedition='2021'\nlicense='MIT'\n",
+		"src/lib.rs": "pub fn f() {}\n",
+	} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(data), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, mode := range []string{"pass", "ban", "config_error"} {
+		t.Run(mode, func(t *testing.T) {
+			policy := "[licenses]\nallow=['MIT']\n"
+			if mode == "ban" {
+				policy += "[bans]\ndeny=[{name='assess-license-root'}]\n"
+			}
+			if mode == "config_error" {
+				policy = "[licenses"
+			}
+			if err := os.WriteFile("deny.toml", []byte(policy), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			cfg := DefaultAssessmentConfig()
+			cfg.FailOnSeverity = SeverityCritical
+			cfg.Timeout = time.Minute
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			defer cancel()
+			result, err := NewDependenciesRunner().Assess(ctx, root, cfg)
+			if err != nil || result == nil || result.Success != (mode == "pass") {
+				t.Fatalf("analyzer failure must survive assessment threshold: %#v %v", result, err)
+			}
+			if result.Metrics["analysis_passed"] != (mode == "pass") {
+				t.Fatalf("assessment and analysis diverged: %#v", result.Metrics)
+			}
+			if mode == "pass" && result.Metrics["dependency_count"] != 1 {
+				t.Fatalf("assessment crate denominator: %#v", result.Metrics)
+			}
+		})
+	}
+}
 
 func TestDependenciesRunner_Assess_NoLanguageDetected(t *testing.T) {
 	runner := NewDependenciesRunner()
