@@ -6,6 +6,7 @@ package dependencies
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/fulmenhq/goneat/pkg/logger"
@@ -69,60 +70,67 @@ func (a *RustAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisC
 	cargoOK := IsCargoAvailable()
 	denyPresent := CheckCargoDenyPresence().Present
 
+	collectionError := func(err error) {
+		issues = append(issues, Issue{Type: "license_error", Severity: "critical", Message: err.Error()})
+		passed = false
+	}
 	if checkLicenses && !cargoOK {
-		logger.Debug("cargo not available, skipping cargo-deny license analysis")
-		issues = append(issues, Issue{
-			Type:     "configuration",
-			Severity: "info",
-			Message:  "Rust project detected but cargo not available. Install Rust: https://rustup.rs/",
-		})
+		collectionError(fmt.Errorf("rust license check requires cargo; install Rust: https://rustup.rs/"))
 	} else if checkLicenses && !denyPresent {
-		logger.Debug("cargo-deny not available, skipping cargo-deny license analysis")
-		issues = append(issues, Issue{
-			Type:     "configuration",
-			Severity: "info",
-			Message:  "Rust project detected but cargo-deny not installed.\n\nTo set up Rust dependency checking:\n  1. Install cargo-deny: cargo install cargo-deny\n  2. Initialize config:  cargo deny init\n  3. Learn more:         goneat docs show user-guide/rust/dependencies",
-		})
+		collectionError(fmt.Errorf("rust license check requires cargo-deny; install with cargo install cargo-deny"))
 	}
 
-	if checkCooling {
+	if checkCooling && !checkLicenses {
 		dependencies = enumerateRustCratesForCooling(ctx, target, timeout)
 	}
 
 	if checkLicenses && cargoOK && denyPresent {
-		listResult, listErr := RunCargoDenyList(ctx, target, timeout)
-		if listErr != nil {
-			logger.Warn(fmt.Sprintf("cargo deny list failed: %v", listErr))
-		} else if listResult != nil {
-			licensed := convertCratesToDependencies(listResult.Dependencies)
-			if checkCooling && len(dependencies) > 0 {
-				overlayLicenses(dependencies, licensed)
-			} else if !checkCooling {
-				dependencies = licensed
-			}
-		}
-
-		result, err := RunCargoDeny(ctx, target, []CargoDenyCheckType{
-			CargoDenyCheckLicenses,
-			CargoDenyCheckBans,
-		}, timeout)
+		licenseCtx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+		snapshot, err := captureRustLicenseSnapshot(licenseCtx, project)
 		if err != nil {
-			return nil, fmt.Errorf("cargo-deny analysis failed: %w", err)
-		}
-		if result != nil {
-			for _, finding := range result.Findings {
-				severity := mapFindingSeverityString(finding)
-				issueType := "rust:cargo-deny"
-				if finding.IsLicenseFinding() {
-					issueType = "rust:cargo-deny:license"
-				} else if finding.IsBanFinding() {
-					issueType = "rust:cargo-deny:bans"
+			collectionError(err)
+		} else {
+			defer snapshot.cleanup()
+			listResult, listErr := runCargoDenyListWithSnapshot(licenseCtx, project.EffectiveRoot(), timeout, snapshot)
+			if listErr != nil {
+				collectionError(listErr)
+			} else {
+				// Preserve the license graph's source identities and exact denominator
+				// when cooling is also requested. Cooling enriches this same set.
+				dependencies = convertCratesToDependencies(listResult.Dependencies)
+				for i := range dependencies {
+					dependencies[i].Metadata["license_features"] = append([]string(nil), snapshot.Scope.Features...)
+					dependencies[i].Metadata["license_all_features"] = snapshot.Scope.AllFeatures
+					dependencies[i].Metadata["license_no_default_features"] = snapshot.Scope.NoDefaultFeatures
+					if dependencies[i].License == nil {
+						issues = append(issues, Issue{Type: "license", Severity: "high", Message: "Unresolved authoritative SPDX expression for " + listResult.Dependencies[i].PackageID, Dependency: &dependencies[i]})
+						passed = false
+					}
 				}
-				issues = append(issues, Issue{
-					Type:     issueType,
-					Severity: severity,
-					Message:  finding.FormatMessage(),
-				})
+			}
+			result, checkErr := runCargoDenyWithSnapshot(licenseCtx, project, project.EffectiveRoot(), []CargoDenyCheckType{CargoDenyCheckLicenses, CargoDenyCheckBans}, timeout, snapshot)
+			if checkErr != nil {
+				collectionError(checkErr)
+			} else if result != nil {
+				if result.Failed {
+					passed = false
+					issues = append(issues, Issue{Type: "rust:cargo-deny", Severity: "high", Message: fmt.Sprintf("cargo-deny license/ban check exited %d", result.ExitCode)})
+				}
+				for _, finding := range result.Findings {
+					severity := mapFindingSeverityString(finding)
+					issueType := "rust:cargo-deny"
+					if finding.IsLicenseFinding() {
+						issueType = "rust:cargo-deny:license"
+					} else if finding.IsBanFinding() {
+						issueType = "rust:cargo-deny:bans"
+					}
+					issues = append(issues, Issue{
+						Type:     issueType,
+						Severity: severity,
+						Message:  finding.FormatMessage(),
+					})
+				}
 			}
 		}
 	}
@@ -177,55 +185,36 @@ func convertCratesToDependencies(crates []CargoCrateLicense) []Dependency {
 	deps := make([]Dependency, 0, len(crates))
 
 	for _, crate := range crates {
-		// Create license info - join multiple licenses with " OR " for SPDX-like expression
+		// Never reconstruct SPDX operators from flattened cargo-deny list IDs.
 		var license *License
-		if len(crate.Licenses) > 0 {
-			// Use the first license as the primary, but store all in the Type field
-			licenseType := crate.Licenses[0]
-			if len(crate.Licenses) > 1 {
-				licenseType = joinLicenses(crate.Licenses)
-			}
+		if crate.Expression != "" {
+			licenseType := crate.Expression
 			license = &License{
 				Name: licenseType,
 				Type: licenseType,
 			}
 		}
 
+		metadata := map[string]interface{}{"cargo_package_id": crate.PackageID, "license_scope": "all-workspace/all-targets/no-exclusions"}
+		if source := crate.Source; source != "" {
+			metadata["source"] = source
+			metadata["is_local"] = strings.HasPrefix(source, "path+")
+			if source == "registry+https://github.com/rust-lang/crates.io-index" || source == "registry+https://index.crates.io/" {
+				metadata["registry"] = "crates.io"
+			}
+		}
 		deps = append(deps, Dependency{
 			Module: Module{
 				Name:     crate.Name,
 				Version:  crate.Version,
 				Language: LanguageRust,
 			},
-			License: license,
+			License:  license,
+			Metadata: metadata,
 		})
 	}
 
 	return deps
-}
-
-// joinLicenses joins multiple licenses into an SPDX-like expression.
-// Example: ["MIT", "Apache-2.0"] -> "MIT OR Apache-2.0"
-func joinLicenses(licenses []string) string {
-	if len(licenses) == 0 {
-		return ""
-	}
-	if len(licenses) == 1 {
-		return licenses[0]
-	}
-	return stringJoin(licenses, " OR ")
-}
-
-// stringJoin joins strings with a separator (avoiding import of strings just for Join)
-func stringJoin(parts []string, sep string) string {
-	if len(parts) == 0 {
-		return ""
-	}
-	result := parts[0]
-	for i := 1; i < len(parts); i++ {
-		result += sep + parts[i]
-	}
-	return result
 }
 
 // mapFindingSeverityString maps cargo-deny finding severity to string severity.

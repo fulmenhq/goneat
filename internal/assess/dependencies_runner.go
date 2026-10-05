@@ -106,18 +106,6 @@ func (r *DependenciesRunner) Assess(ctx context.Context, target string, assessCo
 	// Convert to assessment issues
 	issues := r.convertToAssessmentIssues(result)
 
-	// For Rust projects, run cargo-deny license and bans checks directly
-	// (RustAnalyzer is a stub to avoid import cycles)
-	if lang == dependencies.LanguageRust {
-		rustIssues, rustErr := RunCargoDenyDependencyChecks(target, assessConfig.Timeout)
-		if rustErr != nil {
-			logger.Warn(fmt.Sprintf("cargo-deny dependency check failed: %v", rustErr))
-		} else if rustIssues != nil {
-			issues = append(issues, rustIssues...)
-			logger.Info(fmt.Sprintf("cargo-deny found %d dependency issues", len(rustIssues)))
-		}
-	}
-
 	// Vulnerability scanning (SBOM + grype) is policy-driven via .goneat/dependencies.yaml
 	if _, vulnIssues, vErr := dependencies.RunVulnerabilityScanWithOptions(ctx, target, depsCfg.PolicyPath, "", assessConfig.Timeout, dependencies.VulnerabilityScanOptions{
 		NoIgnore:     assessConfig.NoIgnore,
@@ -141,7 +129,7 @@ func (r *DependenciesRunner) Assess(ctx context.Context, target string, assessCo
 	}
 
 	// Determine success based on fail threshold
-	success := r.shouldPass(issues, assessConfig.FailOnSeverity)
+	success := result.Passed && r.shouldPass(issues, assessConfig.FailOnSeverity)
 
 	logger.Info(fmt.Sprintf("Dependencies assessment completed: %d issues found, passed: %t", len(issues), success))
 

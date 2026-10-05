@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -63,6 +64,8 @@ type CargoDenyResult struct {
 	RootPath   string        // Directory where cargo-deny was executed
 	ReportFile string        // File to attribute findings to (typically Cargo.toml)
 	Duration   time.Duration // How long the check took
+	Failed     bool          // Any nonzero cargo-deny exit, regardless of finding severity
+	ExitCode   int           // Observed process exit code
 }
 
 // cargoDenyEntry represents the JSON structure returned by cargo-deny (NDJSON format)
@@ -125,6 +128,11 @@ func (p *RustProject) EffectiveRoot() string {
 // checkTypes specifies which checks to run (e.g., licenses, bans, advisories, sources).
 // If checkTypes is empty, defaults to licenses and bans for dependency analysis.
 func RunCargoDeny(ctx context.Context, target string, checkTypes []CargoDenyCheckType, timeout time.Duration) (*CargoDenyResult, error) {
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
 	if !IsCargoAvailable() {
 		return nil, fmt.Errorf("cargo is not available")
 	}
@@ -146,6 +154,30 @@ func RunCargoDeny(ctx context.Context, target string, checkTypes []CargoDenyChec
 	if root == "" {
 		root = target
 	}
+	var snapshot *rustLicenseSnapshot
+	for _, check := range checkTypes {
+		if check == CargoDenyCheckLicenses || check == CargoDenyCheckBans {
+			var err error
+			snapshot, err = captureRustLicenseSnapshot(ctx, project)
+			if err != nil {
+				return nil, err
+			}
+			defer snapshot.cleanup()
+			break
+		}
+	}
+	if len(checkTypes) == 0 {
+		var err error
+		snapshot, err = captureRustLicenseSnapshot(ctx, project)
+		if err != nil {
+			return nil, err
+		}
+		defer snapshot.cleanup()
+	}
+	return runCargoDenyWithSnapshot(ctx, project, root, checkTypes, timeout, snapshot)
+}
+
+func runCargoDenyWithSnapshot(ctx context.Context, project *RustProject, root string, checkTypes []CargoDenyCheckType, timeout time.Duration, snapshot *rustLicenseSnapshot) (*CargoDenyResult, error) {
 
 	// Build check arguments
 	if len(checkTypes) == 0 {
@@ -153,7 +185,15 @@ func RunCargoDeny(ctx context.Context, target string, checkTypes []CargoDenyChec
 	}
 
 	// Note: --format must come before 'check' subcommand
-	args := []string{"deny", "--format", "json", "check"}
+	args := []string{"deny", "--format", "json"}
+	if snapshot != nil {
+		if err := snapshot.verifyConfig(); err != nil {
+			return nil, err
+		}
+		args = snapshot.denyArgs("check")
+	} else {
+		args = append(args, "check")
+	}
 	for _, ct := range checkTypes {
 		args = append(args, string(ct))
 	}
@@ -162,26 +202,35 @@ func RunCargoDeny(ctx context.Context, target string, checkTypes []CargoDenyChec
 	out, err := runCargoDenyCommand(ctx, root, args, timeout)
 	duration := time.Since(start)
 
-	if err != nil {
-		// cargo-deny returns non-zero on findings, but we still get JSON output
-		// Only treat as error if we got no output at all
-		if len(bytes.TrimSpace(out)) == 0 {
-			return nil, fmt.Errorf("cargo deny failed: %w", err)
+	var entries []cargoDenyEntry
+	var perr error
+	if snapshot != nil {
+		entries, perr = parseRustLicenseCheck(out, checkTypes)
+		if perr == nil {
+			perr = snapshot.verifyConfig()
 		}
+	} else {
+		entries, perr = parseCargoDenyEntries(out)
 	}
-
-	if len(bytes.TrimSpace(out)) == 0 {
-		return &CargoDenyResult{
-			Findings:   []CargoDenyFinding{},
-			RootPath:   root,
-			ReportFile: rustIssueFile(project),
-			Duration:   duration,
-		}, nil
-	}
-
-	entries, perr := parseCargoDenyEntries(out)
 	if perr != nil {
 		return nil, perr
+	}
+	exitCode := 0
+	if err != nil {
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) || ctx.Err() != nil {
+			return nil, fmt.Errorf("cargo deny execution failed: %w", err)
+		}
+		exitCode = exitErr.ExitCode()
+		policyError := false
+		for _, entry := range entries {
+			if entry.Fields != nil && entry.Fields.Severity == "error" {
+				policyError = true
+			}
+		}
+		if exitCode < 0 || !policyError {
+			return nil, fmt.Errorf("cargo deny exited without complete policy-failure evidence: %w", err)
+		}
 	}
 
 	findings := make([]CargoDenyFinding, 0, len(entries))
@@ -235,12 +284,20 @@ func RunCargoDeny(ctx context.Context, target string, checkTypes []CargoDenyChec
 	}
 
 	logger.Debug(fmt.Sprintf("cargo-deny found %d findings", len(findings)))
+	failed := err != nil
+	for _, finding := range findings {
+		if finding.Severity == "error" {
+			failed = true
+		}
+	}
 
 	return &CargoDenyResult{
 		Findings:   findings,
 		RootPath:   root,
 		ReportFile: rustIssueFile(project),
 		Duration:   duration,
+		Failed:     failed,
+		ExitCode:   exitCode,
 	}, nil
 }
 
@@ -269,15 +326,7 @@ func runCargoDenyCommand(ctx context.Context, dir string, args []string, timeout
 	// Use stderr output as the JSON source (cargo-deny's actual output location)
 	output := stderr.Bytes()
 
-	if err != nil {
-		// Non-zero exit is expected when issues are found
-		if _, ok := err.(*exec.ExitError); ok { //nolint:errorlint // checking for specific type
-			// cargo-deny returns non-zero on findings but still outputs valid JSON
-			return output, nil
-		}
-		return nil, fmt.Errorf("cargo execution failed: %w", err)
-	}
-	return output, nil
+	return output, err
 }
 
 // parseCargoDenyEntries parses cargo-deny NDJSON output
@@ -739,15 +788,23 @@ type CargoDenyListResult struct {
 
 // CargoCrateLicense represents a crate with its license information from cargo deny list
 type CargoCrateLicense struct {
-	Name     string   // Crate name
-	Version  string   // Crate version
-	Licenses []string // List of licenses (e.g., ["MIT", "Apache-2.0"])
+	Name       string   // Crate name
+	Version    string   // Crate version
+	Licenses   []string // List of licenses (e.g., ["MIT", "Apache-2.0"])
+	PackageID  string   // Authoritative Cargo package identity, including source
+	Expression string   // Authoritative SPDX expression from the metadata snapshot
+	Source     string   // Full metadata source, including a git revision when present
 }
 
 // RunCargoDenyList executes cargo deny list to get dependency license information.
 // This provides the equivalent of `goneat dependencies --licenses` for Rust projects,
 // producing a list of all dependencies with their detected licenses.
 func RunCargoDenyList(ctx context.Context, target string, timeout time.Duration) (*CargoDenyListResult, error) {
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
 	if !IsCargoAvailable() {
 		return nil, fmt.Errorf("cargo is not available")
 	}
@@ -766,12 +823,24 @@ func RunCargoDenyList(ctx context.Context, target string, timeout time.Duration)
 	if root == "" {
 		root = target
 	}
+	snapshot, err := captureRustLicenseSnapshot(ctx, project)
+	if err != nil {
+		return nil, err
+	}
+	defer snapshot.cleanup()
+	return runCargoDenyListWithSnapshot(ctx, root, timeout, snapshot)
+}
+
+func runCargoDenyListWithSnapshot(ctx context.Context, root string, timeout time.Duration, snapshot *rustLicenseSnapshot) (*CargoDenyListResult, error) {
+	if err := snapshot.verifyConfig(); err != nil {
+		return nil, err
+	}
 
 	start := time.Now()
 
-	// Run cargo deny list - outputs a table of crates with licenses
-	// Format: "crate_name version license1 OR license2"
-	args := []string{"deny", "list"}
+	// Request crate-oriented JSON; human/license-oriented output cannot prove
+	// unique source identities or preserve SPDX expression operators.
+	args := append(snapshot.denyArgs("list"), "--format", "json", "--layout", "crate")
 	out, err := runCargoDenyListCommand(ctx, root, args, timeout)
 	duration := time.Since(start)
 
@@ -779,7 +848,13 @@ func RunCargoDenyList(ctx context.Context, target string, timeout time.Duration)
 		return nil, fmt.Errorf("cargo deny list failed: %w", err)
 	}
 
-	deps := parseCargoDenyList(out)
+	deps, err := reconcileRustLicenseList(out, snapshot.Expected)
+	if err != nil {
+		return nil, err
+	}
+	if err := snapshot.verifyConfig(); err != nil {
+		return nil, err
+	}
 
 	logger.Debug(fmt.Sprintf("cargo deny list found %d dependencies", len(deps)))
 
@@ -808,14 +883,10 @@ func runCargoDenyListCommand(ctx context.Context, dir string, args []string, tim
 
 	err := cmd.Run()
 	if err != nil {
-		// cargo deny list should not fail on normal operation
-		if _, ok := err.(*exec.ExitError); ok { //nolint:errorlint // checking for specific type
-			// May have warnings but still output valid data
-			if stdout.Len() > 0 {
-				return stdout.Bytes(), nil
-			}
-		}
-		return nil, fmt.Errorf("cargo deny list execution failed: %w", err)
+		return nil, fmt.Errorf("cargo deny list execution failed: %w: %s", err, strings.TrimSpace(stderr.String()))
+	}
+	if stderr.Len() > 0 {
+		return nil, fmt.Errorf("cargo deny list reported degraded collection evidence: %s", strings.TrimSpace(stderr.String()))
 	}
 
 	return stdout.Bytes(), nil

@@ -15,6 +15,32 @@ func makeReportWithSeverities(sevs []assess.IssueSeverity) *assess.AssessmentRep
 	return &assess.AssessmentReport{Categories: map[string]assess.CategoryResult{string(assess.CategorySecurity): cat}}
 }
 
+func TestShouldFailDependencyGate(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		category assess.AssessmentCategory
+		metric   interface{}
+		wantFail bool
+	}{
+		{"failed_gate", assess.CategoryDependencies, false, true},
+		{"passing_gate", assess.CategoryDependencies, true, false},
+		{"missing_gate", assess.CategoryDependencies, nil, false},
+		{"other_category", assess.CategoryLint, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			report := &assess.AssessmentReport{Categories: map[string]assess.CategoryResult{
+				string(tc.category): {Category: tc.category, Status: "issues", Metrics: map[string]interface{}{"analysis_passed": tc.metric}, Issues: []assess.Issue{{Severity: assess.SeverityMedium}}},
+			}}
+			if got := shouldFail(report, assess.SeverityCritical); got != tc.wantFail {
+				t.Fatalf("display threshold cleared dependency gate: got %t want %t", got, tc.wantFail)
+			}
+			if got := shouldFailHook(report, &HookConfig{FailOn: "critical"}); got != tc.wantFail {
+				t.Fatalf("hook threshold cleared dependency gate: got %t want %t", got, tc.wantFail)
+			}
+		})
+	}
+}
+
 func TestShouldFailThresholds(t *testing.T) {
 	// With a HIGH issue present
 	r := makeReportWithSeverities([]assess.IssueSeverity{assess.SeverityLow, assess.SeverityHigh})

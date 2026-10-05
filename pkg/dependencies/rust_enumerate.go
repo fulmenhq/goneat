@@ -123,15 +123,3 @@ func metadataFromCargoPackage(pkg cargo.Package) map[string]interface{} {
 	}
 	return meta
 }
-
-func overlayLicenses(deps []Dependency, licensed []Dependency) {
-	index := map[string]*License{}
-	for i := range licensed {
-		index[licensed[i].Name+"@"+licensed[i].Version] = licensed[i].License
-	}
-	for i := range deps {
-		if lic, ok := index[deps[i].Name+"@"+deps[i].Version]; ok && lic != nil {
-			deps[i].License = lic
-		}
-	}
-}

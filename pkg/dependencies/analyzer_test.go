@@ -192,8 +192,8 @@ func TestParseLicenseExpression(t *testing.T) {
 // TestConvertCratesToDependencies tests conversion from cargo deny format to unified Dependency
 func TestConvertCratesToDependencies(t *testing.T) {
 	crates := []CargoCrateLicense{
-		{Name: "serde", Version: "1.0.0", Licenses: []string{"MIT", "Apache-2.0"}},
-		{Name: "tokio", Version: "1.40.0", Licenses: []string{"MIT"}},
+		{Name: "serde", Version: "1.0.0", Licenses: []string{"MIT", "Apache-2.0"}, Expression: "MIT AND Apache-2.0"},
+		{Name: "tokio", Version: "1.40.0", Licenses: []string{"MIT"}, Expression: "MIT"},
 		{Name: "unknown-crate", Version: "0.1.0", Licenses: nil},
 	}
 
@@ -210,7 +210,7 @@ func TestConvertCratesToDependencies(t *testing.T) {
 	if deps[0].Language != LanguageRust {
 		t.Errorf("Expected Language=rust, got %s", deps[0].Language)
 	}
-	if deps[0].License == nil || deps[0].License.Type != "MIT OR Apache-2.0" {
+	if deps[0].License == nil || deps[0].License.Type != "MIT AND Apache-2.0" {
 		t.Errorf("Unexpected license for serde: %+v", deps[0].License)
 	}
 

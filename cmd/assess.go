@@ -590,6 +590,9 @@ func countIssuesBySeverity(report *assess.AssessmentReport) map[string]int {
 
 // shouldFail determines if the assessment should fail based on issue severity or category errors
 func shouldFail(report *assess.AssessmentReport, failOnSeverity assess.IssueSeverity) bool {
+	if dependencyGateFailed(report) {
+		return true
+	}
 	severityLevels := map[assess.IssueSeverity]int{
 		assess.SeverityInfo:     0,
 		assess.SeverityLow:      1,
@@ -618,6 +621,17 @@ func shouldFail(report *assess.AssessmentReport, failOnSeverity assess.IssueSeve
 	}
 
 	return false
+}
+
+// Dependency gates are mandatory analysis outcomes, not display severity
+// thresholds. Other categories retain their normal threshold behavior.
+func dependencyGateFailed(report *assess.AssessmentReport) bool {
+	result, ok := report.Categories[string(assess.CategoryDependencies)]
+	if !ok {
+		return false
+	}
+	passed, explicit := result.Metrics["analysis_passed"].(bool)
+	return explicit && !passed
 }
 
 // printSchemaSummary prints a short schema issues summary (top files + first messages)
@@ -1119,6 +1133,9 @@ func getStagedFiles() ([]string, error) {
 
 // shouldFailHook determines if hook should fail based on configuration
 func shouldFailHook(report *assess.AssessmentReport, config *HookConfig) bool {
+	if dependencyGateFailed(report) {
+		return true
+	}
 	failLevel := assess.SeverityHigh // default
 	switch config.FailOn {
 	case "critical":
