@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -537,7 +539,8 @@ func TestExpectedRustLicenseDevEdges(t *testing.T) {
 }
 
 func TestRustLicenseRealFeatureWorkspace(t *testing.T) {
-	if !IsCargoAvailable() || !CheckCargoDenyPresence().Present {
+	presence := CheckCargoDenyPresence()
+	if !IsCargoAvailable() || !presence.Present {
 		t.Skip("cargo and cargo-deny required")
 	}
 	t.Setenv("CARGO_NET_OFFLINE", "true")
@@ -563,29 +566,135 @@ func TestRustLicenseRealFeatureWorkspace(t *testing.T) {
 	}
 	for _, tc := range []struct {
 		name, graph string
-		count       int
+		featureArgs []string
+		optional    bool
 	}{
-		{"defaults", "", 3},
-		{"explicit_feature", "[graph]\nfeatures=['member-a/extra']\n", 4},
-		{"all_features", "[graph]\nall-features=true\n", 4},
-		{"no_default_features", "[graph]\nno-default-features=true\n", 3},
+		{"defaults", "", nil, false},
+		{"explicit_feature", "[graph]\nfeatures=['member-a/extra']\n", []string{"--features", "member-a/extra"}, true},
+		{"all_features", "[graph]\nall-features=true\n", []string{"--all-features"}, true},
+		{"no_default_features", "[graph]\nno-default-features=true\n", []string{"--no-default-features"}, false},
+		{"ineffective_build_filter", "include-build=false\n", nil, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			write("deny.toml", "[licenses]\nallow=['MIT','Apache-2.0']\ninclude-dev=true\n"+tc.graph)
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
+			// Independent oracle: execute metadata/list directly, without the
+			// adapter's reconciliation, scope builder, or argument helper. Only
+			// the evidenced 0.19.0 behavior may expect the specific dev omission;
+			// unknown versions must provide complete coverage, not arbitrary errors.
+			metadataCmd := exec.CommandContext(ctx, "cargo", append([]string{"metadata", "--format-version", "1", "--manifest-path", filepath.Join(root, "Cargo.toml")}, tc.featureArgs...)...)
+			metadataCmd.Dir = root
+			data, err := metadataCmd.Output()
+			if err != nil {
+				t.Fatal(err)
+			}
+			var metadata struct {
+				Packages []struct{ ID, Name, Version string }
+			}
+			if err := json.Unmarshal(data, &metadata); err != nil {
+				t.Fatal(err)
+			}
+			wantNames := []string{"dev", "member-a", "member-b"}
+			if tc.optional {
+				wantNames = append(wantNames, "optional")
+			}
+			var names []string
+			byKey := map[string]string{}
+			devID, devKey := "", ""
+			for _, pkg := range metadata.Packages {
+				source, _, ok := strings.Cut(pkg.ID, "#")
+				if !ok || !strings.HasPrefix(source, "path+") || pkg.Version != "0.1.0" {
+					t.Fatalf("unexpected fixture identity: %+v", pkg)
+				}
+				key := fmt.Sprintf("%s %s %s", pkg.Name, pkg.Version, source)
+				if _, exists := byKey[key]; exists {
+					t.Fatalf("duplicate fixture identity %s", key)
+				}
+				byKey[key] = pkg.ID
+				names = append(names, pkg.Name)
+				if pkg.Name == "dev" {
+					devID, devKey = pkg.ID, key
+				}
+			}
+			if !slices.Equal(names, wantNames) || devID == "" {
+				t.Fatalf("metadata fixture set: got %v want %v", names, wantNames)
+			}
+			oraclePath := filepath.Join(t.TempDir(), "metadata.json")
+			if err := os.WriteFile(oraclePath, data, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			args := append([]string{"deny", "--format", "json", "--manifest-path", filepath.Join(root, "Cargo.toml"), "--workspace"}, tc.featureArgs...)
+			options := []string{"--metadata-path", oraclePath, "--config", filepath.Join(root, "deny.toml")}
+			olderList := presence.Version == "0.19.0"
+			if olderList {
+				args = append(append(args, "list"), options...)
+			} else {
+				args = append(append(args, options...), "list")
+			}
+			args = append(args, "--format", "json", "--layout", "crate")
+			listCmd := exec.CommandContext(ctx, "cargo", args...)
+			listCmd.Dir = root
+			var stderr strings.Builder
+			listCmd.Stderr = &stderr
+			listed, err := listCmd.Output()
+			if err != nil || strings.TrimSpace(stderr.String()) != "" {
+				t.Fatalf("direct list failed or degraded: %v %s", err, stderr.String())
+			}
+			var rows map[string]json.RawMessage
+			if err := json.Unmarshal(listed, &rows); err != nil {
+				t.Fatal(err)
+			}
+			for key := range rows {
+				if _, ok := byKey[key]; !ok {
+					t.Fatalf("unexpected direct list identity %s", key)
+				}
+			}
+			var missing []string
+			for key, id := range byKey {
+				if _, ok := rows[key]; !ok {
+					missing = append(missing, id)
+				}
+			}
+			if olderList {
+				if len(missing) != 1 || missing[0] != devID {
+					t.Fatalf("0.19.0 must omit only dev ID %s, got %v", devID, missing)
+				}
+			} else if len(missing) != 0 {
+				t.Fatalf("capable or unknown version %s omitted %v", presence.Version, missing)
+			}
+			t.Logf("direct cargo-deny %s: metadata IDs=%v; list missing IDs=%v", presence.Version, byKey, missing)
 			result, err := NewRustAnalyzer().Analyze(ctx, root, AnalysisConfig{CheckLicenses: true})
-			if err != nil || result == nil || !result.Passed || len(result.Dependencies) != tc.count {
+			if olderList {
+				if err != nil || result == nil || result.Passed || len(result.Dependencies) != 0 || result.PackagesScanned != 0 || len(result.Issues) != 1 || result.Issues[0].Type != "license_error" || result.Issues[0].Severity != "critical" {
+					t.Fatalf("specific unsupported inventory must fail closed: %#v %v", result, err)
+				}
+				for _, text := range []string{"incomplete Rust license inventory", "cargo-deny list omitted", devID, devKey, "licenses.include-dev=true", "use a release that honors this setting"} {
+					if !strings.Contains(result.Issues[0].Message, text) {
+						t.Fatalf("missing specific cause/remediation %q: %s", text, result.Issues[0].Message)
+					}
+				}
+				return
+			}
+			if err != nil || result == nil || !result.Passed || len(result.Dependencies) != len(wantNames) || len(result.Issues) != 0 {
 				t.Fatalf("configured feature/workspace scope: %#v %v", result, err)
 			}
-			foundB := false
+			foundB, foundDev, foundOptional := false, false, false
+			seenIDs := map[string]bool{}
 			for _, dep := range result.Dependencies {
-				if dep.Name == "member-b" && dep.License.Type == "MIT OR Apache-2.0" {
+				id, ok := dep.Metadata["cargo_package_id"].(string)
+				if !ok || seenIDs[id] || !slices.ContainsFunc(metadata.Packages, func(pkg struct{ ID, Name, Version string }) bool { return pkg.ID == id }) {
+					t.Fatalf("incorrect or duplicate reported ID: %#v", dep)
+				}
+				seenIDs[id] = true
+				foundDev = foundDev || id == devID
+				foundOptional = foundOptional || dep.Name == "optional"
+				if dep.Name == "member-b" && dep.License != nil && dep.License.Type == "MIT OR Apache-2.0" {
 					foundB = true
 				}
 			}
-			if !foundB {
-				t.Fatal("non-default workspace member or OR expression lost")
+			if !foundB || !foundDev || foundOptional != tc.optional {
+				t.Fatal("non-default workspace member, dev identity, optional feature scope, or OR expression lost")
 			}
 		})
 	}
@@ -594,16 +703,11 @@ func TestRustLicenseRealFeatureWorkspace(t *testing.T) {
 	if err != nil || result.Passed || !strings.Contains(result.Issues[0].Message, "licenses.include-dev=false") || !strings.Contains(result.Issues[0].Message, "dev#") {
 		t.Fatalf("default dev-stage filter not actionable: %#v %v", result, err)
 	}
-	// A flag alone does not fail. Here include-build=false removes nothing.
-	write("deny.toml", "[licenses]\nallow=['MIT','Apache-2.0']\ninclude-dev=true\ninclude-build=false\n")
-	result, err = NewRustAnalyzer().Analyze(context.Background(), root, AnalysisConfig{CheckLicenses: true})
-	if err != nil || !result.Passed {
-		t.Fatalf("ineffective build filter falsely rejected: %#v %v", result, err)
-	}
 	write("Cargo.toml", "[workspace]\nmembers=['a','b']\nexclude=['optional','dev','build-only']\nresolver='2'\n")
 	write("build-only/Cargo.toml", "[package]\nname='build-only'\nversion='0.1.0'\nedition='2021'\nlicense='MIT'\n")
 	write("build-only/src/lib.rs", "pub fn f() {}\n")
 	write("a/Cargo.toml", "[package]\nname='member-a'\nversion='0.1.0'\nedition='2021'\nlicense='MIT'\n[build-dependencies]\nbuild-only={path='../build-only'}\n")
+	write("deny.toml", "[licenses]\nallow=['MIT','Apache-2.0']\ninclude-dev=true\ninclude-build=false\n")
 	result, err = NewRustAnalyzer().Analyze(context.Background(), root, AnalysisConfig{CheckLicenses: true})
 	if err != nil || result.Passed || !strings.Contains(result.Issues[0].Message, "licenses.include-build=false") || !strings.Contains(result.Issues[0].Message, "build-only#") {
 		t.Fatalf("build-stage filter not actionable: %#v %v", result, err)
@@ -665,6 +769,23 @@ func TestReconcileRustLicenseList(t *testing.T) {
 			}
 			if _, err := reconcileRustLicenseList(encoded, expected); err == nil {
 				t.Fatal("incomplete/invalid crate list passed")
+			}
+			if mode == "omitted" {
+				crates, err := reconcileRustLicenseList(encoded, expected)
+				if crates != nil || err == nil {
+					t.Fatalf("omission returned partial inventory: %v %v", crates, err)
+				}
+				for key, pkg := range expected {
+					if strings.HasPrefix(key, "root ") {
+						continue
+					}
+					if !strings.Contains(err.Error(), pkg.ID) || !strings.Contains(err.Error(), key) {
+						t.Fatalf("omission lost exact identity %s: %v", pkg.ID, err)
+					}
+				}
+				if !strings.Contains(err.Error(), "use a release that honors this setting") {
+					t.Fatalf("missing remediation: %v", err)
+				}
 			}
 		})
 	}

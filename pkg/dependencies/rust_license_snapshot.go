@@ -555,12 +555,18 @@ func reconcileRustLicenseList(data []byte, expected map[string]rustLicensePackag
 	}
 	var keys []string
 	for key := range expected {
-		if _, ok := rows[key]; !ok {
-			return nil, fmt.Errorf("incomplete Rust license inventory: cargo-deny list omitted %q", key)
-		}
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
+	var omitted []string
+	for _, key := range keys {
+		if _, ok := rows[key]; !ok {
+			omitted = append(omitted, fmt.Sprintf("%q (crate %q)", expected[key].ID, key))
+		}
+	}
+	if len(omitted) > 0 {
+		return nil, fmt.Errorf("incomplete Rust license inventory: cargo-deny list omitted gathered package IDs: %s; verify that cargo-deny list applies the configured license-stage settings: cargo-deny 0.19.0 does not apply licenses.include-dev=true to dev-only crates; use a release that honors this setting (verified with 0.20.2) and rerun without excluding gathered crates", strings.Join(omitted, ", "))
+	}
 	crates := make([]CargoCrateLicense, 0, len(keys))
 	for _, key := range keys {
 		pkg := expected[key]

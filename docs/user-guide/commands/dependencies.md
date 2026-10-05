@@ -75,6 +75,14 @@ install a cargo-deny release providing these options and verify its active
 `cargo deny --version`. Missing or failed capability discovery never falls back
 to separate metadata collections or changes tool pins automatically.
 
+Snapshot-option support does not by itself guarantee complete inventory.
+For example, cargo-deny 0.19.0 `list` omits dev-only crates even when
+`[licenses].include-dev = true`; 0.20.2 applies that setting. If the installed
+collector omits any gathered package ID, goneat returns `license_error` with
+those IDs and no partial license inventory. Use a cargo-deny release that honors
+the configured license-stage settings and rerun; do not exclude the missing
+crates or treat a successful `cargo deny check` as complete inventory evidence.
+
 The supported graph includes all workspace roots and all targets, with no graph
 exclusions. Default features apply unless `features`, `all-features`, or
 `no-default-features` select another feature set in `[graph]` (or the legacy
