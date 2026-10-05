@@ -190,9 +190,10 @@ func runCargoDenyWithSnapshot(ctx context.Context, project *RustProject, root st
 		if err := snapshot.verifyConfig(); err != nil {
 			return nil, err
 		}
-		args = append(args, snapshot.denyArgs()...)
+		args = snapshot.denyArgs("check")
+	} else {
+		args = append(args, "check")
 	}
-	args = append(args, "check")
 	for _, ct := range checkTypes {
 		args = append(args, string(ct))
 	}
@@ -839,8 +840,7 @@ func runCargoDenyListWithSnapshot(ctx context.Context, root string, timeout time
 
 	// Request crate-oriented JSON; human/license-oriented output cannot prove
 	// unique source identities or preserve SPDX expression operators.
-	args := append([]string{"deny", "--format", "json"}, snapshot.denyArgs()...)
-	args = append(args, "list", "--format", "json", "--layout", "crate")
+	args := append(snapshot.denyArgs("list"), "--format", "json", "--layout", "crate")
 	out, err := runCargoDenyListCommand(ctx, root, args, timeout)
 	duration := time.Since(start)
 

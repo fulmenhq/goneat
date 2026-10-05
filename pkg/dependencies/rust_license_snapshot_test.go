@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -31,6 +32,84 @@ func TestRustLicenseMissingTools(t *testing.T) {
 			result, err := NewRustAnalyzer().Analyze(context.Background(), root, AnalysisConfig{CheckLicenses: true})
 			if err != nil || result.Passed || len(result.Issues) != 1 || result.Issues[0].Type != "license_error" || !strings.Contains(result.Issues[0].Message, mode) {
 				t.Fatalf("missing-tool license error: %#v %v", result, err)
+			}
+		})
+	}
+}
+
+func TestRustLicenseHelpFlagAdvertisement(t *testing.T) {
+	for _, tc := range []struct {
+		help string
+		want bool
+	}{
+		{"  --config <CONFIG_PATH>\n  Path to policy", true},
+		{"  -c, --config <CONFIG_PATH>\n  Path to policy", true},
+		{"Usage: cargo-deny --config <CONFIG_PATH>", false},
+		{"  By default, --config is looked up from workspace", false},
+		{"  --config-other <CONFIG_PATH>", false},
+	} {
+		if got := rustLicenseHelpHasFlag(tc.help, "--config"); got != tc.want {
+			t.Fatalf("advertisement %q: got %t want %t", tc.help, got, tc.want)
+		}
+	}
+}
+
+func TestRustLicenseCLIArgumentPlacement(t *testing.T) {
+	const graph = "--format --manifest-path --workspace --all-features --no-default-features --features"
+	for _, tc := range []struct {
+		name, global, list, check               string
+		metadataGlobal, configGlobal, wantError bool
+	}{
+		{"legacy_019", graph, "--metadata-path --config --format --layout", "--metadata-path --config", false, false, false},
+		{"global_020", graph + " --metadata-path --config", "--format --layout", "--show-stats", true, true, false},
+		{"mixed_metadata_global", graph + " --metadata-path", "--config", "--config", true, false, false},
+		{"mixed_config_global", graph + " --config", "--metadata-path", "--metadata-path", false, true, false},
+		{"missing_snapshot_014", graph, "--config", "--config", false, false, true},
+		{"missing_check_snapshot", graph, "--metadata-path --config", "--config", false, false, true},
+		{"missing_list_policy", graph, "--metadata-path", "--metadata-path --config", false, false, true},
+		{"dual_metadata_global", graph + " --metadata-path --config", "--metadata-path", "", true, true, false},
+		{"dual_config_global", graph + " --metadata-path --config", "", "--config", true, true, false},
+		{"missing_global_graph", "--format --workspace --metadata-path --config", "", "", false, false, true},
+		{"missing_feature_capability", "--format --manifest-path --workspace --metadata-path --config", "", "", false, false, true},
+		{"missing_list_output", graph + " --metadata-path --config", "--layout", "", false, false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			scope := rustLicenseScope{AllFeatures: true, NoDefaultFeatures: true, Features: []string{"one", "two"}}
+			if tc.name != "missing_list_output" {
+				tc.list += " --format --layout"
+			}
+			cli, err := rustLicenseCLIFromHelp(strings.ReplaceAll(tc.global, " ", "\n"), strings.ReplaceAll(tc.list, " ", "\n"), strings.ReplaceAll(tc.check, " ", "\n"), scope)
+			if (err != nil) != tc.wantError {
+				t.Fatalf("CLI capability contract: %+v %v", cli, err)
+			}
+			if tc.wantError {
+				return
+			}
+			if cli.MetadataGlobal != tc.metadataGlobal || cli.ConfigGlobal != tc.configGlobal {
+				t.Fatalf("wrong per-flag location: %+v", cli)
+			}
+			snapshot := rustLicenseSnapshot{Path: "/private/snapshot.json", ConfigPath: "/workspace/deny.toml", Scope: scope, CLI: cli}
+			for _, command := range []string{"list", "check"} {
+				args := snapshot.denyArgs(command)
+				index := slices.Index(args, command)
+				if strings.Join(args[:3], " ") != "deny --format json" || index < 0 {
+					t.Fatalf("lost diagnostic format/subcommand: %v", args)
+				}
+				for flag, global := range map[string]bool{
+					"--manifest-path": true, "--workspace": true, "--all-features": true,
+					"--no-default-features": true, "--features": true,
+					"--metadata-path": tc.metadataGlobal, "--config": tc.configGlobal,
+				} {
+					position := slices.Index(args, flag)
+					if position < 0 || (position < index) != global {
+						t.Fatalf("incorrect %s placement: %v", flag, args)
+					}
+				}
+				for flag, value := range map[string]string{"--metadata-path": snapshot.Path, "--config": snapshot.ConfigPath, "--manifest-path": filepath.Join(filepath.Dir(snapshot.ConfigPath), "Cargo.toml"), "--features": "one,two"} {
+					if args[slices.Index(args, flag)+1] != value {
+						t.Fatalf("snapshot/config/scope changed for %s: %v", flag, args)
+					}
+				}
 			}
 		})
 	}
@@ -216,6 +295,15 @@ func TestRustLicenseSnapshotCommandControls(t *testing.T) {
 	write("cargo", []byte(`#!/bin/sh
 case "$*" in
   "deny --version") echo 'cargo-deny 0.20.2'; exit 0 ;;
+  "deny --help")
+    if [ "${RUST_HELP_EXIT:-0}" != "0" ]; then exit "$RUST_HELP_EXIT"; fi
+    printf '%s\n' '--format' '--manifest-path' '--workspace' '--all-features' '--no-default-features' '--features'
+    if [ "$RUST_CLI_LAYOUT" != "legacy" ]; then printf '%s\n' '--metadata-path' '--config'; fi
+    exit 0 ;;
+  "deny list --help"|"deny check --help")
+    if [ "$*" = "deny list --help" ]; then printf '%s\n' '--format' '--layout'; fi
+    if [ "$RUST_CLI_LAYOUT" = "legacy" ] && [ "$RUST_SNAPSHOT_UNSUPPORTED" != "true" ]; then printf '%s\n' '--metadata-path' '--config'; fi
+    exit 0 ;;
 esac
 printf '%s\n' "$*" >> "$RUST_CALLS"
 case "$1" in
@@ -232,7 +320,7 @@ exit 9
 	t.Setenv("RUST_LIST", filepath.Join(root, "list.json"))
 	t.Setenv("RUST_CHECK", filepath.Join(root, "check.json"))
 	t.Setenv("RUST_CALLS", filepath.Join(root, "calls.log"))
-	for _, mode := range []string{"pass", "ban", "unknown_exit", "list_nonzero", "metadata_nonzero", "degraded_list", "empty_list", "omitted_crate", "missing_summary", "malformed_check", "truncated_check", "summary_error_without_diagnostic", "scope_exclusion", "scope_exclude_dev", "bad_config", "combined"} {
+	for _, mode := range []string{"pass", "legacy_pass", "no_snapshot_support", "help_nonzero", "ban", "unknown_exit", "list_nonzero", "metadata_nonzero", "degraded_list", "empty_list", "omitted_crate", "missing_summary", "malformed_check", "truncated_check", "summary_error_without_diagnostic", "scope_exclusion", "scope_exclude_dev", "bad_config", "combined"} {
 		t.Run(mode, func(t *testing.T) {
 			write("list.json", list, 0o600)
 			write("check.json", []byte(summary+"\n"), 0o600)
@@ -242,7 +330,17 @@ exit 9
 				t.Setenv(env, "0")
 			}
 			t.Setenv("RUST_LIST_STDERR", "")
+			t.Setenv("RUST_CLI_LAYOUT", "global")
+			t.Setenv("RUST_SNAPSHOT_UNSUPPORTED", "false")
+			t.Setenv("RUST_HELP_EXIT", "0")
 			switch mode {
+			case "legacy_pass":
+				t.Setenv("RUST_CLI_LAYOUT", "legacy")
+			case "no_snapshot_support":
+				t.Setenv("RUST_CLI_LAYOUT", "legacy")
+				t.Setenv("RUST_SNAPSHOT_UNSUPPORTED", "true")
+			case "help_nonzero":
+				t.Setenv("RUST_HELP_EXIT", "2")
 			case "ban":
 				t.Setenv("RUST_CHECK_EXIT", "2")
 				write("check.json", []byte(`{"type":"diagnostic","fields":{"code":"banned","severity":"error","message":"banned crate"}}`+"\n"+strings.Replace(summary, `"bans":{"errors":0`, `"bans":{"errors":1`, 1)+"\n"), 0o600)
@@ -279,10 +377,10 @@ exit 9
 			if err != nil || result == nil {
 				t.Fatalf("requested evidence errors must be structured: %v %v", result, err)
 			}
-			if result.Passed != (mode == "pass") {
+			if result.Passed != (mode == "pass" || mode == "legacy_pass") {
 				t.Fatalf("%s contract: %#v", mode, result)
 			}
-			if mode == "pass" || mode == "ban" {
+			if mode == "pass" || mode == "legacy_pass" || mode == "ban" {
 				if len(result.Dependencies) != 3 {
 					t.Fatalf("crate count inflated: %d", len(result.Dependencies))
 				}
@@ -297,6 +395,21 @@ exit 9
 				var metadataPaths []string
 				for _, line := range lines[1:] {
 					args := strings.Fields(line)
+					commandIndex := slices.Index(args, "list")
+					if commandIndex < 0 {
+						commandIndex = slices.Index(args, "check")
+					}
+					for _, flag := range []string{"--format", "--manifest-path", "--workspace"} {
+						if index := slices.Index(args, flag); index < 0 || index > commandIndex {
+							t.Fatalf("global flag moved after subcommand: %s", line)
+						}
+					}
+					for _, flag := range []string{"--metadata-path", "--config"} {
+						index := slices.Index(args, flag)
+						if index < 0 || (index > commandIndex) != (mode == "legacy_pass") {
+							t.Fatalf("snapshot flag on wrong side of subcommand: %s", line)
+						}
+					}
 					for i, arg := range args {
 						if arg == "--metadata-path" {
 							metadataPaths = append(metadataPaths, args[i+1])

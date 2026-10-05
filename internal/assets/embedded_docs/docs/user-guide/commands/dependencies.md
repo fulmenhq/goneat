@@ -66,6 +66,15 @@ metadata package IDs and declared SPDX expressions retain their original
 `AND`/`OR` operators. Flattened license IDs cannot substitute for an expression.
 An unresolved declared expression remains a policy violation.
 
+The installed cargo-deny must advertise `--metadata-path` and `--config` for
+both list and check, either globally or on each subcommand. goneat discovers
+their placement from CLI help; the 0.19.0 and 0.20.2 layouts are supported.
+Older versions such as 0.14.0 lack the shared-snapshot capability even though
+they meet the general tool minimum. License checks then return `license_error`;
+install a cargo-deny release providing these options and verify its active
+`cargo deny --version`. Missing or failed capability discovery never falls back
+to separate metadata collections or changes tool pins automatically.
+
 The supported graph includes all workspace roots and all targets, with no graph
 exclusions. Default features apply unless `features`, `all-features`, or
 `no-default-features` select another feature set in `[graph]` (or the legacy

@@ -66,8 +66,81 @@ type rustLicenseSnapshot struct {
 	ExceptionPath string
 	ExceptionHash [32]byte
 	Scope         rustLicenseScope
+	CLI           rustLicenseCLI
 	Expected      map[string]rustLicensePackage
 	cleanup       func()
+}
+
+// Before cargo-deny 0.20, graph flags were global but metadata/config belonged
+// to list/check. Discover each flag's advertised location without abandoning
+// the shared snapshot or assuming every flag moved with it.
+type rustLicenseCLI struct {
+	MetadataGlobal bool
+	ConfigGlobal   bool
+}
+
+func rustLicenseHelpHasFlag(help, flag string) bool {
+	for _, line := range strings.Split(help, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) > 0 && fields[0] == flag {
+			return true
+		}
+		if len(fields) > 1 && strings.HasPrefix(fields[0], "-") && strings.HasSuffix(fields[0], ",") && fields[1] == flag {
+			return true
+		}
+	}
+	return false
+}
+
+func rustLicenseCLIFromHelp(global, list, check string, scope rustLicenseScope) (rustLicenseCLI, error) {
+	for _, flag := range []string{"--format", "--layout"} {
+		if !rustLicenseHelpHasFlag(list, flag) {
+			return rustLicenseCLI{}, fmt.Errorf("cargo-deny list does not advertise required %s; use a cargo-deny version supporting crate-oriented JSON inventory", flag)
+		}
+	}
+	for _, flag := range append([]string{"--format", "--manifest-path", "--workspace"}, scope.featureArgs()...) {
+		if strings.HasPrefix(flag, "--") && !rustLicenseHelpHasFlag(global, flag) {
+			return rustLicenseCLI{}, fmt.Errorf("cargo-deny license CLI does not advertise required global %s; use a cargo-deny version supporting the complete configured snapshot scope", flag)
+		}
+	}
+	var cli rustLicenseCLI
+	for _, option := range []struct {
+		flag   string
+		global *bool
+	}{
+		{"--metadata-path", &cli.MetadataGlobal},
+		{"--config", &cli.ConfigGlobal},
+	} {
+		*option.global = rustLicenseHelpHasFlag(global, option.flag)
+		// A global option is the common evidenced position for both consumers
+		// even if a subcommand also advertises it. Dual advertising alone is
+		// not ambiguity (list's own --format has separate output semantics).
+		for command, help := range map[string]string{"list": list, "check": check} {
+			local := rustLicenseHelpHasFlag(help, option.flag)
+			if !*option.global && !local {
+				return cli, fmt.Errorf("cargo-deny %s does not advertise required %s globally or on the subcommand; use a cargo-deny version supporting shared metadata snapshots and explicit policy", command, option.flag)
+			}
+		}
+	}
+	return cli, nil
+}
+
+func detectRustLicenseCLI(ctx context.Context, root string, scope rustLicenseScope) (rustLicenseCLI, error) {
+	help := make(map[string]string)
+	for _, command := range []string{"", "list", "check"} {
+		args := []string{"deny"}
+		if command != "" {
+			args = append(args, command)
+		}
+		cmd := exec.CommandContext(ctx, "cargo", append(args, "--help")...)
+		cmd.Dir = root
+		out, err := cmd.Output()
+		if err != nil {
+			return rustLicenseCLI{}, fmt.Errorf("cannot inspect cargo-deny %s license CLI: %w", command, err)
+		}
+		help[command] = string(out)
+	}
+	return rustLicenseCLIFromHelp(help[""], help["list"], help["check"], scope)
 }
 
 func licenseGraphConfig(data []byte, path string) (rustLicenseScope, error) {
@@ -171,6 +244,10 @@ func captureRustLicenseSnapshot(ctx context.Context, project *RustProject) (*rus
 	if err != nil {
 		return nil, err
 	}
+	cli, err := detectRustLicenseCLI(ctx, root, scope)
+	if err != nil {
+		return nil, err
+	}
 	exceptionPath, exceptionHash, err := rustLicenseExceptions(root)
 	if err != nil {
 		return nil, err
@@ -213,12 +290,27 @@ func captureRustLicenseSnapshot(ctx context.Context, project *RustProject) (*rus
 		cleanup()
 		return nil, err
 	}
-	return &rustLicenseSnapshot{Path: path, ConfigPath: configPath, ConfigHash: sha256.Sum256(configData), MetadataHash: sha256.Sum256(data), ExceptionPath: exceptionPath, ExceptionHash: exceptionHash, Scope: scope, Expected: expected, cleanup: cleanup}, nil
+	return &rustLicenseSnapshot{Path: path, ConfigPath: configPath, ConfigHash: sha256.Sum256(configData), MetadataHash: sha256.Sum256(data), ExceptionPath: exceptionPath, ExceptionHash: exceptionHash, Scope: scope, CLI: cli, Expected: expected, cleanup: cleanup}, nil
 }
 
-func (s *rustLicenseSnapshot) denyArgs() []string {
-	args := []string{"--metadata-path", s.Path, "--config", s.ConfigPath, "--manifest-path", filepath.Join(filepath.Dir(s.ConfigPath), "Cargo.toml"), "--workspace"}
-	return append(args, s.Scope.featureArgs()...)
+func (s *rustLicenseSnapshot) denyArgs(command string) []string {
+	args := []string{"deny", "--format", "json", "--manifest-path", filepath.Join(filepath.Dir(s.ConfigPath), "Cargo.toml"), "--workspace"}
+	args = append(args, s.Scope.featureArgs()...)
+	var local []string
+	for _, option := range []struct {
+		flag, value string
+		global      bool
+	}{
+		{"--metadata-path", s.Path, s.CLI.MetadataGlobal},
+		{"--config", s.ConfigPath, s.CLI.ConfigGlobal},
+	} {
+		if option.global {
+			args = append(args, option.flag, option.value)
+		} else {
+			local = append(local, option.flag, option.value)
+		}
+	}
+	return append(append(args, command), local...)
 }
 
 func (s *rustLicenseSnapshot) verifyConfig() error {
