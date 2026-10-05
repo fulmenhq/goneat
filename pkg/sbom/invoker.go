@@ -3,10 +3,12 @@ package sbom
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -21,6 +23,7 @@ type Config struct {
 	Stdout          bool
 	Platform        string
 	ExcludePatterns []string
+	SourceOptions   SourceOptions
 }
 
 type Result struct {
@@ -106,7 +109,7 @@ func (s *SyftInvoker) GetVersion(ctx context.Context) (string, error) {
 	return versionData.Version, nil
 }
 
-func (s *SyftInvoker) Generate(ctx context.Context, config Config) (*Result, error) {
+func (s *SyftInvoker) Generate(ctx context.Context, config Config) (result *Result, retErr error) {
 	startTime := time.Now()
 
 	if config.TargetPath == "" {
@@ -118,12 +121,42 @@ func (s *SyftInvoker) Generate(ctx context.Context, config Config) (*Result, err
 		return nil, fmt.Errorf("failed to resolve target path: %w", err)
 	}
 
-	if _, err := os.Stat(targetPath); err != nil {
+	info, err := os.Lstat(targetPath)
+	if err != nil {
 		return nil, fmt.Errorf("target path does not exist: %w", err)
 	}
 
 	if config.Format == "" {
 		config.Format = "cyclonedx-json"
+	}
+	if config.Format != "cyclonedx-json" && config.Format != "spdx-json" {
+		return nil, fmt.Errorf("unsupported SBOM format %q; use cyclonedx-json or spdx-json", config.Format)
+	}
+	if _, err := sourceSchemas(); err != nil {
+		return nil, err
+	}
+	var capture *sourceCapture
+	var artifact *artifactIdentity
+	options := config.SourceOptions
+	options.ExcludePatterns = append(append([]string{}, options.ExcludePatterns...), config.ExcludePatterns...)
+	if info.IsDir() {
+		capture, err = captureSource(ctx, targetPath, os.TempDir(), options, sourceLimits{entries: sourceMaxEntries, bytes: sourceMaxBytes})
+		if err != nil {
+			return nil, err
+		}
+		defer func() {
+			if capture != nil {
+				retErr = errors.Join(retErr, capture.cleanup())
+				if retErr != nil {
+					result = nil
+				}
+			}
+		}()
+	} else {
+		artifact, err = inspectArtifact(ctx, targetPath)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	toolVersion, err := s.GetVersion(ctx)
@@ -137,7 +170,11 @@ func (s *SyftInvoker) Generate(ctx context.Context, config Config) (*Result, err
 	if !config.Stdout {
 		if config.OutputPath == "" {
 			timestamp := time.Now().Format("20060102-150405")
-			outputPath = filepath.Join("sbom", fmt.Sprintf("goneat-%s.cdx.json", timestamp))
+			extension := "cdx.json"
+			if config.Format == "spdx-json" {
+				extension = "spdx.json"
+			}
+			outputPath = filepath.Join("sbom", fmt.Sprintf("goneat-%s.%s", timestamp, extension))
 		} else {
 			outputPath = config.OutputPath
 		}
@@ -148,35 +185,45 @@ func (s *SyftInvoker) Generate(ctx context.Context, config Config) (*Result, err
 			return nil, fmt.Errorf("failed to resolve output path: %w", err)
 		}
 
-		outputDir := filepath.Dir(outputPath)
-		if err := os.MkdirAll(outputDir, 0o750); err != nil {
-			return nil, fmt.Errorf("failed to create output directory: %w", err)
+		if artifact != nil {
+			if existing, err := os.Stat(outputPath); outputPath == targetPath || (err == nil && os.SameFile(info, existing)) {
+				return nil, fmt.Errorf("SBOM output must not replace the artifact target")
+			}
 		}
 	}
 
 	// Use modern syft scan command with new output syntax
+	collectorTarget := targetPath
+	if capture != nil {
+		collectorTarget = capture.path
+	}
 	args := []string{
 		"scan",
-		targetPath,
+		collectorTarget,
 		"--scope", "all-layers",
 	}
 
 	if config.Platform != "" {
 		args = append(args, "--platform", config.Platform)
 	}
-	for _, pattern := range config.ExcludePatterns {
-		pattern = strings.TrimSpace(pattern)
-		if pattern == "" {
-			continue
+	if capture != nil {
+		args = append(args, "--source-name", "scoped-source:"+capture.original, "--source-version", "manifest-sha256:"+capture.digest)
+		for _, pattern := range capture.excludes {
+			args = append(args, "--exclude", pattern)
 		}
-		args = append(args, "--exclude", pattern)
 	}
 
 	// Use new --output FORMAT=PATH syntax (or FORMAT for stdout)
-	if config.Stdout {
-		args = append(args, "--output", config.Format)
-	} else {
-		args = append(args, "--output", fmt.Sprintf("%s=%s", config.Format, outputPath))
+	args = append(args, "--output", config.Format)
+	if err := checkSourceArguments(s.syftPath, args, os.Environ(), runtime.GOOS); err != nil {
+		return nil, err
+	}
+	if capture != nil {
+		if err := capture.verify(ctx); err != nil {
+			return nil, err
+		}
+	} else if err := artifact.verify(ctx); err != nil {
+		return nil, err
 	}
 
 	logger.Debug("sbom: invoking syft", logger.String("path", s.syftPath), logger.String("target", targetPath), logger.String("output", outputPath))
@@ -184,40 +231,59 @@ func (s *SyftInvoker) Generate(ctx context.Context, config Config) (*Result, err
 	cmd := exec.CommandContext(ctx, s.syftPath, args...) // #nosec G204 - Paths validated with filepath.Abs above
 	cmd.Stderr = os.Stderr
 
-	var sbomContent json.RawMessage
-	if config.Stdout {
-		output, err := cmd.Output()
-		if err != nil {
-			return nil, fmt.Errorf("syft execution failed: %w", err)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("syft execution failed: %w", err)
+	}
+	var sbomContent json.RawMessage = output
+	if capture != nil {
+		if err := capture.verify(ctx); err != nil {
+			return nil, err
 		}
-		sbomContent = output
+		sbomContent, err = normalizeSourceProvenance(output, config.Format, capture, options)
+		if err != nil {
+			return nil, err
+		}
 	} else {
-		if err := cmd.Run(); err != nil {
-			return nil, fmt.Errorf("syft execution failed: %w", err)
+		if err := artifact.verify(ctx); err != nil {
+			return nil, err
 		}
-
-		// #nosec G304 -- outputPath is validated with filepath.Abs above (line 145) and controlled by config
-		content, err := os.ReadFile(outputPath)
+		document, err := decodeSourceJSON(output)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read generated SBOM: %w", err)
+			return nil, err
 		}
-		sbomContent = content
+		if err := validateSourceDocument(document, config.Format); err != nil {
+			return nil, err
+		}
+		if err := validateSourceReferences(document, config.Format); err != nil {
+			return nil, err
+		}
 	}
 
 	duration := time.Since(startTime)
 
 	packageCount, err := extractPackageCount(sbomContent, config.Format)
 	if err != nil {
-		logger.Warn("sbom: failed to extract package count", logger.String("error", err.Error()))
-		packageCount = 0
+		return nil, err
 	}
 
 	dependencyGraph, err := extractDependencyGraph(sbomContent, config.Format)
 	if err != nil {
-		logger.Warn("sbom: failed to extract dependency graph", logger.String("error", err.Error()))
+		return nil, err
+	}
+	cleanup := func() error {
+		if capture == nil {
+			return nil
+		}
+		owned := capture
+		capture = nil // Cleanup is attempted once; errors retain the named path.
+		return owned.cleanup()
+	}
+	if err := publishSourceOutput(ctx, sbomContent, outputPath, cleanup); err != nil {
+		return nil, err
 	}
 
-	result := &Result{
+	result = &Result{
 		OutputPath:      outputPath,
 		Format:          config.Format,
 		GeneratedAt:     startTime,
@@ -234,6 +300,15 @@ func (s *SyftInvoker) Generate(ctx context.Context, config Config) (*Result, err
 }
 
 func extractPackageCount(content json.RawMessage, format string) (int, error) {
+	if format == "spdx-json" {
+		var document struct {
+			Packages []json.RawMessage `json:"packages"`
+		}
+		if err := json.Unmarshal(content, &document); err != nil {
+			return 0, err
+		}
+		return len(document.Packages), nil
+	}
 	if format != "cyclonedx-json" {
 		return 0, fmt.Errorf("unsupported format for package counting: %s", format)
 	}
@@ -252,6 +327,9 @@ func extractPackageCount(content json.RawMessage, format string) (int, error) {
 func extractDependencyGraph(content json.RawMessage, format string) (*DependencyGraph, error) {
 	if len(content) == 0 {
 		return nil, nil
+	}
+	if format == "spdx-json" {
+		return nil, nil // SPDX relationships remain intact in SBOMContent.
 	}
 
 	if format != "cyclonedx-json" {

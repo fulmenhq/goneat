@@ -37,12 +37,51 @@ func findKeywordScalarProperties(node any, path string, report func(string)) {
 			}
 		}
 		for k, v := range n {
+			switch k {
+			case "properties", "patternProperties", "definitions", "$defs":
+				// These are maps of schemas, not schema objects themselves.
+				// A legitimate property named "properties" must not make its
+				// own type keyword look like an indented scalar property.
+				if schemas, ok := v.(map[string]any); ok {
+					for name, sub := range schemas {
+						findKeywordScalarProperties(sub, path+"/"+k+"/"+name, report)
+					}
+				}
+				continue
+			case "default", "examples", "enum", "const":
+				continue // Instance data, not subschemas.
+			}
 			findKeywordScalarProperties(v, path+"/"+k, report)
 		}
 	case []any:
 		for i, v := range n {
 			findKeywordScalarProperties(v, path+"/"+strconv.Itoa(i), report)
 		}
+	}
+}
+
+func TestKeywordScalarPropertiesDistinguishesSchemaMaps(t *testing.T) {
+	for _, tc := range []struct {
+		name, schema string
+		wantErrors   int
+	}{
+		{"keyword-named-property", `{"properties":{"properties":{"type":"array","items":{"type":"string"}}}}`, 0},
+		{"keyword-named-definition", `{"definitions":{"properties":{"type":"string"}}}`, 0},
+		{"instance-data", `{"examples":[{"properties":{"additionalProperties":false}}]}`, 0},
+		{"misindented-keyword", `{"properties":{"additionalProperties":false}}`, 1},
+		{"nested-misindented-keyword", `{"properties":{"properties":{"properties":{"additionalProperties":false}}}}`, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var document any
+			if err := json.Unmarshal([]byte(tc.schema), &document); err != nil {
+				t.Fatal(err)
+			}
+			count := 0
+			findKeywordScalarProperties(document, "", func(string) { count++ })
+			if count != tc.wantErrors {
+				t.Fatalf("found %d convention errors, want %d", count, tc.wantErrors)
+			}
+		})
 	}
 }
 

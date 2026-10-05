@@ -74,6 +74,19 @@ jobs:
         with:
           python-version: '3.13'
           architecture: ${{ endsWith(matrix.target, '/arm64') && 'arm64' || 'x64' }}
+      - name: Set up native source-contract toolchain
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.6'
+      - name: Require native source capture, privacy and publication contracts
+        run: python scripts/source-contract.py --target "${{ matrix.target }}" --source-sha "${{ github.sha }}" --receipt "${{ runner.temp }}/source-contract.json"
+      - name: Retain native source-contract evidence
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: source-contract-${{ runner.os }}-${{ runner.arch }}
+          path: ${{ runner.temp }}/source-contract.json
+          if-no-files-found: error
+          retention-days: 7
       - uses: actions/download-artifact@v4.1.8
         with:
           name: release-candidate

@@ -63,7 +63,7 @@ func TestSyftInvoker_Generate(t *testing.T) {
 
 	result, err := invoker.Generate(ctx, config)
 	if err != nil {
-		t.Skipf("Syft generate failed: %v", err)
+		t.Fatalf("Syft generate failed: %v", err)
 	}
 
 	if result.OutputPath != outputPath {
@@ -123,7 +123,7 @@ func TestSyftInvoker_GenerateStdout(t *testing.T) {
 
 	result, err := invoker.Generate(ctx, config)
 	if err != nil {
-		t.Skipf("Syft generate failed: %v", err)
+		t.Fatalf("Syft generate failed: %v", err)
 	}
 
 	if len(result.SBOMContent) == 0 {
@@ -163,7 +163,7 @@ func TestExtractPackageCount(t *testing.T) {
 		{
 			name:        "unsupported format",
 			content:     `{}`,
-			format:      "spdx-json",
+			format:      "unsupported-json",
 			expectError: true,
 		},
 		{
@@ -215,6 +215,9 @@ func TestSyftInvoker_ResolveBinaryIntegration(t *testing.T) {
 
 	// Set GONEAT_HOME to our temp directory
 	_ = os.Setenv("GONEAT_HOME", tempDir) // Ignore error in test setup
+	// Managed-location precedence is tested independently of an operator's
+	// explicit collector override; the next phase tests that override itself.
+	t.Setenv("GONEAT_TOOL_SYFT", "")
 
 	// Create managed bin directory structure
 	binDir := filepath.Join(tempDir, "tools", "bin")
