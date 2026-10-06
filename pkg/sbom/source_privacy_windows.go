@@ -15,6 +15,10 @@ import (
 // FILE_ALL_ACCESS is the file-object full-control mask (not GENERIC_ALL).
 const sourceWindowsFullControl = windows.ACCESS_MASK(0x001f01ff)
 
+// The directory self-open reads attributes to verify object identity before
+// assigning ownership. No data/listing, synchronization, or delete access.
+const sourceWindowsDirectoryOwnerAccess = windows.WRITE_OWNER | windows.READ_CONTROL | windows.FILE_READ_ATTRIBUTES
+
 var sourceReOpenFile = windows.NewLazySystemDLL("kernel32.dll").NewProc("ReOpenFile")
 
 // sourceOwnerStageError adds diagnostic context without replacing a Windows
@@ -65,7 +69,7 @@ func setSourceChildOwner(file *os.File) (retErr error) {
 				Attributes:    windows.OBJ_DONT_REPARSE,
 			}
 			attributes.Length = uint32(unsafe.Sizeof(attributes))
-			reopenErr = sourceOwnerStageError("directory-self-open", windows.NtCreateFile(&handle, windows.WRITE_OWNER|windows.READ_CONTROL,
+			reopenErr = sourceOwnerStageError("directory-self-open", windows.NtCreateFile(&handle, sourceWindowsDirectoryOwnerAccess,
 				&attributes, &windows.IO_STATUS_BLOCK{}, nil, 0,
 				windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, windows.FILE_OPEN,
 				windows.FILE_DIRECTORY_FILE|windows.FILE_OPEN_REPARSE_POINT, 0, 0))

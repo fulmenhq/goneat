@@ -82,6 +82,13 @@ func TestSourceChildOwnerErrorStages(t *testing.T) {
 }
 
 func TestSourceChildDirectoryOwnerIdentity(t *testing.T) {
+	const wantAccess = windows.WRITE_OWNER | windows.READ_CONTROL | windows.FILE_READ_ATTRIBUTES
+	if sourceWindowsDirectoryOwnerAccess != wantAccess {
+		t.Fatalf("directory owner access=%#x, want only owner/control/read-attributes %#x", sourceWindowsDirectoryOwnerAccess, wantAccess)
+	}
+	if sourceWindowsDirectoryOwnerAccess != 0x000a0080 {
+		t.Fatalf("directory owner access=%#x, want exact mask 0x000a0080", sourceWindowsDirectoryOwnerAccess)
+	}
 	path := t.TempDir()
 	if err := makeSourcePrivate(path); err != nil {
 		t.Fatal(err)
