@@ -108,13 +108,16 @@ func normalizeSourceProvenance(content []byte, format string, capture *sourceCap
 	}
 	m := sourceMapper{capture: capture}
 	scope, err := json.Marshal(struct {
-		Kind           string   `json:"kind"`
-		Subject        string   `json:"subject"`
-		ManifestSHA256 string   `json:"manifest_sha256"`
-		NoIgnore       bool     `json:"no_ignore"`
-		ForceInclude   []string `json:"force_include"`
-		Excludes       []string `json:"literal_excludes"`
-	}{"scoped-source-inventory", capture.original, capture.digest, options.NoIgnore, options.ForceInclude, capture.excludes})
+		Kind              string   `json:"kind"`
+		Subject           string   `json:"subject"`
+		ManifestSHA256    string   `json:"manifest_sha256"`
+		NoIgnore          bool     `json:"no_ignore"`
+		ForceInclude      []string `json:"force_include"`
+		Excludes          []string `json:"literal_excludes"`
+		ProtectedEvidence []string `json:"protected_root_go_evidence"`
+		IgnorePolicy      string   `json:"ignore_policy"`
+		CollectorPolicy   string   `json:"collector_policy"`
+	}{"scoped-source-inventory", capture.original, capture.digest, options.NoIgnore, options.ForceInclude, capture.excludes, capture.protectedEvidence, "ordered-root-ignore; defaults/configured-hard; root-go-evidence-protected", sourceCollectorPolicy})
 	if err != nil {
 		return nil, err
 	}

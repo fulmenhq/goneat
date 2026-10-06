@@ -40,15 +40,16 @@ type capturedEntry struct {
 // sourceCapture is an invocation-owned, reproducible captured-byte subject.
 // It is not an atomic filesystem snapshot or a hostile-writer boundary.
 type sourceCapture struct {
-	original string
-	path     string
-	root     *os.Root
-	manifest []capturedEntry
-	digest   string
-	excludes []string
-	limits   sourceLimits
-	created  fs.FileInfo
-	cleaned  bool
+	original          string
+	path              string
+	root              *os.Root
+	manifest          []capturedEntry
+	digest            string
+	excludes          []string
+	protectedEvidence []string
+	limits            sourceLimits
+	created           fs.FileInfo
+	cleaned           bool
 }
 
 func captureSource(ctx context.Context, target, temporaryParent string, opts SourceOptions, limits sourceLimits) (result *sourceCapture, retErr error) {
@@ -182,10 +183,18 @@ func captureSource(ctx context.Context, target, temporaryParent string, opts Sou
 			selection = append(selection, sourceEntry{name: entry.Name, directory: entry.Directory})
 		}
 	}
-	capture.excludes, err = compileSourceExcludes(selection, patterns, opts)
+	plan, err := planSourceSelection(selection, patterns, opts)
 	if err != nil {
 		return nil, err
 	}
+	if err := protectSourceGoEvidence(capture.root.FS(), plan, patterns, opts); err != nil {
+		return nil, err
+	}
+	capture.excludes, err = plan.literalExcludes()
+	if err != nil {
+		return nil, err
+	}
+	capture.protectedEvidence = plan.protectedEvidence
 	manifestJSON, err := json.Marshal(capture.manifest)
 	if err != nil {
 		return nil, err

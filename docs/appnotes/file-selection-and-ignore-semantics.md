@@ -58,14 +58,38 @@ The supported ignore subset is:
 - `*`, `?`, valid character classes, and whole-segment `**` are supported.
 - Blank lines and comments are ignored. Escaped leading `\#` and `\!` match
   literal names. Unsupported escapes, malformed patterns, brace expansion,
-  traversal, and unescaped `!` negation are errors with file/line context.
+  and traversal are errors with file/line context.
+- An unescaped leading `!` re-includes matching paths within root ignore policy.
+  Rules run in order: `.gitignore`, then `.goneatignore`; the last direct match
+  wins. A child cannot reopen an excluded parent. Reopening a directory allows
+  descent, but does not restore independently excluded children. For example,
+  `**/sumpter` then `!cmd/sumpter/` selects `cmd/sumpter/main.go` but still excludes
+  a file named `cmd/sumpter/sumpter`. Nested ignore files are not read; this is not
+  full Git-ignore compatibility.
+- Defaults and configured exclusions are a separate hard layer. Ignore negations
+  cannot override them; configured exclusion patterns cannot themselves be
+  negated. Literal force paths remain the explicit override.
 
 `--force-include bin/current` restores only that existing file.
 `--force-include bin/release` restores only that existing directory subtree.
 Ignored siblings and unrelated exclusions remain excluded. These arguments
 must be literal root-relative paths: globs, absolute/drive/UNC paths,
-traversal, and nonexistent paths are rejected. `--no-ignore` clears exclusion
-policy but retains capture, validation, and cleanup requirements.
+traversal, and nonexistent paths are rejected. `--no-ignore` clears defaults,
+configured exclusions and both root ignore files, but retains capture, validation,
+Go evidence scope checks and cleanup requirements.
+
+When root `go.mod` or `go.work` declares a Go subject, the four exact existing
+regular root names `go.mod`, `go.sum`, `go.work`, and `go.work.sum` are protected
+from root-ignore suppression. Actual exceptions appear in standalone source
+provenance. Optional absence does not synthesize files or fail the scan. A
+configured pattern still excluding any present protected file causes an
+actionable error, unless literal force or no-ignore already restores it.
+
+Root retention is not workspace completeness. Required workspace member or local
+replacement evidence must be present and selected inside the captured subject.
+Missing, excluded or outside-subject evidence causes an incomplete-scope error;
+goneat neither fetches external directories nor implicitly restores member trees.
+Unrelated nested projects are not covered by this root graph scope check.
 
 ### Captured Subject and Compatibility
 
@@ -88,6 +112,22 @@ This is a reproducible captured-byte subject under a trusted-local-writer
 boundary, not an atomic filesystem snapshot or protection from a hostile
 concurrent writer. Later changes to the live source do not change the captured
 subject.
+
+### Collector Policy Isolation
+
+Both directory source and explicit regular-file artifact collection use an
+invocation-owned explicit Syft config and a neutral private working directory
+outside the input. They retain the resolved Syft version's full default
+catalogers and only Goneat's generated literal exclusions. Caller `.syft.yaml`,
+profiles and other discovered Syft settings do not select inventory. All
+`SYFT_*` environment variables are removed, with no allowed exceptions currently;
+unrelated required OS/auth settings are preserved without being logged. This
+applies even when no generated exclusion arguments exist. It does not change
+the Go module-graph or supplied-SBOM vulnerability routes.
+
+Collector config and working-directory privacy, identity and contents are checked
+around collection. Their cleanup must also succeed before publication. Temporary
+collector paths must not appear in the emitted inventory.
 
 ### Provenance and Publication
 

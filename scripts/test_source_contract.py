@@ -40,18 +40,27 @@ class SourceContractChecks(unittest.TestCase):
         )
 
     def test_required_children_cannot_hide_under_parent_pass(self):
-        child = "TestSourcePublicationCleanupBeforeOutput/cleanup-failure"
-        for action in ["skip", "fail", "missing"]:
-            with self.subTest(action=action):
-                events = self.events()
-                if action == "missing":
-                    events = [event for event in events if event.get("Test") != child]
-                else:
-                    for event in events:
-                        if event.get("Test") == child:
-                            event["Action"] = action
-                with self.assertRaisesRegex(RuntimeError, "required source tests"):
-                    self.validate(events)
+        for child in [
+            "TestSourcePublicationCleanupBeforeOutput/cleanup-failure",
+            "TestSourceOrderedIgnoreNegations/dead-child",
+            "TestSourceRootGoEvidenceProtection/broad-configured-conflict",
+            "TestSourceGoWorkspaceScope/external-workspace",
+            "TestSourceProvenanceRecordsRootGoProtection/spdx-json",
+            "TestSourceCollectorRefusesMutation",
+        ]:
+            for action in ["skip", "fail", "missing"]:
+                with self.subTest(child=child, action=action):
+                    events = self.events()
+                    if action == "missing":
+                        events = [
+                            event for event in events if event.get("Test") != child
+                        ]
+                    else:
+                        for event in events:
+                            if event.get("Test") == child:
+                                event["Action"] = action
+                    with self.assertRaisesRegex(RuntimeError, "required source tests"):
+                        self.validate(events)
 
     def test_platform_manifest_requires_acl_and_symlink_proof(self):
         for target in ["windows/amd64", "windows/arm64"]:
