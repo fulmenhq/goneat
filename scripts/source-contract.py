@@ -32,6 +32,7 @@ def required_tests(target):
         "TestSourceCapturePolicyPreflight",
         "TestSourceCapturePrivacyMutation",
         "TestSourceCleanupRejectsReplacedRoot",
+        "TestSourceRootHandleIdentitySurvivesPathReuse",
         "TestSourceManifestIdentityReconciliation",
         "TestSourceCaptureDetectsMutationDuringHandleRead",
         "TestSourceArgumentBudgets",
@@ -123,6 +124,7 @@ def required_tests(target):
         names.add("TestSourceCaptureOwnerMutation")
         children["TestSourceCaptureOwnerMutation"] = [".", "nested", "nested/file"]
         names.add("TestSourceChildOwnerRejectsClosedHandle")
+        names.add("TestSourceChildDirectoryOwnerIdentity")
         names.add("TestSourceReplacementDenialClassification")
         children["TestSourceReplacementDenialClassification"] = [
             "access-denied",

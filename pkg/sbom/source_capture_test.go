@@ -307,11 +307,48 @@ func TestSourceCleanupRejectsReplacedRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeSourceFixture(t, capture.path, "user-owned", "do not delete")
-	if err := capture.cleanup(); err == nil || !strings.Contains(err.Error(), capture.path) {
-		t.Fatalf("changed snapshot pathname not rejected: %v", err)
-	}
+	cleanupErr := capture.cleanup()
 	data, err := os.ReadFile(filepath.Join(capture.path, "user-owned"))
 	if err != nil || string(data) != "do not delete" {
 		t.Fatalf("replacement directory deleted: %q %v", data, err)
+	}
+	data, err = os.ReadFile(filepath.Join(capture.path+"-moved", "file"))
+	if err != nil || string(data) != "private source bytes" {
+		t.Fatalf("moved invocation snapshot changed: %q %v", data, err)
+	}
+	if cleanupErr == nil || !strings.Contains(cleanupErr.Error(), capture.path) {
+		t.Fatalf("changed snapshot pathname not rejected: %v", cleanupErr)
+	}
+}
+
+func TestSourceRootHandleIdentitySurvivesPathReuse(t *testing.T) {
+	parent := t.TempDir()
+	path := filepath.Join(parent, "source")
+	writeSourceFixture(t, path, "file", "same bytes")
+	root, err := os.OpenRoot(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, statErr := root.Stat(".")
+	closeErr := root.Close()
+	if statErr != nil || closeErr != nil {
+		t.Fatalf("capture source handle identity: %v %v", statErr, closeErr)
+	}
+	if err := os.Rename(path, path+"-moved"); err != nil {
+		t.Fatal(err)
+	}
+	writeSourceFixture(t, path, "file", "same bytes")
+	current, err := os.Lstat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if os.SameFile(identity, current) {
+		t.Fatal("source handle identity resolved a reused pathname")
+	}
+	for _, name := range []string{path, path + "-moved"} {
+		data, err := os.ReadFile(filepath.Join(name, "file"))
+		if err != nil || string(data) != "same bytes" {
+			t.Fatalf("source identity check changed %s: %q %v", name, data, err)
+		}
 	}
 }

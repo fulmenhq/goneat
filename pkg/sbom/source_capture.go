@@ -82,6 +82,9 @@ func captureSource(ctx context.Context, target, temporaryParent string, opts Sou
 	if err != nil || !os.SameFile(selected, opened) {
 		return nil, fmt.Errorf("source SBOM root changed while opening %s", target)
 	}
+	// On Windows pathname Lstat may defer obtaining the file ID until SameFile.
+	// Retain the opened object's eagerly populated ID for later reconciliation.
+	selected = opened
 	// Fail on invalid root policy/force syntax before copying the subject. The
 	// captured copies are parsed again below, so selection still describes the
 	// reconciled captured state rather than a stale preflight policy read.
@@ -130,7 +133,14 @@ func captureSource(ctx context.Context, target, temporaryParent string, opts Sou
 		return nil, fmt.Errorf("create private source SBOM capture: %w", err)
 	}
 	capture = &sourceCapture{original: target, path: temporary, limits: limits}
-	capture.created, err = os.Lstat(temporary)
+	// Save identity through the original directory handle before privacy setup,
+	// copying, or failure cleanup. A saved pathname Lstat is not a historical ID
+	// on Windows: SameFile could reopen a replacement at that path later.
+	capture.root, err = os.OpenRoot(temporary)
+	if err != nil {
+		return nil, err
+	}
+	capture.created, err = capture.root.Stat(".")
 	if err != nil {
 		return nil, err
 	}
@@ -142,10 +152,6 @@ func captureSource(ctx context.Context, target, temporaryParent string, opts Sou
 		return nil, err
 	}
 	if err := verifySourcePrivacy(temporary, privateInfo, true); err != nil {
-		return nil, err
-	}
-	capture.root, err = os.OpenRoot(temporary)
-	if err != nil {
 		return nil, err
 	}
 	capture.manifest, err = scanSourceTree(ctx, original, capture.root, limits)

@@ -59,11 +59,13 @@ class SourceContractChecks(unittest.TestCase):
             for name in [
                 "TestSourceCaptureUnreadableACL",
                 "TestSourceCapturePrivacyMutation",
+                "TestSourceRootHandleIdentitySurvivesPathReuse",
                 "TestSourceCaptureOwnerMutation",
                 "TestSourceCaptureOwnerMutation/.",
                 "TestSourceCaptureOwnerMutation/nested",
                 "TestSourceCaptureOwnerMutation/nested/file",
                 "TestSourceChildOwnerRejectsClosedHandle",
+                "TestSourceChildDirectoryOwnerIdentity",
                 "TestSourceReplacementDenialClassification/generic-error",
                 "TestSourceCaptureRejectsSymlinksEvenExcluded",
             ]:

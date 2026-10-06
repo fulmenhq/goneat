@@ -17,19 +17,37 @@ type artifactIdentity struct {
 	digest string
 }
 
-func inspectArtifact(ctx context.Context, path string) (*artifactIdentity, error) {
+func inspectArtifact(ctx context.Context, path string) (_ *artifactIdentity, retErr error) {
 	absolute, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
 	}
-	info, err := os.Lstat(absolute)
+	root, err := os.OpenRoot(filepath.Dir(absolute))
+	if err != nil {
+		return nil, err
+	}
+	defer func() { retErr = errors.Join(retErr, root.Close()) }()
+	// Root.Lstat takes its identity from a handle, including on Windows.
+	info, err := root.Lstat(filepath.Base(absolute))
 	if err != nil {
 		return nil, err
 	}
 	if !info.Mode().IsRegular() {
 		return nil, fmt.Errorf("SBOM artifact must be a regular non-symlink file: %s", absolute)
 	}
-	identity := &artifactIdentity{path: absolute, info: info}
+	file, err := root.Open(filepath.Base(absolute))
+	if err != nil {
+		return nil, err
+	}
+	opened, statErr := file.Stat()
+	if err := errors.Join(statErr, file.Close()); err != nil {
+		return nil, err
+	}
+	if !sameSourceFile(info, opened) {
+		return nil, fmt.Errorf("SBOM artifact changed while opening: %s", absolute)
+	}
+	// File.Stat retains the handle's ID rather than a lazily reopened pathname.
+	identity := &artifactIdentity{path: absolute, info: opened}
 	identity.digest, err = identity.hash(ctx)
 	if err != nil {
 		return nil, err

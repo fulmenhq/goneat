@@ -55,6 +55,48 @@ func TestSourceChildOwnerRejectsClosedHandle(t *testing.T) {
 	}
 }
 
+func TestSourceChildDirectoryOwnerIdentity(t *testing.T) {
+	path := t.TempDir()
+	if err := makeSourcePrivate(path); err != nil {
+		t.Fatal(err)
+	}
+	root, err := os.OpenRoot(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := root.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if err := root.Mkdir("child", 0o700); err != nil {
+		t.Fatal(err)
+	}
+	child, err := root.Open("child")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := child.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	before, err := child.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := setSourceChildOwner(child); err != nil {
+		t.Fatalf("required single native directory self-open/owner assignment: %v", err)
+	}
+	after, err := child.Stat()
+	if err != nil || !os.SameFile(before, after) {
+		t.Fatalf("owner assignment changed child directory object: %v", err)
+	}
+	if err := verifySourcePrivacy(filepath.Join(path, "child"), after, false); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestSourceCaptureOwnerMutation(t *testing.T) {
 	groups, err := windows.GetCurrentProcessToken().GetTokenGroups()
 	if err != nil {

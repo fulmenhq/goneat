@@ -29,12 +29,10 @@ func setSourceChildOwner(file *os.File) (retErr error) {
 	if err != nil {
 		return err
 	}
-	var flags uint32
-	if info.IsDir() {
-		flags = windows.FILE_FLAG_BACKUP_SEMANTICS
-	}
-	if err := sourceReOpenFile.Find(); err != nil {
-		return err
+	if !info.IsDir() {
+		if err := sourceReOpenFile.Find(); err != nil {
+			return err
+		}
 	}
 	connection, err := file.SyscallConn()
 	if err != nil {
@@ -42,21 +40,73 @@ func setSourceChildOwner(file *os.File) (retErr error) {
 	}
 	handle := windows.InvalidHandle
 	var reopenErr error
-	if err := connection.Control(func(original uintptr) {
+	controlErr := connection.Control(func(original uintptr) {
+		if info.IsDir() {
+			// ReOpenFile refuses these os.Root directory handles. Open only
+			// the directory object itself relative to its retained handle.
+			// No pathname, alternate API, or backup/restore privilege is used.
+			name, err := windows.NewNTUnicodeString("")
+			if err != nil {
+				reopenErr = err
+				return
+			}
+			attributes := windows.OBJECT_ATTRIBUTES{
+				RootDirectory: windows.Handle(original),
+				ObjectName:    name,
+				Attributes:    windows.OBJ_DONT_REPARSE,
+			}
+			attributes.Length = uint32(unsafe.Sizeof(attributes))
+			reopenErr = windows.NtCreateFile(&handle, windows.WRITE_OWNER|windows.READ_CONTROL,
+				&attributes, &windows.IO_STATUS_BLOCK{}, nil, 0,
+				windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, windows.FILE_OPEN,
+				windows.FILE_DIRECTORY_FILE|windows.FILE_OPEN_REPARSE_POINT, 0, 0)
+			return
+		}
 		value, _, callErr := sourceReOpenFile.Call(original,
 			uintptr(windows.WRITE_OWNER|windows.READ_CONTROL),
-			uintptr(windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE), uintptr(flags))
+			uintptr(windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE), 0)
 		handle = windows.Handle(value)
 		if handle == windows.InvalidHandle {
 			reopenErr = fmt.Errorf("source SBOM reopen child for owner assignment: %w", callErr)
 		}
-	}); err != nil {
-		return err
+	})
+	if handle != windows.InvalidHandle && handle != 0 {
+		defer func() { retErr = errors.Join(retErr, windows.CloseHandle(handle)) }()
+	}
+	if controlErr != nil {
+		return controlErr
 	}
 	if reopenErr != nil {
 		return reopenErr
 	}
-	defer func() { retErr = errors.Join(retErr, windows.CloseHandle(handle)) }()
+	if handle == windows.InvalidHandle || handle == 0 {
+		return fmt.Errorf("source SBOM owner self-open returned an invalid handle")
+	}
+	if info.IsDir() {
+		// Fail closed if self-open did not return this same non-reparse
+		// directory. Query both handles, never a reused pathname.
+		var originalInfo, reopenedInfo windows.ByHandleFileInformation
+		var identityErr error
+		if err := connection.Control(func(original uintptr) {
+			identityErr = windows.GetFileInformationByHandle(windows.Handle(original), &originalInfo)
+		}); err != nil {
+			return err
+		}
+		if identityErr != nil {
+			return identityErr
+		}
+		if err := windows.GetFileInformationByHandle(handle, &reopenedInfo); err != nil {
+			return err
+		}
+		if reopenedInfo.FileAttributes&windows.FILE_ATTRIBUTE_DIRECTORY == 0 ||
+			reopenedInfo.FileAttributes&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0 ||
+			originalInfo.FileAttributes&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0 ||
+			originalInfo.VolumeSerialNumber != reopenedInfo.VolumeSerialNumber ||
+			originalInfo.FileIndexHigh != reopenedInfo.FileIndexHigh ||
+			originalInfo.FileIndexLow != reopenedInfo.FileIndexLow {
+			return fmt.Errorf("source SBOM directory owner self-open changed object identity or reparse state")
+		}
+	}
 	return windows.SetSecurityInfo(handle, windows.SE_FILE_OBJECT,
 		windows.OWNER_SECURITY_INFORMATION, user.User.Sid, nil, nil, nil)
 }
