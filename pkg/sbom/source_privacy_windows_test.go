@@ -55,6 +55,32 @@ func TestSourceChildOwnerRejectsClosedHandle(t *testing.T) {
 	}
 }
 
+func TestSourceChildOwnerErrorStages(t *testing.T) {
+	stages := []string{"directory-self-open", "original-identity-query", "reopened-identity-query", "owner-assignment", "owner-handle-close"}
+	for _, stage := range stages {
+		if got := sourceOwnerStageError(stage, nil); got != nil {
+			t.Fatalf("successful stage %s returned %v", stage, got)
+		}
+		win32 := sourceOwnerStageError(stage, windows.ERROR_ACCESS_DENIED)
+		if !errors.Is(win32, windows.ERROR_ACCESS_DENIED) || !strings.Contains(win32.Error(), stage) {
+			t.Fatalf("stage %s lost Win32 errno or label: %v", stage, win32)
+		}
+		status := windows.NTStatus(0xc0000022) // STATUS_ACCESS_DENIED
+		nt := sourceOwnerStageError(stage, status)
+		var recovered windows.NTStatus
+		if !errors.Is(nt, status) || !errors.As(nt, &recovered) || recovered != status || !strings.Contains(nt.Error(), stage) {
+			t.Fatalf("stage %s lost NTSTATUS or label: %v", stage, nt)
+		}
+	}
+	primary := sourceOwnerStageError("directory-self-open", windows.ERROR_ACCESS_DENIED)
+	closeErr := sourceOwnerStageError("owner-handle-close", windows.ERROR_INVALID_HANDLE)
+	joined := errors.Join(primary, closeErr)
+	if !errors.Is(joined, windows.ERROR_ACCESS_DENIED) || !errors.Is(joined, windows.ERROR_INVALID_HANDLE) ||
+		!strings.Contains(joined.Error(), "directory-self-open") || !strings.Contains(joined.Error(), "owner-handle-close") {
+		t.Fatalf("joined close error lost a stage or identity: %v", joined)
+	}
+}
+
 func TestSourceChildDirectoryOwnerIdentity(t *testing.T) {
 	path := t.TempDir()
 	if err := makeSourcePrivate(path); err != nil {

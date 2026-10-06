@@ -125,6 +125,7 @@ def required_tests(target):
         children["TestSourceCaptureOwnerMutation"] = [".", "nested", "nested/file"]
         names.add("TestSourceChildOwnerRejectsClosedHandle")
         names.add("TestSourceChildDirectoryOwnerIdentity")
+        names.add("TestSourceChildOwnerErrorStages")
         names.add("TestSourceReplacementDenialClassification")
         children["TestSourceReplacementDenialClassification"] = [
             "access-denied",

@@ -17,26 +17,35 @@ const sourceWindowsFullControl = windows.ACCESS_MASK(0x001f01ff)
 
 var sourceReOpenFile = windows.NewLazySystemDLL("kernel32.dll").NewProc("ReOpenFile")
 
+// sourceOwnerStageError adds diagnostic context without replacing a Windows
+// errno or NTSTATUS. A successful stage stays nil.
+func sourceOwnerStageError(stage string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("source SBOM child owner %s: %w", stage, err)
+}
+
 // New children inherit the private DACL, but their default owner may be an
 // elevated token's group rather than TokenUser. Reopen the already-created
 // object by handle to assign its owner before writing bytes or creating children.
 func setSourceChildOwner(file *os.File) (retErr error) {
 	user, err := windows.GetCurrentProcessToken().GetTokenUser()
 	if err != nil {
-		return err
+		return sourceOwnerStageError("token-user", err)
 	}
 	info, err := file.Stat()
 	if err != nil {
-		return err
+		return sourceOwnerStageError("child-stat", err)
 	}
 	if !info.IsDir() {
 		if err := sourceReOpenFile.Find(); err != nil {
-			return err
+			return sourceOwnerStageError("file-reopen-resolve", err)
 		}
 	}
 	connection, err := file.SyscallConn()
 	if err != nil {
-		return err
+		return sourceOwnerStageError("syscall-connection", err)
 	}
 	handle := windows.InvalidHandle
 	var reopenErr error
@@ -47,7 +56,7 @@ func setSourceChildOwner(file *os.File) (retErr error) {
 			// No pathname, alternate API, or backup/restore privilege is used.
 			name, err := windows.NewNTUnicodeString("")
 			if err != nil {
-				reopenErr = err
+				reopenErr = sourceOwnerStageError("directory-self-open-name", err)
 				return
 			}
 			attributes := windows.OBJECT_ATTRIBUTES{
@@ -56,10 +65,10 @@ func setSourceChildOwner(file *os.File) (retErr error) {
 				Attributes:    windows.OBJ_DONT_REPARSE,
 			}
 			attributes.Length = uint32(unsafe.Sizeof(attributes))
-			reopenErr = windows.NtCreateFile(&handle, windows.WRITE_OWNER|windows.READ_CONTROL,
+			reopenErr = sourceOwnerStageError("directory-self-open", windows.NtCreateFile(&handle, windows.WRITE_OWNER|windows.READ_CONTROL,
 				&attributes, &windows.IO_STATUS_BLOCK{}, nil, 0,
 				windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, windows.FILE_OPEN,
-				windows.FILE_DIRECTORY_FILE|windows.FILE_OPEN_REPARSE_POINT, 0, 0)
+				windows.FILE_DIRECTORY_FILE|windows.FILE_OPEN_REPARSE_POINT, 0, 0))
 			return
 		}
 		value, _, callErr := sourceReOpenFile.Call(original,
@@ -67,14 +76,16 @@ func setSourceChildOwner(file *os.File) (retErr error) {
 			uintptr(windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE), 0)
 		handle = windows.Handle(value)
 		if handle == windows.InvalidHandle {
-			reopenErr = fmt.Errorf("source SBOM reopen child for owner assignment: %w", callErr)
+			reopenErr = sourceOwnerStageError("file-reopen", callErr)
 		}
 	})
 	if handle != windows.InvalidHandle && handle != 0 {
-		defer func() { retErr = errors.Join(retErr, windows.CloseHandle(handle)) }()
+		defer func() {
+			retErr = errors.Join(retErr, sourceOwnerStageError("owner-handle-close", windows.CloseHandle(handle)))
+		}()
 	}
 	if controlErr != nil {
-		return controlErr
+		return sourceOwnerStageError("self-open-control", controlErr)
 	}
 	if reopenErr != nil {
 		return reopenErr
@@ -90,13 +101,13 @@ func setSourceChildOwner(file *os.File) (retErr error) {
 		if err := connection.Control(func(original uintptr) {
 			identityErr = windows.GetFileInformationByHandle(windows.Handle(original), &originalInfo)
 		}); err != nil {
-			return err
+			return sourceOwnerStageError("original-identity-control", err)
 		}
 		if identityErr != nil {
-			return identityErr
+			return sourceOwnerStageError("original-identity-query", identityErr)
 		}
 		if err := windows.GetFileInformationByHandle(handle, &reopenedInfo); err != nil {
-			return err
+			return sourceOwnerStageError("reopened-identity-query", err)
 		}
 		if reopenedInfo.FileAttributes&windows.FILE_ATTRIBUTE_DIRECTORY == 0 ||
 			reopenedInfo.FileAttributes&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0 ||
@@ -107,8 +118,8 @@ func setSourceChildOwner(file *os.File) (retErr error) {
 			return fmt.Errorf("source SBOM directory owner self-open changed object identity or reparse state")
 		}
 	}
-	return windows.SetSecurityInfo(handle, windows.SE_FILE_OBJECT,
-		windows.OWNER_SECURITY_INFORMATION, user.User.Sid, nil, nil, nil)
+	return sourceOwnerStageError("owner-assignment", windows.SetSecurityInfo(handle, windows.SE_FILE_OBJECT,
+		windows.OWNER_SECURITY_INFORMATION, user.User.Sid, nil, nil, nil))
 }
 
 func makeSourcePrivate(name string) error {

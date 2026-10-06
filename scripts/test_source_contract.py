@@ -66,6 +66,7 @@ class SourceContractChecks(unittest.TestCase):
                 "TestSourceCaptureOwnerMutation/nested/file",
                 "TestSourceChildOwnerRejectsClosedHandle",
                 "TestSourceChildDirectoryOwnerIdentity",
+                "TestSourceChildOwnerErrorStages",
                 "TestSourceReplacementDenialClassification/generic-error",
                 "TestSourceCaptureRejectsSymlinksEvenExcluded",
             ]:
