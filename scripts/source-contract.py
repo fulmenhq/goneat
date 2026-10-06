@@ -1,4 +1,4 @@
-"""Required native source-SBOM filesystem contracts; no optional collector proof."""
+"""Require native source-SBOM helper tests; actual collector proof is separate."""
 
 import argparse
 import json
@@ -120,6 +120,18 @@ def required_tests(target):
     ]
     if target.startswith("windows/"):
         names.add("TestSourceCaptureUnreadableACL")
+        names.add("TestSourceCaptureOwnerMutation")
+        children["TestSourceCaptureOwnerMutation"] = [".", "nested", "nested/file"]
+        names.add("TestSourceChildOwnerRejectsClosedHandle")
+        names.add("TestSourceReplacementDenialClassification")
+        children["TestSourceReplacementDenialClassification"] = [
+            "access-denied",
+            "sharing-violation",
+            "wrapped-denial",
+            "generic-permission",
+            "missing-file",
+            "generic-error",
+        ]
     else:
         names.add("TestSourceCaptureRejectsSpecialFile")
         names.add("TestSourceInvokerFailurePreservesDestination")

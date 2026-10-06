@@ -227,6 +227,14 @@ func scanSourceTree(ctx context.Context, root, destination *os.Root, limits sour
 				if err := destination.Mkdir(name, 0o700); err != nil {
 					return fmt.Errorf("source SBOM stage directory %q: %w", name, err)
 				}
+				directory, err := destination.Open(name)
+				if err != nil {
+					return fmt.Errorf("source SBOM open staged directory %q: %w", name, err)
+				}
+				ownerErr := setSourceChildOwner(directory)
+				if err := errors.Join(ownerErr, directory.Close()); err != nil {
+					return fmt.Errorf("source SBOM staged directory owner %q: %w", name, err)
+				}
 			}
 		} else {
 			if info.Size() > limits.bytes-total {
@@ -279,6 +287,9 @@ func copySourceFile(ctx context.Context, root, destination *os.Root, name string
 			return "", fmt.Errorf("source SBOM stage %q: %w", name, err)
 		}
 		defer func() { retErr = errors.Join(retErr, out.Close()) }()
+		if err := setSourceChildOwner(out); err != nil {
+			return "", fmt.Errorf("source SBOM staged file owner %q: %w", name, err)
+		}
 		writer = io.MultiWriter(out, hash)
 	}
 	copied, err := io.Copy(writer, io.LimitReader(sourceContextReader{ctx: ctx, r: file}, remaining+1))

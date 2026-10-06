@@ -2,13 +2,106 @@ package sbom
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
+
+func sourceReplacementDenied(err error) bool {
+	return errors.Is(err, windows.ERROR_ACCESS_DENIED) || errors.Is(err, windows.ERROR_SHARING_VIOLATION)
+}
+
+func TestSourceReplacementDenialClassification(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"access-denied", windows.ERROR_ACCESS_DENIED, true},
+		{"sharing-violation", windows.ERROR_SHARING_VIOLATION, true},
+		{"wrapped-denial", &os.LinkError{Op: "rename", Err: windows.ERROR_ACCESS_DENIED}, true},
+		{"generic-permission", os.ErrPermission, false},
+		{"missing-file", windows.ERROR_FILE_NOT_FOUND, false},
+		{"generic-error", errors.New("access is denied"), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := sourceReplacementDenied(tc.err); got != tc.want {
+				t.Fatalf("denial classification=%v want=%v for %v", got, tc.want, tc.err)
+			}
+		})
+	}
+}
+
+func TestSourceChildOwnerRejectsClosedHandle(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "empty")
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := setSourceChildOwner(file); err == nil {
+		t.Fatal("owner assignment silently accepted a closed handle")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil || len(data) != 0 {
+		t.Fatalf("failed owner assignment wrote data: %q %v", data, err)
+	}
+}
+
+func TestSourceCaptureOwnerMutation(t *testing.T) {
+	groups, err := windows.GetCurrentProcessToken().GetTokenGroups()
+	if err != nil {
+		t.Fatal(err)
+	}
+	user, err := windows.GetCurrentProcessToken().GetTokenUser()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var other *windows.SID
+	for _, group := range groups.AllGroups() {
+		if group.Attributes&windows.SE_GROUP_OWNER != 0 && !windows.EqualSid(group.Sid, user.User.Sid) {
+			other = group.Sid
+			break
+		}
+	}
+	if other == nil {
+		t.Fatal("required owner-tamper fixture needs an assignable non-user owner in the hosted token")
+	}
+	for _, name := range []string{".", "nested", "nested/file"} {
+		t.Run(name, func(t *testing.T) {
+			root, parent := t.TempDir(), t.TempDir()
+			writeSourceFixture(t, root, "nested/file", "private bytes")
+			capture, err := captureSource(context.Background(), root, parent, SourceOptions{}, sourceLimits{entries: 10, bytes: 100})
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				if err := capture.cleanup(); err != nil {
+					t.Error(err)
+				}
+			})
+			path := filepath.Join(capture.path, filepath.FromSlash(name))
+			t.Cleanup(func() {
+				if err := windows.SetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.OWNER_SECURITY_INFORMATION, user.User.Sid, nil, nil, nil); err != nil {
+					t.Error(err)
+				}
+			})
+			if err := windows.SetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.OWNER_SECURITY_INFORMATION, other, nil, nil, nil); err != nil {
+				t.Fatalf("required owner-tamper fixture: %v", err)
+			}
+			if err := capture.verify(context.Background()); err == nil || !strings.Contains(err.Error(), "owner changed") {
+				t.Fatalf("non-user owner accepted or wrong rejection: %v", err)
+			}
+		})
+	}
+}
 
 // Hosted Windows tests use the current token's symlink privilege when present;
 // Developer Mode's unprivileged route remains usable when it is absent. The

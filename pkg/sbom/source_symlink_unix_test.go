@@ -7,3 +7,7 @@ import "testing"
 func prepareSourceSymlinkFixture(t *testing.T) {
 	t.Helper()
 }
+
+func sourceReplacementDenied(err error) bool {
+	return false
+}

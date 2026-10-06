@@ -59,6 +59,12 @@ class SourceContractChecks(unittest.TestCase):
             for name in [
                 "TestSourceCaptureUnreadableACL",
                 "TestSourceCapturePrivacyMutation",
+                "TestSourceCaptureOwnerMutation",
+                "TestSourceCaptureOwnerMutation/.",
+                "TestSourceCaptureOwnerMutation/nested",
+                "TestSourceCaptureOwnerMutation/nested/file",
+                "TestSourceChildOwnerRejectsClosedHandle",
+                "TestSourceReplacementDenialClassification/generic-error",
                 "TestSourceCaptureRejectsSymlinksEvenExcluded",
             ]:
                 self.assertIn(name, required)

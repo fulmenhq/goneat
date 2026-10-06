@@ -12,6 +12,10 @@ func makeSourcePrivate(name string) error {
 	return os.Chmod(name, 0o700)
 }
 
+func setSourceChildOwner(file *os.File) error {
+	return nil // Unix-created children already belong to the creating user.
+}
+
 func verifySourcePrivacy(name string, info fs.FileInfo, root bool) error {
 	want := fs.FileMode(0o600)
 	if info.IsDir() {

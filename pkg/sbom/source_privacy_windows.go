@@ -1,8 +1,10 @@
 package sbom
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -12,6 +14,52 @@ import (
 // still-empty snapshot root with one current-user ACE inherited by all children.
 // FILE_ALL_ACCESS is the file-object full-control mask (not GENERIC_ALL).
 const sourceWindowsFullControl = windows.ACCESS_MASK(0x001f01ff)
+
+var sourceReOpenFile = windows.NewLazySystemDLL("kernel32.dll").NewProc("ReOpenFile")
+
+// New children inherit the private DACL, but their default owner may be an
+// elevated token's group rather than TokenUser. Reopen the already-created
+// object by handle to assign its owner before writing bytes or creating children.
+func setSourceChildOwner(file *os.File) (retErr error) {
+	user, err := windows.GetCurrentProcessToken().GetTokenUser()
+	if err != nil {
+		return err
+	}
+	info, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	var flags uint32
+	if info.IsDir() {
+		flags = windows.FILE_FLAG_BACKUP_SEMANTICS
+	}
+	if err := sourceReOpenFile.Find(); err != nil {
+		return err
+	}
+	connection, err := file.SyscallConn()
+	if err != nil {
+		return err
+	}
+	handle := windows.InvalidHandle
+	var reopenErr error
+	if err := connection.Control(func(original uintptr) {
+		value, _, callErr := sourceReOpenFile.Call(original,
+			uintptr(windows.WRITE_OWNER|windows.READ_CONTROL),
+			uintptr(windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE), uintptr(flags))
+		handle = windows.Handle(value)
+		if handle == windows.InvalidHandle {
+			reopenErr = fmt.Errorf("source SBOM reopen child for owner assignment: %w", callErr)
+		}
+	}); err != nil {
+		return err
+	}
+	if reopenErr != nil {
+		return reopenErr
+	}
+	defer func() { retErr = errors.Join(retErr, windows.CloseHandle(handle)) }()
+	return windows.SetSecurityInfo(handle, windows.SE_FILE_OBJECT,
+		windows.OWNER_SECURITY_INFORMATION, user.User.Sid, nil, nil, nil)
+}
 
 func makeSourcePrivate(name string) error {
 	user, err := windows.GetCurrentProcessToken().GetTokenUser()

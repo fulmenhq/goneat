@@ -2,6 +2,7 @@ package sbom
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -234,17 +235,38 @@ func TestSourceCaptureDetectsMutationDuringHandleRead(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			var prevented bool
 			ctx := &sourceMutationContext{Context: context.Background(), mutate: func() {
 				if replacement {
 					writeSourceFixture(t, root, "replacement", "before")
 					if err := os.Rename(filepath.Join(root, "replacement"), filepath.Join(root, "file")); err != nil {
-						t.Fatal(err)
+						if !sourceReplacementDenied(err) {
+							t.Fatal(err)
+						}
+						prevented = true
+						t.Logf("replacement prevented by Windows open-handle protection (not injected mutation): %v", err)
 					}
 				} else {
 					writeSourceFixture(t, root, "file", "changed bytes")
 				}
 			}}
-			if _, err := copySourceFile(ctx, handle, nil, "file", before, 100); err == nil {
+			digest, copyErr := copySourceFile(ctx, handle, nil, "file", before, 100)
+			if prevented {
+				current, err := handle.Lstat("file")
+				if err != nil || !sameSourceFile(before, current) {
+					t.Fatalf("prevented replacement changed original identity: %v", err)
+				}
+				for _, name := range []string{"file", "replacement"} {
+					data, err := os.ReadFile(filepath.Join(root, name))
+					if err != nil || string(data) != "before" {
+						t.Fatalf("prevented replacement changed %s bytes: %q %v", name, data, err)
+					}
+				}
+				want := fmt.Sprintf("%x", sha256.Sum256([]byte("before")))
+				if copyErr != nil || digest != want {
+					t.Fatalf("unchanged source after denied replacement must copy successfully: %s %v", digest, copyErr)
+				}
+			} else if copyErr == nil {
 				t.Fatal("mutation during copy/hash accepted")
 			}
 		})
