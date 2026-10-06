@@ -126,7 +126,23 @@ goneat dependencies --sbom --sbom-format=cyclonedx-json --sbom-output=.scratchpa
 
 # Output to stdout for piping
 goneat dependencies --sbom --sbom-stdout | jq '.components | length'
+
+# Restore one named artifact in a scoped source inventory; keep siblings ignored
+goneat dependencies --sbom --force-include bin/current
+
+# SPDX JSON source inventory
+goneat dependencies --sbom --sbom-format=spdx-json --sbom-output=sbom/source.spdx.json
+
+# Inventory the actual shipped artifact, independently of source-tree ignores
+goneat dependencies dist/release/my-app --sbom --sbom-output=sbom/artifact.cdx.json
 ```
+
+Directory SBOMs use root-only ignore rules and a verified private source capture.
+They carry scoped-source provenance; named overrides do not make them complete
+release-artifact inventories. Capture rejects symlinks/special files and applies
+entry, byte, and argument limits even to ignored content. See
+[Source-Tree SBOM Selection](../../appnotes/file-selection-and-ignore-semantics.md#source-tree-sbom-selection)
+for grammar, limits, supported formats, and cleanup/publication behavior.
 
 **SBOM Structure:**
 

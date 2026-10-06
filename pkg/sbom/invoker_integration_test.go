@@ -199,12 +199,7 @@ func TestSyftInvoker_ModernAPI(t *testing.T) {
 	})
 
 	if err != nil {
-		// If error mentions deprecated API or missing modern syntax, fail
-		if strings.Contains(err.Error(), "deprecated") || strings.Contains(err.Error(), "Modern --output FORMAT=PATH syntax not detected") {
-			t.Fatalf("Detected deprecated syft API usage or missing modern syntax: %v", err)
-		}
-		// Other errors might be from mock limitations
-		t.Logf("Note: Mock generated error (may be expected): %v", err)
+		t.Fatalf("modern Syft API generation failed: %v", err)
 	}
 
 	// Verify we got valid output with modern API
@@ -214,7 +209,7 @@ func TestSyftInvoker_ModernAPI(t *testing.T) {
 		}
 	}
 
-	t.Log("✅ Confirmed using modern syft scan API with --output FORMAT=PATH syntax")
+	t.Log("✅ Confirmed using modern syft scan API with buffered --output FORMAT syntax")
 }
 
 // TestSyftInvoker_VersionParsing tests parsing of both JSON and multiline text formats

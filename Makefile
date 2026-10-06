@@ -528,6 +528,18 @@ test: test-unit test-integration-cooling-synthetic test-scripts ## Run all tests
 test-scripts: ## Run deterministic script checks (ensure_go pin compare etc.)
 	@echo "Running script tests..."
 	@bash scripts/test-ensure-go.sh
+	@python3 scripts/test_source_contract.py
+
+SOURCE_CONTRACT_TARGET ?= $(shell $(GOCMD) env GOOS)/$(shell $(GOCMD) env GOARCH)
+SOURCE_CONTRACT_ARGS ?=
+SOURCE_CONTRACT_BINARY ?= $(BUILD_DIR)/source-contract.test
+.PHONY: test-source-contract test-source-contract-compile
+test-source-contract: ## Run required native source-SBOM contracts (no optional collector checks)
+	python3 scripts/source-contract.py --target "$(SOURCE_CONTRACT_TARGET)" $(SOURCE_CONTRACT_ARGS)
+
+test-source-contract-compile: ## Compile source-SBOM contract tests for the selected GOOS/GOARCH
+	@mkdir -p "$(dir $(SOURCE_CONTRACT_BINARY))"
+	$(GOTEST) -c -o "$(SOURCE_CONTRACT_BINARY)" ./pkg/sbom
 
 test-unit: ## Run unit tests only
 	@echo "Running unit tests..."

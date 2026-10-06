@@ -44,7 +44,7 @@ EOF
     sbom_content=$(cat <<'EOF'
 {
   "bomFormat": "CycloneDX",
-  "specVersion": "1.5",
+  "specVersion": "1.6",
   "version": 1,
   "metadata": {
     "timestamp": "2025-01-15T10:30:00Z",

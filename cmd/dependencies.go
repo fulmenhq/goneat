@@ -52,13 +52,13 @@ func init() {
 	dependenciesCmd.Flags().Bool("quiet", false, "Suppress goneat logs (best-effort)")
 
 	// SBOM-specific
-	dependenciesCmd.Flags().String("sbom-format", "cyclonedx-json", "SBOM format (cyclonedx-json)")
+	dependenciesCmd.Flags().String("sbom-format", "cyclonedx-json", "SBOM format (cyclonedx-json or spdx-json)")
 	dependenciesCmd.Flags().String("sbom-output", "", "SBOM output file path (default: sbom/goneat-<timestamp>.cdx.json)")
 	dependenciesCmd.Flags().String("sbom-input", "", "Use an existing SBOM file (skips syft) for vulnerability scanning")
 	dependenciesCmd.Flags().Bool("sbom-stdout", false, "Output SBOM to stdout instead of file")
 	dependenciesCmd.Flags().String("sbom-platform", "", "Target platform for SBOM (e.g., linux/amd64)")
-	dependenciesCmd.Flags().Bool("no-ignore", false, "Disable .goneatignore/.gitignore excludes for fallback vulnerability scans")
-	dependenciesCmd.Flags().StringSlice("force-include", []string{}, "Force-include paths or globs even if ignored during fallback vulnerability scans")
+	dependenciesCmd.Flags().Bool("no-ignore", false, "Disable source-tree SBOM and fallback vulnerability exclusions (capture safeguards still apply)")
+	dependenciesCmd.Flags().StringSlice("force-include", []string{}, "Include literal root-relative files or directory subtrees in source SBOM and fallback vulnerability scans")
 
 	// Failure controls
 	dependenciesCmd.Flags().String("fail-on", "critical", "Fail on severity (critical, high, medium, low)")
@@ -349,16 +349,19 @@ func runDependenciesWithGoAnalyzer(cmd *cobra.Command, args []string, goAnalyzer
 		sbomOutput, _ := cmd.Flags().GetString("sbom-output")
 		sbomStdout, _ := cmd.Flags().GetBool("sbom-stdout")
 		sbomPlatform, _ := cmd.Flags().GetString("sbom-platform")
+		noIgnore, _ := cmd.Flags().GetBool("no-ignore")
+		forceInclude, _ := cmd.Flags().GetStringSlice("force-include")
 
 		sbomConfig := sbom.Config{
-			TargetPath: target,
-			OutputPath: sbomOutput,
-			Format:     sbomFormat,
-			Stdout:     sbomStdout,
-			Platform:   sbomPlatform,
+			TargetPath:    target,
+			OutputPath:    sbomOutput,
+			Format:        sbomFormat,
+			Stdout:        sbomStdout,
+			Platform:      sbomPlatform,
+			SourceOptions: sbom.SourceOptions{NoIgnore: noIgnore, ForceInclude: forceInclude},
 		}
 
-		result, err := invoker.Generate(context.Background(), sbomConfig)
+		result, err := invoker.Generate(cmd.Context(), sbomConfig)
 		if err != nil {
 			return fmt.Errorf("SBOM generation failed: %w", err)
 		}

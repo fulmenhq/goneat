@@ -6,6 +6,8 @@ Goneat owns file selection before handing work to external tools whenever it can
 
 Goneat's unified matcher reads these sources, in order:
 
+Source-tree SBOM collection uses the narrower root-only contract described below.
+
 1. Built-in generated/tooling defaults: `.git/`, `node_modules/`, `.scratchpad/`, `.cache/`, `bin/`, `dist/`, `sbom/`, `vendor/`
 2. Repository git ignore configuration, including `.gitignore` and standard git exclude sources
 3. Repository `.goneatignore`
@@ -17,24 +19,92 @@ Use `.gitignore` for normal VCS-generated files. Use `.goneatignore` for committ
 
 ## Tool Behavior Matrix
 
-| Area | Tool or Input | Goneat Pre-Filters | Tool Native Ignore | Notes |
-| ---- | ------------- | ------------------ | ------------------ | ----- |
-| Format | gofmt/goimports, yamlfmt, JSON/Markdown finalizers | Yes, file list | No | `--no-ignore` and `--force-include` affect file discovery. |
-| Lint | golangci-lint | Yes, package/file scope | Partial | Goneat filters discovered files/packages before invocation. |
-| Lint | Biome | Yes, file list/config roots | Yes, for its own config | Goneat's scope still decides which candidates are handed off. |
-| Lint | Ruff | Yes, file list | Yes, for its own config | Goneat ignore matching applies first. |
-| Lint | yamllint | Yes, file list | Config-driven | Goneat filters YAML candidates before running yamllint. |
-| Lint | shellcheck/shfmt | Yes, file list | No | Goneat file discovery is the primary scope boundary. |
-| Lint | actionlint/checkmake | Yes, file list | No | Goneat selects workflow and Makefile candidates. |
-| Security | gosec | Yes, Go modules/packages | No | Goneat prunes ignored nested modules and filters package dirs before running gosec. |
-| Security | govulncheck | Go package/module scope | Go package rules | Go package tooling does not use `.gitignore`; goneat controls the package roots it invokes. |
-| Security | gitleaks | Configured scan target | Yes, via gitleaks config | Treat gitleaks config as defense-in-depth; goneat still owns command scope. |
-| Dependencies | Go module graph | Yes, graph input | Go module rules | `dependencies --vuln` uses `go list -m -json all` for Go roots by design. `--no-ignore` and `--force-include` do not turn this into a full-tree scan. |
-| Dependencies | syft fallback SBOM | Yes, exclude args | Partial | Non-Go/fallback scans pass generated-dir and ignore-derived excludes unless `--no-ignore` is set. |
-| Dependencies | grype | SBOM input | No | Grype scans the SBOM it receives. Source provenance reports `go-module-graph`, `sbom-file`, or `file-walk`. |
+| Area         | Tool or Input                                      | Goneat Pre-Filters                            | Tool Native Ignore       | Notes                                                                                                                                                 |
+| ------------ | -------------------------------------------------- | --------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Format       | gofmt/goimports, yamlfmt, JSON/Markdown finalizers | Yes, file list                                | No                       | `--no-ignore` and `--force-include` affect file discovery.                                                                                            |
+| Lint         | golangci-lint                                      | Yes, package/file scope                       | Partial                  | Goneat filters discovered files/packages before invocation.                                                                                           |
+| Lint         | Biome                                              | Yes, file list/config roots                   | Yes, for its own config  | Goneat's scope still decides which candidates are handed off.                                                                                         |
+| Lint         | Ruff                                               | Yes, file list                                | Yes, for its own config  | Goneat ignore matching applies first.                                                                                                                 |
+| Lint         | yamllint                                           | Yes, file list                                | Config-driven            | Goneat filters YAML candidates before running yamllint.                                                                                               |
+| Lint         | shellcheck/shfmt                                   | Yes, file list                                | No                       | Goneat file discovery is the primary scope boundary.                                                                                                  |
+| Lint         | actionlint/checkmake                               | Yes, file list                                | No                       | Goneat selects workflow and Makefile candidates.                                                                                                      |
+| Security     | gosec                                              | Yes, Go modules/packages                      | No                       | Goneat prunes ignored nested modules and filters package dirs before running gosec.                                                                   |
+| Security     | govulncheck                                        | Go package/module scope                       | Go package rules         | Go package tooling does not use `.gitignore`; goneat controls the package roots it invokes.                                                           |
+| Security     | gitleaks                                           | Configured scan target                        | Yes, via gitleaks config | Treat gitleaks config as defense-in-depth; goneat still owns command scope.                                                                           |
+| Dependencies | Go module graph                                    | Yes, graph input                              | Go module rules          | `dependencies --vuln` uses `go list -m -json all` for Go roots by design. `--no-ignore` and `--force-include` do not turn this into a full-tree scan. |
+| Dependencies | explicit directory SBOM and syft fallback SBOM     | Yes, captured subject and exact file excludes | Root-only contract       | Both routes share named-only overrides and capture/validation safeguards.                                                                             |
+| Dependencies | grype                                              | SBOM input                                    | No                       | Grype scans the SBOM it receives. Source provenance reports `go-module-graph`, `sbom-file`, or `file-walk`.                                           |
 
 ## Vulnerability Scope Hints
 
 When vulnerability enforcement fails and the enforced high or critical findings are mostly sourced from generated or ignored-looking paths such as `.cache/`, `dist/`, `bin/`, `sbom/`, `vendor/`, or `node_modules/`, goneat adds a scope hint to the policy failure message. The hint points users back to file selection, `.goneatignore`/`.gitignore`, or graph-scoped or explicit SBOM input.
 
 For Go repositories, the preferred vulnerability input is the module graph. For non-Go repositories or explicit SBOM workflows, keep generated outputs and dependency caches excluded from the SBOM input unless the scan is intentionally auditing those artifacts.
+
+## Source-Tree SBOM Selection
+
+`dependencies --sbom <directory>` and the non-Go Syft vulnerability fallback
+share source selection. Root-relative defaults exclude `.git/**`,
+`node_modules/**`, `.scratchpad/**`, `.cache/**`, `bin/**`, `dist/**`, `sbom/**`,
+and `vendor/**`. Only the target root's `.gitignore` and `.goneatignore` are
+read. Parent, nested, global, and user ignore files are not imported.
+
+The supported ignore subset is:
+
+- A leading `/` or `./` anchors to the scan root. An interior slash also makes
+  a pattern root-relative; a slashless name matches at any depth.
+- A matched directory excludes its descendants. A trailing slash matches
+  directories only.
+- `*`, `?`, valid character classes, and whole-segment `**` are supported.
+- Blank lines and comments are ignored. Escaped leading `\#` and `\!` match
+  literal names. Unsupported escapes, malformed patterns, brace expansion,
+  traversal, and unescaped `!` negation are errors with file/line context.
+
+`--force-include bin/current` restores only that existing file.
+`--force-include bin/release` restores only that existing directory subtree.
+Ignored siblings and unrelated exclusions remain excluded. These arguments
+must be literal root-relative paths: globs, absolute/drive/UNC paths,
+traversal, and nonexistent paths are rejected. `--no-ignore` clears exclusion
+policy but retains capture, validation, and cleanup requirements.
+
+### Captured Subject and Compatibility
+
+Directory scans copy the complete tree, including excluded regular files, into
+an owner-private directory outside the target. Originals are never removed.
+The copy is hashed and reconciled with the source, then verified before and
+after Syft collection. Syft receives the canonical capture path and exact
+literal file exclusions.
+
+All symlinks and special files are rejected, including in excluded trees.
+Unreadable/incomplete traversal, detected mutations, unsupported patterns,
+inexact exclusions, and exhausted limits fail the scan. The limits are
+100,000 filesystem entries and 2 GiB of regular-file content, including
+excluded content. Conservative command/environment limits are 128 KiB on
+Unix and 30,000 UTF-16 units each for quoted arguments and environment on
+Windows. Narrow the target when a limit is exceeded. Temporary storage must
+be outside the selected tree and large enough for its complete contents.
+
+This is a reproducible captured-byte subject under a trusted-local-writer
+boundary, not an atomic filesystem snapshot or protection from a hostile
+concurrent writer. Later changes to the live source do not change the captured
+subject.
+
+### Provenance and Publication
+
+Supported outputs are CycloneDX JSON (1.6/1.7) and SPDX JSON (2.3). Other
+formats are rejected before collection. Offline schema and reference checks
+validate the result. Schema-qualified path mapping restores original source
+provenance without removing inventory, changing opaque IDs, or merging
+packages. Unmapped private staging references are errors.
+
+Standalone output includes `goneat:source:provenance`: a CycloneDX metadata
+property or SPDX annotation carrying the original subject, captured-manifest
+SHA-256, and selection scope. Named artifact overrides still produce a
+**scoped source inventory**. To inventory a shipped artifact, target its actual
+regular file explicitly; source ignores do not apply, and file content plus
+pathname identity are verified around collection.
+
+Private capture cleanup must succeed before stdout is returned or a file is
+published. Output files are staged beside their destination and replaced
+without a cross-volume copy fallback. Failure preserves an existing output;
+cleanup errors identify potentially retained private data.
