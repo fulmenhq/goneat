@@ -376,8 +376,8 @@ sbom_tools:
       windows: ["scoop"]
     auto_install_safe: true
     version_scheme: "semver"
-    minimum_version: "1.0.0"
-    recommended_version: "1.50.0"
+    minimum_version: "1.54.0"
+    recommended_version: "1.54.0"
   - name: grype
     description: "Vulnerability scanner for container images and SBOMs"
     kind: "system"
@@ -391,8 +391,8 @@ sbom_tools:
       windows: ["scoop"]
     auto_install_safe: true
     version_scheme: "semver"
-    minimum_version: "0.80.0"
-    recommended_version: "0.116.0"
+    minimum_version: "0.120.0"
+    recommended_version: "0.120.0"
 # =============================================================================
 # CICD SCOPE - Local CI/CD runner tools (optional)
 # =============================================================================

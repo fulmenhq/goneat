@@ -1,6 +1,7 @@
 package doctor
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -91,12 +92,12 @@ func TestRecommendedToolVersionLock(t *testing.T) {
 		"golangci-lint": {recommended: "2.12.2", defaultMinimum: "2.0.0", repositoryMinimum: "2.0.0"},
 		"gosec":         {recommended: "2.28.0", defaultMinimum: "2.18.0", repositoryMinimum: "2.18.0"},
 		"govulncheck":   {recommended: "1.6.0", defaultMinimum: "1.0.0", repositoryMinimum: "1.0.0"},
-		"grype":         {recommended: "0.116.0", defaultMinimum: "0.80.0", repositoryMinimum: "0.80.0"},
+		"grype":         {recommended: "0.120.0", defaultMinimum: "0.120.0", repositoryMinimum: "0.120.0"},
 		"jq":            {recommended: "1.8.2", defaultMinimum: "1.7.0", repositoryMinimum: "1.7.0"},
 		"prettier":      {recommended: "3.9.6", defaultMinimum: "3.0.0", repositoryMinimum: "3.0.0"},
 		"ruff":          {recommended: "0.15.22", defaultMinimum: "0.8.0", repositoryMinimum: "0.8.0"},
 		"shfmt":         {recommended: "3.13.1"},
-		"syft":          {recommended: "1.50.0", defaultMinimum: "1.0.0", repositoryMinimum: "1.0.0"},
+		"syft":          {recommended: "1.54.0", defaultMinimum: "1.54.0", repositoryMinimum: "1.54.0"},
 		"yamlfmt":       {recommended: "0.21.0", defaultMinimum: "0.16.0", repositoryMinimum: "0.16.0"},
 		"yamllint":      {recommended: "1.38.0", defaultMinimum: "1.33.0", repositoryMinimum: "1.33.0"},
 		"yq":            {recommended: "4.53.3", defaultMinimum: "4.40.0", repositoryMinimum: "4.40.0"},
@@ -123,6 +124,77 @@ func TestRecommendedToolVersionLock(t *testing.T) {
 			assertToolVersionLock(t, "repository", repositoryTool.VersionScheme, repositoryTool.MinimumVersion,
 				repositoryTool.RecommendedVersion, want.repositoryMinimum, want.recommended)
 		})
+	}
+}
+
+// Equal scanner minimum/recommendation pins have no warning-only band:
+// every older version fails both comparisons and upgrade validation.
+func TestScannerVersionPolicyBoundaries(t *testing.T) {
+	t.Parallel()
+	defaults, err := LoadToolsDefaultsConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	repository, err := LoadToolsConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	configs := map[string]*ToolsConfig{
+		"defaults":   ConvertToToolsConfig(defaults.GetAllTools(), "all", "All tools"),
+		"repository": repository,
+	}
+	for surface, config := range configs {
+		for _, scanner := range []struct {
+			name, pinned, older, previous, newer string
+		}{
+			{"syft", "1.54.0", "1.53.0", "1.52.0", "1.54.1"},
+			{"grype", "0.120.0", "0.119.1", "0.119.0", "0.120.1"},
+		} {
+			t.Run(surface+"/"+scanner.name, func(t *testing.T) {
+				declared, ok := config.GetTool(scanner.name)
+				if !ok {
+					t.Fatalf("missing scanner %s", scanner.name)
+				}
+				policy, err := declared.VersionPolicy()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if policy.MinimumVersion != scanner.pinned || policy.RecommendedVersion != scanner.pinned {
+					t.Fatalf("scanner policy is not pinned to %s: %+v", scanner.pinned, policy)
+				}
+				tool := Tool{Name: declared.Name, Kind: declared.Kind, VersionPolicy: policy}
+				for _, fixture := range []struct {
+					version  string
+					wantPass bool
+				}{
+					{scanner.older, false},
+					{scanner.previous, false},
+					{scanner.pinned + "-rc.1", false},
+					{scanner.pinned, true},
+					{"v" + scanner.pinned, true},
+					{scanner.newer, true},
+				} {
+					t.Run(fixture.version, func(t *testing.T) {
+						status := Status{Name: scanner.name, Present: true, Version: fixture.version}
+						applyVersionPolicy(tool, &status)
+						if status.PolicyError != nil || status.PolicyEvaluation == nil {
+							t.Fatalf("missing policy evaluation: %+v", status)
+						}
+						if status.PolicyEvaluation.MeetsMinimum != fixture.wantPass || status.PolicyEvaluation.MeetsRecommended != fixture.wantPass {
+							t.Fatalf("minimum/recommendation boundary mismatch: %+v", status.PolicyEvaluation)
+						}
+						err := ValidateUpgradeResult(tool, status)
+						if fixture.wantPass {
+							if err != nil {
+								t.Fatalf("compliant scanner rejected: %v", err)
+							}
+						} else if err == nil || !strings.Contains(err.Error(), "below minimum") {
+							t.Fatalf("older scanner must fail minimum, not only recommendation: %v", err)
+						}
+					})
+				}
+			})
+		}
 	}
 }
 
