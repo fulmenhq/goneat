@@ -42,7 +42,7 @@ func TestSourcePatternGrammar(t *testing.T) {
 			}
 		})
 	}
-	for _, pattern := range []string{"!bin/**", "//server/path", "C:/bin/**", "../bin", "a/../b", "a//b", "a/**b", "***", "[broken", "{a,b}", `a\q`, "a\x00b"} {
+	for _, pattern := range []string{"!", "![broken", "!../escape", "!a/**b", "//server/path", "C:/bin/**", "../bin", "a/../b", "a//b", "a/**b", "***", "[broken", "{a,b}", `a\q`, "a\x00b"} {
 		if _, err := parseSourcePattern(pattern); err == nil {
 			t.Errorf("invalid pattern accepted: %q", pattern)
 		}
@@ -96,13 +96,77 @@ func TestSourceSelectionNamedOnly(t *testing.T) {
 }
 
 func TestSourceIgnoreDiagnostics(t *testing.T) {
-	fsys := fstest.MapFS{".gitignore": {Data: []byte("# comment\nbin/\n!bin/named\n")}}
+	fsys := fstest.MapFS{".gitignore": {Data: []byte("# comment\nbin/\n![broken\n")}}
 	_, err := loadSourcePatterns(fsys, SourceOptions{})
-	if err == nil || !strings.Contains(err.Error(), ".gitignore:3") || !strings.Contains(err.Error(), "!bin/named") {
+	if err == nil || !strings.Contains(err.Error(), ".gitignore:3") || !strings.Contains(err.Error(), "![broken") {
 		t.Fatalf("missing actionable error: %v", err)
 	}
 	if _, err := loadSourcePatterns(fsys, SourceOptions{NoIgnore: true}); err != nil {
 		t.Fatalf("no-ignore still applied ignored policy: %v", err)
+	}
+}
+
+func TestSourceOrderedIgnoreNegations(t *testing.T) {
+	for _, tc := range []struct {
+		name, git, goneat, file string
+		want                    bool
+	}{
+		{"reopened-source", "**/sumpter\n!cmd/sumpter/\n", "", "cmd/sumpter/main.go", true},
+		{"reopened-dir-not-child", "**/sumpter\n!cmd/sumpter/\n", "", "cmd/sumpter/sumpter", false},
+		{"unrelated-binary", "**/sumpter\n!cmd/sumpter/\n", "", "other/sumpter", false},
+		{"dead-child", ".cursor/\n!.cursor/rules/\n!.cursor/rules/*\n", "", ".cursor/rules/x.md", false},
+		{"reopened-parents", ".cursor/\n!.cursor/\n.cursor/*\n!.cursor/rules/\n!.cursor/rules/*\n", "", ".cursor/rules/x.md", true},
+		{"later-parent-exclusion", ".cursor/\n!.cursor/\n.cursor/*\n!.cursor/rules/\n!.cursor/rules/*\n.cursor/rules/private/\n", "", ".cursor/rules/private/x.md", false},
+		{"anchored-gitkeep", "/assets/*\n!/assets/.gitkeep\n", "", "assets/.gitkeep", true},
+		{"anchored-sibling", "/assets/*\n!/assets/.gitkeep\n", "", "assets/data.txt", false},
+		{"anchored-nested", "/assets/*\n!/assets/.gitkeep\n", "", "nested/assets/data.txt", true},
+		{"later-reexclusion", "/assets/*\n!/assets/.gitkeep\n/assets/.gitkeep\n", "", "assets/.gitkeep", false},
+		{"closed-example-parent", "private/\n!*.example.yaml\n!*.example.json\n", "", "private/settings.example.yaml", false},
+		{"noop-negation", "!config/examples/\n!*.example.yaml\n!docs/.gitkeep\n", "", "config/examples/settings.example.yaml", true},
+		{"basename-negation", "**/Dockerfile.dev\n**/Dockerfile.local\n!Dockerfile.*\n", "", "nested/Dockerfile.local", true},
+		{"escaped-literal", "\\!literal\n", "", "!literal", false},
+		{"later-policy-source", "*.tmp\n", "!keep.tmp\n", "keep.tmp", true},
+		{"later-policy-exclusion", "*.tmp\n!keep.tmp\n", "keep.tmp\n", "keep.tmp", false},
+		{"default-not-negatable", "!bin/\n!bin/**\n", "", "bin/goneat", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			patterns, err := loadSourcePatterns(fstest.MapFS{
+				".gitignore": {Data: []byte(tc.git)}, ".goneatignore": {Data: []byte(tc.goneat)},
+			}, SourceOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			selection, err := planSourceSelection([]sourceEntry{{name: tc.file}}, patterns, SourceOptions{})
+			if err != nil || selection.selected[tc.file] != tc.want {
+				t.Fatalf("selection %q want=%v: %v", tc.file, tc.want, err)
+			}
+		})
+	}
+}
+
+func TestSourceConfiguredExclusionsRemainHard(t *testing.T) {
+	fsys := fstest.MapFS{".gitignore": {Data: []byte("!kept.tmp\n")}}
+	opts := SourceOptions{ExcludePatterns: []string{"*.tmp"}}
+	patterns, err := loadSourcePatterns(fsys, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries := []sourceEntry{{name: "kept.tmp"}, {name: "other.tmp"}}
+	for _, tc := range []struct {
+		opts SourceOptions
+		want []string
+	}{
+		{opts, []string{"./kept.tmp", "./other.tmp"}},
+		{SourceOptions{ForceInclude: []string{"kept.tmp"}}, []string{"./other.tmp"}},
+		{SourceOptions{NoIgnore: true}, nil},
+	} {
+		got, err := compileSourceExcludes(entries, patterns, tc.opts)
+		if err != nil || !reflect.DeepEqual(got, tc.want) {
+			t.Fatalf("got=%v want=%v err=%v", got, tc.want, err)
+		}
+	}
+	if _, err := loadSourcePatterns(fsys, SourceOptions{ExcludePatterns: []string{"!kept.tmp"}}); err == nil || !strings.Contains(err.Error(), "configured:1") {
+		t.Fatalf("configured negation accepted or lacks context: %v", err)
 	}
 }
 

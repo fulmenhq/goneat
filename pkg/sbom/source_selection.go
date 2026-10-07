@@ -37,22 +37,26 @@ type sourcePattern struct {
 	pattern       string
 	anchored      bool
 	directoryOnly bool
+	negated       bool
+	policySource  string
 }
 
 // parseSourcePattern intentionally implements a documented root-only subset of
-// ignore syntax. It is not full Git ignore processing (notably, no negation).
+// ignore syntax. Negations apply only to ordered root ignore policy, not to
+// defaults or configured exclusions. Nested ignore files are not discovered.
 func parseSourcePattern(line string) (*sourcePattern, error) {
 	line = trimSourcePatternLine(line)
 	if line == "" || strings.HasPrefix(line, "#") {
 		return nil, nil
 	}
-	if strings.HasPrefix(line, "!") {
-		return nil, fmt.Errorf("negation is unsupported")
+	negated := strings.HasPrefix(line, "!")
+	if negated {
+		line = strings.TrimPrefix(line, "!")
 	}
 	if !utf8.ValidString(line) || strings.ContainsAny(line, "\x00\r\n:") || strings.HasPrefix(line, "//") {
 		return nil, fmt.Errorf("invalid or host-absolute pattern")
 	}
-	p := &sourcePattern{directoryOnly: strings.HasSuffix(line, "/")}
+	p := &sourcePattern{directoryOnly: strings.HasSuffix(line, "/"), negated: negated}
 	if strings.HasPrefix(line, "/") {
 		p.anchored = true
 		line = strings.TrimPrefix(line, "/")
@@ -122,6 +126,10 @@ func loadSourcePatterns(fsys fs.FS, opts SourceOptions) ([]sourcePattern, error)
 			return fmt.Errorf("source SBOM ignore %s:%d pattern %q: %w", file, number, line, err)
 		}
 		if p != nil {
+			if p.negated && (file == "defaults" || file == "configured") {
+				return fmt.Errorf("source SBOM ignore %s:%d pattern %q: configured exclusions cannot be negated", file, number, line)
+			}
+			p.policySource = file
 			patterns = append(patterns, *p)
 		}
 		return nil
@@ -179,6 +187,52 @@ func (p sourcePattern) excludes(entry sourceEntry) bool {
 	return false
 }
 
+// matches tests this entry only. Ancestor eligibility is evaluated separately
+// so a directory re-inclusion cannot undo an independently excluded child.
+func (p sourcePattern) matches(entry sourceEntry) bool {
+	name := entry.name
+	if !p.anchored {
+		name = path.Base(name)
+	}
+	return (!p.directoryOnly || entry.directory) && doublestar.MatchUnvalidated(p.pattern, name)
+}
+
+func (p sourcePattern) hard() bool {
+	return p.policySource == "defaults" || p.policySource == "configured"
+}
+
+type sourceSelection struct {
+	entries           map[string]sourceEntry
+	selected          map[string]bool
+	forced            []sourceEntry
+	protectedEvidence []string
+}
+
+func (s *sourceSelection) forceIncludes(name string) bool {
+	for _, force := range s.forced {
+		if name == force.name || (force.directory && (force.name == "." || strings.HasPrefix(name, force.name+"/"))) {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *sourceSelection) literalExcludes() ([]string, error) {
+	var excludes []string
+	for name, entry := range s.entries {
+		if entry.directory || s.selected[name] {
+			continue
+		}
+		literal, err := literalSourceExclude(name)
+		if err != nil {
+			return nil, err
+		}
+		excludes = append(excludes, literal)
+	}
+	sort.Strings(excludes)
+	return excludes, nil
+}
+
 func sourceForcePath(value string) (string, error) {
 	if runtime.GOOS == "windows" {
 		value = strings.ReplaceAll(value, "\\", "/")
@@ -217,6 +271,14 @@ func literalSourceExclude(name string) (string, error) {
 }
 
 func compileSourceExcludes(entries []sourceEntry, patterns []sourcePattern, opts SourceOptions) ([]string, error) {
+	selection, err := planSourceSelection(entries, patterns, opts)
+	if err != nil {
+		return nil, err
+	}
+	return selection.literalExcludes()
+}
+
+func planSourceSelection(entries []sourceEntry, patterns []sourcePattern, opts SourceOptions) (*sourceSelection, error) {
 	byName := map[string]sourceEntry{".": {name: ".", directory: true}}
 	for _, entry := range entries {
 		if !fs.ValidPath(entry.name) || entry.name == "." {
@@ -227,7 +289,7 @@ func compileSourceExcludes(entries []sourceEntry, patterns []sourcePattern, opts
 		}
 		byName[entry.name] = entry
 	}
-	var forced []sourceEntry
+	selection := &sourceSelection{entries: byName, selected: make(map[string]bool)}
 	for _, value := range opts.ForceInclude {
 		name, err := sourceForcePath(value)
 		if err != nil {
@@ -237,34 +299,47 @@ func compileSourceExcludes(entries []sourceEntry, patterns []sourcePattern, opts
 		if !exists {
 			return nil, fmt.Errorf("source SBOM force-include %q does not exist in the captured subject", value)
 		}
-		forced = append(forced, entry)
+		selection.forced = append(selection.forced, entry)
 	}
-	var excludes []string
-	for _, entry := range entries {
-		if entry.directory || opts.NoIgnore {
-			continue
-		}
-		include := false
-		for _, force := range forced {
-			if entry.name == force.name || (force.directory && (force.name == "." || strings.HasPrefix(entry.name, force.name+"/"))) {
-				include = true
-				break
+	// Logical policy traversal only: physical capture has already copied and
+	// checked every entry, regardless of any policy exclusion.
+	eligibleDirectories := map[string]bool{".": true}
+	var eligible func(sourceEntry) bool
+	eligible = func(entry sourceEntry) bool {
+		if entry.directory {
+			if value, exists := eligibleDirectories[entry.name]; exists {
+				return value
 			}
 		}
+		include := eligible(sourceEntry{name: path.Dir(entry.name), directory: true})
 		if include {
+			for _, pattern := range patterns {
+				if !pattern.hard() && pattern.matches(entry) {
+					include = pattern.negated
+				}
+			}
+		}
+		if entry.directory {
+			eligibleDirectories[entry.name] = include
+		}
+		return include
+	}
+	for _, entry := range entries {
+		if entry.directory {
 			continue
 		}
+		if opts.NoIgnore || selection.forceIncludes(entry.name) {
+			selection.selected[entry.name] = true
+			continue
+		}
+		include := eligible(entry)
 		for _, pattern := range patterns {
-			if pattern.excludes(entry) {
-				literal, err := literalSourceExclude(entry.name)
-				if err != nil {
-					return nil, err
-				}
-				excludes = append(excludes, literal)
+			if pattern.hard() && pattern.excludes(entry) {
+				include = false
 				break
 			}
 		}
+		selection.selected[entry.name] = include
 	}
-	sort.Strings(excludes)
-	return excludes, nil
+	return selection, nil
 }

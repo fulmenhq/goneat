@@ -77,7 +77,15 @@ func NewSyftInvoker() (*SyftInvoker, error) {
 }
 
 func (s *SyftInvoker) GetVersion(ctx context.Context) (string, error) {
+	return s.getVersion(ctx, nil)
+}
+
+func (s *SyftInvoker) getVersion(ctx context.Context, collector *sourceCollector) (string, error) {
 	cmd := exec.CommandContext(ctx, s.syftPath, "version", "--output", "json") // #nosec G204 - Arguments are hardcoded constants
+	if collector != nil {
+		cmd.Dir, cmd.Env = collector.owned.path, collector.environment
+		cmd.Args = append(cmd.Args, "--config", collector.config)
+	}
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to get syft version: %w", err)
@@ -89,6 +97,10 @@ func (s *SyftInvoker) GetVersion(ctx context.Context) (string, error) {
 	if err := json.Unmarshal(output, &versionData); err != nil {
 		logger.Debug("sbom: failed to parse version JSON, trying text parsing")
 		cmd := exec.CommandContext(ctx, s.syftPath, "version") // #nosec G204 - Arguments are hardcoded constants
+		if collector != nil {
+			cmd.Dir, cmd.Env = collector.owned.path, collector.environment
+			cmd.Args = append(cmd.Args, "--config", collector.config)
+		}
 		textOutput, err := cmd.Output()
 		if err != nil {
 			return "", fmt.Errorf("failed to get syft version: %w", err)
@@ -159,7 +171,19 @@ func (s *SyftInvoker) Generate(ctx context.Context, config Config) (result *Resu
 		}
 	}
 
-	toolVersion, err := s.GetVersion(ctx)
+	collector, err := newSourceCollector(ctx, targetPath, os.TempDir())
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if collector != nil {
+			retErr = errors.Join(retErr, collector.owned.cleanup())
+			if retErr != nil {
+				result = nil
+			}
+		}
+	}()
+	toolVersion, err := s.getVersion(ctx, collector)
 	if err != nil {
 		logger.Warn("sbom: failed to get syft version", logger.String("error", err.Error()))
 		toolVersion = "unknown"
@@ -214,8 +238,11 @@ func (s *SyftInvoker) Generate(ctx context.Context, config Config) (result *Resu
 	}
 
 	// Use new --output FORMAT=PATH syntax (or FORMAT for stdout)
-	args = append(args, "--output", config.Format)
-	if err := checkSourceArguments(s.syftPath, args, os.Environ(), runtime.GOOS); err != nil {
+	args = append(args, "--output", config.Format, "--config", collector.config)
+	if err := checkSourceArguments(s.syftPath, args, collector.environment, runtime.GOOS); err != nil {
+		return nil, err
+	}
+	if err := collector.owned.verify(ctx); err != nil {
 		return nil, err
 	}
 	if capture != nil {
@@ -229,11 +256,15 @@ func (s *SyftInvoker) Generate(ctx context.Context, config Config) (result *Resu
 	logger.Debug("sbom: invoking syft", logger.String("path", s.syftPath), logger.String("target", targetPath), logger.String("output", outputPath))
 
 	cmd := exec.CommandContext(ctx, s.syftPath, args...) // #nosec G204 - Paths validated with filepath.Abs above
+	cmd.Dir, cmd.Env = collector.owned.path, collector.environment
 	cmd.Stderr = os.Stderr
 
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("syft execution failed: %w", err)
+	}
+	if err := collector.owned.verify(ctx); err != nil {
+		return nil, err
 	}
 	var sbomContent json.RawMessage = output
 	if capture != nil {
@@ -259,6 +290,13 @@ func (s *SyftInvoker) Generate(ctx context.Context, config Config) (result *Resu
 			return nil, err
 		}
 	}
+	document, err := decodeSourceJSON(sbomContent)
+	if err != nil {
+		return nil, err
+	}
+	if err := rejectSourceResidue(document, collector.owned.path); err != nil {
+		return nil, err
+	}
 
 	duration := time.Since(startTime)
 
@@ -272,12 +310,15 @@ func (s *SyftInvoker) Generate(ctx context.Context, config Config) (result *Resu
 		return nil, err
 	}
 	cleanup := func() error {
-		if capture == nil {
-			return nil
+		var cleanupErr error
+		if capture != nil {
+			owned := capture
+			capture = nil // Attempt once; a failure retains its named private path.
+			cleanupErr = owned.cleanup()
 		}
-		owned := capture
-		capture = nil // Cleanup is attempted once; errors retain the named path.
-		return owned.cleanup()
+		owned := collector.owned
+		collector = nil
+		return errors.Join(cleanupErr, owned.cleanup())
 	}
 	if err := publishSourceOutput(ctx, sbomContent, outputPath, cleanup); err != nil {
 		return nil, err

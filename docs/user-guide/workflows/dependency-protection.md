@@ -137,7 +137,11 @@ goneat dependencies --sbom --sbom-format=spdx-json --sbom-output=sbom/source.spd
 goneat dependencies dist/release/my-app --sbom --sbom-output=sbom/artifact.cdx.json
 ```
 
-Directory SBOMs use root-only ignore rules and a verified private source capture.
+Directory SBOMs use ordered root-only ignore rules, including bounded negation
+support, and a verified private source capture. Required root Go evidence is
+retained with visible provenance; incomplete workspace/local-reference scope
+fails rather than silently expanding the subject. Source and regular-file
+artifact collection isolate Syft configuration and its `SYFT_*` environment.
 They carry scoped-source provenance; named overrides do not make them complete
 release-artifact inventories. Capture rejects symlinks/special files and applies
 entry, byte, and argument limits even to ignored content. See

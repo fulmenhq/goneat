@@ -79,6 +79,50 @@ func TestSourceProvenancePreservesInventory(t *testing.T) {
 	}
 }
 
+func TestSourceProvenanceRecordsRootGoProtection(t *testing.T) {
+	for _, format := range []string{"cyclonedx-json", "spdx-json"} {
+		t.Run(format, func(t *testing.T) {
+			content, capture := sourceMappingFixture(t, format)
+			capture.protectedEvidence = []string{"go.mod", "go.sum"}
+			mapped, err := normalizeSourceProvenance(content, format, capture, SourceOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			document, err := decodeSourceJSON(mapped)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var scopeJSON string
+			if format == "cyclonedx-json" {
+				for _, value := range sourceArray(sourceObject(document["metadata"])["properties"]) {
+					property := sourceObject(value)
+					if property["name"] == "goneat:source:provenance" {
+						scopeJSON, _ = property["value"].(string)
+					}
+				}
+			} else {
+				for _, value := range sourceArray(document["annotations"]) {
+					comment, _ := sourceObject(value)["comment"].(string)
+					if strings.HasPrefix(comment, "goneat:source:provenance=") {
+						scopeJSON = strings.TrimPrefix(comment, "goneat:source:provenance=")
+					}
+				}
+			}
+			var scope struct {
+				ProtectedEvidence []string `json:"protected_root_go_evidence"`
+				IgnorePolicy      string   `json:"ignore_policy"`
+				CollectorPolicy   string   `json:"collector_policy"`
+			}
+			if err := json.Unmarshal([]byte(scopeJSON), &scope); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(scope.ProtectedEvidence, capture.protectedEvidence) || !strings.Contains(scope.IgnorePolicy, "ordered-root-ignore") || scope.CollectorPolicy != sourceCollectorPolicy {
+				t.Fatal("standalone SBOM lacks actual root evidence exceptions/selection policy")
+			}
+		})
+	}
+}
+
 func TestSourceProvenanceRejectsResidueAndInvalidReferences(t *testing.T) {
 	for _, mutation := range []string{"unknown-location", "prefix-lookalike", "opaque-id", "dangling", "duplicate-id"} {
 		t.Run(mutation, func(t *testing.T) {

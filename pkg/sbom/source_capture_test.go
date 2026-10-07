@@ -88,7 +88,7 @@ func TestSourceCaptureErrorsCleanup(t *testing.T) {
 	}{
 		{"entry-limit", func(t *testing.T, root string) { writeSourceFixture(t, root, "bin/excluded", "x") }, sourceLimits{entries: 2, bytes: 100}, SourceOptions{}},
 		{"byte-limit", func(t *testing.T, root string) { writeSourceFixture(t, root, "bin/excluded", "12345") }, sourceLimits{entries: 10, bytes: 4}, SourceOptions{}},
-		{"bad-policy", func(t *testing.T, root string) { writeSourceFixture(t, root, ".goneatignore", "!restore\n") }, sourceLimits{entries: 10, bytes: 100}, SourceOptions{}},
+		{"bad-policy", func(t *testing.T, root string) { writeSourceFixture(t, root, ".goneatignore", "![broken\n") }, sourceLimits{entries: 10, bytes: 100}, SourceOptions{}},
 		{"missing-force", func(t *testing.T, root string) {}, sourceLimits{entries: 10, bytes: 100}, SourceOptions{ForceInclude: []string{"missing"}}},
 		{"unreadable-file", func(t *testing.T, root string) {
 			writeSourceFixture(t, root, "bin/excluded", "x")
@@ -157,7 +157,7 @@ func TestSourceCaptureBoundariesAndCancellation(t *testing.T) {
 
 func TestSourceCapturePolicyPreflight(t *testing.T) {
 	root, parent := t.TempDir(), t.TempDir()
-	writeSourceFixture(t, root, ".gitignore", "!unsupported\n")
+	writeSourceFixture(t, root, ".gitignore", "![broken\n")
 	// The invalid grammar must be diagnosed before entry/byte traversal caps.
 	writeSourceFixture(t, root, "large-file", strings.Repeat("x", 1024))
 	if _, err := captureSource(context.Background(), root, parent, SourceOptions{}, sourceLimits{entries: 2, bytes: 100}); err == nil || !strings.Contains(err.Error(), ".gitignore:1") {
