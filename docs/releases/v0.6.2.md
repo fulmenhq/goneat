@@ -6,8 +6,10 @@
 ## TL;DR
 
 - **Workflow toolchain pins are Go 1.26.9.** The module language line stays `go 1.26.0`.
-- **Selected modules** are `golang.org/x/net` v0.60.0, `golang.org/x/crypto` v0.57.0, `golang.org/x/sys` v0.48.0, and `golang.org/x/text` v0.42.0. `go.sum` includes the `golang.org/x/term` v0.46.0 go.mod checksum.
+- **Selected modules** are `golang.org/x/net` v0.60.0, `golang.org/x/crypto` v0.57.0, `golang.org/x/sys` v0.48.0, and `golang.org/x/text` v0.42.0. Selected `golang.org/x/term` changes from v0.45.0 to v0.46.0. `go.sum` retains the v0.45.0 checksums and includes the v0.46.0 go.mod checksum.
+- **Indirect requirements added**: `cloud.google.com/go` v0.26.0, `cloud.google.com/go/compute/metadata` v0.3.0, `github.com/golang/glog` v1.2.4, `github.com/yuin/goldmark` v1.7.17, and `golang.org/x/oauth2` v0.27.0. `golang.org/x/mod` v0.41.0 moves from indirect to direct.
 - The cooling policy exception for golang.org/x/net is in effect through 2026-10-16T00:00:00Z.
+- While the cooling window is active, `scripts/check-cooling-selection.py` requires the selected `golang.org/x/net` module to be v0.60.0 and indirect.
 - **Assessments retain scanner failures**, release-asset results, and hook diagnostics. Native command output is captured as bytes.
 - **v0.6.2 archives** are Darwin ARM64, Linux amd64, Linux ARM64, Windows amd64, and Windows ARM64. There is no Darwin amd64 archive.
 
@@ -24,11 +26,17 @@
 - `golang.org/x/crypto` v0.57.0
 - `golang.org/x/sys` v0.48.0
 - `golang.org/x/text` v0.42.0
-- `go.sum` records the `golang.org/x/term` v0.46.0 go.mod checksum. `go.mod` does not require `golang.org/x/term` directly.
+- Selected `golang.org/x/term` changes from v0.45.0 to v0.46.0. `go.sum` retains the v0.45.0 checksums and includes the v0.46.0 go.mod checksum. `go.mod` does not require `golang.org/x/term` directly.
+- Indirect requirements added: `cloud.google.com/go` v0.26.0, `cloud.google.com/go/compute/metadata` v0.3.0, `github.com/golang/glog` v1.2.4, `github.com/yuin/goldmark` v1.7.17, and `golang.org/x/oauth2` v0.27.0.
+- `golang.org/x/mod` v0.41.0 moves from indirect to direct.
 
 ### Cooling selection
 
 - The cooling policy exception for golang.org/x/net is in effect through 2026-10-16T00:00:00Z.
+
+### Cooling selection check
+
+- While the cooling window is active, `scripts/check-cooling-selection.py` requires the selected `golang.org/x/net` module to be v0.60.0 and indirect.
 
 ### Scanner execution
 
