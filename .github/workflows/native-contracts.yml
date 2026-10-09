@@ -31,6 +31,11 @@ jobs:
         env:
           GOTOOLCHAIN: go1.26.9
         run: make release-build
+      - name: Verify temporary cooling selection
+        env:
+          GOPROXY: 'off'
+          GOFLAGS: ''
+        run: python3 scripts/check-cooling-selection.py
       - name: Record producer provenance
         shell: bash
         run: |

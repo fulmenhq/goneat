@@ -84,6 +84,7 @@ docs/ops/
 - Vendor service transitions
 - End-of-life response procedures
 - Supply chain security operations
+- [Net selection window](dependencies/2026-10-09-dependencies-net-selection-window.md)
 
 ## Operation Documentation Standards
 

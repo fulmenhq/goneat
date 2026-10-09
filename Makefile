@@ -414,6 +414,7 @@ test: test-unit test-integration-cooling-synthetic test-scripts ## Run all tests
 test-scripts: ## Run deterministic script checks (ensure_go pin compare etc.)
 	@echo "Running script tests..."
 	@bash scripts/test-ensure-go.sh
+	@GOPROXY=off GOFLAGS= python3 scripts/test_cooling_selection.py
 	@python3 scripts/test_source_contract.py
 	@python3 scripts/test_release_assets.py
 
