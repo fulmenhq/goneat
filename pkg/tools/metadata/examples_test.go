@@ -36,31 +36,40 @@ func ExampleNewRegistry() {
 // ExampleRegistry_GetMetadata demonstrates fetching metadata with caching
 func ExampleRegistry_GetMetadata() {
 	reg := metadata.NewRegistry(24 * time.Hour)
-	githubFetcher := metadata.NewGitHubFetcher("", 30*time.Second)
-	reg.RegisterFetcher("github", githubFetcher)
+	// This executable example is deterministic, not a live GitHub check.
+	reg.RegisterFetcher("fixture", &exampleFixtureFetcher{})
 
-	// First call fetches from API
-	meta1, _ := reg.GetMetadata("golangci/golangci-lint", "v2.4.0")
+	// First call fetches from the fixture through the real registry.
+	meta1, err := reg.GetMetadata("golangci/golangci-lint", "v2.4.0")
+	if err != nil {
+		panic(err) // Fail the example rather than dereferencing nil or skipping.
+	}
 	fmt.Printf("First call source: %s\n", meta1.Source)
 
 	// Second call uses cache
-	meta2, _ := reg.GetMetadata("golangci/golangci-lint", "v2.4.0")
+	meta2, err := reg.GetMetadata("golangci/golangci-lint", "v2.4.0")
+	if err != nil {
+		panic(err)
+	}
 	fmt.Printf("Second call source: %s\n", meta2.Source)
 
 	// Output:
-	// First call source: github
+	// First call source: fixture
 	// Second call source: cache
 }
 
 // ExampleRegistry_CacheStats demonstrates monitoring cache performance
 func ExampleRegistry_CacheStats() {
 	reg := metadata.NewRegistry(24 * time.Hour)
-	githubFetcher := metadata.NewGitHubFetcher("", 30*time.Second)
-	reg.RegisterFetcher("github", githubFetcher)
+	reg.RegisterFetcher("fixture", &exampleFixtureFetcher{})
 
 	// Perform some fetches
-	_, _ = reg.GetMetadata("anchore/syft", "v1.33.0")
-	_, _ = reg.GetMetadata("anchore/syft", "v1.33.0") // Cache hit
+	if _, err := reg.GetMetadata("anchore/syft", "v1.33.0"); err != nil {
+		panic(err)
+	}
+	if _, err := reg.GetMetadata("anchore/syft", "v1.33.0"); err != nil { // Cache hit
+		panic(err)
+	}
 
 	stats := reg.CacheStats()
 	fmt.Printf("Cache hits: %d\n", stats.Hits)
@@ -127,11 +136,12 @@ func ExampleDefaultFetcherOptions() {
 // ExampleRegistry_ClearCache demonstrates clearing the cache
 func ExampleRegistry_ClearCache() {
 	reg := metadata.NewRegistry(24 * time.Hour)
-	githubFetcher := metadata.NewGitHubFetcher("", 30*time.Second)
-	reg.RegisterFetcher("github", githubFetcher)
+	reg.RegisterFetcher("fixture", &exampleFixtureFetcher{})
 
 	// Populate cache
-	_, _ = reg.GetMetadata("anchore/syft", "v1.33.0")
+	if _, err := reg.GetMetadata("anchore/syft", "v1.33.0"); err != nil {
+		panic(err)
+	}
 
 	statsBefore := reg.CacheStats()
 	fmt.Printf("Before clear - Size: %d\n", statsBefore.Size)

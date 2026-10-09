@@ -21,11 +21,11 @@
 # The default Cursor image's /usr/bin/go is often Go 1.22 with GOTOOLCHAIN=auto,
 # which reports go1.26.0 for this module but will jump to a cached newer
 # toolchain (e.g. go1.27.x) during `go install`. Pin GOTOOLCHAIN to the 1.26
-# line so pinned tools do not follow that jump. Use 1.26.6 (not go.mod's
+# line so pinned tools do not follow that jump. Use 1.26.9 (not go.mod's
 # 1.26.0) to match the CI runner and pick up standard-library security fixes.
 # Override with GOTOOLCHAIN=... when a newer 1.26 patch is required.
 set -euo pipefail
-export GOTOOLCHAIN="${GOTOOLCHAIN:-go1.26.6}"
+export GOTOOLCHAIN="${GOTOOLCHAIN:-go1.26.9}"
 
 # Pins: config/tools/foundation-tools-defaults.yaml recommended_version.
 # goimports has no recommended pin there; match go.mod's golang.org/x/tools.

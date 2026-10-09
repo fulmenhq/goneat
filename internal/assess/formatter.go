@@ -186,7 +186,16 @@ func (f *Formatter) formatConcise(report *AssessmentReport) string {
 	}
 
 	// Footer pass/fail
-	if report.Summary.TotalIssues == 0 {
+	executionFailed := false
+	for _, result := range report.Categories {
+		if result.Status == "error" {
+			executionFailed = true
+			break
+		}
+	}
+	if executionFailed {
+		sb.WriteString(red("❌ Assessment execution failed"))
+	} else if report.Summary.TotalIssues == 0 {
 		sb.WriteString(green("✅ Hook validation passed"))
 	} else {
 		sb.WriteString(yellow("⚠️ Issues detected - see details above or run with --verbose"))

@@ -2,6 +2,7 @@
 """Exercise the distributed candidate bytes on a native runner, without scanners."""
 
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -20,14 +21,58 @@ def require(condition, message):
 
 
 def run(binary, cwd, args, success=True):
-    result = subprocess.run(
-        [str(binary), *args], cwd=cwd, capture_output=True, text=True, timeout=60
+    command = [str(binary), *args]
+
+    def stream_receipt(data):
+        if not isinstance(data, bytes):
+            return {"available": False}
+        return {
+            "available": True,
+            "bytes": len(data),
+            "sha256": hashlib.sha256(data).hexdigest(),
+            "base64": base64.b64encode(data).decode("ascii"),
+        }
+
+    receipt = {"native_child": command, "cwd": str(cwd), "encoding": "utf-8"}
+    try:
+        result = subprocess.run(command, cwd=cwd, capture_output=True, timeout=60)
+    except (OSError, subprocess.SubprocessError) as error:
+        receipt.update(
+            {
+                "capture_outcome": "execution_error",
+                "error_type": type(error).__name__,
+                "stdout": stream_receipt(getattr(error, "output", None)),
+                "stderr": stream_receipt(getattr(error, "stderr", None)),
+            }
+        )
+        print(json.dumps(receipt))
+        raise
+    receipt.update(
+        {
+            "returncode": result.returncode,
+            "stdout": stream_receipt(result.stdout),
+            "stderr": stream_receipt(result.stderr),
+        }
     )
+    if not receipt["stdout"]["available"] or not receipt["stderr"]["available"]:
+        receipt["capture_outcome"] = "unavailable_stream"
+        print(json.dumps(receipt))
+        raise RuntimeError(f"{args}: native child output capture is unavailable")
+    decoded = {}
+    for stream, data in (("stdout", result.stdout), ("stderr", result.stderr)):
+        try:
+            decoded[stream] = data.decode("utf-8", errors="strict")
+        except UnicodeDecodeError as error:
+            receipt.update({"capture_outcome": "decode_error", "failed_stream": stream})
+            print(json.dumps(receipt))
+            raise RuntimeError(f"{args}: native child {stream} is not UTF-8") from error
+    receipt["capture_outcome"] = "complete"
+    print(json.dumps(receipt))
     require(
         (result.returncode == 0) == success,
-        f"{args}: unexpected exit {result.returncode}\n{result.stdout}\n{result.stderr}",
+        f"{args}: unexpected exit {result.returncode}\n{decoded['stdout']}\n{decoded['stderr']}",
     )
-    return result.stdout
+    return decoded["stdout"]
 
 
 def check_binary(data, target):
@@ -126,7 +171,7 @@ def main():
         == {
             "source_sha": args.source_sha,
             "version": args.version,
-            "compiler": "go1.26.6",
+            "compiler": "go1.26.9",
         },
         "candidate provenance mismatch",
     )
@@ -157,7 +202,7 @@ def main():
             (info["platform"], info["arch"]) == (os_name, arch),
             "goneat process architecture mismatch",
         )
-        require(info["goVersion"] == "go1.26.6", "compiler mismatch")
+        require(info["goVersion"] == "go1.26.9", "compiler mismatch")
         # JSON's gitCommit describes the working directory; the text form reads
         # buildinfo.GitCommit. Run outside the source tree and check that value.
         extended = run(binary, cwd, ["version", "--extended"])

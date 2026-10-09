@@ -27,7 +27,7 @@ jobs:
     env:
       GOPATH: /tmp/gopath
       GOMODCACHE: /tmp/gopath/pkg/mod
-      GOTOOLCHAIN: go1.26.6
+      GOTOOLCHAIN: go1.26.9
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -156,7 +156,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.26.6'
+          go-version: '1.26.9'
       - name: Install gnupg
         run: |
           set -euo pipefail

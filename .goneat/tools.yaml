@@ -286,7 +286,7 @@ tools:
         - winget
     version_scheme: semver
     minimum_version: "1.26.0"
-    recommended_version: "1.26.6"
+    recommended_version: "1.26.9"
   go-licenses:
     name: go-licenses
     description: License compliance for Go dependencies

@@ -3,6 +3,8 @@ package assess
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
@@ -224,6 +226,83 @@ func TestExecuteHookCommands_InternalHandlerCtxCarriesTimeout(t *testing.T) {
 	}
 	if !errors.Is(observedErr, context.DeadlineExceeded) {
 		t.Errorf("expected handler ctx to report DeadlineExceeded, got %v", observedErr)
+	}
+}
+
+func TestExecuteHookCommands_DeadlinePreservesHandlerError(t *testing.T) {
+	cause := &execFailureForHookTest{message: "collector could not read report"}
+	for _, tt := range []struct {
+		name string
+		err  error
+	}{
+		{name: "nil handler error"},
+		{name: "handler error", err: cause},
+		{name: "wrapped handler error", err: fmt.Errorf("assessment failed: %w", cause)},
+		{name: "handler deadline", err: fmt.Errorf("scanner deadline: %w", context.DeadlineExceeded)},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+			defer cancel()
+			executor := NewHookExecutor(t.TempDir())
+			calls := 0
+			executor.InternalHandler = func(ctx context.Context, command string, args []string) error {
+				calls++
+				if ctx.Err() != context.DeadlineExceeded {
+					t.Fatalf("expected expired command context, got %v", ctx.Err())
+				}
+				return tt.err
+			}
+			err := executor.ExecuteHookCommands(ctx, []HookCommand{
+				{Command: "assess", Priority: 1, Timeout: "45s"},
+				{Command: "format", Priority: 2},
+			})
+			if !errors.Is(err, context.DeadlineExceeded) {
+				t.Fatalf("deadline error chain lost: %v", err)
+			}
+			if !strings.Contains(err.Error(), "hook command failed: assess: command timed out after 45s") {
+				t.Errorf("timeout/command diagnostic lost: %v", err)
+			}
+			if tt.err != nil {
+				if !errors.Is(err, tt.err) || !strings.Contains(err.Error(), tt.err.Error()) {
+					t.Errorf("handler error/text lost: %v", err)
+				}
+				if errors.Is(tt.err, cause) {
+					var typed *execFailureForHookTest
+					if !errors.As(err, &typed) || typed != cause {
+						t.Errorf("typed handler cause lost: %v", err)
+					}
+				}
+			}
+			if calls != 1 {
+				t.Errorf("timeout must retain fail-fast behavior; handler calls=%d", calls)
+			}
+		})
+	}
+}
+
+type execFailureForHookTest struct{ message string }
+
+func (e *execFailureForHookTest) Error() string { return e.message }
+
+func TestHookCommandResultUnchangedWithoutDeadline(t *testing.T) {
+	cause := errors.New("handler failure without deadline")
+	for _, canceled := range []bool{false, true} {
+		for _, handlerErr := range []error{nil, cause} {
+			name := fmt.Sprintf("canceled=%t/error=%v", canceled, handlerErr)
+			t.Run(name, func(t *testing.T) {
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				if canceled {
+					cancel()
+				}
+				executor := NewHookExecutor(t.TempDir())
+				executor.InternalHandler = func(context.Context, string, []string) error { return handlerErr }
+				err := executor.executeCommand(ctx, HookCommand{Command: "assess", Timeout: "45s"})
+				if err != handlerErr {
+					t.Fatalf("ordinary/canceled handler result changed: got %v, want %v", err, handlerErr)
+				}
+			})
+		}
 	}
 }
 

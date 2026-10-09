@@ -286,31 +286,9 @@ release-clean: ## Reset dist/release to avoid stale artifacts before packaging
 	@echo "✅ dist/release cleared (fresh packaging workspace)"
 
 release-download: ## Download CI-built release artifacts from GitHub (requires gh CLI)
-	@echo "📥 Downloading CI-built artifacts for $(GONEAT_RELEASE_TAG)..."
-	@if [ -z "$(GONEAT_RELEASE_TAG)" ]; then \
-		echo "❌ GONEAT_RELEASE_TAG not set. Use: make release-download GONEAT_RELEASE_TAG=vX.Y.Z"; \
-		exit 1; \
-	fi
-	@if [ "$(GONEAT_RELEASE_TAG)" != "$(VERSION)" ]; then \
-		echo "⚠️  GONEAT_RELEASE_TAG ($(GONEAT_RELEASE_TAG)) differs from VERSION ($(VERSION))"; \
-		echo "   This is normal for pre-release testing, but verify you're signing the right artifacts."; \
-	fi
-	@if ! command -v gh >/dev/null 2>&1; then \
-		echo "❌ gh CLI not found. Install GitHub CLI: https://cli.github.com/"; \
-		exit 1; \
-	fi
-	@if [ -d "dist/release" ] && [ "$$(find dist/release -type f | wc -l)" -gt 0 ]; then \
-		echo "⚠️  dist/release already contains files. Consider running 'make release-clean' first."; \
-		echo "   Continuing with download (existing files will be overwritten via --clobber)..."; \
-	fi
-	@mkdir -p dist/release
-	@cd dist/release && gh release download $(GONEAT_RELEASE_TAG) \
-		--pattern 'goneat_$(GONEAT_RELEASE_TAG)_*.tar.gz' \
-		--pattern 'goneat_$(GONEAT_RELEASE_TAG)_*.zip' \
-		--clobber
-	@echo "✅ CI artifacts downloaded to dist/release/ for $(GONEAT_RELEASE_TAG)"
+	@bash scripts/download-release-assets.sh "$(GONEAT_RELEASE_TAG)" dist/release
 
-release-checksums: ## Generate SHA256SUMS and SHA512SUMS from downloaded artifacts
+release-checksums: ## Generate new local candidate manifests (never overwrite downloaded CI manifests)
 	@echo "🔢 Generating checksums for $(GONEAT_RELEASE_TAG) artifacts..."
 	@if [ -z "$(GONEAT_RELEASE_TAG)" ]; then \
 		echo "❌ GONEAT_RELEASE_TAG not set. Use: make release-checksums GONEAT_RELEASE_TAG=vX.Y.Z"; \
@@ -322,6 +300,10 @@ release-checksums: ## Generate SHA256SUMS and SHA512SUMS from downloaded artifac
 	fi
 	@if [ ! -d "dist/release" ]; then \
 		echo "❌ dist/release directory not found. Run 'make release-download GONEAT_RELEASE_TAG=$(GONEAT_RELEASE_TAG)' first."; \
+		exit 1; \
+	fi
+	@if [ -e dist/release/SHA256SUMS ] || [ -L dist/release/SHA256SUMS ] || [ -e dist/release/SHA512SUMS ] || [ -L dist/release/SHA512SUMS ]; then \
+		echo "❌ Existing manifests must not be regenerated. Use release-verify-checksums for downloaded CI assets."; \
 		exit 1; \
 	fi
 	@# Guard: Warn if signatures already exist (would be invalidated by regenerating checksums)
@@ -349,110 +331,14 @@ release-checksums: ## Generate SHA256SUMS and SHA512SUMS from downloaded artifac
 	@echo "✅ Checksums generated (SHA256SUMS, SHA512SUMS) for $(GONEAT_RELEASE_TAG)"
 
 release-verify-checksums: ## Verify SHA256SUMS/SHA512SUMS match actual artifacts (non-destructive)
-	@echo "🔍 Verifying checksums for $(GONEAT_RELEASE_TAG) artifacts..."
-	@if [ -z "$(GONEAT_RELEASE_TAG)" ]; then \
-		echo "❌ GONEAT_RELEASE_TAG not set. Use: make release-verify-checksums GONEAT_RELEASE_TAG=vX.Y.Z"; \
-		exit 1; \
-	fi
-	@if [ ! -d "dist/release" ]; then \
-		echo "❌ dist/release directory not found."; \
-		exit 1; \
-	fi
-	@if [ ! -f "dist/release/SHA256SUMS" ]; then \
-		echo "❌ SHA256SUMS not found. Run 'make release-checksums' first."; \
-		exit 1; \
-	fi
-	@echo "   Verifying SHA256 checksums..."
-	@cd dist/release && \
-		if shasum -a 256 --check SHA256SUMS; then \
-			echo "   ✅ All SHA256 checksums verified"; \
-		else \
-			echo "   ❌ SHA256 checksum verification FAILED"; \
-			echo "   This indicates artifacts have changed since checksums were generated."; \
-			echo "   Either re-download artifacts or regenerate checksums:"; \
-			echo "     rm -f dist/release/*.asc dist/release/*.minisig"; \
-			echo "     GONEAT_RELEASE_TAG=$(GONEAT_RELEASE_TAG) make release-checksums"; \
-			exit 1; \
-		fi
-	@if [ -f "dist/release/SHA512SUMS" ]; then \
-		echo "   Verifying SHA512 checksums..."; \
-		cd dist/release && \
-		if shasum -a 512 --check SHA512SUMS; then \
-			echo "   ✅ All SHA512 checksums verified"; \
-		else \
-			echo "   ❌ SHA512 checksum verification FAILED"; \
-			exit 1; \
-		fi; \
-	fi
-	@echo "✅ All checksums verified for $(GONEAT_RELEASE_TAG)"
+	@python3 scripts/release-assets.py verify "$(GONEAT_RELEASE_TAG)" dist/release
 
 release-sign: ## Sign checksum manifests (minisign + PGP required for releases)
-	@echo "🔐 Signing checksum manifests for $(GONEAT_RELEASE_TAG)..."
-	@if [ -z "$(GONEAT_RELEASE_TAG)" ]; then \
-		echo "❌ GONEAT_RELEASE_TAG not set. Use: make release-sign GONEAT_RELEASE_TAG=vX.Y.Z"; \
-		exit 1; \
-	fi
-	@if [ ! -d "dist/release" ] || [ ! -f "dist/release/SHA256SUMS" ]; then \
-		echo "❌ Checksums not found. Run 'make release-checksums GONEAT_RELEASE_TAG=$(GONEAT_RELEASE_TAG)' first."; \
-		exit 1; \
-	fi
-	@if [ -z "$${GONEAT_MINISIGN_KEY:-$$MINISIGN_KEY}" ]; then \
-		echo "❌ GONEAT_MINISIGN_KEY not set (required)"; \
-		exit 1; \
-	fi
-	@if [ -z "$${GONEAT_PGP_KEY_ID:-$$PGP_KEY_ID}" ]; then \
-		echo "❌ GONEAT_PGP_KEY_ID not set (required for releases)"; \
-		exit 1; \
-	fi
-	@if [ -z "$${GONEAT_GPG_HOMEDIR:-$$GPG_HOMEDIR}" ]; then \
-		echo "❌ GONEAT_GPG_HOMEDIR not set (required for releases)"; \
-		exit 1; \
-	fi
-	@if [ ! -f "./scripts/sign-release-manifests.sh" ]; then \
-		echo "❌ scripts/sign-release-manifests.sh not found"; \
-		exit 1; \
-	fi
-	@echo "📝 Using sign-release-manifests.sh (preferred)"
 	@SIGNING_ENV_PREFIX=GONEAT SIGNING_APP_NAME=goneat \
-		./scripts/sign-release-manifests.sh "$(GONEAT_RELEASE_TAG)" "dist/release"
-	@echo "✅ Checksum manifests signed for $(GONEAT_RELEASE_TAG)"
+		bash scripts/sign-release-manifests.sh "$(GONEAT_RELEASE_TAG)" dist/release
 
 release-verify-signatures: ## Verify signatures on checksum manifests
-	@echo "🔍 Verifying signatures for $(GONEAT_RELEASE_TAG)..."
-	@if [ -z "$(GONEAT_RELEASE_TAG)" ]; then \
-		echo "❌ GONEAT_RELEASE_TAG not set. Use: make release-verify-signatures GONEAT_RELEASE_TAG=vX.Y.Z"; \
-		exit 1; \
-	fi
-	@if [ ! -d "dist/release" ]; then \
-		echo "❌ dist/release directory not found."; \
-		exit 1; \
-	fi
-	@cd dist/release && \
-		GPG_HOMEDIR_EFF="$$GONEAT_GPG_HOMEDIR"; \
-		if [ -z "$$GPG_HOMEDIR_EFF" ]; then GPG_HOMEDIR_EFF="$$GPG_HOMEDIR"; fi; \
-		echo "🔐 Verifying GPG signatures..."; \
-		for asc in SHA256SUMS.asc SHA512SUMS.asc; do \
-			if [ -f "$$asc" ]; then \
-				if [ -n "$$GPG_HOMEDIR_EFF" ]; then \
-					gpg --homedir "$$GPG_HOMEDIR_EFF" --verify "$$asc" "$${asc%.asc}" && \
-					echo "  ✅ $$asc - Good signature"; \
-				else \
-					echo "  ⚠️  $$asc - GPG_HOMEDIR not set; skipping verification"; \
-				fi; \
-			else \
-				echo "  ⚠️  $$asc - Signature file not found"; \
-			fi; \
-		done; \
-		echo "🔏 Verifying minisign signatures..."; \
-		for sig in SHA256SUMS.minisig SHA512SUMS.minisig; do \
-			if [ -f "$$sig" ] && [ -f "fulmenhq-release-minisign.pub" ]; then \
-				minisign -Vm "$${sig%.minisig}" -p fulmenhq-release-minisign.pub && \
-				echo "  ✅ $$sig - Good signature"; \
-			else \
-				echo "  ⚠️  $$sig - Signature or public key file not found"; \
-			fi; \
-		done
-	@echo "✅ Signature verification completed for $(GONEAT_RELEASE_TAG)"
+	@bash scripts/verify-manifest-signatures.sh "$(GONEAT_RELEASE_TAG)" dist/release
 
 release-verify-key: ## Verify GPG public key is safe to upload (no private keys)
 	@echo "🛡️  Verifying GPG public key safety..."
@@ -529,6 +415,11 @@ test-scripts: ## Run deterministic script checks (ensure_go pin compare etc.)
 	@echo "Running script tests..."
 	@bash scripts/test-ensure-go.sh
 	@python3 scripts/test_source_contract.py
+	@python3 scripts/test_release_assets.py
+
+.PHONY: test-release-assets-crypto
+test-release-assets-crypto: ## Exercise four mandatory signature checks with ephemeral GPG/minisign fixture keys (no skips)
+	@python3 scripts/test_release_assets_crypto.py
 
 SOURCE_CONTRACT_TARGET ?= $(shell $(GOCMD) env GOOS)/$(shell $(GOCMD) env GOARCH)
 SOURCE_CONTRACT_ARGS ?=
@@ -961,26 +852,8 @@ verify-release-key: ## Verify GPG public key for release signing (must run befor
 	fi
 	@./scripts/verify-public-key.sh dist/release/fulmenhq-release-signing-key.asc
 
-release-upload: release-notes verify-release-key ## Upload signed release artifacts to GitHub (requires checksum signatures)
-	@echo "📤 Uploading release artifacts to GitHub $(VERSION)..."
-	@echo "   ℹ️  Note: release-notes and verify-release-key targets run automatically (Makefile dependencies)"
-	@for file in SHA256SUMS SHA512SUMS SHA256SUMS.asc SHA512SUMS.asc SHA256SUMS.minisig SHA512SUMS.minisig fulmenhq-release-signing-key.asc fulmenhq-release-minisign.pub release-notes-$(VERSION).md; do \
-		if [ ! -f "dist/release/$$file" ]; then \
-			echo "❌ Error: dist/release/$$file not found. Run make release-sign first."; \
-			exit 1; \
-		fi; \
-	 done
-	@chmod +x scripts/upload-release-assets.sh
-	@./scripts/upload-release-assets.sh "$(VERSION)" dist/release
-
-	@echo "🔍 Verify upload:"
-	@echo "   gh release view $(VERSION)"
-	@echo ""
-	@echo "📝 Updating Homebrew formula..."
-	@$(MAKE) update-homebrew-formula
-	@echo ""
-	@echo "📝 Updating Scoop manifest..."
-	@$(MAKE) update-scoop-manifest
+release-upload: ## Upload verified supplements only; never replace CI assets or edit package-manager repos
+	@bash scripts/upload-release-assets.sh "$(VERSION)" dist/release
 
 update-homebrew-formula: ## Update Homebrew formula with new version and checksums (requires ../homebrew-tap)
 	@echo "Updating Homebrew formula for $(BINARY_NAME) $(VERSION)..."

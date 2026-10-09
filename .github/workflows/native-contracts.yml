@@ -17,19 +17,19 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.6'
+          go-version: '1.26.9'
       - name: Record candidate identity
         id: identity
         shell: bash
         run: |
           set -euo pipefail
           echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
-          test "$(go env GOVERSION)" = go1.26.6
+          test "$(go env GOVERSION)" = go1.26.9
       - name: Test candidate integrity and architecture negative controls
         run: python3 scripts/test_native_contract.py
       - name: Build and package the five release targets
         env:
-          GOTOOLCHAIN: go1.26.6
+          GOTOOLCHAIN: go1.26.9
         run: make release-build
       - name: Record producer provenance
         shell: bash
@@ -40,7 +40,7 @@ jobs:
           Path('dist/release/candidate.json').write_text(json.dumps({
               'source_sha': os.environ['GITHUB_SHA'],
               'version': Path('VERSION').read_text().strip(),
-              'compiler': 'go1.26.6',
+              'compiler': 'go1.26.9',
           }))
           PY
       - uses: actions/upload-artifact@v4.6.2
@@ -77,7 +77,7 @@ jobs:
       - name: Set up native source-contract toolchain
         uses: actions/setup-go@v5
         with:
-          go-version: '1.26.6'
+          go-version: '1.26.9'
       - name: Require native source capture, privacy and publication contracts
         run: python scripts/source-contract.py --target "${{ matrix.target }}" --source-sha "${{ github.sha }}" --receipt "${{ runner.temp }}/source-contract.json"
       - name: Retain native source-contract evidence

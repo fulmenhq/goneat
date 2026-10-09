@@ -6,7 +6,7 @@ set -euo pipefail
 
 # shellcheck source=scripts/release-platforms.sh
 source "$(dirname "${BASH_SOURCE[0]}")/release-platforms.sh"
-export GOTOOLCHAIN="${GOTOOLCHAIN:-go1.26.6}"
+export GOTOOLCHAIN="${GOTOOLCHAIN:-go1.26.9}"
 
 # Get version from VERSION file (already contains 'v' prefix)
 VERSION=$(cat VERSION)

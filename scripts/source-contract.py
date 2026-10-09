@@ -265,7 +265,7 @@ def validate_events(text, target, returncode):
     if package_actions != ["pass"]:
         raise RuntimeError("missing or unsuccessful package completion event")
     expected_os, expected_arch = target.split("/")
-    expected = {"os": expected_os, "arch": expected_arch, "compiler": "go1.26.6"}
+    expected = {"os": expected_os, "arch": expected_arch, "compiler": "go1.26.9"}
     if identities != [expected]:
         raise RuntimeError(
             f"actual test-process identity mismatch: {identities}; expected {expected}"
@@ -301,7 +301,7 @@ def main():
     roots = sorted({name.split("/", 1)[0] for name in required_tests(args.target)})
     pattern = "^(" + "|".join(re.escape(name) for name in roots) + ")$"
     environment = dict(
-        os.environ, GOTOOLCHAIN="go1.26.6", GONEAT_OFFLINE_SCHEMA_VALIDATION="true"
+        os.environ, GOTOOLCHAIN="go1.26.9", GONEAT_OFFLINE_SCHEMA_VALIDATION="true"
     )
     command = ["go", "test", "-json", "-count=1", "-run", pattern, "./pkg/sbom"]
     completed = subprocess.run(

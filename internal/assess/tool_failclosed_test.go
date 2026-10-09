@@ -134,7 +134,7 @@ func TestBiome_FailClosed(t *testing.T) {
 }
 
 func TestCargoAudit_ReportShape(t *testing.T) {
-	advisory := `{"vulnerabilities":{"found":true,"count":1,"list":[{"advisory":{"id":"RUSTSEC-2026-0001","title":"bad","severity":"high"},"package":{"name":"x","version":"1.0.0"}}]}}`
+	advisory := cargoAuditFindingFixture
 	cases := []struct {
 		name    string
 		stdout  string
@@ -142,11 +142,11 @@ func TestCargoAudit_ReportShape(t *testing.T) {
 		wantErr string
 		want    int
 	}{
-		{name: "clean report", stdout: `{"vulnerabilities":{"found":false,"count":0,"list":[]}}`, want: 0},
+		{name: "clean report", stdout: cargoAuditCleanFixture, want: 0},
 		{name: "advisories with exit 1", stdout: advisory, exit: 1, want: 1},
 		{name: "empty object with exit 1", stdout: `{}`, exit: 1, wantErr: "without a vulnerability report"},
 		{name: "empty object with exit 0", stdout: `{}`, wantErr: "without a vulnerability report"},
-		{name: "no advisories with exit 1", stdout: `{"vulnerabilities":{"found":false,"list":[]}}`, exit: 1, wantErr: "no advisories"},
+		{name: "no advisories with exit 1", stdout: cargoAuditCleanFixture, exit: 1, wantErr: "unaccounted tool failure"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

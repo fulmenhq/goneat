@@ -2,14 +2,14 @@
 
 **Status**: Active (Manual Signing - v0.3.3+)
 **Authority**: FulmenHQ Security Team
-**Last Updated**: 2025-10-28
+**Last Updated**: 2026-10-07
 
 ## Overview
 
 Goneat releases are authenticated via **signed checksum manifests**:
 
 - `SHA256SUMS` and `SHA512SUMS` are generated over the published release archives.
-- The checksum manifests are signed (minisign required; PGP optional).
+- Maintainer publication requires both PGP and minisign signatures on both manifests.
 
 Users verify the signature on the checksum manifest, then verify checksums for the downloaded archives.
 
@@ -238,12 +238,14 @@ gpg --list-secret-keys security@fulmenhq.dev
 
 ### Signing Workflow (checksum-manifest signing)
 
-**⚠️ Critical Timing**: Generate checksums, sign, and verify **before** uploading signatures.
+**⚠️ Critical Timing**: Download the original CI manifests, verify archive checksums,
+sign, and verify all four signatures **before** uploading supplements. Never
+regenerate CI-published manifests or replace their remote assets.
 
 In practice, maintainers should follow `RELEASE_CHECKLIST.md` and use the Makefile targets:
 
-- `make release-download` (download CI-built artifacts)
-- `make release-checksums` (generate SHA256SUMS/SHA512SUMS)
+- `make release-download` (download five CI-built archives and both original manifests into a new or empty directory)
+- `make release-verify-checksums` (verify both original manifests without rewriting them)
 - `make release-sign` (sign checksum manifests)
 - `make release-verify-signatures` + `make release-verify-key` (verify signatures + key safety)
 
@@ -270,14 +272,17 @@ make package
 
 **Alternative**: Use `make release-build` to run both `build-all` and `package` in one command.
 
-Note: The recommended release flow signs the _CI-built_ archives (what users actually download) by using `make release-download`, then checksums + signs those artifacts.
+These local build steps are candidate checks only. The release flow signs the
+_CI-built_ manifests covering what users actually download, not regenerated
+manifests or newly built local archives.
 
-**Step 2: Generate Checksums**
+**Step 2: Download and verify original CI checksums**
 
 Prefer the Makefile target (it is aware of the CI artifact naming convention):
 
 ```bash
-GONEAT_RELEASE_TAG=vX.Y.Z make release-checksums
+GONEAT_RELEASE_TAG=vX.Y.Z make release-download
+GONEAT_RELEASE_TAG=vX.Y.Z make release-verify-checksums
 ```
 
 **Step 3: Sign checksum manifests**
@@ -286,7 +291,7 @@ GONEAT_RELEASE_TAG=vX.Y.Z make release-checksums
 GONEAT_RELEASE_TAG=vX.Y.Z \
 GONEAT_MINISIGN_KEY="$HOME/.minisign/fulmenhq-release.key" \
 GONEAT_MINISIGN_PUB="$HOME/.minisign/fulmenhq-release.pub" \
-GONEAT_PGP_KEY_ID="<signing-subkey-id-or-email>" \
+GONEAT_PGP_KEY_ID="<approved-signing-fingerprint-or-identity>" \
 GONEAT_GPG_HOMEDIR="${GNUPGHOME:-$HOME/.gnupg}" \
 make release-sign
 ```
@@ -307,6 +312,16 @@ Goneat signs the checksum manifests (not each archive individually). The signing
 - writes `SHA256SUMS.asc` / `SHA512SUMS.asc` (PGP)
 - writes `SHA256SUMS.minisig` / `SHA512SUMS.minisig` (minisign)
 - exports `fulmenhq-release-signing-key.asc` into `dist/release/`
+- verifies all four staged signatures before publishing any local outputs
+- refuses to overwrite existing signature/key outputs or modify original archives/manifests
+
+The approved GPG homedir/identity and minisign public-key path must be selected
+independently of downloaded release material and reside outside the release
+directory. Verification resolves one approved primary GPG identity and checks
+the signature's actual signer against it. A full subkey fingerprint further
+restricts the signing subkey. Both bundled public keys must match independent
+trust inputs; neither is imported as a new trust root. This is an operator-input
+contract, not a new repository-enforced signing-key pin or rotation policy.
 
 **Step 4: Verify Signatures Locally**
 
@@ -315,7 +330,11 @@ GONEAT_RELEASE_TAG=vX.Y.Z make release-verify-signatures
 GONEAT_RELEASE_TAG=vX.Y.Z make release-verify-key
 ```
 
-**✅ If Steps 1-4 succeed**: Proceed with git push and tagging
+Retain the same independently approved trust variables for verification and
+upload. Missing tools, keys, manifests or any signature, incorrect signers and
+bad signatures fail nonzero. There is no warning-only successful verification.
+
+**✅ If Steps 1-4 succeed**: Request the next separately authorized release action
 **❌ If any step fails**: Fix issues before pushing
 
 #### Post-Tag Release (After git push and git tag)
@@ -324,33 +343,22 @@ GONEAT_RELEASE_TAG=vX.Y.Z make release-verify-key
 
 ⏳ **IMPORTANT**: Wait for GitHub Actions to create the release first! After pushing the tag, GitHub Actions will build and create the release. Monitor the Actions tab until the release workflow completes.
 
-**Option A: Using gh CLI** (Preferred - required for future CI automation)
+**Using the verified supplement uploader**
 
 ```bash
-# Upload all signed artifacts and checksums
-gh release upload v0.3.3 dist/release/*.tar.gz
-gh release upload v0.3.3 dist/release/*.zip
-gh release upload v0.3.3 dist/release/*.asc
-gh release upload v0.3.3 dist/release/SHA256SUMS
-
-# Upload public key (first release only)
-gh release upload v0.3.3 fulmenhq-release-signing-key.asc
+make release-notes
+make release-upload
 ```
 
-**Option B: Using GitHub Web UI** (Alternative if gh CLI unavailable)
-
-1. Navigate to: https://github.com/fulmenhq/goneat/releases
-2. Find the v0.3.3 release (created by GitHub Actions)
-3. Click "Edit release"
-4. Drag and drop files from `dist/release/`:
-   - All `.tar.gz` files
-   - All `.zip` files
-   - All `.asc` signature files
-   - `SHA256SUMS` file
-   - `fulmenhq-release-signing-key.asc` (first release only)
-5. Click "Update release"
-
-**Note**: gh CLI is recommended for repeatability and will be essential when automating this process in CI.
+The uploader verifies both manifests, all four signatures, matching public keys,
+and actual remote bytes before any write. It uploads only missing signatures,
+public keys and versioned notes, then sets the release body from matching notes.
+Existing byte-identical supplements are no-ops; different existing supplements
+halt. The original five archives and two manifest assets are never uploaded
+again. Their asset IDs and bytes are checked before and after supplementation.
+The uploader does not change Homebrew or Scoop working trees; those updates
+require separate review and authorization. Do not bypass this verification with
+wildcard uploads or `--clobber`.
 
 **Step 6: Document in Release Notes**
 

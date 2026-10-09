@@ -20,12 +20,16 @@ type cargoDenyAdapter struct {
 
 func (c *cargoDenyAdapter) Name() string { return "cargo-deny" }
 
+func (c *cargoDenyAdapter) IsApplicable() bool {
+	project := DetectRustProject(c.moduleRoot)
+	return project != nil && project.CargoTomlPath != ""
+}
+
 func (c *cargoDenyAdapter) IsAvailable() bool {
 	if !IsCargoAvailable() {
 		return false
 	}
-	project := DetectRustProject(c.moduleRoot)
-	if project == nil || project.CargoTomlPath == "" {
+	if !c.IsApplicable() {
 		return false
 	}
 	presence := CheckRustToolPresence("cargo-deny", cargoDenyMinVersion)
@@ -40,18 +44,19 @@ func (c *cargoDenyAdapter) IsAvailable() bool {
 // This is intentional per cargo-deny design - see pkg/dependencies/cargo_deny.go for details.
 // The --format json flag must come BEFORE the check subcommand.
 func (c *cargoDenyAdapter) Run(ctx context.Context) ([]Issue, error) {
+	issues, _, err := c.RunWithMetadata(ctx)
+	return issues, err
+}
+
+func (c *cargoDenyAdapter) RunWithMetadata(ctx context.Context) ([]Issue, map[string]interface{}, error) {
 	// Use the canonical cargo-deny implementation from pkg/dependencies
 	// which correctly handles STDERR output and NDJSON parsing
-	result, err := dependencies.RunCargoDeny(ctx, c.moduleRoot, []dependencies.CargoDenyCheckType{
-		dependencies.CargoDenyCheckAdvisories,
-		dependencies.CargoDenyCheckSources,
-	}, c.cfg.Timeout)
-
-	if err != nil {
-		return nil, err
-	}
+	result, err := dependencies.RunCargoDenySecurity(ctx, c.moduleRoot, c.cfg.Timeout)
 	if result == nil {
-		return nil, nil
+		if err != nil {
+			return nil, nil, err
+		}
+		return nil, nil, fmt.Errorf("cargo-deny did not return a security report")
 	}
 
 	issues := make([]Issue, 0, len(result.Findings))
@@ -66,7 +71,13 @@ func (c *cargoDenyAdapter) Run(ctx context.Context) ([]Issue, error) {
 		})
 	}
 
-	return issues, nil
+	// Completion counters are evidence, not invented advisories or a new
+	// severity mapping. Keep unknown summary members at their original precision.
+	metadata := map[string]interface{}{
+		"complete": result.Complete, "exit_code": result.ExitCode, "version": result.Version,
+		"summary": result.Summary, "policy_findings_reported": result.Complete && result.ExitCode != 0,
+	}
+	return issues, metadata, err
 }
 
 // mapCargoDenyFindingSeverity maps cargo-deny finding to security severity
