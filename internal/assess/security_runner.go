@@ -8,11 +8,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -141,9 +144,23 @@ func (r *SecurityAssessmentRunner) Assess(ctx context.Context, target string, co
 		suppressions []Suppression
 		err          error
 		name         string
+		warnings     map[string][]json.RawMessage
+		metadata     map[string]interface{}
 	}
-	adapters := GetSecurityToolRegistry().SelectAdapters(config, r, moduleRoot)
-	if len(adapters) == 0 {
+	adapters, admissions, toolErrors := GetSecurityToolRegistry().selectAdmissions(config, r, moduleRoot)
+	metrics["tool_admissions"] = admissions
+	metrics["tools_started"] = len(adapters)
+	metrics["tools_admission_failed"] = len(toolErrors)
+	metrics["tools_completed"] = 0
+	metrics["tools_failed"] = 0
+	skipped := 0
+	for _, admission := range admissions {
+		if admission.State != "selected" && (admission.State != "unavailable" || !admission.Explicit) {
+			skipped++
+		}
+	}
+	metrics["tools_skipped"] = skipped
+	if len(adapters) == 0 && len(toolErrors) == 0 {
 		const reason = "no applicable security tool found in PATH (gosec, govulncheck, gitleaks, cargo-audit, cargo-deny)"
 		logger.Warn("security assessment skipped: " + reason)
 		return &AssessmentResult{
@@ -153,6 +170,7 @@ func (r *SecurityAssessmentRunner) Assess(ctx context.Context, target string, co
 			ExecutionTime: HumanReadableDuration(time.Since(start)),
 			Issues:        []Issue{},
 			SkipReason:    reason,
+			Metrics:       metrics,
 		}, nil
 	}
 	ranGosec := false
@@ -168,7 +186,13 @@ func (r *SecurityAssessmentRunner) Assess(ctx context.Context, target string, co
 		tool := a
 		go func() {
 			logger.Info(fmt.Sprintf("Running %s security tool", tool.Name()))
-			if withSupp, ok := tool.(SecurityToolWithSuppressions); ok && config.TrackSuppressions {
+			if withMetadata, ok := tool.(securityToolWithMetadata); ok {
+				iss, metadata, err := withMetadata.RunWithMetadata(ctx)
+				resultsCh <- res{issues: iss, metadata: metadata, err: err, name: tool.Name()}
+			} else if withWarnings, ok := tool.(securityToolWithWarnings); ok {
+				iss, warnings, err := withWarnings.RunWithWarnings(ctx)
+				resultsCh <- res{issues: iss, warnings: warnings, err: err, name: tool.Name()}
+			} else if withSupp, ok := tool.(SecurityToolWithSuppressions); ok && config.TrackSuppressions {
 				iss, supps, err := withSupp.RunWithSuppressions(ctx)
 				resultsCh <- res{issues: iss, suppressions: supps, err: err, name: tool.Name()}
 			} else {
@@ -177,22 +201,55 @@ func (r *SecurityAssessmentRunner) Assess(ctx context.Context, target string, co
 			}
 		}()
 	}
+	results := make([]res, 0, len(adapters))
 	for i := 0; i < len(adapters); i++ {
-		rres := <-resultsCh
-		if rres.err != nil {
-			// Provide actionable guidance on tool setup
-			var hint string
-			switch rres.name {
-			case "gosec":
-				hint = " (install/update with: go install github.com/securego/gosec/v2/cmd/gosec@latest)"
-			case "govulncheck":
-				hint = " (install/update with: go install golang.org/x/vuln/cmd/govulncheck@latest)"
-			}
-			logger.Warn(fmt.Sprintf("%s scan failed: %v%s", rres.name, rres.err, hint))
-			continue
-		}
+		results = append(results, <-resultsCh)
+	}
+	sort.Slice(results, func(i, j int) bool { return results[i].name < results[j].name })
+	completed, failed := 0, 0
+	toolWarnings := make(map[string]map[string][]json.RawMessage)
+	toolReports := make(map[string]map[string]interface{})
+	for _, rres := range results {
+		// A result with an execution error can still contain trustworthy findings
+		// and suppressions. Presentation filtering must not erase the error.
 		issues = append(issues, rres.issues...)
 		allSuppressions = append(allSuppressions, rres.suppressions...)
+		if len(rres.warnings) > 0 {
+			toolWarnings[rres.name] = rres.warnings
+		}
+		if rres.metadata != nil {
+			toolReports[rres.name] = rres.metadata
+		}
+		state := "completed_clean"
+		warningCount := 0
+		for _, warnings := range rres.warnings {
+			warningCount += len(warnings)
+		}
+		policyFindings, _ := rres.metadata["policy_findings_reported"].(bool)
+		if len(rres.issues) > 0 || len(rres.suppressions) > 0 || warningCount > 0 || policyFindings {
+			state = "completed_findings"
+		}
+		if rres.err != nil {
+			state = "failed_execution"
+			failed++
+			toolErrors = append(toolErrors, fmt.Errorf("%s: %w", rres.name, rres.err))
+		} else {
+			completed++
+		}
+		for i := range admissions {
+			if admissions[i].Tool == rres.name {
+				admissions[i].State = state
+			}
+		}
+	}
+	metrics["tool_admissions"] = admissions
+	metrics["tools_completed"] = completed
+	metrics["tools_failed"] = failed
+	if len(toolWarnings) > 0 {
+		metrics["tool_warnings"] = toolWarnings
+	}
+	if len(toolReports) > 0 {
+		metrics["tool_reports"] = toolReports
 	}
 
 	issues, allSuppressions = r.filterToAssessmentRoot(target, issues, allSuppressions)
@@ -225,10 +282,14 @@ func (r *SecurityAssessmentRunner) Assess(ctx context.Context, target string, co
 	result := &AssessmentResult{
 		CommandName:   r.commandName,
 		Category:      CategorySecurity,
-		Success:       true,
+		Success:       len(toolErrors) == 0,
 		ExecutionTime: HumanReadableDuration(time.Since(start)),
 		Issues:        issues,
 		Metrics:       metrics,
+	}
+	if len(toolErrors) > 0 {
+		sort.Slice(toolErrors, func(i, j int) bool { return toolErrors[i].Error() < toolErrors[j].Error() })
+		result.Error = errors.Join(toolErrors...).Error()
 	}
 
 	// Store suppressions for later use in CategoryResult
@@ -321,19 +382,33 @@ func (r *SecurityAssessmentRunner) findModuleRoot(startDir string) (string, erro
 func (r *SecurityAssessmentRunner) runGosec(ctx context.Context, moduleRoot string, config AssessmentConfig) ([]Issue, []Suppression, error) {
 	// Build target directories
 	var dirs []string
+	var discoveryErrors []error
 	if len(config.IncludeFiles) > 0 {
 		dirs = r.uniqueDirs(config.IncludeFiles)
 	} else {
 		// Discover Go package directories across multi-module repos
 		discoveredModules := false
 		listedAnyModule := false
-		if moduleDirs, err := r.findModuleDirs(moduleRoot, config); err == nil && len(moduleDirs) > 0 {
+		commandDiscoveryFailed := false
+		nonCommandDiscoveryFailed := false
+		moduleDirs, discoveryErr := r.findModuleDirs(moduleRoot, config)
+		if discoveryErr != nil {
+			nonCommandDiscoveryFailed = true
+			discoveryErrors = append(discoveryErrors, fmt.Errorf("gosec module discovery: %w", discoveryErr))
+		}
+		if discoveryErr == nil && len(moduleDirs) > 0 {
 			discoveredModules = true
 			pkgSet := make(map[string]struct{})
 			for _, mdir := range moduleDirs {
 				pkgs, err := r.listGoPackageDirs(moduleRoot, mdir, config)
 				if err != nil {
-					logger.Warn(fmt.Sprintf("go package discovery failed for %s: %v", mdir, err))
+					discoveryErrors = append(discoveryErrors, fmt.Errorf("gosec package discovery for %s: %w", mdir, err))
+					var commandErr *gosecPackageDiscoveryCommandError
+					if errors.As(err, &commandErr) {
+						commandDiscoveryFailed = true
+					} else {
+						nonCommandDiscoveryFailed = true
+					}
 					continue
 				}
 				listedAnyModule = true
@@ -350,11 +425,14 @@ func (r *SecurityAssessmentRunner) runGosec(ctx context.Context, moduleRoot stri
 				dirs = append(dirs, p)
 			}
 		}
-		if len(dirs) == 0 && (!discoveredModules || !listedAnyModule) {
-			// Fallback to single shard
+		if len(dirs) == 0 && !nonCommandDiscoveryFailed &&
+			(len(discoveryErrors) == 0 || commandDiscoveryFailed) && (!discoveredModules || !listedAnyModule) {
+			// Retain the historical best-effort shard for command failures only.
+			// Discovery errors remain failures even if this shard returns findings.
 			dirs = []string{"./..."}
 		}
 	}
+	sort.Strings(dirs)
 
 	// Determine worker pool size from concurrency percent (default 80%)
 	workers := config.Concurrency
@@ -375,13 +453,14 @@ func (r *SecurityAssessmentRunner) runGosec(ctx context.Context, moduleRoot stri
 	lastShardCount = len(dirs)
 	lastPoolSize = workers
 	if len(dirs) == 0 {
-		return nil, nil, nil
+		return nil, nil, errors.Join(append(discoveryErrors, errors.New("gosec did not execute any in-scope package shards"))...)
 	}
 
 	type shardResult struct {
 		issues       []Issue
 		suppressions []Suppression
 		err          error
+		dir          string
 	}
 	results := make(chan shardResult, len(dirs))
 	excludeDirs := parseIgnorePatternsForGosec(moduleRoot)
@@ -391,13 +470,13 @@ func (r *SecurityAssessmentRunner) runGosec(ctx context.Context, moduleRoot stri
 	for _, d := range dirs {
 		select {
 		case <-ctx.Done():
-			return nil, nil, ctx.Err()
-		default:
+			results <- shardResult{dir: d, err: ctx.Err()}
+			continue
+		case sem <- struct{}{}:
 		}
-		sem <- struct{}{}
 		go func(dirArg string) {
 			defer func() { <-sem }()
-			args := []string{"-quiet", "-fmt=json"}
+			args := []string{"-fmt=json"}
 			if config.TrackSuppressions {
 				args = append(args, "-track-suppressions")
 			}
@@ -423,91 +502,82 @@ func (r *SecurityAssessmentRunner) runGosec(ctx context.Context, moduleRoot stri
 			rctx, cancel := r.effectiveToolContext(ctx, config.Timeout, config.SecurityGosecTimeout)
 			defer cancel()
 			stdout, stderr, err := runOnce(rctx)
-			if err != nil {
-				// gosec returns non-zero when issues found; still parse JSON output if present
-				logger.Debug(fmt.Sprintf("gosec(%s) returned error: %v", dirArg, err))
-			}
-
 			primary := stdout
 			if len(bytes.TrimSpace(primary)) == 0 {
 				primary = stderr
 			}
-			// Treat empty output as no issues without warning
-			if len(bytes.TrimSpace(primary)) == 0 {
-				results <- shardResult{issues: nil, err: nil}
-				return
-			}
-
-			// Parse with retry on malformed non-empty output
-			iss, supps, perr := r.parseGosecOutputWithSuppressions(primary)
-			// Post-filter to included files when scoped (reduces noise from dir-level scans)
-			if len(config.IncludeFiles) > 0 && len(iss) > 0 {
-				var fIss []Issue
-				for _, is := range iss {
-					if pathMatchesAny(is.File, config.IncludeFiles) {
-						fIss = append(fIss, is)
-					}
-				}
-				iss = fIss
-			}
-			if perr != nil {
-				// Exponential backoff retry (max 2 tries)
+			report := r.parseGosecScanReport(primary)
+			lastReport := report
+			iss, supps := report.issues, report.suppressions
+			// Keep the existing malformed-nonempty retry bound. Earlier terminal
+			// failures and trustworthy evidence survive even a later valid report.
+			var attemptErrors []error
+			attemptErrors = append(attemptErrors, gosecExecutionError(report, err, rctx.Err()))
+			if !report.complete && len(bytes.TrimSpace(primary)) > 0 && rctx.Err() == nil {
 				backoff := 200 * time.Millisecond
 				maxRetries := 2
 				for i := 0; i < maxRetries; i++ {
 					select {
-					case <-ctx.Done():
-						results <- shardResult{issues: nil, err: ctx.Err()}
-						return
+					case <-rctx.Done():
+						attemptErrors = append(attemptErrors, rctx.Err())
 					case <-time.After(backoff):
 					}
-					stdout2, stderr2, _ := runOnce(rctx)
+					if rctx.Err() != nil {
+						break
+					}
+					stdout2, stderr2, retryErr := runOnce(rctx)
 					primary2 := stdout2
 					if len(bytes.TrimSpace(primary2)) == 0 {
 						primary2 = stderr2
 					}
-					if len(bytes.TrimSpace(primary2)) == 0 {
-						// No issues; consider success
-						results <- shardResult{issues: nil, err: nil}
-						return
-					}
-					iss2, supps2, perr2 := r.parseGosecOutputWithSuppressions(primary2)
-					if perr2 == nil {
-						results <- shardResult{issues: iss2, suppressions: supps2, err: nil}
-						return
+					retryReport := r.parseGosecScanReport(primary2)
+					lastReport = retryReport
+					iss = append(iss, retryReport.issues...)
+					supps = append(supps, retryReport.suppressions...)
+					attemptErrors = append(attemptErrors, gosecExecutionError(retryReport, retryErr, rctx.Err()))
+					if retryReport.complete || rctx.Err() != nil {
+						break
 					}
 					backoff *= 2
 				}
-				// If still failing after retries, report once
-				if p := persistGosecParseFailure(dirArg, stdout, stderr); p != "" {
-					logger.Warn(fmt.Sprintf("gosec(%s) parse failed after retries (debug: %s): %v", dirArg, p, perr))
-				} else {
-					logger.Warn(fmt.Sprintf("gosec(%s) parse failed after retries: %v", dirArg, perr))
+			}
+			if !lastReport.complete && len(bytes.TrimSpace(primary)) > 0 && rctx.Err() == nil {
+				if path := persistGosecParseFailure(dirArg, stdout, stderr); path != "" {
+					logger.Warn(fmt.Sprintf("gosec(%s) incomplete report after bounded retries (debug: %s)", dirArg, path))
 				}
 			}
-			results <- shardResult{issues: iss, suppressions: supps, err: perr}
+			iss, supps = uniqueGosecEvidence(iss, supps)
+			// Presentation scoping applies to every attempt, never its errors.
+			if len(config.IncludeFiles) > 0 {
+				var filtered []Issue
+				for _, issue := range iss {
+					if pathMatchesAny(issue.File, config.IncludeFiles) {
+						filtered = append(filtered, issue)
+					}
+				}
+				iss = filtered
+			}
+			results <- shardResult{dir: dirArg, issues: iss, suppressions: supps, err: errors.Join(attemptErrors...)}
 		}(d)
 	}
 
-	// Drain pool
-	for i := 0; i < cap(sem); i++ {
-		sem <- struct{}{}
+	// Collect every scheduled shard, including canceled and failed shards.
+	var shardResults []shardResult
+	for range dirs {
+		shardResults = append(shardResults, <-results)
 	}
-
-	// Collect
+	sort.Slice(shardResults, func(i, j int) bool { return shardResults[i].dir < shardResults[j].dir })
 	var allIssues []Issue
 	var allSuppressions []Suppression
-	for i := 0; i < len(dirs); i++ {
-		r := <-results
-		if r.err != nil {
-			logger.Warn(fmt.Sprintf("gosec parse failed: %v", r.err))
-			continue
+	for _, result := range shardResults {
+		if result.err != nil {
+			discoveryErrors = append(discoveryErrors, fmt.Errorf("gosec shard %s: %w", result.dir, result.err))
 		}
-		allIssues = append(allIssues, r.issues...)
-		allSuppressions = append(allSuppressions, r.suppressions...)
+		allIssues = append(allIssues, result.issues...)
+		allSuppressions = append(allSuppressions, result.suppressions...)
 	}
 	close(results)
-	return allIssues, allSuppressions, nil
+	return allIssues, allSuppressions, errors.Join(discoveryErrors...)
 }
 
 // Package-level metrics (single-process assumption; not exported)
@@ -516,13 +586,30 @@ var (
 	lastPoolSize   int
 )
 
+// gosecPackageDiscoveryCommandError identifies errors originating at the go-list
+// command boundary, without classifying path-mapping or module-walk failures as
+// reasons to launch a broader fallback. The original error remains inspectable.
+type gosecPackageDiscoveryCommandError struct {
+	err error
+}
+
+func (e *gosecPackageDiscoveryCommandError) Error() string { return e.err.Error() }
+func (e *gosecPackageDiscoveryCommandError) Unwrap() error { return e.err }
+
 // listGoPackageDirs returns absolute directories for all in-scope packages under moduleRoot.
 func (r *SecurityAssessmentRunner) listGoPackageDirs(scopeRoot, moduleRoot string, config AssessmentConfig) ([]string, error) {
+	// go list emits absolute directories even when assessment starts at ".".
+	// Normalize the scope once, without changing successful containment/ignore
+	// decisions or treating a mapping failure as an empty successful discovery.
+	scopeRoot, err := filepath.Abs(scopeRoot)
+	if err != nil {
+		return nil, fmt.Errorf("resolve gosec scope root: %w", err)
+	}
 	cmd := exec.Command("go", "list", "-f", "{{.Dir}}", "./...")
 	cmd.Dir = moduleRoot
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, err
+		return nil, &gosecPackageDiscoveryCommandError{err: err}
 	}
 	matcher := r.newIgnoreMatcher(scopeRoot, config)
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
@@ -534,7 +621,7 @@ func (r *SecurityAssessmentRunner) listGoPackageDirs(scopeRoot, moduleRoot strin
 		}
 		rel, err := filepath.Rel(scopeRoot, d)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("map gosec package directory to scope: %w", err)
 		}
 		rel = filepath.ToSlash(rel)
 		if r.isIgnoredSecurityPath(rel, true, matcher, config) {
@@ -557,7 +644,7 @@ func (r *SecurityAssessmentRunner) findModuleDirs(root string, config Assessment
 	// Walk and collect go.mod holders, pruning ignored directories before package discovery.
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil
+			return err
 		}
 		if info.IsDir() {
 			rel, relErr := filepath.Rel(root, path)
@@ -671,12 +758,17 @@ func (r *SecurityAssessmentRunner) parseGosecOutput(output []byte) ([]Issue, err
 // parseGosecOutputWithSuppressions converts gosec JSON to issues and tracks suppressions
 func (r *SecurityAssessmentRunner) parseGosecOutputWithSuppressions(output []byte) ([]Issue, []Suppression, error) {
 	type gosecIssue struct {
-		Severity string      `json:"severity"`
-		Details  string      `json:"details"`
-		File     string      `json:"file"`
-		Code     string      `json:"code"`
-		Line     interface{} `json:"line"` // tolerate string or number
-		RuleID   string      `json:"rule_id"`
+		Severity     string      `json:"severity"`
+		Details      string      `json:"details"`
+		File         string      `json:"file"`
+		Code         string      `json:"code"`
+		Line         interface{} `json:"line"` // tolerate string or number
+		RuleID       string      `json:"rule_id"`
+		NoSec        bool        `json:"nosec"`
+		Suppressions []struct {
+			Kind          string `json:"kind"`
+			Justification string `json:"justification"`
+		} `json:"suppressions"`
 	}
 	type gosecSuppression struct {
 		RuleID string `json:"rule_id"`
@@ -703,6 +795,7 @@ func (r *SecurityAssessmentRunner) parseGosecOutputWithSuppressions(output []byt
 	}
 
 	var issues []Issue
+	var suppressions []Suppression
 	for _, gi := range report.Issues {
 		sev := strings.ToLower(strings.TrimSpace(gi.Severity))
 		mapped := SeverityLow
@@ -730,6 +823,26 @@ func (r *SecurityAssessmentRunner) parseGosecOutputWithSuppressions(output []byt
 		default:
 			lineNum = 0
 		}
+		if gi.NoSec || len(gi.Suppressions) > 0 {
+			if len(gi.Suppressions) == 0 {
+				suppressions = append(suppressions, Suppression{
+					Tool: "gosec", RuleID: gi.RuleID, File: gi.File, Line: lineNum,
+					Severity: mapped, Syntax: "#nosec " + gi.RuleID,
+				})
+			}
+			for _, source := range gi.Suppressions {
+				syntax := source.Kind
+				if source.Kind == "inSource" {
+					syntax = "#nosec " + gi.RuleID
+				}
+				suppressions = append(suppressions, Suppression{
+					Tool: "gosec", RuleID: gi.RuleID, File: gi.File, Line: lineNum,
+					Severity: mapped, Syntax: syntax, Reason: source.Justification,
+					Metadata: map[string]interface{}{"kind": source.Kind},
+				})
+			}
+			continue
+		}
 
 		issues = append(issues, Issue{
 			File:        gi.File,
@@ -743,7 +856,6 @@ func (r *SecurityAssessmentRunner) parseGosecOutputWithSuppressions(output []byt
 	}
 
 	// Convert gosec suppressions to our format
-	var suppressions []Suppression
 	for _, gs := range report.Suppressions {
 		supp := Suppression{
 			Tool:     "gosec",
@@ -789,26 +901,80 @@ func (r *SecurityAssessmentRunner) mapGosecSeverity(ruleID string) IssueSeverity
 
 // runGovulncheck executes govulncheck and parses JSON-lines output into issues
 func (r *SecurityAssessmentRunner) runGovulncheck(ctx context.Context, moduleRoot string, config AssessmentConfig) ([]Issue, error) {
-	// govulncheck emits a JSON event stream; capture and parse line-wise
+	issues, _, err := r.runGovulncheckWithMetadata(ctx, moduleRoot, config)
+	return issues, err
+}
+
+func (r *SecurityAssessmentRunner) runGovulncheckWithMetadata(ctx context.Context, moduleRoot string, config AssessmentConfig) ([]Issue, map[string]interface{}, error) {
+	// govulncheck emits a stream of potentially multiline JSON objects.
 	// When scoped, prefer limiting to impacted package directories.
 	args := []string{"-json"}
 	if len(config.IncludeFiles) > 0 {
-		// Build unique package dirs relative to module root
+		// Package directories are local patterns, not bare import paths. Compare
+		// against an absolute root without changing cmd.Dir or resolving symlinks.
+		absModuleRoot, err := filepath.Abs(moduleRoot)
+		if err != nil {
+			return nil, nil, fmt.Errorf("resolve govulncheck module scope: %w", err)
+		}
 		dirs := r.uniqueDirs(config.IncludeFiles)
+		type packageSelection struct {
+			dir     string
+			pattern string
+		}
+		var selections []packageSelection
+		rootSelected := false
 		for _, d := range dirs {
-			// Normalize path relative to moduleRoot if possible
-			rel := d
-			if abs, err := filepath.Abs(d); err == nil {
-				if strings.HasPrefix(abs, moduleRoot) {
-					if r2, err2 := filepath.Rel(moduleRoot, abs); err2 == nil {
-						rel = r2
-					}
-				}
+			// A selected root file denotes the module root under cmd.Dir, even
+			// when the assessment caller is working in a different directory.
+			if d == "." {
+				selections = append(selections, packageSelection{dir: absModuleRoot, pattern: "./..."})
+				rootSelected = true
+				continue
+			}
+			absDir, err := filepath.Abs(d)
+			if err != nil {
+				return nil, nil, fmt.Errorf("resolve govulncheck package scope: %w", err)
+			}
+			rel, err := filepath.Rel(absModuleRoot, absDir)
+			if err != nil {
+				return nil, nil, fmt.Errorf("map govulncheck package scope: %w", err)
+			}
+			if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+				return nil, nil, errors.New("govulncheck included package is outside module root")
 			}
 			if rel == "." {
-				rel = "./..."
+				selections = append(selections, packageSelection{dir: absDir, pattern: "./..."})
+				rootSelected = true
+			} else {
+				selections = append(selections, packageSelection{dir: absDir, pattern: "./" + filepath.ToSlash(rel)})
 			}
-			args = append(args, rel)
+		}
+		// Validate every mapping before omitting any directory. When ./... is
+		// already selected, non-package directories add no Go coverage and would
+		// make the producer reject a mixed documentation/code selection. Retain
+		// any .go entry (including test files and symlinks) for the Go loader to
+		// validate; never turn a read error into evidence of package absence.
+		for _, selected := range selections {
+			if rootSelected && selected.pattern != "./..." {
+				if err := ctx.Err(); err != nil {
+					return nil, nil, err
+				}
+				entries, err := os.ReadDir(selected.dir)
+				if err != nil {
+					return nil, nil, fmt.Errorf("read govulncheck selected directory: %w", err)
+				}
+				hasGo := false
+				for _, entry := range entries {
+					if strings.HasSuffix(entry.Name(), ".go") {
+						hasGo = true
+						break
+					}
+				}
+				if !hasGo {
+					continue
+				}
+			}
+			args = append(args, selected.pattern)
 		}
 		if len(dirs) == 0 {
 			args = append(args, "./...")
@@ -818,82 +984,52 @@ func (r *SecurityAssessmentRunner) runGovulncheck(ctx context.Context, moduleRoo
 	}
 	rctx, cancel := r.effectiveToolContext(ctx, config.Timeout, config.SecurityGovulncheckTimeout)
 	defer cancel()
+	// Parser failure must be able to stop a producer even when the caller has
+	// configured no deadline. This adds cleanup cancellation, not a new timeout.
+	rctx, stop := context.WithCancel(rctx)
+	defer stop()
 	cmd := exec.CommandContext(rctx, "govulncheck", args...)
 	cmd.Dir = moduleRoot
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, fmt.Errorf("stdout pipe: %w", err)
+		return nil, nil, fmt.Errorf("stdout pipe: %w", err)
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return nil, fmt.Errorf("stderr pipe: %w", err)
+		return nil, nil, fmt.Errorf("stderr pipe: %w", err)
 	}
 	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("start govulncheck: %w", err)
+		return nil, nil, fmt.Errorf("start govulncheck: %w", err)
 	}
 
-	// Consume stderr (avoid blocking); log at debug level
+	// Drain stderr without logging raw network/tool output or abandoning a reader.
+	stderrDone := make(chan error, 1)
 	go func() {
-		scanner := bufio.NewScanner(stderr)
-		for scanner.Scan() {
-			logger.Debug("govulncheck: " + scanner.Text())
-		}
+		_, err := io.Copy(io.Discard, stderr)
+		stderrDone <- err
 	}()
-
-	var issues []Issue
-	scanner := bufio.NewScanner(stdout)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-		if iss, ok := r.parseGovulnEventLine(moduleRoot, line); ok {
-			issues = append(issues, *iss)
-		}
+	report, parseErr := readGovulnStream(moduleRoot, stdout)
+	if parseErr != nil {
+		// Stop a malformed producer before draining/reaping it. The parser error
+		// remains the primary cause, not a fabricated successful empty scan.
+		stop()
 	}
-	if err := scanner.Err(); err != nil {
-		logger.Warn(fmt.Sprintf("govulncheck scan read error: %v", err))
-	}
-	if err := cmd.Wait(); err != nil {
-		// Non-zero exit is possible when vulns found; not an error for our purposes
-		logger.Debug(fmt.Sprintf("govulncheck exited: %v", err))
-	}
-	return issues, nil
+	_, drainErr := io.Copy(io.Discard, stdout)
+	stderrErr := <-stderrDone
+	waitErr := cmd.Wait()
+	// In JSON mode findings are reported with exit 0, not text-mode exit 3.
+	return report.finish(errors.Join(parseErr, drainErr, stderrErr, waitErr, rctx.Err()))
 }
 
 // parseGovulnEventLine parses a single govulncheck JSON event line into an Issue.
 // Returns (nil, false) for non-finding or non-JSON lines.
 func (r *SecurityAssessmentRunner) parseGovulnEventLine(moduleRoot, line string) (*Issue, bool) {
-	type gvFinding struct {
-		Type    string `json:"type"`
-		Finding struct {
-			OSV    string `json:"osv"`
-			Module struct {
-				Path string `json:"path"`
-			} `json:"module"`
-			Package struct {
-				Path string `json:"path"`
-			} `json:"package"`
-		} `json:"finding"`
-	}
-
-	var evt gvFinding
-	if err := json.Unmarshal([]byte(line), &evt); err != nil {
+	var event map[string]json.RawMessage
+	if json.Unmarshal([]byte(line), &event) != nil {
 		return nil, false
 	}
-	if evt.Type != "finding" || evt.Finding.OSV == "" {
-		return nil, false
-	}
-	iss := Issue{
-		File:        filepath.Join(moduleRoot, "go.mod"),
-		Line:        0,
-		Severity:    SeverityHigh,
-		Message:     fmt.Sprintf("govulncheck: %s in %s (%s)", evt.Finding.OSV, evt.Finding.Module.Path, evt.Finding.Package.Path),
-		Category:    CategorySecurity,
-		SubCategory: "vulnerability",
-		AutoFixable: false,
-	}
-	return &iss, true
+	iss, err := parseGovulnFinding(moduleRoot, event["finding"])
+	return iss, err == nil && iss != nil
 }
 
 // runGitleaks executes gitleaks and parses JSON output into issues
@@ -907,9 +1043,13 @@ func (r *SecurityAssessmentRunner) runGitleaks(ctx context.Context, moduleRoot s
 			source = ca
 		}
 	}
-	args := []string{"detect", "--no-banner", "--report-format", "json", "--report-path", "-", "--source", source}
+	// A dedicated findings code separates a completed finding report from the
+	// tool's partial-scan/report-write failure exit 1.
+	args := []string{"detect", "--no-banner", "--report-format", "json", "--report-path", "-", "--source", source, "--exit-code", "42"}
 	rctx, cancel := r.effectiveToolContext(ctx, config.Timeout, 0)
 	defer cancel()
+	rctx, stop := context.WithCancel(rctx)
+	defer stop()
 	cmd := exec.CommandContext(rctx, "gitleaks", args...) // #nosec G204
 	cmd.Dir = moduleRoot
 
@@ -925,19 +1065,26 @@ func (r *SecurityAssessmentRunner) runGitleaks(ctx context.Context, moduleRoot s
 		return nil, fmt.Errorf("start gitleaks: %w", err)
 	}
 
-	// Drain stderr
+	// Drain without echoing secret-bearing scanner output.
+	stderrDone := make(chan error, 1)
 	go func() {
-		scanner := bufio.NewScanner(stderr)
-		for scanner.Scan() {
-			logger.Debug("gitleaks: " + scanner.Text())
-		}
+		_, err := io.Copy(io.Discard, stderr)
+		stderrDone <- err
 	}()
-
-	// gitleaks may output a JSON array or newline-delimited JSON
-	data, _ := io.ReadAll(stdout)
-	issues, perr := r.parseGitleaksOutput(data)
-	if perr != nil {
-		logger.Warn(fmt.Sprintf("gitleaks parse failed: %v", perr))
+	issues, parseErr := r.parseGitleaksStream(stdout)
+	if parseErr != nil {
+		stop()
+	}
+	_, drainErr := io.Copy(io.Discard, stdout)
+	stderrErr := <-stderrDone
+	waitErr := cmd.Wait()
+	if waitErr != nil && parseErr == nil && drainErr == nil && stderrErr == nil && rctx.Err() == nil && len(issues) > 0 {
+		var exitErr *exec.ExitError
+		if errors.As(waitErr, &exitErr) && exitErr.ExitCode() == 42 {
+			waitErr = nil
+		}
+	} else if waitErr == nil && len(issues) > 0 {
+		waitErr = errors.New("gitleaks returned its clean exit with a finding-bearing report")
 	}
 
 	// If scoped, post-filter to included files only
@@ -951,50 +1098,7 @@ func (r *SecurityAssessmentRunner) runGitleaks(ctx context.Context, moduleRoot s
 		issues = filtered
 	}
 
-	if err := cmd.Wait(); err != nil {
-		// non-zero may still indicate findings; not fatal
-		logger.Debug(fmt.Sprintf("gitleaks exited: %v", err))
-	}
-	return issues, nil
-}
-
-// parseGitleaksOutput parses gitleaks JSON output
-func (r *SecurityAssessmentRunner) parseGitleaksOutput(data []byte) ([]Issue, error) {
-	// Try array form first
-	var arr []map[string]interface{}
-	if err := json.Unmarshal(data, &arr); err == nil {
-		return r.mapGitleaksArray(arr), nil
-	}
-	// Try NDJSON line by line
-	var issues []Issue
-	scanner := bufio.NewScanner(strings.NewReader(string(data)))
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-		var m map[string]interface{}
-		if json.Unmarshal([]byte(line), &m) == nil {
-			iss := r.mapGitleaksFinding(m)
-			if iss != nil {
-				issues = append(issues, *iss)
-			}
-		}
-	}
-	if len(issues) == 0 {
-		return nil, fmt.Errorf("unrecognized gitleaks output")
-	}
-	return issues, nil
-}
-
-func (r *SecurityAssessmentRunner) mapGitleaksArray(arr []map[string]interface{}) []Issue {
-	var issues []Issue
-	for _, m := range arr {
-		if iss := r.mapGitleaksFinding(m); iss != nil {
-			issues = append(issues, *iss)
-		}
-	}
-	return issues
+	return issues, errors.Join(parseErr, drainErr, stderrErr, waitErr, rctx.Err())
 }
 
 func (r *SecurityAssessmentRunner) mapGitleaksFinding(m map[string]interface{}) *Issue {
@@ -1174,6 +1278,10 @@ func getInt(m map[string]interface{}, keys []string) int {
 			switch t := v.(type) {
 			case float64:
 				return int(t)
+			case json.Number:
+				if n, err := strconv.Atoi(t.String()); err == nil {
+					return n
+				}
 			case int:
 				return t
 			case string:

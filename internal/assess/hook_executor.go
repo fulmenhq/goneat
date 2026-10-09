@@ -3,6 +3,7 @@ package assess
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -134,7 +135,7 @@ func (e *HookExecutor) executeCommand(ctx context.Context, hookCmd HookCommand) 
 
 	// Check for timeout
 	if cmdCtx.Err() == context.DeadlineExceeded {
-		return fmt.Errorf("command timed out after %s", timeout)
+		return fmt.Errorf("command timed out after %s: %w", timeout, errors.Join(err, context.DeadlineExceeded))
 	}
 
 	return err

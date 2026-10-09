@@ -120,40 +120,18 @@ func (env *TestEnv) RunVersionCommand(args ...string) VersionCommandResult {
 		env.t.Fatalf("Could not find goneat binary")
 	}
 
-	// Clean path to prevent path traversal issues
-	goneatPath = filepath.Clean(goneatPath)
-
 	// Add timeout to prevent hanging
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, goneatPath, cmdArgs...) // #nosec G204
-	cmd.Dir = env.Dir
-
-	// Capture output
-	output, err := cmd.CombinedOutput()
-	exitCode := 0
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			exitCode = exitErr.ExitCode()
-		} else {
-			env.t.Fatalf("Failed to run command: %v", err)
-		}
-	}
-
-	result := VersionCommandResult{
-		Output:   strings.TrimSpace(string(output)),
-		ExitCode: exitCode,
+	result, spawnErr := runVersionProcess(ctx, goneatPath, env.Dir, cmdArgs)
+	if spawnErr != nil {
+		env.t.Fatalf("Failed to run command: %v\n%s", spawnErr, result.Error)
 	}
 
 	// Parse version from output if successful
-	if exitCode == 0 && result.Output != "" {
+	if result.ExitCode == 0 && result.Output != "" {
 		env.parseVersionOutput(&result)
-	}
-
-	// Extract error message if command failed
-	if exitCode != 0 {
-		result.Error = result.Output
 	}
 
 	return result

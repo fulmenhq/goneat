@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -22,12 +24,16 @@ type cargoAuditAdapter struct {
 
 func (c *cargoAuditAdapter) Name() string { return "cargo-audit" }
 
+func (c *cargoAuditAdapter) IsApplicable() bool {
+	project := DetectRustProject(c.moduleRoot)
+	return project != nil && project.CargoTomlPath != ""
+}
+
 func (c *cargoAuditAdapter) IsAvailable() bool {
 	if !IsCargoAvailable() {
 		return false
 	}
-	project := DetectRustProject(c.moduleRoot)
-	if project == nil || project.CargoTomlPath == "" {
+	if !c.IsApplicable() {
 		return false
 	}
 	presence := CheckRustToolPresence("cargo-audit", cargoAuditMinVersion)
@@ -37,10 +43,15 @@ func (c *cargoAuditAdapter) IsAvailable() bool {
 	return presence.Present
 }
 
-func (c *cargoAuditAdapter) Run(_ context.Context) ([]Issue, error) {
+func (c *cargoAuditAdapter) Run(ctx context.Context) ([]Issue, error) {
+	issues, _, err := c.RunWithWarnings(ctx)
+	return issues, err
+}
+
+func (c *cargoAuditAdapter) RunWithWarnings(ctx context.Context) ([]Issue, map[string][]json.RawMessage, error) {
 	project := DetectRustProject(c.moduleRoot)
 	if project == nil || project.CargoTomlPath == "" {
-		return nil, nil
+		return nil, nil, nil
 	}
 	root := project.EffectiveRoot()
 	if root == "" {
@@ -48,37 +59,25 @@ func (c *cargoAuditAdapter) Run(_ context.Context) ([]Issue, error) {
 	}
 
 	args := []string{"audit", "--json"}
-	run, err := runToolSplit(root, "cargo", args, c.cfg.Timeout)
-	if err != nil {
-		return nil, err
+	rctx, cancel := c.runner.effectiveToolContext(ctx, c.cfg.Timeout, 0)
+	defer cancel()
+	cmd := exec.CommandContext(rctx, "cargo", args...)
+	cmd.Dir = root
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	processErr := cmd.Run()
+	exitCode := 0
+	var exitErr *exec.ExitError
+	if errors.As(processErr, &exitErr) && exitErr.ExitCode() >= 0 && rctx.Err() == nil {
+		exitCode = exitErr.ExitCode()
+		processErr = nil // Completion is decided only after report validation.
 	}
-	// cargo-audit exits non-zero when it finds advisories (report on stdout);
-	// a non-zero exit with no report means it did not run (no lockfile,
-	// advisory DB fetch failure, bad config).
-	if run.failedWithoutOutput() {
-		return nil, run.runFailure("cargo audit")
-	}
-	out := run.Stdout
-	if len(bytes.TrimSpace(out)) == 0 {
-		return nil, nil
-	}
-
-	var report cargoAuditOutput
-	if uerr := json.Unmarshal(out, &report); uerr != nil {
-		return nil, fmt.Errorf("failed to parse cargo-audit json: %w", uerr)
-	}
-	// A real report always carries a vulnerabilities section. A non-zero exit
-	// is only explained by advisories; anything else did not complete.
-	if report.Vulnerabilities == nil {
-		return nil, fmt.Errorf("cargo audit exited %d without a vulnerability report: %s", run.ExitCode, strings.TrimSpace(run.stderrTail(10)))
-	}
-	if run.ExitCode != 0 && len(report.Vulnerabilities.List) == 0 {
-		return nil, fmt.Errorf("cargo audit exited %d with no advisories in its report: %s", run.ExitCode, strings.TrimSpace(run.stderrTail(10)))
-	}
-
-	issues := make([]Issue, 0, len(report.Vulnerabilities.List))
+	processErr = errors.Join(processErr, rctx.Err())
+	report := parseCargoAuditReport(bytes.NewReader(stdout.Bytes()))
+	completionErr := cargoAuditCompletionError(report, exitCode, processErr)
+	issues := make([]Issue, 0, len(report.vulnerabilities))
 	reportFile := rustIssueFile(project)
-	for _, vuln := range report.Vulnerabilities.List {
+	for _, vuln := range report.vulnerabilities {
 		msg := strings.TrimSpace(vuln.Advisory.Title)
 		if msg == "" {
 			msg = "cargo-audit advisory"
@@ -100,13 +99,7 @@ func (c *cargoAuditAdapter) Run(_ context.Context) ([]Issue, error) {
 		})
 	}
 
-	return issues, nil
-}
-
-type cargoAuditOutput struct {
-	Vulnerabilities *struct {
-		List []cargoAuditVuln `json:"list"`
-	} `json:"vulnerabilities"`
+	return issues, report.warnings, completionErr
 }
 
 type cargoAuditVuln struct {

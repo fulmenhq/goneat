@@ -180,7 +180,7 @@ func TestSecurity_RunsApplicableAdapterWithoutGoScanners(t *testing.T) {
 	marker := filepath.Join(repo, "audit-ran")
 	writeFakeCargo(t, repo, "#!/usr/bin/env bash\n"+
 		"if [[ \"$1\" == \"audit\" && \"$2\" == \"--version\" ]]; then echo 'cargo-audit-audit 0.22.2'; exit 0; fi\n"+
-		"if [[ \"$1\" == \"audit\" && \"$2\" == \"--json\" ]]; then touch '"+marker+"'; echo '{\"vulnerabilities\":{\"found\":false,\"count\":0,\"list\":[]},\"warnings\":{}}'; exit 0; fi\n"+
+		"if [[ \"$1\" == \"audit\" && \"$2\" == \"--json\" ]]; then touch '"+marker+"'; echo '"+cargoAuditCleanFixture+"'; exit 0; fi\n"+
 		"exit 1\n")
 	t.Setenv("PATH", filepath.Join(repo, "bin")+string(os.PathListSeparator)+"/usr/bin:/bin")
 	for _, tool := range []string{"gosec", "govulncheck"} {

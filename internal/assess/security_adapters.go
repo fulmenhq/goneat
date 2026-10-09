@@ -48,6 +48,10 @@ func (g *govulncheckAdapter) Run(ctx context.Context) ([]Issue, error) {
 	return g.runner.runGovulncheck(ctx, g.moduleRoot, g.cfg)
 }
 
+func (g *govulncheckAdapter) RunWithMetadata(ctx context.Context) ([]Issue, map[string]interface{}, error) {
+	return g.runner.runGovulncheckWithMetadata(ctx, g.moduleRoot, g.cfg)
+}
+
 // gitleaksAdapter scans for secrets using gitleaks
 type gitleaksAdapter struct {
 	runner     *SecurityAssessmentRunner

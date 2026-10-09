@@ -273,8 +273,8 @@ func TestCargoAudit_NoReportFailsClosed(t *testing.T) {
 		"exit 0\n")
 	adapter := &cargoAuditAdapter{moduleRoot: repo, cfg: checkCfg()}
 	_, err := adapter.Run(t.Context())
-	if err == nil || !strings.Contains(err.Error(), "Cargo.lock") {
-		t.Fatalf("expected did-not-run error with stderr, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "without a vulnerability report") {
+		t.Fatalf("expected did-not-run error without raw stderr, got %v", err)
 	}
 }
 

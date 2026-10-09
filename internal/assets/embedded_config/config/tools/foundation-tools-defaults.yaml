@@ -184,7 +184,7 @@ go_tools:
     auto_install_safe: true
     version_scheme: "semver"
     minimum_version: "1.21.0"
-    recommended_version: "1.26.6"
+    recommended_version: "1.26.9"
   - name: go-licenses
     description: "License compliance for Go dependencies"
     kind: "go"

@@ -1,16 +1,16 @@
 ---
 title: "Release SOP: Binary Distribution"
-description: "Step-by-step procedure to build, verify, and publish Goneat binaries and package manager updates"
+description: "Step-by-step procedure to verify original CI assets and publish signed release supplements"
 author: "@arch-eagle"
 date: "2025-09-02"
-last_updated: "2026-02-28"
+last_updated: "2026-10-07"
 status: "draft"
 tags: ["release", "distribution", "sop", "brew", "scoop", "aur"]
 ---
 
 # Release SOP: Binary Distribution
 
-This SOP describes how to prepare a Goneat release with cross-platform binaries, checksums/signatures, and publish to GitHub Releases, Homebrew tap, Scoop bucket, and (optionally) Arch AUR.
+This SOP describes how to prepare Goneat release candidates, verify the original CI archives and checksum manifests, and publish signed supplements to GitHub Releases. It does not publish package-manager updates.
 
 See the organization-wide standard: `docs/standards/binary-distribution-standard.md`.
 
@@ -30,49 +30,74 @@ make build-all
 
 Artifacts are placed in `bin/` with names `goneat-<os>-<arch>`.
 
-2. Package artifacts and checksums
+2. Package local candidate artifacts and checksums
 
 ```bash
 make release-build
 ```
 
-Outputs archives and `SHA256SUMS` under `dist/release/`.
+Outputs local candidate archives and checksum manifests under `dist/release/`.
+These are not substitutes for the release workflow's published bytes.
 
 3. Create GitHub Release
 
 - Create annotated tag `vX.Y.Z` and push
 - The CI workflow `.github/workflows/release.yml` (added in this repo) will:
-  - Build and package artifacts
-  - Create a GitHub Release and upload archives + `SHA256SUMS` (+ signature if available)
+  - Validate native candidate contracts, build and package artifacts
+  - Create a GitHub Release and upload five archives plus `SHA256SUMS` and `SHA512SUMS`
 
-4. Update package managers
+After the workflow succeeds, use a new or empty `dist/release/` directory:
 
-- Homebrew
-  - In `fulmenhq/homebrew-tap`, update the formula using `packaging/homebrew/goneat.rb.template` as reference.
-  - Populate URLs and SHA256 for macOS (amd64/arm64) and Linux (amd64/arm64).
-- Scoop
-  - From this repo, run:
-    ```bash
-    make update-scoop-manifest VERSION=0.5.7
-    ```
-  - Or from the bucket repo directly:
-    ```bash
-    cd ../scoop-bucket && make update-goneat VERSION=0.5.7
-    ```
-  - Review manifest output: `jq . ../scoop-bucket/bucket/goneat.json`
-  - Commit and push bucket update: `cd ../scoop-bucket && make release APP=goneat VERSION=0.5.7`
-- Arch AUR (`goneat-bin`)
-  - Update `PKGBUILD` using `packaging/aur/PKGBUILD.template`.
-  - Set `sha256sums_*` values and run `updpkgsums`, update `.SRCINFO`.
+```bash
+make release-download GONEAT_RELEASE_TAG=vX.Y.Z
+make release-verify-checksums GONEAT_RELEASE_TAG=vX.Y.Z
+```
 
-5. Update docs
+Download fetches exactly the five archives and both original CI manifests and
+verifies both checksum algorithms before publishing local files. It refuses to
+overwrite existing assets. Do not run `release-checksums` on downloaded CI
+manifests; that target is only for generating new local candidate manifests.
+
+With separately approved signing credentials and independently approved public
+trust inputs outside `dist/release/`, sign and verify:
+
+```bash
+make release-sign GONEAT_RELEASE_TAG=vX.Y.Z
+make release-verify-signatures GONEAT_RELEASE_TAG=vX.Y.Z
+make release-notes
+make release-upload
+```
+
+`release-sign` stages both PGP and both minisign signatures, verifies all four,
+and only then publishes local signatures and public keys without overwriting
+existing outputs. Verification requires `GONEAT_GPG_HOMEDIR`,
+`GONEAT_PGP_KEY_ID`, and `GONEAT_MINISIGN_PUB` (or their unprefixed equivalents).
+Downloaded public keys must match those independent inputs; they cannot
+authorize themselves. See [release signing](../security/release-signing.md).
+
+`release-upload` supplements signatures, public keys and release notes only.
+Before any remote write, it verifies all four signatures, both manifests, and
+the actual bytes of all seven original remote assets and any existing
+supplements. A byte-identical supplement is a no-op; a different existing
+supplement is an error. Original asset IDs and bytes are verified again after
+upload. No archive or manifest is uploaded again, and no asset is clobbered.
+Other concurrent publishers are outside the local trusted-writer boundary;
+identity checks detect divergence but are not an atomic remote transaction.
+
+Signing, tag push, publication and package-manager changes each require their
+own maintainer approval. A successful local check does not grant those actions.
+
+Package-manager procedures are outside this signing and supplement-upload
+flow. `make release-upload` does not update Homebrew, Scoop or AUR repositories.
+
+4. Update docs
 
 ```bash
 # Update release notes and install docs if needed
 vim docs/user-guide/install.md
 ```
 
-6. Announce
+5. Announce
 
 - Internal channels and release announcements.
 

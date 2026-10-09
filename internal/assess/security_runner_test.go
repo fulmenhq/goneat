@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -232,15 +233,20 @@ func TestRunGosecFallsBackWhenPackageDiscoveryFails(t *testing.T) {
 	capturePath := filepath.Join(repo, "gosec-args.txt")
 	script := "#!/bin/sh\n" +
 		"printf '%s\\n' \"$@\" > " + shellQuote(capturePath) + "\n" +
-		"printf '{\"Issues\":[]}'\n"
+		"printf '%s' '" + gosecCleanFixture + "'\n"
 	writeExecutableTestFile(t, filepath.Join(binDir, "gosec"), script)
 	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	config := DefaultAssessmentConfig()
 	config.Concurrency = 1
 	_, _, err := runner.runGosec(context.Background(), repo, config)
-	if err != nil {
-		t.Fatalf("runGosec returned error: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "package discovery") {
+		t.Fatalf("fallback must not hide the package discovery failure: %v", err)
+	}
+	var discoveryErr *gosecPackageDiscoveryCommandError
+	var exitErr *exec.ExitError
+	if !errors.As(err, &discoveryErr) || !errors.As(err, &exitErr) || exitErr.ExitCode() == 0 || lastShardCount != 1 {
+		t.Fatalf("fallback must retain the original command error and one shard: %v (shards=%d)", err, lastShardCount)
 	}
 
 	args, err := os.ReadFile(capturePath)

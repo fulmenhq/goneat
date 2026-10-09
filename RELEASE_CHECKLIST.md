@@ -34,27 +34,9 @@ test + lint + verify-crucible + license-audit
 
 ### Repository Structure
 
-goneat's release automation requires specific sibling repositories for package manager formula updates:
-
-```
-parent/
-  ├── goneat/              # This repository
-  ├── homebrew-tap/        # Required for `make update-homebrew-formula`
-  ├── homebrew-tap-tools/  # Optional (improves local dev workflow)
-  └── scoop-bucket/        # Required for `make update-scoop-manifest`
-```
-
-**Setup:**
-
-```bash
-cd ..  # Navigate to parent directory
-git clone https://github.com/fulmenhq/homebrew-tap.git
-git clone https://github.com/fulmenhq/homebrew-tap-tools.git  # Optional
-git clone https://github.com/fulmenhq/scoop-bucket.git
-cd goneat
-```
-
-**Why this matters**: The `make release-upload` target automatically updates Homebrew and Scoop metadata after uploading release artifacts. If `../homebrew-tap` is missing, release-upload fails and you must update Homebrew manually. If `../scoop-bucket` is missing, Scoop update is skipped with a warning and requires manual follow-up.
+This signing and supplement-upload flow operates in the goneat repository.
+It does not update Homebrew, Scoop or any other package manager and does not
+require sibling package-manager repositories.
 
 ## Pre-Release Preparation
 
@@ -242,13 +224,13 @@ make test-integration-cooling-quick  # Hugo baseline (~8s)
 Release tags are GPG-signed annotated tags with a declared tagger identity.
 Run these on the operator machine, never in CI. Every step needs:
 
-| Variable | Meaning |
-| --- | --- |
-| `GONEAT_RELEASE_TAG` | tag to create, verify or push; must equal the `VERSION` file |
-| `GONEAT_PGP_KEY_ID` | signing key: 40-hex fingerprint or 16-hex long key id; a trailing `!` forces that exact (sub)key |
-| `GONEAT_GPG_HOMEDIR` | isolated gpg homedir holding the signing key; the default keyring is never used |
-| `GONEAT_TAGGER_NAME` | tagger name recorded on the tag |
-| `GONEAT_TAGGER_EMAIL` | tagger email; must be a uid email on the signing key |
+| Variable              | Meaning                                                                                          |
+| --------------------- | ------------------------------------------------------------------------------------------------ |
+| `GONEAT_RELEASE_TAG`  | tag to create, verify or push; must equal the `VERSION` file                                     |
+| `GONEAT_PGP_KEY_ID`   | signing key: 40-hex fingerprint or 16-hex long key id; a trailing `!` forces that exact (sub)key |
+| `GONEAT_GPG_HOMEDIR`  | isolated gpg homedir holding the signing key; the default keyring is never used                  |
+| `GONEAT_TAGGER_NAME`  | tagger name recorded on the tag                                                                  |
+| `GONEAT_TAGGER_EMAIL` | tagger email; must be a uid email on the signing key                                             |
 
 ```bash
 # 1. Create the signed tag on HEAD and verify it. Refuses unless on a clean main
@@ -290,7 +272,7 @@ procedure. Sync a backup remote as its own step.
 make release-clean  # Optional but recommended: wipe dist/release before packaging
 make build-all      # Cross-platform binaries
 make package        # Create distribution archives (dist/release/*.tar.gz, *.zip, SHA256SUMS)
-# Note: make release-notes is automatically called by make release-upload
+# Local packages are candidate inspection only, not replacements for CI assets.
 ```
 
 ### Major Release Flow (v0.X.0, v1.0.0)
@@ -322,10 +304,10 @@ make test-integration-extended  # All 3 tiers (~2 minutes)
 
 > **CRITICAL: One-Way Sequence**
 >
-> The signing workflow is a ONE-WAY sequence. Once you sign (step 5), you MUST NOT
-> regenerate checksums (step 3). Doing so invalidates all signatures and requires
-> re-signing. The Makefile includes guards to prevent accidental checksum regeneration
-> after signing.
+> Preserve the original five CI archives and both CI checksum manifests from
+> download through upload. Never regenerate the downloaded manifests, even
+> before signing. `release-checksums` refuses existing manifests; use the
+> non-destructive `release-verify-checksums` target instead.
 
 ### 1. Wait for CI to complete and build artifacts
 
@@ -342,22 +324,17 @@ Or monitor: https://github.com/fulmenhq/goneat/actions
 ### 2. Download CI-built artifacts (sign what users actually get)
 
 ```bash
-make release-clean     # Clean any local artifacts
+# Use a new or empty dist/release directory; preserve any existing evidence elsewhere.
 GONEAT_RELEASE_TAG=$GONEAT_RELEASE_TAG make release-download  # Download CI-built artifacts (requires gh CLI)
 ```
 
-### 3. Generate checksums from downloaded artifacts
+Download retrieves exactly the five release archives plus original `SHA256SUMS`
+and `SHA512SUMS`. Both checksum algorithms must verify before local files are
+promoted. Existing destination files are never overwritten.
 
-> **WARNING**: Do NOT run this step again after signing! Regenerating checksums
-> invalidates signatures. The Makefile will block this if signatures exist.
+### 3. Verify both original checksum manifests
 
-```bash
-GONEAT_RELEASE_TAG=$GONEAT_RELEASE_TAG make release-checksums # Generate SHA256SUMS and SHA512SUMS
-```
-
-### 3a. (Optional) Verify checksums match artifacts
-
-Use this to verify checksum integrity without regenerating (safe to run anytime):
+Verify integrity without rewriting either CI manifest:
 
 ```bash
 GONEAT_RELEASE_TAG=$GONEAT_RELEASE_TAG make release-verify-checksums  # Non-destructive verification
@@ -371,26 +348,24 @@ Preferred convention is `GONEAT_*` (Fulmen standard). Pass them inline to `make`
 
 ```bash
 # Prefer absolute paths (avoid ~ which does not always expand in Make/env)
-GONEAT_PGP_KEY_ID=$(gpg --list-secret-keys --keyid-format=long security@fulmenhq.dev | grep '^sec' | head -1 | awk '{print $2}' | cut -d'/' -f2)
-GONEAT_GPG_HOMEDIR="${GNUPGHOME:-$HOME/.gnupg}"
-GONEAT_MINISIGN_KEY="$HOME/.minisign/fulmenhq-release.key"
-# Optional (if unset, will be derived from MINISIGN_KEY by replacing .key -> .pub when possible)
-GONEAT_MINISIGN_PUB="$HOME/.minisign/fulmenhq-release.pub"
+export GONEAT_PGP_KEY_ID="<independently approved signing identity or fingerprint>"
+export GONEAT_GPG_HOMEDIR="<approved GPG homedir outside dist/release>"
+export GONEAT_MINISIGN_KEY="<approved minisign secret key path>"
+export GONEAT_MINISIGN_PUB="<independently approved minisign public key path outside dist/release>"
 ```
 
 Notes:
 
 - Minisign signing is required.
 - PGP signing is required for goneat releases (the Makefile enforces this).
+- Verification and upload require the approved GPG homedir/identity and minisign
+  public key even when the release contains copies of those keys. Downloaded
+  public keys are comparison inputs, never independent trust roots.
 
 ### 5. Sign checksum manifests
 
 ```bash
 GONEAT_RELEASE_TAG="$GONEAT_RELEASE_TAG" \
-GONEAT_MINISIGN_KEY="$HOME/.minisign/fulmenhq-release.key" \
-GONEAT_MINISIGN_PUB="$HOME/.minisign/fulmenhq-release.pub" \
-GONEAT_PGP_KEY_ID="$GONEAT_PGP_KEY_ID" \
-GONEAT_GPG_HOMEDIR="${GNUPGHOME:-$HOME/.gnupg}" \
 make release-sign
 ```
 
@@ -398,8 +373,11 @@ This target uses `scripts/sign-release-manifests.sh` (preferred) which:
 
 - Signs `SHA256SUMS` and `SHA512SUMS` with minisign
 - Signs the same manifests with PGP
-- Copies minisign public key into `dist/release/` (if provided or derivable)
+- Copies the independently approved minisign public key into `dist/release/`
 - Exports the PGP public key into `dist/release/fulmenhq-release-signing-key.asc`
+- Verifies all four staged signatures before publishing local signing outputs
+- Refuses existing outputs rather than overwriting signatures or keys
+- Preserves the original seven downloaded files byte for byte
 
 ### 6. Verify signatures and key safety
 
@@ -408,29 +386,10 @@ GONEAT_RELEASE_TAG=$GONEAT_RELEASE_TAG make release-verify-signatures  # Verify 
 GONEAT_RELEASE_TAG=$GONEAT_RELEASE_TAG make release-verify-key         # Verify GPG key is public-only
 ```
 
-#### Manual verification (fallback)
-
-GPG signatures:
-
-```bash
-for asc in SHA256SUMS.asc SHA512SUMS.asc; do
-  gpg --homedir "${GONEAT_GPG_HOMEDIR:-$GPG_HOMEDIR}" --verify "$asc" "${asc%.asc}"
-done
-```
-
-Minisign signatures:
-
-```bash
-for sig in SHA256SUMS.minisig SHA512SUMS.minisig; do
-  minisign -Vm "${sig%.minisig}" -p fulmenhq-release-minisign.pub
-done
-```
-
-Key safety:
-
-```bash
-./scripts/verify-public-key.sh fulmenhq-release-signing-key.asc
-```
+Keep the same independently approved trust variables available for verification
+and upload. Missing manifests, signatures, tools or approved trust inputs, bad
+signatures, private key material and mismatched bundled public keys all fail
+nonzero. All four checks are mandatory; none is a warning-only skip.
 
 ### 7. Prepare for upload
 
@@ -443,51 +402,26 @@ All signature and key files are now ready in `dist/release/`:
 
 ## Upload to GitHub Release
 
-**IMPORTANT:** Upload BOTH binaries and signatures, not just signatures!
-
-### Option A: Automated Upload (Recommended)
-
-Includes automatic Homebrew formula and Scoop manifest updates.
+**IMPORTANT:** CI already published the original five archives and both
+checksum manifests. Do not upload them again. Upload supplements only.
 
 ```bash
-cd ../..  # Return to repo root
-# CRITICAL: Ensure GONEAT_GPG_HOMEDIR matches what was used during signing (PGP only)
-export GONEAT_GPG_HOMEDIR=${GNUPGHOME:-$HOME/.gnupg}
-make release-upload  # Uploads artifacts AND updates Homebrew + Scoop metadata
+make release-notes   # Explicitly prepare both matching release-note files
+make release-upload  # Verified supplements only; no package-manager updates
 ```
 
-### Option B: Manual Upload
-
-```bash
-# Upload binaries and checksums
-gh release upload $GONEAT_RELEASE_TAG \
-  goneat_${GONEAT_RELEASE_TAG}_*.tar.gz \
-  goneat_${GONEAT_RELEASE_TAG}_*.zip \
-  SHA256SUMS \
-  SHA512SUMS \
-  --clobber
-
-# Upload signatures and keys
-gh release upload $GONEAT_RELEASE_TAG \
-  SHA256SUMS.asc \
-  SHA512SUMS.asc \
-  SHA256SUMS.minisig \
-  SHA512SUMS.minisig \
-  fulmenhq-release-signing-key.asc \
-  fulmenhq-release-minisign.pub \
-  --clobber
-
-# Update release notes
-gh release edit $GONEAT_RELEASE_TAG --notes-file release-notes-${GONEAT_RELEASE_TAG}.md
-
-# CRITICAL: If using Option B, you must manually verify signatures before upload
-# The automated target does this verification automatically
-```
+The uploader verifies both manifests and all four signatures before remote
+writes. It compares actual remote bytes for all seven originals and any existing
+supplements. A byte-identical supplement is a verified no-op; different existing
+bytes halt. It uploads only missing signatures, public keys and versioned notes,
+updates the body from matching notes, and checks original asset IDs and bytes
+again afterward. No upload uses `--clobber` or replaces an original asset.
+Publication still requires separate maintainer authorization.
 
 ### Verify Upload Success
 
 ```bash
-# Should show 13 assets total
+# Five archives, two original manifests, four signatures, two keys and versioned notes
 gh release view $GONEAT_RELEASE_TAG --json assets --jq '.assets | length'
 gh release view $GONEAT_RELEASE_TAG --json assets --jq '.assets[].name'
 ```
@@ -503,29 +437,18 @@ scripts/verify-release-assets.sh $GONEAT_RELEASE_TAG
 ### Manual Verification (Fallback)
 
 ```bash
-TMPDIR=$(mktemp -d)
-gh release download $GONEAT_RELEASE_TAG --dir "$TMPDIR" --pattern "goneat_${GONEAT_RELEASE_TAG}_*.tar.gz" --clobber
-gh release download $GONEAT_RELEASE_TAG --dir "$TMPDIR" --pattern "goneat_${GONEAT_RELEASE_TAG}_*.zip" --clobber
-(cd "$TMPDIR" && shasum -a 256 goneat_${GONEAT_RELEASE_TAG}_*.tar.gz goneat_${GONEAT_RELEASE_TAG}_*.zip | sort > SHA256SUMS.github)
-sort dist/release/SHA256SUMS > "$TMPDIR"/SHA256SUMS.local
-diff "$TMPDIR"/SHA256SUMS.local "$TMPDIR"/SHA256SUMS.github  # Must be empty before release is declared healthy
-gh release download $GONEAT_RELEASE_TAG --dir "$TMPDIR" --pattern SHA256SUMS --clobber
-sort "$TMPDIR"/SHA256SUMS > "$TMPDIR"/SHA256SUMS.remote
-diff "$TMPDIR"/SHA256SUMS.local "$TMPDIR"/SHA256SUMS.remote  # Validates uploaded checksum matches local copy
+VERIFY_DIR=$(mktemp -d)
+scripts/download-release-assets.sh "$GONEAT_RELEASE_TAG" "$VERIFY_DIR"
+cmp dist/release/SHA256SUMS "$VERIFY_DIR/SHA256SUMS"
+cmp dist/release/SHA512SUMS "$VERIFY_DIR/SHA512SUMS"
 ```
 
 > ⚠️ Since we sign CI-built artifacts, any checksum mismatches indicate CI build problems, not local packaging issues. Always verify CI builds are consistent before signing.
 
 ### Update Package Manager Formulas
 
-If using Option B (manual upload), update package manager metadata separately:
-
-```bash
-make update-homebrew-formula  # Requires ../homebrew-tap
-make update-scoop-manifest    # Requires ../scoop-bucket
-```
-
-**Note**: `make release-upload` (Option A) automatically generates release notes (`make release-notes`) and calls both `make update-homebrew-formula` and `make update-scoop-manifest` after uploading artifacts. If using Option B (manual upload), run these targets separately.
+This flow does not update Homebrew, Scoop or any other package manager. No
+package-manager procedure or repository change is included in signature upload.
 
 **See**: [`docs/security/release-signing.md`](docs/security/release-signing.md) for detailed signing procedures.
 
@@ -667,42 +590,30 @@ separate maintainer authorization.
 
 ### Invalid Signature Recovery
 
-**Symptom**: `make release-upload` fails with "Invalid GPG signature for SHA256SUMS"
+**Symptom**: `make release-verify-signatures` or `make release-upload` fails.
 
-**Cause**: Checksums were regenerated AFTER signing, invalidating signatures. This can happen if:
+Possible causes include changed manifests or archives, missing or invalid
+signatures, unavailable verification tools, or incorrect independent trust
+inputs. File timestamps alone do not establish validity.
 
-- `make release-checksums` was run after `make release-sign`
-- Artifacts were modified after signing
-- Workflow steps were run out of order
-
-**Diagnosis**: Check timestamps - signatures should be NEWER than checksums:
+**Diagnosis**: Preserve the failing set and verify the original manifests and
+all four signatures with the independently approved trust inputs:
 
 ```bash
-ls -la dist/release/SHA256SUMS dist/release/SHA256SUMS.asc
-# .asc file MUST have a timestamp >= SHA256SUMS timestamp
-
-# Verify checksums match artifacts (non-destructive)
 GONEAT_RELEASE_TAG=vX.Y.Z make release-verify-checksums
+GONEAT_RELEASE_TAG=vX.Y.Z make release-verify-signatures
 ```
 
 **Recovery**:
 
-```bash
-# Option 1: Re-sign existing checksums (if checksums are correct)
-cd dist/release
-rm -f *.asc *.minisig  # Remove invalid signatures
-cd ../..
-GONEAT_RELEASE_TAG=vX.Y.Z make release-sign  # Re-sign
+Retain the failed files and diagnostics. If a fresh local set is needed, use a
+different new or empty directory with `scripts/download-release-assets.sh`,
+verify both original manifests, and request approval before signing. Do not
+regenerate CI manifests, discard failed evidence or overwrite existing outputs.
+Different existing remote signatures remain a hard stop, not a clobber action.
 
-# Option 2: Full reset (if unsure about checksum integrity)
-make release-clean
-GONEAT_RELEASE_TAG=vX.Y.Z make release-download
-GONEAT_RELEASE_TAG=vX.Y.Z make release-checksums
-GONEAT_RELEASE_TAG=vX.Y.Z make release-sign
-GONEAT_RELEASE_TAG=vX.Y.Z make release-verify-signatures
-```
-
-**Prevention**: The Makefile now guards against running `release-checksums` when signatures exist.
+**Prevention**: `release-checksums` refuses existing manifests; signature
+verification and supplement upload fail closed on missing or invalid inputs.
 
 ## Git Hooks and Automation
 
@@ -736,9 +647,7 @@ make prepush
 - `make build-all` - Cross-platform binary builds
 - `make package` - Release artifact packaging
 - `make release-notes` - Generate release notes artifact
-- `make release-upload` - Upload artifacts, generate release notes, and update Homebrew + Scoop metadata (v0.3.9+, Scoop added v0.5.7)
-- `make update-homebrew-formula` - Update Homebrew tap formula (v0.3.10+)
-- `make update-scoop-manifest` - Update Scoop bucket manifest (v0.5.7+)
+- `make release-upload` - Verify and upload missing signatures, public keys and notes only; preserve original archives/manifests and do not update package managers
 
 **Scripts:**
 
@@ -752,7 +661,7 @@ make prepush
 
 - GitHub Actions: Automated builds on tag push
 - Automated release creation
-- ✅ Binary upload automation (v0.3.9: `make release-upload`)
+- ✅ Verified supplement upload (`make release-upload`; CI publishes archives/manifests)
 - ✅ Homebrew formula updates (v0.3.10: `make update-homebrew-formula`)
 - ✅ Scoop manifest updates (v0.5.7: `make update-scoop-manifest`)
 - Native `goneat formula` command (v0.3.11+: multi-package-manager support)
@@ -860,11 +769,8 @@ make prepush
 - ✅ Update all documentation before tagging
 - ✅ Verify license audit passes
 - ✅ Sign all release artifacts (v0.3.4+)
-- ✅ Clone ../homebrew-tap for automated formula updates (v0.3.10+)
-- ✅ Clone ../scoop-bucket for automated manifest updates (v0.5.7+)
-- ✅ Use `make release-upload` for complete release process (v0.3.9+)
-- ✅ Verify Homebrew formula updates after release (v0.3.10+)
-- ✅ Verify Scoop manifest updates after release (v0.5.7+)
+- ✅ Verify both original CI checksum manifests and all four signatures before supplement upload
+- ✅ Use `make release-upload` only for verified supplements; preserve original asset IDs and bytes
 - ✅ Wait for pkg.go.dev indexing before announcing
 
 **DON'T:**
@@ -875,8 +781,8 @@ make prepush
 - ❌ Push without running full test suite
 - ❌ Release with failing license audit
 - ❌ Skip documentation updates
-- ❌ Manually update Homebrew formulas (use `make update-homebrew-formula`)
-- ❌ Manually update Scoop manifests (use `make update-scoop-manifest`)
+- ❌ Regenerate downloaded CI manifests or clobber published archives/manifests
+- ❌ Treat signature upload as authorization for package-manager changes
 
 ## Contact Information
 
@@ -896,6 +802,6 @@ make prepush
 ---
 
 **Document Version**: 2.3 (Best Practice Reference Guide)
-**Last Updated**: 2026-02-28 (v0.5.7 - Scoop manifest automation integrated into release-upload)
+**Last Updated**: 2026-10-07 (original CI manifest verification and supplement-only signature upload)
 **Next Review**: With each major release or significant process change
 **Format**: General reference (not version-specific checklist)

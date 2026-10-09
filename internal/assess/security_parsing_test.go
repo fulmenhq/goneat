@@ -6,7 +6,7 @@ import (
 
 func TestParseGovulnEventLine(t *testing.T) {
 	r := NewSecurityAssessmentRunner()
-	line := `{"type":"finding","finding":{"osv":"GO-2023-0001","module":{"path":"example.com/mod"},"package":{"path":"example.com/mod/pkg"}}}`
+	line := `{"finding":{"osv":"GO-2023-0001","trace":[{"module":"example.com/mod","package":"example.com/mod/pkg"}]}}`
 	if iss, ok := r.parseGovulnEventLine("/repo", line); !ok {
 		t.Fatalf("expected finding parsed")
 	} else {
