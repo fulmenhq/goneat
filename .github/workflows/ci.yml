@@ -33,6 +33,11 @@ jobs:
         uses: actions/checkout@v4
       - name: Build
         run: make build
+      - name: Verify temporary cooling selection
+        env:
+          GOPROXY: 'off'
+          GOFLAGS: ''
+        run: python3 scripts/check-cooling-selection.py
       - name: Verify embedded assets in sync
         run: make verify-embeds
       - name: Test

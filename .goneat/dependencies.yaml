@@ -141,6 +141,9 @@ cooling:
   #   - */cobra                   matches any package named "cobra"
   #
   exceptions:
+    - pattern: "golang.org/x/net"
+      until: "2026-10-16"
+
     # Trust FulmenHQ organization's internal Go modules.
     # github.com/org/* matches Go module paths only — it does NOT match
     # crates.io crate names (e.g. github.com/3leaps/* will not except "serde").
