@@ -18,7 +18,7 @@ jobs:
     # This keeps CI consistent across repos and makes architecture selection explicit.
     strategy:
       matrix:
-        runner: [ubuntu-latest-x64-s, ubuntu-latest-arm64-s]
+        runner: [ubuntu-latest-x64-m, ubuntu-latest-arm64-m]
     runs-on: ${{ matrix.runner }}
     container:
       image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.4
@@ -67,7 +67,7 @@ jobs:
     # This keeps CI consistent across repos and makes architecture selection explicit.
     strategy:
       matrix:
-        runner: [ubuntu-latest-x64-s, ubuntu-latest-arm64-s]
+        runner: [ubuntu-latest-x64-m, ubuntu-latest-arm64-m]
     runs-on: ${{ matrix.runner }}
     container:
       image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.4
@@ -124,7 +124,7 @@ jobs:
     # This keeps CI consistent across repos and makes architecture selection explicit.
     strategy:
       matrix:
-        runner: [ubuntu-latest-x64-s, ubuntu-latest-arm64-s]
+        runner: [ubuntu-latest-x64-m, ubuntu-latest-arm64-m]
     runs-on: ${{ matrix.runner }}
     container:
       image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.4
@@ -147,7 +147,7 @@ jobs:
   # JOB 4: Release tag script tests (gpg required; a skip is a failure)
   # =============================================================================
   release-tag-crypto:
-    runs-on: ubuntu-latest-x64-s
+    runs-on: ubuntu-latest-x64-m
     permissions:
       contents: read
     defaults:

@@ -8,7 +8,7 @@ permissions:
   contents: read
 jobs:
   candidate:
-    runs-on: ubuntu-latest-x64-s
+    runs-on: ubuntu-latest-x64-m
     outputs:
       version: ${{ steps.identity.outputs.version }}
     steps:
@@ -60,9 +60,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: ubuntu-latest-x64-s
+          - runner: ubuntu-latest-x64-m
             target: linux/amd64
-          - runner: ubuntu-latest-arm64-s
+          - runner: ubuntu-latest-arm64-m
             target: linux/arm64
           - runner: macos-15
             target: darwin/arm64
@@ -114,7 +114,7 @@ jobs:
   required:
     if: always()
     needs: [candidate, native]
-    runs-on: ubuntu-latest-x64-s
+    runs-on: ubuntu-latest-x64-m
     steps:
       - name: Require producer and every native cell to succeed
         env:
