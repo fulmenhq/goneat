@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Note**: This changelog keeps the latest 10 releases for readability. For older releases, see `docs/releases/` archive.
 
+## [v0.6.2] - 2026-10-09
+
+### Changed
+
+- **Release toolchain**: workflow toolchain pins are Go 1.26.9. The module language line stays `go 1.26.0`.
+- **Selected Go modules**: `golang.org/x/net` v0.60.0, `golang.org/x/crypto` v0.57.0, `golang.org/x/sys` v0.48.0, and `golang.org/x/text` v0.42.0. Selected `golang.org/x/term` changes from v0.45.0 to v0.46.0. `go.sum` retains the v0.45.0 checksums and includes the v0.46.0 go.mod checksum. `go.mod` does not require `golang.org/x/term` directly.
+- **Indirect requirements added**: `cloud.google.com/go` v0.26.0, `cloud.google.com/go/compute/metadata` v0.3.0, `github.com/golang/glog` v1.2.4, `github.com/yuin/goldmark` v1.7.17, and `golang.org/x/oauth2` v0.27.0.
+- **`golang.org/x/mod`**: v0.41.0 moves from indirect to direct.
+- **Cooling selection**: The cooling policy exception for golang.org/x/net is in effect through 2026-10-16T00:00:00Z.
+- **Cooling selection check**: While the cooling window is active, `scripts/check-cooling-selection.py` requires the selected `golang.org/x/net` module to be v0.60.0 and indirect.
+- **Release archives**: v0.6.2 archives are Darwin ARM64, Linux amd64, Linux ARM64, Windows amd64, and Windows ARM64. Windows ARM64 is a native executable. There is no Darwin amd64 archive. Darwin amd64 downloads end at v0.6.1.
+
+### Fixed
+
+- **Scanner execution**: assessments retain scanner failures, release-asset results, and hook diagnostics. Native command output is captured as bytes.
+
 ## [v0.6.1] - 2026-09-28
 
 ### Added
@@ -162,19 +178,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Dependency policy docs/schema alignment**: license exception examples, troubleshooting guidance, and the dependency policy schema now document temporary license overrides more accurately, including optional expiry dates.
 
-## [v0.5.9] - 2026-03-25
-
-### Fixed
-
-- **YAML format/lint parity**: `goneat assess --categories format` now routes YAML files through the same formatter path as `goneat format`, and both paths keep inline comment spacing compatible with strict `yamllint` defaults by pinning `pad_line_comments: 2` in the formatter and check paths.
-- **YAML formatter guidance**: goneat now documents precedence between `.yamllint`, goneat YAML formatter settings, and `.yamlfmt` so teams know where inline comment spacing is controlled.
-- **Go security scope filtering**: security assessment now drops `gosec` findings and suppressions whose file paths resolve outside the assessed repository root, preventing `GOCACHE` and `go-build` artifacts from tripping `--fail-on` gates.
-
-### Changed
-
-- **Maintainer PR workflow**: `main` now runs as a protected pull-request-only branch with squash/rebase merges, `make pr-final` as the merge-readiness target, and generated local hooks defaulting away from guardian browser interception.
-- **golangci-lint tool alignment**: the recommended `golangci-lint` version in foundation defaults now matches CI at `2.11.2`.
-
 ---
 
-**Note**: Older releases (v0.5.8 and earlier) are archived in [`docs/releases/`](docs/releases/).
+**Note**: Older releases (v0.5.9 and earlier) are archived in [`docs/releases/`](docs/releases/).

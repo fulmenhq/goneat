@@ -109,8 +109,8 @@ jobs:
           mkdir -p candidate-bin
           tar -xzf "candidate/goneat_${VERSION}_${TARGET//\//_}.tar.gz" -C candidate-bin goneat
           chmod +x candidate-bin/goneat
-          docker run --rm -v "$PWD/candidate-bin:/work:ro" alpine:3.21 /work/goneat version
-          docker run --rm -v "$PWD/candidate-bin:/work:ro" debian:bookworm-slim /work/goneat version
+          docker run --rm --entrypoint /work/goneat -v "$PWD/candidate-bin:/work:ro" ghcr.io/fulmenhq/goneat-tools-runner-musl:v0.5.7 version
+          docker run --rm --entrypoint /work/goneat -v "$PWD/candidate-bin:/work:ro" ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.7 version
   required:
     if: always()
     needs: [candidate, native]
