@@ -20,7 +20,7 @@ jobs:
       contents: write
     # Use Fulmen-managed runner labels (x64/arm64 variants) instead of GitHub-hosted defaults.
     # This keeps CI consistent across repos and makes architecture selection explicit.
-    runs-on: ubuntu-latest-x64-s
+    runs-on: ubuntu-latest-x64-m
     steps:
       - name: Checkout
         uses: actions/checkout@v4

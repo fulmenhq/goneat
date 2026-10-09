@@ -28,8 +28,8 @@ func TestNativeWorkflowReleaseMatrixAndRequiredAggregate(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := map[string]string{
-		"linux/amd64":   "ubuntu-latest-x64-s",
-		"linux/arm64":   "ubuntu-latest-arm64-s",
+		"linux/amd64":   "ubuntu-latest-x64-m",
+		"linux/arm64":   "ubuntu-latest-arm64-m",
 		"darwin/arm64":  "macos-15",
 		"windows/amd64": "windows-latest",
 		"windows/arm64": "windows-latest-arm64-s",
