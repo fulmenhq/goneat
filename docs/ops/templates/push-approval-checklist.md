@@ -15,7 +15,7 @@
 ### Quality Gates ✅
 
 - [ ] `make precommit` passes completely
-- [ ] `make prepush` passes completely
+- [ ] `make prepush` passes with the reference Go 1.26.9 on `PATH` and `GOTOOLCHAIN=go1.26.9`
 - [ ] All tests pass with required coverage
 - [ ] No linting errors
 - [ ] Format tool works on its own codebase (dogfooding)

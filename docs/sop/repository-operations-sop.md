@@ -408,7 +408,7 @@ make precommit
 make prepush
 ```
 
-**Purpose:** Push gate. `goneat assess --mode check --hook pre-push`. Does not rewrite tracked files. The dates check needs the full commit history; a shallow repository is a high issue. `python3 scripts/push-gate-preflight.py` checks that history and the foundation `shellcheck` and `yamllint` minimums. Release preparation is `make release-check`.
+**Purpose:** Push gate. `goneat assess --mode check --hook pre-push`. Does not rewrite tracked files. The dates check needs the full commit history; a shallow repository is a high issue. `python3 scripts/push-gate-preflight.py` checks that history and the foundation `shellcheck` and `yamllint` minimums. Release preparation is `make release-check`. The assess uses `go` from `PATH` and does not set `GOTOOLCHAIN`. Run it with the reference toolchain, Go 1.26.9, on `PATH` and with `GOTOOLCHAIN=go1.26.9`. That is the CI pin and the recommended Go in `.goneat/tools.yaml`. The module line stays `go 1.26.0`.
 
 ## Troubleshooting
 
