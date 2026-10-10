@@ -11,7 +11,10 @@ jobs:
   native-contracts:
     uses: ./.github/workflows/native-contracts.yml
   # =============================================================================
-  # JOB 1: Build & Test (no external tools required)
+  # JOB 1: Build, test, and the push gate.
+  # The dates check reads the earliest commit, so checkout is full history.
+  # scripts/install-push-gate-tools.sh installs foundation tools this image
+  # does not already provide at the versions in .goneat/tools.yaml.
   # =============================================================================
   build-test-lint:
     # Use Fulmen-managed runner labels (x64/arm64 variants) instead of GitHub-hosted defaults.
@@ -31,6 +34,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Build
         run: make build
       - name: Verify temporary cooling selection
@@ -42,6 +47,10 @@ jobs:
         run: make verify-embeds
       - name: Test
         run: make test
+      - name: Install push-gate tools
+        run: bash scripts/install-push-gate-tools.sh
+      - name: Push-gate preflight
+        run: python3 scripts/push-gate-preflight.py
       - name: Pre-push check
         run: make prepush
       - name: Prove a required unit-test failure fails make test

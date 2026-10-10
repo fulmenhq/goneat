@@ -31,6 +31,8 @@ test + lint + verify-crucible + license-audit
 
 Run `make prepush` before pushing. Run `make release-check` when preparing a release.
 
+The dates check needs the full commit history. A shallow repository is a high issue. Run `python3 scripts/push-gate-preflight.py` before the assess when the checkout may be shallow. That script also checks that `shellcheck` and `yamllint` meet the foundation minimums in `.goneat/tools.yaml`. `scripts/install-push-gate-tools.sh` installs the recommended versions of those two tools when they are missing or older. CI checks out full history, runs both scripts, then runs `make prepush`.
+
 ## Prerequisites
 
 ### Repository Structure
@@ -644,6 +646,8 @@ goneat assess --mode check --hook pre-push --hook-manifest .goneat/hooks.yaml --
 - `scripts/release-tag.sh` - Create, verify and push the signed release tag (tests: `scripts/release_tag_test.go`)
 - `scripts/push-to-remotes.sh` - Push main and the verified release tag to all configured remotes
 - `scripts/generate-release-notes.sh` - Release notes generation
+- `scripts/push-gate-preflight.py` - Full history, shellcheck, and yamllint before the push gate
+- `scripts/install-push-gate-tools.sh` - Install the recommended shellcheck and yamllint when PATH is short
 
 ### Future Automation (Planned)
 
@@ -714,7 +718,8 @@ make fmt           # Format code
 make test          # Quick validation
 
 # Before pushing
-make prepush       # Full validation (recommended)
+python3 scripts/push-gate-preflight.py
+make prepush       # Push gate (same assess as the git hook)
 ```
 
 ### Pre-Release Development
@@ -725,7 +730,8 @@ make test                              # Unit + Tier 1 integration
 make test-integration-cooling-quick    # Tier 2 validation (with repos)
 
 # Before creating release branch
-make prepush                           # Full validation
+python3 scripts/push-gate-preflight.py
+make prepush                           # Push gate
 make test-integration-extended         # Comprehensive (major releases)
 ```
 

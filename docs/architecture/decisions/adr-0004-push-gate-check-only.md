@@ -57,6 +57,10 @@ The pre-commit gate is the same command with `--hook pre-commit`.
 
 `make release-check` remains the release target. It is not the push gate.
 
+The dates category in this assess compares content dates with the earliest commit. A shallow repository does not contain that commit. The check reports a high issue, `repository is shallow`, and does not use the newest fetched commit as repository creation. A job that runs the push gate checks out the full history (`fetch-depth: 0`). `scripts/push-gate-preflight.py` checks for a shallow repository before the assess.
+
+The tools category checks the foundation tools in `.goneat/tools.yaml`. `scripts/install-push-gate-tools.sh` installs shellcheck and yamllint at the recommended versions when the copies on `PATH` are missing or older. CI runs that script, then the preflight, then `make prepush`. The assess command is the same one the git hook runs. The security category runs the scanners it finds on `PATH`. When none of those scanners are on `PATH`, the category reports that it was skipped.
+
 Hook assessment reports only. `--fix`, `--lint-shell-fix`, and `shfmt.fix` do not rewrite files during a hook assess. The dependency category still writes a vulnerability report under `sbom/`. That directory is gitignored. The push gate does not modify tracked files.
 
 ## Rationale
@@ -106,7 +110,7 @@ Hook assessment reports only. `--fix`, `--lint-shell-fix`, and `shfmt.fix` do no
 2. `templates/hooks/` call `goneat assess --mode check`.
 3. `cmd/assess.go` forces check mode for hook execution.
 4. `Makefile` `prepush`, `pr-final`, and `precommit` run those assess commands and do not depend on `release-check`.
-5. `.github/workflows/ci.yml` runs `make prepush`.
+5. `.github/workflows/ci.yml` checks out full history, runs `scripts/install-push-gate-tools.sh` and `scripts/push-gate-preflight.py`, then runs `make prepush`.
 
 ## References
 

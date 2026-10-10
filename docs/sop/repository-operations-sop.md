@@ -408,7 +408,7 @@ make precommit
 make prepush
 ```
 
-**Purpose:** Push gate. `goneat assess --mode check --hook pre-push`. Does not rewrite tracked files. Release preparation is `make release-check`.
+**Purpose:** Push gate. `goneat assess --mode check --hook pre-push`. Does not rewrite tracked files. The dates check needs the full commit history; a shallow repository is a high issue. `python3 scripts/push-gate-preflight.py` checks that history and the foundation `shellcheck` and `yamllint` minimums. Release preparation is `make release-check`.
 
 ## Troubleshooting
 
