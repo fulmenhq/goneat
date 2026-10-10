@@ -673,6 +673,7 @@ func printSchemaSummary(report *assess.AssessmentReport) {
 // runHookMode executes commands defined in the hook manifest.
 // This is the main entry point for git hook execution via goneat.
 func runHookMode(cmd *cobra.Command, hookType, manifestPath string, config assess.AssessmentConfig, outFormat assess.OutputFormat) error {
+	forceHookReportOnly(&config)
 	logger.Info(fmt.Sprintf("Running hook mode: %s", hookType))
 
 	// Validate hook type
@@ -739,8 +740,8 @@ func createInternalCommandHandler(cmd *cobra.Command, hookType string, hookConfi
 			// Run format command
 			return runInternalFormat(ctx, args)
 		case "dependencies":
-			// Run dependencies command
-			return runInternalDependencies(ctx, args)
+			// Run dependencies command. Drop flags that write files.
+			return runInternalDependencies(ctx, hookReportOnlyDependencyArgs(args))
 		default:
 			// For other internal commands, warn and skip
 			logger.Warn(fmt.Sprintf("Internal command %q not yet implemented in hook executor, skipping", command))
@@ -828,6 +829,9 @@ func runInternalAssess(ctx context.Context, cmd *cobra.Command, hookType string,
 	config.SecurityExcludeFixtures = true
 	config.SecurityFixturePatterns = []string{"tests/fixtures/", "test-fixtures/"}
 
+	// Manifest args cannot select fix mode. Hook assessment reports only.
+	forceHookReportOnly(&config)
+
 	// Create assessment engine and run. Use the handler ctx (carries hook
 	// manifest's per-command timeout) rather than cmd.Context().
 	engine := assess.NewAssessmentEngine()
@@ -856,8 +860,52 @@ func runInternalAssess(ctx context.Context, cmd *cobra.Command, hookType string,
 // ctx carries the per-command timeout from the hooks manifest.
 func runInternalFormat(ctx context.Context, args []string) error {
 	formatCmd := formatCmd
-	formatCmd.SetArgs(args)
+	formatCmd.SetArgs(hookCheckOnlyArgs(args))
 	return formatCmd.ExecuteContext(ctx)
+}
+
+// forceHookReportOnly selects check mode for a git hook.
+// Check mode does not rewrite source. shfmt.fix and --lint-shell-fix do not apply.
+func forceHookReportOnly(config *assess.AssessmentConfig) {
+	config.Mode = assess.AssessmentModeCheck
+	config.LintShellFix = false
+	config.HookReadOnly = true
+}
+
+// hookCheckOnlyArgs forces `goneat format --check` for a hook command.
+// --check is last so an earlier --check=false cannot select writes.
+func hookCheckOnlyArgs(args []string) []string {
+	filtered := make([]string, 0, len(args)+1)
+	for _, arg := range args {
+		if arg == "--check" || strings.HasPrefix(arg, "--check=") {
+			continue
+		}
+		filtered = append(filtered, arg)
+	}
+	return append(filtered, "--check")
+}
+
+// hookReportOnlyDependencyArgs drops dependency flags that write files.
+func hookReportOnlyDependencyArgs(args []string) []string {
+	filtered := make([]string, 0, len(args))
+	skipNext := false
+	for _, arg := range args {
+		if skipNext {
+			skipNext = false
+			continue
+		}
+		switch {
+		case arg == "--output" || arg == "--sbom-output":
+			skipNext = true
+		case strings.HasPrefix(arg, "--output=") || strings.HasPrefix(arg, "--sbom-output="):
+			continue
+		case arg == "--sbom" || arg == "--vuln" || arg == "--sbom=true" || arg == "--vuln=true":
+			continue
+		default:
+			filtered = append(filtered, arg)
+		}
+	}
+	return filtered
 }
 
 // runInternalDependencies runs the internal dependencies command.
@@ -915,6 +963,7 @@ func runLegacyHookMode(cmd *cobra.Command, hookType string, hookConfig *HookConf
 
 	config.SecurityExcludeFixtures = true
 	config.SecurityFixturePatterns = []string{"tests/fixtures/", "test-fixtures/"}
+	forceHookReportOnly(&config)
 
 	engine := assess.NewAssessmentEngine()
 	target := "."

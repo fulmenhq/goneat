@@ -6,7 +6,7 @@ This document provides standard release procedures and best practices for goneat
 
 **Always use `make` targets** instead of standalone `go` commands. The Makefile orchestrates complex workflows, ensures proper sequencing, and maintains consistency across development and CI/CD environments.
 
-**The pre-push hook is `make prepush`**: when the Makefile defines that target, a branch push and a tag push run it. `make pr-final` is the same target. Run it before pushing. The pre-commit hook runs `goneat assess --hook pre-commit`.
+**Git hooks run `goneat assess --mode check`.** A branch push and a tag push run that check. The hooks do not call `make prepush` or `make precommit`. `make pr-final` is `make prepush`. Run that target before pushing. Hook assessment uses the pre-push timeout in `.goneat/hooks.yaml` (8m) and does not rewrite files.
 
 ## Release Target Chain
 
@@ -209,7 +209,7 @@ make prepush
 #     → make license-audit
 #   make verify-crucible-clean
 #   make build-all
-#   goneat assess --hook pre-push
+#   goneat assess --mode check --hook pre-push
 #
 # The assess command uses the pre-push timeout in .goneat/hooks.yaml (8m).
 ```
@@ -248,8 +248,8 @@ git show --no-patch "$GONEAT_RELEASE_TAG"
 # 3. Push only refs/tags/<tag> to origin. Repeats the checks from steps 1 and 2,
 #    refuses if origin already has the tag, and confirms that origin's tag
 #    object and commit match the local ones. Never forced; does not push main,
-#    other tags or other remotes. git push runs the pre-push hook, which in
-#    this repo is `make prepush` (the same gate as `make pr-final`).
+#    other tags or other remotes. git push runs the pre-push hook:
+#    `goneat assess --mode check`. That check does not rewrite files.
 make release-tag-push
 ```
 
@@ -622,18 +622,18 @@ verification and supplement upload fail closed on missing or invalid inputs.
 
 ### Hook Delegation Pattern
 
-The generated pre-push hook runs `make prepush` when the Makefile defines that target, and `goneat assess --hook pre-push` otherwise. `make pr-final` is `make prepush`. The pre-commit hook runs `goneat assess --hook pre-commit`. `make precommit` stays available to run directly.
+The generated pre-push and pre-commit hooks run `goneat assess --mode check`. Hook assessment does not apply fixes. `make pr-final` is `make prepush`. That target prepares and builds, which writes files, and is not the git hook. `make precommit` stays available to run directly.
 
 ```bash
 # .git/hooks/pre-push in this repo
-make prepush
+goneat assess --mode check --hook pre-push --hook-manifest .goneat/hooks.yaml --staged-only --package-mode
 ```
 
-**Why this matters:**
+**Hook and manual gate:**
 
-- A tag push and `make prepush` run the same gate
-- Changes to that gate are made in the Makefile and `.goneat/hooks.yaml`
-- `make prepush` can be run before `git push`
+- A tag push runs `goneat assess --mode check`
+- `make prepush` remains the manual gate
+- Hook commands are `assess` in check mode, `format --check`, and a dependencies report that does not write an output file
 
 ### Current Automation
 

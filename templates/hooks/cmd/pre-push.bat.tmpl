@@ -143,16 +143,8 @@ if errorlevel 1 (
 echo ✅ Guardian approval satisfied
 {{- end }}
 
-REM A repository prepush target is the whole push gate, including a tag push.
-findstr /b /c:"prepush:" "%REPO_ROOT%\Makefile" >nul 2>&1
-if not errorlevel 1 (
-    make -C "%REPO_ROOT%" prepush
-    if errorlevel 1 exit /b 1
-    goto :prepush_done
-)
-
-REM Use goneat's orchestrated assessment (manifest-driven)
-set "ARGS=assess --hook pre-push --hook-manifest "%REPO_ROOT%\.goneat\hooks.yaml""
+REM Report only. --mode check does not rewrite files.
+set "ARGS=assess --mode check --hook pre-push --hook-manifest "%REPO_ROOT%\.goneat\hooks.yaml""
 
 {{- if or .OptimizationSettings.OnlyChangedFiles (eq .OptimizationSettings.ContentSource "index") }}
 set "ARGS=%ARGS% --staged-only"
@@ -163,8 +155,6 @@ set "ARGS=%ARGS% --staged-only"
 if errorlevel 1 (
     exit /b %errorlevel%
 )
-
-:prepush_done
 
 echo ✅ Pre-push validation passed!
 exit /b 0

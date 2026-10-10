@@ -13,8 +13,9 @@ set -euo pipefail
 #   push    re-check the repository, refuse if origin already has the tag,
 #           verify, push only refs/tags/<tag> to origin (never forced), then
 #           confirm origin's tag object and target match the local ones.
-#           git push runs the pre-push hook. In this repo that hook is
-#           `make prepush` (the same gate as `make pr-final`).
+#           git push runs the pre-push hook: goneat assess --mode check.
+#           That check does not rewrite files. make prepush is a separate
+#           manual gate.
 #
 # Env (operator machine, NOT CI):
 #   GONEAT_RELEASE_TAG   - tag to create/verify/push; must equal $(cat VERSION)

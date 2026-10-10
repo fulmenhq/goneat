@@ -137,7 +137,7 @@ echo ✅ Guardian approval satisfied
 {{- end }}
 
 REM Use goneat's orchestrated assessment (manifest-driven)
-set "ARGS=assess --hook pre-commit --hook-manifest "%REPO_ROOT%\.goneat\hooks.yaml""
+set "ARGS=assess --mode check --hook pre-commit --hook-manifest "%REPO_ROOT%\.goneat\hooks.yaml""
 
 {{- if or .OptimizationSettings.OnlyChangedFiles (eq .OptimizationSettings.ContentSource "index") }}
 set "ARGS=%ARGS% --staged-only"

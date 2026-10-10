@@ -721,7 +721,7 @@ update-licenses: license-inventory license-save ## Update license inventory and 
 # Hook targets (dogfooding)
 precommit: build test ## Run pre-commit hooks (uses existing binary, skips embeds)
 	@echo "Running pre-commit checks with goneat..."
-	$(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-commit
+	$(BUILD_DIR)/$(BINARY_NAME) assess --mode check --hook pre-commit
 	@echo "✅ Pre-commit checks passed"
 
 pr-final: prepush ## Run final PR merge-readiness checks
@@ -729,7 +729,7 @@ pr-final: prepush ## Run final PR merge-readiness checks
 
 prepush: release-check verify-crucible-clean build-all ## Run comprehensive pre-push validation
 	@echo "Running pre-push checks with goneat..."
-	GONEAT_OFFLINE_SCHEMA_VALIDATION=false $(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-push --hook-manifest .goneat/hooks.yaml --staged-only --package-mode
+	GONEAT_OFFLINE_SCHEMA_VALIDATION=false $(BUILD_DIR)/$(BINARY_NAME) assess --mode check --hook pre-push --hook-manifest .goneat/hooks.yaml --staged-only --package-mode
 	@echo "✅ Pre-push checks passed"
 
 # Development setup
@@ -833,7 +833,7 @@ release-tag: ## Create a GPG-signed annotated tag for GONEAT_RELEASE_TAG on HEAD
 release-tag-verify: ## Verify the local release tag: signature, signing key, tagger identity, target
 	@./scripts/release-tag.sh verify
 
-release-tag-push: ## Verify the tag and push it; the pre-push hook runs make prepush
+release-tag-push: ## Verify the tag and push it; the pre-push hook runs check-only assess
 	@./scripts/release-tag.sh push
 
 test-release-tag: ## Run the release-tag script tests (fails, rather than skips, without git/gpg)

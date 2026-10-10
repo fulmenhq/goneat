@@ -388,7 +388,8 @@ func (r *LintAssessmentRunner) runShfmtAssessment(target string, config Assessme
 	}
 
 	args := []string{"-d"}
-	if config.LintShellFix || (ov != nil && ov.Shfmt != nil && boolWithDefault(ov.Shfmt.Fix, false)) || config.Mode == AssessmentModeFix {
+	yamlFix := ov != nil && ov.Shfmt != nil && boolWithDefault(ov.Shfmt.Fix, false)
+	if shfmtRewrites(config, yamlFix) {
 		args = []string{"-w"}
 	}
 	if ov != nil && ov.Shfmt != nil {
@@ -1104,6 +1105,16 @@ func issuesFromShfmtOutput(output string) []Issue {
 		})
 	}
 	return out
+}
+
+// shfmtRewrites reports whether shfmt may rewrite files.
+// Hook assessment stays on -d. --lint-shell-fix, shfmt.fix, and fix mode
+// still rewrite outside hook assessment.
+func shfmtRewrites(config AssessmentConfig, yamlFix bool) bool {
+	if config.HookReadOnly {
+		return false
+	}
+	return config.LintShellFix || yamlFix || config.Mode == AssessmentModeFix
 }
 
 func issuesFromFiles(files []string, message string) []Issue {

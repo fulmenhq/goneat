@@ -339,14 +339,14 @@ Goneat includes git hooks for automated quality validation:
 #### Pre-Commit Hook
 
 - **Location**: `.git/hooks/pre-commit`
-- **Purpose**: Runs `make pre-commit` before allowing commits
+- **Purpose**: Runs `goneat assess --mode check --hook pre-commit` before allowing commits
 - **Validation**: Code quality, fast tests, dynamic coverage, documentation formatting
 - **Bypass**: Use `git commit --no-verify` (requires supervisor approval per SOP)
 
 #### Pre-Push Hook
 
 - **Location**: `.git/hooks/pre-push`
-- **Purpose**: Runs `make prepush` before allowing pushes
+- **Purpose**: Runs `goneat assess --mode check --hook pre-push` before allowing pushes
 - **Validation**: Full test suite, security scans, production-ready coverage
 - **Bypass**: Use `git push --no-verify` (requires supervisor approval per SOP)
 
