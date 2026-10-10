@@ -61,6 +61,8 @@ The dates category in this assess compares content dates with the earliest commi
 
 The tools category checks the foundation tools in `.goneat/tools.yaml`. `scripts/install-push-gate-tools.sh` installs shellcheck and yamllint at the recommended versions when the copies on `PATH` are missing or older. CI runs that script, then the preflight, then `make prepush`. The assess command is the same one the git hook runs. The security category runs the scanners it finds on `PATH`. When none of those scanners are on `PATH`, the category reports that it was skipped.
 
+Those scanners run `go` from `PATH`. The assess does not set `GOTOOLCHAIN`. CI sets `GOTOOLCHAIN: go1.26.9`. Local `make prepush`, `git push`, and `make release-tag-push` put that same Go on `PATH` and export `GOTOOLCHAIN=go1.26.9`. `go version` must report `go1.26.9`. A `GOTOOLCHAIN` assignment that exists only in the Makefile does not apply to the git hook, because the hook does not call `make`. `.goneat/tools.yaml` recommends Go `1.26.9`. The module line stays `go 1.26.0`.
+
 Hook assessment reports only. `--fix`, `--lint-shell-fix`, and `shfmt.fix` do not rewrite files during a hook assess. The dependency category still writes a vulnerability report under `sbom/`. That directory is gitignored. The push gate does not modify tracked files.
 
 ## Rationale

@@ -187,7 +187,7 @@ goneat hooks generate --with-guardian  # Add browser-based approval prompts
 goneat hooks install                 # Install to .git/hooks
 ```
 
-Pre-commit and pre-push run `goneat assess --mode check`. `make precommit` and `make prepush` run those same checks. The assess reports issues and does not rewrite tracked files. Categories and the timeout are in `.goneat/hooks.yaml`. The dates check needs the full commit history.
+Pre-commit and pre-push run `goneat assess --mode check`. `make precommit` and `make prepush` run those same checks. The assess reports issues and does not rewrite tracked files. Categories and the timeout are in `.goneat/hooks.yaml`. The dates check needs the full commit history. The push assess uses `go` from `PATH`. Use the reference toolchain, Go 1.26.9, on `PATH` and set `GOTOOLCHAIN=go1.26.9`.
 
 **Guardian integration**: Use `--with-guardian` to add an optional friction layer that requires browser-based approval before commits or pushes to protected branches. Prevents fully autonomous operations when you want human oversight. See [Guardian](#guardian-approval-workflows) for configuration.
 

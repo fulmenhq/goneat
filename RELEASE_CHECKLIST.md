@@ -33,6 +33,16 @@ Run `make prepush` before pushing. Run `make release-check` when preparing a rel
 
 The dates check needs the full commit history. A shallow repository is a high issue. Run `python3 scripts/push-gate-preflight.py` before the assess when the checkout may be shallow. That script also checks that `shellcheck` and `yamllint` meet the foundation minimums in `.goneat/tools.yaml`. `scripts/install-push-gate-tools.sh` installs the recommended versions of those two tools when they are missing or older. CI checks out full history, runs both scripts, then runs `make prepush`.
 
+**Push with the reference Go toolchain.** `make prepush`, `git push`, and `make release-tag-push` run the same assess. The assess uses `go` from `PATH` and does not set `GOTOOLCHAIN`. The reference version is Go 1.26.9. CI sets `GOTOOLCHAIN: go1.26.9` in `.github/workflows/ci.yml` and `.github/workflows/native-contracts.yml`. `.goneat/tools.yaml` recommends Go `1.26.9`. `go version` on that `PATH` must report `go1.26.9`. The module line stays `go 1.26.0`.
+
+```bash
+PATH="<reference go bin>:$PATH" GOTOOLCHAIN=go1.26.9 make prepush
+PATH="<reference go bin>:$PATH" GOTOOLCHAIN=go1.26.9 git push <remote> <refspec>
+PATH="<reference go bin>:$PATH" GOTOOLCHAIN=go1.26.9 make release-tag-push
+```
+
+A `GOTOOLCHAIN` assignment that exists only in the Makefile does not apply to `git push`. The hook does not call `make`. When the CI pin and the recommended Go in `.goneat/tools.yaml` move, these commands move with them.
+
 ## Prerequisites
 
 ### Repository Structure
@@ -243,7 +253,8 @@ git show --no-patch "$GONEAT_RELEASE_TAG"
 #    object and commit match the local ones. Never forced; does not push main,
 #    other tags or other remotes. git push runs the pre-push hook:
 #    `goneat assess --mode check`. That check does not rewrite files.
-make release-tag-push
+#    Use the reference Go 1.26.9. The assess validates with `go` on PATH.
+PATH="<reference go bin>:$PATH" GOTOOLCHAIN=go1.26.9 make release-tag-push
 ```
 
 To check the published tag from any clone:
@@ -717,9 +728,9 @@ goneat assess --mode check --hook pre-push --hook-manifest .goneat/hooks.yaml --
 make fmt           # Format code
 make test          # Quick validation
 
-# Before pushing
+# Before pushing. Reference Go 1.26.9 must be the `go` on PATH.
 python3 scripts/push-gate-preflight.py
-make prepush       # Push gate (same assess as the git hook)
+PATH="<reference go bin>:$PATH" GOTOOLCHAIN=go1.26.9 make prepush
 ```
 
 ### Pre-Release Development
@@ -731,7 +742,7 @@ make test-integration-cooling-quick    # Tier 2 validation (with repos)
 
 # Before creating release branch
 python3 scripts/push-gate-preflight.py
-make prepush                           # Push gate
+PATH="<reference go bin>:$PATH" GOTOOLCHAIN=go1.26.9 make prepush
 make test-integration-extended         # Comprehensive (major releases)
 ```
 
@@ -745,8 +756,8 @@ git checkout -b release/v0.3.6
 ./dist/goneat version set v0.3.6
 # Update CHANGELOG.md, RELEASE_NOTES.md, docs/releases/v0.3.6.md
 
-# 3. Full validation
-make prepush
+# 3. Full validation. Reference Go 1.26.9 must be the `go` on PATH.
+PATH="<reference go bin>:$PATH" GOTOOLCHAIN=go1.26.9 make prepush
 
 # 4. Open a pull request and merge it to main, then tag the merged main
 #    with the signed-tag steps in "3. Tag and Push" above:
@@ -758,7 +769,7 @@ make prepush
 **DO:**
 
 - ✅ Use `make` targets for all operations
-- ✅ Run `make prepush` before pushing
+- ✅ Run `make prepush` before pushing, with reference Go 1.26.9 on `PATH` and `GOTOOLCHAIN=go1.26.9`
 - ✅ Test Tier 2 integration before any release
 - ✅ Update all documentation before tagging
 - ✅ Verify license audit passes
