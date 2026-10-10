@@ -42,6 +42,8 @@ jobs:
         run: make verify-embeds
       - name: Test
         run: make test
+      - name: Pre-push check
+        run: make prepush
       - name: Prove a required unit-test failure fails make test
         run: bash scripts/test-ci-failure-gate.sh
       - name: golangci-lint (informational)

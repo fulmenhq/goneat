@@ -813,10 +813,10 @@ git reset --hard HEAD~1
 Test hooks without triggering git operations:
 
 ```bash
-# Manual gate. This target writes prepare and build outputs. It is not the git hook.
+# Same check the pre-push hook and CI run
 make prepush
 
-# Same check the pre-push hook runs
+# The same assess, invoked directly
 goneat assess --mode check --hook pre-push
 
 # Test pre-commit validation

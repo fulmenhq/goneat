@@ -718,16 +718,22 @@ license-audit: ## Audit dependencies for forbidden licenses; fail on detection
 
 update-licenses: license-inventory license-save ## Update license inventory and third-party texts
 
-# Hook targets (dogfooding)
-precommit: build test ## Run pre-commit hooks (uses existing binary, skips embeds)
+# Push gate. Same assess as the git hooks. See docs/architecture/decisions/adr-0004-push-gate-check-only.md.
+# Build only when the binary is missing, and do not embed: embed rewrites tracked files.
+precommit: ## Run the pre-commit check (same assess as the git hook)
+	@if [ ! -x "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
+		$(MAKE) SKIP_EMBED_ASSETS=1 build; \
+	fi
 	@echo "Running pre-commit checks with goneat..."
-	$(BUILD_DIR)/$(BINARY_NAME) assess --mode check --hook pre-commit
+	$(BUILD_DIR)/$(BINARY_NAME) assess --mode check --hook pre-commit --hook-manifest .goneat/hooks.yaml --staged-only --package-mode
 	@echo "✅ Pre-commit checks passed"
 
-pr-final: prepush ## Run final PR merge-readiness checks
-	@echo "✅ PR final checks passed"
+pr-final: prepush ## Run the pre-push check
 
-prepush: release-check verify-crucible-clean build-all ## Run comprehensive pre-push validation
+prepush: ## Run the pre-push check (same assess as the git hook)
+	@if [ ! -x "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
+		$(MAKE) SKIP_EMBED_ASSETS=1 build; \
+	fi
 	@echo "Running pre-push checks with goneat..."
 	GONEAT_OFFLINE_SCHEMA_VALIDATION=false $(BUILD_DIR)/$(BINARY_NAME) assess --mode check --hook pre-push --hook-manifest .goneat/hooks.yaml --staged-only --package-mode
 	@echo "✅ Pre-push checks passed"

@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -95,6 +96,77 @@ func TestAssessHook_FixRequestStaysCheck(t *testing.T) {
 	if probe.mode != assess.AssessmentModeCheck || !probe.readOnly || probe.shellFix {
 		t.Fatalf("hook delivered mode=%q readOnly=%v shellFix=%v", probe.mode, probe.readOnly, probe.shellFix)
 	}
+}
+
+func TestPushGateIsTheCheckOnlyAssess(t *testing.T) {
+	root := findModuleRoot(t)
+	makefile := string(mustRead(t, filepath.Join(root, "Makefile")))
+	prepush := makefileRecipe(t, makefile, "prepush")
+	precommit := makefileRecipe(t, makefile, "precommit")
+	for _, recipe := range []string{prepush, precommit} {
+		if strings.Contains(recipe, "release-check") || strings.Contains(recipe, "embed-assets") || strings.Contains(recipe, "build-all") {
+			t.Fatalf("push gate recipe includes a write target:\n%s", recipe)
+		}
+	}
+	if !strings.Contains(prepush, "assess --mode check --hook pre-push") {
+		t.Fatalf("prepush recipe is not the check-only assess:\n%s", prepush)
+	}
+	if !strings.Contains(precommit, "assess --mode check --hook pre-commit") {
+		t.Fatalf("precommit recipe is not the check-only assess:\n%s", precommit)
+	}
+	hook := string(mustRead(t, filepath.Join(root, "templates", "hooks", "bash", "pre-push.sh.tmpl")))
+	if strings.Contains(hook, "make ") {
+		t.Fatal("pre-push hook template calls make")
+	}
+	if !strings.Contains(hook, "assess --mode check --hook pre-push") {
+		t.Fatal("pre-push hook template is not the check-only assess")
+	}
+	ci := string(mustRead(t, filepath.Join(root, ".github", "workflows", "ci.yml")))
+	if !strings.Contains(ci, "make prepush") {
+		t.Fatal("CI does not run make prepush")
+	}
+}
+
+func findModuleRoot(t *testing.T) string {
+	t.Helper()
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatal("go.mod not found")
+		}
+		dir = parent
+	}
+}
+
+func mustRead(t *testing.T, path string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
+func makefileRecipe(t *testing.T, makefile, target string) string {
+	t.Helper()
+	prefix := target + ":"
+	start := strings.Index(makefile, prefix)
+	if start < 0 {
+		t.Fatalf("makefile target %s not found", target)
+	}
+	rest := makefile[start+len(prefix):]
+	end := strings.Index(rest, "\n\n")
+	if end < 0 {
+		end = len(rest)
+	}
+	return rest[:end]
 }
 
 func stringsJoin(args []string) string {

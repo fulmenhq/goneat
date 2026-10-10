@@ -392,29 +392,23 @@ make lint       # Comprehensive linting (0 issues required)
 
 **Purpose:** Fast feedback during development cycle **Time:** ~5 seconds **Coverage:** Not enforced
 
-### make pre-commit (Commit Ready)
+### make precommit (Commit Ready)
 
 ```bash
-# Components:
-make check-all                    # Quality checks
-make test-short                   # Fast test suite
-make coverage-check-pre-commit    # 10% minimum coverage
-make fmt-docs                     # Documentation formatting
+# Same assess as the git pre-commit hook
+make precommit
 ```
 
-**Purpose:** Commit readiness validation **Time:** ~30 seconds **Coverage:** 10% minimum
+**Purpose:** Commit gate. `goneat assess --mode check --hook pre-commit`. Does not rewrite tracked files.
 
 ### make prepush (Production Ready)
 
 ```bash
-# Components:
-make check-all         # Quality checks
-make test             # Full test suite with race detection
-make coverage-check   # 70% minimum coverage
-make security-scan    # gosec + govulncheck
+# Same assess as the git pre-push hook and CI
+make prepush
 ```
 
-**Purpose:** Production deployment readiness **Time:** ~2 minutes **Coverage:** 70% minimum
+**Purpose:** Push gate. `goneat assess --mode check --hook pre-push`. Does not rewrite tracked files. Release preparation is `make release-check`.
 
 ## Troubleshooting
 

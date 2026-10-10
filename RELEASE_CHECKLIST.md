@@ -6,15 +6,16 @@ This document provides standard release procedures and best practices for goneat
 
 **Always use `make` targets** instead of standalone `go` commands. The Makefile orchestrates complex workflows, ensures proper sequencing, and maintains consistency across development and CI/CD environments.
 
-**Git hooks run `goneat assess --mode check`.** A branch push and a tag push run that check. The hooks do not call `make prepush` or `make precommit`. `make pr-final` is `make prepush`. Run that target before pushing. Hook assessment uses the pre-push timeout in `.goneat/hooks.yaml` (8m) and does not rewrite files.
+**The push gate is one check.** The git hook, `make prepush`, and CI run `goneat assess --mode check --hook pre-push`. `make pr-final` is `make prepush`. That assess uses the timeout in `.goneat/hooks.yaml` (8m) and does not rewrite tracked files. `make release-check` is the separate release target. See [ADR-0004](docs/architecture/decisions/adr-0004-push-gate-check-only.md).
 
 ## Release Target Chain
 
 goneat implements a three-stage release validation chain:
 
 ```
-make prepush
-  ↓
+make prepush / git pre-push hook / CI
+  goneat assess --mode check --hook pre-push
+
 make release-check
   ↓
 make release-prepare → build + sync-crucible + embed-assets
@@ -24,11 +25,11 @@ test + lint + verify-crucible + license-audit
 
 **Key Targets:**
 
-- `make release-prepare`: Synchronizes SSOT, embeds assets, builds binary (no validation)
-- `make release-check`: Full validation suite (tests, lint, crucible, license audit)
-- `make prepush`: Comprehensive pre-push validation (includes release-check + crucible-clean + build-all + assess)
+- `make prepush`: The push gate. Same assess as the git hook. Does not rewrite tracked files.
+- `make release-prepare`: Synchronizes SSOT, embeds assets, builds binary
+- `make release-check`: Release validation (prepare, tests, lint, crucible, license audit)
 
-**Why this matters**: Running `make prepush` before pushing ensures all validation gates pass. This target automatically chains through release-check → release-prepare, providing full release readiness validation.
+Run `make prepush` before pushing. Run `make release-check` when preparing a release.
 
 ## Prerequisites
 
@@ -160,7 +161,7 @@ make update-licenses        # Alias: inventory + save
 
 **Forbidden licenses**: GPL, LGPL, AGPL, MPL, CDDL
 
-License audit is included in `make release-check` and `make prepush`.
+License audit is included in `make release-check`.
 
 ### Dependency Protection Dogfooding (v0.3.0+)
 
@@ -197,21 +198,11 @@ make verify-crucible-clean # Verify no uncommitted changes
 **1. Pre-Release Validation**
 
 ```bash
-# Full validation (includes all checks below)
+# Push gate. Same assess as the git hook and CI. Does not rewrite tracked files.
 make prepush
 
-# This internally runs:
-#   make release-check
-#     → make release-prepare (build, sync, embed)
-#     → make test
-#     → make lint
-#     → make verify-crucible
-#     → make license-audit
-#   make verify-crucible-clean
-#   make build-all
-#   goneat assess --mode check --hook pre-push
-#
-# The assess command uses the pre-push timeout in .goneat/hooks.yaml (8m).
+# Release validation. This writes prepare outputs, then runs the release checks.
+make release-check
 ```
 
 **2. Tier 2 Integration Testing (Recommended)**
@@ -622,25 +613,25 @@ verification and supplement upload fail closed on missing or invalid inputs.
 
 ### Hook Delegation Pattern
 
-The generated pre-push and pre-commit hooks run `goneat assess --mode check`. Hook assessment does not apply fixes. `make pr-final` is `make prepush`. That target prepares and builds, which writes files, and is not the git hook. `make precommit` stays available to run directly.
+The git hooks, `make prepush`, and CI run `goneat assess --mode check`. Hook assessment does not apply fixes. `make pr-final` is `make prepush`. `make release-check` is the release target and is not the push gate. [ADR-0004](docs/architecture/decisions/adr-0004-push-gate-check-only.md).
 
 ```bash
 # .git/hooks/pre-push in this repo
 goneat assess --mode check --hook pre-push --hook-manifest .goneat/hooks.yaml --staged-only --package-mode
 ```
 
-**Hook and manual gate:**
+**Push gate:**
 
-- A tag push runs `goneat assess --mode check`
-- `make prepush` remains the manual gate
+- A branch push, a tag push, `make prepush`, and CI run `goneat assess --mode check --hook pre-push`
 - Hook commands are `assess` in check mode, `format --check`, and a dependencies report that does not write an output file
 
 ### Current Automation
 
 **Makefile targets:**
 
-- `make precommit` - Format checks, quick validation
-- `make prepush` - Full validation (release-check + build-all + assess)
+- `make precommit` - Pre-commit assess (`goneat assess --mode check --hook pre-commit`)
+- `make prepush` - Pre-push assess (`goneat assess --mode check --hook pre-push`)
+- `make release-check` - Release validation (prepare, test, lint, crucible, license audit)
 - `make build-all` - Cross-platform binary builds
 - `make package` - Release artifact packaging
 - `make release-notes` - Generate release notes artifact
@@ -677,7 +668,7 @@ goneat assess --mode check --hook pre-push --hook-manifest .goneat/hooks.yaml --
 - `make license-audit` - No forbidden licenses
 - `make verify-crucible` - SSOT sync current
 - `make build-all` - All platform builds succeed
-- `make prepush` - Full validation passes
+- `make prepush` - Push gate passes
 
 **Coverage gates:**
 
