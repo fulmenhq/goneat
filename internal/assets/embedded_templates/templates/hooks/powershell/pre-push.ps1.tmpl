@@ -155,21 +155,35 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "✅ Guardian approval satisfied"
 {{- end }}
 
-# Use goneat's orchestrated assessment (manifest-driven)
-$args = @(
-    "assess",
-    "--hook", "pre-push",
-    "--hook-manifest", "$REPO_ROOT\.goneat\hooks.yaml"
-)
-
-if ($StagedOnly) {
-    $args += "--staged-only"
+# A repository prepush target is the whole push gate, including a tag push.
+$makefile = Join-Path $REPO_ROOT "Makefile"
+$delegate = $false
+if (Test-Path $makefile) {
+    if (Select-String -Path $makefile -Pattern '^prepush:' -Quiet) {
+        $delegate = $true
+    }
 }
+if ($delegate) {
+    & make -C $REPO_ROOT prepush
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+} else {
+    $args = @(
+        "assess",
+        "--hook", "pre-push",
+        "--hook-manifest", "$REPO_ROOT\.goneat\hooks.yaml"
+    )
 
-& $GONEAT_BIN @args
+    if ($StagedOnly) {
+        $args += "--staged-only"
+    }
 
-if ($LASTEXITCODE -ne 0) {
-    exit $LASTEXITCODE
+    & $GONEAT_BIN @args
+
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
 }
 
 Write-Host "✅ Pre-push validation passed!"

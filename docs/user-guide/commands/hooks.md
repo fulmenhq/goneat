@@ -797,7 +797,8 @@ git commit -m "Add feature"
 # Pre-push hook runs automatically
 git push origin main
 # → Executes .git/hooks/pre-push
-# → Calls goneat assess --hook pre-push
+# → Runs `make prepush` when the Makefile defines that target
+# → Otherwise calls goneat assess --hook pre-push
 # → Blocks push if validation fails
 
 # Pre-reset hook runs automatically (when --reset-guardian used)
@@ -812,6 +813,9 @@ git reset --hard HEAD~1
 Test hooks without triggering git operations:
 
 ```bash
+# Same gate the pre-push hook runs when `make prepush` exists
+make prepush
+
 # Test pre-commit validation
 goneat assess --hook pre-commit
 

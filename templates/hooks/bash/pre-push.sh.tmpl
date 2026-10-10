@@ -145,7 +145,12 @@ if [ -f "$REPO_ROOT/scripts/verify-crucible-clean.sh" ]; then
   fi
 fi
 
-# Use goneat's orchestrated assessment (manifest-driven)
-"$GONEAT_BIN" assess --hook pre-push --hook-manifest "$REPO_ROOT/.goneat/hooks.yaml"{{ if or .OptimizationSettings.OnlyChangedFiles (eq .OptimizationSettings.ContentSource "index") }} --staged-only{{ end }} --package-mode
+# A repository prepush target is the whole push gate, including a tag push.
+# A direct assess would be a second, thinner check than `make prepush`.
+if [ -f "$REPO_ROOT/Makefile" ] && grep -q '^prepush:' "$REPO_ROOT/Makefile"; then
+  make -C "$REPO_ROOT" prepush
+else
+  "$GONEAT_BIN" assess --hook pre-push --hook-manifest "$REPO_ROOT/.goneat/hooks.yaml"{{ if or .OptimizationSettings.OnlyChangedFiles (eq .OptimizationSettings.ContentSource "index") }} --staged-only{{ end }} --package-mode
+fi
 
 echo "✅ Pre-push validation passed!"

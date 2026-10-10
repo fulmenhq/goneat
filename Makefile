@@ -729,7 +729,7 @@ pr-final: prepush ## Run final PR merge-readiness checks
 
 prepush: release-check verify-crucible-clean build-all ## Run comprehensive pre-push validation
 	@echo "Running pre-push checks with goneat..."
-	GONEAT_OFFLINE_SCHEMA_VALIDATION=false $(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-push
+	GONEAT_OFFLINE_SCHEMA_VALIDATION=false $(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-push --hook-manifest .goneat/hooks.yaml --staged-only --package-mode
 	@echo "✅ Pre-push checks passed"
 
 # Development setup
@@ -833,7 +833,7 @@ release-tag: ## Create a GPG-signed annotated tag for GONEAT_RELEASE_TAG on HEAD
 release-tag-verify: ## Verify the local release tag: signature, signing key, tagger identity, target
 	@./scripts/release-tag.sh verify
 
-release-tag-push: ## Re-check, verify, then push only the release tag ref to origin (never forced)
+release-tag-push: ## Verify the tag and push it; the pre-push hook runs make prepush
 	@./scripts/release-tag.sh push
 
 test-release-tag: ## Run the release-tag script tests (fails, rather than skips, without git/gpg)

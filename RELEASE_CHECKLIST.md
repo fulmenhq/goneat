@@ -6,7 +6,7 @@ This document provides standard release procedures and best practices for goneat
 
 **Always use `make` targets** instead of standalone `go` commands. The Makefile orchestrates complex workflows, ensures proper sequencing, and maintains consistency across development and CI/CD environments.
 
-**Git hooks delegate to `make`**: Our pre-commit and pre-push hooks invoke make targets (not direct tool invocations), ensuring developer workflows match CI validation.
+**The pre-push hook is `make prepush`**: when the Makefile defines that target, a branch push and a tag push run it. `make pr-final` is the same target. Run it before pushing. The pre-commit hook runs `goneat assess --hook pre-commit`.
 
 ## Release Target Chain
 
@@ -210,6 +210,8 @@ make prepush
 #   make verify-crucible-clean
 #   make build-all
 #   goneat assess --hook pre-push
+#
+# The assess command uses the pre-push timeout in .goneat/hooks.yaml (8m).
 ```
 
 **2. Tier 2 Integration Testing (Recommended)**
@@ -246,7 +248,8 @@ git show --no-patch "$GONEAT_RELEASE_TAG"
 # 3. Push only refs/tags/<tag> to origin. Repeats the checks from steps 1 and 2,
 #    refuses if origin already has the tag, and confirms that origin's tag
 #    object and commit match the local ones. Never forced; does not push main,
-#    other tags or other remotes.
+#    other tags or other remotes. git push runs the pre-push hook, which in
+#    this repo is `make prepush` (the same gate as `make pr-final`).
 make release-tag-push
 ```
 
@@ -619,24 +622,18 @@ verification and supplement upload fail closed on missing or invalid inputs.
 
 ### Hook Delegation Pattern
 
-goneat git hooks **always delegate to make targets**:
+The generated pre-push hook runs `make prepush` when the Makefile defines that target, and `goneat assess --hook pre-push` otherwise. `make pr-final` is `make prepush`. The pre-commit hook runs `goneat assess --hook pre-commit`. `make precommit` stays available to run directly.
 
 ```bash
-# .git/hooks/pre-commit (simplified)
-#!/bin/bash
-make precommit
-
-# .git/hooks/pre-push (simplified)
-#!/bin/bash
+# .git/hooks/pre-push in this repo
 make prepush
 ```
 
 **Why this matters:**
 
-- Hooks use same validation as CI/CD
-- Changes to validation logic only need Makefile updates
-- Developers get same feedback locally as in pipeline
-- `make precommit` and `make prepush` can be run manually
+- A tag push and `make prepush` run the same gate
+- Changes to that gate are made in the Makefile and `.goneat/hooks.yaml`
+- `make prepush` can be run before `git push`
 
 ### Current Automation
 
