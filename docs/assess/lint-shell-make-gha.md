@@ -50,7 +50,7 @@ lint:
 
 ## Behavior
 
-- shfmt: check-only by default; enables package-mode-friendly behavior with exclusions; fix when `--lint-shell-fix` or config `fix: true`.
+- shfmt: check-only by default; enables package-mode-friendly behavior with exclusions; fix when `--lint-shell-fix` or config `fix: true`. Git hook assessment does not apply those fixes.
 - shellcheck: verify-only; skipped if not enabled or binary missing; uses provided path when set.
 - actionlint: runs on workflow files; honors include/exclude.
 - checkmake: runs on Makefiles; honors include/exclude.

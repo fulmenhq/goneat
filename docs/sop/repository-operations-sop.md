@@ -339,14 +339,14 @@ Goneat includes git hooks for automated quality validation:
 #### Pre-Commit Hook
 
 - **Location**: `.git/hooks/pre-commit`
-- **Purpose**: Runs `make pre-commit` before allowing commits
+- **Purpose**: Runs `goneat assess --mode check --hook pre-commit` before allowing commits
 - **Validation**: Code quality, fast tests, dynamic coverage, documentation formatting
 - **Bypass**: Use `git commit --no-verify` (requires supervisor approval per SOP)
 
 #### Pre-Push Hook
 
 - **Location**: `.git/hooks/pre-push`
-- **Purpose**: Runs `make prepush` before allowing pushes
+- **Purpose**: Runs `goneat assess --mode check --hook pre-push` before allowing pushes
 - **Validation**: Full test suite, security scans, production-ready coverage
 - **Bypass**: Use `git push --no-verify` (requires supervisor approval per SOP)
 
@@ -392,29 +392,23 @@ make lint       # Comprehensive linting (0 issues required)
 
 **Purpose:** Fast feedback during development cycle **Time:** ~5 seconds **Coverage:** Not enforced
 
-### make pre-commit (Commit Ready)
+### make precommit (Commit Ready)
 
 ```bash
-# Components:
-make check-all                    # Quality checks
-make test-short                   # Fast test suite
-make coverage-check-pre-commit    # 10% minimum coverage
-make fmt-docs                     # Documentation formatting
+# Same assess as the git pre-commit hook
+make precommit
 ```
 
-**Purpose:** Commit readiness validation **Time:** ~30 seconds **Coverage:** 10% minimum
+**Purpose:** Commit gate. `goneat assess --mode check --hook pre-commit`. Does not rewrite tracked files.
 
 ### make prepush (Production Ready)
 
 ```bash
-# Components:
-make check-all         # Quality checks
-make test             # Full test suite with race detection
-make coverage-check   # 70% minimum coverage
-make security-scan    # gosec + govulncheck
+# Same assess as the git pre-push hook and CI
+make prepush
 ```
 
-**Purpose:** Production deployment readiness **Time:** ~2 minutes **Coverage:** 70% minimum
+**Purpose:** Push gate. `goneat assess --mode check --hook pre-push`. Does not rewrite tracked files. The dates check needs the full commit history; a shallow repository is a high issue. `python3 scripts/push-gate-preflight.py` checks that history and the foundation `shellcheck` and `yamllint` minimums. Release preparation is `make release-check`.
 
 ## Troubleshooting
 

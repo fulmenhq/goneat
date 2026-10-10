@@ -12,7 +12,10 @@ set -euo pipefail
 #   verify  verify an existing local tag (signature, signer, tagger, target)
 #   push    re-check the repository, refuse if origin already has the tag,
 #           verify, push only refs/tags/<tag> to origin (never forced), then
-#           confirm origin's tag object and target match the local ones
+#           confirm origin's tag object and target match the local ones.
+#           git push runs the pre-push hook: goneat assess --mode check.
+#           That is the same assess as make prepush. It does not rewrite
+#           tracked files. The dates check needs the full commit history.
 #
 # Env (operator machine, NOT CI):
 #   GONEAT_RELEASE_TAG   - tag to create/verify/push; must equal $(cat VERSION)

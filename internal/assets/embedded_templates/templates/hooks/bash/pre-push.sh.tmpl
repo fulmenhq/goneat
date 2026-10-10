@@ -145,7 +145,7 @@ if [ -f "$REPO_ROOT/scripts/verify-crucible-clean.sh" ]; then
   fi
 fi
 
-# Use goneat's orchestrated assessment (manifest-driven)
-"$GONEAT_BIN" assess --hook pre-push --hook-manifest "$REPO_ROOT/.goneat/hooks.yaml"{{ if or .OptimizationSettings.OnlyChangedFiles (eq .OptimizationSettings.ContentSource "index") }} --staged-only{{ end }} --package-mode
+# Report only. --mode check does not rewrite files.
+"$GONEAT_BIN" assess --mode check --hook pre-push --hook-manifest "$REPO_ROOT/.goneat/hooks.yaml"{{ if or .OptimizationSettings.OnlyChangedFiles (eq .OptimizationSettings.ContentSource "index") }} --staged-only{{ end }} --package-mode
 
 echo "✅ Pre-push validation passed!"

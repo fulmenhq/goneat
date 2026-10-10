@@ -791,13 +791,14 @@ Once installed, hooks run automatically with git operations:
 # Pre-commit hook runs automatically
 git commit -m "Add feature"
 # → Executes .git/hooks/pre-commit
-# → Calls goneat assess --hook pre-commit
+# → Calls goneat assess --mode check --hook pre-commit
 # → Blocks commit if validation fails
 
 # Pre-push hook runs automatically
 git push origin main
 # → Executes .git/hooks/pre-push
-# → Calls goneat assess --hook pre-push
+# → Calls goneat assess --mode check --hook pre-push
+# → Does not rewrite files
 # → Blocks push if validation fails
 
 # Pre-reset hook runs automatically (when --reset-guardian used)
@@ -812,8 +813,14 @@ git reset --hard HEAD~1
 Test hooks without triggering git operations:
 
 ```bash
+# Same check the pre-push hook and CI run
+make prepush
+
+# The same assess, invoked directly
+goneat assess --mode check --hook pre-push
+
 # Test pre-commit validation
-goneat assess --hook pre-commit
+goneat assess --mode check --hook pre-commit
 
 # Test with different configurations
 goneat assess --hook pre-commit --fail-on critical
@@ -977,9 +984,9 @@ For commands with equal priority, the original manifest order is preserved (stab
 
 | Command Type                   | Behavior                                |
 | ------------------------------ | --------------------------------------- |
-| `assess`                       | Runs internal goneat assessment         |
-| `format`                       | Runs internal goneat format             |
-| `dependencies`                 | Runs internal goneat dependencies check |
+| `assess`                       | Runs internal goneat assessment in check mode |
+| `format`                       | Runs `goneat format --check`                  |
+| `dependencies`                 | Runs the dependencies report without writing an output file |
 | `lint`, `security`, `validate` | Runs internal goneat commands           |
 | Other (e.g., `make`, `npm`)    | Executed as external shell command      |
 

@@ -9,7 +9,7 @@ hooks:
     - command: "assess"
       args: ["--categories", "format,lint,security,dependencies,dates,tools,maturity,repo-status", "--fail-on", "high", "--package-mode"]
       priority: 10
-      timeout: "2m"
+      timeout: "8m"
 optimization:
   cache_results: true
   content_source: working

@@ -143,8 +143,8 @@ if errorlevel 1 (
 echo ✅ Guardian approval satisfied
 {{- end }}
 
-REM Use goneat's orchestrated assessment (manifest-driven)
-set "ARGS=assess --hook pre-push --hook-manifest "%REPO_ROOT%\.goneat\hooks.yaml""
+REM Report only. --mode check does not rewrite files.
+set "ARGS=assess --mode check --hook pre-push --hook-manifest "%REPO_ROOT%\.goneat\hooks.yaml""
 
 {{- if or .OptimizationSettings.OnlyChangedFiles (eq .OptimizationSettings.ContentSource "index") }}
 set "ARGS=%ARGS% --staged-only"

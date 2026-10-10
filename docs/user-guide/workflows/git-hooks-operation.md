@@ -50,7 +50,7 @@ goneat assess --hook pre-commit
 Tip:
 
 - content_source=index scopes validation to the staged version of changed files (preferred for selective commits)
-- apply_mode=check avoids modifying files during pre-commit; use fix to auto-apply and re-stage when your team opts in
+- Generated hooks run `goneat assess --mode check` and do not rewrite files.
 
 ## Current Status Verification
 

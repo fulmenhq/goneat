@@ -548,7 +548,11 @@ func (r *DatesRunner) Assess(ctx context.Context, target string, extra interface
 	}
 
 	issues := make([]DatesIssue, 0, 16)
-	if repoBirthErr != nil {
+	if errors.Is(repoBirthErr, errShallowHistory) {
+		// A shallow walk's earliest commit is the newest fetched commit, not
+		// repository creation. Report that the history is incomplete.
+		issues = append(issues, DatesIssue{File: "repository", Severity: "high", Message: "Impossible-chronology check needs the full commit history (repository is shallow)", Category: "dates"})
+	} else if repoBirthErr != nil {
 		// Do not drop the impossible-chronology check silently.
 		issues = append(issues, DatesIssue{File: "repository", Severity: "info", Message: fmt.Sprintf("Impossible-chronology check skipped: repository creation date could not be determined (%v)", repoBirthErr), Category: "dates"})
 	}
@@ -1126,7 +1130,18 @@ func changedFiles(repo *git.Repository) ([]string, error) {
 	return changed, nil
 }
 
+// errShallowHistory means the clone omitted parent commits. The earliest
+// commit still present is not repository creation.
+var errShallowHistory = errors.New("repository is shallow")
+
 func repoFirstCommitTime(repo *git.Repository) (time.Time, error) {
+	shallow, shallowErr := repo.Storer.Shallow()
+	if shallowErr != nil {
+		return time.Time{}, shallowErr
+	}
+	if len(shallow) > 0 {
+		return time.Time{}, errShallowHistory
+	}
 	iter, err := repo.Log(&git.LogOptions{All: true})
 	if err != nil {
 		return time.Time{}, err

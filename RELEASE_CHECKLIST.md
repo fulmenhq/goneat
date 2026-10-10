@@ -6,15 +6,16 @@ This document provides standard release procedures and best practices for goneat
 
 **Always use `make` targets** instead of standalone `go` commands. The Makefile orchestrates complex workflows, ensures proper sequencing, and maintains consistency across development and CI/CD environments.
 
-**Git hooks delegate to `make`**: Our pre-commit and pre-push hooks invoke make targets (not direct tool invocations), ensuring developer workflows match CI validation.
+**The push gate is one check.** The git hook, `make prepush`, and CI run `goneat assess --mode check --hook pre-push`. `make pr-final` is `make prepush`. That assess uses the timeout in `.goneat/hooks.yaml` (8m) and does not rewrite tracked files. `make release-check` is the separate release target. See [ADR-0004](docs/architecture/decisions/adr-0004-push-gate-check-only.md).
 
 ## Release Target Chain
 
 goneat implements a three-stage release validation chain:
 
 ```
-make prepush
-  ↓
+make prepush / git pre-push hook / CI
+  goneat assess --mode check --hook pre-push
+
 make release-check
   ↓
 make release-prepare → build + sync-crucible + embed-assets
@@ -24,11 +25,13 @@ test + lint + verify-crucible + license-audit
 
 **Key Targets:**
 
-- `make release-prepare`: Synchronizes SSOT, embeds assets, builds binary (no validation)
-- `make release-check`: Full validation suite (tests, lint, crucible, license audit)
-- `make prepush`: Comprehensive pre-push validation (includes release-check + crucible-clean + build-all + assess)
+- `make prepush`: The push gate. Same assess as the git hook. Does not rewrite tracked files.
+- `make release-prepare`: Synchronizes SSOT, embeds assets, builds binary
+- `make release-check`: Release validation (prepare, tests, lint, crucible, license audit)
 
-**Why this matters**: Running `make prepush` before pushing ensures all validation gates pass. This target automatically chains through release-check → release-prepare, providing full release readiness validation.
+Run `make prepush` before pushing. Run `make release-check` when preparing a release.
+
+The dates check needs the full commit history. A shallow repository is a high issue. Run `python3 scripts/push-gate-preflight.py` before the assess when the checkout may be shallow. That script also checks that `shellcheck` and `yamllint` meet the foundation minimums in `.goneat/tools.yaml`. `scripts/install-push-gate-tools.sh` installs the recommended versions of those two tools when they are missing or older. CI checks out full history, runs both scripts, then runs `make prepush`.
 
 ## Prerequisites
 
@@ -160,7 +163,7 @@ make update-licenses        # Alias: inventory + save
 
 **Forbidden licenses**: GPL, LGPL, AGPL, MPL, CDDL
 
-License audit is included in `make release-check` and `make prepush`.
+License audit is included in `make release-check`.
 
 ### Dependency Protection Dogfooding (v0.3.0+)
 
@@ -197,19 +200,11 @@ make verify-crucible-clean # Verify no uncommitted changes
 **1. Pre-Release Validation**
 
 ```bash
-# Full validation (includes all checks below)
+# Push gate. Same assess as the git hook and CI. Does not rewrite tracked files.
 make prepush
 
-# This internally runs:
-#   make release-check
-#     → make release-prepare (build, sync, embed)
-#     → make test
-#     → make lint
-#     → make verify-crucible
-#     → make license-audit
-#   make verify-crucible-clean
-#   make build-all
-#   goneat assess --hook pre-push
+# Release validation. This writes prepare outputs, then runs the release checks.
+make release-check
 ```
 
 **2. Tier 2 Integration Testing (Recommended)**
@@ -246,7 +241,8 @@ git show --no-patch "$GONEAT_RELEASE_TAG"
 # 3. Push only refs/tags/<tag> to origin. Repeats the checks from steps 1 and 2,
 #    refuses if origin already has the tag, and confirms that origin's tag
 #    object and commit match the local ones. Never forced; does not push main,
-#    other tags or other remotes.
+#    other tags or other remotes. git push runs the pre-push hook:
+#    `goneat assess --mode check`. That check does not rewrite files.
 make release-tag-push
 ```
 
@@ -619,31 +615,25 @@ verification and supplement upload fail closed on missing or invalid inputs.
 
 ### Hook Delegation Pattern
 
-goneat git hooks **always delegate to make targets**:
+The git hooks, `make prepush`, and CI run `goneat assess --mode check`. Hook assessment does not apply fixes. `make pr-final` is `make prepush`. `make release-check` is the release target and is not the push gate. [ADR-0004](docs/architecture/decisions/adr-0004-push-gate-check-only.md).
 
 ```bash
-# .git/hooks/pre-commit (simplified)
-#!/bin/bash
-make precommit
-
-# .git/hooks/pre-push (simplified)
-#!/bin/bash
-make prepush
+# .git/hooks/pre-push in this repo
+goneat assess --mode check --hook pre-push --hook-manifest .goneat/hooks.yaml --staged-only --package-mode
 ```
 
-**Why this matters:**
+**Push gate:**
 
-- Hooks use same validation as CI/CD
-- Changes to validation logic only need Makefile updates
-- Developers get same feedback locally as in pipeline
-- `make precommit` and `make prepush` can be run manually
+- A branch push, a tag push, `make prepush`, and CI run `goneat assess --mode check --hook pre-push`
+- Hook commands are `assess` in check mode, `format --check`, and a dependencies report that does not write an output file
 
 ### Current Automation
 
 **Makefile targets:**
 
-- `make precommit` - Format checks, quick validation
-- `make prepush` - Full validation (release-check + build-all + assess)
+- `make precommit` - Pre-commit assess (`goneat assess --mode check --hook pre-commit`)
+- `make prepush` - Pre-push assess (`goneat assess --mode check --hook pre-push`)
+- `make release-check` - Release validation (prepare, test, lint, crucible, license audit)
 - `make build-all` - Cross-platform binary builds
 - `make package` - Release artifact packaging
 - `make release-notes` - Generate release notes artifact
@@ -656,6 +646,8 @@ make prepush
 - `scripts/release-tag.sh` - Create, verify and push the signed release tag (tests: `scripts/release_tag_test.go`)
 - `scripts/push-to-remotes.sh` - Push main and the verified release tag to all configured remotes
 - `scripts/generate-release-notes.sh` - Release notes generation
+- `scripts/push-gate-preflight.py` - Full history, shellcheck, and yamllint before the push gate
+- `scripts/install-push-gate-tools.sh` - Install the recommended shellcheck and yamllint when PATH is short
 
 ### Future Automation (Planned)
 
@@ -680,7 +672,7 @@ make prepush
 - `make license-audit` - No forbidden licenses
 - `make verify-crucible` - SSOT sync current
 - `make build-all` - All platform builds succeed
-- `make prepush` - Full validation passes
+- `make prepush` - Push gate passes
 
 **Coverage gates:**
 
@@ -726,7 +718,8 @@ make fmt           # Format code
 make test          # Quick validation
 
 # Before pushing
-make prepush       # Full validation (recommended)
+python3 scripts/push-gate-preflight.py
+make prepush       # Push gate (same assess as the git hook)
 ```
 
 ### Pre-Release Development
@@ -737,7 +730,8 @@ make test                              # Unit + Tier 1 integration
 make test-integration-cooling-quick    # Tier 2 validation (with repos)
 
 # Before creating release branch
-make prepush                           # Full validation
+python3 scripts/push-gate-preflight.py
+make prepush                           # Push gate
 make test-integration-extended         # Comprehensive (major releases)
 ```
 

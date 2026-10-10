@@ -718,18 +718,24 @@ license-audit: ## Audit dependencies for forbidden licenses; fail on detection
 
 update-licenses: license-inventory license-save ## Update license inventory and third-party texts
 
-# Hook targets (dogfooding)
-precommit: build test ## Run pre-commit hooks (uses existing binary, skips embeds)
+# Push gate. Same assess as the git hooks. See docs/architecture/decisions/adr-0004-push-gate-check-only.md.
+# Build only when the binary is missing, and do not embed: embed rewrites tracked files.
+precommit: ## Run the pre-commit check (same assess as the git hook)
+	@if [ ! -x "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
+		$(MAKE) SKIP_EMBED_ASSETS=1 build; \
+	fi
 	@echo "Running pre-commit checks with goneat..."
-	$(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-commit
+	$(BUILD_DIR)/$(BINARY_NAME) assess --mode check --hook pre-commit --hook-manifest .goneat/hooks.yaml --staged-only --package-mode
 	@echo "✅ Pre-commit checks passed"
 
-pr-final: prepush ## Run final PR merge-readiness checks
-	@echo "✅ PR final checks passed"
+pr-final: prepush ## Run the pre-push check
 
-prepush: release-check verify-crucible-clean build-all ## Run comprehensive pre-push validation
+prepush: ## Run the pre-push check (same assess as the git hook)
+	@if [ ! -x "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
+		$(MAKE) SKIP_EMBED_ASSETS=1 build; \
+	fi
 	@echo "Running pre-push checks with goneat..."
-	GONEAT_OFFLINE_SCHEMA_VALIDATION=false $(BUILD_DIR)/$(BINARY_NAME) assess --hook pre-push
+	GONEAT_OFFLINE_SCHEMA_VALIDATION=false $(BUILD_DIR)/$(BINARY_NAME) assess --mode check --hook pre-push --hook-manifest .goneat/hooks.yaml --staged-only --package-mode
 	@echo "✅ Pre-push checks passed"
 
 # Development setup
@@ -833,7 +839,7 @@ release-tag: ## Create a GPG-signed annotated tag for GONEAT_RELEASE_TAG on HEAD
 release-tag-verify: ## Verify the local release tag: signature, signing key, tagger identity, target
 	@./scripts/release-tag.sh verify
 
-release-tag-push: ## Re-check, verify, then push only the release tag ref to origin (never forced)
+release-tag-push: ## Verify the tag and push it; the pre-push hook runs check-only assess
 	@./scripts/release-tag.sh push
 
 test-release-tag: ## Run the release-tag script tests (fails, rather than skips, without git/gpg)

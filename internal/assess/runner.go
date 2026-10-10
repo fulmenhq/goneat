@@ -108,8 +108,10 @@ type AssessmentConfig struct {
 	NewIssuesBase string `json:"new_issues_base,omitempty"`
 
 	// Lint extensions (shell/make/GHA)
-	LintShellEnabled      bool     `json:"lint_shell_enabled,omitempty"`
-	LintShellFix          bool     `json:"lint_shell_fix,omitempty"`
+	LintShellEnabled bool `json:"lint_shell_enabled,omitempty"`
+	LintShellFix     bool `json:"lint_shell_fix,omitempty"`
+	// HookReadOnly reports issues and does not rewrite files.
+	HookReadOnly          bool     `json:"hook_read_only,omitempty"`
 	LintShellPaths        []string `json:"lint_shell_paths,omitempty"`
 	LintShellExclude      []string `json:"lint_shell_exclude,omitempty"`
 	LintShellcheckEnabled bool     `json:"lint_shellcheck_enabled,omitempty"`

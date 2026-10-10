@@ -160,6 +160,7 @@ Write-Host "✅ Guardian approval satisfied"
 # Use goneat's orchestrated assessment (manifest-driven)
 $args = @(
     "assess",
+    "--mode", "check",
     "--hook", "pre-commit",
     "--hook-manifest", "$REPO_ROOT\.goneat\hooks.yaml"
 )

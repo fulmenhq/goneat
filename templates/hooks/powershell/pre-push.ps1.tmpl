@@ -155,9 +155,10 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "✅ Guardian approval satisfied"
 {{- end }}
 
-# Use goneat's orchestrated assessment (manifest-driven)
+# Report only. --mode check does not rewrite files.
 $args = @(
     "assess",
+    "--mode", "check",
     "--hook", "pre-push",
     "--hook-manifest", "$REPO_ROOT\.goneat\hooks.yaml"
 )
