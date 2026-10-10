@@ -55,7 +55,7 @@ func TestPushGateCIFetchesHistoryAndInstallsTools(t *testing.T) {
 	if checkout < 0 || install < 0 || preflight < 0 || prepush < 0 {
 		t.Fatalf("missing push-gate steps: checkout=%d install=%d preflight=%d prepush=%d", checkout, install, preflight, prepush)
 	}
-	if !(checkout < install && install < preflight && preflight < prepush) {
+	if checkout >= install || install >= preflight || preflight >= prepush {
 		t.Fatalf("push-gate step order checkout=%d install=%d preflight=%d prepush=%d", checkout, install, preflight, prepush)
 	}
 

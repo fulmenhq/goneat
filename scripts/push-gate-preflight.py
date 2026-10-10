@@ -7,14 +7,11 @@ shellcheck and yamllint at the minimum versions in .goneat/tools.yaml.
 
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 
 def repo_root() -> Path:
-    out = subprocess.check_output(
-        ["git", "rev-parse", "--show-toplevel"], text=True
-    )
+    out = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True)
     return Path(out.strip())
 
 
