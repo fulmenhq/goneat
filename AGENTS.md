@@ -28,15 +28,17 @@ See [agent-identity standard](https://crucible.3leaps.dev/repository/agent-ident
 
 ## Quick Reference
 
-| Task         | Command                |
-| ------------ | ---------------------- |
-| Build        | `make build`           |
-| Test         | `make test`            |
-| Full check   | `make prepush`         |
-| Format       | `make fmt`             |
-| Lint         | `make lint`            |
-| Assess       | `./dist/goneat assess` |
-| Version bump | `make version-bump-*`  |
+| Task               | Command                |
+| ------------------ | ---------------------- |
+| Build              | `make build`           |
+| Test               | `make test`            |
+| Commit gate        | `make precommit`       |
+| Push gate          | `make prepush`         |
+| Release validation | `make release-check`   |
+| Format             | `make fmt`             |
+| Lint               | `make lint`            |
+| Assess             | `./dist/goneat assess` |
+| Version bump       | `make version-bump-*`  |
 
 ## Session Protocol
 
@@ -50,10 +52,17 @@ See [agent-identity standard](https://crucible.3leaps.dev/repository/agent-ident
 
 ### Before Committing
 
-- Run `make prepush` (runs fmt, lint, test, security)
-- Verify tests pass
+- Run `make precommit`. It is the same `goneat assess --mode check --hook pre-commit` as the git hook and does not rewrite tracked files.
+- Run `make test` when the change needs the test suite.
 - Use proper attribution (see below)
 - Include `Committer-of-Record` trailer
+
+### Before Pushing
+
+- Run `make prepush`. It is the same `goneat assess --mode check --hook pre-push` as the git hook and CI. It does not rewrite tracked files and it does not run `make test`.
+- `make release-check` is the release target. It is not the push gate.
+- The dates check needs the full commit history. Run `python3 scripts/push-gate-preflight.py` when the checkout may be shallow.
+- See [ADR-0004](docs/architecture/decisions/adr-0004-push-gate-check-only.md).
 
 ## Commit Attribution
 
@@ -95,7 +104,7 @@ Committer-of-Record: Dave Thompson <dave.thompson@3leaps.net> [@3leapsdave]
 
 ### DO
 
-- Run `make prepush` before commits
+- Run `make precommit` before commits and `make prepush` before pushing
 - Read files before editing
 - Use `make build` (never raw `go build`)
 - Use `dist/goneat` for testing (built binary)
