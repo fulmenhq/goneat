@@ -646,9 +646,10 @@ goneat hooks install
 
 - Hooks now execute manifest commands in order (including `assess`, `dependencies`, and external commands).
 - Manifest changes take effect on the next hook run—no regenerate/install needed unless templates/guardian/optimization settings change; edit `.goneat/hooks.yaml` and rerun git operation.
-- Avoid invoking `make` targets that mutate the working tree (e.g., `format-all`, `verify-embeds`, custom builds) to prevent self-triggered loops in git hooks.
-- Prefer check-only invocations such as `assess --categories format,lint,security --fail-on critical --package-mode` for pre-commit and `--fail-on high` for pre-push. These run read-only assessments and keep the tree stable.
-- If you must run formatters, use staged-only/check flags (`format --staged-only --check --quiet`) instead of repo-wide mutate operations.
+- The pre-commit and pre-push hooks run `goneat assess --mode check`. Categories, fail level, and timeout live in `.goneat/hooks.yaml`. `make precommit` and `make prepush` run those same commands.
+- That assess reports issues and does not rewrite tracked files. Do not point a hook at `make release-check`, `make fmt`, or another target that writes files.
+- The dates check needs the full commit history. A shallow repository is a high issue.
+- A custom hook `format` command is invoked with `--check`. Use `goneat format` when the intent is to rewrite files.
 
 ### Testing Hooks
 
@@ -982,13 +983,13 @@ For commands with equal priority, the original manifest order is preserved (stab
 
 ### Command Types
 
-| Command Type                   | Behavior                                |
-| ------------------------------ | --------------------------------------- |
-| `assess`                       | Runs internal goneat assessment in check mode |
-| `format`                       | Runs `goneat format --check`                  |
+| Command Type                   | Behavior                                                    |
+| ------------------------------ | ----------------------------------------------------------- |
+| `assess`                       | Runs internal goneat assessment in check mode               |
+| `format`                       | Runs `goneat format --check`                                |
 | `dependencies`                 | Runs the dependencies report without writing an output file |
-| `lint`, `security`, `validate` | Runs internal goneat commands           |
-| Other (e.g., `make`, `npm`)    | Executed as external shell command      |
+| `lint`, `security`, `validate` | Runs internal goneat commands                               |
+| Other (e.g., `make`, `npm`)    | Executed as external shell command                          |
 
 ### Timeout Enforcement
 

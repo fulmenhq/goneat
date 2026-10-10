@@ -272,11 +272,13 @@ check-all: build fmt lint test ## Run all quality checks
 	@echo "✅ All checks passed"
 
 .PHONY: precommit
-precommit: fmt lint ## Pre-commit hooks
+precommit: ## Same assess as the git pre-commit hook
+	@goneat assess --mode check --hook pre-commit
 	@echo "✅ Pre-commit checks passed"
 
 .PHONY: prepush
-prepush: check-all ## Pre-push hooks
+prepush: ## Same assess as the git pre-push hook
+	@goneat assess --mode check --hook pre-push
 	@echo "✅ Pre-push checks passed"
 
 .PHONY: clean
@@ -284,6 +286,8 @@ clean: ## Clean build artifacts
 	@rm -rf dist/ build/ bin/
 	@echo "✅ Clean complete"
 ```
+
+`precommit` and `prepush` run `goneat assess --mode check`. The git hooks run that same assess and do not call `make`. `check-all` remains the broader target (`build`, `fmt`, `lint`, `test`). The dates check needs the full commit history.
 
 ## Gitignore Patterns
 

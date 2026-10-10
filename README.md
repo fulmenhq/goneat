@@ -83,13 +83,13 @@ goneat provides **language-aware assessment** with automatic tool detection:
 
 **Package cooling** (`goneat dependencies --cooling`) is language-specific. Only wired engines enforce age:
 
-| Language        | Cooling registry                         | Status                                                                 |
-| --------------- | ---------------------------------------- | ---------------------------------------------------------------------- |
-| **Go**          | `proxy.golang.org`                       | Wired                                                                  |
-| **Rust**        | crates.io                                | Wired (`Cargo.lock` / `cargo metadata`; not `cargo-deny`)              |
-| **JavaScript**  | npm client exists                        | Not wired — analyzer is a stub                                         |
-| **Python**      | PyPI client exists                       | Not wired — analyzer is a stub                                         |
-| **C#**          | NuGet client exists                      | Not wired — analyzer is a stub                                         |
+| Language       | Cooling registry    | Status                                                    |
+| -------------- | ------------------- | --------------------------------------------------------- |
+| **Go**         | `proxy.golang.org`  | Wired                                                     |
+| **Rust**       | crates.io           | Wired (`Cargo.lock` / `cargo metadata`; not `cargo-deny`) |
+| **JavaScript** | npm client exists   | Not wired — analyzer is a stub                            |
+| **Python**     | PyPI client exists  | Not wired — analyzer is a stub                            |
+| **C#**         | NuGet client exists | Not wired — analyzer is a stub                            |
 
 Rust **license** gating stays on `cargo-deny` / `--licenses`. Do not treat crates.io cooling as covering npm, PyPI, or NuGet.
 
@@ -187,7 +187,7 @@ goneat hooks generate --with-guardian  # Add browser-based approval prompts
 goneat hooks install                 # Install to .git/hooks
 ```
 
-Pre-commit runs format checks. Pre-push adds security, maturity, and dependency validation.
+Pre-commit and pre-push run `goneat assess --mode check`. `make precommit` and `make prepush` run those same checks. The assess reports issues and does not rewrite tracked files. Categories and the timeout are in `.goneat/hooks.yaml`. The dates check needs the full commit history.
 
 **Guardian integration**: Use `--with-guardian` to add an optional friction layer that requires browser-based approval before commits or pushes to protected branches. Prevents fully autonomous operations when you want human oversight. See [Guardian](#guardian-approval-workflows) for configuration.
 

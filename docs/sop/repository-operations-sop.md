@@ -489,17 +489,17 @@ git rebase --abort
 
 ## Appendix: Make Targets Reference
 
-| Target                    | Purpose                       | Time  | Coverage | Security |
-| ------------------------- | ----------------------------- | ----- | -------- | -------- |
-| `make help`               | Show available commands       | <1s   | -        | -        |
-| `make check-all`          | Development quality checks    | ~5s   | -        | Basic    |
-| `make precommit`          | Commit validation             | ~30s  | 10%+     | Basic    |
-| `make prepush`            | Push validation               | ~2min | 70%+     | Full     |
-| `make test`               | Full test suite with coverage | ~45s  | 70%      | -        |
-| `make build`              | Build binary                  | ~5s   | -        | -        |
-| `make security-scan`      | Full security analysis        | ~30s  | -        | Full     |
-| `make fmt-docs`           | Format documentation          | ~3s   | -        | -        |
-| `make version-bump-patch` | Semantic version bump         | <1s   | -        | -        |
+| Target                    | Purpose                        | Time  | Coverage | Security |
+| ------------------------- | ------------------------------ | ----- | -------- | -------- |
+| `make help`               | Show available commands        | <1s   | -        | -        |
+| `make check-all`          | Development quality checks     | ~5s   | -        | Basic    |
+| `make precommit`          | Commit gate, check-only assess | ~30s  | -        | Assess   |
+| `make prepush`            | Push gate, check-only assess   | ~2min | -        | Assess   |
+| `make test`               | Full test suite with coverage  | ~45s  | 70%      | -        |
+| `make build`              | Build binary                   | ~5s   | -        | -        |
+| `make security-scan`      | Full security analysis         | ~30s  | -        | Full     |
+| `make fmt-docs`           | Format documentation           | ~3s   | -        | -        |
+| `make version-bump-patch` | Semantic version bump          | <1s   | -        | -        |
 
 ## Goneat v0.1.0 First Commit Preparation
 
