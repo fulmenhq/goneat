@@ -8,11 +8,16 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+
+	"golang.org/x/mod/semver"
 )
 
 // Findings are provisional HIGH until both protocol and process completion are
 // known. Only the calibrated package-wide advisory has inventory semantics.
 const govulnInventoryAdvisory = "GO-2026-5932"
+
+// v1.1.4 is the first govulncheck release that emits the SBOM inventory event.
+const govulnScannerVersionFloor = "v1.1.4"
 
 var govulnLegacyPackages = []string{
 	"golang.org/x/crypto/openpgp", "golang.org/x/crypto/openpgp/packet",
@@ -255,25 +260,9 @@ func (r *govulnReport) finish(completionErr error) ([]Issue, map[string]interfac
 		if finding.OSV != govulnInventoryAdvisory {
 			continue // No generic advisory grading or severity policy change.
 		}
-		p := r.producer
-		// v0.0.0 is the reported version of the calibrated producer, not an
-		// immutable process image identity. Never substitute a formula version.
-		supported := p.ProtocolVersion == "v1.0.0" && p.ScannerName == "govulncheck" && p.ScannerVersion == "v0.0.0" && p.ScanMode == "source" && p.ScanLevel == "symbol" && p.GoVersion != "" && r.sbomSeen && r.inventory.GoVersion == p.GoVersion && len(r.inventory.Roots) != 0 && r.unknownEvents == 0 && r.unknownConfigFields == 0
-		moduleMatched := false
-		for _, module := range r.inventory.Modules {
-			if module.Path == finding.Trace[0].Module && module.Version == finding.Trace[0].Version {
-				moduleMatched = true
-			}
-		}
-		for _, root := range r.inventory.Roots {
-			if root == "" {
-				supported = false
-			}
-		}
-		supported = supported && moduleMatched
-		if !supported || !validGovulnInventoryAdvisory(r.advisories[finding.OSV]) || finding.Trace[0].Module != "golang.org/x/crypto" || finding.Trace[0].Version == "" || finding.FixedVersion != "" {
+		if reason := r.govulnInventoryUnsupported(finding); reason != "" {
 			observation.Classification = "unknown"
-			classificationErrors = append(classificationErrors, errors.New("govulncheck inventory classification requires verified source/symbol scope and package-wide advisory evidence"))
+			classificationErrors = append(classificationErrors, fmt.Errorf("govulncheck inventory classification requires verified source/symbol scope and package-wide advisory evidence: %s", reason))
 			continue
 		}
 		if observation.Grade == "module" {
@@ -307,6 +296,70 @@ func (r *govulnReport) finish(completionErr error) ([]Issue, map[string]interfac
 		"classification_error": len(classificationErrors) != 0,
 		"event_count":          r.events, "findings": r.findings, "advisories": r.osvs,
 	}, err
+}
+
+// govulnInventoryUnsupported names the first unmet condition for inventory
+// classification, or returns "" when every condition holds.
+func (r *govulnReport) govulnInventoryUnsupported(finding govulnFinding) string {
+	p := r.producer
+	switch {
+	case p.ProtocolVersion != "v1.0.0":
+		return fmt.Sprintf("protocol_version %q is not v1.0.0", p.ProtocolVersion)
+	case p.ScannerName != "govulncheck":
+		return fmt.Sprintf("scanner_name %q is not govulncheck", p.ScannerName)
+	case !govulnScannerVersionCalibrated(p.ScannerVersion):
+		return fmt.Sprintf("scanner_version %q is not v0.0.0 or a v1 release at or above %s", p.ScannerVersion, govulnScannerVersionFloor)
+	case p.ScanMode != "source":
+		return fmt.Sprintf("scan_mode %q is not source", p.ScanMode)
+	case p.ScanLevel != "symbol":
+		return fmt.Sprintf("scan_level %q is not symbol", p.ScanLevel)
+	case p.GoVersion == "":
+		return "go_version is missing"
+	case r.unknownEvents != 0:
+		return fmt.Sprintf("%d unknown event(s)", r.unknownEvents)
+	case r.unknownConfigFields != 0:
+		return fmt.Sprintf("%d unknown config field(s)", r.unknownConfigFields)
+	case !r.sbomSeen:
+		return "SBOM inventory is missing"
+	case r.inventory.GoVersion != p.GoVersion:
+		return fmt.Sprintf("SBOM go_version %q does not match config go_version %q", r.inventory.GoVersion, p.GoVersion)
+	case len(r.inventory.Roots) == 0:
+		return "SBOM roots are missing"
+	}
+	for _, root := range r.inventory.Roots {
+		if root == "" {
+			return "SBOM contains an empty root"
+		}
+	}
+	module := finding.Trace[0]
+	if module.Module != "golang.org/x/crypto" || module.Version == "" {
+		return fmt.Sprintf("finding module %s@%s is not a versioned golang.org/x/crypto", module.Module, module.Version)
+	}
+	matched := false
+	for _, m := range r.inventory.Modules {
+		if m.Path == module.Module && m.Version == module.Version {
+			matched = true
+		}
+	}
+	if !matched {
+		return fmt.Sprintf("finding module %s@%s is not in the SBOM inventory", module.Module, module.Version)
+	}
+	if finding.FixedVersion != "" {
+		return fmt.Sprintf("advisory has fixed_version %q", finding.FixedVersion)
+	}
+	if !validGovulnInventoryAdvisory(r.advisories[finding.OSV]) {
+		return "advisory is not the calibrated package-wide entry"
+	}
+	return ""
+}
+
+// v0.0.0 is what an unstamped calibrated build reports. Stamped builds report
+// their release version; only v1 releases with the SBOM event are calibrated.
+func govulnScannerVersionCalibrated(version string) bool {
+	if version == "v0.0.0" {
+		return true
+	}
+	return semver.IsValid(version) && semver.Major(version) == "v1" && semver.Compare(version, govulnScannerVersionFloor) >= 0
 }
 
 func validGovulnInventoryAdvisory(raw json.RawMessage) bool {
