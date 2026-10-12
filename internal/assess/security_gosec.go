@@ -8,11 +8,15 @@ import (
 	"io"
 	"os/exec"
 	"regexp"
+	"sort"
 )
 
 // The Go toolchain that compiled the packages writes export data newer than
 // the reader linked into gosec. Only the version numbers are captured.
-var gosecExportDataSkew = regexp.MustCompile(`export data version (\d+) is greater than maximum supported version (\d+)`)
+var (
+	gosecExportDataSkew = regexp.MustCompile(`export data version (\d+) is greater than maximum supported version (\d+)`)
+	gosecVersionPattern = regexp.MustCompile(`^v?\d+\.\d+\.\d+$`)
+)
 
 type gosecProcessingError struct {
 	Line   int    `json:"line"`
@@ -172,8 +176,13 @@ func (r *SecurityAssessmentRunner) parseGosecScanReport(output []byte) gosecScan
 // A toolchain newer than gosec's export-data reader means no package was
 // analyzed. Name the cause and the remedy; the scan still fails.
 func gosecExportDataSkewError(processing map[string][]gosecProcessingError, version string) error {
-	for _, entries := range processing {
-		for _, entry := range entries {
+	packages := make([]string, 0, len(processing))
+	for pkg := range processing {
+		packages = append(packages, pkg)
+	}
+	sort.Strings(packages)
+	for _, pkg := range packages {
+		for _, entry := range processing[pkg] {
 			if m := gosecExportDataSkew.FindStringSubmatch(entry.Error); m != nil {
 				if !gosecVersionPattern.MatchString(version) {
 					version = "unknown"
@@ -184,8 +193,6 @@ func gosecExportDataSkewError(processing map[string][]gosecProcessingError, vers
 	}
 	return nil
 }
-
-var gosecVersionPattern = regexp.MustCompile(`^v?\d+\.\d+\.\d+$`)
 
 func gosecExecutionError(report gosecScanReport, processErr, contextErr error) error {
 	if processErr != nil && contextErr == nil && report.complete && report.err == nil && len(report.issues) > 0 {

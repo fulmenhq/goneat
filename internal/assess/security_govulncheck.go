@@ -333,7 +333,7 @@ func (r *govulnReport) govulnInventoryUnsupported(finding govulnFinding) string 
 	}
 	module := finding.Trace[0]
 	if module.Module != "golang.org/x/crypto" || module.Version == "" {
-		return fmt.Sprintf("finding module %s@%s is not a versioned golang.org/x/crypto", module.Module, module.Version)
+		return fmt.Sprintf("finding module %q version %q is not a versioned golang.org/x/crypto", module.Module, module.Version)
 	}
 	matched := false
 	for _, m := range r.inventory.Modules {
@@ -342,7 +342,7 @@ func (r *govulnReport) govulnInventoryUnsupported(finding govulnFinding) string 
 		}
 	}
 	if !matched {
-		return fmt.Sprintf("finding module %s@%s is not in the SBOM inventory", module.Module, module.Version)
+		return fmt.Sprintf("finding module %q version %q is not in the SBOM inventory", module.Module, module.Version)
 	}
 	if finding.FixedVersion != "" {
 		return fmt.Sprintf("advisory has fixed_version %q", finding.FixedVersion)
@@ -354,12 +354,13 @@ func (r *govulnReport) govulnInventoryUnsupported(finding govulnFinding) string 
 }
 
 // v0.0.0 is what an unstamped calibrated build reports. Stamped builds report
-// their release version; only v1 releases with the SBOM event are calibrated.
+// their release version; only canonical v1 releases with the SBOM event are
+// calibrated. Pseudo-versions and prereleases are not releases.
 func govulnScannerVersionCalibrated(version string) bool {
 	if version == "v0.0.0" {
 		return true
 	}
-	return semver.IsValid(version) && semver.Major(version) == "v1" && semver.Compare(version, govulnScannerVersionFloor) >= 0
+	return semver.Canonical(version) == version && semver.Prerelease(version) == "" && semver.Major(version) == "v1" && semver.Compare(version, govulnScannerVersionFloor) >= 0
 }
 
 func validGovulnInventoryAdvisory(raw json.RawMessage) bool {
