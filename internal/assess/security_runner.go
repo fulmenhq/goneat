@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -161,7 +162,7 @@ func (r *SecurityAssessmentRunner) Assess(ctx context.Context, target string, co
 	}
 	metrics["tools_skipped"] = skipped
 	if len(adapters) == 0 && len(toolErrors) == 0 {
-		const reason = "no applicable security tool found in PATH (gosec, govulncheck, gitleaks, cargo-audit, cargo-deny)"
+		const reason = "no applicable security tool for this project, or none installed (gosec, govulncheck, gitleaks, cargo-audit, cargo-deny)"
 		logger.Warn("security assessment skipped: " + reason)
 		return &AssessmentResult{
 			CommandName:   r.commandName,
@@ -362,7 +363,12 @@ func (r *SecurityAssessmentRunner) applySecuritySuppressionPolicy(issues []Issue
 
 // findModuleRoot finds the Go module root directory (best-effort)
 func (r *SecurityAssessmentRunner) findModuleRoot(startDir string) (string, error) {
-	current := startDir
+	// A relative start such as "." has no parent under filepath.Dir, so the
+	// upward search must begin from an absolute path.
+	current, err := filepath.Abs(startDir)
+	if err != nil {
+		return "", err
+	}
 	for {
 		if _, err := os.Stat(filepath.Join(current, "go.mod")); err == nil {
 			return current, nil
@@ -557,7 +563,8 @@ func (r *SecurityAssessmentRunner) runGosec(ctx context.Context, moduleRoot stri
 				}
 				iss = filtered
 			}
-			results <- shardResult{dir: dirArg, issues: iss, suppressions: supps, err: errors.Join(attemptErrors...)}
+			shardErr := errors.Join(attemptErrors...)
+			results <- shardResult{dir: dirArg, issues: iss, suppressions: supps, err: annotateGosecExportDataSkew(shardErr, gosecXToolsVersionOnPath)}
 		}(d)
 	}
 
@@ -670,6 +677,34 @@ func (r *SecurityAssessmentRunner) findModuleDirs(root string, config Assessment
 		dirs = append(dirs, root)
 	}
 	return dirs, nil
+}
+
+// errGoModuleFound stops the applicability walk at the first go.mod.
+var errGoModuleFound = errors.New("go module found")
+
+// hasGoModule reports whether root, or a directory under it that is not
+// ignored, contains a go.mod. The Go scanners need a module to load packages;
+// without one they cannot run. A walk error counts as applicable so the
+// scanner runs and reports the underlying failure instead of being skipped.
+func (r *SecurityAssessmentRunner) hasGoModule(root string, config AssessmentConfig) bool {
+	matcher := r.newIgnoreMatcher(root, config)
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			rel, relErr := filepath.Rel(root, path)
+			if relErr == nil && rel != "." && r.isIgnoredSecurityPath(rel, true, matcher, config) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if d.Name() == "go.mod" {
+			return errGoModuleFound
+		}
+		return nil
+	})
+	return err != nil
 }
 
 func (r *SecurityAssessmentRunner) newIgnoreMatcher(root string, config AssessmentConfig) *ignore.Matcher {

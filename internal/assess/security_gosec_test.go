@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -769,5 +770,76 @@ func TestGosecExportDataSkewNamesCauseAndStillFails(t *testing.T) {
 	}
 	if err := r.parseGosecScanReport([]byte(gosecProcessingFixture)).err; err == nil || strings.Contains(err.Error(), "export data") {
 		t.Fatalf("generic processing error misdiagnosed: %v", err)
+	}
+}
+
+func TestGosecExportDataSkewNamesXToolsVersion(t *testing.T) {
+	r := &SecurityAssessmentRunner{}
+	skew := `{"Issues":[],"Golang errors":{"/src/pkg":[{"line":0,"column":0,"error":"export data version 5 is greater than maximum supported version 4"}]},"Stats":{"files":1,"lines":20,"nosec":0,"found":0},"GosecVersion":"2.29.0"}`
+	err := r.parseGosecScanReport([]byte(skew)).err
+	shardErr := errors.Join(err, errors.New("exit status 1"))
+	calls := 0
+	annotated := annotateGosecExportDataSkew(shardErr, func() string { calls++; return "v0.49.0" })
+	msg := annotated.Error()
+	for _, want := range []string{"gosec 2.29.0 (built with golang.org/x/tools v0.49.0) cannot read export data version 5", "install a gosec built with a newer golang.org/x/tools", "GOTOOLCHAIN", "processing errors in 1 package(s)", "exit status 1"} {
+		if !strings.Contains(msg, want) {
+			t.Fatalf("missing %q in %q", want, msg)
+		}
+	}
+	again := annotateGosecExportDataSkew(annotated, func() string { calls++; return "v9.9.9" })
+	if calls != 1 || strings.Contains(again.Error(), "v9.9.9") {
+		t.Fatalf("annotation must be applied once: calls=%d msg=%q", calls, again.Error())
+	}
+	unknown := annotateGosecExportDataSkew(r.parseGosecScanReport([]byte(skew)).err, func() string { return "" })
+	if strings.Contains(unknown.Error(), "(built with") || !strings.Contains(unknown.Error(), "gosec 2.29.0 cannot read") {
+		t.Fatalf("unknown x/tools must keep the base message: %q", unknown.Error())
+	}
+	plain := errors.New("gosec reported processing errors in 1 package(s)")
+	if got := annotateGosecExportDataSkew(plain, func() string { t.Fatal("must not read build info"); return "" }); got != plain {
+		t.Fatalf("non-skew error changed: %v", got)
+	}
+	if annotateGosecExportDataSkew(nil, func() string { t.Fatal("must not read build info"); return "" }) != nil {
+		t.Fatal("nil error must stay nil")
+	}
+}
+
+func TestXToolsVersionFromBuildInfo(t *testing.T) {
+	xtools := func(version string, replace *debug.Module) *debug.Module {
+		return &debug.Module{Path: "golang.org/x/tools", Version: version, Replace: replace}
+	}
+	for _, tt := range []struct {
+		name string
+		info *debug.BuildInfo
+		want string
+	}{
+		{"dependency", &debug.BuildInfo{Main: debug.Module{Path: "github.com/securego/gosec/v2", Version: "v2.29.0"}, Deps: []*debug.Module{{Path: "golang.org/x/mod", Version: "v0.41.0"}, xtools("v0.49.0", nil)}}, "v0.49.0"},
+		{"main_module", &debug.BuildInfo{Main: *xtools("v0.49.0", nil)}, "v0.49.0"},
+		{"pseudo_version", &debug.BuildInfo{Deps: []*debug.Module{xtools("v0.50.1-0.20261001000000-abcdefabcdef", nil)}}, "v0.50.1-0.20261001000000-abcdefabcdef"},
+		{"versioned_replace", &debug.BuildInfo{Deps: []*debug.Module{xtools("v0.49.0", &debug.Module{Path: "example.org/tools", Version: "v0.52.0"})}}, "v0.52.0"},
+		{"local_replace", &debug.BuildInfo{Deps: []*debug.Module{xtools("v0.49.0", &debug.Module{Path: "../tools"})}}, ""},
+		{"devel", &debug.BuildInfo{Main: *xtools("(devel)", nil)}, ""},
+		{"non_canonical", &debug.BuildInfo{Deps: []*debug.Module{xtools("v0.49.0+meta", nil)}}, ""},
+		{"absent", &debug.BuildInfo{Deps: []*debug.Module{{Path: "golang.org/x/mod", Version: "v0.41.0"}}}, ""},
+		{"nil_dependency", &debug.BuildInfo{Deps: []*debug.Module{nil, xtools("v0.50.0", nil)}}, "v0.50.0"},
+		{"nil_info", nil, ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := xtoolsVersionFromBuildInfo(tt.info); got != tt.want {
+				t.Fatalf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGosecXToolsVersionUnreadableBinary(t *testing.T) {
+	notGo := filepath.Join(t.TempDir(), "gosec")
+	if err := os.WriteFile(notGo, []byte("#!/bin/sh\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if v := gosecXToolsVersion(notGo); v != "" {
+		t.Fatalf("non-Go binary returned %q", v)
+	}
+	if v := gosecXToolsVersion(filepath.Join(t.TempDir(), "missing")); v != "" {
+		t.Fatalf("missing binary returned %q", v)
 	}
 }

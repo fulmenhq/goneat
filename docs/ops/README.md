@@ -85,6 +85,7 @@ docs/ops/
 - End-of-life response procedures
 - Supply chain security operations
 - [Net selection window](dependencies/2026-10-09-dependencies-net-selection-window.md)
+- [Interim gosec pin for Go 1.27](dependencies/2026-10-12-gosec-go127-interim-pin.md)
 
 ## Operation Documentation Standards
 

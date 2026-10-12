@@ -24,8 +24,9 @@ type gosecAdapter struct {
 	cfg        AssessmentConfig
 }
 
-func (g *gosecAdapter) Name() string      { return "gosec" }
-func (g *gosecAdapter) IsAvailable() bool { return g.runner.toolAvailable("gosec") }
+func (g *gosecAdapter) Name() string       { return "gosec" }
+func (g *gosecAdapter) IsAvailable() bool  { return g.runner.toolAvailable("gosec") }
+func (g *gosecAdapter) IsApplicable() bool { return g.runner.hasGoModule(g.moduleRoot, g.cfg) }
 func (g *gosecAdapter) Run(ctx context.Context) ([]Issue, error) {
 	issues, _, err := g.runner.runGosec(ctx, g.moduleRoot, g.cfg)
 	return issues, err
@@ -42,8 +43,9 @@ type govulncheckAdapter struct {
 	cfg        AssessmentConfig
 }
 
-func (g *govulncheckAdapter) Name() string      { return "govulncheck" }
-func (g *govulncheckAdapter) IsAvailable() bool { return g.runner.toolAvailable("govulncheck") }
+func (g *govulncheckAdapter) Name() string       { return "govulncheck" }
+func (g *govulncheckAdapter) IsAvailable() bool  { return g.runner.toolAvailable("govulncheck") }
+func (g *govulncheckAdapter) IsApplicable() bool { return g.runner.hasGoModule(g.moduleRoot, g.cfg) }
 func (g *govulncheckAdapter) Run(ctx context.Context) ([]Issue, error) {
 	return g.runner.runGovulncheck(ctx, g.moduleRoot, g.cfg)
 }

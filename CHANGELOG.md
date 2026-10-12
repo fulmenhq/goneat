@@ -11,9 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Security**: running `assess` from a subdirectory of a Go module now finds the module root. govulncheck previously failed with no module found. govulncheck findings now report the absolute path of `go.mod`, as gosec findings already report absolute paths.
+- **Security**: gosec and govulncheck run only when the repository contains a Go module that is not ignored. In Rust, TypeScript, Python and other non-Go repositories they are reported as not applicable instead of failing the security category.
 - **Security**: scoped govulncheck runs, including the pre-commit hook, no longer pass directories without Go files as package patterns. A staged change to Go code together with documentation in other directories previously failed the security category. When no selected directory contains Go files, govulncheck scans the module.
 
 ### Changed
+
+- **Security**: when gosec cannot read package data from the active Go toolchain, the security category names the gosec version, the `golang.org/x/tools` version it was built with, and the remedies. The category still fails. See the Go toolchain guide for an interim gosec pin for Go 1.27.
 
 - **Startup**: embedded schemas compile on first use instead of at process start. Every command previously compiled all bundled schemas during package initialization (about 0.7 s); `validate data` with `--schema-file` drops from about 0.9 s to about 0.2 s per call.
 
