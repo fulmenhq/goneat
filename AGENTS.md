@@ -59,7 +59,7 @@ See [agent-identity standard](https://crucible.3leaps.dev/repository/agent-ident
 
 ### Before Pushing
 
-- Run `make prepush`. It is the same `goneat assess --mode check --hook pre-push` as the git hook and CI. It does not rewrite tracked files and it does not run `make test`.
+- Run `make prepush` with the reference Go on `PATH` and `GOTOOLCHAIN=go1.26.9`. The assess uses that `go` and does not set `GOTOOLCHAIN`. It is the same `goneat assess --mode check --hook pre-push` as the git hook and CI. It does not rewrite tracked files and it does not run `make test`. The reference version matches the CI pin and the recommended Go in `.goneat/tools.yaml`.
 - `make release-check` is the release target. It is not the push gate.
 - The dates check needs the full commit history. Run `python3 scripts/push-gate-preflight.py` when the checkout may be shallow.
 - See [ADR-0004](docs/architecture/decisions/adr-0004-push-gate-check-only.md).
