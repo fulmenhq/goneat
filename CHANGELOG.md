@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Security**: gosec and govulncheck run only when the repository contains a Go module that is not ignored. In Rust, TypeScript, Python and other non-Go repositories they are reported as not applicable instead of failing the security category.
 - **Security**: scoped govulncheck runs, including the pre-commit hook, no longer pass directories without Go files as package patterns. A staged change to Go code together with documentation in other directories previously failed the security category. When no selected directory contains Go files, govulncheck scans the module.
 
 ### Changed
