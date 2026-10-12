@@ -162,7 +162,7 @@ func (r *SecurityAssessmentRunner) Assess(ctx context.Context, target string, co
 	}
 	metrics["tools_skipped"] = skipped
 	if len(adapters) == 0 && len(toolErrors) == 0 {
-		const reason = "no applicable security tool found in PATH (gosec, govulncheck, gitleaks, cargo-audit, cargo-deny)"
+		const reason = "no applicable security tool for this project, or none installed (gosec, govulncheck, gitleaks, cargo-audit, cargo-deny)"
 		logger.Warn("security assessment skipped: " + reason)
 		return &AssessmentResult{
 			CommandName:   r.commandName,
