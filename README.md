@@ -309,7 +309,7 @@ scoop bucket add fulmenhq https://github.com/fulmenhq/scoop-bucket
 scoop install goneat
 ```
 
-v0.6.2 release archives are Darwin ARM64, Linux amd64, Linux ARM64, Windows amd64, and Windows ARM64. Darwin amd64 downloads end at v0.6.1.
+v0.6.3 release archives are Darwin ARM64, Linux amd64, Linux ARM64, Windows amd64, and Windows ARM64. Darwin amd64 downloads end at v0.6.1.
 
 ### For CI/CD: Trust Anchor Pattern
 
@@ -329,7 +329,7 @@ This pattern is how goneat itself manages supply chain security. When goneat run
 
 ### Binary Download
 
-Download from [GitHub Releases](https://github.com/fulmenhq/goneat/releases). v0.6.2 archives are Darwin ARM64, Linux amd64, Linux ARM64, Windows amd64, and Windows ARM64. Darwin amd64 downloads end at v0.6.1. All releases include minisign and PGP signatures for manual verification.
+Download from [GitHub Releases](https://github.com/fulmenhq/goneat/releases). v0.6.3 archives are Darwin ARM64, Linux amd64, Linux ARM64, Windows amd64, and Windows ARM64. Darwin amd64 downloads end at v0.6.1. All releases include minisign and PGP signatures for manual verification.
 
 ## Configuration
 
