@@ -16,8 +16,13 @@ import (
 // known. Only the calibrated package-wide advisory has inventory semantics.
 const govulnInventoryAdvisory = "GO-2026-5932"
 
-// v1.1.4 is the first govulncheck release that emits the SBOM inventory event.
-const govulnScannerVersionFloor = "v1.1.4"
+// Calibrated govulncheck releases: v1.1.4 is the first release that emits the
+// SBOM inventory event, and the protocol definition is unchanged through
+// v1.9.0. Raise the ceiling only after checking a newer release's protocol.
+const (
+	govulnScannerVersionFloor   = "v1.1.4"
+	govulnScannerVersionCeiling = "v1.10.0"
+)
 
 var govulnLegacyPackages = []string{
 	"golang.org/x/crypto/openpgp", "golang.org/x/crypto/openpgp/packet",
@@ -308,7 +313,7 @@ func (r *govulnReport) govulnInventoryUnsupported(finding govulnFinding) string 
 	case p.ScannerName != "govulncheck":
 		return fmt.Sprintf("scanner_name %q is not govulncheck", p.ScannerName)
 	case !govulnScannerVersionCalibrated(p.ScannerVersion):
-		return fmt.Sprintf("scanner_version %q is not v0.0.0 or a v1 release at or above %s", p.ScannerVersion, govulnScannerVersionFloor)
+		return fmt.Sprintf("scanner_version %q is not v0.0.0 or a release at or above %s and below %s", p.ScannerVersion, govulnScannerVersionFloor, govulnScannerVersionCeiling)
 	case p.ScanMode != "source":
 		return fmt.Sprintf("scan_mode %q is not source", p.ScanMode)
 	case p.ScanLevel != "symbol":
@@ -354,13 +359,13 @@ func (r *govulnReport) govulnInventoryUnsupported(finding govulnFinding) string 
 }
 
 // v0.0.0 is what an unstamped calibrated build reports. Stamped builds report
-// their release version; only canonical v1 releases with the SBOM event are
-// calibrated. Pseudo-versions and prereleases are not releases.
+// their release version; only canonical releases in the calibrated range are
+// accepted. Pseudo-versions and prereleases are not releases.
 func govulnScannerVersionCalibrated(version string) bool {
 	if version == "v0.0.0" {
 		return true
 	}
-	return semver.Canonical(version) == version && semver.Prerelease(version) == "" && semver.Major(version) == "v1" && semver.Compare(version, govulnScannerVersionFloor) >= 0
+	return semver.Canonical(version) == version && semver.Prerelease(version) == "" && semver.Compare(version, govulnScannerVersionFloor) >= 0 && semver.Compare(version, govulnScannerVersionCeiling) < 0
 }
 
 func validGovulnInventoryAdvisory(raw json.RawMessage) bool {
