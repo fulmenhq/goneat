@@ -167,14 +167,14 @@ gosec reads the compiled package data that the active Go toolchain writes. A gos
 **Go 1.27 (as of 2026-10-12).** The gosec v2.29.0 release, including the Homebrew build, uses `golang.org/x/tools` v0.49.0 and cannot read Go 1.27 package data. Until a gosec release supports Go 1.27, use one of these:
 
 ```bash
-# A gosec commit after v2.29.0, built with golang.org/x/tools v0.50.0
-go install github.com/securego/gosec/v2/cmd/gosec@v2.29.1-0.20260930122349-9b318063d35c
-
-# Or keep the release and run under Go 1.26
+# Keep the gosec release and run under Go 1.26
 GOTOOLCHAIN=go1.26.9 goneat assess
+
+# Or install an unreleased gosec commit built with golang.org/x/tools v0.50.0
+go install github.com/securego/gosec/v2/cmd/gosec@v2.29.1-0.20260930122349-9b318063d35c
 ```
 
-The pinned commit is past the default cooling window. Make sure `$(go env GOPATH)/bin` comes before Homebrew on `PATH`, or the release build is still used. This note will be removed once a gosec release supports Go 1.27.
+The second option installs commit `9b318063d35cfc5cdf2456de3b92830270e80326` from the gosec main branch. It has not gone through gosec's release process. It is past the default cooling window. Make sure `$(go env GOPATH)/bin` comes before Homebrew on `PATH`, or the release build is still used. This note will be removed once a gosec release supports Go 1.27.
 
 ### govulncheck
 

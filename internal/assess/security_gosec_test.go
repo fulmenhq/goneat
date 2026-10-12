@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -802,30 +803,36 @@ func TestGosecExportDataSkewNamesXToolsVersion(t *testing.T) {
 	}
 }
 
-func TestGosecXToolsVersionReadsBuildInfo(t *testing.T) {
-	if testing.Short() {
-		t.Skip("builds a fixture binary")
+func TestXToolsVersionFromBuildInfo(t *testing.T) {
+	xtools := func(version string, replace *debug.Module) *debug.Module {
+		return &debug.Module{Path: "golang.org/x/tools", Version: version, Replace: replace}
 	}
-	goBin, err := exec.LookPath("go")
-	if err != nil {
-		t.Skip("go toolchain not available")
+	for _, tt := range []struct {
+		name string
+		info *debug.BuildInfo
+		want string
+	}{
+		{"dependency", &debug.BuildInfo{Main: debug.Module{Path: "github.com/securego/gosec/v2", Version: "v2.29.0"}, Deps: []*debug.Module{{Path: "golang.org/x/mod", Version: "v0.41.0"}, xtools("v0.49.0", nil)}}, "v0.49.0"},
+		{"main_module", &debug.BuildInfo{Main: *xtools("v0.49.0", nil)}, "v0.49.0"},
+		{"pseudo_version", &debug.BuildInfo{Deps: []*debug.Module{xtools("v0.50.1-0.20261001000000-abcdefabcdef", nil)}}, "v0.50.1-0.20261001000000-abcdefabcdef"},
+		{"versioned_replace", &debug.BuildInfo{Deps: []*debug.Module{xtools("v0.49.0", &debug.Module{Path: "example.org/tools", Version: "v0.52.0"})}}, "v0.52.0"},
+		{"local_replace", &debug.BuildInfo{Deps: []*debug.Module{xtools("v0.49.0", &debug.Module{Path: "../tools"})}}, ""},
+		{"devel", &debug.BuildInfo{Main: *xtools("(devel)", nil)}, ""},
+		{"non_canonical", &debug.BuildInfo{Deps: []*debug.Module{xtools("v0.49.0+meta", nil)}}, ""},
+		{"absent", &debug.BuildInfo{Deps: []*debug.Module{{Path: "golang.org/x/mod", Version: "v0.41.0"}}}, ""},
+		{"nil_dependency", &debug.BuildInfo{Deps: []*debug.Module{nil, xtools("v0.50.0", nil)}}, "v0.50.0"},
+		{"nil_info", nil, ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := xtoolsVersionFromBuildInfo(tt.info); got != tt.want {
+				t.Fatalf("got %q, want %q", got, tt.want)
+			}
+		})
 	}
-	// Build a binary from golang.org/x/tools in goneat's module graph, so its
-	// build information records a real x/tools module version.
-	out := filepath.Join(t.TempDir(), "gosec")
-	build := exec.Command(goBin, "build", "-o", out, "golang.org/x/tools/cmd/stringer") // #nosec G204
-	build.Dir = "../.."
-	if b, err := build.CombinedOutput(); err != nil {
-		t.Skipf("cannot build fixture: %v: %s", err, b)
-	}
-	want, err := exec.Command(goBin, "list", "-m", "-f", "{{.Version}}", "golang.org/x/tools").Output() // #nosec G204
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := gosecXToolsVersion(out); got != strings.TrimSpace(string(want)) {
-		t.Fatalf("x/tools version = %q, want %q", got, strings.TrimSpace(string(want)))
-	}
-	notGo := filepath.Join(t.TempDir(), "not-go")
+}
+
+func TestGosecXToolsVersionUnreadableBinary(t *testing.T) {
+	notGo := filepath.Join(t.TempDir(), "gosec")
 	if err := os.WriteFile(notGo, []byte("#!/bin/sh\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}

@@ -19,8 +19,8 @@ import (
 // The Go toolchain that compiled the packages writes export data newer than
 // the reader linked into gosec. Only the version numbers are captured.
 var (
-	gosecExportDataSkew = regexp.MustCompile(`export data version (\d+) is greater than maximum supported version (\d+)`)
-	gosecVersionPattern = regexp.MustCompile(`^v?\d+\.\d+\.\d+$`)
+	gosecExportDataSkewPattern = regexp.MustCompile(`export data version (\d+) is greater than maximum supported version (\d+)`)
+	gosecVersionPattern        = regexp.MustCompile(`^v?\d+\.\d+\.\d+$`)
 )
 
 type gosecProcessingError struct {
@@ -178,7 +178,7 @@ func (r *SecurityAssessmentRunner) parseGosecScanReport(output []byte) gosecScan
 	return gosecScanReport{issues: issues, suppressions: suppressions, complete: complete, err: reportErr}
 }
 
-// gosecExportDataSkew reports that the active Go toolchain writes export data
+// gosecExportDataSkewError reports that the active Go toolchain writes export data
 // newer than the golang.org/x/tools reader linked into gosec, so no package was
 // analyzed. The scan still fails.
 type gosecExportDataSkewError struct {
@@ -204,7 +204,7 @@ func newGosecExportDataSkewError(processing map[string][]gosecProcessingError, v
 	sort.Strings(packages)
 	for _, pkg := range packages {
 		for _, entry := range processing[pkg] {
-			if m := gosecExportDataSkew.FindStringSubmatch(entry.Error); m != nil {
+			if m := gosecExportDataSkewPattern.FindStringSubmatch(entry.Error); m != nil {
 				if !gosecVersionPattern.MatchString(version) {
 					version = "unknown"
 				}
@@ -216,16 +216,25 @@ func newGosecExportDataSkewError(processing map[string][]gosecProcessingError, v
 }
 
 // gosecXToolsVersion reads the golang.org/x/tools version recorded in a gosec
-// binary's build information. It returns "" when the binary or the dependency
-// cannot be read, or the version is not a canonical module version.
+// binary's build information. It returns "" when the binary cannot be read.
 func gosecXToolsVersion(binaryPath string) string {
 	info, err := buildinfo.ReadFile(binaryPath)
 	if err != nil {
 		return ""
 	}
+	return xtoolsVersionFromBuildInfo(info)
+}
+
+// xtoolsVersionFromBuildInfo returns the golang.org/x/tools version from the
+// main module or a dependency, following a replacement. It returns "" when
+// the module is absent or the version is not a canonical module version.
+func xtoolsVersionFromBuildInfo(info *debug.BuildInfo) string {
+	if info == nil {
+		return ""
+	}
 	modules := append([]*debug.Module{&info.Main}, info.Deps...)
 	for _, m := range modules {
-		if m.Path != "golang.org/x/tools" {
+		if m == nil || m.Path != "golang.org/x/tools" {
 			continue
 		}
 		if m.Replace != nil {
@@ -249,7 +258,9 @@ var gosecXToolsVersionOnPath = sync.OnceValue(func() string {
 })
 
 // annotateGosecExportDataSkew adds the x/tools version of the gosec binary on
-// PATH to export-data skew errors. Other errors are returned unchanged.
+// PATH to the first export-data skew error in err. A shard reports at most one
+// skew in practice: a skew report is complete, so it is not retried. Other
+// errors are returned unchanged.
 func annotateGosecExportDataSkew(err error, xtoolsVersion func() string) error {
 	var skew *gosecExportDataSkewError
 	if err == nil || !errors.As(err, &skew) || skew.xtoolsVersion != "" {

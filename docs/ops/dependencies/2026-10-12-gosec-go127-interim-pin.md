@@ -12,7 +12,7 @@ On 2026-10-12 the latest gosec release is v2.29.0. It is built with `golang.org/
 
 ## Documented pin
 
-`docs/user-guide/toolchains/go.md` documents `github.com/securego/gosec/v2@v2.29.1-0.20260930122349-9b318063d35c`, which is built with `golang.org/x/tools` v0.50.0. It was published 2026-09-30, which is past the cooling window. Under Go 1.27.2 it reports the same findings on this repository as v2.29.0 under Go 1.26.9.
+`docs/user-guide/toolchains/go.md` documents `github.com/securego/gosec/v2@v2.29.1-0.20260930122349-9b318063d35c` (commit `9b318063d35cfc5cdf2456de3b92830270e80326` on the gosec main branch, unreleased), which is built with `golang.org/x/tools` v0.50.0. It was published 2026-09-30, which is past the cooling window. Under Go 1.27.2 it reports the same findings on this repository as v2.29.0 under Go 1.26.9.
 
 `.goneat/tools.yaml` is unchanged. It still installs `@latest` and recommends a release version. The pin is documentation only.
 
@@ -24,6 +24,7 @@ The security category reads the `golang.org/x/tools` version from the gosec bina
 
 When a gosec release supports Go 1.27 and passes the cooling policy:
 
-1. Remove the "Go 1.27" paragraph and the pinned `go install` command from `docs/user-guide/toolchains/go.md`. Keep the general "Newer Go toolchains" text.
+1. Remove the "Go 1.27" paragraph and both commands under it from `docs/user-guide/toolchains/go.md`. Keep the general "Newer Go toolchains" text.
 2. Raise gosec `recommended_version` in `.goneat/tools.yaml` and `config/tools/foundation-tools-defaults.yaml`.
-3. Set `cleanup_status: closed` and `closed_at` here.
+3. Run `make embed-assets` and commit the updated copies under `internal/assets/embedded_docs/` and `internal/assets/embedded_config/`.
+4. Set `cleanup_status: closed` and `closed_at` here.
