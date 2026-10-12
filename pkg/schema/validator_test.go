@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/fulmenhq/goneat/internal/assets"
 	"gopkg.in/yaml.v3"
 )
 
@@ -76,6 +77,37 @@ func TestGetEmbeddedValidator(t *testing.T) {
 	}
 	if !res.Valid {
 		t.Fatalf("expected valid configuration, got errors: %+v", res.Errors)
+	}
+}
+
+// Package init must not compile embedded schemas: every goneat process pays
+// for init, and most commands never use an embedded schema.
+func TestInitRegistryDefersCompilation(t *testing.T) {
+	regMu.Lock()
+	initRegistry()
+	compiled, known := len(schemaRegistry), len(schemaPaths)
+	regMu.Unlock()
+	if compiled != 0 {
+		t.Fatalf("initRegistry compiled %d schemas; want 0", compiled)
+	}
+	if known != len(assets.GetSchemaNames()) {
+		t.Fatalf("initRegistry recorded %d schema paths; want %d", known, len(assets.GetSchemaNames()))
+	}
+}
+
+func TestEmbeddedSchemasCompileOnFirstUse(t *testing.T) {
+	for _, info := range assets.GetSchemaNames() {
+		first, err := GetEmbeddedValidator(info.Name)
+		if err != nil {
+			t.Fatalf("%s: %v", info.Name, err)
+		}
+		second, err := GetEmbeddedValidator(info.Name)
+		if err != nil {
+			t.Fatalf("%s: %v", info.Name, err)
+		}
+		if first.schema != second.schema {
+			t.Fatalf("%s: compiled schema not cached", info.Name)
+		}
 	}
 }
 
