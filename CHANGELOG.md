@@ -7,19 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Note**: This changelog keeps the latest 10 releases for readability. For older releases, see `docs/releases/` archive.
 
-## [Unreleased]
+## [v0.6.3] - 2026-10-12
 
 ### Fixed
 
-- **Security**: running `assess` from a subdirectory of a Go module now finds the module root. govulncheck previously failed with no module found. govulncheck findings now report the absolute path of `go.mod`, as gosec findings already report absolute paths.
 - **Security**: gosec and govulncheck run only when the repository contains a Go module that is not ignored. In Rust, TypeScript, Python and other non-Go repositories they are reported as not applicable instead of failing the security category.
+- **Security**: running `assess` from a subdirectory of a Go module now finds the module root. govulncheck previously failed with no module found. govulncheck findings now report the absolute path of `go.mod`, as gosec findings already report absolute paths.
 - **Security**: scoped govulncheck runs, including the pre-commit hook, no longer pass directories without Go files as package patterns. A staged change to Go code together with documentation in other directories previously failed the security category. When no selected directory contains Go files, govulncheck scans the module.
+- **Security**: GO-2026-5932 inventory classification accepts stamped govulncheck releases from v1.1.4 up to, but not including, v1.10.0, as well as unstamped `v0.0.0` builds. Later releases fail closed until they are checked. A failed classification names the first condition that did not hold.
 
 ### Changed
 
 - **Security**: when gosec cannot read package data from the active Go toolchain, the security category names the gosec version, the `golang.org/x/tools` version it was built with, and the remedies. The category still fails. See the Go toolchain guide for an interim gosec pin for Go 1.27.
-
 - **Startup**: embedded schemas compile on first use instead of at process start. Every command previously compiled all bundled schemas during package initialization (about 0.7 s); `validate data` with `--schema-file` drops from about 0.9 s to about 0.2 s per call.
+- **Dependencies**: `github.com/go-git/go-git/v5` v5.19.3, `github.com/go-git/go-billy/v5` v5.9.2, `github.com/ProtonMail/go-crypto` v1.5.2, and `github.com/pjbgf/sha1cd` v0.7.0. `github.com/klauspost/cpuid/v2` is no longer required. `golang.org/x/sys` moves from indirect to direct. PDR-0001 records the indirect requirements kept as version floors.
 
 ## [v0.6.2] - 2026-10-09
 
@@ -181,17 +182,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI runner image pinned**: `.github/workflows/ci.yml` container jobs now use `ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.4.1` instead of `:latest`, eliminating floating-tag drift across PRs and `main`.
 - **CI lint anchors to runner image**: `build-test-lint` invokes the runner-bundled `golangci-lint` binary instead of `golangci/golangci-lint-action@v7`, removing CI's dependency on a network fetch from `golangci-lint.run`. Lint remains advisory (`continue-on-error: true`); the active `go version` and `golangci-lint --version` are logged for auditability.
 
-## [v0.5.10] - 2026-03-30
-
-### Fixed
-
-- **License exception evaluation in assess**: `goneat assess --categories dependencies` now honors `licenses.exceptions` from `.goneat/dependencies.yaml` before emitting forbidden-license findings, including exact package/license matching and date-based activation with `approved_date` and `until`.
-- **Dependency policy schema drift**: the embedded `dependencies-policy-v1.0.0` schema now accepts the vulnerability allowlist metadata already used by goneat's own repo policy (`status`, `sdr`, `analysis`, `verified_by`, `verified_date`), removing the recurring `dependencies: policy failed schema validation` warning from dogfood dependency assessment.
-
-### Changed
-
-- **Dependency policy docs/schema alignment**: license exception examples, troubleshooting guidance, and the dependency policy schema now document temporary license overrides more accurately, including optional expiry dates.
-
 ---
 
-**Note**: Older releases (v0.5.9 and earlier) are archived in [`docs/releases/`](docs/releases/).
+**Note**: Older releases (v0.5.10 and earlier) are archived in [`docs/releases/`](docs/releases/).
