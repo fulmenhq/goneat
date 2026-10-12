@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Note**: This changelog keeps the latest 10 releases for readability. For older releases, see `docs/releases/` archive.
 
+## [Unreleased]
+
+### Changed
+
+- **Startup**: embedded schemas compile on first use instead of at process start. Every command previously compiled all bundled schemas during package initialization (about 0.7 s); `validate data` with `--schema-file` drops from about 0.9 s to about 0.2 s per call.
+
 ## [v0.6.2] - 2026-10-09
 
 ### Changed

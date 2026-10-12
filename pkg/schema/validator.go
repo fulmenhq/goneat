@@ -102,22 +102,14 @@ func init() {
 	initRegistry()
 }
 
+// initRegistry records embedded schema paths only. Compilation is deferred to
+// GetEmbeddedValidator, which compiles and caches each schema on first use, so
+// process startup does not pay to compile schemas a command never touches.
 func initRegistry() {
 	schemaRegistry = make(map[string]*gojsonschema.Schema)
 	schemaPaths = make(map[string]string)
-	compileKnownSchemas()
-}
-
-func compileKnownSchemas() {
 	for _, info := range assets.GetSchemaNames() {
-		if data, ok := assets.GetSchema(info.Path); ok {
-			if sch, err := compileSchemaBytes(data); err == nil {
-				regMu.Lock()
-				schemaRegistry[info.Name] = sch
-				schemaPaths[info.Name] = info.Path
-				regMu.Unlock()
-			}
-		}
+		schemaPaths[info.Name] = info.Path
 	}
 }
 
