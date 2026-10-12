@@ -922,13 +922,11 @@ func (r *SecurityAssessmentRunner) runGovulncheckWithMetadata(ctx context.Contex
 			pattern string
 		}
 		var selections []packageSelection
-		rootSelected := false
 		for _, d := range dirs {
 			// A selected root file denotes the module root under cmd.Dir, even
 			// when the assessment caller is working in a different directory.
 			if d == "." {
 				selections = append(selections, packageSelection{dir: absModuleRoot, pattern: "./..."})
-				rootSelected = true
 				continue
 			}
 			absDir, err := filepath.Abs(d)
@@ -944,18 +942,18 @@ func (r *SecurityAssessmentRunner) runGovulncheckWithMetadata(ctx context.Contex
 			}
 			if rel == "." {
 				selections = append(selections, packageSelection{dir: absDir, pattern: "./..."})
-				rootSelected = true
 			} else {
 				selections = append(selections, packageSelection{dir: absDir, pattern: "./" + filepath.ToSlash(rel)})
 			}
 		}
-		// Validate every mapping before omitting any directory. When ./... is
-		// already selected, non-package directories add no Go coverage and would
-		// make the producer reject a mixed documentation/code selection. Retain
-		// any .go entry (including test files and symlinks) for the Go loader to
-		// validate; never turn a read error into evidence of package absence.
+		// Validate every mapping before omitting any directory. A directory
+		// without a .go entry is not a package, and govulncheck rejects the
+		// whole invocation when given one. Retain any .go entry (including test
+		// files and symlinks) for the Go loader to validate; never turn a read
+		// error into evidence of package absence.
+		patterns := 0
 		for _, selected := range selections {
-			if rootSelected && selected.pattern != "./..." {
+			if selected.pattern != "./..." {
 				if err := ctx.Err(); err != nil {
 					return nil, nil, err
 				}
@@ -975,8 +973,10 @@ func (r *SecurityAssessmentRunner) runGovulncheckWithMetadata(ctx context.Contex
 				}
 			}
 			args = append(args, selected.pattern)
+			patterns++
 		}
-		if len(dirs) == 0 {
+		// With no package selected, scan the module rather than nothing.
+		if patterns == 0 {
 			args = append(args, "./...")
 		}
 	} else {

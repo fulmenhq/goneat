@@ -236,7 +236,7 @@ func TestGovulnExistingScopeArgvUnchanged(t *testing.T) {
 	}
 }
 
-func TestGovulnRootScopeOmitsOnlyNonGoDirectories(t *testing.T) {
+func TestGovulnScopeOmitsOnlyNonGoDirectories(t *testing.T) {
 	installSecurityProcessFixture(t, "govulncheck")
 	t.Setenv("GONEAT_SECURITY_PROCESS_FIXTURE", "govuln-clean")
 	for _, tt := range []struct {
@@ -247,7 +247,10 @@ func TestGovulnRootScopeOmitsOnlyNonGoDirectories(t *testing.T) {
 		{"mixed", []string{"Makefile", "docs/ops/guide.md", "cmd/source.go", "scripts/control.py"}, []string{"./...", "./cmd", "./scripts"}},
 		{"late_root_preserves_order", []string{"docs/ops/guide.md", "cmd/source.go", "Makefile", "scripts/control.py"}, []string{"./cmd", "./...", "./scripts"}},
 		{"metadata_only_retains_existing_anchor", []string{"Makefile", "docs/ops/guide.md"}, []string{"./..."}},
-		{"without_root_unchanged", []string{"docs/ops/guide.md", "cmd/source.go"}, []string{"./docs/ops", "./cmd"}},
+		{"without_root_omits_non_go", []string{"docs/ops/guide.md", "cmd/source.go"}, []string{"./cmd"}},
+		{"without_root_preserves_go_order", []string{"scripts/control.py", "docs/ops/guide.md", "cmd/source.go"}, []string{"./scripts", "./cmd"}},
+		{"non_go_only_scans_module", []string{"docs/ops/guide.md"}, []string{"./..."}},
+		{"directory_go_entry_without_root", []string{"odd/guide.md"}, []string{"./odd"}},
 		{"directory_go_entry_conservative", []string{"Makefile", "odd/guide.md"}, []string{"./...", "./odd"}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -294,7 +297,7 @@ func TestGovulnRootScopeOmitsOnlyNonGoDirectories(t *testing.T) {
 	}
 }
 
-func TestGovulnRootScopeRetainsSymlinkGoEntry(t *testing.T) {
+func TestGovulnScopeRetainsSymlinkGoEntry(t *testing.T) {
 	installSecurityProcessFixture(t, "govulncheck")
 	t.Setenv("GONEAT_SECURITY_PROCESS_FIXTURE", "govuln-clean")
 	root := t.TempDir()
@@ -329,7 +332,7 @@ func TestGovulnRootScopeRetainsSymlinkGoEntry(t *testing.T) {
 	}
 }
 
-func TestGovulnRootScopeMappingAndReadErrorsFailClosed(t *testing.T) {
+func TestGovulnScopeMappingAndReadErrorsFailClosed(t *testing.T) {
 	installSecurityProcessFixture(t, "govulncheck")
 	t.Setenv("GONEAT_SECURITY_PROCESS_FIXTURE", "govuln-clean")
 	for _, name := range []string{"missing_directory", "all_mappings_before_reads", "canceled_before_read"} {
@@ -534,6 +537,16 @@ func TestGovulnScopedPackageArguments(t *testing.T) {
 	for i, name := range staged {
 		absoluteStaged[i] = filepath.Join(root, filepath.FromSlash(name))
 	}
+	// Selected directories must exist and contain Go entries to stay in scope.
+	for _, name := range append(append([]string{}, staged...), "selected/nested/a.go", "pkg/z/a.go", "..data/a.go", "selected dir/a.go") {
+		path := filepath.Join(root, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("package fixture\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
 	for _, tt := range []struct {
 		name       string
 		cwd        string
@@ -630,6 +643,12 @@ func TestGovulnScopedNonzeroRemainsCategoryFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module fixture\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "cmd"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "cmd", "a.go"), []byte("package main\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	t.Chdir(root)

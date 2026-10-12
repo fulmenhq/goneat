@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Security**: scoped govulncheck runs, including the pre-commit hook, no longer pass directories without Go files as package patterns. A staged change to Go code together with documentation in other directories previously failed the security category. When no selected directory contains Go files, govulncheck scans the module.
+
 ### Changed
 
 - **Startup**: embedded schemas compile on first use instead of at process start. Every command previously compiled all bundled schemas during package initialization (about 0.7 s); `validate data` with `--schema-file` drops from about 0.9 s to about 0.2 s per call.
