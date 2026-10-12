@@ -951,6 +951,7 @@ func (r *SecurityAssessmentRunner) runGovulncheckWithMetadata(ctx context.Contex
 		// whole invocation when given one. Retain any .go entry (including test
 		// files and symlinks) for the Go loader to validate; never turn a read
 		// error into evidence of package absence.
+		patterns := 0
 		for _, selected := range selections {
 			if selected.pattern != "./..." {
 				if err := ctx.Err(); err != nil {
@@ -972,9 +973,10 @@ func (r *SecurityAssessmentRunner) runGovulncheckWithMetadata(ctx context.Contex
 				}
 			}
 			args = append(args, selected.pattern)
+			patterns++
 		}
 		// With no package selected, scan the module rather than nothing.
-		if len(args) == 1 {
+		if patterns == 0 {
 			args = append(args, "./...")
 		}
 	} else {

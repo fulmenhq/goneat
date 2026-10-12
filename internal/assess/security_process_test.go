@@ -297,7 +297,7 @@ func TestGovulnScopeOmitsOnlyNonGoDirectories(t *testing.T) {
 	}
 }
 
-func TestGovulnRootScopeRetainsSymlinkGoEntry(t *testing.T) {
+func TestGovulnScopeRetainsSymlinkGoEntry(t *testing.T) {
 	installSecurityProcessFixture(t, "govulncheck")
 	t.Setenv("GONEAT_SECURITY_PROCESS_FIXTURE", "govuln-clean")
 	root := t.TempDir()
@@ -332,7 +332,7 @@ func TestGovulnRootScopeRetainsSymlinkGoEntry(t *testing.T) {
 	}
 }
 
-func TestGovulnRootScopeMappingAndReadErrorsFailClosed(t *testing.T) {
+func TestGovulnScopeMappingAndReadErrorsFailClosed(t *testing.T) {
 	installSecurityProcessFixture(t, "govulncheck")
 	t.Setenv("GONEAT_SECURITY_PROCESS_FIXTURE", "govuln-clean")
 	for _, name := range []string{"missing_directory", "all_mappings_before_reads", "canceled_before_read"} {
