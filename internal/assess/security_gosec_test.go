@@ -746,3 +746,28 @@ func TestGosecFallbackDiscoveryErrorSurvivesCategory(t *testing.T) {
 		})
 	}
 }
+
+func TestGosecExportDataSkewNamesCauseAndStillFails(t *testing.T) {
+	r := &SecurityAssessmentRunner{}
+	skew := `{"Issues":[],"Golang errors":{"/src/pkg":[{"line":0,"column":0,"error":"could not import fmt (reading /secret/cache/path: internal error in importing \"fmt\" (cannot decode \"fmt\", export data version 5 is greater than maximum supported version 4); please report an issue)"}]},"Stats":{"files":1,"lines":20,"nosec":0,"found":0},"GosecVersion":"2.29.0"}`
+	report := r.parseGosecScanReport([]byte(skew))
+	if report.err == nil {
+		t.Fatal("export-data skew must fail the scan")
+	}
+	msg := report.err.Error()
+	for _, want := range []string{"processing errors in 1 package(s)", "gosec 2.29.0 cannot read export data version 5", "supports up to 4", "GOTOOLCHAIN"} {
+		if !strings.Contains(msg, want) {
+			t.Fatalf("missing %q in %q", want, msg)
+		}
+	}
+	if strings.Contains(msg, "/secret/cache/path") || strings.Contains(msg, "could not import") {
+		t.Fatalf("raw processing text leaked: %q", msg)
+	}
+	untrusted := strings.Replace(skew, `"GosecVersion":"2.29.0"`, `"GosecVersion":"2.29.0 secret"`, 1)
+	if msg := r.parseGosecScanReport([]byte(untrusted)).err.Error(); strings.Contains(msg, "secret") || !strings.Contains(msg, "gosec unknown cannot read") {
+		t.Fatalf("version not sanitized: %q", msg)
+	}
+	if err := r.parseGosecScanReport([]byte(gosecProcessingFixture)).err; err == nil || strings.Contains(err.Error(), "export data") {
+		t.Fatalf("generic processing error misdiagnosed: %v", err)
+	}
+}

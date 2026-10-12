@@ -293,3 +293,87 @@ func TestGovulnStreamReadFailureRetainsFindings(t *testing.T) {
 		t.Fatalf("read failure must retain cause and prior finding: %+v err=%v", issues, err)
 	}
 }
+
+func TestGovulnScannerVersionCalibration(t *testing.T) {
+	base := govulnInventoryStream(t, govulnModuleInventoryFixture)
+	for _, tt := range []struct {
+		name, version string
+		inventory     bool
+	}{
+		{"unstamped", "v0.0.0", true},
+		{"floor", "v1.1.4", true},
+		{"stamped_release", "v1.9.0", true},
+		{"stamped_prerelease_at_floor", "v1.1.4-pre.1", false},
+		{"prerelease_above_floor", "v1.2.0-rc.1", false},
+		{"pseudo_version_above_floor", "v1.1.5-0.20260101000000-abcdefabcdef", false},
+		{"unstamped_vcs_pseudo_version", "v0.0.0-20260101000000-abcdefabcdef", false},
+		{"shorthand", "v1.2", false},
+		{"build_metadata", "v1.9.0+build", false},
+		{"no_v_prefix", "1.9.0", false},
+		{"latest_calibrated", "v1.9.0", true},
+		{"patch_below_ceiling", "v1.9.7", true},
+		{"at_ceiling", "v1.10.0", false},
+		{"above_ceiling", "v1.11.0", false},
+		{"below_floor", "v1.1.3", false},
+		{"pre_protocol", "v0.9.0", false},
+		{"future_major", "v2.0.0", false},
+		{"garbage", "garbage", false},
+		{"missing", "", false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			stream := strings.Replace(base, `"scanner_version":"v0.0.0"`, `"scanner_version":"`+tt.version+`"`, 1)
+			issues, metadata, err := govulnDecodeAndFinish(t, stream, nil)
+			rows := metadata["findings"].([]govulnObservation)
+			if tt.inventory {
+				if err != nil || len(issues) != 1 || issues[0].Severity != SeverityInfo || rows[0].Classification != "inventory" {
+					t.Fatalf("calibrated version rejected: %+v %+v %v", issues, rows, err)
+				}
+				return
+			}
+			if err == nil || len(issues) != 1 || issues[0].Severity != SeverityHigh || rows[0].Classification != "unknown" || !strings.Contains(err.Error(), "scanner_version") {
+				t.Fatalf("uncalibrated version accepted: %+v %+v %v", issues, rows, err)
+			}
+		})
+	}
+}
+
+func TestGovulnStampedScannerPackageLevelFailsClosed(t *testing.T) {
+	stream := strings.Replace(govulnInventoryStream(t, govulnModuleInventoryFixture), `"scanner_version":"v0.0.0"`, `"scanner_version":"v1.9.0"`, 1)
+	stream = strings.Replace(stream, `"scan_level":"symbol"`, `"scan_level":"package"`, 1)
+	issues, metadata, err := govulnDecodeAndFinish(t, stream, nil)
+	rows := metadata["findings"].([]govulnObservation)
+	if err == nil || len(issues) != 1 || issues[0].Severity != SeverityHigh || rows[0].Classification != "unknown" || !strings.Contains(err.Error(), `scan_level "package" is not symbol`) {
+		t.Fatalf("package scope accepted: %+v %+v %v", issues, rows, err)
+	}
+}
+
+func TestGovulnUnsupportedReasonNamesFirstFailure(t *testing.T) {
+	base := govulnInventoryStream(t, govulnModuleInventoryFixture)
+	for _, tt := range []struct{ from, to, reason string }{
+		{`"scan_mode":"source"`, `"scan_mode":"binary"`, `scan_mode "binary" is not source`},
+		{`"scanner_name":"govulncheck"`, `"scanner_name":"unknown"`, `scanner_name "unknown" is not govulncheck`},
+		{govulnInventoryFixture, "", "SBOM inventory is missing"},
+		{`"go_version":"go1.26.6","roots"`, `"go_version":"go1.26.9","roots"`, `SBOM go_version "go1.26.9" does not match`},
+		{govulnPackageWideFixture(t), "", "advisory is not the calibrated package-wide entry"},
+	} {
+		_, _, err := govulnDecodeAndFinish(t, strings.Replace(base, tt.from, tt.to, 1), nil)
+		if err == nil || !strings.Contains(err.Error(), tt.reason) {
+			t.Fatalf("want reason %q, got %v", tt.reason, err)
+		}
+	}
+}
+
+// Config event captured verbatim from `govulncheck -format json ./...` with a
+// stamped govulncheck v1.9.0 under the reference toolchain.
+const govulnCapturedV190ConfigFixture = `{"config":{"protocol_version":"v1.0.0","scanner_name":"govulncheck","scanner_version":"v1.9.0","db":"https://vuln.go.dev","db_last_modified":"2026-10-08T22:31:09Z","go_version":"go1.26.9","scan_level":"symbol","scan_mode":"source"}}`
+
+func TestGovulnCapturedStampedProducerClassifiesInventory(t *testing.T) {
+	inventory := `{"SBOM":{"go_version":"go1.26.9","roots":["github.com/fulmenhq/goneat"],"modules":[{"path":"golang.org/x/crypto","version":"v0.57.0"}]}}`
+	finding := `{"finding":{"osv":"GO-2026-5932","trace":[{"module":"golang.org/x/crypto","version":"v0.57.0"}]}}`
+	issues, metadata, err := govulnDecodeAndFinish(t, govulnCapturedV190ConfigFixture+inventory+govulnPackageWideFixture(t)+finding, nil)
+	rows := metadata["findings"].([]govulnObservation)
+	p := metadata["producer"].(govulnProducer)
+	if err != nil || len(issues) != 1 || issues[0].Severity != SeverityInfo || rows[0].Classification != "inventory" || p.ScannerVersion != "v1.9.0" || metadata["unknown_config_fields"] != 0 {
+		t.Fatalf("captured producer: %+v %+v %+v %v", issues, rows, p, err)
+	}
+}
