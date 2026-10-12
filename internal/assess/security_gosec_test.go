@@ -771,3 +771,68 @@ func TestGosecExportDataSkewNamesCauseAndStillFails(t *testing.T) {
 		t.Fatalf("generic processing error misdiagnosed: %v", err)
 	}
 }
+
+func TestGosecExportDataSkewNamesXToolsVersion(t *testing.T) {
+	r := &SecurityAssessmentRunner{}
+	skew := `{"Issues":[],"Golang errors":{"/src/pkg":[{"line":0,"column":0,"error":"export data version 5 is greater than maximum supported version 4"}]},"Stats":{"files":1,"lines":20,"nosec":0,"found":0},"GosecVersion":"2.29.0"}`
+	err := r.parseGosecScanReport([]byte(skew)).err
+	shardErr := errors.Join(err, errors.New("exit status 1"))
+	calls := 0
+	annotated := annotateGosecExportDataSkew(shardErr, func() string { calls++; return "v0.49.0" })
+	msg := annotated.Error()
+	for _, want := range []string{"gosec 2.29.0 (built with golang.org/x/tools v0.49.0) cannot read export data version 5", "install a gosec built with a newer golang.org/x/tools", "GOTOOLCHAIN", "processing errors in 1 package(s)", "exit status 1"} {
+		if !strings.Contains(msg, want) {
+			t.Fatalf("missing %q in %q", want, msg)
+		}
+	}
+	again := annotateGosecExportDataSkew(annotated, func() string { calls++; return "v9.9.9" })
+	if calls != 1 || strings.Contains(again.Error(), "v9.9.9") {
+		t.Fatalf("annotation must be applied once: calls=%d msg=%q", calls, again.Error())
+	}
+	unknown := annotateGosecExportDataSkew(r.parseGosecScanReport([]byte(skew)).err, func() string { return "" })
+	if strings.Contains(unknown.Error(), "(built with") || !strings.Contains(unknown.Error(), "gosec 2.29.0 cannot read") {
+		t.Fatalf("unknown x/tools must keep the base message: %q", unknown.Error())
+	}
+	plain := errors.New("gosec reported processing errors in 1 package(s)")
+	if got := annotateGosecExportDataSkew(plain, func() string { t.Fatal("must not read build info"); return "" }); got != plain {
+		t.Fatalf("non-skew error changed: %v", got)
+	}
+	if annotateGosecExportDataSkew(nil, func() string { t.Fatal("must not read build info"); return "" }) != nil {
+		t.Fatal("nil error must stay nil")
+	}
+}
+
+func TestGosecXToolsVersionReadsBuildInfo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds a fixture binary")
+	}
+	goBin, err := exec.LookPath("go")
+	if err != nil {
+		t.Skip("go toolchain not available")
+	}
+	// Build a binary from golang.org/x/tools in goneat's module graph, so its
+	// build information records a real x/tools module version.
+	out := filepath.Join(t.TempDir(), "gosec")
+	build := exec.Command(goBin, "build", "-o", out, "golang.org/x/tools/cmd/stringer") // #nosec G204
+	build.Dir = "../.."
+	if b, err := build.CombinedOutput(); err != nil {
+		t.Skipf("cannot build fixture: %v: %s", err, b)
+	}
+	want, err := exec.Command(goBin, "list", "-m", "-f", "{{.Version}}", "golang.org/x/tools").Output() // #nosec G204
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := gosecXToolsVersion(out); got != strings.TrimSpace(string(want)) {
+		t.Fatalf("x/tools version = %q, want %q", got, strings.TrimSpace(string(want)))
+	}
+	notGo := filepath.Join(t.TempDir(), "not-go")
+	if err := os.WriteFile(notGo, []byte("#!/bin/sh\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if v := gosecXToolsVersion(notGo); v != "" {
+		t.Fatalf("non-Go binary returned %q", v)
+	}
+	if v := gosecXToolsVersion(filepath.Join(t.TempDir(), "missing")); v != "" {
+		t.Fatalf("missing binary returned %q", v)
+	}
+}

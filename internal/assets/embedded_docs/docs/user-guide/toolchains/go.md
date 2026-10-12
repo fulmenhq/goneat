@@ -157,6 +157,25 @@ explain why.
 | ------------- | ------------------------------------------- |
 | 2.23.0        | Added G702, G703, G704 taint analysis rules |
 
+#### Newer Go toolchains
+
+gosec reads the compiled package data that the active Go toolchain writes. A gosec binary built with an older `golang.org/x/tools` cannot read data from a newer toolchain, and every package fails to process. goneat fails the security category and names the gosec version, the `golang.org/x/tools` version it was built with, and two remedies:
+
+- Install a gosec built with a newer `golang.org/x/tools`.
+- Run with `GOTOOLCHAIN` set to the repository's reference Go toolchain.
+
+**Go 1.27 (as of 2026-10-12).** The gosec v2.29.0 release, including the Homebrew build, uses `golang.org/x/tools` v0.49.0 and cannot read Go 1.27 package data. Until a gosec release supports Go 1.27, use one of these:
+
+```bash
+# A gosec commit after v2.29.0, built with golang.org/x/tools v0.50.0
+go install github.com/securego/gosec/v2/cmd/gosec@v2.29.1-0.20260930122349-9b318063d35c
+
+# Or keep the release and run under Go 1.26
+GOTOOLCHAIN=go1.26.9 goneat assess
+```
+
+The pinned commit is past the default cooling window. Make sure `$(go env GOPATH)/bin` comes before Homebrew on `PATH`, or the release build is still used. This note will be removed once a gosec release supports Go 1.27.
+
 ### govulncheck
 
 `govulncheck` analyzes your `go.mod` dependency graph against the Go

@@ -557,7 +557,8 @@ func (r *SecurityAssessmentRunner) runGosec(ctx context.Context, moduleRoot stri
 				}
 				iss = filtered
 			}
-			results <- shardResult{dir: dirArg, issues: iss, suppressions: supps, err: errors.Join(attemptErrors...)}
+			shardErr := errors.Join(attemptErrors...)
+			results <- shardResult{dir: dirArg, issues: iss, suppressions: supps, err: annotateGosecExportDataSkew(shardErr, gosecXToolsVersionOnPath)}
 		}(d)
 	}
 

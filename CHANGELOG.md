@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Security**: when gosec cannot read package data from the active Go toolchain, the security category names the gosec version, the `golang.org/x/tools` version it was built with, and the remedies. The category still fails. See the Go toolchain guide for an interim gosec pin for Go 1.27.
+
 - **Startup**: embedded schemas compile on first use instead of at process start. Every command previously compiled all bundled schemas during package initialization (about 0.7 s); `validate data` with `--schema-file` drops from about 0.9 s to about 0.2 s per call.
 
 ## [v0.6.2] - 2026-10-09
