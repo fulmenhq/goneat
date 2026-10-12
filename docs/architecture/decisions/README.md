@@ -44,6 +44,14 @@ See [`adr-template.md`](adr-template.md) for the standard template.
 | [0003](adr-0003-linux-release-artifacts-cgo-disabled-for-musl-compat.md) | Linux Release Artifacts: CGO Disabled for musl/glibc Compatibility | Approved | 2025-12-14 | infrastructure, release, linux, musl, glibc, cgo |
 | [0004](adr-0004-push-gate-check-only.md)                                 | Push Gate Is One Check-Only Assess                                    | Approved | 2026-10-10 | architecture, ci, hooks                          |
 
+## Process Decision Records (PDRs)
+
+Process decisions use the `pdr-XXXX-title-as-slug.md` name in this directory and number separately from ADRs.
+
+| Number                                             | Title                                           | Status   | Date       | Tags                               |
+| -------------------------------------------------- | ----------------------------------------------- | -------- | ---------- | ---------------------------------- |
+| [0001](pdr-0001-go-module-requirement-floors.md)   | Go Module Requirement Floors Survive go mod tidy | Approved | 2026-10-12 | dependencies, go-modules, process  |
+
 ## ADR Statuses
 
 - **Proposed**: Under discussion, not yet decided
