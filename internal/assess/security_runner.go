@@ -363,7 +363,12 @@ func (r *SecurityAssessmentRunner) applySecuritySuppressionPolicy(issues []Issue
 
 // findModuleRoot finds the Go module root directory (best-effort)
 func (r *SecurityAssessmentRunner) findModuleRoot(startDir string) (string, error) {
-	current := startDir
+	// A relative start such as "." has no parent under filepath.Dir, so the
+	// upward search must begin from an absolute path.
+	current, err := filepath.Abs(startDir)
+	if err != nil {
+		return "", err
+	}
 	for {
 		if _, err := os.Stat(filepath.Join(current, "go.mod")); err == nil {
 			return current, nil

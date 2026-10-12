@@ -79,3 +79,26 @@ func TestSecurityHasGoModuleWalkErrorIsApplicable(t *testing.T) {
 		t.Fatal("an unreadable root must not be treated as a non-Go project")
 	}
 }
+
+func TestSecurityModuleSubdirectoryUsesModuleRoot(t *testing.T) {
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	sub := filepath.Join(root, "internal", "pkg")
+	if err := os.MkdirAll(sub, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module fixture\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(sub)
+	runner := NewSecurityAssessmentRunner()
+	got, err := runner.findModuleRoot(".")
+	if err != nil || got != root {
+		t.Fatalf("findModuleRoot(\".\") = %q, %v; want %q", got, err, root)
+	}
+	if !runner.hasGoModule(got, DefaultAssessmentConfig()) {
+		t.Fatal("module subdirectory must keep Go scanners applicable")
+	}
+}
