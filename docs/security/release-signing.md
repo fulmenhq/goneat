@@ -2,7 +2,7 @@
 
 **Status**: Active (Manual Signing - v0.3.3+)
 **Authority**: FulmenHQ Security Team
-**Last Updated**: 2026-10-07
+**Last Updated**: 2026-10-13
 
 ## Overview
 
@@ -17,22 +17,20 @@ This document describes the signing process, key management, and verification pr
 
 ## Trust Model
 
-Goneat releases are signed with the **FulmenHQ Release Signing Key** (Manual Signing Subkey):
+Goneat releases are signed with these keys:
 
 ```
-Key ID: 448A539320A397AF
-Fingerprint: 0A5FBDD451D444B8A5551D8C448A539320A397AF
-Email: security@fulmenhq.dev
-Type: ed25519
-Created: 2025-10-31
+PGP primary fingerprint:   0CACA49B3119B6BC12B2CA11B9B485F294B9FE07
+PGP signing subkey:        DAB70DD758911B26BB45A08C3B75AC591449DEBE
+Minisign key blob SHA-256: 3e5b64023230a308ee0876cb9d0693e44c3daac7afe38a064174e476b2b99cb1
 ```
 
-**Key Publication Channels**:
-
-- This documentation (authoritative)
-- GitHub repository README
-- Release notes for each version
-- FulmenHQ website (when available)
+**Where the keys are published**: the repository is authoritative.
+`keys/expected-fingerprints.txt`, `docs/security/release-signing-keys.asc` and
+`docs/security/release-minisign.pub` at each release tag are the keys for that
+release (see [Release-key pin](#release-key-pin)). Copies attached to a GitHub
+release are a convenience; verify them against the repository, never on their
+own.
 
 ### Extracting Key Information for Documentation
 
@@ -139,29 +137,35 @@ choco install gnupg
 
 Goneat publishes release archives plus signed checksum manifests.
 
-1. **Download the checksum manifest + signing material**:
+1. **Download the checksum manifest, its signatures, and the keys from the repository**:
 
 ```bash
-RELEASE_VERSION="v0.3.23"  # example
+RELEASE_VERSION="v0.6.4"  # example; tags through v0.6.3 predate the committed keys
+BASE="https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}"
+KEYS="https://raw.githubusercontent.com/fulmenhq/goneat/${RELEASE_VERSION}"
 
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/SHA256SUMS"
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/SHA256SUMS.minisig"
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/fulmenhq-release-minisign.pub"
-
-# Optional (PGP verification)
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/SHA256SUMS.asc"
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/fulmenhq-release-signing-key.asc"
+curl -LO "${BASE}/SHA256SUMS"
+curl -LO "${BASE}/SHA256SUMS.minisig"
+curl -LO "${BASE}/SHA256SUMS.asc"
+curl -L -o release-minisign.pub "${KEYS}/docs/security/release-minisign.pub"
+curl -L -o release-signing-keys.asc "${KEYS}/docs/security/release-signing-keys.asc"
 ```
+
+Compare the keys with the fingerprints in [Trust Model](#trust-model) before
+trusting them. In a goneat checkout, `make release-verify-signatures` does all
+of this from the tag without network access to the keys.
 
 2. **Verify the checksum manifest signature**:
 
 ```bash
 # Minisign (required verification path)
-minisign -Vm SHA256SUMS -p fulmenhq-release-minisign.pub
+minisign -Vm SHA256SUMS -p release-minisign.pub
 
-# PGP (optional verification path)
-gpg --import fulmenhq-release-signing-key.asc
-gpg --verify SHA256SUMS.asc SHA256SUMS
+# PGP: use a throwaway keyring and check the signer is the pinned subkey
+export GNUPGHOME="$(mktemp -d)"
+gpg --import release-signing-keys.asc
+gpg --fingerprint 0CACA49B3119B6BC12B2CA11B9B485F294B9FE07
+gpg --status-fd 1 --verify SHA256SUMS.asc SHA256SUMS | grep "VALIDSIG DAB70DD758911B26BB45A08C3B75AC591449DEBE"
 ```
 
 3. **Download the archive for your platform and verify checksums**:
@@ -413,19 +417,23 @@ Goneat releases publish signed checksum manifests. Verify the checksum manifest 
 \`\`\`bash
 RELEASE_VERSION=vX.Y.Z
 
-# Minisign verification (required)
+BASE="https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}"
+KEYS="https://raw.githubusercontent.com/fulmenhq/goneat/${RELEASE_VERSION}/docs/security"
 
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/SHA256SUMS"
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/SHA256SUMS.minisig"
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/fulmenhq-release-minisign.pub"
-minisign -Vm SHA256SUMS -p fulmenhq-release-minisign.pub
+# Minisign verification (required) with the key committed at the tag
 
-# PGP verification
+curl -LO "${BASE}/SHA256SUMS"
+curl -LO "${BASE}/SHA256SUMS.minisig"
+curl -L -o release-minisign.pub "${KEYS}/release-minisign.pub"
+minisign -Vm SHA256SUMS -p release-minisign.pub
 
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/SHA256SUMS.asc"
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/fulmenhq-release-signing-key.asc"
-gpg --import fulmenhq-release-signing-key.asc
-gpg --verify SHA256SUMS.asc SHA256SUMS
+# PGP verification in a throwaway keyring; signer must be DAB70DD758911B26BB45A08C3B75AC591449DEBE
+
+curl -LO "${BASE}/SHA256SUMS.asc"
+curl -L -o release-signing-keys.asc "${KEYS}/release-signing-keys.asc"
+export GNUPGHOME="$(mktemp -d)"
+gpg --import release-signing-keys.asc
+gpg --status-fd 1 --verify SHA256SUMS.asc SHA256SUMS | grep "VALIDSIG DAB70DD758911B26BB45A08C3B75AC591449DEBE"
 
 # Download archives, then validate checksums
 
@@ -479,6 +487,12 @@ Key fingerprint: see the Trust Model section at the top of this document.
 ## Key Management
 
 ### Key Structure
+
+> **Historical.** The key IDs below (`448A539320A397AF`, `45342521E9536A31`)
+> describe the original v0.3.x key layout and are not the current release
+> keys. The current keys are listed in [Trust Model](#trust-model) and
+> committed under `keys/` and `docs/security/`. Signing with any other key
+> fails at `make release-sign`.
 
 **Primary Key** (offline, encrypted backup):
 

@@ -480,30 +480,27 @@ package-manager procedure or repository change is included in signature upload.
 ```markdown
 ## Verifying Signatures
 
-Download the FulmenHQ public key and verify artifacts:
+Verify with the keys committed at the release tag, not the copies attached
+to the release (full text: `docs/security/release-signing.md`):
 
 \`\`\`bash
+VERSION=vX.Y.Z
+BASE="https://github.com/fulmenhq/goneat/releases/download/${VERSION}"
+KEYS="https://raw.githubusercontent.com/fulmenhq/goneat/${VERSION}/docs/security"
 
-# Set version variable for convenience
+curl -LO "${BASE}/SHA256SUMS"
+curl -LO "${BASE}/SHA256SUMS.asc"
+curl -LO "${BASE}/SHA256SUMS.minisig"
+curl -L -o release-minisign.pub "${KEYS}/release-minisign.pub"
+curl -L -o release-signing-keys.asc "${KEYS}/release-signing-keys.asc"
 
-VERSION=v0.3.15
+# Minisign
+minisign -Vm SHA256SUMS -p release-minisign.pub
 
-# Download artifacts
-
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${VERSION}/fulmenhq-release-signing-key.asc"
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${VERSION}/SHA256SUMS"
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${VERSION}/SHA256SUMS.asc"
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${VERSION}/fulmenhq-release-minisign.pub"
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${VERSION}/SHA256SUMS.minisig"
-
-# Import and verify GPG signature
-
-gpg --import fulmenhq-release-signing-key.asc
-gpg --verify SHA256SUMS.asc SHA256SUMS
-
-# Verify minisign signature
-
-minisign -Vm SHA256SUMS -p fulmenhq-release-minisign.pub
+# PGP in a throwaway keyring; signer must be the pinned signing subkey
+export GNUPGHOME="$(mktemp -d)"
+gpg --import release-signing-keys.asc
+gpg --status-fd 1 --verify SHA256SUMS.asc SHA256SUMS | grep "VALIDSIG DAB70DD758911B26BB45A08C3B75AC591449DEBE"
 
 # Verify checksums
 
