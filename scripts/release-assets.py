@@ -3,6 +3,7 @@
 
 import argparse
 import base64
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -21,6 +22,11 @@ PUBLIC_MINI = "fulmenhq-release-minisign.pub"
 SIGNATURES = tuple(
     name + suffix for name in MANIFESTS for suffix in (".asc", ".minisig")
 )
+# Committed public trust root. Verification reads these as git objects from
+# the release tag (or GONEAT_RELEASE_PIN_REF), never from the working tree.
+PIN_ANCHORS = "keys/expected-fingerprints.txt"
+PIN_PGP = "docs/security/release-signing-keys.asc"
+PIN_MINI = "docs/security/release-minisign.pub"
 
 
 def require(condition, message):
@@ -175,6 +181,147 @@ def mini_key(path):
     return key
 
 
+def pin_mode():
+    mode = setting("RELEASE_TRUST") or "pin"
+    require(mode in ("pin", "env"), "RELEASE_TRUST must be pin or env")
+    return mode
+
+
+def committed(commit, path, destination):
+    listing = capture(["git", "-C", str(SCRIPTS.parent), "ls-tree", commit, "--", path])
+    fields = listing.split()
+    require(
+        len(fields) == 4 and fields[0] in ("100644", "100755") and fields[1] == "blob",
+        f"committed regular file required in pin ref: {path}",
+    )
+    data = run(
+        ["git", "-C", str(SCRIPTS.parent), "cat-file", "blob", fields[2]],
+        capture_output=True,
+    ).stdout
+    require(data, f"committed pin file is empty: {path}")
+    destination.write_bytes(data)
+    return data
+
+
+def pin_commit(tag):
+    ref = setting("RELEASE_PIN_REF") or f"refs/tags/{tag}"
+    result = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(SCRIPTS.parent),
+            "rev-parse",
+            "--verify",
+            "--quiet",
+            ref + "^{commit}",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    require(
+        result.returncode == 0,
+        f"pin ref not found: {ref} (fetch the release tag, or set GONEAT_RELEASE_PIN_REF)",
+    )
+    return result.stdout.strip()
+
+
+@contextmanager
+def pinned_trust(tag):
+    """Trust inputs built only from the public pin committed at the pin ref."""
+    for name in ("git", "gpg", "minisign"):
+        tool(name)
+    commit = pin_commit(tag)
+    # GPG agent Unix socket paths are bounded; macOS TMPDIR can already be long.
+    with tempfile.TemporaryDirectory(prefix="goneat-pin-", dir="/tmp") as tmp:
+        root = Path(tmp)
+        home = root / "gpg"
+        home.mkdir(mode=0o700)
+        try:
+            anchors = committed(commit, PIN_ANCHORS, root / "anchors")
+            match = re.fullmatch(
+                rb"gpg ([0-9A-F]{40})\nminisign ([0-9a-f]{64})\n", anchors
+            )
+            require(
+                match,
+                "fingerprint anchors must be exactly a gpg line then a minisign line",
+            )
+            anchor_primary = match.group(1).decode()
+            committed(commit, PIN_MINI, root / "minisign.pub")
+            require(
+                hashlib.sha256(mini_key(root / "minisign.pub")).hexdigest()
+                == match.group(2).decode(),
+                "pinned minisign key differs from its anchor",
+            )
+            pgp = committed(commit, PIN_PGP, root / "pgp.asc")
+            require(b"PRIVATE KEY" not in pgp.upper(), "pin contains private key armor")
+            run(
+                [
+                    "gpg",
+                    "--batch",
+                    "--quiet",
+                    "--homedir",
+                    str(home),
+                    "--import",
+                    str(root / "pgp.asc"),
+                ],
+                capture_output=True,
+            )
+            records = capture(
+                [
+                    "gpg",
+                    "--batch",
+                    "--homedir",
+                    str(home),
+                    "--with-colons",
+                    "--with-subkey-fingerprint",
+                    "--list-keys",
+                ]
+            )
+            require(
+                not capture(
+                    [
+                        "gpg",
+                        "--batch",
+                        "--homedir",
+                        str(home),
+                        "--with-colons",
+                        "--list-secret-keys",
+                    ]
+                ).strip(),
+                "pin contains secret key material",
+            )
+            primary = primary_fingerprint(records)
+            require(primary == anchor_primary, "pinned PGP key differs from its anchor")
+            rows = [line.split(":") for line in records.splitlines()]
+            signing = [
+                rows[index + 1][9].upper()
+                for index, row in enumerate(rows)
+                if row[0] == "sub"
+                and "s" in row[11]
+                and index + 1 < len(rows)
+                and rows[index + 1][0] == "fpr"
+            ]
+            require(len(signing) == 1, "pin must hold exactly one signing subkey")
+            yield home, primary, primary, signing[0], root / "minisign.pub"
+        finally:
+            if shutil.which("gpgconf"):
+                subprocess.run(
+                    ["gpgconf", "--homedir", str(home), "--kill", "all"],
+                    check=False,
+                    capture_output=True,
+                )
+
+
+@contextmanager
+def release_trust(directory, tag):
+    if pin_mode() == "env":
+        yield trust_inputs(directory)
+    else:
+        with pinned_trust(tag) as trust:
+            yield trust
+
+
 def trust_inputs(directory):
     for name in ("gpg", "minisign"):
         tool(name)
@@ -260,9 +407,8 @@ def verify_public_material(directory, trust):
     }
 
 
-def verify_signatures(directory, trust=None):
+def verify_signatures(directory, trust):
     directory = directory.resolve(strict=True)
-    trust = trust or trust_inputs(directory)
     home, _, primary, exact_subkey, approved_mini = trust
     for name in (*MANIFESTS, *SIGNATURES, PUBLIC_PGP, PUBLIC_MINI):
         regular(directory / name)
@@ -288,6 +434,14 @@ def verify_signatures(directory, trust=None):
             if line.startswith("[GNUPG:] VALIDSIG ")
         ]
         require(len(valid) == 1, f"exactly one valid PGP signature required for {name}")
+        require(
+            not re.search(
+                r"^\[GNUPG:\] (EXPKEYSIG|EXPSIG|REVKEYSIG|KEYREVOKED|BADSIG|ERRSIG) ",
+                status,
+                re.M,
+            ),
+            f"expired, revoked or bad PGP signature for {name}",
+        )
         record = valid[0]
         require(len(record) >= 11, "incomplete GPG signature status")
         signer = record[2].upper()
@@ -315,6 +469,16 @@ def verify_signatures(directory, trust=None):
         )
     print(
         "All four checksum manifest signatures verified with independently approved trust inputs"
+    )
+
+
+def verify_release_signatures(directory, tag):
+    with release_trust(directory.resolve(strict=True), tag) as trust:
+        verify_signatures(directory, trust)
+    print(
+        "Trust source: committed release-key pin"
+        if pin_mode() == "pin"
+        else "Trust source: operator environment (GONEAT_RELEASE_TRUST=env)"
     )
 
 
@@ -376,7 +540,17 @@ def sign(directory, tag):
     directory = directory.resolve(strict=True)
     originals = verify_archives(directory, tag)
     trust = trust_inputs(directory)
-    home, identity, _, _, approved_mini = trust
+    home, identity, primary, _, approved_mini = trust
+    if pin_mode() == "pin":
+        with pinned_trust(tag) as pin:
+            require(
+                primary == pin[2],
+                "operator PGP identity differs from the committed pin",
+            )
+            require(
+                mini_key(approved_mini) == mini_key(pin[4]),
+                "operator minisign key differs from the committed pin",
+            )
     key = setting("MINISIGN_KEY")
     require(key, "MINISIGN_KEY is required")
     private_mini = outside(Path(key), directory, "MINISIGN_KEY")
@@ -451,6 +625,9 @@ def sign(directory, tag):
         )
         shutil.copyfile(approved_mini, staging / PUBLIC_MINI)
         verify_signatures(staging, trust)
+        if pin_mode() == "pin":
+            with pinned_trust(tag) as pin:
+                verify_signatures(staging, pin)
         require(
             before == {name: digest(directory / name) for name in originals},
             "original release bytes changed during signing",
@@ -497,7 +674,7 @@ def compare_download(tag, directory, names, temporary):
 
 def upload(directory, tag):
     originals = verify_archives(directory, tag)
-    verify_signatures(directory)
+    verify_release_signatures(directory, tag)
     notes = f"release-notes-{tag}.md"
     supplements = [*SIGNATURES, PUBLIC_PGP, PUBLIC_MINI, notes]
     for name in supplements + ["release-notes.md"]:
@@ -582,7 +759,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "operation",
-        choices=("download", "verify", "verify-signatures", "sign", "upload"),
+        choices=(
+            "download",
+            "verify",
+            "verify-signatures",
+            "verify-pin",
+            "sign",
+            "upload",
+        ),
     )
     parser.add_argument("tag")
     parser.add_argument("directory", type=Path, nargs="?", default=Path("dist/release"))
@@ -590,9 +774,17 @@ def main():
     archive_names(args.tag)
     directory = args.directory.absolute()
     require(not directory.is_symlink(), "symlink release directory refused")
-    if args.operation == "verify-signatures":
+    if args.operation == "verify-pin":
+        # The tag argument names the pin ref; GONEAT_RELEASE_PIN_REF overrides it.
+        with pinned_trust(args.tag) as trust:
+            _, primary, _, subkey, mini = trust
+            print(
+                f"Committed pin is consistent: PGP primary {primary}, signing subkey {subkey}, "
+                f"minisign key {hashlib.sha256(mini_key(mini)).hexdigest()}"
+            )
+    elif args.operation == "verify-signatures":
         verify_archives(directory, args.tag)
-        verify_signatures(directory)
+        verify_release_signatures(directory, args.tag)
     elif args.operation == "verify":
         verify_archives(directory, args.tag)
         print(

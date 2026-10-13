@@ -68,6 +68,9 @@ class ReleaseAssetsTests(unittest.TestCase):
             "GONEAT_PGP_KEY_ID": PRIMARY,
             "GONEAT_MINISIGN_PUB": str(self.approved),
             "GONEAT_MINISIGN_KEY": str(self.private),
+            # Pin-mode behavior is covered with real keys and git objects in
+            # test_release_assets_crypto.py; these fixtures mock gpg itself.
+            "GONEAT_RELEASE_TRUST": "env",
         }
         self.addCleanup(patch.stopall)
         patch.dict(os.environ, environment, clear=True).start()
@@ -147,7 +150,7 @@ class ReleaseAssetsTests(unittest.TestCase):
     def test_four_signature_checks_use_independent_trust(self):
         self.signed()
         before = self.snapshot()
-        ASSETS.verify_signatures(self.release)
+        ASSETS.verify_release_signatures(self.release, TAG)
         pgp = [a for a in self.calls if "--verify" in a]
         mini = [a for a in self.calls if "-Vm" in a]
         self.assertEqual(len(pgp), 2)
@@ -170,7 +173,7 @@ class ReleaseAssetsTests(unittest.TestCase):
                 original = p.read_bytes()
                 p.unlink()
                 with self.assertRaises(RuntimeError):
-                    ASSETS.verify_signatures(self.release)
+                    ASSETS.verify_release_signatures(self.release, TAG)
                 p.write_bytes(original)
 
     def test_every_signature_failure_is_fatal(self):
@@ -179,7 +182,13 @@ class ReleaseAssetsTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.crypto_failure = name
                 with self.assertRaises(RuntimeError):
-                    ASSETS.verify_signatures(self.release)
+                    ASSETS.verify_release_signatures(self.release, TAG)
+
+    def test_unknown_trust_mode_fails_closed(self):
+        self.signed()
+        with patch.dict(os.environ, {"GONEAT_RELEASE_TRUST": "bundled"}):
+            with self.assertRaisesRegex(RuntimeError, "pin or env"):
+                ASSETS.verify_release_signatures(self.release, TAG)
 
     def test_missing_trust_and_tools_do_not_skip_verification(self):
         self.signed()
@@ -193,7 +202,7 @@ class ReleaseAssetsTests(unittest.TestCase):
                 patch.dict(os.environ, {variable: ""}),
             ):
                 with self.assertRaises(RuntimeError):
-                    ASSETS.verify_signatures(self.release)
+                    ASSETS.verify_release_signatures(self.release, TAG)
         for name in ("gpg", "minisign"):
             with (
                 self.subTest(tool=name),
@@ -206,7 +215,7 @@ class ReleaseAssetsTests(unittest.TestCase):
                 ),
             ):
                 with self.assertRaises(RuntimeError):
-                    ASSETS.verify_signatures(self.release)
+                    ASSETS.verify_release_signatures(self.release, TAG)
 
     def test_bundled_keys_cannot_authorize_themselves(self):
         self.signed()
@@ -214,20 +223,20 @@ class ReleaseAssetsTests(unittest.TestCase):
             os.environ, {"GONEAT_MINISIGN_PUB": str(self.release / ASSETS.PUBLIC_MINI)}
         ):
             with self.assertRaisesRegex(RuntimeError, "outside release"):
-                ASSETS.verify_signatures(self.release)
+                ASSETS.verify_release_signatures(self.release, TAG)
         with patch.dict(os.environ, {"GONEAT_GPG_HOMEDIR": str(self.release)}):
             with self.assertRaisesRegex(RuntimeError, "outside release"):
-                ASSETS.verify_signatures(self.release)
+                ASSETS.verify_release_signatures(self.release, TAG)
 
     def test_wrong_signer_or_bundled_key_fails(self):
         self.signed()
         self.signature_primary = "C" * 40
         with self.assertRaisesRegex(RuntimeError, "unapproved PGP signer"):
-            ASSETS.verify_signatures(self.release)
+            ASSETS.verify_release_signatures(self.release, TAG)
         self.signature_primary = PRIMARY
         self.export_records = RECORDS.replace(PRIMARY, "C" * 40)
         with self.assertRaisesRegex(RuntimeError, "bundled PGP key"):
-            ASSETS.verify_signatures(self.release)
+            ASSETS.verify_release_signatures(self.release, TAG)
         self.export_records = RECORDS
         (self.release / ASSETS.PUBLIC_MINI).write_text(
             "untrusted comment: other\n"
@@ -235,7 +244,7 @@ class ReleaseAssetsTests(unittest.TestCase):
             + "\n"
         )
         with self.assertRaisesRegex(RuntimeError, "bundled minisign key"):
-            ASSETS.verify_signatures(self.release)
+            ASSETS.verify_release_signatures(self.release, TAG)
 
     def test_secret_key_material_refused(self):
         self.signed()
@@ -243,24 +252,24 @@ class ReleaseAssetsTests(unittest.TestCase):
             "-----BEGIN PGP PRIVATE KEY BLOCK-----\n"
         )
         with self.assertRaisesRegex(RuntimeError, "private key"):
-            ASSETS.verify_signatures(self.release)
+            ASSETS.verify_release_signatures(self.release, TAG)
 
     def test_bundled_key_must_include_actual_verified_signing_subkey(self):
         self.signed()
         self.export_records = "pub:::::::::\nfpr:::::::::" + PRIMARY + ":\n"
         with self.assertRaisesRegex(RuntimeError, "lacks verified signing key"):
-            ASSETS.verify_signatures(self.release)
+            ASSETS.verify_release_signatures(self.release, TAG)
 
     def test_explicit_subkey_and_ambiguous_primary_checks(self):
         self.signed()
         with patch.dict(os.environ, {"GONEAT_PGP_KEY_ID": SIGNER + "!"}):
-            ASSETS.verify_signatures(self.release)
+            ASSETS.verify_release_signatures(self.release, TAG)
         with patch.dict(os.environ, {"GONEAT_PGP_KEY_ID": "C" * 40}):
             with self.assertRaisesRegex(RuntimeError, "unapproved PGP subkey"):
-                ASSETS.verify_signatures(self.release)
+                ASSETS.verify_release_signatures(self.release, TAG)
         with patch.dict(os.environ, {"GONEAT_PGP_KEY_ID": PRIMARY + "!"}):
             with self.assertRaisesRegex(RuntimeError, "unapproved PGP subkey"):
-                ASSETS.verify_signatures(self.release)
+                ASSETS.verify_release_signatures(self.release, TAG)
         with self.assertRaisesRegex(RuntimeError, "exactly one"):
             ASSETS.primary_fingerprint(RECORDS + RECORDS)
 

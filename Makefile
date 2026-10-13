@@ -337,8 +337,11 @@ release-sign: ## Sign checksum manifests (minisign + PGP required for releases)
 	@SIGNING_ENV_PREFIX=GONEAT SIGNING_APP_NAME=goneat \
 		bash scripts/sign-release-manifests.sh "$(GONEAT_RELEASE_TAG)" dist/release
 
-release-verify-signatures: ## Verify signatures on checksum manifests
+release-verify-signatures: ## Verify manifest signatures against the release-key pin committed at the tag
 	@bash scripts/verify-manifest-signatures.sh "$(GONEAT_RELEASE_TAG)" dist/release
+
+release-verify-pin: ## Check the committed release-key pin is self-consistent (default ref: HEAD)
+	@GONEAT_RELEASE_PIN_REF="$${GONEAT_RELEASE_PIN_REF:-HEAD}" python3 scripts/release-assets.py verify-pin v0.0.0
 
 release-verify-key: ## Verify GPG public key is safe to upload (no private keys)
 	@echo "🛡️  Verifying GPG public key safety..."

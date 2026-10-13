@@ -317,11 +317,9 @@ Goneat signs the checksum manifests (not each archive individually). The signing
 
 The approved GPG homedir/identity and minisign public-key path must be selected
 independently of downloaded release material and reside outside the release
-directory. Verification resolves one approved primary GPG identity and checks
-the signature's actual signer against it. A full subkey fingerprint further
-restricts the signing subkey. Both bundled public keys must match independent
-trust inputs; neither is imported as a new trust root. This is an operator-input
-contract, not a new repository-enforced signing-key pin or rotation policy.
+directory. Signing also requires that the operator's PGP primary and minisign
+public key match the committed release-key pin at the release tag, and it
+verifies the staged signatures against that pin before publishing any output.
 
 **Step 4: Verify Signatures Locally**
 
@@ -330,9 +328,46 @@ GONEAT_RELEASE_TAG=vX.Y.Z make release-verify-signatures
 GONEAT_RELEASE_TAG=vX.Y.Z make release-verify-key
 ```
 
-Retain the same independently approved trust variables for verification and
-upload. Missing tools, keys, manifests or any signature, incorrect signers and
-bad signatures fail nonzero. There is no warning-only successful verification.
+Verification and upload use the committed release-key pin by default (see
+[Release-key pin](#release-key-pin)) and need no operator trust variables.
+Missing tools, keys, manifests or any signature, incorrect signers and bad
+signatures fail nonzero. There is no warning-only successful verification.
+
+### Release-key pin
+
+The public trust root for goneat releases is committed in the repository:
+
+| File | Content |
+| ---- | ------- |
+| `keys/expected-fingerprints.txt` | `gpg <primary fingerprint>` then `minisign <sha256 of the key blob>` |
+| `docs/security/release-signing-keys.asc` | Public PGP key: one primary and exactly one signing subkey |
+| `docs/security/release-minisign.pub` | Public minisign key |
+
+`make release-verify-signatures` reads these files as git objects from
+`refs/tags/<tag>`, never from the working tree. It imports the PGP key into a
+temporary keyring, checks both keys against the anchors, and then requires:
+
+- each PGP signature is made by the pinned signing subkey of the pinned primary
+- each minisign signature verifies with the pinned minisign key
+- the public keys bundled with the release match the pin
+
+The release tag must exist locally (`git fetch --tags`). Bundled release keys
+are compared with the pin and never trusted on their own.
+
+Overrides are explicit:
+
+| Variable | Effect |
+| -------- | ------ |
+| `GONEAT_RELEASE_PIN_REF` | Read the pin from another ref or commit, e.g. to check a release against a proposed rotation |
+| `GONEAT_RELEASE_TRUST=env` | Use the operator trust inputs (`GONEAT_GPG_HOMEDIR`, `GONEAT_PGP_KEY_ID`, `GONEAT_MINISIGN_PUB`) in place of the pin |
+
+Exported operator trust variables alone do not replace the pin.
+`make release-verify-pin` checks that the pin at `HEAD` (or
+`GONEAT_RELEASE_PIN_REF`) is self-consistent; CI runs it on every change.
+
+**Rotation.** Change all three files together in one reviewed PR, before the
+first release signed with the new keys. Releases tagged before the change keep
+verifying against the pin committed at their own tag.
 
 **✅ If Steps 1-4 succeed**: Request the next separately authorized release action
 **❌ If any step fails**: Fix issues before pushing
