@@ -178,48 +178,48 @@ curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION
 shasum -a 256 --check SHA256SUMS
 ```
 
-**Expected output**:
+**Expected output** (minisign, then the PGP check):
 
 ```
-gpg: Signature made [timestamp]
-gpg:                using EDDSA key [fingerprint]
-gpg: Good signature from "FulmenHQ Release Signing <security@fulmenhq.dev>"
+Signature and comment signature verified
+Trusted comment: goneat vX.Y.Z SHA256SUMS
+Good signature on SHA256SUMS by pinned signing subkey DAB70DD758911B26BB45A08C3B75AC591449DEBE
 ```
 
-**Warning signs** (DO NOT proceed if you see):
-
-```
-gpg: BAD signature from "FulmenHQ Release Signing <security@fulmenhq.dev>"
-gpg: Can't check signature: No public key
-```
+**Do not proceed** if either command exits nonzero or prints `error:`. The
+signing key's user ID is `3leaps Infosec <infosec@3leaps.net>`; trust the
+fingerprints in [Trust Model](#trust-model), not the user ID.
 
 ### Verification Automation
 
 Add to your CI/CD or installation scripts:
 
 ```bash
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
-RELEASE_VERSION="v0.3.3"
-PLATFORM="darwin-arm64"
-ARTIFACT="goneat-${PLATFORM}.tar.gz"
+RELEASE_VERSION="v0.6.4"
+ARCHIVE="goneat_${RELEASE_VERSION}_linux_amd64.tar.gz"
+BASE="https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}"
+REPO="https://raw.githubusercontent.com/fulmenhq/goneat/${RELEASE_VERSION}"
 
-# Import key (idempotent)
-curl -L "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/fulmenhq-release-signing-key.asc" | gpg --import
+for name in SHA256SUMS SHA256SUMS.asc SHA256SUMS.minisig "${ARCHIVE}"; do
+    curl -fsSLO "${BASE}/${name}"
+done
+# Keys and the checker come from the repository at the tag, not the release.
+curl -fsSL -o release-minisign.pub "${REPO}/docs/security/release-minisign.pub"
+curl -fsSL -o release-signing-keys.asc "${REPO}/docs/security/release-signing-keys.asc"
+curl -fsSL -o expected-fingerprints.txt "${REPO}/keys/expected-fingerprints.txt"
+curl -fsSL -o verify-release-pgp.sh "${REPO}/scripts/verify-release-pgp.sh"
 
-# Download and verify
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/${ARTIFACT}"
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/${ARTIFACT}.asc"
-
-if gpg --verify "${ARTIFACT}.asc" "${ARTIFACT}"; then
-    echo "✅ Signature valid"
-    tar -xzf "${ARTIFACT}"
-else
-    echo "❌ Signature verification failed"
-    exit 1
-fi
+minisign -Vm SHA256SUMS -p release-minisign.pub
+bash verify-release-pgp.sh expected-fingerprints.txt release-signing-keys.asc SHA256SUMS.asc SHA256SUMS
+grep " ${ARCHIVE}\$" SHA256SUMS | shasum -a 256 --check -
+tar -xzf "${ARCHIVE}"
 ```
+
+Pin the expected fingerprints in your own automation as well, so a change to
+the repository's keys is reviewed on your side before it is trusted.
 
 ## For Maintainers: Manual Signing Process
 
