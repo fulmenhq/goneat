@@ -365,6 +365,12 @@ Exported operator trust variables alone do not replace the pin.
 `make release-verify-pin` checks that the pin at `HEAD` (or
 `GONEAT_RELEASE_PIN_REF`) is self-consistent; CI runs it on every change.
 
+**Releases before the pin.** Tags up to and including v0.6.3 do not contain
+the pin files, and verification of those tags fails rather than falling back.
+To verify one, point at a commit that carries the pin for the keys in force at
+the time, for example `GONEAT_RELEASE_PIN_REF=refs/tags/v0.6.4` (v0.6.1–v0.6.3
+were signed with the same keys), or use `GONEAT_RELEASE_TRUST=env`.
+
 **Rotation.** Change all three files together in one reviewed PR, before the
 first release signed with the new keys. Releases tagged before the change keep
 verifying against the pin committed at their own tag.

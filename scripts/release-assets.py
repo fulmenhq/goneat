@@ -192,7 +192,8 @@ def committed(commit, path, destination):
     fields = listing.split()
     require(
         len(fields) == 4 and fields[0] in ("100644", "100755") and fields[1] == "blob",
-        f"committed regular file required in pin ref: {path}",
+        f"committed regular file required in pin ref: {path} "
+        "(tags before the pin first shipped need GONEAT_RELEASE_PIN_REF)",
     )
     data = run(
         ["git", "-C", str(SCRIPTS.parent), "cat-file", "blob", fields[2]],
