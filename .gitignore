@@ -114,3 +114,7 @@ test-override.md
 # Backup files in .goneat directory
 .goneat/*.backup
 json
+
+# Python bytecode from script tests
+__pycache__/
+*.pyc

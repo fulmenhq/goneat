@@ -365,9 +365,11 @@ Notes:
 
 - Minisign signing is required.
 - PGP signing is required for goneat releases (the Makefile enforces this).
-- Verification and upload require the approved GPG homedir/identity and minisign
-  public key even when the release contains copies of those keys. Downloaded
-  public keys are comparison inputs, never independent trust roots.
+- Signing requires the operator's PGP primary and minisign public key to match
+  the release-key pin committed at the release tag (`keys/expected-fingerprints.txt`,
+  `docs/security/release-signing-keys.asc`, `docs/security/release-minisign.pub`).
+- Verification and upload use that committed pin, not these variables.
+  Downloaded public keys are comparison inputs, never independent trust roots.
 
 ### 5. Sign checksum manifests
 
@@ -382,7 +384,8 @@ This target uses `scripts/sign-release-manifests.sh` (preferred) which:
 - Signs the same manifests with PGP
 - Copies the independently approved minisign public key into `dist/release/`
 - Exports the PGP public key into `dist/release/fulmenhq-release-signing-key.asc`
-- Verifies all four staged signatures before publishing local signing outputs
+- Verifies all four staged signatures against the operator inputs and the
+  committed pin before publishing local signing outputs
 - Refuses existing outputs rather than overwriting signatures or keys
 - Preserves the original seven downloaded files byte for byte
 
@@ -393,10 +396,11 @@ GONEAT_RELEASE_TAG=$GONEAT_RELEASE_TAG make release-verify-signatures  # Verify 
 GONEAT_RELEASE_TAG=$GONEAT_RELEASE_TAG make release-verify-key         # Verify GPG key is public-only
 ```
 
-Keep the same independently approved trust variables available for verification
-and upload. Missing manifests, signatures, tools or approved trust inputs, bad
-signatures, private key material and mismatched bundled public keys all fail
-nonzero. All four checks are mandatory; none is a warning-only skip.
+Verification and upload read the release-key pin from the release tag, so the
+tag must exist locally. Missing manifests, signatures, tools or pin files, bad
+signatures, private key material and bundled public keys that differ from the
+pin all fail nonzero. All four checks are mandatory; none is a warning-only skip.
+See `docs/security/release-signing.md` for the pin, overrides and rotation.
 
 ### 7. Prepare for upload
 
@@ -476,34 +480,34 @@ package-manager procedure or repository change is included in signature upload.
 ```markdown
 ## Verifying Signatures
 
-Download the FulmenHQ public key and verify artifacts:
+Verify with the keys committed at the release tag, not the copies attached
+to the release (full text: `docs/security/release-signing.md`):
 
 \`\`\`bash
+VERSION=vX.Y.Z
+BASE="https://github.com/fulmenhq/goneat/releases/download/${VERSION}"
+KEYS="https://raw.githubusercontent.com/fulmenhq/goneat/${VERSION}/docs/security"
 
-# Set version variable for convenience
+curl -LO "${BASE}/SHA256SUMS"
+curl -LO "${BASE}/SHA256SUMS.asc"
+curl -LO "${BASE}/SHA256SUMS.minisig"
+curl -L -o release-minisign.pub "${KEYS}/release-minisign.pub"
+curl -L -o release-signing-keys.asc "${KEYS}/release-signing-keys.asc"
+REPO="https://raw.githubusercontent.com/fulmenhq/goneat/${VERSION}"
+curl -L -o expected-fingerprints.txt "${REPO}/keys/expected-fingerprints.txt"
+curl -L -o verify-release-pgp.sh "${REPO}/scripts/verify-release-pgp.sh"
 
-VERSION=v0.3.15
+# Minisign
+minisign -Vm SHA256SUMS -p release-minisign.pub
 
-# Download artifacts
+# PGP: good, unexpired signature by the pinned signing subkey (throwaway keyring)
+bash verify-release-pgp.sh expected-fingerprints.txt release-signing-keys.asc SHA256SUMS.asc SHA256SUMS
 
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${VERSION}/fulmenhq-release-signing-key.asc"
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${VERSION}/SHA256SUMS"
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${VERSION}/SHA256SUMS.asc"
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${VERSION}/fulmenhq-release-minisign.pub"
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${VERSION}/SHA256SUMS.minisig"
+# Download the archive for your platform, then check it
 
-# Import and verify GPG signature
-
-gpg --import fulmenhq-release-signing-key.asc
-gpg --verify SHA256SUMS.asc SHA256SUMS
-
-# Verify minisign signature
-
-minisign -Vm SHA256SUMS -p fulmenhq-release-minisign.pub
-
-# Verify checksums
-
-shasum -a 256 --check SHA256SUMS
+ARCHIVE="goneat_${VERSION}_<os>_<arch>.tar.gz"   # .zip on Windows
+curl -LO "${BASE}/${ARCHIVE}"
+grep " ${ARCHIVE}\$" SHA256SUMS | shasum -a 256 --check -
 \`\`\`
 ```
 
@@ -600,11 +604,12 @@ separate maintainer authorization.
 **Symptom**: `make release-verify-signatures` or `make release-upload` fails.
 
 Possible causes include changed manifests or archives, missing or invalid
-signatures, unavailable verification tools, or incorrect independent trust
-inputs. File timestamps alone do not establish validity.
+signatures, unavailable verification tools, a missing local release tag, or
+keys that differ from the committed release-key pin. File timestamps alone do
+not establish validity.
 
 **Diagnosis**: Preserve the failing set and verify the original manifests and
-all four signatures with the independently approved trust inputs:
+all four signatures against the committed pin:
 
 ```bash
 GONEAT_RELEASE_TAG=vX.Y.Z make release-verify-checksums

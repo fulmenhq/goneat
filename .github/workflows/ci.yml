@@ -24,7 +24,7 @@ jobs:
         runner: [ubuntu-latest-x64-m, ubuntu-latest-arm64-m]
     runs-on: ${{ matrix.runner }}
     container:
-      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.4
+      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.9
       # glibc runner image includes make/go/rust toolchains for both x64+arm64
       options: --user 1001
     env:
@@ -81,7 +81,7 @@ jobs:
         runner: [ubuntu-latest-x64-m, ubuntu-latest-arm64-m]
     runs-on: ${{ matrix.runner }}
     container:
-      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.4
+      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.9
       # ghcr.io/fulmenhq/goneat-tools-runner-glibc runs as a non-root user.
       # GitHub mounts runner temp/work directories into the container
       # under /__w.
@@ -138,7 +138,7 @@ jobs:
         runner: [ubuntu-latest-x64-m, ubuntu-latest-arm64-m]
     runs-on: ${{ matrix.runner }}
     container:
-      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.4
+      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.9
       # glibc runner image includes make/go/rust toolchains for both x64+arm64
       options: --user 1001
     env:
@@ -155,7 +155,7 @@ jobs:
           echo "Validates higher-friction path for non-container users"
             make install-probe
   # =============================================================================
-  # JOB 4: Release tag script tests (gpg required; a skip is a failure)
+  # JOB 4: Release tag and signature tests (gpg/minisign required; a skip is a failure)
   # =============================================================================
   release-tag-crypto:
     runs-on: ubuntu-latest-x64-m
@@ -173,12 +173,13 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.26.9'
-      - name: Install gnupg
+      - name: Install gnupg and minisign
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y gnupg
+          sudo apt-get install -y gnupg minisign
           gpg --version
+          minisign -v
       - name: Run release-tag tests
         run: |
           set -euo pipefail
@@ -188,3 +189,7 @@ jobs:
             echo "::error::release-tag tests skipped"
             exit 1
           fi
+      - name: Check the committed release-key pin
+        run: make release-verify-pin
+      - name: Run release signature tests with fixture keys
+        run: make test-release-assets-crypto
