@@ -434,6 +434,69 @@ def main():
         )
         passed.append("rotation-each-release-verifies-against-its-tag")
 
+        # --- Documented consumer PGP check (scripts/verify-release-pgp.sh).
+        consumer = SCRIPTS / "verify-release-pgp.sh"
+        anchors = root / "consumer-anchors.txt"
+        anchors.write_text(f"gpg {approved[1]}\nminisign {'0' * 64}\n")
+        other_anchors = root / "consumer-other-anchors.txt"
+        other_anchors.write_text(f"gpg {other[1]}\nminisign {'0' * 64}\n")
+
+        def consume(
+            keys, anchor_file, manifest, expected_success, reason=None, env=None
+        ):
+            result = subprocess.run(
+                [
+                    "bash",
+                    str(consumer),
+                    str(anchor_file),
+                    str(keys),
+                    str(release / (manifest + ".asc")),
+                    str(release / manifest),
+                ],
+                env={**base_env, **(env or {})},
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if (result.returncode == 0) != expected_success:
+                raise RuntimeError(
+                    f"consumer {manifest}: exit {result.returncode}\n{result.stderr}"
+                )
+            if reason and reason not in result.stderr:
+                raise RuntimeError(
+                    f"consumer {manifest}: expected '{reason}', got:\n{result.stderr}"
+                )
+
+        consume(approved[2], anchors, "SHA256SUMS", True)
+        consume(approved[2], anchors, "SHA512SUMS", True)
+        passed.append("consumer-pgp-good-signature")
+        consume(other[2], anchors, "SHA256SUMS", False, "primary differs from anchor")
+        consume(other[2], other_anchors, "SHA256SUMS", False, "gpg verification failed")
+        passed.append("consumer-pgp-unpinned-key")
+        original = (release / "SHA256SUMS").read_bytes()
+        (release / "SHA256SUMS").write_bytes(original + b"tampered\n")
+        consume(approved[2], anchors, "SHA256SUMS", False, "gpg verification failed")
+        (release / "SHA256SUMS").write_bytes(original)
+        passed.append("consumer-pgp-tampered-manifest")
+        # Fixture subkeys expire after one day; at +2 days gpg still prints
+        # VALIDSIG and may exit 0, and the consumer check must refuse.
+        future = datetime.now(timezone.utc).timestamp() + 2 * 86400
+        faked = root / "gpg-faked"
+        faked.mkdir()
+        (faked / "gpg").write_text(
+            "#!/bin/sh\n"
+            f'exec {shutil.which("gpg")} --faked-system-time {int(future)} "$@"\n'
+        )
+        (faked / "gpg").chmod(0o755)
+        consume(
+            approved[2],
+            anchors,
+            "SHA256SUMS",
+            False,
+            env={"PATH": f"{faked}:{base_env.get('PATH', '')}"},
+        )
+        passed.append("consumer-pgp-expired-signing-key")
+
         # --- Explicit operator-environment mode keeps the independent-trust rules.
         env_mode = {**signer(approved, approved_mini), "GONEAT_RELEASE_TRUST": "env"}
         result = invoke(verify, "v0.6.2", release, env=env_mode)

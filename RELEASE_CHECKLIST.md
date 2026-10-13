@@ -493,14 +493,15 @@ curl -LO "${BASE}/SHA256SUMS.asc"
 curl -LO "${BASE}/SHA256SUMS.minisig"
 curl -L -o release-minisign.pub "${KEYS}/release-minisign.pub"
 curl -L -o release-signing-keys.asc "${KEYS}/release-signing-keys.asc"
+REPO="https://raw.githubusercontent.com/fulmenhq/goneat/${VERSION}"
+curl -L -o expected-fingerprints.txt "${REPO}/keys/expected-fingerprints.txt"
+curl -L -o verify-release-pgp.sh "${REPO}/scripts/verify-release-pgp.sh"
 
 # Minisign
 minisign -Vm SHA256SUMS -p release-minisign.pub
 
-# PGP in a throwaway keyring; signer must be the pinned signing subkey
-export GNUPGHOME="$(mktemp -d)"
-gpg --import release-signing-keys.asc
-gpg --status-fd 1 --verify SHA256SUMS.asc SHA256SUMS | grep "VALIDSIG DAB70DD758911B26BB45A08C3B75AC591449DEBE"
+# PGP: good, unexpired signature by the pinned signing subkey (throwaway keyring)
+bash verify-release-pgp.sh expected-fingerprints.txt release-signing-keys.asc SHA256SUMS.asc SHA256SUMS
 
 # Verify checksums
 

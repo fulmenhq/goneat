@@ -149,11 +149,14 @@ curl -LO "${BASE}/SHA256SUMS.minisig"
 curl -LO "${BASE}/SHA256SUMS.asc"
 curl -L -o release-minisign.pub "${KEYS}/docs/security/release-minisign.pub"
 curl -L -o release-signing-keys.asc "${KEYS}/docs/security/release-signing-keys.asc"
+curl -L -o expected-fingerprints.txt "${KEYS}/keys/expected-fingerprints.txt"
+curl -L -o verify-release-pgp.sh "${KEYS}/scripts/verify-release-pgp.sh"
 ```
 
-Compare the keys with the fingerprints in [Trust Model](#trust-model) before
-trusting them. In a goneat checkout, `make release-verify-signatures` does all
-of this from the tag without network access to the keys.
+Compare `expected-fingerprints.txt` with the fingerprints in
+[Trust Model](#trust-model) before trusting it. The most complete check is a
+goneat checkout at the tag and `make release-verify-signatures`, which reads
+every key from the tag and checks all four signatures.
 
 2. **Verify the checksum manifest signature**:
 
@@ -161,11 +164,9 @@ of this from the tag without network access to the keys.
 # Minisign (required verification path)
 minisign -Vm SHA256SUMS -p release-minisign.pub
 
-# PGP: use a throwaway keyring and check the signer is the pinned subkey
-export GNUPGHOME="$(mktemp -d)"
-gpg --import release-signing-keys.asc
-gpg --fingerprint 0CACA49B3119B6BC12B2CA11B9B485F294B9FE07
-gpg --status-fd 1 --verify SHA256SUMS.asc SHA256SUMS | grep "VALIDSIG DAB70DD758911B26BB45A08C3B75AC591449DEBE"
+# PGP: throwaway keyring; requires a good, unexpired, unrevoked signature
+# by the pinned signing subkey. Do not reduce this to grepping gpg output.
+bash verify-release-pgp.sh expected-fingerprints.txt release-signing-keys.asc SHA256SUMS.asc SHA256SUMS
 ```
 
 3. **Download the archive for your platform and verify checksums**:
@@ -427,13 +428,14 @@ curl -LO "${BASE}/SHA256SUMS.minisig"
 curl -L -o release-minisign.pub "${KEYS}/release-minisign.pub"
 minisign -Vm SHA256SUMS -p release-minisign.pub
 
-# PGP verification in a throwaway keyring; signer must be DAB70DD758911B26BB45A08C3B75AC591449DEBE
+# PGP verification: good, unexpired signature by the pinned signing subkey
 
+REPO="https://raw.githubusercontent.com/fulmenhq/goneat/${RELEASE_VERSION}"
 curl -LO "${BASE}/SHA256SUMS.asc"
 curl -L -o release-signing-keys.asc "${KEYS}/release-signing-keys.asc"
-export GNUPGHOME="$(mktemp -d)"
-gpg --import release-signing-keys.asc
-gpg --status-fd 1 --verify SHA256SUMS.asc SHA256SUMS | grep "VALIDSIG DAB70DD758911B26BB45A08C3B75AC591449DEBE"
+curl -L -o expected-fingerprints.txt "${REPO}/keys/expected-fingerprints.txt"
+curl -L -o verify-release-pgp.sh "${REPO}/scripts/verify-release-pgp.sh"
+bash verify-release-pgp.sh expected-fingerprints.txt release-signing-keys.asc SHA256SUMS.asc SHA256SUMS
 
 # Download archives, then validate checksums
 
