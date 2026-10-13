@@ -40,6 +40,12 @@ func TestGetRequiredPATHAdditions_AddsExistingShimDirWithoutProbing(t *testing.T
 		t.Fatalf("PATH additions ran a detection command: %s", spawned)
 	}
 
+	// The shim dir alone decides: it is added even when mise itself is not on PATH.
+	t.Setenv("PATH", t.TempDir())
+	if additions := GetRequiredPATHAdditions(config); len(additions) != 1 || additions[0] != shims {
+		t.Fatalf("shim dir with mise absent from PATH: additions = %v, want [%s]", additions, shims)
+	}
+
 	if err := os.Remove(shims); err != nil {
 		t.Fatal(err)
 	}
