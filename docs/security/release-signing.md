@@ -172,10 +172,11 @@ bash verify-release-pgp.sh expected-fingerprints.txt release-signing-keys.asc SH
 3. **Download the archive for your platform and verify checksums**:
 
 ```bash
-curl -LO "https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}/goneat_${RELEASE_VERSION}_darwin_arm64.tar.gz"
+ARCHIVE="goneat_${RELEASE_VERSION}_darwin_arm64.tar.gz"
+curl -LO "${BASE}/${ARCHIVE}"
 
-# Verifies *all* downloaded archives that appear in SHA256SUMS
-shasum -a 256 --check SHA256SUMS
+# Check the downloaded archive against its signed manifest entry
+grep " ${ARCHIVE}\$" SHA256SUMS | shasum -a 256 --check -
 ```
 
 **Expected output** (minisign, then the PGP check):
@@ -437,9 +438,11 @@ curl -L -o expected-fingerprints.txt "${REPO}/keys/expected-fingerprints.txt"
 curl -L -o verify-release-pgp.sh "${REPO}/scripts/verify-release-pgp.sh"
 bash verify-release-pgp.sh expected-fingerprints.txt release-signing-keys.asc SHA256SUMS.asc SHA256SUMS
 
-# Download archives, then validate checksums
+# Download the archive for your platform, then check it
 
-shasum -a 256 --check SHA256SUMS
+ARCHIVE="goneat_${RELEASE_VERSION}_<os>_<arch>.tar.gz"   # .zip on Windows
+curl -LO "${BASE}/${ARCHIVE}"
+grep " ${ARCHIVE}\$" SHA256SUMS | shasum -a 256 --check -
 \`\`\`
 
 Key fingerprint: see the Trust Model section at the top of this document.

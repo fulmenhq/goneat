@@ -503,9 +503,11 @@ minisign -Vm SHA256SUMS -p release-minisign.pub
 # PGP: good, unexpired signature by the pinned signing subkey (throwaway keyring)
 bash verify-release-pgp.sh expected-fingerprints.txt release-signing-keys.asc SHA256SUMS.asc SHA256SUMS
 
-# Verify checksums
+# Download the archive for your platform, then check it
 
-shasum -a 256 --check SHA256SUMS
+ARCHIVE="goneat_${VERSION}_<os>_<arch>.tar.gz"   # .zip on Windows
+curl -LO "${BASE}/${ARCHIVE}"
+grep " ${ARCHIVE}\$" SHA256SUMS | shasum -a 256 --check -
 \`\`\`
 ```
 
