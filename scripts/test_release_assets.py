@@ -190,6 +190,20 @@ class ReleaseAssetsTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "pin or env"):
                 ASSETS.verify_release_signatures(self.release, TAG)
 
+    def test_unprefixed_trust_selectors_are_ignored(self):
+        self.signed()
+        with patch.dict(
+            os.environ, {"GONEAT_RELEASE_TRUST": "", "RELEASE_TRUST": "env"}
+        ):
+            self.assertEqual(ASSETS.pin_mode(), "pin")
+        with patch.dict(os.environ, {"RELEASE_PIN_REF": "refs/heads/elsewhere"}):
+            with patch.object(ASSETS.subprocess, "run") as run:
+                run.return_value = subprocess.CompletedProcess(
+                    [], 0, stdout="c" * 40 + "\n"
+                )
+                ASSETS.pin_commit(TAG)
+                self.assertIn(f"refs/tags/{TAG}^{{commit}}", run.call_args[0][0])
+
     def test_missing_trust_and_tools_do_not_skip_verification(self):
         self.signed()
         for variable in (

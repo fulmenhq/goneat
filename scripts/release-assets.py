@@ -181,8 +181,15 @@ def mini_key(path):
     return key
 
 
+def prefixed(name):
+    # Trust selectors are read only under the signing prefix, never unprefixed.
+    return os.environ.get(
+        os.environ.get("SIGNING_ENV_PREFIX", "GONEAT") + "_" + name, ""
+    )
+
+
 def pin_mode():
-    mode = setting("RELEASE_TRUST") or "pin"
+    mode = prefixed("RELEASE_TRUST") or "pin"
     require(mode in ("pin", "env"), "RELEASE_TRUST must be pin or env")
     return mode
 
@@ -205,7 +212,7 @@ def committed(commit, path, destination):
 
 
 def pin_commit(tag):
-    ref = setting("RELEASE_PIN_REF") or f"refs/tags/{tag}"
+    ref = prefixed("RELEASE_PIN_REF") or f"refs/tags/{tag}"
     result = subprocess.run(
         [
             "git",
