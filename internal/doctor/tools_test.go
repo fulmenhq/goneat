@@ -616,10 +616,13 @@ func TestExtractFirstVersionToken_EdgeCases(t *testing.T) {
 		{"text with v1 and more text", ""},                                   // v1 should not be considered a version
 		{"yq (https://github.com/mikefarah/yq/) version v4.49.1", "v4.49.1"}, // URL skipped, real version found
 		{"checkmake built at 2025-09-13 by Homebrew <homebrew@brew.sh> go1.25.1", "1.25.1"}, // Email skipped, go version found
-		{"jq-1.7.1", "1.7.1"},               // Upstream jq: tool-name prefix stripped
-		{"jq-1.7.1-apple", "1.7.1"},         // Apple jq: prefix and vendor suffix stripped
-		{"jq-1.6", "1.6"},                   // Two-part release still extracted
-		{"jq-1.8.0-rc1", ""},                // Non-alphabetic suffix is not a vendor tag
+		{"jq-1.7.1", "1.7.1"},             // Upstream jq: tool-name prefix stripped
+		{"jq-1.7.1-apple", "1.7.1"},       // Apple jq: prefix and vendor suffix stripped
+		{"jq-1.6", "1.6"},                 // Two-part release still extracted
+		{"jq-1.8.0-rc1", "1.8.0-rc1"},     // Prerelease suffix kept
+		{"jq-1.7.0-alpha", "1.7.0-alpha"}, // Alphabetic prerelease kept, not a vendor tag
+		{"jq-1.7.0-beta", "1.7.0-beta"},
+		{"jq-1.7.0-rc", "1.7.0-rc"},
 		{"x86_64-linux-gnu 1.2.3", "1.2.3"}, // Platform triple is not a tool-prefixed version
 		{"jq-master", ""},                   // Unparsable build stays unparsed
 	}
@@ -1305,6 +1308,15 @@ func TestJQVersionOutputMeetsSemverPolicy(t *testing.T) {
 		}
 		if !eval.MeetsMinimum || eval.MeetsRecommended {
 			t.Errorf("Evaluate(%q) = minimum %v recommended %v, want true false", output, eval.MeetsMinimum, eval.MeetsRecommended)
+		}
+	}
+	for _, output := range []string{"jq-1.7.0-alpha", "jq-1.7.0-beta", "jq-1.7.0-rc", "jq-1.7.0-rc1"} {
+		eval, err := versioning.Evaluate(versioning.Policy{Scheme: versioning.SchemeSemverLegacy, MinimumVersion: "1.7.0"}, sanitizeVersion(output))
+		if err != nil {
+			t.Fatalf("Evaluate(%q) error: %v", output, err)
+		}
+		if eval.MeetsMinimum {
+			t.Errorf("prerelease %q must not meet stable minimum 1.7.0", output)
 		}
 	}
 	if _, err := versioning.Evaluate(policy, sanitizeVersion("jq-master-dirty")); err == nil {

@@ -859,16 +859,23 @@ func sanitizeVersion(s string) string {
 }
 
 // toolPrefixedVersion matches tokens such as "jq-1.7.1" or "jq-1.7.1-apple":
-// a lowercase tool-name prefix, a release version, and an optional
-// alphabetic vendor suffix.
-var toolPrefixedVersion = regexp.MustCompile(`^[a-z][a-z0-9]*-(\d+\.\d+(?:\.\d+)?)(?:-[A-Za-z]+)?$`)
+// a lowercase tool-name prefix, a version, and an optional suffix.
+var toolPrefixedVersion = regexp.MustCompile(`^[a-z][a-z0-9]*-(\d+\.\d+(?:\.\d+)?)(?:-([0-9A-Za-z.]+))?$`)
+
+// vendorBuildSuffixes are distributor tags on a release build, not
+// prerelease identifiers. Any other suffix is kept so that prereleases such
+// as "1.7.0-rc" still compare below the release.
+var vendorBuildSuffixes = map[string]bool{"apple": true}
 
 func extractFirstVersionToken(s string) string {
 	line := firstLine(s)
 	parts := strings.Fields(line)
 	for _, p := range parts {
 		if m := toolPrefixedVersion.FindStringSubmatch(p); m != nil {
-			return m[1]
+			if m[2] == "" || vendorBuildSuffixes[m[2]] {
+				return m[1]
+			}
+			return m[1] + "-" + m[2]
 		}
 		if looksLikeVersion(p) {
 			// Strip "go" prefix from Go version strings
