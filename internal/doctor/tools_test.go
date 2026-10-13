@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/fulmenhq/goneat/pkg/versioning"
 )
 
 // REMOVED in v0.3.7: TestGetToolByName_* tests deleted
@@ -536,9 +538,12 @@ func TestSanitizeVersion_EdgeCases(t *testing.T) {
 		{"version", "version"},
 		{"Version", "Version"},
 		{"v", "v"},
-		{"govulncheck: version ", "version"}, // After govulncheck: prefix removal
-		{"version v1.2.3", "v1.2.3"},         // Normal case
-		{"Version 1.0.0", "1.0.0"},           // Normal case
+		{"govulncheck: version ", "version"},   // After govulncheck: prefix removal
+		{"version v1.2.3", "v1.2.3"},           // Normal case
+		{"Version 1.0.0", "1.0.0"},             // Normal case
+		{"jq-1.7.1-apple", "1.7.1"},            // Apple jq --version
+		{"jq-1.8.1", "1.8.1"},                  // Upstream jq --version
+		{"jq-master-dirty", "jq-master-dirty"}, // Unparsable: unchanged, policy still warns
 	}
 	for _, c := range cases {
 		got := sanitizeVersion(c.in)
@@ -611,6 +616,12 @@ func TestExtractFirstVersionToken_EdgeCases(t *testing.T) {
 		{"text with v1 and more text", ""},                                   // v1 should not be considered a version
 		{"yq (https://github.com/mikefarah/yq/) version v4.49.1", "v4.49.1"}, // URL skipped, real version found
 		{"checkmake built at 2025-09-13 by Homebrew <homebrew@brew.sh> go1.25.1", "1.25.1"}, // Email skipped, go version found
+		{"jq-1.7.1", "1.7.1"},               // Upstream jq: tool-name prefix stripped
+		{"jq-1.7.1-apple", "1.7.1"},         // Apple jq: prefix and vendor suffix stripped
+		{"jq-1.6", "1.6"},                   // Two-part release still extracted
+		{"jq-1.8.0-rc1", ""},                // Non-alphabetic suffix is not a vendor tag
+		{"x86_64-linux-gnu 1.2.3", "1.2.3"}, // Platform triple is not a tool-prefixed version
+		{"jq-master", ""},                   // Unparsable build stays unparsed
 	}
 	for _, c := range cases {
 		got := extractFirstVersionToken(c.in)
@@ -1280,5 +1291,23 @@ func TestManualInstallerBootstrapScenario(t *testing.T) {
 
 	if !foundManual {
 		t.Errorf("buildInstallerAttempts should include manual installer for mise bootstrap")
+	}
+}
+
+func TestJQVersionOutputMeetsSemverPolicy(t *testing.T) {
+	t.Parallel()
+	policy := versioning.Policy{Scheme: versioning.SchemeSemverLegacy, // tools.yaml "semver"
+		MinimumVersion: "1.7.0", RecommendedVersion: "1.8.2"}
+	for _, output := range []string{"jq-1.7.1", "jq-1.7.1-apple"} {
+		eval, err := versioning.Evaluate(policy, sanitizeVersion(output))
+		if err != nil {
+			t.Fatalf("Evaluate(%q) error: %v", output, err)
+		}
+		if !eval.MeetsMinimum || eval.MeetsRecommended {
+			t.Errorf("Evaluate(%q) = minimum %v recommended %v, want true false", output, eval.MeetsMinimum, eval.MeetsRecommended)
+		}
+	}
+	if _, err := versioning.Evaluate(policy, sanitizeVersion("jq-master-dirty")); err == nil {
+		t.Error("unparsable jq version must still fail policy evaluation")
 	}
 }

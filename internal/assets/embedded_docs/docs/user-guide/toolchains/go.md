@@ -209,10 +209,11 @@ licenses:
 
 ## Known Behaviors and Edge Cases
 
-**jq version string parsing**: The macOS Homebrew build of jq reports its
-version as `jq-1.7.1-apple`, which does not conform to semver. goneat logs a
-warning but continues; the minimum version policy check for jq is skipped on
-affected systems.
+**jq version string parsing**: jq reports its version with a tool-name prefix
+(`jq-1.8.1`), and the macOS system build adds a vendor suffix
+(`jq-1.7.1-apple`). goneat reads both as the release version (`1.8.1`,
+`1.7.1`) before applying the version policy. Output it cannot parse still
+produces a policy warning.
 
 **checkmake version**: checkmake does not embed its version in CLI output.
 goneat cannot evaluate version policies for checkmake and skips that check.

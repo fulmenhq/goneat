@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 
@@ -857,10 +858,18 @@ func sanitizeVersion(s string) string {
 	return line
 }
 
+// toolPrefixedVersion matches tokens such as "jq-1.7.1" or "jq-1.7.1-apple":
+// a lowercase tool-name prefix, a release version, and an optional
+// alphabetic vendor suffix.
+var toolPrefixedVersion = regexp.MustCompile(`^[a-z][a-z0-9]*-(\d+\.\d+(?:\.\d+)?)(?:-[A-Za-z]+)?$`)
+
 func extractFirstVersionToken(s string) string {
 	line := firstLine(s)
 	parts := strings.Fields(line)
 	for _, p := range parts {
+		if m := toolPrefixedVersion.FindStringSubmatch(p); m != nil {
+			return m[1]
+		}
 		if looksLikeVersion(p) {
 			// Strip "go" prefix from Go version strings
 			// e.g., "go1.25.4" -> "1.25.4"
