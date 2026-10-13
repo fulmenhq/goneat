@@ -73,8 +73,12 @@ func GetShimPath(packageManager string) string {
 	}
 }
 
-// GetRequiredPATHAdditions checks installed package managers and returns
-// paths that should be added to PATH for tools to be accessible
+// GetRequiredPATHAdditions returns package manager directories that should be
+// added to PATH for tools to be accessible.
+//
+// It runs on every goneat command, so it only inspects the filesystem and never
+// starts a process: a shim directory that exists is added. Version detection
+// belongs to DetectPackageManager, which doctor uses for reporting.
 func GetRequiredPATHAdditions(config *PackageManagersConfig) []string {
 	if config == nil {
 		return nil
@@ -86,12 +90,6 @@ func GetRequiredPATHAdditions(config *PackageManagersConfig) []string {
 
 	for _, pm := range config.PackageManagers {
 		if !pm.SupportsPlatform(platform) {
-			continue
-		}
-
-		// Check if package manager is installed
-		installed, _ := DetectPackageManager(&pm)
-		if !installed {
 			continue
 		}
 
