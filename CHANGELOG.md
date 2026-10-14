@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Note**: This changelog keeps the latest 10 releases for readability. For older releases, see `docs/releases/` archive.
 
+## [v0.6.4] - 2026-10-14
+
+### Added
+
+- **Release signing**: the public release keys are committed in `keys/expected-fingerprints.txt`, `docs/security/release-signing-keys.asc` and `docs/security/release-minisign.pub`. `make release-verify-signatures` and the release upload read them from the release tag and need no operator trust inputs. `GONEAT_RELEASE_PIN_REF` and `GONEAT_RELEASE_TRUST=env` are explicit overrides. Signing requires the operator keys to match.
+- **Release signing**: `scripts/verify-release-pgp.sh` checks a manifest signature in a throwaway keyring and requires a good, unexpired, unrevoked signature by the pinned signing subkey.
+
+### Changed
+
+- **Startup**: commands no longer start package manager processes to extend `PATH`. Shim directories are checked by path alone; `goneat doctor` still reports manager versions. `goneat version` drops from about 210 ms to about 25 ms with common package managers installed. A mise or scoop shim directory that exists is added even when the manager is not on `PATH`; shim directories are appended.
+- **CI**: runner images are fulmen-toolbox v0.5.9. CI checks the committed release keys and runs the fixture-key signature tests.
+
+### Fixed
+
+- **Tools**: version detection reads tool-prefixed versions such as `jq-1.8.1` and `jq-1.7.1-apple`. Prerelease suffixes are kept.
+
 ## [v0.6.3] - 2026-10-12
 
 ### Fixed
@@ -167,21 +183,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **YAML format/lint alignment guidance**: `docs/appnotes/yaml-format-lint-alignment.md` and `docs/user-guide/commands/format.md` now lead with a ⚠️ callout that `.yamlfmt` MUST set `formatter.pad_line_comments: 2` whenever direct `yamlfmt` is invoked outside goneat (CI, hooks, IDE integrations). Added a "Direct `yamlfmt` callouts" three-pattern subsection and a "Symptom of misalignment" debug aid that names the exact diff users will see.
 - **CI Go runtime alignment (security-driven)**: `.github/workflows/ci.yml` now uses `ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.4.2` (bumped from `:v0.4.1`), which bundles Go 1.26.2 and golangci-lint v2.12.1 — picks up the Go 1.26.x CVE fixes (notably CVE-2026-33810) that landed in fulmen-toolbox v0.3.5. `.github/workflows/release.yml` and `.github/workflows/license-audit.yml` move from `go-version: '1.25.x'` to `'1.26.x'` for matching coverage in the non-containerized jobs. `go.mod`'s `go 1.25.0` directive is intentionally unchanged — the floor for downstream consumers stays where it was.
 
-## [v0.5.11] - 2026-05-17
-
-### Fixed
-
-- **Pre-commit hang in dates assessment under `--staged-only`**: `goneat assess --hook pre-commit --staged-only --package-mode` with `dates` in the categories no longer hangs. The dates assess runner previously looped a full-repository dates scan once per file in `IncludeFiles`, multiplying a 3-second scan into multi-minute work and duplicating every finding N times. The runner now does a single scoped scan over the include set via `internal/dates/dates.DatesRunner.Assess`'s explicit-files path.
-- **Hook manifest timeouts now enforced for internal commands**: per-command `timeout` values in `.goneat/hooks.yaml` now reach the internal `assess`/`format`/`dependencies` handlers. Previously `cmd/assess.go::runInternalAssess` passed `cmd.Context()` to the engine instead of the `context.WithTimeout`-wrapped ctx supplied by `HookExecutor`, so manifest timeouts were silently dropped.
-- **Dates runner observes context cancellation**: the runner now checks `ctx.Done()` in the directory-discovery loop, in the `filepath.WalkDir` callback, at each worker iteration, and after `wg.Wait()`, surfacing `context.DeadlineExceeded` instead of running a stuck scan to completion as a "successful" partial result.
-- **Explicit empty include set is honored**: when staged-file filtering drops every file (e.g. all matched `.goneatignore` patterns), the dates runner now scans zero files instead of falling back to a full-repo discovery.
-- **STDOUT hygiene in dates assess wrapper**: removed a stray `fmt.Printf("DEBUG: …")` that printed to STDOUT on per-file processing errors.
-
-### Changed
-
-- **CI runner image pinned**: `.github/workflows/ci.yml` container jobs now use `ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.4.1` instead of `:latest`, eliminating floating-tag drift across PRs and `main`.
-- **CI lint anchors to runner image**: `build-test-lint` invokes the runner-bundled `golangci-lint` binary instead of `golangci/golangci-lint-action@v7`, removing CI's dependency on a network fetch from `golangci-lint.run`. Lint remains advisory (`continue-on-error: true`); the active `go version` and `golangci-lint --version` are logged for auditability.
-
 ---
 
-**Note**: Older releases (v0.5.10 and earlier) are archived in [`docs/releases/`](docs/releases/).
+**Note**: Older releases (v0.5.11 and earlier) are archived in [`docs/releases/`](docs/releases/).
