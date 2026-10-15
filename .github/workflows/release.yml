@@ -55,5 +55,8 @@ jobs:
             dist/release/SHA256SUMS
             dist/release/SHA512SUMS
           generate_release_notes: true
+          # Stays a draft until make release-upload has verified and uploaded
+          # the signatures; release-assets.py upload publishes it.
+          draft: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
