@@ -413,8 +413,9 @@ All signature and key files are now ready in `dist/release/`:
 
 ## Upload to GitHub Release
 
-**IMPORTANT:** CI already published the original five archives and both
-checksum manifests. Do not upload them again. Upload supplements only.
+**IMPORTANT:** CI already uploaded the original five archives and both
+checksum manifests to a **draft** release. Do not upload them again. Upload
+supplements only. The release stays a draft, not public, until this step.
 
 ```bash
 make release-notes   # Explicitly prepare both matching release-note files
@@ -427,7 +428,8 @@ supplements. A byte-identical supplement is a verified no-op; different existing
 bytes halt. It uploads only missing signatures, public keys and versioned notes,
 updates the body from matching notes, and checks original asset IDs and bytes
 again afterward. No upload uses `--clobber` or replaces an original asset.
-Publication still requires separate maintainer authorization.
+After the final byte comparison passes, it publishes the draft (`latest`, or
+`prerelease` for a `-` version). A failed check leaves the release a draft.
 
 ### Verify Upload Success
 
