@@ -327,6 +327,7 @@ class ReleaseAssetsTests(unittest.TestCase):
             shutil.copyfile(self.release / name, remote / name)
         state = {
             "body": "",
+            "draft": False,
             "ids": {name: index + 100 for index, name in enumerate(self.originals)},
             "writes": [],
         }
@@ -343,9 +344,16 @@ class ReleaseAssetsTests(unittest.TestCase):
                     }
                     for name in state["ids"]
                 ]
-                return json.dumps(
-                    {"tag_name": TAG, "assets": assets, "body": state["body"]}
-                )
+                # gh api --paginate --slurp over the release list: pages of
+                # releases, drafts included; another tag is never selected.
+                self.assertIn("--slurp", argv)
+                release = {
+                    "tag_name": TAG,
+                    "assets": assets,
+                    "body": state["body"],
+                    "draft": state["draft"],
+                }
+                return json.dumps([[{"tag_name": "v0.0.0-other", "assets": []}], [release]])
             self.assertEqual(argv[0], "release")
             self.assertNotIn("--clobber", argv)
             if argv[1] == "download":
@@ -363,7 +371,10 @@ class ReleaseAssetsTests(unittest.TestCase):
                     state["ids"][source.name] = max(state["ids"].values()) + 1
             elif argv[1] == "edit":
                 state["writes"].append(argv)
-                state["body"] = Path(argv[argv.index("--notes-file") + 1]).read_text()
+                if "--notes-file" in argv:
+                    state["body"] = Path(argv[argv.index("--notes-file") + 1]).read_text()
+                if "--draft=false" in argv:
+                    state["draft"] = False
             else:
                 self.fail("unexpected gh operation")
             return ""
@@ -418,6 +429,29 @@ class ReleaseAssetsTests(unittest.TestCase):
         state["writes"].clear()
         with patch.object(ASSETS, "gh", side_effect=gh):
             ASSETS.upload(self.release, TAG)
+        self.assertEqual(state["writes"], [])
+
+    def test_upload_publishes_a_draft_only_after_verification(self):
+        self.signed()
+        _, state, gh = self.remote()
+        state["draft"] = True
+        with patch.object(ASSETS, "gh", side_effect=gh):
+            ASSETS.upload(self.release, TAG)
+        self.assertFalse(state["draft"])
+        publish = [w for w in state["writes"] if "--draft=false" in w]
+        self.assertEqual(len(publish), 1)
+        self.assertIs(state["writes"][-1], publish[0], "publish is the last remote write")
+        self.assertIn("--latest", publish[0])
+
+    def test_failed_preflight_leaves_the_draft_unpublished(self):
+        self.signed()
+        remote, state, gh = self.remote()
+        state["draft"] = True
+        (remote / "SHA256SUMS").write_bytes(b"different")
+        with patch.object(ASSETS, "gh", side_effect=gh):
+            with self.assertRaisesRegex(RuntimeError, "remote bytes differ"):
+                ASSETS.upload(self.release, TAG)
+        self.assertTrue(state["draft"])
         self.assertEqual(state["writes"], [])
 
     def test_upload_all_preflight_failures_precede_every_remote_write(self):

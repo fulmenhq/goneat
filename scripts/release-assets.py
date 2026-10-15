@@ -647,7 +647,14 @@ def sign(directory, tag):
 
 
 def remote_assets(tag):
-    release = json.loads(gh("api", f"repos/{REPOSITORY}/releases/tags/{tag}"))
+    # The release stays a draft until upload publishes it. releases/tags/<tag>
+    # does not return drafts, so list the releases and select by tag.
+    releases = json.loads(
+        gh("api", "--paginate", "--slurp", f"repos/{REPOSITORY}/releases?per_page=100")
+    )
+    matches = [r for page in releases for r in page if r.get("tag_name") == tag]
+    require(len(matches) == 1, f"expected exactly one release for {tag}, found {len(matches)}")
+    release = matches[0]
     require(release.get("tag_name") == tag, "remote release tag mismatch")
     assets = release["assets"]
     require(
@@ -758,6 +765,23 @@ def upload(directory, tag):
         )
         with tempfile.TemporaryDirectory(prefix="verify-", dir=temporary) as final:
             compare_download(tag, directory, originals + supplements, Path(final))
+        # Publish only now: every asset and signature has been verified in place.
+        if release.get("draft"):
+            prerelease = "-" in tag
+            gh(
+                "release",
+                "edit",
+                tag,
+                "--repo",
+                REPOSITORY,
+                "--draft=false",
+                *(("--prerelease", "--latest=false") if prerelease else ("--latest",)),
+            )
+            require(
+                not remote_assets(tag)[0].get("draft"),
+                "release is still a draft after publishing",
+            )
+            print(f"Published release {tag}")
     print(
         "Supplemented signatures, public keys and notes; original seven asset IDs and bytes preserved"
     )
