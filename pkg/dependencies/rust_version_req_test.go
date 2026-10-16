@@ -1,6 +1,12 @@
 package dependencies
 
-import "testing"
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
 
 func TestCargoVersionMatches(t *testing.T) {
 	for _, tc := range []struct {
@@ -35,12 +41,12 @@ func TestCargoVersionMatches(t *testing.T) {
 		{"1.*", "1.4.0", true},
 		{"1.*", "2.0.0", false},
 		{"1.2.x", "1.2.7", true},
-		{"", "0.1.0", true},
+		{"*", "0.1.0", true},
 		// Pre-releases only match requirements naming one; bounds exclude them.
 		{"^1.0.0", "1.1.0-alpha", false},
 		{"^1.0.0-alpha", "1.0.0-beta", true},
 		{"<2.0.0, ^1.0.0-rc.1", "2.0.0-alpha", false},
-		{"", "0.1.0-dev", false},
+		{"*", "0.1.0-dev", false},
 		{"^1.0.0-alpha", "1.1.0-alpha", false},      // different core: not admitted
 		{"^1.0.0-alpha", "1.0.1", true},             // releases still match normally
 		{">=1.0.0-alpha.2", "1.0.0-alpha.10", true}, // numeric identifier order
@@ -62,9 +68,48 @@ func TestCargoVersionMatches(t *testing.T) {
 		{"1.*-pre", "1.0.0"},
 		{"^1", "not-a-version"},
 		{"^1", "01.0.0"},
+		{"", "1.0.0"},
 	} {
 		if _, err := cargoVersionMatches(tc.req, tc.version); err == nil {
 			t.Errorf("cargoVersionMatches(%q, %q) accepted unsupported input", tc.req, tc.version)
 		}
+	}
+}
+
+// TestCargoVersionMatchesRustOracle checks the Go matcher against expected
+// results produced by the Rust semver crate (1.0.28, the version krates and
+// cargo-deny build against) for a combinatorial table of operators, partial
+// and wildcard comparators, pre-releases and conjunctions. Regenerate with
+// the semver-oracle program described in the file header when changing rules.
+func TestCargoVersionMatchesRustOracle(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", "cargo_semver_oracle.tsv"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases, mismatches := 0, 0
+	for _, line := range strings.Split(strings.TrimRight(string(data), "\n"), "\n") {
+		fields := strings.Split(line, "\t")
+		if len(fields) != 3 {
+			t.Fatalf("malformed oracle line %q", line)
+		}
+		req, version, want := fields[0], fields[1], fields[2]
+		got, err := cargoVersionMatches(req, version)
+		result := fmt.Sprint(got)
+		if err != nil {
+			result = "ERR"
+		}
+		cases++
+		if result != want {
+			mismatches++
+			if mismatches <= 20 {
+				t.Errorf("cargoVersionMatches(%q, %q) = %s, Rust semver = %s", req, version, result, want)
+			}
+		}
+	}
+	if mismatches > 0 {
+		t.Fatalf("%d of %d cases differ from Rust semver", mismatches, cases)
+	}
+	if cases < 4000 {
+		t.Fatalf("oracle table unexpectedly small: %d cases", cases)
 	}
 }

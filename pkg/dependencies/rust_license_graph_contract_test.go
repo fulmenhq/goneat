@@ -172,6 +172,24 @@ func rustGraphContractFixtures() map[string]rustGraphFixture {
 				{dir: "customlib", name: "custom-lib-pkg", lib: "weird_lib"},
 			}, simpleCrates("opt")...),
 		},
+		// Unversioned path dependency (req "*") on a pre-release package:
+		// krates admits pre-releases when a requirement has no comparators.
+		"unversioned_prerelease_path": {
+			members: []string{"app"}, excluded: []string{"dep"},
+			crates: []rustGraphCrate{
+				{dir: "app", name: "app", extra: "[dependencies]\ndep={path='../dep'}\n"},
+				{dir: "dep", name: "dep", version: "0.2.0-dev"},
+			},
+		},
+		// Partial caret plus a pre-release-admitting comparator: semver keeps
+		// omitted components rather than padding them to a release range.
+		"compound_prerelease_caret": {
+			members: []string{"app"}, excluded: []string{"dep"},
+			crates: []rustGraphCrate{
+				{dir: "app", name: "app", extra: "[dependencies]\ndep={path='../dep',version='^1, >=1.0.0-alpha'}\n"},
+				{dir: "dep", name: "dep", version: "1.0.0-alpha"},
+			},
+		},
 		// uses_default_features on a dependency that defines no default.
 		"no_default_feature_dep": {
 			members: []string{"app"}, excluded: []string{"plain"},

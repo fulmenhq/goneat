@@ -459,7 +459,7 @@ func rustGraphDeclarationFor(pkg rustGraphPackage, dep rustGraphNodeDep, target 
 		if target.Name != name && rustNormalizedName(name) != rustNormalizedName(dep.Name) && rustNormalizedName(name) != rustNormalizedName(target.Name) {
 			continue
 		}
-		ok, err := cargoVersionMatches(decl.Req, target.Version)
+		ok, err := rustDeclarationVersionMatches(decl.Req, target.Version)
 		if err != nil {
 			return decl, fmt.Errorf("rust dependency %q -> %q: %w", pkg.ID, dep.Pkg, err)
 		}
@@ -496,6 +496,24 @@ func rustGraphDeclarationFor(pkg rustGraphPackage, dep rustGraphNodeDep, target 
 	default:
 		return rustGraphDeclaration{}, fmt.Errorf("rust resolve edge %q -> %q (%s) matches several manifest declarations", pkg.ID, dep.Pkg, kind)
 	}
+}
+
+// rustDeclarationVersionMatches is semver matching plus krates' declaration
+// rule: a requirement with no comparators (an unversioned path or git
+// dependency, reported as "*") also admits a pre-release package version.
+func rustDeclarationVersionMatches(req, version string) (bool, error) {
+	comparators, err := parseCargoReq(req)
+	if err != nil {
+		return false, err
+	}
+	v, err := parseCargoVersion(version)
+	if err != nil {
+		return false, err
+	}
+	if len(comparators) == 0 && v.pre != "" {
+		return true, nil
+	}
+	return cargoMatchesReq(comparators, v), nil
 }
 
 func rustTargetsEqual(a, b *string) bool {
