@@ -525,8 +525,8 @@ tools:
       windows:
         - scoop
     version_scheme: semver
-    minimum_version: "1.54.0"
-    recommended_version: "1.54.0"
+    minimum_version: "1.54.1"
+    recommended_version: "1.54.1"
   grype:
     name: grype
     description: Vulnerability scanner for container images and SBOMs
@@ -548,5 +548,5 @@ tools:
       windows:
         - scoop
     version_scheme: semver
-    minimum_version: "0.120.0"
-    recommended_version: "0.120.0"
+    minimum_version: "0.120.1"
+    recommended_version: "0.120.1"
