@@ -848,7 +848,7 @@ func runCargoDenyListWithSnapshot(ctx context.Context, root string, timeout time
 		return nil, fmt.Errorf("cargo deny list failed: %w", err)
 	}
 
-	deps, err := reconcileRustLicenseList(out, snapshot.Expected)
+	deps, err := reconcileRustLicenseList(out, snapshot.Expected, rustOmissionContext{DenyVersion: snapshot.DenyVersion, DevOnly: snapshot.DevOnly})
 	if err != nil {
 		return nil, err
 	}

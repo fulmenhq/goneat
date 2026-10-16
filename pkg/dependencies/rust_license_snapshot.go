@@ -21,6 +21,8 @@ import (
 // The license graph is deliberately bounded: all workspace roots and all
 // targets, the configured feature selection, and no graph exclusions. A
 // filtered target/exclusion graph needs its own reconciliation implementation.
+// Within that bound the expected set follows cargo-deny's own graph build
+// (see rust_license_graph.go), not the raw resolve edges.
 type rustLicenseScope struct {
 	AllFeatures       bool     `toml:"all-features"`
 	NoDefaultFeatures bool     `toml:"no-default-features"`
@@ -39,25 +41,6 @@ type rustLicensePackage struct {
 	ManifestPath string  `json:"manifest_path"`
 }
 
-type rustLicenseMetadata struct {
-	Packages         []rustLicensePackage `json:"packages"`
-	WorkspaceMembers []string             `json:"workspace_members"`
-	Resolve          *struct {
-		Nodes []rustLicenseNode `json:"nodes"`
-	} `json:"resolve"`
-}
-
-type rustLicenseNode struct {
-	ID           string   `json:"id"`
-	Dependencies []string `json:"dependencies"`
-	Deps         []struct {
-		Pkg      string `json:"pkg"`
-		DepKinds []struct {
-			Kind *string `json:"kind"`
-		} `json:"dep_kinds"`
-	} `json:"deps"`
-}
-
 type rustLicenseSnapshot struct {
 	Path          string
 	ConfigPath    string
@@ -68,7 +51,12 @@ type rustLicenseSnapshot struct {
 	Scope         rustLicenseScope
 	CLI           rustLicenseCLI
 	Expected      map[string]rustLicensePackage
-	cleanup       func()
+	// DevOnly holds crate keys reachable only through dev edges, from the
+	// same graph; DenyVersion is the parsed cargo-deny version ("" if
+	// unknown). Both only shape the omission diagnostic.
+	DevOnly     map[string]bool
+	DenyVersion string
+	cleanup     func()
 }
 
 // Before cargo-deny 0.20, graph flags were global but metadata/config belonged
@@ -262,13 +250,27 @@ func captureRustLicenseSnapshot(ctx context.Context, project *RustProject) (*rus
 	if err != nil {
 		return nil, fmt.Errorf("rust license metadata capture failed: %w: %s", err, strings.TrimSpace(stderr.String()))
 	}
-	expected, err := expectedRustLicensePackages(data)
+	graph, err := buildRustLicenseGraph(data)
 	if err != nil {
 		return nil, err
 	}
-	licenseSet, err := expectedRustLicenseStage(data, scope)
+	expected, err := rustLicenseKeyed(graph.stage(true, true))
 	if err != nil {
 		return nil, err
+	}
+	licenseSet, err := rustLicenseKeyed(graph.stage(scope.IncludeDev, scope.IncludeBuild))
+	if err != nil {
+		return nil, err
+	}
+	withoutDev, err := rustLicenseKeyed(graph.stage(false, true))
+	if err != nil {
+		return nil, err
+	}
+	devOnly := map[string]bool{}
+	for key := range expected {
+		if _, ok := withoutDev[key]; !ok {
+			devOnly[key] = true
+		}
 	}
 	var omitted []string
 	for key, pkg := range expected {
@@ -290,7 +292,7 @@ func captureRustLicenseSnapshot(ctx context.Context, project *RustProject) (*rus
 		cleanup()
 		return nil, err
 	}
-	return &rustLicenseSnapshot{Path: path, ConfigPath: configPath, ConfigHash: sha256.Sum256(configData), MetadataHash: sha256.Sum256(data), ExceptionPath: exceptionPath, ExceptionHash: exceptionHash, Scope: scope, CLI: cli, Expected: expected, cleanup: cleanup}, nil
+	return &rustLicenseSnapshot{Path: path, ConfigPath: configPath, ConfigHash: sha256.Sum256(configData), MetadataHash: sha256.Sum256(data), ExceptionPath: exceptionPath, ExceptionHash: exceptionHash, Scope: scope, CLI: cli, Expected: expected, DevOnly: devOnly, DenyVersion: detectCargoDenyVersion(ctx, root), cleanup: cleanup}, nil
 }
 
 func (s *rustLicenseSnapshot) denyArgs(command string) []string {
@@ -356,128 +358,23 @@ func rustLicenseExceptions(root string) (string, [32]byte, error) {
 }
 
 func expectedRustLicensePackages(data []byte) (map[string]rustLicensePackage, error) {
-	return expectedRustLicensePackagesWithKinds(data, true, true)
+	graph, err := buildRustLicenseGraph(data)
+	if err != nil {
+		return nil, err
+	}
+	return rustLicenseKeyed(graph.stage(true, true))
 }
 
+// expectedRustLicenseStage applies cargo-deny's license-stage filter to the
+// active graph. The graph is built once; stage filtering is reachability only
+// and never re-resolves features (a dev-only helper may legitimately activate
+// a feature on a crate that is also reachable through normal edges).
 func expectedRustLicenseStage(data []byte, scope rustLicenseScope) (map[string]rustLicensePackage, error) {
-	if scope.IncludeDev || scope.IncludeBuild {
-		return expectedRustLicensePackagesWithKinds(data, scope.IncludeDev, scope.IncludeBuild)
-	}
-	// cargo-deny intersects separately dev-filtered and build-filtered crate
-	// sets. Removing both edge kinds in one traversal is not equivalent when
-	// a crate has distinct dev and build paths from workspace roots.
-	withoutDev, err := expectedRustLicensePackagesWithKinds(data, false, true)
+	graph, err := buildRustLicenseGraph(data)
 	if err != nil {
 		return nil, err
 	}
-	withoutBuild, err := expectedRustLicensePackagesWithKinds(data, true, false)
-	if err != nil {
-		return nil, err
-	}
-	intersection := map[string]rustLicensePackage{}
-	for key, pkg := range withoutDev {
-		if other, ok := withoutBuild[key]; ok && other.ID == pkg.ID {
-			intersection[key] = pkg
-		}
-	}
-	return intersection, nil
-}
-
-func expectedRustLicensePackagesWithKinds(data []byte, includeDev, includeBuild bool) (map[string]rustLicensePackage, error) {
-	var metadata rustLicenseMetadata
-	if err := json.Unmarshal(data, &metadata); err != nil {
-		return nil, fmt.Errorf("decode Rust license metadata: %w", err)
-	}
-	if len(metadata.Packages) == 0 || len(metadata.WorkspaceMembers) == 0 || metadata.Resolve == nil || len(metadata.Resolve.Nodes) == 0 {
-		return nil, fmt.Errorf("rust license metadata has an empty or unresolved workspace graph")
-	}
-	packages := map[string]rustLicensePackage{}
-	for _, pkg := range metadata.Packages {
-		if pkg.ID == "" || pkg.Name == "" || pkg.Version == "" {
-			return nil, fmt.Errorf("rust license metadata contains a package without complete identity")
-		}
-		if _, exists := packages[pkg.ID]; exists {
-			return nil, fmt.Errorf("rust license metadata repeats package ID %q", pkg.ID)
-		}
-		packages[pkg.ID] = pkg
-	}
-	workspace := map[string]bool{}
-	for _, id := range metadata.WorkspaceMembers {
-		workspace[id] = true
-	}
-	nodes := map[string][]string{}
-	for _, node := range metadata.Resolve.Nodes {
-		if _, exists := nodes[node.ID]; exists {
-			return nil, fmt.Errorf("rust license metadata repeats resolve node %q", node.ID)
-		}
-		// Match cargo-deny's default: dev edges are retained for workspace
-		// packages only. Use resolved edge kinds, never manifest re-evaluation.
-		allEdges := map[string]bool{}
-		var retained []string
-		for _, dep := range node.Deps {
-			if dep.Pkg == "" || len(dep.DepKinds) == 0 {
-				return nil, fmt.Errorf("incomplete Rust resolve edge for %q", node.ID)
-			}
-			allEdges[dep.Pkg] = true
-			include := false
-			for _, kind := range dep.DepKinds {
-				if kind.Kind == nil {
-					include = true
-					continue
-				}
-				switch *kind.Kind {
-				case "normal":
-					include = true
-				case "build":
-					include = include || includeBuild
-				case "dev":
-					include = include || (workspace[node.ID] && includeDev)
-				default:
-					return nil, fmt.Errorf("unsupported Rust dependency kind %q for %q", *kind.Kind, node.ID)
-				}
-			}
-			if include {
-				retained = append(retained, dep.Pkg)
-			}
-		}
-		if len(allEdges) != len(node.Dependencies) {
-			return nil, fmt.Errorf("rust resolve edge coverage is incomplete for %q", node.ID)
-		}
-		for _, id := range node.Dependencies {
-			if !allEdges[id] {
-				return nil, fmt.Errorf("rust resolve edge %q from %q omitted its kind evidence", id, node.ID)
-			}
-		}
-		nodes[node.ID] = retained
-	}
-	// Start at every workspace member, not every raw package. Only reachable
-	// resolved dependencies belong to this all-workspace graph.
-	queue := append([]string(nil), metadata.WorkspaceMembers...)
-	visited := map[string]bool{}
-	expected := map[string]rustLicensePackage{}
-	for len(queue) > 0 {
-		id := queue[0]
-		queue = queue[1:]
-		if visited[id] {
-			continue
-		}
-		visited[id] = true
-		pkg, exists := packages[id]
-		deps, resolved := nodes[id]
-		if !exists || !resolved {
-			return nil, fmt.Errorf("rust license metadata omits package or resolve node %q", id)
-		}
-		key, err := rustLicenseCrateKey(pkg)
-		if err != nil {
-			return nil, err
-		}
-		if _, exists := expected[key]; exists {
-			return nil, fmt.Errorf("rust license crate identity collision for %q", key)
-		}
-		expected[key] = pkg
-		queue = append(queue, deps...)
-	}
-	return expected, nil
+	return rustLicenseKeyed(graph.stage(scope.IncludeDev, scope.IncludeBuild))
 }
 
 func rustLicenseCrateKey(pkg rustLicensePackage) (string, error) {
@@ -504,7 +401,7 @@ func rustLicenseCrateKey(pkg rustLicensePackage) (string, error) {
 	return pkg.Name + " " + pkg.Version + " " + source, nil
 }
 
-func reconcileRustLicenseList(data []byte, expected map[string]rustLicensePackage) ([]CargoCrateLicense, error) {
+func reconcileRustLicenseList(data []byte, expected map[string]rustLicensePackage, diag rustOmissionContext) ([]CargoCrateLicense, error) {
 	// Streaming the object retains duplicate keys, which unmarshalling into a
 	// map would silently collapse and wrongly treat as unique crate evidence.
 	rows := map[string]struct {
@@ -561,11 +458,11 @@ func reconcileRustLicenseList(data []byte, expected map[string]rustLicensePackag
 	var omitted []string
 	for _, key := range keys {
 		if _, ok := rows[key]; !ok {
-			omitted = append(omitted, fmt.Sprintf("%q (crate %q)", expected[key].ID, key))
+			omitted = append(omitted, key)
 		}
 	}
 	if len(omitted) > 0 {
-		return nil, fmt.Errorf("incomplete Rust license inventory: cargo-deny list omitted gathered package IDs: %s; verify that cargo-deny list applies the configured license-stage settings: cargo-deny 0.19.0 does not apply licenses.include-dev=true to dev-only crates; use a release that honors this setting (verified with 0.20.2) and rerun without excluding gathered crates", strings.Join(omitted, ", "))
+		return nil, rustOmissionError(omitted, expected, diag)
 	}
 	crates := make([]CargoCrateLicense, 0, len(keys))
 	for _, key := range keys {
@@ -665,4 +562,44 @@ func parseRustLicenseCheck(data []byte, checks []CargoDenyCheckType) ([]cargoDen
 		return nil, fmt.Errorf("cargo-deny check did not produce a complete license/ban summary")
 	}
 	return entries, nil
+}
+
+// rustOmissionContext carries what the omission diagnostic may claim.
+type rustOmissionContext struct {
+	DenyVersion string
+	DevOnly     map[string]bool
+}
+
+// rustOmissionError reports crates goneat expected but cargo-deny did not
+// list. The historical cargo-deny 0.19.0 advice (list ignores include-dev for
+// dev-only crates) is given only when the installed version is below 0.20.0
+// and every omitted crate is dev-only; anything else is reported neutrally,
+// because an upgrade would not explain it.
+func rustOmissionError(omitted []string, expected map[string]rustLicensePackage, diag rustOmissionContext) error {
+	listed := make([]string, len(omitted))
+	devOnly := len(omitted) > 0
+	for i, key := range omitted {
+		listed[i] = fmt.Sprintf("%q (crate %q)", expected[key].ID, key)
+		devOnly = devOnly && diag.DevOnly[key]
+	}
+	version := diag.DenyVersion
+	if version != "" && devOnly && compareVersions(version, "0.20.0") < 0 {
+		return fmt.Errorf("incomplete Rust license inventory: cargo-deny %s list omitted dev-only package IDs: %s; cargo-deny before 0.20 does not apply licenses.include-dev=true to dev-only crates in list output; use cargo-deny 0.20.0 or newer (verified with 0.20.2)", version, strings.Join(listed, ", "))
+	}
+	if version == "" {
+		version = "(version unknown)"
+	}
+	return fmt.Errorf("incomplete Rust license inventory: goneat expected these package IDs from the resolved metadata graph, but cargo-deny %s list did not include them: %s; this is likely a goneat license-graph defect, please report it with the workspace's Cargo.lock and deny.toml", version, strings.Join(listed, ", "))
+}
+
+// detectCargoDenyVersion returns the parsed `cargo deny --version`, or "" when
+// it cannot be determined. Diagnostic only: never fails the analysis.
+func detectCargoDenyVersion(ctx context.Context, root string) string {
+	cmd := exec.CommandContext(ctx, "cargo", "deny", "--version") // #nosec G204 -- hardcoded args
+	cmd.Dir = root
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return parseVersionFromOutput(string(out))
 }
