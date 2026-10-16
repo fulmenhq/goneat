@@ -970,6 +970,8 @@ func parseCargoDenyList(out []byte) []CargoCrateLicense {
 //   - "MIT OR Apache-2.0" -> ["MIT", "Apache-2.0"]
 //   - "MIT AND Apache-2.0" -> ["MIT", "Apache-2.0"]
 //   - "(MIT OR Apache-2.0) AND BSD-3-Clause" -> ["MIT", "Apache-2.0", "BSD-3-Clause"]
+//   - "MIT/Apache-2.0" -> ["MIT", "Apache-2.0"] (deprecated slash form; cargo-deny
+//     parses "/" as OR even in its strict mode because old crate versions use it)
 func parseLicenseExpression(expr string) []string {
 	if expr == "" {
 		return nil
@@ -981,7 +983,7 @@ func parseLicenseExpression(expr string) []string {
 
 	// Split on OR and AND (case insensitive)
 	// Use regex to handle " OR " and " AND " with surrounding spaces
-	separatorPattern := regexp.MustCompile(`\s+(?:OR|AND)\s+`)
+	separatorPattern := regexp.MustCompile(`\s+(?:OR|AND)\s+|\s*/\s*`)
 	parts := separatorPattern.Split(expr, -1)
 
 	var licenses []string

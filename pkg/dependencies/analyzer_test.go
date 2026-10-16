@@ -171,6 +171,9 @@ func TestParseLicenseExpression(t *testing.T) {
 		{"complex", "(MIT OR Apache-2.0) AND BSD-3-Clause", []string{"MIT", "Apache-2.0", "BSD-3-Clause"}},
 		{"empty", "", nil},
 		{"unlicense_or_mit", "Unlicense OR MIT", []string{"Unlicense", "MIT"}},
+		{"slash_or", "MIT/Apache-2.0", []string{"MIT", "Apache-2.0"}},
+		{"slash_or_spaced", "Apache-2.0 / MIT", []string{"Apache-2.0", "MIT"}},
+		{"slash_mixed", "Unlicense/MIT OR Apache-2.0", []string{"Unlicense", "MIT", "Apache-2.0"}},
 	}
 
 	for _, tt := range tests {
