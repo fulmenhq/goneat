@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Note**: This changelog keeps the latest 10 releases for readability. For older releases, see `docs/releases/` archive.
 
+## [v0.6.5] - 2026-10-17
+
+### Fixed
+
+- **Dependencies**: Rust license inventory now matches `cargo deny list`. The expected crate set is built from the same metadata snapshot with cargo-deny's rules: features resolved from the workspace members, optional dependencies counted only when an enabled feature turns them on, dependencies under predicate-free never-true targets such as `cfg(any())` skipped, each resolved dependency matched to its manifest declaration by kind, target, name, version requirement and source, and `include-dev`/`include-build` applied as reachability. Workspaces depending on crates such as `uuid`, `time`, `zerocopy` or `rustls-pki-types` previously failed with "incomplete Rust license inventory".
+- **Dependencies**: Cargo version requirements are evaluated with semver's per-operator rules, including partial versions and pre-releases.
+- **Dependencies**: slash-separated crate licenses (`MIT/Apache-2.0`) are compared as OR when checked against cargo-deny's license list. The reported license is the declared expression.
+
+### Changed
+
+- **Dependencies**: a crate goneat expected but cargo-deny did not list is reported with the installed cargo-deny version. The `include-dev` upgrade advice appears only for cargo-deny versions below 0.20 when every missing crate is dev-only.
+- **Release**: the GitHub release is created as a draft and published only after every asset and signature is verified in place. A failed check leaves it a draft.
+- **Tools**: Syft 1.54.1 and Grype 0.120.1 are the minimum and recommended versions.
+- **CI**: runner images are fulmen-toolbox v0.5.10.
+
 ## [v0.6.4] - 2026-10-14
 
 ### Added
@@ -166,23 +181,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **YAML format noise cleanup**: pre-existing goneat-owned YAML comment-padding and indentation drift has been normalized so the repository starts v0.5.13 clean.
 - **Crucible-synced mirror handling**: Crucible-synced config and schema mirrors are now excluded from local format drift checks so upstream-owned content is not churned by goneat-local formatting.
 - **README language matrix**: Markdown now advertises both built-in artifact linting and prettier-backed formatting, while JSON remains format-only.
-
-## [v0.5.12] - 2026-05-27
-
-### Fixed
-
-- **`goneat format` vs `yamlfmt -lint` divergence**: the sequential `cmd/format.go::formatYAMLFile` path silently omitted `pad_line_comments` when invoking `yamlfmt`, so `goneat format` was a no-op on YAML files that the parallel/assess paths would correctly flag. All three call sites — sequential format, parallel format, and assess check (`pkg/work/format_processor.go::checkYAMLFile`) — now share a single arg builder, `pkg/config.YAMLFormatConfig.YamlfmtFormatterArgs`. Reported by limensafe via kilo-devlead.
-- **`Lint: error` in offline/sandboxed dev**: `internal/assess/lint_runner.go::verifyGolangciConfig` now classifies golangci-lint stderr against 9 network-error patterns (`dial tcp`, `no such host`, `i/o timeout`, `failed to get schema`, `connection refused`, `network is unreachable`, `tls handshake timeout`, `context deadline exceeded`, `temporary failure in name resolution`) and demotes those to a warn-skip. Structural schema errors still propagate. Reported by @agent-india-devlead during v0.5.11 validation.
-- **CI license-audit silent false-green**: `make license-audit` invoked `rg "$forbidden"` inline; CI runners without ripgrep produced `rg: not found` (non-zero) which the `if` branch treated as "no forbidden licenses." Replaced with `grep -E` so the matcher cannot silently fail. Added an explicit Makefile allowlist filter for `(github.com/cyphar/filepath-securejoin, MPL-2.0)` — a transitive bounded-filesystem dependency of `go-git`/`go-billy` required by the v5.9.0 / v5.19.0 bumps in this release. Narrow exception recorded in `.goneat/dependencies.yaml` per @agent-entarch-fulmenhq's review, approved by @3leapsdave, revisit at v0.5.13/v0.6.0.
-- **`scripts/verify-release-assets.sh` false-positive checksum mismatch**: all three SHA256/SHA512 compares now sort by filename column (`sort -k 2`) so identical content with different line ordering compares clean. Also fixed a pre-existing logic bug where `LOCAL_SHA256_SORTED` and `local_sorted` pointed at the same file, causing BSD `cp` to exit 1.
-- **`.git/**` excludes in assess templates fail in linked worktrees**: swept `.git/**` → `.git` in all five `templates/assess/*.yaml` SSOTs. The `**` form trips when `.git` is a gitfile (worktree) instead of a directory.
-
-### Changed
-
-- **Dependency bumps**: `github.com/go-git/go-git/v5` 5.16.5 → 5.19.0, `github.com/go-git/go-billy/v5` 5.7.0 → 5.9.0, `google.golang.org/grpc` 1.78.0 → 1.81.1, `go.opentelemetry.io/otel/sdk` 1.40.0 → 1.43.0, `golang.org/x/crypto` 0.47.0 → 0.51.0. Resolver-permitted `golang.org/x/*` group coherence lifted (`sys`, `text`, `net`, `sync`, `tools`, `mod`, `exp`). `github.com/cyphar/filepath-securejoin` pulled to v0.6.1 by the go-git/go-billy upgrade (covered by the MPL-2.0 allowlist). Scope re-validated against `go list -m -u` by @agent-kilo-devrev at branch time.
-- **YAML format/lint alignment guidance**: `docs/appnotes/yaml-format-lint-alignment.md` and `docs/user-guide/commands/format.md` now lead with a ⚠️ callout that `.yamlfmt` MUST set `formatter.pad_line_comments: 2` whenever direct `yamlfmt` is invoked outside goneat (CI, hooks, IDE integrations). Added a "Direct `yamlfmt` callouts" three-pattern subsection and a "Symptom of misalignment" debug aid that names the exact diff users will see.
-- **CI Go runtime alignment (security-driven)**: `.github/workflows/ci.yml` now uses `ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.4.2` (bumped from `:v0.4.1`), which bundles Go 1.26.2 and golangci-lint v2.12.1 — picks up the Go 1.26.x CVE fixes (notably CVE-2026-33810) that landed in fulmen-toolbox v0.3.5. `.github/workflows/release.yml` and `.github/workflows/license-audit.yml` move from `go-version: '1.25.x'` to `'1.26.x'` for matching coverage in the non-containerized jobs. `go.mod`'s `go 1.25.0` directive is intentionally unchanged — the floor for downstream consumers stays where it was.
-
----
-
-**Note**: Older releases (v0.5.11 and earlier) are archived in [`docs/releases/`](docs/releases/).

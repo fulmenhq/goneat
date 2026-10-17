@@ -1,62 +1,55 @@
-# Goneat v0.6.4 — Committed Release Keys and Faster Startup
+# Goneat v0.6.5 — Rust License Inventory Matches cargo-deny
 
-**Release Date**: 2026-10-14
+**Release Date**: 2026-10-17
 **Status**: Stable
 
 ## TL;DR
 
-- **Release keys are committed to the repository.** Starting with v0.6.4, the public signing keys and their fingerprints are in the repository. Release signatures are checked against the keys committed at the release tag.
-- **One-command PGP verification.** `scripts/verify-release-pgp.sh` checks a release manifest signature against the committed signing subkey in a throwaway keyring.
-- **Faster startup.** Commands no longer start package manager processes to extend `PATH`. `goneat version` drops from about 210 ms to about 25 ms on a machine with common package managers installed.
-- **Apple jq.** The tools check reads `jq-1.7.1-apple` and other tool-prefixed version strings instead of reporting them as unparseable.
+- **Rust license checks no longer fail on clean workspaces.** `goneat dependencies --licenses` (and `--sbom`) reported "incomplete Rust license inventory" for workspaces that cargo-deny inventories without errors. goneat now builds the expected crate set the same way cargo-deny does.
+- **Older crate license fields are accepted.** Slash-separated licenses such as `MIT/Apache-2.0` are compared as OR, as cargo-deny parses them.
+- **Accurate omission messages.** The `include-dev` upgrade advice appears only for cargo-deny versions below 0.20 when every missing crate is dev-only.
+- **Releases stay drafts until signed.** A release is published only after its signatures are uploaded and verified.
+- **Scanner versions.** Syft 1.54.1 and Grype 0.120.1 are the minimum and recommended versions.
 
 ## What Changed
 
-### Release signing
+### Rust license inventory
 
-- `keys/expected-fingerprints.txt`, `docs/security/release-signing-keys.asc` and `docs/security/release-minisign.pub` hold the release keys.
-- `make release-verify-signatures` and the release upload read the keys from the release tag and need no operator trust inputs. `GONEAT_RELEASE_PIN_REF` and `GONEAT_RELEASE_TRUST=env` are explicit overrides. Signing requires the operator keys to match the committed keys.
-- `scripts/verify-release-pgp.sh` uses a throwaway keyring and requires a good, unexpired, unrevoked signature by the pinned signing subkey.
-- The [release signing guide](https://github.com/fulmenhq/goneat/blob/v0.6.4/docs/security/release-signing.md) lists the current keys and the verification steps.
+goneat checks that every crate in the workspace's resolved dependency graph has license evidence from `cargo deny list`. It previously walked every resolved dependency edge in `cargo metadata`, including edges that cargo-deny correctly leaves out, and failed on the crates cargo-deny did not list. Workspaces depending on crates such as `uuid`, `time`, `zerocopy` or `rustls-pki-types` were affected.
 
-### Startup
+The expected crate set is now built from the same metadata snapshot cargo-deny reads, following its rules:
 
-- Every command extended `PATH` with package manager shim directories, and first ran each manager's version command to check that it was installed. `PATH` extension now checks the directories alone and starts no process. `goneat doctor` still reports manager versions.
-- A mise or scoop shim directory that exists is added to `PATH` even when the manager itself is not on `PATH`. Shim directories are appended, so they do not shadow tools already on `PATH`.
+- Features are resolved from the workspace members. An optional dependency counts only when an enabled feature turns it on. A weak `dep?/feature` reference does not turn it on.
+- Dependencies declared only under a target expression that can never be true, such as `cfg(any())`, are skipped. Target expressions that name a platform are kept, as cargo-deny keeps them when no `[graph] targets` are configured.
+- Each resolved dependency is matched to its manifest declaration by kind, target, name, version requirement and source. Version requirements follow Cargo's semver rules, including pre-release versions.
+- `licenses.include-dev` and `licenses.include-build` remove crates that are reachable only through dev or build dependencies, without changing which features are enabled.
 
-### Tools check
+Configured `[graph] targets` and `[graph] exclude` remain unsupported and are reported as such. A `deny.toml` that leaves out dev-dependency crates (`include-dev = false`) is still rejected, because the license inventory would not cover the whole dependency graph. Set `licenses.include-dev = true` to use the check.
 
-- Tool version detection reads tool-prefixed versions such as `jq-1.8.1` and `jq-1.7.1-apple`. Prerelease suffixes are kept.
+### License expressions
 
-## Verifying This Release
+- When comparing a crate's `license` field with cargo-deny's license list, `/` is read as OR (`MIT/Apache-2.0`, `Apache-2.0 / MIT`). The reported license is the crate's declared expression.
 
-v0.6.4 is the first release whose keys can be fetched from its tag:
+### Omission messages
 
-```bash
-RELEASE_VERSION="v0.6.4"
-BASE="https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}"
-KEYS="https://raw.githubusercontent.com/fulmenhq/goneat/${RELEASE_VERSION}"
+- A crate goneat expected but cargo-deny did not list is reported with the installed cargo-deny version and a request to report the issue.
+- The `include-dev` upgrade advice appears only for cargo-deny versions below 0.20 when every missing crate is a dev-only dependency.
 
-curl -LO "${BASE}/SHA256SUMS"
-curl -LO "${BASE}/SHA256SUMS.minisig"
-curl -LO "${BASE}/SHA256SUMS.asc"
-curl -L -o release-minisign.pub "${KEYS}/docs/security/release-minisign.pub"
-curl -L -o release-signing-keys.asc "${KEYS}/docs/security/release-signing-keys.asc"
-curl -L -o expected-fingerprints.txt "${KEYS}/keys/expected-fingerprints.txt"
-curl -L -o verify-release-pgp.sh "${KEYS}/scripts/verify-release-pgp.sh"
+### Releases
 
-minisign -Vm SHA256SUMS -p release-minisign.pub
-bash verify-release-pgp.sh expected-fingerprints.txt release-signing-keys.asc SHA256SUMS.asc SHA256SUMS
-```
+- The release workflow creates the GitHub release as a draft. `release-assets.py upload` publishes it only after every asset and signature has been verified in place. A failed check leaves the release as a draft.
 
-Compare `expected-fingerprints.txt` with the fingerprints in the release signing guide before trusting it.
+### Tools
+
+- Syft 1.54.1 and Grype 0.120.1 are both the minimum and recommended versions in the repository tool policy and the embedded defaults.
+- CI runner images are fulmen-toolbox v0.5.10.
 
 ## Go 1.27
 
-gosec v2.29.0 still cannot read Go 1.27 package data. The workarounds in the [v0.6.3 notes](https://github.com/fulmenhq/goneat/blob/v0.6.4/docs/releases/v0.6.3.md#go-127) still apply.
+gosec v2.29.0 still cannot read Go 1.27 package data. The workarounds in the [v0.6.3 notes](https://github.com/fulmenhq/goneat/blob/v0.6.5/docs/releases/v0.6.3.md#go-127) still apply.
 
 ## Upgrading
 
-Building from source or with `go install` requires **Go 1.26 or later**. Release workflow pins are Go 1.26.9. CI runner images are fulmen-toolbox v0.5.9.
+Building from source or with `go install` requires **Go 1.26 or later**. Release workflow pins are Go 1.26.9.
 
-v0.6.4 release archives are Darwin ARM64, Linux amd64, Linux ARM64, Windows amd64, and Windows ARM64. Darwin amd64 downloads end at v0.6.1.
+v0.6.5 release archives are Darwin ARM64, Linux amd64, Linux ARM64, Windows amd64, and Windows ARM64. Darwin amd64 downloads end at v0.6.1. Verify downloads as described in the [v0.6.4 notes](https://github.com/fulmenhq/goneat/blob/v0.6.5/docs/releases/v0.6.4.md#verifying-this-release), using `RELEASE_VERSION="v0.6.5"`.
