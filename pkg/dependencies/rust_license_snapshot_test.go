@@ -197,7 +197,7 @@ func TestRustLicenseGitSourceIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows, err := reconcileRustLicenseList(data, expected)
+	rows, err := reconcileRustLicenseList(data, expected, rustOmissionContext{})
 	if err != nil || rows[0].Source != source || rows[0].PackageID != pkg.ID {
 		t.Fatalf("git commit/source lost: %#v %v", rows, err)
 	}
@@ -437,19 +437,24 @@ exit 9
 }
 
 func rustMetadataFixture() []byte {
+	// Two dependencies share the name "dep" (registry and path); only the
+	// declaration source/path disambiguates which edge each one produced.
 	return []byte(`{
 		"packages": [
-			{"id":"path+file:///workspace#root@0.1.0","name":"root","version":"0.1.0","source":null,"license":"MIT","manifest_path":"/workspace/Cargo.toml"},
-			{"id":"registry+https://example.test/index#dep@1.0.0","name":"dep","version":"1.0.0","source":"registry+https://example.test/index","license":"MIT AND Apache-2.0"},
-			{"id":"path+file:///workspace/dep#dep@1.0.0","name":"dep","version":"1.0.0","source":null,"license":"MIT OR Apache-2.0"},
-			{"id":"registry+https://example.test/index#unused@1.0.0","name":"unused","version":"1.0.0","source":"registry+https://example.test/index","license":"MIT"}
+			{"id":"path+file:///workspace#root@0.1.0","name":"root","version":"0.1.0","source":null,"license":"MIT","manifest_path":"/workspace/Cargo.toml","features":{},"dependencies":[
+				{"name":"dep","rename":null,"req":"^1.0.0","kind":null,"target":null,"optional":false,"uses_default_features":true,"features":[],"source":"registry+https://example.test/index"},
+				{"name":"dep","rename":"dep-local","req":"*","kind":null,"target":null,"optional":false,"uses_default_features":true,"features":[],"path":"/workspace/dep"}
+			]},
+			{"id":"registry+https://example.test/index#dep@1.0.0","name":"dep","version":"1.0.0","source":"registry+https://example.test/index","license":"MIT AND Apache-2.0","features":{},"dependencies":[]},
+			{"id":"path+file:///workspace/dep#dep@1.0.0","name":"dep","version":"1.0.0","source":null,"license":"MIT OR Apache-2.0","features":{},"dependencies":[]},
+			{"id":"registry+https://example.test/index#unused@1.0.0","name":"unused","version":"1.0.0","source":"registry+https://example.test/index","license":"MIT","features":{},"dependencies":[]}
 		],
 		"workspace_members": ["path+file:///workspace#root@0.1.0"],
 		"resolve": {"nodes": [
-			{"id":"path+file:///workspace#root@0.1.0","dependencies":["registry+https://example.test/index#dep@1.0.0","path+file:///workspace/dep#dep@1.0.0"],"deps":[{"pkg":"registry+https://example.test/index#dep@1.0.0","dep_kinds":[{"kind":null}]},{"pkg":"path+file:///workspace/dep#dep@1.0.0","dep_kinds":[{"kind":null}]}]},
-			{"id":"registry+https://example.test/index#dep@1.0.0","dependencies":[]},
-			{"id":"path+file:///workspace/dep#dep@1.0.0","dependencies":[]},
-			{"id":"registry+https://example.test/index#unused@1.0.0","dependencies":[]}
+			{"id":"path+file:///workspace#root@0.1.0","features":[],"dependencies":["registry+https://example.test/index#dep@1.0.0","path+file:///workspace/dep#dep@1.0.0"],"deps":[{"name":"dep","pkg":"registry+https://example.test/index#dep@1.0.0","dep_kinds":[{"kind":null,"target":null}]},{"name":"dep_local","pkg":"path+file:///workspace/dep#dep@1.0.0","dep_kinds":[{"kind":null,"target":null}]}]},
+			{"id":"registry+https://example.test/index#dep@1.0.0","features":[],"dependencies":[]},
+			{"id":"path+file:///workspace/dep#dep@1.0.0","features":[],"dependencies":[]},
+			{"id":"registry+https://example.test/index#unused@1.0.0","features":[],"dependencies":[]}
 		]}
 	}`)
 }
@@ -525,7 +530,13 @@ func TestExpectedRustLicenseDevEdges(t *testing.T) {
 			id := "registry+https://example.test/index#unused@1.0.0"
 			node["dependencies"] = append(node["dependencies"].([]interface{}), id)
 			deps, _ := node["deps"].([]interface{})
-			node["deps"] = append(deps, map[string]interface{}{"pkg": id, "dep_kinds": []interface{}{map[string]interface{}{"kind": tc.kind}}})
+			node["deps"] = append(deps, map[string]interface{}{"name": "unused", "pkg": id, "dep_kinds": []interface{}{map[string]interface{}{"kind": tc.kind, "target": nil}}})
+			// The edge needs its manifest declaration, as cargo metadata emits.
+			pkg := metadata["packages"].([]interface{})[index].(map[string]interface{})
+			pkg["dependencies"] = append(pkg["dependencies"].([]interface{}), map[string]interface{}{
+				"name": "unused", "req": "^1", "kind": tc.kind, "target": nil, "optional": false,
+				"uses_default_features": true, "features": []interface{}{}, "source": "registry+https://example.test/index",
+			})
 			data, err := json.Marshal(metadata)
 			if err != nil {
 				t.Fatal(err)
@@ -669,7 +680,7 @@ func TestRustLicenseRealFeatureWorkspace(t *testing.T) {
 				if err != nil || result == nil || result.Passed || len(result.Dependencies) != 0 || result.PackagesScanned != 0 || len(result.Issues) != 1 || result.Issues[0].Type != "license_error" || result.Issues[0].Severity != "critical" {
 					t.Fatalf("specific unsupported inventory must fail closed: %#v %v", result, err)
 				}
-				for _, text := range []string{"incomplete Rust license inventory", "cargo-deny list omitted", devID, devKey, "licenses.include-dev=true", "use a release that honors this setting"} {
+				for _, text := range []string{"incomplete Rust license inventory", "cargo-deny 0.19.0 list omitted dev-only package IDs", devID, devKey, "licenses.include-dev=true", "use cargo-deny 0.20.0 or newer"} {
 					if !strings.Contains(result.Issues[0].Message, text) {
 						t.Fatalf("missing specific cause/remediation %q: %s", text, result.Issues[0].Message)
 					}
@@ -733,7 +744,7 @@ func TestReconcileRustLicenseList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	crates, err := reconcileRustLicenseList(data, expected)
+	crates, err := reconcileRustLicenseList(data, expected, rustOmissionContext{})
 	if err != nil || len(crates) != 3 {
 		t.Fatalf("exact crate set: %v %v", crates, err)
 	}
@@ -767,11 +778,11 @@ func TestReconcileRustLicenseList(t *testing.T) {
 			case "trailing":
 				encoded = append(append([]byte(nil), data...), []byte(` {}`)...)
 			}
-			if _, err := reconcileRustLicenseList(encoded, expected); err == nil {
+			if _, err := reconcileRustLicenseList(encoded, expected, rustOmissionContext{}); err == nil {
 				t.Fatal("incomplete/invalid crate list passed")
 			}
 			if mode == "omitted" {
-				crates, err := reconcileRustLicenseList(encoded, expected)
+				crates, err := reconcileRustLicenseList(encoded, expected, rustOmissionContext{})
 				if crates != nil || err == nil {
 					t.Fatalf("omission returned partial inventory: %v %v", crates, err)
 				}
@@ -783,8 +794,9 @@ func TestReconcileRustLicenseList(t *testing.T) {
 						t.Fatalf("omission lost exact identity %s: %v", pkg.ID, err)
 					}
 				}
-				if !strings.Contains(err.Error(), "use a release that honors this setting") {
-					t.Fatalf("missing remediation: %v", err)
+				// No version or dev-only evidence: neutral report, no upgrade advice.
+				if !strings.Contains(err.Error(), "goneat license-graph defect") || strings.Contains(err.Error(), "include-dev") {
+					t.Fatalf("omission without version evidence must be reported neutrally: %v", err)
 				}
 			}
 		})

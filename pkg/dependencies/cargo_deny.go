@@ -848,7 +848,7 @@ func runCargoDenyListWithSnapshot(ctx context.Context, root string, timeout time
 		return nil, fmt.Errorf("cargo deny list failed: %w", err)
 	}
 
-	deps, err := reconcileRustLicenseList(out, snapshot.Expected)
+	deps, err := reconcileRustLicenseList(out, snapshot.Expected, rustOmissionContext{DenyVersion: snapshot.DenyVersion, DevOnly: snapshot.DevOnly})
 	if err != nil {
 		return nil, err
 	}
@@ -970,6 +970,8 @@ func parseCargoDenyList(out []byte) []CargoCrateLicense {
 //   - "MIT OR Apache-2.0" -> ["MIT", "Apache-2.0"]
 //   - "MIT AND Apache-2.0" -> ["MIT", "Apache-2.0"]
 //   - "(MIT OR Apache-2.0) AND BSD-3-Clause" -> ["MIT", "Apache-2.0", "BSD-3-Clause"]
+//   - "MIT/Apache-2.0" -> ["MIT", "Apache-2.0"] (deprecated slash form; cargo-deny
+//     parses "/" as OR even in its strict mode because old crate versions use it)
 func parseLicenseExpression(expr string) []string {
 	if expr == "" {
 		return nil
@@ -981,7 +983,7 @@ func parseLicenseExpression(expr string) []string {
 
 	// Split on OR and AND (case insensitive)
 	// Use regex to handle " OR " and " AND " with surrounding spaces
-	separatorPattern := regexp.MustCompile(`\s+(?:OR|AND)\s+`)
+	separatorPattern := regexp.MustCompile(`\s+(?:OR|AND)\s+|\s*/\s*`)
 	parts := separatorPattern.Split(expr, -1)
 
 	var licenses []string
