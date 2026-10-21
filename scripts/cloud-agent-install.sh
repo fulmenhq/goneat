@@ -26,7 +26,7 @@ export GOTOOLCHAIN="${GOTOOLCHAIN:-go1.26.10}"
 
 # Pins: config/tools/foundation-tools-defaults.yaml recommended_version.
 # goimports has no recommended pin there; match go.mod's golang.org/x/tools.
-GOLANGCI_LINT_VERSION="v2.12.2"
+GOLANGCI_LINT_VERSION="v2.14.0"
 GOIMPORTS_VERSION="v0.51.0"
 GOSEC_VERSION="v2.28.0"
 GOVULNCHECK_VERSION="v1.6.0"

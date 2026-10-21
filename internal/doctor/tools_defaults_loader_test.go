@@ -89,7 +89,7 @@ func TestRecommendedToolVersionLock(t *testing.T) {
 		"gitleaks":      {recommended: "8.30.1"},
 		"go":            {recommended: "1.26.10", defaultMinimum: "1.21.0", repositoryMinimum: "1.26.10"},
 		"go-licenses":   {recommended: "2.0.1", defaultMinimum: "2.0.1", repositoryMinimum: "2.0.1"},
-		"golangci-lint": {recommended: "2.12.2", defaultMinimum: "2.0.0", repositoryMinimum: "2.0.0"},
+		"golangci-lint": {recommended: "2.14.0", defaultMinimum: "2.0.0", repositoryMinimum: "2.0.0"},
 		"gosec":         {recommended: "2.28.0", defaultMinimum: "2.18.0", repositoryMinimum: "2.18.0"},
 		"govulncheck":   {recommended: "1.6.0", defaultMinimum: "1.0.0", repositoryMinimum: "1.0.0"},
 		"grype":         {recommended: "0.120.1", defaultMinimum: "0.120.1", repositoryMinimum: "0.120.1"},

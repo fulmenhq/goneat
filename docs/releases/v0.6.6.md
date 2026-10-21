@@ -17,6 +17,7 @@
 - Published release binaries are built with `go1.26.10`.
 - CI runner images stay fulmen-toolbox v0.5.10. Those images still carry Go 1.26.9. CI selects Go 1.26.10 with `GOTOOLCHAIN` and `actions/setup-go`.
 - Direct modules are etree v1.8.1, doublestar/v4 v4.10.3, go-runewidth v0.0.31, golang.org/x/mod v0.42.0, golang.org/x/sync v0.24.0, golang.org/x/sys v0.49.0, and golang.org/x/text v0.43.0. golang.org/x/mod v0.42.0 selects golang.org/x/tools v0.51.0. go-runewidth v0.0.31 measures regional-indicator flag emoji wider in `ascii` boxes.
+- Recommended golangci-lint is 2.14.0. The minimum stays 2.0.0. CI runner images stay fulmen-toolbox v0.5.10, which still carries golangci-lint v2.12.2.
 
 ## Go 1.27
 

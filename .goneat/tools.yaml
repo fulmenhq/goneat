@@ -322,7 +322,7 @@ tools:
         - go-install
     version_scheme: semver
     minimum_version: "2.0.0"
-    recommended_version: "2.12.2"
+    recommended_version: "2.14.0"
   goimports:
     name: goimports
     description: Go import formatter
