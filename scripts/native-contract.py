@@ -171,7 +171,7 @@ def main():
         == {
             "source_sha": args.source_sha,
             "version": args.version,
-            "compiler": "go1.26.9",
+            "compiler": "go1.26.10",
         },
         "candidate provenance mismatch",
     )
@@ -202,7 +202,7 @@ def main():
             (info["platform"], info["arch"]) == (os_name, arch),
             "goneat process architecture mismatch",
         )
-        require(info["goVersion"] == "go1.26.9", "compiler mismatch")
+        require(info["goVersion"] == "go1.26.10", "compiler mismatch")
         # JSON's gitCommit describes the working directory; the text form reads
         # buildinfo.GitCommit. Run outside the source tree and check that value.
         extended = run(binary, cwd, ["version", "--extended"])

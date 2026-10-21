@@ -168,7 +168,7 @@ gosec reads the compiled package data that the active Go toolchain writes. A gos
 
 ```bash
 # Keep the gosec release and run under Go 1.26
-GOTOOLCHAIN=go1.26.9 goneat assess
+GOTOOLCHAIN=go1.26.10 goneat assess
 
 # Or install an unreleased gosec commit built with golang.org/x/tools v0.50.0
 go install github.com/securego/gosec/v2/cmd/gosec@v2.29.1-0.20260930122349-9b318063d35c

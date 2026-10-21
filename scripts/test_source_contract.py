@@ -18,7 +18,7 @@ class SourceContractChecks(unittest.TestCase):
     target = "windows/arm64"
 
     def events(self):
-        identity = {"os": "windows", "arch": "arm64", "compiler": "go1.26.9"}
+        identity = {"os": "windows", "arch": "arm64", "compiler": "go1.26.10"}
         events = [
             {
                 "Package": contract.PACKAGE,

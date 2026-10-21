@@ -182,11 +182,11 @@ class CoolingSelectionChecks(unittest.TestCase):
             before, after = workflow.split(step)
             self.assertIn("actions/checkout@v4", before)
             if name == "ci.yml":
-                self.assertIn("GOTOOLCHAIN: go1.26.9", before)
+                self.assertIn("GOTOOLCHAIN: go1.26.10", before)
                 self.assertIn("      - name: Build\n        run: make build\n", before)
                 self.assertIn("      - name: Upload goneat binary", after)
             else:
-                self.assertIn("go-version: '1.26.9'", before)
+                self.assertIn("go-version: '1.26.10'", before)
                 self.assertIn("      - name: Build and package", before)
                 self.assertIn("        run: make release-build\n", before)
                 self.assertIn("      - name: Record producer provenance", after)

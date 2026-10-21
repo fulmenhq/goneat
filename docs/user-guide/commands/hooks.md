@@ -649,7 +649,7 @@ goneat hooks install
 - The pre-commit and pre-push hooks run `goneat assess --mode check`. Categories, fail level, and timeout live in `.goneat/hooks.yaml`. `make precommit` and `make prepush` run those same commands.
 - That assess reports issues and does not rewrite tracked files. Do not point a hook at `make release-check`, `make fmt`, or another target that writes files.
 - The dates check needs the full commit history. A shallow repository is a high issue.
-- The push assess uses `go` from `PATH` and does not set `GOTOOLCHAIN`. Use the reference toolchain, Go 1.26.9, on `PATH` and set `GOTOOLCHAIN=go1.26.9`. That matches the CI pin. A `GOTOOLCHAIN` assignment that exists only in the Makefile does not apply to the git hook.
+- The push assess uses `go` from `PATH` and does not set `GOTOOLCHAIN`. Use the reference toolchain, Go 1.26.10, on `PATH` and set `GOTOOLCHAIN=go1.26.10`. That matches the CI pin. A `GOTOOLCHAIN` assignment that exists only in the Makefile does not apply to the git hook.
 - A custom hook `format` command is invoked with `--check`. Use `goneat format` when the intent is to rewrite files.
 
 ### Testing Hooks
@@ -816,8 +816,8 @@ Test hooks without triggering git operations:
 
 ```bash
 # Same check the pre-push hook and CI run.
-# Reference Go 1.26.9 must be the `go` on PATH.
-PATH="<reference go bin>:$PATH" GOTOOLCHAIN=go1.26.9 make prepush
+# Reference Go 1.26.10 must be the `go` on PATH.
+PATH="<reference go bin>:$PATH" GOTOOLCHAIN=go1.26.10 make prepush
 
 # The same assess, invoked directly
 goneat assess --mode check --hook pre-push

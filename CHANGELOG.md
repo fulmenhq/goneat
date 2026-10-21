@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Note**: This changelog keeps the latest 10 releases for readability. For older releases, see `docs/releases/` archive.
 
+## [v0.6.6] - 2026-10-21
+
+### Changed
+
+- **Release toolchain**: workflow toolchain pins are Go 1.26.10. The module language line stays `go 1.26.0`. Recommended Go is 1.26.10. This includes the Go 1.26.10 standard-library fix for CVE-2026-111943 (`crypto/x509`).
+
 ## [v0.6.5] - 2026-10-17
 
 ### Fixed
@@ -164,20 +170,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Dependency updates**: refreshed key Go modules including `golang.org/x/crypto` v0.53.0, `golang.org/x/net` v0.56.0, `github.com/go-git/go-git/v5` v5.19.1, `github.com/open-policy-agent/opa` v1.18.2, and the OpenTelemetry OTLP trace HTTP exporter v1.44.0 while keeping `go.mod` at `go 1.25.0`.
-
-## [v0.5.13] - 2026-06-05
-
-### Added
-
-- **Markdown AI transcript artifact linting**: `goneat assess --categories lint` now detects common AI transcript fragments in authored Markdown, including orphan content closing tags, xai function-call closing fragments, and parameter-name blocks. The scanner is fence-aware, so examples inside fenced code blocks do not suppress later real findings.
-
-### Fixed
-
-- **YAML format check/apply agreement**: `goneat format --check` now compares YAML after the same finalizer normalization used by apply mode, eliminating false positives where files were already stable after formatting.
-- **SSOT metadata indentation**: `goneat ssot sync` now writes metadata YAML with the repository's canonical 2-space indentation instead of regenerating `.crucible/metadata/metadata.yaml` at 4 spaces.
-
-### Changed
-
-- **YAML format noise cleanup**: pre-existing goneat-owned YAML comment-padding and indentation drift has been normalized so the repository starts v0.5.13 clean.
-- **Crucible-synced mirror handling**: Crucible-synced config and schema mirrors are now excluded from local format drift checks so upstream-owned content is not churned by goneat-local formatting.
-- **README language matrix**: Markdown now advertises both built-in artifact linting and prettier-backed formatting, while JSON remains format-only.
