@@ -33,7 +33,7 @@ Run `make prepush` before pushing. Run `make release-check` when preparing a rel
 
 The dates check needs the full commit history. A shallow repository is a high issue. Run `python3 scripts/push-gate-preflight.py` before the assess when the checkout may be shallow. That script also checks that `shellcheck` and `yamllint` meet the foundation minimums in `.goneat/tools.yaml`. `scripts/install-push-gate-tools.sh` installs the recommended versions of those two tools when they are missing or older. CI checks out full history, runs both scripts, then runs `make prepush`.
 
-**Push with the reference Go toolchain.** `make prepush`, `git push`, and `make release-tag-push` run the same assess. The assess uses `go` from `PATH` and does not set `GOTOOLCHAIN`. The reference version is Go 1.26.10. CI sets `GOTOOLCHAIN: go1.26.10` in `.github/workflows/ci.yml` and `.github/workflows/native-contracts.yml`. `.goneat/tools.yaml` recommends Go `1.26.10`. `go version` on that `PATH` must report `go1.26.10`. The module line stays `go 1.26.0`.
+**Push with the reference Go toolchain.** `make prepush`, `git push`, and `make release-tag-push` run the same assess. The assess uses `go` from `PATH` and does not set `GOTOOLCHAIN`. The reference version is Go 1.26.10. CI sets `GOTOOLCHAIN: go1.26.10` in `.github/workflows/ci.yml` and `.github/workflows/native-contracts.yml`. `.goneat/tools.yaml` recommends Go `1.26.10`. `go version` on that `PATH` must report `go1.26.10`. The module line is `go 1.26.10`.
 
 ```bash
 PATH="<reference go bin>:$PATH" GOTOOLCHAIN=go1.26.10 make prepush

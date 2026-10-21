@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Release toolchain**: workflow toolchain pins are Go 1.26.10. The module language line stays `go 1.26.0`. Recommended Go is 1.26.10. This includes the Go 1.26.10 standard-library fix for CVE-2026-111943 (`crypto/x509`).
+- **Release toolchain**: workflow toolchain pins, the `go` module line, and the repository Go minimum are 1.26.10. This includes the Go 1.26.10 standard-library fix for CVE-2026-111943 (`crypto/x509`).
 - **Dependencies**: direct modules are etree v1.8.1, doublestar/v4 v4.10.3, go-runewidth v0.0.31, golang.org/x/mod v0.42.0, golang.org/x/sync v0.24.0, golang.org/x/sys v0.49.0, and golang.org/x/text v0.43.0. golang.org/x/mod v0.42.0 selects golang.org/x/tools v0.51.0. go-runewidth v0.0.31 measures regional-indicator flag emoji wider in `ascii` boxes.
 
 ## [v0.6.5] - 2026-10-17

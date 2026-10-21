@@ -285,7 +285,7 @@ tools:
         - scoop
         - winget
     version_scheme: semver
-    minimum_version: "1.26.0"
+    minimum_version: "1.26.10"
     recommended_version: "1.26.10"
   go-licenses:
     name: go-licenses

@@ -1,6 +1,6 @@
 module github.com/fulmenhq/goneat
 
-go 1.26.0
+go 1.26.10
 
 // Retract pre-migration tags that have mismatched module path (3leaps → fulmenhq)
 retract (
