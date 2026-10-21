@@ -11,6 +11,8 @@ Stop juggling twelve tools across four languages. goneat wraps best-in-class too
 
 Beyond formatting and linting, goneat handles the hard parts of CI/CD: dependency analysis, license compliance, package cooling policies, security scanning, and git hooks. For teams building with Go, Python, TypeScript, and Rust, it's the orchestration layer that brings order to polyglot pipelines.
 
+> **Go 1.26.10 minimum.** Building goneat, or installing it with `go install`, requires Go 1.26.10 or later. This minimum is set because of critical security fixes.
+
 **New to goneat?** Start with `brew install fulmenhq/tap/goneat` to explore. When you're ready to integrate into CI/CD, see [End-to-End Setup](docs/user-guide/end-to-end-setup.md) for the full trust-anchored workflow.
 
 ## Why goneat?
@@ -187,7 +189,7 @@ goneat hooks generate --with-guardian  # Add browser-based approval prompts
 goneat hooks install                 # Install to .git/hooks
 ```
 
-Pre-commit and pre-push run `goneat assess --mode check`. `make precommit` and `make prepush` run those same checks. The assess reports issues and does not rewrite tracked files. Categories and the timeout are in `.goneat/hooks.yaml`. The dates check needs the full commit history. The push assess uses `go` from `PATH`. Use the reference toolchain, Go 1.26.9, on `PATH` and set `GOTOOLCHAIN=go1.26.9`.
+Pre-commit and pre-push run `goneat assess --mode check`. `make precommit` and `make prepush` run those same checks. The assess reports issues and does not rewrite tracked files. Categories and the timeout are in `.goneat/hooks.yaml`. The dates check needs the full commit history. The push assess uses `go` from `PATH`. Use the reference toolchain, Go 1.26.10, on `PATH` and set `GOTOOLCHAIN=go1.26.10`.
 
 **Guardian integration**: Use `--with-guardian` to add an optional friction layer that requires browser-based approval before commits or pushes to protected branches. Prevents fully autonomous operations when you want human oversight. See [Guardian](#guardian-approval-workflows) for configuration.
 
@@ -309,7 +311,9 @@ scoop bucket add fulmenhq https://github.com/fulmenhq/scoop-bucket
 scoop install goneat
 ```
 
-v0.6.5 release archives are Darwin ARM64, Linux amd64, Linux ARM64, Windows amd64, and Windows ARM64. Darwin amd64 downloads end at v0.6.1.
+> **Go 1.26.10 minimum.** Building goneat, or installing it with `go install`, requires Go 1.26.10 or later. This minimum is set because of critical security fixes.
+
+v0.6.6 release archives are Darwin ARM64, Linux amd64, Linux ARM64, Windows amd64, and Windows ARM64. Darwin amd64 downloads end at v0.6.1.
 
 ### For CI/CD: Trust Anchor Pattern
 
@@ -329,7 +333,7 @@ This pattern is how goneat itself manages supply chain security. When goneat run
 
 ### Binary Download
 
-Download from [GitHub Releases](https://github.com/fulmenhq/goneat/releases). v0.6.5 archives are Darwin ARM64, Linux amd64, Linux ARM64, Windows amd64, and Windows ARM64. Darwin amd64 downloads end at v0.6.1. All releases include minisign and PGP signatures for manual verification.
+Download from [GitHub Releases](https://github.com/fulmenhq/goneat/releases). v0.6.6 archives are Darwin ARM64, Linux amd64, Linux ARM64, Windows amd64, and Windows ARM64. Darwin amd64 downloads end at v0.6.1. All releases include minisign and PGP signatures for manual verification.
 
 ## Configuration
 

@@ -48,7 +48,7 @@ Tidy also promotes modules that goneat imports directly, such as `golang.org/x/s
 ### Checking a tidy
 
 ```bash
-GOTOOLCHAIN=go1.26.9 go mod tidy -diff
+GOTOOLCHAIN=go1.26.10 go mod tidy -diff
 ```
 
 A `-` line for a requirement in the table, or for one of its recorded requirements, is expected. Every other line should be applied.
