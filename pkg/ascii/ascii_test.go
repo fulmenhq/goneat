@@ -130,7 +130,7 @@ func TestBox(t *testing.T) {
 			want: "┌────────────────────────────────────┐\n" +
 				"│ Text with combining marks: çâűt̆įǫn̨ │\n" +
 				"│ Emoji with modifiers: 👨‍💻 👩🏽‍🔬 🧑🏻‍🎨     │\n" +
-				"│ Flags: 🇺🇸 🇯🇵 🇰🇷 🇩🇪 🇫🇷                   │\n" +
+				"│ Flags: 🇺🇸 🇯🇵 🇰🇷 🇩🇪 🇫🇷              │\n" +
 				"│ ZWSP test: word1\u200bword2              │\n" +
 				"│ ZWJ test: 👨‍👩‍👧‍👦                       │\n" +
 				"└────────────────────────────────────┘\n",

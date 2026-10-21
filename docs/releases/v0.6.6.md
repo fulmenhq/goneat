@@ -8,6 +8,7 @@
 - **Release and CI toolchains are Go 1.26.10.** The module language line stays `go 1.26.0`.
 - **Recommended Go is 1.26.10.** Push and release checks use that toolchain on `PATH`.
 - **Standard library.** Go 1.26.10 includes the `crypto/x509` fix for CVE-2026-111943.
+- **Direct modules.** etree v1.8.1, doublestar/v4 v4.10.3, go-runewidth v0.0.31, golang.org/x/mod v0.42.0, golang.org/x/sync v0.24.0, golang.org/x/sys v0.49.0, and golang.org/x/text v0.43.0.
 
 ## What Changed
 
@@ -15,6 +16,7 @@
 - The recommended Go version in the repository tool policy is 1.26.10.
 - Published release binaries are built with `go1.26.10`.
 - CI runner images stay fulmen-toolbox v0.5.10. Those images still carry Go 1.26.9. CI selects Go 1.26.10 with `GOTOOLCHAIN` and `actions/setup-go`.
+- Direct modules are etree v1.8.1, doublestar/v4 v4.10.3, go-runewidth v0.0.31, golang.org/x/mod v0.42.0, golang.org/x/sync v0.24.0, golang.org/x/sys v0.49.0, and golang.org/x/text v0.43.0. golang.org/x/mod v0.42.0 selects golang.org/x/tools v0.51.0. go-runewidth v0.0.31 measures regional-indicator flag emoji wider in `ascii` boxes.
 
 ## Go 1.27
 
