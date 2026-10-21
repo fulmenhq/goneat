@@ -11,6 +11,8 @@ Stop juggling twelve tools across four languages. goneat wraps best-in-class too
 
 Beyond formatting and linting, goneat handles the hard parts of CI/CD: dependency analysis, license compliance, package cooling policies, security scanning, and git hooks. For teams building with Go, Python, TypeScript, and Rust, it's the orchestration layer that brings order to polyglot pipelines.
 
+> **Go 1.26.10 minimum.** Building goneat, or installing it with `go install`, requires Go 1.26.10 or later. This minimum is set because of critical security fixes.
+
 **New to goneat?** Start with `brew install fulmenhq/tap/goneat` to explore. When you're ready to integrate into CI/CD, see [End-to-End Setup](docs/user-guide/end-to-end-setup.md) for the full trust-anchored workflow.
 
 ## Why goneat?
@@ -308,6 +310,8 @@ go install github.com/fulmenhq/goneat@latest
 scoop bucket add fulmenhq https://github.com/fulmenhq/scoop-bucket
 scoop install goneat
 ```
+
+> **Go 1.26.10 minimum.** Building goneat, or installing it with `go install`, requires Go 1.26.10 or later. This minimum is set because of critical security fixes.
 
 v0.6.6 release archives are Darwin ARM64, Linux amd64, Linux ARM64, Windows amd64, and Windows ARM64. Darwin amd64 downloads end at v0.6.1.
 
