@@ -110,19 +110,24 @@ tools:
     recommended_version: "1.8.2"
   yq:
     name: yq
-    description: YAML processor
+    description: YAML processor (mikefarah/yq; not kislyuk/yq)
     kind: system
     detect_command: yq --version
+    # Userland install beats a distro kislyuk/yq on PATH (reports 0.0.0).
+    install_package: github.com/mikefarah/yq/v4@v4.53.3
     platforms:
       - darwin
       - linux
       - windows
     installer_priority:
       darwin:
+        - go-install
         - brew
       linux:
+        - go-install
         - brew
       windows:
+        - go-install
         - scoop
         - winget
     version_scheme: semver
@@ -257,13 +262,20 @@ tools:
       - darwin
       - linux
       - windows
+    # Linux system packages need sudo. Do not auto-run apt/apk; print OS
+    # instructions instead. Darwin brew and Windows scoop stay userland.
     installer_priority:
       darwin:
         - brew
       linux:
-        - brew
+        - manual
       windows:
         - scoop
+    install_commands:
+      brew: "brew install minisign"
+      scoop: "scoop install minisign"
+      apt-get: "echo 'Ubuntu/Debian: sudo apt-get install -y minisign' && exit 1"
+      manual: "echo 'Ubuntu/Debian: sudo apt-get install -y minisign; Alpine: sudo apk add minisign' && exit 1"
   # ==========================================================================
   # GO TOOLS
   # ==========================================================================
