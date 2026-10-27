@@ -61,6 +61,10 @@ func GetShimPath(packageManager string) string {
 			return goBin
 		}
 		return filepath.Join(homeDir, "go", "bin")
+	case "uv", "pip":
+		return filepath.Join(homeDir, ".local", "bin")
+	case "npm":
+		return filepath.Join(homeDir, ".npm-global", "bin")
 	case "brew":
 		// brew location varies by platform - use DetectBrew to find it
 		_, brewPath, err := tools.DetectBrew()

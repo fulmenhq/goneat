@@ -72,6 +72,9 @@ const (
 	installerYum          installerKind = "yum"
 	installerGoInstall    installerKind = "go-install"
 	installerCargoInstall installerKind = "cargo-install"
+	installerUv           installerKind = "uv"
+	installerPip          installerKind = "pip"
+	installerNpm          installerKind = "npm"
 	installerManual       installerKind = "manual"
 )
 
@@ -88,8 +91,15 @@ var installerKindLookup = map[string]installerKind{
 	"yum":           installerYum,
 	"go-install":    installerGoInstall,
 	"cargo-install": installerCargoInstall,
+	"uv":            installerUv,
+	"pip":           installerPip,
+	"pip3":          installerPip,
+	"npm":           installerNpm,
 	"manual":        installerManual,
 }
+
+type installerExec func(command string) (output string, exitCode int, err error)
+type installerAvail func(kind installerKind) bool
 
 var defaultInstallerPriority = map[string][]installerKind{
 	"darwin":  {installerMise, installerBrew},
@@ -331,6 +341,8 @@ func InstallTool(t Tool) Status {
 		// Node/bun/npm managed tools install via package managers similar to system tools.
 		// If we add npm/bun-specific handling later, wire it here.
 		return installSystemTool(t)
+	case "python":
+		return installSystemTool(t)
 	case "go":
 		return installGoTool(t)
 	case "cargo":
@@ -402,12 +414,25 @@ func installArtifactTool(t Tool) Status {
 }
 
 func installSystemTool(t Tool) Status {
+	return installSystemToolWith(t, executeInstallerCommandWithOutput, isInstallerAvailable)
+}
+
+func installSystemToolWith(t Tool, run installerExec, available installerAvail) Status {
 	if t.Artifacts != nil {
 		return installArtifactTool(t)
 	}
 
 	platform := getCurrentPlatform()
-	attempts := buildInstallerAttempts(t, platform)
+	if IsReportOnly(t) {
+		return Status{
+			Name:         t.Name,
+			Present:      false,
+			Installed:    false,
+			Instructions: reportOnlyInstructions(t, platform),
+		}
+	}
+
+	attempts := buildInstallerAttemptsWith(t, platform, available)
 	status := Status{Name: t.Name}
 	var lastErr error
 
@@ -420,7 +445,7 @@ func installSystemTool(t Tool) Status {
 			continue
 		}
 		logger.Info(fmt.Sprintf("Installing %s via %s", t.Name, attempt.kind), logger.String("command", attempt.command))
-		output, exitCode, err := executeInstallerCommandWithOutput(attempt.command)
+		output, exitCode, err := run(attempt.command)
 		if err != nil {
 			logger.Warn(
 				fmt.Sprintf("installer %s failed for %s", attempt.kind, t.Name),
@@ -517,9 +542,78 @@ func installSystemTool(t Tool) Status {
 	case lastErr != nil:
 		status.Error = lastErr
 	default:
-		status.Error = fmt.Errorf("no available installer succeeded for %s", t.Name)
+		if hint := brewUnavailableHint(t, attempts); hint != "" {
+			status.Error = errors.New(hint)
+		} else {
+			status.Error = fmt.Errorf("no available installer succeeded for %s", t.Name)
+		}
 	}
 	return status
+}
+
+// IsReportOnly reports whether the tool is advisory on the current platform:
+// the only configured installer is `manual`, so doctor prints a hint and does
+// not auto-run a command or fail the run when the tool is absent.
+func IsReportOnly(t Tool) bool {
+	priorities := resolveInstallerPriority(t, getCurrentPlatform())
+	return len(priorities) == 1 && priorities[0] == installerManual
+}
+
+// CountsTowardMissing reports whether an absent tool should fail `doctor tools`.
+// Report-only tools and tools that do not apply to this platform do not.
+func CountsTowardMissing(t Tool, status Status) bool {
+	if !SupportsCurrentPlatform(t) {
+		return false
+	}
+	if IsReportOnly(t) {
+		return false
+	}
+	return !status.Present
+}
+
+// NeedsVersionRemediation reports whether a present tool should be reinstalled
+// during `--install` because it is below minimum or disallowed.
+func NeedsVersionRemediation(status Status) bool {
+	if status.PolicyEvaluation == nil {
+		return false
+	}
+	return status.PolicyEvaluation.IsDisallowed || !status.PolicyEvaluation.MeetsMinimum
+}
+
+func reportOnlyInstructions(t Tool, platform string) string {
+	attempts := buildInstallerAttempts(t, platform)
+	if hint := summarizeInstallerInstructions(attempts); hint != "" {
+		return hint
+	}
+	if cmd := defaultInstallerCommand(t, installerManual); cmd != "" {
+		return cmd
+	}
+	return installInstruction(t)
+}
+
+func brewUnavailableHint(t Tool, attempts []installerAttempt) string {
+	var brewCmd string
+	hasBrew := false
+	brewAvailable := false
+	otherAvailable := false
+	for _, attempt := range attempts {
+		if attempt.kind == installerBrew {
+			hasBrew = true
+			brewAvailable = attempt.available
+			brewCmd = attempt.command
+			continue
+		}
+		if attempt.available {
+			otherAvailable = true
+		}
+	}
+	if !hasBrew || brewAvailable || otherAvailable {
+		return ""
+	}
+	if brewCmd == "" {
+		brewCmd = fmt.Sprintf("brew install %s", t.Name)
+	}
+	return fmt.Sprintf("%s unavailable: Homebrew is not installed. Install Homebrew (see %s) then run: %s", t.Name, packageManagerDocPath, brewCmd)
 }
 
 func resolveToolPath(toolName string) (string, error) {
@@ -1082,7 +1176,7 @@ func ValidateInstallerCommands(t Tool) {
 		// Warn about completely unrecognized keys
 		logger.Warn(fmt.Sprintf(
 			"Tool %s: install_commands key '%s' is not a recognized installer kind. "+
-				"Known kinds: bun, mise, brew, apt-get, scoop, winget, pacman, dnf, yum, manual, go-install, cargo-install",
+				"Known kinds: bun, mise, brew, apt-get, scoop, winget, pacman, dnf, yum, manual, go-install, cargo-install, uv, pip, npm",
 			t.Name, key))
 	}
 }
@@ -1094,7 +1188,11 @@ func isInstallerAvailable(kind installerKind) bool {
 	case installerMise:
 		return commandExists("mise")
 	case installerBrew:
-		return commandExists("brew")
+		path, err := exec.LookPath("brew")
+		if err != nil {
+			return false
+		}
+		return tools.BrewIsFunctional(path)
 	case installerScoop:
 		return commandExists("scoop")
 	case installerWinget:
@@ -1111,6 +1209,12 @@ func isInstallerAvailable(kind installerKind) bool {
 		return commandExists("go")
 	case installerCargoInstall:
 		return commandExists("cargo")
+	case installerUv:
+		return commandExists("uv")
+	case installerPip:
+		return commandExists("pip") || commandExists("pip3")
+	case installerNpm:
+		return commandExists("npm")
 	case installerManual:
 		// Manual installer is always "available" - it's just a script/command to execute
 		// Used for bootstrapping package managers (mise, scoop) via official install scripts
@@ -1183,6 +1287,28 @@ func defaultInstallerCommand(t Tool, kind installerKind) string {
 			return fmt.Sprintf("cargo install %s", t.InstallPackage)
 		}
 		return ""
+	case installerUv:
+		if cmd, ok := t.InstallCommands["uv"]; ok && cmd != "" {
+			return cmd
+		}
+		return fmt.Sprintf("uv tool install %s", pythonPackageName(t))
+	case installerPip:
+		if cmd, ok := t.InstallCommands["pip"]; ok && cmd != "" {
+			return cmd
+		}
+		if cmd, ok := t.InstallCommands["pip3"]; ok && cmd != "" {
+			return cmd
+		}
+		pipBin := "pip"
+		if !commandExists("pip") && commandExists("pip3") {
+			pipBin = "pip3"
+		}
+		return fmt.Sprintf("%s install %s", pipBin, pythonPackageName(t))
+	case installerNpm:
+		if cmd, ok := t.InstallCommands["npm"]; ok && cmd != "" {
+			return cmd
+		}
+		return fmt.Sprintf("npm install -g %s", t.Name)
 	case installerManual:
 		if cmd, ok := t.InstallCommands["manual"]; ok && cmd != "" {
 			return cmd
@@ -1193,13 +1319,27 @@ func defaultInstallerCommand(t Tool, kind installerKind) string {
 	}
 }
 
+func pythonPackageName(t Tool) string {
+	if t.InstallPackage != "" {
+		return t.InstallPackage
+	}
+	return t.Name
+}
+
 func buildInstallerAttempts(t Tool, platform string) []installerAttempt {
+	return buildInstallerAttemptsWith(t, platform, isInstallerAvailable)
+}
+
+func buildInstallerAttemptsWith(t Tool, platform string, availableFn installerAvail) []installerAttempt {
 	priorities := resolveInstallerPriority(t, platform)
 	attempts := make([]installerAttempt, 0, len(priorities))
+	if availableFn == nil {
+		availableFn = isInstallerAvailable
+	}
 	for _, kind := range priorities {
 		command := defaultInstallerCommand(t, kind)
 		instructions := command
-		available := isInstallerAvailable(kind)
+		available := availableFn(kind)
 		if !available {
 			switch kind {
 			case installerMise:
@@ -1256,7 +1396,7 @@ func installInstruction(t Tool) string {
 		return cargoInstallCommand(t)
 	case "bundled-go":
 		return "Install Go toolchain first: https://go.dev/dl/ (gofmt is included)"
-	case "system":
+	case "system", "node", "python":
 		platform := getCurrentPlatform()
 		if instructions := summarizeInstallerInstructions(buildInstallerAttempts(t, platform)); instructions != "" {
 			return instructions

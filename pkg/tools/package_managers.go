@@ -72,8 +72,22 @@ func (b *BrewManager) Name() string {
 // IsAvailable checks if brew is in PATH and executable.
 // Uses enhanced detection to find system, user-local, or custom brew installations.
 func (b *BrewManager) IsAvailable() bool {
-	loc, _, err := DetectBrew()
-	return err == nil && loc != BrewNotFound
+	loc, path, err := DetectBrew()
+	if err != nil || loc == BrewNotFound {
+		return false
+	}
+	return BrewIsFunctional(path)
+}
+
+// BrewIsFunctional reports whether the brew binary at brewPath runs `--version` successfully.
+// A leftover user-local extract (for example from a failed master-branch bootstrap) can exist
+// on disk without being a usable installer.
+func BrewIsFunctional(brewPath string) bool {
+	if brewPath == "" {
+		return false
+	}
+	cmd := exec.Command(brewPath, "--version") // #nosec G204 -- brewPath comes from DetectBrew or LookPath
+	return cmd.Run() == nil
 }
 
 // Version returns the brew version string.

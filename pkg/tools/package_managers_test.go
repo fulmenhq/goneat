@@ -14,6 +14,16 @@ func TestBrewManager_Name(t *testing.T) {
 	}
 }
 
+func TestBrewIsFunctional_EmptyPath(t *testing.T) {
+	t.Parallel()
+	if BrewIsFunctional("") {
+		t.Fatal("empty brew path must not be treated as functional")
+	}
+	if BrewIsFunctional("/nonexistent/brew") {
+		t.Fatal("missing brew path must not be treated as functional")
+	}
+}
+
 // TestBrewManager_InstallationURL tests the InstallationURL method.
 func TestBrewManager_InstallationURL(t *testing.T) {
 	mgr := &BrewManager{}
