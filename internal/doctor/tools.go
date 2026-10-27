@@ -91,6 +91,9 @@ var installerKindLookup = map[string]installerKind{
 	"manual":        installerManual,
 }
 
+type installerExec func(command string) (output string, exitCode int, err error)
+type installerAvail func(kind installerKind) bool
+
 var defaultInstallerPriority = map[string][]installerKind{
 	"darwin":  {installerMise, installerBrew},
 	"linux":   {installerMise, installerPacman, installerAptGet, installerDnf, installerYum},
@@ -167,6 +170,10 @@ func CheckTool(t Tool) Status {
 			Version: detectVersionWithPath(t, binaryPath),
 		}
 		applyVersionPolicy(t, &status)
+		if hint := managedBinaryNotFirstHint(t, binaryPath, status); hint != "" {
+			status.Instructions = hint
+			logger.Warn(hint)
+		}
 		return status
 	}
 
@@ -402,12 +409,25 @@ func installArtifactTool(t Tool) Status {
 }
 
 func installSystemTool(t Tool) Status {
+	return installSystemToolWith(t, executeInstallerCommandWithOutput, isInstallerAvailable)
+}
+
+func installSystemToolWith(t Tool, run installerExec, available installerAvail) Status {
 	if t.Artifacts != nil {
 		return installArtifactTool(t)
 	}
 
 	platform := getCurrentPlatform()
-	attempts := buildInstallerAttempts(t, platform)
+	if IsReportOnly(t) {
+		return Status{
+			Name:         t.Name,
+			Present:      false,
+			Installed:    false,
+			Instructions: reportOnlyInstructions(t, platform),
+		}
+	}
+
+	attempts := buildInstallerAttemptsWith(t, platform, available)
 	status := Status{Name: t.Name}
 	var lastErr error
 
@@ -420,7 +440,7 @@ func installSystemTool(t Tool) Status {
 			continue
 		}
 		logger.Info(fmt.Sprintf("Installing %s via %s", t.Name, attempt.kind), logger.String("command", attempt.command))
-		output, exitCode, err := executeInstallerCommandWithOutput(attempt.command)
+		output, exitCode, err := run(attempt.command)
 		if err != nil {
 			logger.Warn(
 				fmt.Sprintf("installer %s failed for %s", attempt.kind, t.Name),
@@ -440,6 +460,24 @@ func installSystemTool(t Tool) Status {
 		status.Installed = true
 		lastErr = nil
 		status.Present = false
+		// go-install writes to $GOBIN. LookPath can still hit a below-minimum
+		// PATH binary (for example distro yq); the install result must report
+		// the managed binary. CheckTool stays PATH-first and fail-closed.
+		if attempt.kind == installerGoInstall {
+			if goBin := getGoBinPath(); goBin != "" {
+				if managed := firstExistingToolPath(t, goBin); managed != "" {
+					status.Present = true
+					status.Version = sanitizeVersion(detectVersionWithPath(t, managed))
+					applyVersionPolicy(t, &status)
+					if pathBinary, err := exec.LookPath(t.Name); err != nil || !samePath(pathBinary, managed) {
+						hint := fmt.Sprintf("Installed %s at %s. export PATH=%q:$PATH", t.Name, managed, goBin)
+						status.Instructions = hint
+						logger.Warn(hint)
+					}
+					return status
+				}
+			}
+		}
 		for _, bin := range candidateBinaryNames(t) {
 			if _, err := exec.LookPath(bin); err == nil {
 				status.Present = true
@@ -515,11 +553,117 @@ func installSystemTool(t Tool) Status {
 	case status.Installed:
 		status.Error = fmt.Errorf("%s installed but not detected in PATH", t.Name)
 	case lastErr != nil:
-		status.Error = lastErr
+		if hint := brewUnavailableHint(t, attempts); hint != "" {
+			status.Error = fmt.Errorf("%s (%v)", hint, lastErr)
+		} else {
+			status.Error = lastErr
+		}
 	default:
-		status.Error = fmt.Errorf("no available installer succeeded for %s", t.Name)
+		if hint := brewUnavailableHint(t, attempts); hint != "" {
+			status.Error = errors.New(hint)
+		} else {
+			status.Error = fmt.Errorf("no available installer succeeded for %s", t.Name)
+		}
 	}
 	return status
+}
+
+// IsReportOnly reports whether the tool is advisory on the current platform:
+// the only configured installer is `manual`, so doctor prints a hint and does
+// not auto-run a command or fail the run when the tool is absent.
+func IsReportOnly(t Tool) bool {
+	priorities := resolveInstallerPriority(t, getCurrentPlatform())
+	return len(priorities) == 1 && priorities[0] == installerManual
+}
+
+// CountsTowardMissing reports whether an absent tool should fail `doctor tools`.
+// Report-only tools and tools that do not apply to this platform do not.
+func CountsTowardMissing(t Tool, status Status) bool {
+	if !SupportsCurrentPlatform(t) {
+		return false
+	}
+	if IsReportOnly(t) {
+		return false
+	}
+	return !status.Present
+}
+
+// NeedsVersionRemediation reports whether a present tool should be reinstalled
+// during `--install` because it is below minimum or disallowed.
+func NeedsVersionRemediation(status Status) bool {
+	if status.PolicyEvaluation == nil {
+		return false
+	}
+	return status.PolicyEvaluation.IsDisallowed || !status.PolicyEvaluation.MeetsMinimum
+}
+
+func reportOnlyInstructions(t Tool, platform string) string {
+	attempts := buildInstallerAttempts(t, platform)
+	if hint := summarizeInstallerInstructions(attempts); hint != "" {
+		return hint
+	}
+	if cmd := defaultInstallerCommand(t, installerManual); cmd != "" {
+		return cmd
+	}
+	return installInstruction(t)
+}
+
+func brewUnavailableHint(t Tool, attempts []installerAttempt) string {
+	var brewCmd string
+	hasBrew := false
+	brewAvailable := false
+	brewFailed := false
+	otherAvailable := false
+	for _, attempt := range attempts {
+		if attempt.kind == installerBrew {
+			hasBrew = true
+			brewAvailable = attempt.available
+			brewCmd = attempt.command
+			if strings.Contains(attempt.instructions, "(failed:") {
+				brewFailed = true
+			}
+			continue
+		}
+		if attempt.available {
+			otherAvailable = true
+		}
+	}
+	if !hasBrew || otherAvailable {
+		return ""
+	}
+	if brewAvailable && !brewFailed {
+		return ""
+	}
+	if brewCmd == "" {
+		brewCmd = fmt.Sprintf("brew install %s", t.Name)
+	}
+	reason := "Homebrew is not installed"
+	if brewFailed {
+		reason = "Homebrew is not functional"
+	}
+	return fmt.Sprintf("%s unavailable: %s. Install Homebrew (see %s) then run: %s", t.Name, reason, packageManagerDocPath, brewCmd)
+}
+
+// PendingInstallCommand returns the installer command that doctor would show
+// in the interactive install prompt (`using: <command>`).
+func PendingInstallCommand(t Tool) string {
+	attempts := buildInstallerAttempts(t, getCurrentPlatform())
+	var first string
+	for _, attempt := range attempts {
+		if attempt.command == "" {
+			continue
+		}
+		if first == "" {
+			first = attempt.command
+		}
+		if attempt.available {
+			return attempt.command
+		}
+	}
+	if first != "" {
+		return first
+	}
+	return strings.TrimSpace(installInstruction(t))
 }
 
 func resolveToolPath(toolName string) (string, error) {
@@ -939,6 +1083,81 @@ func applyVersionPolicy(t Tool, status *Status) {
 	status.PolicyEvaluation = &eval
 }
 
+// managedBinaryNotFirstHint reports a PATH-order warning when LookPath found a
+// below-minimum binary but $GOBIN has a policy-compliant go-install binary.
+// CheckTool stays fail-closed: it does not treat the managed binary as the
+// active one unless it is first on the real PATH.
+func managedBinaryNotFirstHint(t Tool, pathBinary string, current Status) string {
+	if current.PolicyEvaluation == nil || current.PolicyEvaluation.MeetsMinimum {
+		return ""
+	}
+	if !hasGoInstallPriority(t) {
+		return ""
+	}
+	goBin := getGoBinPath()
+	if goBin == "" {
+		return ""
+	}
+	name := t.Name
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	managed := filepath.Join(goBin, name)
+	if _, err := os.Stat(managed); err != nil {
+		return ""
+	}
+	if samePath(pathBinary, managed) {
+		return ""
+	}
+	managedStatus := Status{
+		Name:    t.Name,
+		Present: true,
+		Version: detectVersionWithPath(t, managed),
+	}
+	applyVersionPolicy(t, &managedStatus)
+	if managedStatus.PolicyEvaluation == nil || !managedStatus.PolicyEvaluation.MeetsMinimum {
+		return ""
+	}
+	return fmt.Sprintf(
+		"PATH resolves %s (%s) before policy-compliant %s (%s). export PATH=%q:$PATH",
+		pathBinary, current.Version, managed, managedStatus.Version, goBin,
+	)
+}
+
+func samePath(a, b string) bool {
+	absA, errA := filepath.Abs(a)
+	absB, errB := filepath.Abs(b)
+	if errA != nil || errB != nil {
+		return a == b
+	}
+	return absA == absB
+}
+
+func firstExistingToolPath(t Tool, dir string) string {
+	if dir == "" {
+		return ""
+	}
+	for _, bin := range candidateBinaryNames(t) {
+		path := filepath.Join(dir, bin)
+		if runtime.GOOS == "windows" {
+			path += ".exe"
+		}
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+	return ""
+}
+
+func hasGoInstallPriority(t Tool) bool {
+	for _, kind := range resolveInstallerPriority(t, getCurrentPlatform()) {
+		if kind == installerGoInstall {
+			return true
+		}
+	}
+	return false
+}
+
 func buildPathInstructions(binaryPath string) string {
 	dir := filepath.Dir(binaryPath)
 	var b strings.Builder
@@ -1094,7 +1313,11 @@ func isInstallerAvailable(kind installerKind) bool {
 	case installerMise:
 		return commandExists("mise")
 	case installerBrew:
-		return commandExists("brew")
+		path, err := exec.LookPath("brew")
+		if err != nil {
+			return false
+		}
+		return tools.BrewIsFunctional(path)
 	case installerScoop:
 		return commandExists("scoop")
 	case installerWinget:
@@ -1194,12 +1417,19 @@ func defaultInstallerCommand(t Tool, kind installerKind) string {
 }
 
 func buildInstallerAttempts(t Tool, platform string) []installerAttempt {
+	return buildInstallerAttemptsWith(t, platform, isInstallerAvailable)
+}
+
+func buildInstallerAttemptsWith(t Tool, platform string, availableFn installerAvail) []installerAttempt {
 	priorities := resolveInstallerPriority(t, platform)
 	attempts := make([]installerAttempt, 0, len(priorities))
+	if availableFn == nil {
+		availableFn = isInstallerAvailable
+	}
 	for _, kind := range priorities {
 		command := defaultInstallerCommand(t, kind)
 		instructions := command
-		available := isInstallerAvailable(kind)
+		available := availableFn(kind)
 		if !available {
 			switch kind {
 			case installerMise:
@@ -1256,7 +1486,7 @@ func installInstruction(t Tool) string {
 		return cargoInstallCommand(t)
 	case "bundled-go":
 		return "Install Go toolchain first: https://go.dev/dl/ (gofmt is included)"
-	case "system":
+	case "system", "node", "python":
 		platform := getCurrentPlatform()
 		if instructions := summarizeInstallerInstructions(buildInstallerAttempts(t, platform)); instructions != "" {
 			return instructions

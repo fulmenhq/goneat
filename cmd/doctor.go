@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -53,7 +52,8 @@ If tools are installed but not found, check your PATH:
 - Go installs tools to $GOPATH/bin or $GOBIN (default: ~/go/bin)
 - Add to PATH: export PATH="$PATH:$(go env GOPATH)/bin"
 - Or: export PATH="$PATH:$(go env GOBIN)"`,
-	RunE: runDoctorTools,
+	RunE:         runDoctorTools,
+	SilenceUsage: true,
 }
 
 var doctorEnvCmd = &cobra.Command{
@@ -197,9 +197,13 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Auto-install missing package managers if --install flag set (before tool checks) using actual selection.
+	// A failed brew/bun bootstrap must not abort: tools with non-brew installers still run.
 	if flagDoctorInstall && !flagDoctorDryRun {
 		if err := autoInstallPackageManagers(cmd, selected); err != nil {
-			logger.Warn("Package manager auto-install failed", logger.Err(err))
+			logger.Warn("Package manager auto-install failed; continuing with remaining installers", logger.Err(err))
+		}
+		if goBin := getGoBinPath(); goBin != "" {
+			addToCurrentPATH(goBin)
 		}
 	}
 
@@ -262,6 +266,16 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 		status := intdoctor.CheckTool(tool)
 		policyStatus := status
 
+		if !status.Present && intdoctor.IsReportOnly(tool) {
+			logger.Warn(fmt.Sprintf("%s unavailable (report-only)", tool.Name))
+			if status.Instructions != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Install %s with:\n  %s\n", tool.Name, status.Instructions) //nolint:errcheck // CLI output errors are typically ignored
+			} else if hint := intdoctor.InstallTool(tool).Instructions; hint != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Install %s with:\n  %s\n", tool.Name, hint) //nolint:errcheck // CLI output errors are typically ignored
+			}
+			continue
+		}
+
 		if status.Present {
 			if status.Version != "" {
 				logger.Info(fmt.Sprintf("%s present (%s)", tool.Name, status.Version))
@@ -278,6 +292,20 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 					if len(coolingResult.Violations) > 0 {
 						fmt.Fprintf(cmd.ErrOrStderr(), "%s\n", intdoctor.FormatCoolingViolation(tool.Name, coolingResult)) //nolint:errcheck
 					}
+				}
+			}
+
+			// --install remediates below-minimum / disallowed tools via non-brew fallbacks
+			// (for example mikefarah yq via go-install when a distro yq is on PATH).
+			if flagDoctorInstall && intdoctor.NeedsVersionRemediation(status) {
+				logger.Warn(fmt.Sprintf("%s present but does not meet version policy; attempting reinstall", tool.Name))
+				res := installDoctorTool(cmd, tool, &metadataRegistry)
+				if res.coolingBlocked {
+					policyViolations++
+					continue
+				}
+				if !res.skipped {
+					policyStatus = res.status
 				}
 			}
 		} else {
@@ -297,61 +325,18 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 			}
 
 			if flagDoctorInstall {
-				// Check cooling policy before installation
-				coolingResult := intdoctor.CheckToolCoolingPolicy(tool, flagDoctorNoCooling, &metadataRegistry)
-				if coolingResult != nil && !coolingResult.Disabled && !coolingResult.Passed {
-					logger.Warn(fmt.Sprintf("Cooling policy check failed for %s", tool.Name))
-					if len(coolingResult.Violations) > 0 {
-						fmt.Fprintf(cmd.ErrOrStderr(), "%s\n", intdoctor.FormatCoolingViolation(tool.Name, coolingResult)) //nolint:errcheck
-					}
-
-					// Get effective cooling config to check alert-only mode
-					effectiveCoolingConfig, err := tool.GetEffectiveCoolingConfig(flagDoctorNoCooling)
-					blockInstallation := true
-					if err == nil && effectiveCoolingConfig != nil && effectiveCoolingConfig.AlertOnly {
-						blockInstallation = false
-					}
-
-					if blockInstallation {
-						logger.Error(fmt.Sprintf("Installation blocked for %s: cooling policy violation", tool.Name))
-						logger.Info("To bypass cooling checks, use: --no-cooling flag")
-						policyViolations++
-						continue
-					}
-					// AlertOnly mode: warn but allow installation
-					logger.Warn(fmt.Sprintf("Cooling policy violation for %s (alert-only mode: installation proceeding)", tool.Name))
+				res := installDoctorTool(cmd, tool, &metadataRegistry)
+				if res.coolingBlocked {
+					policyViolations++
+					continue
 				}
-
-				if !flagDoctorYes {
-					if !promptYes(cmd, fmt.Sprintf("Install %s now using: %s ? [y/N] ", tool.Name, status.Instructions)) {
-						logger.Warn(fmt.Sprintf("Skipped install for %s", tool.Name))
-						policyViolations += summarizePolicy(tool, policyStatus)
-						continue
-					}
+				if res.skipped {
+					policyViolations += summarizePolicy(tool, policyStatus)
+					continue
 				}
-				res := intdoctor.InstallTool(tool)
-				policyStatus = res
-				if res.Error != nil {
-					logger.Error(fmt.Sprintf("Install failed for %s: %v", tool.Name, res.Error))
-					if res.Instructions != "" {
-						fmt.Fprintf(cmd.OutOrStdout(), "Try manual install:\n  %s\n", res.Instructions) //nolint:errcheck // CLI output errors are typically ignored
-					}
-				} else if res.Installed && res.Present {
+				policyStatus = res.status
+				if res.status.Error == nil && (res.status.Installed || res.status.Present) {
 					installed++
-					if res.Version != "" {
-						logger.Info(fmt.Sprintf("Installed %s (%s)", tool.Name, res.Version))
-					} else {
-						logger.Info(fmt.Sprintf("Installed %s", tool.Name))
-					}
-				} else if res.Installed && !res.Present {
-					installed++
-					logger.Warn(fmt.Sprintf("Installed %s but not accessible (PATH issue)", tool.Name))
-					if res.Instructions != "" {
-						fmt.Fprintf(cmd.OutOrStdout(), "Fix PATH access:\n%s\n", res.Instructions)           //nolint:errcheck // CLI output errors are typically ignored
-						fmt.Fprintf(cmd.OutOrStdout(), "For detailed PATH diagnostics: goneat doctor env\n") //nolint:errcheck // CLI output errors are typically ignored
-					}
-				} else if res.Present {
-					logger.Info(fmt.Sprintf("%s now present", tool.Name))
 				}
 			}
 		}
@@ -361,10 +346,10 @@ func runDoctorTools(cmd *cobra.Command, _ []string) error {
 
 	// Re-check if we attempted installs
 	if flagDoctorInstall && missing > 0 {
-		// Refresh statuses
 		finalMissing := 0
 		for _, tool := range selected {
-			if !intdoctor.CheckTool(tool).Present {
+			st := intdoctor.CheckTool(tool)
+			if intdoctor.CountsTowardMissing(tool, st) {
 				finalMissing++
 			}
 		}
@@ -409,6 +394,73 @@ func summarizePolicy(tool intdoctor.Tool, status intdoctor.Status) int {
 		logger.Warn(fmt.Sprintf("%s version %s below recommended %s (run 'goneat doctor tools --install %s' to upgrade)", tool.Name, eval.ActualVersion, recommended, tool.Name))
 	}
 	return 0
+}
+
+type doctorInstallResult struct {
+	status         intdoctor.Status
+	skipped        bool
+	coolingBlocked bool
+}
+
+func installDoctorTool(cmd *cobra.Command, tool intdoctor.Tool, metadataRegistry *metadata.Registry) doctorInstallResult {
+	coolingResult := intdoctor.CheckToolCoolingPolicy(tool, flagDoctorNoCooling, metadataRegistry)
+	if coolingResult != nil && !coolingResult.Disabled && !coolingResult.Passed {
+		logger.Warn(fmt.Sprintf("Cooling policy check failed for %s", tool.Name))
+		if len(coolingResult.Violations) > 0 {
+			fmt.Fprintf(cmd.ErrOrStderr(), "%s\n", intdoctor.FormatCoolingViolation(tool.Name, coolingResult)) //nolint:errcheck
+		}
+
+		effectiveCoolingConfig, err := tool.GetEffectiveCoolingConfig(flagDoctorNoCooling)
+		blockInstallation := true
+		if err == nil && effectiveCoolingConfig != nil && effectiveCoolingConfig.AlertOnly {
+			blockInstallation = false
+		}
+
+		if blockInstallation {
+			logger.Error(fmt.Sprintf("Installation blocked for %s: cooling policy violation", tool.Name))
+			logger.Info("To bypass cooling checks, use: --no-cooling flag")
+			return doctorInstallResult{coolingBlocked: true}
+		}
+		logger.Warn(fmt.Sprintf("Cooling policy violation for %s (alert-only mode: installation proceeding)", tool.Name))
+	}
+
+	if !flagDoctorYes {
+		if !promptYes(cmd, formatInstallPrompt(tool.Name, intdoctor.PendingInstallCommand(tool))) {
+			logger.Warn(fmt.Sprintf("Skipped install for %s", tool.Name))
+			return doctorInstallResult{skipped: true}
+		}
+	}
+
+	res := intdoctor.InstallTool(tool)
+	if res.Error != nil {
+		logger.Error(fmt.Sprintf("Install failed for %s: %v", tool.Name, res.Error))
+		if res.Instructions != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "Try manual install:\n  %s\n", res.Instructions) //nolint:errcheck // CLI output errors are typically ignored
+		}
+	} else if res.Installed && res.Present {
+		if res.Version != "" {
+			logger.Info(fmt.Sprintf("Installed %s (%s)", tool.Name, res.Version))
+		} else {
+			logger.Info(fmt.Sprintf("Installed %s", tool.Name))
+		}
+	} else if res.Installed && !res.Present {
+		logger.Warn(fmt.Sprintf("Installed %s but not accessible (PATH issue)", tool.Name))
+		if res.Instructions != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "Fix PATH access:\n%s\n", res.Instructions)           //nolint:errcheck // CLI output errors are typically ignored
+			fmt.Fprintf(cmd.OutOrStdout(), "For detailed PATH diagnostics: goneat doctor env\n") //nolint:errcheck // CLI output errors are typically ignored
+		}
+	} else if res.Present {
+		logger.Info(fmt.Sprintf("%s now present", tool.Name))
+	}
+	return doctorInstallResult{status: res}
+}
+
+func formatInstallPrompt(name, command string) string {
+	command = strings.TrimSpace(command)
+	if command == "" {
+		return fmt.Sprintf("Install %s now? [y/N] ", name)
+	}
+	return fmt.Sprintf("using: %s\nInstall %s now? [y/N] ", command, name)
 }
 
 func promptYes(cmd *cobra.Command, message string) bool {
@@ -1432,14 +1484,16 @@ func autoInstallPackageManagers(cmd *cobra.Command, selected []intdoctor.Tool) e
 		}
 	}
 
-	// Try brew if bun isn't available/needed and brew is needed
+	// Try brew if bun isn't available/needed and brew is needed.
+	// A failed user-local brew bootstrap must not abort: later tool installers
+	// (go-install, cargo-install, direct download) still run.
 	if needsBrewResult && brewAutoInstallSafe && !bunInstalled {
 		loc, brewPath, err := tools.DetectBrew()
 		logger.Debug("autoInstallPackageManagers: brew detection result",
 			logger.String("location", loc.String()),
 			logger.String("path", brewPath),
 			logger.Err(err))
-		if err == nil && loc != tools.BrewNotFound {
+		if err == nil && loc != tools.BrewNotFound && tools.BrewIsFunctional(brewPath) {
 			logger.Debug("autoInstallPackageManagers: brew already installed")
 			brewInstalled = true
 			// Ensure brew is in PATH for current session (may be detected but not in PATH)
@@ -1448,36 +1502,43 @@ func autoInstallPackageManagers(cmd *cobra.Command, selected []intdoctor.Tool) e
 				addToCurrentPATH(brewBinDir)
 				logger.Info("Added brew bin directory to PATH", logger.String("path", brewBinDir))
 			}
+		} else if err == nil && loc != tools.BrewNotFound {
+			logger.Warn("Detected brew is not functional; continuing without brew",
+				logger.String("path", brewPath))
 		} else {
 			logger.Info("Auto-installing user-local Homebrew...")
 			interactive := !isCI() && !flagDoctorYes
 			if err := tools.InstallUserLocalBrew("", interactive, false); err != nil {
 				brewErr = err
-				logger.Warn("Failed to auto-install brew", logger.Err(err))
+				logger.Warn("Failed to auto-install brew; continuing with non-brew installers", logger.Err(err))
 			} else {
-				brewInstalled = true
-				logger.Info("Brew auto-install completed")
-				// Add brew to PATH for current session
 				homeDir, _ := os.UserHomeDir()
+				brewBinPath := ""
 				if homeDir != "" {
-					brewBinPath := filepath.Join(homeDir, "homebrew-local", "bin")
+					brewBinPath = filepath.Join(homeDir, "homebrew-local", "bin")
+				}
+				if brewBinPath != "" && tools.BrewIsFunctional(filepath.Join(brewBinPath, "brew")) {
+					brewInstalled = true
+					logger.Info("Brew auto-install completed")
 					addToCurrentPATH(brewBinPath)
+				} else {
+					logger.Warn("Brew auto-install finished but brew is not functional; continuing with non-brew installers")
 				}
 			}
 		}
 	}
 
-	// Report overall status
+	// Brew/bun bootstrap failure is non-fatal. Required tools that cannot be
+	// installed another way still fail later with an actionable missing-tool error.
 	if !bunInstalled && !brewInstalled && (needsBunResult || needsBrewResult) {
-		errMsg := "no package managers could be auto-installed"
+		errMsg := "no package managers could be auto-installed; continuing with remaining installers"
 		if bunErr != nil {
 			errMsg += fmt.Sprintf("; bun: %v", bunErr)
 		}
 		if brewErr != nil {
 			errMsg += fmt.Sprintf("; brew: %v", brewErr)
 		}
-		logger.Error(errMsg)
-		return errors.New(errMsg)
+		logger.Warn(errMsg)
 	}
 
 	// Log success if we needed and installed package managers
