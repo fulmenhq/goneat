@@ -425,8 +425,7 @@ func installDoctorTool(cmd *cobra.Command, tool intdoctor.Tool, metadataRegistry
 	}
 
 	if !flagDoctorYes {
-		hint := tool.Name
-		if !promptYes(cmd, fmt.Sprintf("Install %s now? [y/N] ", hint)) {
+		if !promptYes(cmd, formatInstallPrompt(tool.Name, intdoctor.PendingInstallCommand(tool))) {
 			logger.Warn(fmt.Sprintf("Skipped install for %s", tool.Name))
 			return doctorInstallResult{skipped: true}
 		}
@@ -454,6 +453,14 @@ func installDoctorTool(cmd *cobra.Command, tool intdoctor.Tool, metadataRegistry
 		logger.Info(fmt.Sprintf("%s now present", tool.Name))
 	}
 	return doctorInstallResult{status: res}
+}
+
+func formatInstallPrompt(name, command string) string {
+	command = strings.TrimSpace(command)
+	if command == "" {
+		return fmt.Sprintf("Install %s now? [y/N] ", name)
+	}
+	return fmt.Sprintf("using: %s\nInstall %s now? [y/N] ", command, name)
 }
 
 func promptYes(cmd *cobra.Command, message string) bool {
@@ -1479,7 +1486,7 @@ func autoInstallPackageManagers(cmd *cobra.Command, selected []intdoctor.Tool) e
 
 	// Try brew if bun isn't available/needed and brew is needed.
 	// A failed user-local brew bootstrap must not abort: later tool installers
-	// (go-install, uv/pip, npm, direct download) still run.
+	// (go-install, cargo-install, direct download) still run.
 	if needsBrewResult && brewAutoInstallSafe && !bunInstalled {
 		loc, brewPath, err := tools.DetectBrew()
 		logger.Debug("autoInstallPackageManagers: brew detection result",

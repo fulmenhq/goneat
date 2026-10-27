@@ -72,9 +72,6 @@ const (
 	installerYum          installerKind = "yum"
 	installerGoInstall    installerKind = "go-install"
 	installerCargoInstall installerKind = "cargo-install"
-	installerUv           installerKind = "uv"
-	installerPip          installerKind = "pip"
-	installerNpm          installerKind = "npm"
 	installerManual       installerKind = "manual"
 )
 
@@ -91,10 +88,6 @@ var installerKindLookup = map[string]installerKind{
 	"yum":           installerYum,
 	"go-install":    installerGoInstall,
 	"cargo-install": installerCargoInstall,
-	"uv":            installerUv,
-	"pip":           installerPip,
-	"pip3":          installerPip,
-	"npm":           installerNpm,
 	"manual":        installerManual,
 }
 
@@ -177,8 +170,9 @@ func CheckTool(t Tool) Status {
 			Version: detectVersionWithPath(t, binaryPath),
 		}
 		applyVersionPolicy(t, &status)
-		if better := preferGoInstalledBinary(t, status); better != nil {
-			return *better
+		if hint := managedBinaryNotFirstHint(t, binaryPath, status); hint != "" {
+			status.Instructions = hint
+			logger.Warn(hint)
 		}
 		return status
 	}
@@ -343,8 +337,6 @@ func InstallTool(t Tool) Status {
 	case "node":
 		// Node/bun/npm managed tools install via package managers similar to system tools.
 		// If we add npm/bun-specific handling later, wire it here.
-		return installSystemTool(t)
-	case "python":
 		return installSystemTool(t)
 	case "go":
 		return installGoTool(t)
@@ -543,7 +535,11 @@ func installSystemToolWith(t Tool, run installerExec, available installerAvail) 
 	case status.Installed:
 		status.Error = fmt.Errorf("%s installed but not detected in PATH", t.Name)
 	case lastErr != nil:
-		status.Error = lastErr
+		if hint := brewUnavailableHint(t, attempts); hint != "" {
+			status.Error = fmt.Errorf("%s (%v)", hint, lastErr)
+		} else {
+			status.Error = lastErr
+		}
 	default:
 		if hint := brewUnavailableHint(t, attempts); hint != "" {
 			status.Error = errors.New(hint)
@@ -598,25 +594,58 @@ func brewUnavailableHint(t Tool, attempts []installerAttempt) string {
 	var brewCmd string
 	hasBrew := false
 	brewAvailable := false
+	brewFailed := false
 	otherAvailable := false
 	for _, attempt := range attempts {
 		if attempt.kind == installerBrew {
 			hasBrew = true
 			brewAvailable = attempt.available
 			brewCmd = attempt.command
+			if strings.Contains(attempt.instructions, "(failed:") {
+				brewFailed = true
+			}
 			continue
 		}
 		if attempt.available {
 			otherAvailable = true
 		}
 	}
-	if !hasBrew || brewAvailable || otherAvailable {
+	if !hasBrew || otherAvailable {
+		return ""
+	}
+	if brewAvailable && !brewFailed {
 		return ""
 	}
 	if brewCmd == "" {
 		brewCmd = fmt.Sprintf("brew install %s", t.Name)
 	}
-	return fmt.Sprintf("%s unavailable: Homebrew is not installed. Install Homebrew (see %s) then run: %s", t.Name, packageManagerDocPath, brewCmd)
+	reason := "Homebrew is not installed"
+	if brewFailed {
+		reason = "Homebrew is not functional"
+	}
+	return fmt.Sprintf("%s unavailable: %s. Install Homebrew (see %s) then run: %s", t.Name, reason, packageManagerDocPath, brewCmd)
+}
+
+// PendingInstallCommand returns the installer command that doctor would show
+// in the interactive install prompt (`using: <command>`).
+func PendingInstallCommand(t Tool) string {
+	attempts := buildInstallerAttempts(t, getCurrentPlatform())
+	var first string
+	for _, attempt := range attempts {
+		if attempt.command == "" {
+			continue
+		}
+		if first == "" {
+			first = attempt.command
+		}
+		if attempt.available {
+			return attempt.command
+		}
+	}
+	if first != "" {
+		return first
+	}
+	return strings.TrimSpace(installInstruction(t))
 }
 
 func resolveToolPath(toolName string) (string, error) {
@@ -1036,16 +1065,20 @@ func applyVersionPolicy(t Tool, status *Status) {
 	status.PolicyEvaluation = &eval
 }
 
-func preferGoInstalledBinary(t Tool, current Status) *Status {
+// managedBinaryNotFirstHint reports a PATH-order warning when LookPath found a
+// below-minimum binary but $GOBIN has a policy-compliant go-install binary.
+// CheckTool stays fail-closed: it does not treat the managed binary as the
+// active one unless it is first on the real PATH.
+func managedBinaryNotFirstHint(t Tool, pathBinary string, current Status) string {
 	if current.PolicyEvaluation == nil || current.PolicyEvaluation.MeetsMinimum {
-		return nil
+		return ""
 	}
 	if !hasGoInstallPriority(t) {
-		return nil
+		return ""
 	}
 	goBin := getGoBinPath()
 	if goBin == "" {
-		return nil
+		return ""
 	}
 	name := t.Name
 	if runtime.GOOS == "windows" {
@@ -1053,19 +1086,33 @@ func preferGoInstalledBinary(t Tool, current Status) *Status {
 	}
 	managed := filepath.Join(goBin, name)
 	if _, err := os.Stat(managed); err != nil {
-		return nil
+		return ""
 	}
-	status := Status{
-		Name:         t.Name,
-		Present:      true,
-		Version:      detectVersionWithPath(t, managed),
-		Instructions: fmt.Sprintf("Managed binary: %s", managed),
+	if samePath(pathBinary, managed) {
+		return ""
 	}
-	applyVersionPolicy(t, &status)
-	if status.PolicyEvaluation == nil || !status.PolicyEvaluation.MeetsMinimum {
-		return nil
+	managedStatus := Status{
+		Name:    t.Name,
+		Present: true,
+		Version: detectVersionWithPath(t, managed),
 	}
-	return &status
+	applyVersionPolicy(t, &managedStatus)
+	if managedStatus.PolicyEvaluation == nil || !managedStatus.PolicyEvaluation.MeetsMinimum {
+		return ""
+	}
+	return fmt.Sprintf(
+		"PATH resolves %s (%s) before policy-compliant %s (%s). export PATH=%q:$PATH",
+		pathBinary, current.Version, managed, managedStatus.Version, goBin,
+	)
+}
+
+func samePath(a, b string) bool {
+	absA, errA := filepath.Abs(a)
+	absB, errB := filepath.Abs(b)
+	if errA != nil || errB != nil {
+		return a == b
+	}
+	return absA == absB
 }
 
 func hasGoInstallPriority(t Tool) bool {
@@ -1220,7 +1267,7 @@ func ValidateInstallerCommands(t Tool) {
 		// Warn about completely unrecognized keys
 		logger.Warn(fmt.Sprintf(
 			"Tool %s: install_commands key '%s' is not a recognized installer kind. "+
-				"Known kinds: bun, mise, brew, apt-get, scoop, winget, pacman, dnf, yum, manual, go-install, cargo-install, uv, pip, npm",
+				"Known kinds: bun, mise, brew, apt-get, scoop, winget, pacman, dnf, yum, manual, go-install, cargo-install",
 			t.Name, key))
 	}
 }
@@ -1253,12 +1300,6 @@ func isInstallerAvailable(kind installerKind) bool {
 		return commandExists("go")
 	case installerCargoInstall:
 		return commandExists("cargo")
-	case installerUv:
-		return commandExists("uv")
-	case installerPip:
-		return commandExists("pip") || commandExists("pip3")
-	case installerNpm:
-		return commandExists("npm")
 	case installerManual:
 		// Manual installer is always "available" - it's just a script/command to execute
 		// Used for bootstrapping package managers (mise, scoop) via official install scripts
@@ -1331,28 +1372,6 @@ func defaultInstallerCommand(t Tool, kind installerKind) string {
 			return fmt.Sprintf("cargo install %s", t.InstallPackage)
 		}
 		return ""
-	case installerUv:
-		if cmd, ok := t.InstallCommands["uv"]; ok && cmd != "" {
-			return cmd
-		}
-		return fmt.Sprintf("uv tool install %s", pythonPackageName(t))
-	case installerPip:
-		if cmd, ok := t.InstallCommands["pip"]; ok && cmd != "" {
-			return cmd
-		}
-		if cmd, ok := t.InstallCommands["pip3"]; ok && cmd != "" {
-			return cmd
-		}
-		pipBin := "pip"
-		if !commandExists("pip") && commandExists("pip3") {
-			pipBin = "pip3"
-		}
-		return fmt.Sprintf("%s install %s", pipBin, pythonPackageName(t))
-	case installerNpm:
-		if cmd, ok := t.InstallCommands["npm"]; ok && cmd != "" {
-			return cmd
-		}
-		return fmt.Sprintf("npm install -g %s", t.Name)
 	case installerManual:
 		if cmd, ok := t.InstallCommands["manual"]; ok && cmd != "" {
 			return cmd
@@ -1361,13 +1380,6 @@ func defaultInstallerCommand(t Tool, kind installerKind) string {
 	default:
 		return ""
 	}
-}
-
-func pythonPackageName(t Tool) string {
-	if t.InstallPackage != "" {
-		return t.InstallPackage
-	}
-	return t.Name
 }
 
 func buildInstallerAttempts(t Tool, platform string) []installerAttempt {

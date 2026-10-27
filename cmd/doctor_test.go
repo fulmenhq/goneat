@@ -28,26 +28,97 @@ func execDoctorTools(t *testing.T, args []string) (string, error) {
 	flagDoctorValidateConfig = false
 	flagDoctorDryRun = false
 	flagDoctorNoCooling = false
+	flagDoctorUpgrade = false
 
-	// Create a fresh root command instance per test to prevent command tree pollution
-	// This ensures each test runs with a clean command tree
+	return execDoctorToolsWithStdin(t, args, "")
+}
+
+func execDoctorToolsWithStdin(t *testing.T, args []string, stdin string) (string, error) {
+	t.Helper()
+
 	cmd := newRootCommand()
-
-	// Register all subcommands (doctor, etc.)
 	registerSubcommands(cmd)
 
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
+	if stdin != "" {
+		cmd.SetIn(strings.NewReader(stdin))
+	}
 
-	// Execute via the command path: goneat doctor tools ...
 	rootArgs := append([]string{"doctor", "tools"}, args...)
 	cmd.SetArgs(rootArgs)
-
-	// Do not prompt in tests; we only exercise validation and printing paths
 	err := cmd.Execute()
-
 	return buf.String(), err
+}
+
+func TestFormatInstallPromptIncludesCommandBeforeConfirm(t *testing.T) {
+	command := "go install example.com/yq-standin@v4.53.3"
+	got := formatInstallPrompt("yq-standin", command)
+	using := "using: " + command
+	confirm := "Install yq-standin now? [y/N]"
+	if !strings.Contains(got, using) {
+		t.Fatalf("prompt missing command: %q", got)
+	}
+	i, j := strings.Index(got, using), strings.Index(got, confirm)
+	if i < 0 || j < 0 || i > j {
+		t.Fatalf("using: <command> must appear before %q, got %q", confirm, got)
+	}
+}
+
+func TestDoctorTools_InstallPromptIncludesCommand(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "tools-prompt.yaml")
+	command := "go install example.com/prompt-probe@v1.2.3"
+	configContent := `
+scopes:
+  prompt-test:
+    description: "Install prompt coverage"
+    tools: ["prompt-probe"]
+tools:
+  prompt-probe:
+    name: "prompt-probe"
+    description: "Missing tool used to exercise the install prompt"
+    kind: "system"
+    detect_command: "prompt-probe --version"
+    install_package: "example.com/prompt-probe@v1.2.3"
+    platforms: ["linux", "darwin", "windows"]
+    installer_priority:
+      all: ["go-install"]
+`
+	if err := os.WriteFile(configPath, []byte(configContent), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	flagDoctorInstall = false
+	flagDoctorAll = false
+	flagDoctorTools = nil
+	flagDoctorPrintInstructions = false
+	flagDoctorYes = false
+	flagDoctorScope = "security"
+	flagDoctorCheckUpdates = false
+	flagDoctorInstallPkgMgr = false
+	flagDoctorConfig = ""
+	flagDoctorListScopes = false
+	flagDoctorValidateConfig = false
+	flagDoctorDryRun = false
+	flagDoctorNoCooling = false
+	flagDoctorUpgrade = false
+
+	out, _ := execDoctorToolsWithStdin(t, []string{
+		"--config", configPath,
+		"--scope", "prompt-test",
+		"--install",
+		"--no-cooling",
+	}, "n\n")
+	if !strings.Contains(out, "using: "+command) {
+		t.Fatalf("install prompt must include using: <command>, got %q", out)
+	}
+	confirm := "Install prompt-probe now? [y/N]"
+	i, j := strings.Index(out, "using: "+command), strings.Index(out, confirm)
+	if i < 0 || j < 0 || i > j {
+		t.Fatalf("using: <command> must appear before %q, got %q", confirm, out)
+	}
 }
 
 func TestDoctorTools_UnknownSingle(t *testing.T) {
