@@ -24,7 +24,7 @@ jobs:
         runner: [ubuntu-latest-x64-m, ubuntu-latest-arm64-m]
     runs-on: ${{ matrix.runner }}
     container:
-      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.10
+      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.14
       # glibc runner image includes make/go/rust toolchains for both x64+arm64
       options: --user 1001
     env:
@@ -76,7 +76,7 @@ jobs:
         runner: [ubuntu-latest-x64-m, ubuntu-latest-arm64-m]
     runs-on: ${{ matrix.runner }}
     container:
-      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.10
+      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.14
       # ghcr.io/fulmenhq/goneat-tools-runner-glibc runs as a non-root user.
       # GitHub mounts runner temp/work directories into the container
       # under /__w.
@@ -133,7 +133,7 @@ jobs:
         runner: [ubuntu-latest-x64-m, ubuntu-latest-arm64-m]
     runs-on: ${{ matrix.runner }}
     container:
-      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.10
+      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.14
       # glibc runner image includes make/go/rust toolchains for both x64+arm64
       options: --user 1001
     env:
