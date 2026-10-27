@@ -177,6 +177,9 @@ func CheckTool(t Tool) Status {
 			Version: detectVersionWithPath(t, binaryPath),
 		}
 		applyVersionPolicy(t, &status)
+		if better := preferGoInstalledBinary(t, status); better != nil {
+			return *better
+		}
 		return status
 	}
 
@@ -1031,6 +1034,47 @@ func applyVersionPolicy(t Tool, status *Status) {
 		return
 	}
 	status.PolicyEvaluation = &eval
+}
+
+func preferGoInstalledBinary(t Tool, current Status) *Status {
+	if current.PolicyEvaluation == nil || current.PolicyEvaluation.MeetsMinimum {
+		return nil
+	}
+	if !hasGoInstallPriority(t) {
+		return nil
+	}
+	goBin := getGoBinPath()
+	if goBin == "" {
+		return nil
+	}
+	name := t.Name
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	managed := filepath.Join(goBin, name)
+	if _, err := os.Stat(managed); err != nil {
+		return nil
+	}
+	status := Status{
+		Name:         t.Name,
+		Present:      true,
+		Version:      detectVersionWithPath(t, managed),
+		Instructions: fmt.Sprintf("Managed binary: %s", managed),
+	}
+	applyVersionPolicy(t, &status)
+	if status.PolicyEvaluation == nil || !status.PolicyEvaluation.MeetsMinimum {
+		return nil
+	}
+	return &status
+}
+
+func hasGoInstallPriority(t Tool) bool {
+	for _, kind := range resolveInstallerPriority(t, getCurrentPlatform()) {
+		if kind == installerGoInstall {
+			return true
+		}
+	}
+	return false
 }
 
 func buildPathInstructions(binaryPath string) string {

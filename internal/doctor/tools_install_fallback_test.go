@@ -3,6 +3,8 @@ package doctor
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -199,6 +201,44 @@ func TestLinuxMinisignReportOnlyDoesNotCountAsMissing(t *testing.T) {
 	}
 	if CountsTowardMissing(tool, status) {
 		t.Fatal("linux minisign must not fail make bootstrap when absent")
+	}
+}
+
+func TestCheckTool_PrefersGoInstalledYQWhenDistroFailsPolicy(t *testing.T) {
+	t.Parallel()
+	cfg, err := LoadToolsConfig()
+	if err != nil {
+		t.Fatalf("LoadToolsConfig: %v", err)
+	}
+	yqCfg, ok := cfg.Tools["yq"]
+	if !ok {
+		t.Fatal("yq missing from tools.yaml")
+	}
+	goYq := filepath.Join(getGoBinPath(), "yq")
+	if _, err := os.Stat(goYq); err != nil {
+		t.Skip("managed yq is not installed in GOBIN")
+	}
+	policy, err := yqCfg.VersionPolicy()
+	if err != nil {
+		t.Fatalf("yq VersionPolicy: %v", err)
+	}
+	tool := Tool{
+		Name:              yqCfg.Name,
+		Kind:              yqCfg.Kind,
+		DetectCommand:     yqCfg.DetectCommand,
+		InstallPackage:    yqCfg.InstallPackage,
+		InstallerPriority: yqCfg.InstallerPriority,
+		VersionPolicy:     policy,
+	}
+	status := CheckTool(tool)
+	if !status.Present {
+		t.Fatal("yq should be present via managed go-install")
+	}
+	if status.PolicyEvaluation == nil {
+		t.Fatal("expected yq version policy evaluation")
+	}
+	if !status.PolicyEvaluation.MeetsMinimum {
+		t.Fatalf("managed yq %s should meet minimum %s", status.Version, policy.MinimumVersion)
 	}
 }
 

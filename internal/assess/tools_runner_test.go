@@ -2,6 +2,7 @@ package assess
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/fulmenhq/goneat/internal/doctor"
@@ -124,5 +125,28 @@ func TestConvertToolsConfigToLegacy(t *testing.T) {
 
 	if len(tool.InstallMethods) == 0 {
 		t.Error("Install methods should not be empty")
+	}
+}
+
+func TestToolsRunner_ReportOnlyMinisignIsNotRequiredMissing(t *testing.T) {
+	if testing.Short() {
+		t.Skip("uses repo tools.yaml")
+	}
+	runner := NewToolsRunner()
+	result, err := runner.Assess(context.Background(), ".", AssessmentConfig{})
+	if err != nil {
+		t.Fatalf("Assess: %v", err)
+	}
+	for _, issue := range result.Issues {
+		if issue.Severity == SeverityHigh && strings.Contains(issue.Message, "minisign") {
+			t.Fatalf("report-only minisign must not be a required missing tool: %s", issue.Message)
+		}
+	}
+	if missing, ok := result.Metrics["missing_tools"].([]string); ok {
+		for _, name := range missing {
+			if name == "minisign" {
+				t.Fatal("minisign must not be counted as missing")
+			}
+		}
 	}
 }

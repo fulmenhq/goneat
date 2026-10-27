@@ -87,7 +87,14 @@ func (r *ToolsRunner) Assess(ctx context.Context, target string, config Assessme
 	var policyViolations []Issue
 
 	for _, tool := range selected {
+		if !intdoctor.SupportsCurrentPlatform(tool) {
+			continue
+		}
 		status := intdoctor.CheckTool(tool)
+		if !status.Present && intdoctor.IsReportOnly(tool) {
+			logger.Info(fmt.Sprintf("Tool %s unavailable (report-only)", tool.Name))
+			continue
+		}
 		if status.Present {
 			presentCount++
 			logger.Debug(fmt.Sprintf("Tool %s is present (version: %s)", tool.Name, status.Version))
@@ -256,8 +263,7 @@ func convertToolsConfigToLegacy(toolConfigs []intdoctor.ToolConfig) ([]intdoctor
 			}
 		}
 
-		// Set install package for Go tools
-		if tc.Kind == "go" {
+		if tc.InstallPackage != "" {
 			tool.InstallPackage = tc.InstallPackage
 		}
 
