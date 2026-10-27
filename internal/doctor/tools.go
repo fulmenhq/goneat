@@ -460,6 +460,24 @@ func installSystemToolWith(t Tool, run installerExec, available installerAvail) 
 		status.Installed = true
 		lastErr = nil
 		status.Present = false
+		// go-install writes to $GOBIN. LookPath can still hit a below-minimum
+		// PATH binary (for example distro yq); the install result must report
+		// the managed binary. CheckTool stays PATH-first and fail-closed.
+		if attempt.kind == installerGoInstall {
+			if goBin := getGoBinPath(); goBin != "" {
+				if managed := firstExistingToolPath(t, goBin); managed != "" {
+					status.Present = true
+					status.Version = sanitizeVersion(detectVersionWithPath(t, managed))
+					applyVersionPolicy(t, &status)
+					if pathBinary, err := exec.LookPath(t.Name); err != nil || !samePath(pathBinary, managed) {
+						hint := fmt.Sprintf("Installed %s at %s. export PATH=%q:$PATH", t.Name, managed, goBin)
+						status.Instructions = hint
+						logger.Warn(hint)
+					}
+					return status
+				}
+			}
+		}
 		for _, bin := range candidateBinaryNames(t) {
 			if _, err := exec.LookPath(bin); err == nil {
 				status.Present = true
@@ -1113,6 +1131,22 @@ func samePath(a, b string) bool {
 		return a == b
 	}
 	return absA == absB
+}
+
+func firstExistingToolPath(t Tool, dir string) string {
+	if dir == "" {
+		return ""
+	}
+	for _, bin := range candidateBinaryNames(t) {
+		path := filepath.Join(dir, bin)
+		if runtime.GOOS == "windows" {
+			path += ".exe"
+		}
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+	return ""
 }
 
 func hasGoInstallPriority(t Tool) bool {

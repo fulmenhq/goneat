@@ -317,6 +317,57 @@ func TestCheckTool_PATHOrder_ManagedFirstPassesDistroFirstKeepsFailure(t *testin
 	})
 }
 
+func TestInstallSystemTool_GoInstallReportsManagedVersionWhenPATHHasDistro(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("path-order probe uses POSIX scripts")
+	}
+
+	name := "goneat-install-probe"
+	managedDir := t.TempDir()
+	distroDir := t.TempDir()
+	writeVersionScript(t, distroDir, name, "0.0.0")
+	t.Setenv("GOBIN", managedDir)
+	origPATH := os.Getenv("PATH")
+	t.Setenv("PATH", distroDir+string(os.PathListSeparator)+origPATH)
+
+	tool := Tool{
+		Name:           name,
+		Kind:           "system",
+		DetectCommand:  name + " --version",
+		VersionArgs:    []string{"--version"},
+		InstallPackage: "example.com/goneat-install-probe@v4.53.3",
+		InstallerPriority: map[string][]string{
+			"all": {"go-install"},
+		},
+		VersionPolicy: versioning.Policy{
+			Scheme:         versioning.SchemeSemverFull,
+			MinimumVersion: "4.40.0",
+		},
+	}
+
+	status := installSystemToolWith(tool, func(command string) (string, int, error) {
+		if !strings.Contains(command, "go install") {
+			t.Fatalf("unexpected installer %q", command)
+		}
+		writeVersionScript(t, managedDir, name, "4.53.3")
+		return "installed", 0, nil
+	}, func(kind installerKind) bool {
+		return kind == installerGoInstall
+	})
+	if !status.Installed || !status.Present {
+		t.Fatalf("install should report the managed binary: %+v", status)
+	}
+	if status.Version != "4.53.3" {
+		t.Fatalf("install version = %q, want managed 4.53.3", status.Version)
+	}
+	if status.PolicyEvaluation == nil || !status.PolicyEvaluation.MeetsMinimum {
+		t.Fatalf("install result must meet policy: %+v", status.PolicyEvaluation)
+	}
+	if !strings.Contains(status.Instructions, "export PATH=") {
+		t.Fatalf("install result must hint PATH order: %s", status.Instructions)
+	}
+}
+
 func writeVersionScript(t *testing.T, dir, name, version string) {
 	t.Helper()
 	path := filepath.Join(dir, name)
