@@ -265,6 +265,28 @@ vulnerabilities:
         Goneat doesn't use x/crypto SSH server code (the vulnerable component).
       verified_by: "@3leapsdave"
       verified_date: "2026-01-17"
+    - id: GO-2026-5932
+      status: unmaintained_no_fix
+      reason: "golang.org/x/crypto/openpgp is unmaintained and goneat uses the ProtonMail fork (github.com/ProtonMail/go-crypto). No fixed version exists."
+      analysis: |
+        govulncheck v1.9.0 reports GO-2026-5932 at module level only; goneat's
+        code does not call it and imports no package from the advisory.
+    - id: GO-2026-6860
+      status: unreachable_fix_cooling
+      until: "2026-11-10"
+      reason: "Unreachable per govulncheck v1.9.0. The golang.org/x/net v0.62.0 fix is in its cooling period until 2026-11-03 and will be bumped in v0.6.8."
+      analysis: |
+        govulncheck v1.9.0 reports GO-2026-6860 at module level only
+        (golang.org/x/net v0.60.0); goneat's code does not call it and imports no
+        affected package.
+    - id: GO-2026-6866
+      status: unreachable_fix_cooling
+      until: "2026-11-10"
+      reason: "Unreachable per govulncheck v1.9.0. The golang.org/x/net v0.62.0 fix is in its cooling period until 2026-11-03 and will be bumped in v0.6.8."
+      analysis: |
+        govulncheck v1.9.0 reports GO-2026-6866 at module level only
+        (golang.org/x/net v0.60.0); goneat's code does not call it and imports no
+        affected package.
 
 # ============================================================================
 # POLICY ENGINE CONFIGURATION

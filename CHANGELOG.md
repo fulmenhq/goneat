@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Note**: This changelog keeps the latest 10 releases for readability. For older releases, see `docs/releases/` archive.
 
+## [v0.6.7] - 2026-10-29
+
+### Fixed
+
+- **Doctor**: `make bootstrap` continues when user-local Homebrew auto-install fails. Non-brew installers such as `go-install` still run. Brew-only tools are reported as unavailable with a Homebrew hint. Required tools that cannot be installed another way still fail with an actionable message.
+- **Doctor**: the install prompt shows `using: <command>` before the confirmation. A `$GOBIN` binary counts as a pass only when it is first on `PATH`. After `go-install`, doctor versions the managed binary and prints a `PATH`-order hint.
+- **Tools**: yq is pinned to `github.com/mikefarah/yq/v4@v4.53.3` through `go-install`, so a distro `yq` from another project no longer satisfies detection.
+- **Tools**: Linux minisign is report-only. goneat prints the Ubuntu/Debian and Alpine install commands instead of running sudo.
+
+### Changed
+
+- **CI**: runner images are fulmen-toolbox v0.5.14.
+
+### Security
+
+- govulncheck v1.9.0 reports GO-2026-6860, GO-2026-6866 and GO-2026-5932 as unreachable.
+- GO-2026-5932 is allowlisted in `.goneat/dependencies.yaml`. `golang.org/x/crypto/openpgp` is unmaintained, goneat uses the ProtonMail fork, and no fixed version exists.
+- GO-2026-6860 and GO-2026-6866 are allowlisted in `.goneat/dependencies.yaml` with a review date of 2026-11-10. The `golang.org/x/net` v0.62.0 fix is in its cooling period until 2026-11-03 and will be bumped in v0.6.8.
+
+### Notes
+
+- gosec installed from a package manager reports processing errors under the Go 1.27 toolchain. The fixes are on gosec main and are not released. Use `GOTOOLCHAIN=go1.26.10` until a gosec release includes them.
+
 ## [v0.6.6] - 2026-10-21
 
 ### Changed
@@ -156,21 +179,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tool configuration cleanup**: removed the deprecated hidden doctor defaults path; embedded foundation defaults initialize policy, while `.goneat/tools.yaml` remains the runtime source of truth.
 - **Dependency maintenance**: refreshed direct, security-sensitive, resolver, and Unicode dependencies while retaining the `go 1.25.0` module floor and existing MPL-2.0 exception for unmodified `filepath-securejoin`.
 - **Foundation recommendations**: refreshed recommended tool versions without raising minimum versions or changing the v0.4.2 CI runner; Syft 1.50.0 is a narrow named-High remediation exception, and Homebrew reached that version before release closeout.
-
-## [v0.5.14] - 2026-07-07
-
-### Added
-
-- **File-selection and ignore semantics app note**: documented how `.gitignore`, `.goneatignore`, built-in generated defaults, `--no-ignore`, and `--force-include` apply across assessment categories and external tools.
-- **Starter `.goneatignore` templates**: `goneat init` now writes language-specific starter ignore files from source templates, including shared generated/tooling defaults for `.cache/`, `bin/`, `dist/`, `sbom/`, and `vendor/`.
-- **Vulnerability source provenance**: dependency vulnerability reports and JSON issues now include source type and source path metadata for Go module graph, SBOM-file, and fallback file-walk scans.
-
-### Fixed
-
-- **Security scan scope**: gosec package discovery now honors goneat's unified ignore matcher before nested module and package inputs are passed to gosec, reducing false findings from ignored/generated paths.
-- **Dependency vulnerability scope**: Go vulnerability scans now use a module-graph SBOM from `go list -m -json all`, avoiding recursive workspace scans of caches, generated SBOMs, release artifacts, and vendored examples.
-- **Install replacement behavior**: `make install` removes an existing installed binary before copying the replacement, avoiding platform-specific overwrite failures.
-
-### Changed
-
-- **Dependency updates**: refreshed key Go modules including `golang.org/x/crypto` v0.53.0, `golang.org/x/net` v0.56.0, `github.com/go-git/go-git/v5` v5.19.1, `github.com/open-policy-agent/opa` v1.18.2, and the OpenTelemetry OTLP trace HTTP exporter v1.44.0 while keeping `go.mod` at `go 1.25.0`.
