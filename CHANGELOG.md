@@ -19,12 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **CI**: runner images are fulmen-toolbox v0.5.14.
+- **Dependencies**: `golang.org/x/net` v0.62.0, `golang.org/x/crypto` v0.58.0 and `golang.org/x/term` v0.47.0. x/net v0.62.0 fixes GO-2026-6860 and GO-2026-6866 and is adopted under a cooling exception that expires on 2026-11-03.
 
 ### Security
 
 - govulncheck v1.9.0 reports GO-2026-6860, GO-2026-6866 and GO-2026-5932 as unreachable.
+- GO-2026-6860 and GO-2026-6866 are fixed by `golang.org/x/net` v0.62.0.
 - GO-2026-5932 is allowlisted in `.goneat/dependencies.yaml`. `golang.org/x/crypto/openpgp` is unmaintained, goneat uses the ProtonMail fork, and no fixed version exists.
-- GO-2026-6860 and GO-2026-6866 are allowlisted in `.goneat/dependencies.yaml` with a review date of 2026-11-10. The `golang.org/x/net` v0.62.0 fix is in its cooling period until 2026-11-03 and will be bumped in v0.6.8.
 
 ### Notes
 

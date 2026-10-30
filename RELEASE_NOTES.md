@@ -9,7 +9,7 @@
 - **yq is pinned to mikefarah/yq.** A distro `yq` from a different project no longer satisfies detection.
 - **Linux minisign is report-only.** goneat prints the Ubuntu/Debian and Alpine install commands instead of running sudo.
 - **CI runner images are fulmen-toolbox v0.5.14.**
-- **Security.** govulncheck v1.9.0 reports GO-2026-6860, GO-2026-6866 and GO-2026-5932 as unreachable. All three are allowlisted; the `golang.org/x/net` fix is bumped in v0.6.8.
+- **Security.** `golang.org/x/net` v0.62.0 fixes GO-2026-6860 and GO-2026-6866. It is adopted as a cooling-period exception. GO-2026-5932 has no fix and stays allowlisted. govulncheck v1.9.0 reports all three as unreachable.
 
 ## What Changed
 
@@ -35,15 +35,15 @@
 
 govulncheck v1.9.0, run with Go 1.26.10, reports no vulnerabilities in code goneat calls or packages it imports. Three advisories in required modules are unreachable:
 
-| Advisory | Module | Fixed in |
+| Advisory | Module | Status |
 | --- | --- | --- |
-| GO-2026-6860 | `golang.org/x/net` v0.60.0 | v0.62.0 |
-| GO-2026-6866 | `golang.org/x/net` v0.60.0 | v0.62.0 |
-| GO-2026-5932 | `golang.org/x/crypto` v0.57.0 | none |
+| GO-2026-6860 | `golang.org/x/net` | Fixed by the `golang.org/x/net` v0.62.0 bump in this release |
+| GO-2026-6866 | `golang.org/x/net` | Fixed by the `golang.org/x/net` v0.62.0 bump in this release |
+| GO-2026-5932 | `golang.org/x/crypto` | No fix; allowlisted |
+
+`golang.org/x/net` moves from v0.60.0 to v0.62.0. v0.62.0 is still inside the cooling period, which ends 2026-11-03, so `.goneat/dependencies.yaml` carries a cooling exception for `golang.org/x/net` that expires on 2026-11-03. The bump also selects `golang.org/x/crypto` v0.58.0 and `golang.org/x/term` v0.47.0.
 
 GO-2026-5932 covers `golang.org/x/crypto/openpgp`, which is unmaintained. goneat uses the ProtonMail fork, and no fixed version exists. It is allowlisted in `.goneat/dependencies.yaml`.
-
-GO-2026-6860 and GO-2026-6866 are also allowlisted in `.goneat/dependencies.yaml`, with a review date of 2026-11-10. The `golang.org/x/net` v0.62.0 fix is in its cooling period until 2026-11-03 and will be bumped in v0.6.8.
 
 ## Go 1.27
 
