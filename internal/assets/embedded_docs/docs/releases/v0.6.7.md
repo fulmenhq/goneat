@@ -13,18 +13,22 @@
 
 ## What Changed
 
+This release is not pins-only. It includes behavior fixes to `goneat doctor tools`, `doctor tools --install` and bootstrap, in `cmd/doctor.go`, `internal/doctor` and `internal/assess`.
+
 ### Doctor and bootstrap
 
 - When user-local Homebrew auto-install fails, `make bootstrap` continues. Installers other than brew that were already available, such as `go-install`, still run. A required tool that cannot be installed another way still fails with an actionable message.
 - The install prompt shows `using: <command>` before `Install X now? [y/N]`.
-- A policy-compliant `$GOBIN` binary does not count as a pass unless it is first on `PATH`.
-- After a successful `go-install`, doctor reports the version of the managed binary and prints a `PATH`-order hint.
+- A plain `goneat doctor tools` run checks the binary first on `PATH`. A policy-compliant `$GOBIN` binary behind a non-compliant one, such as a distro `yq`, does not pass.
+- `goneat doctor tools --install` reports the managed binary's version after a successful `go-install` and counts it as meeting policy, then prints an `export PATH` hint. Until `PATH` is fixed, the next plain `doctor tools` run still fails.
 - This release does not add uv, pip or npm installer kinds.
 
 ### Tool pins
 
 - yq is pinned to `github.com/mikefarah/yq/v4@v4.53.3` through `go-install`. brew, scoop and winget remain fallbacks.
 - On Linux, minisign is report-only. goneat prints the Ubuntu/Debian (`apt-get`) and Alpine (`apk`) commands. Darwin (brew) and Windows (scoop) installs are unchanged.
+- A missing minisign on Linux no longer fails doctor or bootstrap. It fails at `make release-sign`, which needs it.
+- A tool is report-only on a platform when its only installer there is manual. minisign on Linux is the only such tool today.
 - Offline tests fail if the yq pin or the minisign instructions are reverted.
 
 ### CI
