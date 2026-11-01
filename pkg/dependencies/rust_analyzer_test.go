@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/fulmenhq/goneat/pkg/config"
+	"github.com/fulmenhq/goneat/pkg/cooling"
 	"github.com/fulmenhq/goneat/pkg/registry"
 )
 
@@ -359,6 +362,115 @@ cooling:
 	}
 }
 
+func coolingExceptionPolicy(t *testing.T, untilLine string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "dependencies.yaml")
+	body := `version: v1
+cooling:
+  enabled: true
+  min_age_days: 7
+  min_downloads: 0
+  min_downloads_recent: 0
+  exceptions:
+    - pattern: young-crate
+      reason: test
+` + untilLine
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func youngCrate() []Dependency {
+	return []Dependency{{
+		Module:   Module{Name: "young-crate", Version: "1.0.0", Language: LanguageRust},
+		Metadata: map[string]interface{}{"age_days": 1},
+	}}
+}
+
+func hasIssueType(issues []Issue, typ string) bool {
+	for _, issue := range issues {
+		if issue.Type == typ {
+			return true
+		}
+	}
+	return false
+}
+
+func TestApplyRustCooling_UnquotedPastUntilDoesNotExempt(t *testing.T) {
+	issues, passed := applyRustCooling(youngCrate(), coolingExceptionPolicy(t, "      until: 2020-01-01\n"))
+	if passed {
+		t.Fatal("an unquoted past until must not exempt the package")
+	}
+	if !hasIssueType(issues, "age_violation") {
+		t.Fatalf("expected age_violation, issues=%v", issues)
+	}
+}
+
+func TestApplyRustCooling_MalformedUntilIsConfigErrorAndDoesNotExempt(t *testing.T) {
+	issues, passed := applyRustCooling(youngCrate(), coolingExceptionPolicy(t, "      until: \"next tuesday\"\n"))
+	if passed {
+		t.Fatal("a malformed until must fail the gate, not exempt")
+	}
+	if !hasIssueType(issues, "configuration") {
+		t.Fatalf("expected a configuration issue, issues=%v", issues)
+	}
+}
+
+func TestApplyRustCooling_NullUntilIsConfigErrorAndDoesNotExempt(t *testing.T) {
+	for name, untilLine := range map[string]string{
+		"null":  "      until: null\n",
+		"tilde": "      until: ~\n",
+		"bare":  "      until:\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			issues, passed := applyRustCooling(youngCrate(), coolingExceptionPolicy(t, untilLine))
+			if passed {
+				t.Fatal("a null until must not make the exception permanent")
+			}
+			if !hasIssueType(issues, "configuration") {
+				t.Fatalf("expected a configuration issue, issues=%v", issues)
+			}
+		})
+	}
+}
+
+func TestApplyRustCooling_UnquotedNonCanonicalUntilIsConfigErrorAndDoesNotExempt(t *testing.T) {
+	for name, until := range map[string]string{
+		"unpadded":       "2099-1-5",
+		"rfc3339":        "2099-12-31T00:00:00Z",
+		"rfc3339 offset": "2099-12-31T01:00:00+01:00",
+		"space datetime": "2099-12-31 00:00:00",
+	} {
+		t.Run(name, func(t *testing.T) {
+			issues, passed := applyRustCooling(youngCrate(), coolingExceptionPolicy(t, "      until: "+until+"\n"))
+			if passed {
+				t.Fatalf("unquoted %s must fail closed like the quoted form", until)
+			}
+			if !hasIssueType(issues, "configuration") {
+				t.Fatalf("expected a configuration issue, issues=%v", issues)
+			}
+		})
+	}
+}
+
+func TestApplyRustCooling_QuotedFutureUntilStillExempts(t *testing.T) {
+	issues, passed := applyRustCooling(youngCrate(), coolingExceptionPolicy(t, "      until: \"2099-12-31\"\n"))
+	if !passed {
+		t.Fatalf("a valid future until must still exempt, issues=%v", issues)
+	}
+	if len(issues) != 0 {
+		t.Fatalf("expected no issues, got %v", issues)
+	}
+}
+
+func TestApplyRustCooling_UnquotedFutureUntilStillExempts(t *testing.T) {
+	_, passed := applyRustCooling(youngCrate(), coolingExceptionPolicy(t, "      until: 2099-12-31\n"))
+	if !passed {
+		t.Fatal("an unquoted future date must exempt until that date")
+	}
+}
+
 func TestPolyglot_GoFirstMatchStillCoolsRust(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/polyglot\n\ngo 1.25\n"), 0o600); err != nil {
@@ -456,5 +568,53 @@ func TestEnumerateRustCrates_FromCargoLock(t *testing.T) {
 	}
 	if !foundLocal || !foundYoung {
 		t.Fatalf("lock enumeration missing expected crates (local=%v young=%v)", foundLocal, foundYoung)
+	}
+}
+
+// An invalid exception is a hard failure; the [grace] prefix is for grace-period
+// age findings only. The parser drops bad exceptions before the checker runs, so
+// this drives the checker with a raw config, as a programmatic caller could.
+func TestRecordCoolingResult_InvalidExceptionIsNotLabelledGrace(t *testing.T) {
+	checker := cooling.NewChecker(config.CoolingConfig{
+		Enabled:         true,
+		MinAgeDays:      7,
+		GracePeriodDays: 3,
+		Exceptions:      []config.CoolingException{{Pattern: "young-crate", Until: "next tuesday"}},
+	})
+	dep := Dependency{
+		Module:   Module{Name: "young-crate", Version: "1.0.0", Language: LanguageRust},
+		Metadata: map[string]interface{}{"age_days": 5}, // inside the grace window of min_age 7
+	}
+	result, err := checker.Check(&dep)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.InGracePeriod {
+		t.Fatalf("test premise: package should be in the grace period, got %+v", result)
+	}
+
+	var issues []Issue
+	passed := true
+	recordCoolingResult(&issues, &passed, &dep, result)
+	if passed {
+		t.Fatal("an invalid exception must fail the gate")
+	}
+	var sawInvalid, sawGraceAge bool
+	for _, issue := range issues {
+		switch issue.Type {
+		case string(cooling.ExceptionConfigViolation):
+			sawInvalid = true
+			if strings.Contains(issue.Message, "[grace]") {
+				t.Errorf("exception_config_invalid must not be labelled grace: %q", issue.Message)
+			}
+		case string(cooling.AgeViolation):
+			sawGraceAge = true
+			if !strings.HasPrefix(issue.Message, "[grace] ") {
+				t.Errorf("grace-period age finding should keep the [grace] label: %q", issue.Message)
+			}
+		}
+	}
+	if !sawInvalid || !sawGraceAge {
+		t.Fatalf("expected an exception_config_invalid and a grace age finding, issues=%v", issues)
 	}
 }
