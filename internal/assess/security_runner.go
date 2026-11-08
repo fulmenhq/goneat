@@ -941,6 +941,10 @@ func (r *SecurityAssessmentRunner) runGovulncheck(ctx context.Context, moduleRoo
 }
 
 func (r *SecurityAssessmentRunner) runGovulncheckWithMetadata(ctx context.Context, moduleRoot string, config AssessmentConfig) ([]Issue, map[string]interface{}, error) {
+	allowed, err := loadSecurityAllowlist(moduleRoot, time.Now())
+	if err != nil {
+		return nil, nil, err
+	}
 	// govulncheck emits a stream of potentially multiline JSON objects.
 	// When scoped, prefer limiting to impacted package directories.
 	args := []string{"-json"}
@@ -1053,7 +1057,7 @@ func (r *SecurityAssessmentRunner) runGovulncheckWithMetadata(ctx context.Contex
 	stderrErr := <-stderrDone
 	waitErr := cmd.Wait()
 	// In JSON mode findings are reported with exit 0, not text-mode exit 3.
-	return report.finish(errors.Join(parseErr, drainErr, stderrErr, waitErr, rctx.Err()))
+	return report.finishWithAllowlist(errors.Join(parseErr, drainErr, stderrErr, waitErr, rctx.Err()), allowed)
 }
 
 // parseGovulnEventLine parses a single govulncheck JSON event line into an Issue.
