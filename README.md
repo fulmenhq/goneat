@@ -260,13 +260,13 @@ Goneat applies `.gitignore`, `.goneatignore`, and built-in generated-directory d
 
 ## Commands
 
-| Category       | Commands                                                            |
-| -------------- | ------------------------------------------------------------------- |
-| **Assessment** | `assess`, `format`, `security`, `validate`, `dependencies`, `dates` |
-| **Workflow**   | `hooks`, `guardian`, `repository`, `maturity`                       |
-| **Tooling**    | `doctor`, `schema`, `pathfinder`, `ssot`                            |
-| **Setup**      | `init`, `doctor tools init`, `hooks init`                           |
-| **Support**    | `docs`, `version`, `envinfo`, `info`                                |
+| Category       | Commands                                                                     |
+| -------------- | ---------------------------------------------------------------------------- |
+| **Assessment** | `assess`, `format`, `security`, `validate`, `dependencies`, `dates`, `canon` |
+| **Workflow**   | `hooks`, `guardian`, `repository`, `maturity`                                |
+| **Tooling**    | `doctor`, `schema`, `pathfinder`, `ssot`                                     |
+| **Setup**      | `init`, `doctor tools init`, `hooks init`                                    |
+| **Support**    | `docs`, `version`, `envinfo`, `info`                                         |
 
 ```bash
 goneat --help              # Full command list

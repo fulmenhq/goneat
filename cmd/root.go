@@ -4,6 +4,8 @@ Copyright © 2025 3 Leaps <info@3leaps.com>
 package cmd
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"strings"
 
@@ -92,6 +94,7 @@ Examples:
 // registerSubcommands adds all subcommands to the root command.
 // This is called from init() for production and can be called explicitly in tests.
 func registerSubcommands(cmd *cobra.Command) {
+	cmd.AddCommand(newCanonCommand())
 	cmd.AddCommand(versionCmd)
 	cmd.AddCommand(formatCmd)
 	cmd.AddCommand(datesCmd)
@@ -123,6 +126,11 @@ var rootCmd = newRootCommand()
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
+		var canonical *canonCommandError
+		if errors.As(err, &canonical) {
+			_, _ = fmt.Fprintln(os.Stderr, canonical.Error())
+			os.Exit(canonical.code)
+		}
 		fields := []logger.Field{logger.Err(err)}
 		if class := formatpkg.ClassOf(err); class != "" {
 			fields = append(fields, logger.String("result_class", string(class)))
@@ -135,6 +143,12 @@ func Execute() {
 func init() {
 	// Register all subcommands with the production rootCmd
 	registerSubcommands(rootCmd)
+	canonical, _, _ := rootCmd.Find([]string{"canon"})
+	if err := ops.RegisterCommandWithTaxonomy("canon", ops.GroupNeat, ops.CategoryValidation,
+		ops.CommandCapabilities{SupportsJSON: true, OutputFormats: []string{"json", "text"}, ExecutionModes: []string{"check", "canonicalize"}},
+		canonical, "Canonical JSON bytes, digests, and checks (RFC 8785)"); err != nil {
+		logger.Warn("Failed to register canon command", logger.Err(err))
+	}
 }
 
 // getVersionFromSources tries to get version from multiple sources in priority order
