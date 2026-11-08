@@ -46,6 +46,9 @@ func TestRepositoryMinisignIsReportOnlyOnLinux(t *testing.T) {
 		t.Fatal("minisign missing from .goneat/tools.yaml")
 	}
 	linux := ms.InstallerPriority["linux"]
+	if !ms.Advisory["linux"] || ms.Advisory["darwin"] || ms.Advisory["windows"] || ms.Advisory["all"] {
+		t.Fatalf("minisign must be explicitly advisory only on Linux: %v", ms.Advisory)
+	}
 	for _, kind := range []string{"apt-get", "apt", "pacman", "dnf", "yum"} {
 		if contains(linux, kind) {
 			t.Fatalf("minisign linux installer_priority includes %q (would auto-run sudo); got %v", kind, linux)

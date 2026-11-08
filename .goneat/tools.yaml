@@ -255,6 +255,8 @@ tools:
     recommended_version: "0.3.0"
   minisign:
     name: minisign
+    advisory:
+      linux: true
     description: Minimal signing utility for release artifacts
     kind: system
     detect_command: minisign -v

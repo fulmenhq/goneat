@@ -198,6 +198,7 @@ func convertToolsConfigToLegacy(toolConfigs []intdoctor.ToolConfig) ([]intdoctor
 			Description:   tc.Description,
 			Kind:          tc.Kind,
 			DetectCommand: tc.DetectCommand,
+			Advisory:      tc.Advisory,
 		}
 
 		// Parse DetectCommand to set VersionArgs for version detection

@@ -2,11 +2,41 @@ package assess
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/fulmenhq/goneat/internal/doctor"
 )
+
+func TestToolsRunnerManualOnlyRequiresAdvisory(t *testing.T) {
+	for _, advisory := range []bool{false, true} {
+		t.Run(fmt.Sprint(advisory), func(t *testing.T) {
+			dir := t.TempDir()
+			t.Chdir(dir)
+			t.Setenv("PATH", t.TempDir())
+			if err := os.Mkdir(filepath.Join(dir, ".goneat"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			config := fmt.Sprintf("scopes:\n  foundation:\n    description: Test tools\n    tools: [absent-fixture]\ntools:\n  absent-fixture:\n    name: absent-fixture\n    description: Test tool\n    kind: system\n    detect_command: absent-fixture --version\n    installer_priority: {all: [manual]}\n    install_commands: {manual: 'install manually'}\n    advisory: {all: %t}\n", advisory)
+			if err := os.WriteFile(filepath.Join(dir, ".goneat", "tools.yaml"), []byte(config), 0600); err != nil {
+				t.Fatal(err)
+			}
+			result, err := NewToolsRunner().Assess(context.Background(), dir, AssessmentConfig{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Error != "" || result.Success != advisory {
+				t.Fatalf("unexpected assessment: %+v", result)
+			}
+			if !advisory && (len(result.Issues) != 1 || result.Issues[0].Severity != SeverityHigh) {
+				t.Fatalf("missing manual-only tool must fail high: %+v", result)
+			}
+		})
+	}
+}
 
 func TestToolsRunner_NewToolsRunner(t *testing.T) {
 	runner := NewToolsRunner()
