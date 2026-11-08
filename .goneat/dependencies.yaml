@@ -141,13 +141,6 @@ cooling:
   #   - */cobra                   matches any package named "cobra"
   #
   exceptions:
-    # Temporary cooling exception: golang.org/x/net v0.62.0 fixes GO-2026-6860
-    # and GO-2026-6866 and is still inside the cooling window. Remove this
-    # entry on or after 2026-11-03, when the window ends.
-    - pattern: "golang.org/x/net"
-      until: "2026-11-03"
-      reason: "x/net v0.62.0 fixes GO-2026-6860 and GO-2026-6866; cooling exception until the cooling window ends"
-
     # Trust FulmenHQ organization's internal Go modules.
     # github.com/org/* matches Go module paths only — it does NOT match
     # crates.io crate names (e.g. github.com/3leaps/* will not except "serde").
