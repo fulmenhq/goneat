@@ -1111,3 +1111,11 @@ tools:
 		t.Fatalf("expected nil or empty flags, got %d flags", len(pm.Flags))
 	}
 }
+
+func TestValidateBytesKeepsRawJSON(t *testing.T) {
+	for _, raw := range []string{`{"tools":{"x":{"name":"\ud800"}}}`, "{\"tools\":{\"x\":{\"name\":\"a\xffb\"}}}"} {
+		if err := ValidateBytes([]byte(raw)); err == nil {
+			t.Errorf("%q: accepted", raw)
+		}
+	}
+}

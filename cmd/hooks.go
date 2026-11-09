@@ -20,6 +20,7 @@ import (
 	"github.com/fulmenhq/goneat/internal/assets"
 	"github.com/fulmenhq/goneat/internal/guardian"
 	"github.com/fulmenhq/goneat/internal/ops"
+	"github.com/fulmenhq/goneat/internal/schemarun"
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/fulmenhq/goneat/pkg/safeio"
 	schemapkg "github.com/fulmenhq/goneat/pkg/schema"
@@ -2033,8 +2034,8 @@ func runHooksPolicyValidate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read hooks.yaml: %v", err)
 	}
-	var doc any
-	if err := yaml.Unmarshal(raw, &doc); err != nil {
+	doc, _, err := schemarun.DecodeInstance(raw)
+	if err != nil {
 		return fmt.Errorf("failed to parse hooks.yaml: %v", err)
 	}
 	issues, err := hooksManifestIssues(doc)
@@ -2056,8 +2057,8 @@ func runHooksPolicyValidate(cmd *cobra.Command, args []string) error {
 // Returns nil if valid, or a user-friendly error with guidance if invalid.
 func validateHooksManifestSchema(raw []byte) error {
 	// Parse YAML into generic structure for schema validation
-	var doc any
-	if err := yaml.Unmarshal(raw, &doc); err != nil {
+	doc, _, err := schemarun.DecodeInstance(raw)
+	if err != nil {
 		return fmt.Errorf("failed to parse hooks.yaml as YAML: %v", err)
 	}
 	issues, err := hooksManifestIssues(doc)

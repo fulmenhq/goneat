@@ -7,14 +7,14 @@ import (
 	"strings"
 
 	"github.com/fulmenhq/goneat/internal/schema"
-	"gopkg.in/yaml.v3"
+	"github.com/fulmenhq/goneat/internal/schemarun"
 )
 
 // ValidateToolsConfig validates a tools configuration against the JSON Schema
 func ValidateToolsConfig(configBytes []byte) error {
 	// Parse YAML to interface{} for validation
-	var configData interface{}
-	if err := yaml.Unmarshal(configBytes, &configData); err != nil {
+	configData, _, err := schemarun.DecodeInstance(configBytes)
+	if err != nil {
 		return fmt.Errorf("yaml parse error: %w", err)
 	}
 

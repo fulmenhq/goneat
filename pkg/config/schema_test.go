@@ -171,3 +171,12 @@ func TestValidateConfigUsesEmbeddedSchema(t *testing.T) {
 		t.Fatal("unknown version accepted")
 	}
 }
+
+func TestValidateConfigKeepsRawJSON(t *testing.T) {
+	if err := ValidateConfig([]byte(`{"format":{"yaml":{"indent":2.0000000000000001}}}`), "1.0.0"); err == nil {
+		t.Error("rounded non-integer accepted")
+	}
+	if err := ValidateConfig([]byte(`{"format":{"yaml":{"indent":2}}}`), "1.0.0"); err != nil {
+		t.Errorf("integer rejected: %v", err)
+	}
+}

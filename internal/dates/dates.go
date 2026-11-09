@@ -18,6 +18,7 @@ import (
 
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/fulmenhq/goneat/internal/gitrepo"
+	"github.com/fulmenhq/goneat/internal/schemarun"
 	"github.com/fulmenhq/goneat/pkg/ignore"
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/fulmenhq/goneat/pkg/schema"
@@ -172,8 +173,8 @@ func LoadDatesConfig(target string) DatesConfig {
 	}
 
 	// Parse raw data to interface{} for schema validation
-	var doc interface{}
-	if err := yaml.Unmarshal(data, &doc); err != nil {
+	doc, _, err := schemarun.DecodeInstance(data)
+	if err != nil {
 		// Fall back to defaults if parsing fails
 		return cfg
 	}

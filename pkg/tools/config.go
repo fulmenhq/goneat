@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/fulmenhq/goneat/internal/schemarun"
 	"github.com/fulmenhq/goneat/pkg/schema"
 	"github.com/fulmenhq/goneat/pkg/versioning"
 	"gopkg.in/yaml.v3"
@@ -127,8 +128,8 @@ func ParseConfig(data []byte) (*Config, error) {
 // ValidateBytes validates raw YAML/JSON content against the tools schema.
 // Validates against v1.1.0 schema which is backward compatible with v1.0.0.
 func ValidateBytes(data []byte) error {
-	var cfg interface{}
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	cfg, _, err := schemarun.DecodeInstance(data)
+	if err != nil {
 		return fmt.Errorf("yaml parse error: %w", err)
 	}
 	// v1.1.0 is backward compatible with v1.0.0 (all new fields are optional)

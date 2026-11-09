@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/fulmenhq/goneat/internal/schemarun"
 	"github.com/fulmenhq/goneat/pkg/schema"
-	"gopkg.in/yaml.v3"
 )
 
 // Schema content loaded at runtime for easier development and updates
@@ -48,8 +48,8 @@ func ValidateConfig(configData []byte, schemaVersion string) error {
 	if err != nil {
 		return fmt.Errorf("failed to load schema for version %s: %v", schemaVersion, err)
 	}
-	var doc any
-	if err := yaml.Unmarshal(configData, &doc); err != nil {
+	doc, _, err := schemarun.DecodeInstance(configData)
+	if err != nil {
 		return fmt.Errorf("failed to parse configuration: %v", err)
 	}
 	result, err := schema.Validate(doc, schemaName)

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fulmenhq/goneat/internal/schemarun"
 	"github.com/fulmenhq/goneat/pkg/config"
 	"github.com/fulmenhq/goneat/pkg/cooling"
 	"github.com/fulmenhq/goneat/pkg/dependencies/policy"
@@ -170,7 +171,9 @@ func (a *GoAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisCon
 				// still reported when schema validation rejects the file.
 				rawPolicy := policyConfig
 				schemaOK := true
-				if result, vErr := schema.Validate(policyConfig, "dependencies-policy-v1.0.0"); vErr != nil {
+				// Validate the file as written (strict, exact JSON-aware decode);
+				// policyConfig stays the YAML decode used below.
+				if result, vErr := validatePolicyBytes(policyData); vErr != nil {
 					logger.Warn("dependencies: policy schema validation error", logger.Err(vErr))
 					policyConfig, schemaOK = nil, false
 				} else if !result.Valid {
@@ -401,4 +404,20 @@ func findLicenseFile(moduleDir string) string {
 		return matches[0]
 	}
 	return ""
+}
+
+// validatePolicyBytes validates dependency policy bytes as written. JSON text
+// is decoded strictly and exactly, anything else as YAML; a missing version
+// defaults to "v1" as for the parsed policy.
+func validatePolicyBytes(data []byte) (*schema.Result, error) {
+	decoded, _, err := schemarun.DecodeInstance(data)
+	if err != nil {
+		return nil, err
+	}
+	if m, ok := decoded.(map[string]any); ok {
+		if _, ok := m["version"]; !ok {
+			m["version"] = "v1"
+		}
+	}
+	return schema.Validate(decoded, "dependencies-policy-v1.0.0")
 }

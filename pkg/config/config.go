@@ -2,7 +2,6 @@ package config
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,8 +9,8 @@ import (
 	"time"
 
 	"github.com/fulmenhq/goneat/internal/schema"
+	"github.com/fulmenhq/goneat/internal/schemarun"
 	"github.com/spf13/viper"
-	"gopkg.in/yaml.v3"
 )
 
 // Config holds all configuration for goneat
@@ -269,13 +268,17 @@ func LoadProjectConfigAt(dir string) (*Config, error) {
 	var doc interface{}
 	switch ext := strings.ToLower(filepath.Ext(configFile)); ext {
 	case ".yaml", ".yml":
-		if err := yaml.Unmarshal(rawData, &doc); err != nil {
+		decoded, _, err := schemarun.DecodeInstance(rawData)
+		if err != nil {
 			return nil, fmt.Errorf("failed to parse %s as YAML: %w", configFile, err)
 		}
+		doc = decoded
 	case ".json":
-		if err := json.Unmarshal(rawData, &doc); err != nil {
+		decoded, err := schemarun.DecodeJSONInstance(rawData)
+		if err != nil {
 			return nil, fmt.Errorf("failed to parse %s as JSON: %w", configFile, err)
 		}
+		doc = decoded
 	default:
 		return nil, fmt.Errorf("unsupported config format: %s", ext)
 	}

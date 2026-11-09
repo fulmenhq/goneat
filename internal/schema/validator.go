@@ -9,7 +9,6 @@ import (
 	"github.com/fulmenhq/goneat/internal/assets"
 	"github.com/fulmenhq/goneat/internal/schemaengine"
 	"github.com/fulmenhq/goneat/internal/schemarun"
-	"gopkg.in/yaml.v3"
 )
 
 // ValidationError represents a single validation error.
@@ -100,8 +99,9 @@ func ValidateConfigFile(path string, schemaName string) error {
 		return fmt.Errorf("failed to read %s: %w", path, err)
 	}
 
-	var decoded interface{}
-	if err := yaml.Unmarshal(data, &decoded); err != nil {
+	// JSON text is decoded strictly and exactly; anything else as YAML.
+	decoded, _, err := schemarun.DecodeInstance(data)
+	if err != nil {
 		return fmt.Errorf("failed to parse %s: %w", path, err)
 	}
 
