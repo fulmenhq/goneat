@@ -22,9 +22,9 @@ import (
 //     normalising, disallowed/mapped/unknown/ignored code points refused,
 //     STD3, hyphen and joiner rules, Bidi rule, DNS length). It is not strict
 //     IDNA2008: NV8 code points are not excluded. Input is never mapped, so
-//     U+3002 is not a dot and uppercase is not folded. The "--" in third and
-//     fourth position rule is checked here on code points, because x/net/idna
-//     checks byte offsets.
+//     U+3002 is not a dot and uppercase is not folded. The hyphen rules are
+//     checked here on code points; x/net/idna's byte-offset check is disabled
+//     (golang/go#81026).
 //   - ASCII labels follow the LDH rule. "xn--" labels are not decoded.
 //   - Address literals: untagged IPv4 and "IPv6:" (case-insensitive) only;
 //     other General-address-literal tags are refused. IPv6 "::" follows the
@@ -47,7 +47,11 @@ var (
 // this build. It depends on the Go toolchain; tests pin it.
 const IDNAUnicodeVersion = idna.UnicodeVersion
 
-var idnaRegistration = idna.New(idna.ValidateForRegistration())
+// The x/net/idna hyphen check (UTS 46 CheckHyphens) compares byte offsets
+// rather than code points (golang/go#81026), which both admits "mü--nchen" and
+// refuses the valid "ü--ab". It is disabled here and both hyphen rules are
+// applied on code points in checkDomain.
+var idnaRegistration = idna.New(idna.ValidateForRegistration(), idna.CheckHyphens(false))
 
 func checkEmail(v any) error    { return checkMailbox(v, false) }
 func checkIDNEmail(v any) error { return checkMailbox(v, true) }
@@ -178,9 +182,9 @@ func checkDomain(d string, intl bool) error {
 		if !intl {
 			return errEmailDomain
 		}
-		// x/net/idna checks "--" at byte offsets 2-3; RFC 5891 section
-		// 4.2.3.1 means the third and fourth code points.
-		if r := []rune(label); len(r) >= 4 && r[2] == '-' && r[3] == '-' {
+		// RFC 5891 section 4.2.3.1 hyphen rules, on code points: no leading or
+		// trailing hyphen, and not "--" in the third and fourth positions.
+		if r := []rune(label); r[0] == '-' || r[len(r)-1] == '-' || (len(r) >= 4 && r[2] == '-' && r[3] == '-') {
 			return errEmailDomain
 		}
 		if !contextORules(label) {

@@ -120,6 +120,11 @@ func TestOwnedContextORuleBoundaries(t *testing.T) {
 		{"hyphen 3-4 ascii prefix U-label", "ab--ü", false},
 		{"hyphen 2-3 allowed", "mü-n-chen", true},
 		{"hyphen 4-5 allowed", "mün--chen", true},
+		{"hyphen at code points 2-3 after multi-byte (byte offsets 2-3)", "ü--ab", true},
+		{"hyphen 3-4 after two multi-byte", "üb--x", false},
+		{"leading hyphen U-label", "-ü", false},
+		{"trailing hyphen U-label", "ü-", false},
+		{"single hyphen U-label interior", "ü-b", true},
 	} {
 		got := checkIDNEmail("user@"+tt.domain+".example") == nil
 		if got != tt.ok {
