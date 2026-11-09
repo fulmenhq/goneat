@@ -2,7 +2,9 @@ package schemaengine
 
 import (
 	"errors"
+
 	"fmt"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 	"os"
 	"path/filepath"
 	"strings"
@@ -265,8 +267,45 @@ func TestOpaqueBaseIsPerResource(t *testing.T) {
 	if valid(t, c, `"x"`) {
 		t.Error("nested hierarchical base not resolved")
 	}
+	// A hierarchical base whose file name matches any fixed probe name is
+	// still hierarchical.
+	probeName := Resource{URL: "https://example.com/goneat-opaque-base-probe.invalid.json", Bytes: []byte(`{"$ref":"leaf"}`)}
+	c = mustCompile(t, `{"$ref":"https://example.com/goneat-opaque-base-probe.invalid.json"}`, Options{Resources: []Resource{probeName, leaf}})
+	if valid(t, c, `"x"`) {
+		t.Error("hierarchical base with probe-like name misclassified")
+	}
+	// Determining the base adds no graph edges: an admitted but
+	// unreferenced resource is never compiled.
+	unused := Resource{URL: "https://example.com/unused.json", Bytes: []byte(`{"format":"unused-format"}`)}
+	mustCompile(t, `{"$id":"https://example.com/root","$ref":"leaf"}`, Options{Resources: []Resource{leaf, unused}})
 	// Fragment-only refs under opaque bases still work.
 	mustCompile(t, `{"$id":"urn:example:r","$defs":{"a":{"type":"string"}},"$ref":"#/$defs/a"}`, Options{})
+}
+
+// resourceBase reads the engine's private resource base; a dependency change
+// that breaks it must fail here, not silently weaken admission.
+func TestResourceBaseIntrospection(t *testing.T) {
+	var seen []string
+	c := jsonschema.NewCompiler()
+	c.UseLoader(newClosedLoader())
+	c.RegisterVocabulary(&jsonschema.Vocabulary{URL: "urn:goneat:test:base", Compile: func(ctx *jsonschema.CompilerContext, _ map[string]any) (jsonschema.SchemaExt, error) {
+		b, ok := resourceBase(ctx)
+		if !ok {
+			t.Fatal("resource base introspection failed")
+		}
+		seen = append(seen, b)
+		return nil, nil
+	}})
+	c.AssertVocabs()
+	if err := c.AddResource("https://example.com/a/root.json", map[string]any{"$id": "https://example.com/a/root.json", "properties": map[string]any{"x": map[string]any{"$id": "urn:example:x"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Compile("https://example.com/a/root.json"); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(seen, ",") != "https://example.com/a/root.json,urn:example:x" {
+		t.Fatalf("bases: %v", seen)
+	}
 }
 
 // The pattern budget applies before regexp compilation and only to schema

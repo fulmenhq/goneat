@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"reflect"
 	"regexp"
 	"strings"
 	"sync/atomic"
@@ -365,8 +366,8 @@ func (a *admission) compile(ctx *jsonschema.CompilerContext, obj map[string]any)
 	}
 	// The engine resolves any relative reference against an opaque base
 	// (such as a URN) to that base itself, so such a reference silently
-	// becomes a self-reference. Detect an opaque base for this schema's own
-	// resource and refuse relative references there.
+	// becomes a self-reference. Refuse relative references whose own
+	// resource base is opaque.
 	for _, kw := range []string{"$ref", "$dynamicRef", "$recursiveRef"} {
 		ref, ok := obj[kw].(string)
 		if !ok || strings.HasPrefix(ref, "#") {
@@ -375,9 +376,14 @@ func (a *admission) compile(ctx *jsonschema.CompilerContext, obj map[string]any)
 		if u, err := url.Parse(ref); err == nil && u.IsAbs() {
 			continue
 		}
-		if opaqueResourceBase(ctx) {
+		base, ok := resourceBase(ctx)
+		if !ok {
+			return a.fail(&AdmissionError{Reason: ReasonUnsupportedOption,
+				Detail: "cannot determine the resource base for a relative reference"})
+		}
+		if bu, err := url.Parse(base); err != nil || bu.Opaque != "" {
 			return a.fail(&AdmissionError{Reason: ReasonUnresolvedRef,
-				Detail: fmt.Sprintf("relative %s \"%s\" cannot be resolved against an opaque base URI", kw, ref)})
+				Detail: fmt.Sprintf("relative %s \"%s\" cannot be resolved against opaque base \"%s\"", kw, ref, base)})
 		}
 	}
 	if f, ok := obj["format"].(string); ok && !isKnownFormat(f) {
@@ -387,18 +393,29 @@ func (a *admission) compile(ctx *jsonschema.CompilerContext, obj map[string]any)
 	return nil, nil
 }
 
-// opaqueResourceBase reports whether the resource containing the schema being
-// compiled has an opaque base URI. Against an opaque base every relative
-// reference resolves to the base itself, so a probe reference lands on the
-// same schema as the empty reference; against a hierarchical base the probe
-// names a document that is never admitted and fails to resolve.
-func opaqueResourceBase(ctx *jsonschema.CompilerContext) bool {
-	self, err := ctx.EnqueueRef("")
-	if err != nil || self == nil {
-		return false
+// resourceBase returns the base URI the engine resolves this schema's
+// references against (objCompiler.res.id in jsonschema/v6 v6.0.3). It reads
+// the value through reflection and has no side effects: it does not enqueue
+// or compile anything. If the engine's internals change, ok is false and the
+// caller fails closed; TestResourceBaseIntrospection pins this.
+func resourceBase(ctx *jsonschema.CompilerContext) (base string, ok bool) {
+	v := reflect.ValueOf(ctx)
+	if v.Kind() != reflect.Pointer || v.IsNil() {
+		return "", false
 	}
-	probe, err := ctx.EnqueueRef("goneat-opaque-base-probe.invalid.json")
-	return err == nil && probe == self
+	c := v.Elem().FieldByName("c")
+	if !c.IsValid() || c.Kind() != reflect.Pointer || c.IsNil() {
+		return "", false
+	}
+	res := c.Elem().FieldByName("res")
+	if !res.IsValid() || res.Kind() != reflect.Pointer || res.IsNil() {
+		return "", false
+	}
+	id := res.Elem().FieldByName("id")
+	if !id.IsValid() || id.Kind() != reflect.String {
+		return "", false
+	}
+	return id.String(), true
 }
 
 // boundedRegexp is Go's RE2 regexp.Compile with the pattern budget applied
