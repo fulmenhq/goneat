@@ -21,13 +21,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// isOfflineMode checks if offline schema validation is enabled via environment variable
-//
-//nolint:unused
-func isOfflineMode() bool {
-	return os.Getenv("GONEAT_OFFLINE_SCHEMA_VALIDATION") == "true"
-}
-
 // SchemaAssessmentRunner implements AssessmentRunner for schema-aware validation (preview)
 type SchemaAssessmentRunner struct {
 	commandName string

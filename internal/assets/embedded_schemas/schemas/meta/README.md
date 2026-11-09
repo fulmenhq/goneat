@@ -1,7 +1,8 @@
 # Meta-Schema Cache
 
-This directory stores the curated JSON Schema meta-schemas that goneat needs for
-offline validation. Directory names mirror the signature tags defined in
+This directory stores curated copies of the JSON Schema meta-schemas. Validation
+itself uses the metaschemas built into goneat's schema engine and never fetches
+them. Directory names mirror the signature tags defined in
 `schemas/signatures/v1.0.0/schema-signatures.yaml` (e.g., `draft-07`,
 `draft-2020-12`) so downstream automation can reason about available drafts.
 
@@ -10,8 +11,7 @@ offline validation. Directory names mirror the signature tags defined in
 - `draft-07/` – canonical Draft-07 meta-schema (`schema.json`).
 - `draft-2020-12/` – canonical Draft 2020-12 meta-schema plus offline helpers.
   - `schema.json` – raw meta-schema fetched from json-schema.org.
-  - `offline.schema.json` – reduced subset used when
-    `GONEAT_OFFLINE_SCHEMA_VALIDATION=true` to avoid remote fetches.
+  - `offline.schema.json` – reduced subset kept as a shipped reference copy.
   - `meta/` – reserved for additional vocabularies (`core.json`, `validation.json`,
     etc.) should we mirror upstream structure.
 

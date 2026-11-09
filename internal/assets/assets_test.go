@@ -91,15 +91,6 @@ func TestOfflineMetaSchemaEmbedding(t *testing.T) {
 			if len(data) == 0 {
 				t.Fatalf("offline meta-schema %s is empty", tc.path)
 			}
-
-			t.Setenv("GONEAT_OFFLINE_SCHEMA_VALIDATION", "true")
-			meta, ok := GetJSONSchemaMeta(tc.draft)
-			if !ok {
-				t.Fatalf("expected offline meta-schema lookup to succeed for %s", tc.draft)
-			}
-			if !bytes.Equal(meta, data) {
-				t.Fatal("offline meta-schema returned by GetJSONSchemaMeta does not match embedded copy")
-			}
 		})
 	}
 }

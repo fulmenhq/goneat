@@ -44,7 +44,7 @@ The project uses:
 
 - **JSON Schema Draft 2020-12**: Latest specification for maximum expressiveness
 - **Schema URIs**: Published at `https://schemas.goneat.dev/` for discovery
-- **Go JSON Schema Library**: `github.com/xeipuuv/gojsonschema` for runtime validation
+- **Go JSON Schema Library**: `github.com/santhosh-tekuri/jsonschema/v6` for runtime validation, through goneat's schema adapter (`pkg/schema`)
 
 See also:
 
@@ -429,7 +429,7 @@ class TrainingDataGenerator:
 ```go
 // pkg/ai/remediation.go
 type AIRemediationEngine struct {
-    schemaValidator *gojsonschema.Schema
+    schemaValidator *schema.Validator
     llmClient       LLMClient
 }
 
