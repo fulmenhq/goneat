@@ -120,6 +120,31 @@ func CompileMetaschema(draft string) (*schemaengine.Compiled, error) {
 	return cache.Get(root, schemaengine.Options{})
 }
 
+// DecodeInstance decodes instance text for validation. Text that is JSON
+// syntax is decoded strictly with schemaengine.DecodeJSON (exact numbers;
+// invalid UTF-8 and unpaired surrogate escapes refused) and never falls back
+// to YAML, so a JSON instance reaches the validator unaltered. Other text is
+// decoded as YAML. format is "json" or "yaml".
+func DecodeInstance(data []byte) (v any, format string, err error) {
+	if json.Valid(data) {
+		v, err = DecodeJSONInstance(data)
+		return v, "json", err
+	}
+	if err := yaml.Unmarshal(data, &v); err != nil {
+		return nil, "yaml", err
+	}
+	return v, "yaml", nil
+}
+
+// DecodeJSONInstance decodes JSON instance text strictly; see DecodeInstance.
+func DecodeJSONInstance(data []byte) (any, error) {
+	v, err := schemaengine.DecodeJSON(data, schemaengine.DefaultLimits().MaxInstanceBytes)
+	if err != nil {
+		return nil, fmt.Errorf("invalid JSON instance: %w", err)
+	}
+	return v, nil
+}
+
 // Issue is an engine issue mapped to goneat's reporting form.
 type Issue struct {
 	Path    string // dotted instance path, "(root)" for the document itself

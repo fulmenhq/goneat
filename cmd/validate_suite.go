@@ -14,6 +14,7 @@ import (
 
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/fulmenhq/goneat/internal/assess"
+	"github.com/fulmenhq/goneat/internal/schemarun"
 	"github.com/fulmenhq/goneat/pkg/buildinfo"
 	"github.com/fulmenhq/goneat/pkg/safeio"
 	"github.com/fulmenhq/goneat/pkg/schema"
@@ -21,7 +22,6 @@ import (
 	"github.com/fulmenhq/goneat/pkg/work"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -588,13 +588,18 @@ func parseDataBytes(path string, data []byte) (any, error) {
 	var doc any
 	switch ext {
 	case ".yaml", ".yml":
-		if err := yaml.Unmarshal(data, &doc); err != nil {
+		// JSON-syntax content is still decoded strictly and exactly.
+		decoded, _, err := schemarun.DecodeInstance(data)
+		if err != nil {
 			return nil, fmt.Errorf("failed to parse %s as YAML: %w", path, err)
 		}
+		doc = decoded
 	case ".json":
-		if err := json.Unmarshal(data, &doc); err != nil {
+		decoded, err := schemarun.DecodeJSONInstance(data)
+		if err != nil {
 			return nil, fmt.Errorf("failed to parse %s as JSON: %w", path, err)
 		}
+		doc = decoded
 	default:
 		return nil, fmt.Errorf("unsupported data format: %s", ext)
 	}

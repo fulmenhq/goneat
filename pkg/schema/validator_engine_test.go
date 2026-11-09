@@ -135,3 +135,65 @@ func TestResultReportsCapability(t *testing.T) {
 		t.Fatalf("capability missing: %+v", res)
 	}
 }
+
+// JSON instance bytes reach the validator unaltered on every byte, file and
+// schema-file entry point: unpaired surrogate escapes and invalid UTF-8 are
+// refused (never repaired through a YAML fallback), numbers stay exact, and
+// a huge exponent is still a number.
+func TestRawJSONInstanceBoundary(t *testing.T) {
+	dir := t.TempDir()
+	type entry func(schema, data []byte) (*Result, error)
+	entries := map[string]entry{
+		"ValidateBytes": func(schema, data []byte) (*Result, error) {
+			v, err := NewValidatorFromBytes(schema)
+			if err != nil {
+				return nil, err
+			}
+			return v.ValidateBytes(data)
+		},
+		"ValidateDataFromBytes": func(schema, data []byte) (*Result, error) { return ValidateDataFromBytes(schema, data) },
+		"ValidateFile": func(schema, data []byte) (*Result, error) {
+			p := filepath.Join(dir, "d.json")
+			if err := os.WriteFile(p, data, 0o600); err != nil {
+				return nil, err
+			}
+			return ValidateFile(schema, p)
+		},
+		"ValidateFromFileWithBytes": func(schema, data []byte) (*Result, error) {
+			p := filepath.Join(dir, "s.json")
+			if err := os.WriteFile(p, schema, 0o600); err != nil {
+				return nil, err
+			}
+			return ValidateFromFileWithBytes(p, data)
+		},
+	}
+	for name, run := range entries {
+		for _, data := range [][]byte{[]byte(`"\ud800"`), []byte(`{"a":"\udc00"}`), []byte("\"a\xffb\"")} {
+			if res, err := run([]byte(`{"type":"string"}`), data); err == nil {
+				t.Errorf("%s %q: accepted %+v", name, data, res)
+			}
+		}
+		if res, err := run([]byte(`{"type":"string"}`), []byte(`"�"`)); err != nil || !res.Valid {
+			t.Errorf("%s: genuine U+FFFD: %+v %v", name, res, err)
+		}
+		for _, tt := range []struct {
+			schema, data string
+			valid        bool
+		}{
+			{`{"const":0.1}`, `0.10000000000000001`, false},
+			{`{"const":0.10000000000000001}`, `0.10000000000000001`, true},
+			{`{"const":9007199254740993}`, `9007199254740992`, false},
+			{`{"type":"number"}`, `1e1000`, true},
+			{`{"type":"string"}`, `1e1000`, false},
+		} {
+			res, err := run([]byte(tt.schema), []byte(tt.data))
+			if err != nil || res.Valid != tt.valid {
+				t.Errorf("%s %s vs %s: %+v %v", name, tt.data, tt.schema, res, err)
+			}
+		}
+		// YAML instances still work.
+		if res, err := run([]byte(`{"type":"object","required":["a"]}`), []byte("a: 1\n")); err != nil || !res.Valid {
+			t.Errorf("%s: yaml: %+v %v", name, res, err)
+		}
+	}
+}

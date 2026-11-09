@@ -1,6 +1,7 @@
 package schemarun
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -119,5 +120,30 @@ func TestSameDocument(t *testing.T) {
 	}
 	if SameDocument([]byte(`{"a":1}`), []byte(`{"a":1.0}`)) {
 		t.Error("different numbers treated as same")
+	}
+}
+
+func TestDecodeInstanceIsStrictForJSON(t *testing.T) {
+	for _, raw := range []string{`"\ud800"`, `{"k":"\udc00"}`, "\"a\xffb\""} {
+		if _, _, err := DecodeInstance([]byte(raw)); err == nil {
+			t.Errorf("%q: decoded", raw)
+		}
+	}
+	v, format, err := DecodeInstance([]byte(`{"n":0.10000000000000001,"e":1e1000}`))
+	if err != nil || format != "json" {
+		t.Fatalf("%v %s", err, format)
+	}
+	m := v.(map[string]any)
+	if m["n"].(json.Number).String() != "0.10000000000000001" || m["e"].(json.Number).String() != "1e1000" {
+		t.Errorf("numbers altered: %#v", m)
+	}
+	v, format, err = DecodeInstance([]byte("a: [1, 2]\n"))
+	if err != nil || format != "yaml" || len(v.(map[string]any)["a"].([]any)) != 2 {
+		t.Errorf("yaml: %#v %s %v", v, format, err)
+	}
+	for _, raw := range []string{"a: 1\n", `[1] [2]`, `{"a":1,}`} {
+		if _, err := DecodeJSONInstance([]byte(raw)); err == nil {
+			t.Errorf("%q accepted as JSON", raw)
+		}
 	}
 }

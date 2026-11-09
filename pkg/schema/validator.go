@@ -2,7 +2,6 @@ package schema
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -18,7 +17,6 @@ import (
 	"github.com/fulmenhq/goneat/internal/schemarun"
 	"github.com/fulmenhq/goneat/pkg/safeio"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/yaml.v3"
 )
 
 // AdmissionError reports a schema that was refused before validation: an
@@ -246,11 +244,9 @@ func (v *Validator) ValidateBytes(dataBytes []byte) (*Result, error) {
 	if v == nil || v.schema == nil {
 		return nil, fmt.Errorf("validator not initialised")
 	}
-	var data interface{}
-	if err := yaml.Unmarshal(dataBytes, &data); err != nil {
-		if err := json.Unmarshal(dataBytes, &data); err != nil {
-			return nil, fmt.Errorf("failed to parse data bytes (YAML/JSON): %w", err)
-		}
+	data, _, err := schemarun.DecodeInstance(dataBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse data bytes (JSON/YAML): %w", err)
 	}
 	return validateWithCompiled(v.schema, data)
 }
@@ -379,21 +375,12 @@ func ValidateDataFromBytes(schemaBytes, dataBytes []byte, opts ...func(*Validati
 	// Audit logging disabled for initial implementation
 	// TODO: Re-enable with proper logger integration when audit feature is needed
 
-	// Parse dataBytes to interface{} (try YAML first, then JSON)
-	var data interface{}
-	var parseErr error
-	// Try YAML
-	if err := yaml.Unmarshal(dataBytes, &data); err == nil {
-		options.Context.SourceType = "yaml"
-	} else {
-		// Store YAML error before trying JSON
-		parseErr = err
-		// Fall back to JSON
-		if err := json.Unmarshal(dataBytes, &data); err != nil {
-			return nil, fmt.Errorf("failed to parse data bytes (tried YAML then JSON): YAML err: %v, JSON err: %w", parseErr, err)
-		}
-		options.Context.SourceType = "json"
+	// JSON text is decoded strictly and exactly; anything else as YAML.
+	data, format, err := schemarun.DecodeInstance(dataBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse data bytes as %s: %w", strings.ToUpper(format), err)
 	}
+	options.Context.SourceType = format
 
 	// Validate using existing logic
 	res, err := ValidateFromBytes(schemaBytes, data)
@@ -735,12 +722,9 @@ func ValidateFileWithSchemaPath(schemaPath string, dataPath string) (*Result, er
 		return nil, fmt.Errorf("failed to read data file %s: %w", dataClean, err)
 	}
 
-	// Parse data (try YAML first, then JSON)
-	var data interface{}
-	if err := yaml.Unmarshal(dataBytes, &data); err != nil {
-		if err := json.Unmarshal(dataBytes, &data); err != nil {
-			return nil, fmt.Errorf("failed to parse data file %s: %w", dataClean, err)
-		}
+	data, _, err := schemarun.DecodeInstance(dataBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse data file %s: %w", dataClean, err)
 	}
 
 	// Validate using existing logic
@@ -760,12 +744,9 @@ func ValidateFromFileWithBytes(schemaPath string, dataBytes []byte) (*Result, er
 		return nil, fmt.Errorf("failed to read schema file %s: %w", schemaClean, err)
 	}
 
-	// Parse data (try YAML first, then JSON)
-	var data interface{}
-	if err := yaml.Unmarshal(dataBytes, &data); err != nil {
-		if err := json.Unmarshal(dataBytes, &data); err != nil {
-			return nil, fmt.Errorf("failed to parse data bytes: %w", err)
-		}
+	data, _, err := schemarun.DecodeInstance(dataBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse data bytes: %w", err)
 	}
 
 	// Validate using existing logic
