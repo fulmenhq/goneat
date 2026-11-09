@@ -7,7 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/xeipuuv/gojsonschema"
+	"github.com/fulmenhq/goneat/pkg/schema"
+	"gopkg.in/yaml.v3"
 )
 
 // Schema content loaded at runtime for easier development and updates
@@ -40,39 +41,38 @@ func ParseSchemaVersion(version string) (SchemaVersion, error) {
 	return v, nil
 }
 
-// ValidateConfig validates configuration against the appropriate schema
+// ValidateConfig validates configuration (JSON or YAML) against the embedded
+// goneat configuration schema for the given version.
 func ValidateConfig(configData []byte, schemaVersion string) error {
-	schemaLoader, err := getSchemaLoader(schemaVersion)
+	schemaName, err := configSchemaName(schemaVersion)
 	if err != nil {
 		return fmt.Errorf("failed to load schema for version %s: %v", schemaVersion, err)
 	}
-
-	documentLoader := gojsonschema.NewBytesLoader(configData)
-
-	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	var doc any
+	if err := yaml.Unmarshal(configData, &doc); err != nil {
+		return fmt.Errorf("failed to parse configuration: %v", err)
+	}
+	result, err := schema.Validate(doc, schemaName)
 	if err != nil {
 		return fmt.Errorf("schema validation error: %v", err)
 	}
-
-	if !result.Valid() {
+	if !result.Valid {
 		var errors []string
-		for _, desc := range result.Errors() {
-			errors = append(errors, desc.String())
+		for _, e := range result.Errors {
+			errors = append(errors, fmt.Sprintf("%s: %s", e.Path, e.Message))
 		}
 		return fmt.Errorf("configuration validation failed:\n%s", strings.Join(errors, "\n"))
 	}
-
 	return nil
 }
 
-// getSchemaLoader returns the appropriate schema loader for the given version
-func getSchemaLoader(version string) (gojsonschema.JSONLoader, error) {
+// configSchemaName returns the embedded schema name for a config version.
+func configSchemaName(version string) (string, error) {
 	switch version {
 	case "1.0.0", "v1.0.0":
-		schemaPath := "../../schemas/config/goneat-config-v1.0.0.yaml"
-		return gojsonschema.NewReferenceLoader(schemaPath), nil
+		return "goneat-config-v1.0.0", nil
 	default:
-		return nil, fmt.Errorf("unsupported schema version: %s", version)
+		return "", fmt.Errorf("unsupported schema version: %s", version)
 	}
 }
 

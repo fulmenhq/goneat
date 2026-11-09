@@ -159,3 +159,15 @@ func indexAny(s, chars string) int {
 	}
 	return -1
 }
+
+func TestValidateConfigUsesEmbeddedSchema(t *testing.T) {
+	if err := ValidateConfig([]byte(`{"format":{}}`), "1.0.0"); err != nil {
+		t.Fatalf("valid config rejected: %v", err)
+	}
+	if err := ValidateConfig([]byte(`{"format":"not-an-object"}`), "v1.0.0"); err == nil {
+		t.Fatal("invalid config accepted")
+	}
+	if err := ValidateConfig([]byte(`{}`), "9.9.9"); err == nil {
+		t.Fatal("unknown version accepted")
+	}
+}

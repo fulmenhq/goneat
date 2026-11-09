@@ -22,8 +22,8 @@ import (
 	"github.com/fulmenhq/goneat/internal/ops"
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/fulmenhq/goneat/pkg/safeio"
+	schemapkg "github.com/fulmenhq/goneat/pkg/schema"
 	"github.com/spf13/cobra"
-	"github.com/xeipuuv/gojsonschema"
 	"gopkg.in/yaml.v3"
 )
 
@@ -2037,34 +2037,13 @@ func runHooksPolicyValidate(cmd *cobra.Command, args []string) error {
 	if err := yaml.Unmarshal(raw, &doc); err != nil {
 		return fmt.Errorf("failed to parse hooks.yaml: %v", err)
 	}
-	docJSON, _ := json.Marshal(doc)
-	// Load schema from embedded FS (YAML -> JSON)
-	schemaFS := assets.GetSchemasFS()
-	sb, err := fs.ReadFile(schemaFS, "work/hooks-manifest-v1.0.0.yaml")
-	if err != nil {
-		return fmt.Errorf("failed to read embedded hooks schema: %v", err)
-	}
-	var schm any
-	if err := yaml.Unmarshal(sb, &schm); err != nil {
-		return fmt.Errorf("failed to parse embedded hooks schema: %v", err)
-	}
-	// Conditionally remove $schema field to prevent remote fetching in offline mode
-	if os.Getenv("GONEAT_OFFLINE_SCHEMA_VALIDATION") == "true" {
-		if m, ok := schm.(map[string]interface{}); ok {
-			delete(m, "$schema")
-		}
-	}
-	schJSON, _ := json.Marshal(schm)
-
-	schemaLoader := gojsonschema.NewBytesLoader(schJSON)
-	docLoader := gojsonschema.NewBytesLoader(docJSON)
-	res, err := gojsonschema.Validate(schemaLoader, docLoader)
+	issues, err := hooksManifestIssues(doc)
 	if err != nil {
 		return fmt.Errorf("schema validation error: %v", err)
 	}
-	if !res.Valid() {
+	if len(issues) > 0 {
 		fmt.Fprintln(cmd.OutOrStdout(), "❌ hooks.yaml is invalid:") //nolint:errcheck // CLI output, error is not critical
-		for _, e := range res.Errors() {
+		for _, e := range issues {
 			fmt.Fprintf(cmd.OutOrStdout(), " - %s\n", e) //nolint:errcheck // CLI output, error is not critical
 		}
 		return fmt.Errorf("hooks.yaml failed schema validation")
@@ -2081,45 +2060,15 @@ func validateHooksManifestSchema(raw []byte) error {
 	if err := yaml.Unmarshal(raw, &doc); err != nil {
 		return fmt.Errorf("failed to parse hooks.yaml as YAML: %v", err)
 	}
-	docJSON, err := json.Marshal(doc)
-	if err != nil {
-		return fmt.Errorf("failed to convert hooks.yaml to JSON for validation: %v", err)
-	}
-
-	// Load schema from embedded FS
-	schemaFS := assets.GetSchemasFS()
-	sb, err := fs.ReadFile(schemaFS, "work/hooks-manifest-v1.0.0.yaml")
-	if err != nil {
-		// Schema not found - skip validation (shouldn't happen in production)
-		logger.Debug("Skipping schema validation: embedded schema not found", logger.Err(err))
-		return nil
-	}
-	var schm any
-	if err := yaml.Unmarshal(sb, &schm); err != nil {
-		logger.Debug("Skipping schema validation: failed to parse embedded schema", logger.Err(err))
-		return nil
-	}
-
-	// Conditionally remove $schema field to prevent remote fetching in offline mode
-	if os.Getenv("GONEAT_OFFLINE_SCHEMA_VALIDATION") == "true" {
-		if m, ok := schm.(map[string]interface{}); ok {
-			delete(m, "$schema")
-		}
-	}
-	schJSON, _ := json.Marshal(schm)
-
-	// Validate against schema
-	schemaLoader := gojsonschema.NewBytesLoader(schJSON)
-	docLoader := gojsonschema.NewBytesLoader(docJSON)
-	res, err := gojsonschema.Validate(schemaLoader, docLoader)
+	issues, err := hooksManifestIssues(doc)
 	if err != nil {
 		return fmt.Errorf("schema validation error: %v", err)
 	}
 
-	if !res.Valid() {
+	if len(issues) > 0 {
 		var errLines []string
 		errLines = append(errLines, "hooks.yaml configuration is invalid:")
-		for _, e := range res.Errors() {
+		for _, e := range issues {
 			errLines = append(errLines, fmt.Sprintf("  - %s", e))
 		}
 		errLines = append(errLines, "")
@@ -2293,4 +2242,18 @@ func runHooksConfigure(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+// hooksManifestIssues validates a decoded hooks manifest against the embedded
+// hooks manifest schema and returns one "path: message" line per issue.
+func hooksManifestIssues(doc any) ([]string, error) {
+	res, err := schemapkg.Validate(doc, "hooks-manifest-v1.0.0")
+	if err != nil {
+		return nil, err
+	}
+	var lines []string
+	for _, e := range res.Errors {
+		lines = append(lines, fmt.Sprintf("%s: %s", e.Path, e.Message))
+	}
+	return lines, nil
 }

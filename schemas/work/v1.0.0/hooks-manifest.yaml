@@ -1,4 +1,5 @@
-$schema: "https://schemas.goneat.dev/hooks-manifest/v1.0.0"
+$schema: "http://json-schema.org/draft-07/schema#"
+$id: "https://schemas.goneat.dev/hooks-manifest/v1.0.0"
 title: Goneat Hooks Manifest Schema
 description: Schema for hook manifests that define git hook configurations
 type: object

@@ -2,9 +2,9 @@ package schema
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 
-	"github.com/xeipuuv/gojsonschema"
 	"gopkg.in/yaml.v3"
 )
 
@@ -86,8 +86,9 @@ func TestValidateFromBytes_UnsupportedDraft(t *testing.T) {
   "type": "object"
 }`)
 	_, err := ValidateFromBytes(schemaJSON, map[string]any{})
-	if err == nil {
-		t.Fatalf("expected unsupported $schema error")
+	var ae *AdmissionError
+	if !errors.As(err, &ae) || ae.Reason != "unsupported-dialect" {
+		t.Fatalf("expected unsupported-dialect admission error, got %v", err)
 	}
 }
 
@@ -127,68 +128,18 @@ func TestValidateFromBytes_AllSupportedDrafts(t *testing.T) {
 	}
 }
 
-func TestGojsonschemaRequiredWorks(t *testing.T) {
-	t.Parallel()
-	schema := `{"type":"object","required":["name"]}`
-	data := `{}`
-	res, err := gojsonschema.Validate(gojsonschema.NewStringLoader(schema), gojsonschema.NewStringLoader(data))
-	if err != nil {
-		t.Fatalf("validate err: %v", err)
-	}
-	if res.Valid() {
-		t.Fatalf("expected invalid from direct gojsonschema, got valid")
-	}
-}
-
 func TestCompileSchemaBytes_Required(t *testing.T) {
 	t.Parallel()
-	schemaJSON := []byte(`{"type":"object","required":["name"]}`)
-	sch, err := compileSchemaBytes(schemaJSON)
+	sch, err := compileSchemaBytes([]byte(`{"type":"object","required":["name"]}`), nil)
 	if err != nil {
 		t.Fatalf("compile err: %v", err)
 	}
-	res, err := sch.Validate(gojsonschema.NewStringLoader(`{}`))
+	res, err := validateWithCompiled(sch, map[string]any{})
 	if err != nil {
 		t.Fatalf("validate err: %v", err)
 	}
-	if res.Valid() {
-		t.Fatalf("expected invalid using compiled schema, got valid")
-	}
-}
-
-func TestManualPathLikeValidateFromBytes(t *testing.T) {
-	t.Parallel()
-	// Mirrors ValidateFromBytes path (YAML-first decode, then bytes loaders)
-	schemaJSON := []byte(`{"$schema":"http://json-schema.org/draft-07/schema#","type":"object","required":["name"]}`)
-	var tmp any
-	if err := yaml.Unmarshal(schemaJSON, &tmp); err != nil {
-		t.Fatalf("yaml unmarshal failed: %v", err)
-	}
-	jb, err := json.Marshal(tmp)
-	if err != nil {
-		t.Fatalf("json marshal failed: %v", err)
-	}
-	dataJSON := []byte(`{}`)
-	res, err := gojsonschema.Validate(gojsonschema.NewBytesLoader(jb), gojsonschema.NewBytesLoader(dataJSON))
-	if err != nil {
-		t.Fatalf("validate err: %v", err)
-	}
-	if res.Valid() {
-		t.Fatalf("expected invalid (manual path), got valid")
-	}
-}
-
-func TestDirectGojsonschemaRequired(t *testing.T) {
-	t.Parallel()
-	// Test gojsonschema directly to ensure it works with required fields
-	schema := `{"$schema":"http://json-schema.org/draft-07/schema#","type":"object","required":["name"]}`
-	data := `{}`
-	res, err := gojsonschema.Validate(gojsonschema.NewStringLoader(schema), gojsonschema.NewStringLoader(data))
-	if err != nil {
-		t.Fatalf("direct validate err: %v", err)
-	}
-	if res.Valid() {
-		t.Fatalf("expected invalid from direct gojsonschema, got valid")
+	if res.Valid || len(res.Errors) == 0 || res.Dialect != "draft-07" || res.DialectSource != "defaulted" {
+		t.Fatalf("expected invalid draft-07 (defaulted) result, got %+v", res)
 	}
 }
 

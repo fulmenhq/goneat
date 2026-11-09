@@ -1,13 +1,14 @@
 package schema
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/fulmenhq/goneat/internal/assets"
-	"github.com/xeipuuv/gojsonschema"
+	"github.com/fulmenhq/goneat/internal/schemaengine"
+	"github.com/fulmenhq/goneat/internal/schemarun"
 	"gopkg.in/yaml.v3"
 )
 
@@ -23,14 +24,6 @@ type Result struct {
 	Errors []ValidationError `json:"errors,omitempty"`
 }
 
-// registry holds pre-compiled schemas for known schema names (e.g., "goneat-config-v1.0.0").
-var registry = make(map[string]*gojsonschema.Schema)
-
-// isOfflineMode checks if offline schema validation is enabled via environment variable
-func isOfflineMode() bool {
-	return os.Getenv("GONEAT_OFFLINE_SCHEMA_VALIDATION") == "true"
-}
-
 // registrySchemaPaths maps schema names to embedded paths. Paths must be under
 // embedded_schemas/schemas/, the tree make embed-assets syncs from schemas/
 // (see TestRegistryUsesSyncedSchemas).
@@ -44,93 +37,60 @@ var registrySchemaPaths = map[string]string{
 	// Add more as needed
 }
 
-// init populates the registry with known schemas.
-func init() {
-	for name, path := range registrySchemaPaths {
-		if schemaBytes, ok := assets.GetSchema(path); ok && len(schemaBytes) > 0 {
-			// Convert YAML to JSON for gojsonschema
-			var schemaData interface{}
-			if err := yaml.Unmarshal(schemaBytes, &schemaData); err != nil {
-				// Skip on error
-				continue
-			}
-
-			// Conditionally remove $schema field to prevent remote fetching in offline mode
-			if isOfflineMode() {
-				if m, ok := schemaData.(map[string]interface{}); ok {
-					delete(m, "$schema")
-				}
-			}
-
-			jsonBytes, err := json.Marshal(schemaData)
-			if err != nil {
-				// Skip on error
-				continue
-			}
-
-			// Create schema with offline-only loading (no remote references)
-			schemaLoader := gojsonschema.NewBytesLoader(jsonBytes)
-			schema, err := gojsonschema.NewSchema(schemaLoader)
-			if err != nil {
-				// Skip on error
-				continue
-			}
-			registry[name] = schema
-		}
-	}
+type registryEntry struct {
+	once     sync.Once
+	compiled *schemaengine.Compiled
+	err      error
 }
 
-// improveErrorMessage translates cryptic JSON Schema validator messages into more actionable ones.
-func improveErrorMessage(path, message, schemaName string) string {
-	// Detect mutual exclusivity violations in tools-config schemas
-	// Match any path under tools (e.g., "tools.badtool", "tools.goneat")
-	if len(path) >= 6 && path[:6] == "tools." {
-		if message == "Must not validate the schema (not)" {
-			return "Both 'install' and 'install_commands' cannot be present (mutually exclusive). Use only 'install' for v1.1.0+ package managers, or only 'install_commands' for legacy scripts. See schema: " + schemaName
-		}
-		if message == "Additional property install is not allowed" {
-			return "The 'install' property requires schema v1.1.0+. Either upgrade to v1.1.0 schema or use 'install_commands' instead. See schema: " + schemaName
-		}
+// registry compiles each known schema on first use and keeps the result,
+// including a compile failure, so a broken schema is reported rather than
+// appearing to be missing.
+var registry = func() map[string]*registryEntry {
+	m := make(map[string]*registryEntry, len(registrySchemaPaths))
+	for name := range registrySchemaPaths {
+		m[name] = &registryEntry{}
 	}
+	return m
+}()
 
-	// Generic improvement for "not" schema failures
-	if message == "Must not validate the schema (not)" {
-		return message + " (Schema constraint violation - check for mutually exclusive properties or invalid combinations)"
+func compiledSchema(schemaName string) (*schemaengine.Compiled, error) {
+	e, ok := registry[schemaName]
+	if !ok {
+		return nil, fmt.Errorf("schema %s not found in registry", schemaName)
 	}
-
-	// Return original message if no improvement available
-	return message
+	e.once.Do(func() {
+		path := registrySchemaPaths[schemaName]
+		data, ok := assets.GetSchema(path)
+		if !ok || len(data) == 0 {
+			e.err = fmt.Errorf("schema %s: embedded schema %s is missing", schemaName, path)
+			return
+		}
+		e.compiled, e.err = schemarun.Compile(data, nil)
+		if e.err != nil {
+			e.err = fmt.Errorf("schema %s: %w", schemaName, e.err)
+		}
+	})
+	return e.compiled, e.err
 }
 
 // Validate validates data (interface{}) against the named schema.
 func Validate(data interface{}, schemaName string) (*Result, error) {
-	schema, ok := registry[schemaName]
-	if !ok {
-		return nil, fmt.Errorf("schema %s not found in registry", schemaName)
-	}
-
-	docLoader := gojsonschema.NewGoLoader(data)
-	result, err := schema.Validate(docLoader)
+	c, err := compiledSchema(schemaName)
 	if err != nil {
-		return nil, fmt.Errorf("validation error: %w", err)
+		return nil, err
 	}
-
-	res := &Result{Valid: result.Valid()}
-	if !result.Valid() {
-		for _, verr := range result.Errors() {
-			field := verr.Field()
-			if field == "" {
-				field = "root"
-			}
-			originalMsg := verr.Description()
-			improvedMsg := improveErrorMessage(field, originalMsg, schemaName)
-			res.Errors = append(res.Errors, ValidationError{
-				Path:    field,
-				Message: improvedMsg,
-			})
-		}
+	valid, issues, err := schemarun.Validate(c, data)
+	if err != nil {
+		return nil, err
 	}
-
+	res := &Result{Valid: valid}
+	for _, is := range issues {
+		res.Errors = append(res.Errors, ValidationError{
+			Path:    is.Path,
+			Message: schemarun.ImproveMessage(is, schemaName),
+		})
+	}
 	return res, nil
 }
 
