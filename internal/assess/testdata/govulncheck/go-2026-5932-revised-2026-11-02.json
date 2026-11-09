@@ -1,0 +1,474 @@
+{
+  "config": {
+    "protocol_version": "v1.0.0",
+    "scanner_name": "govulncheck",
+    "scanner_version": "v1.9.0",
+    "db": "https://vuln.go.dev",
+    "db_last_modified": "2026-11-05T23:49:57Z",
+    "go_version": "go1.26.10",
+    "scan_level": "symbol",
+    "scan_mode": "source"
+  }
+}
+{
+  "SBOM": {
+    "go_version": "go1.26.10",
+    "modules": [
+      {
+        "path": "github.com/fulmenhq/goneat"
+      },
+      {
+        "path": "dario.cat/mergo",
+        "version": "v1.0.2"
+      },
+      {
+        "path": "github.com/ProtonMail/go-crypto",
+        "version": "v1.5.2"
+      },
+      {
+        "path": "github.com/agnivade/levenshtein",
+        "version": "v1.2.1"
+      },
+      {
+        "path": "github.com/aymerick/raymond",
+        "version": "v2.0.2+incompatible"
+      },
+      {
+        "path": "github.com/beevik/etree",
+        "version": "v1.8.1"
+      },
+      {
+        "path": "github.com/bmatcuk/doublestar/v4",
+        "version": "v4.10.3"
+      },
+      {
+        "path": "github.com/cespare/xxhash/v2",
+        "version": "v2.3.0"
+      },
+      {
+        "path": "github.com/clipperhouse/uax29/v2",
+        "version": "v2.7.0"
+      },
+      {
+        "path": "github.com/cloudflare/circl",
+        "version": "v1.6.4"
+      },
+      {
+        "path": "github.com/cyphar/filepath-securejoin",
+        "version": "v0.7.0"
+      },
+      {
+        "path": "github.com/davecgh/go-spew",
+        "version": "v1.1.2-0.20180830191138-d8f796af33cc"
+      },
+      {
+        "path": "github.com/emirpasic/gods",
+        "version": "v1.18.1"
+      },
+      {
+        "path": "github.com/fsnotify/fsnotify",
+        "version": "v1.10.1"
+      },
+      {
+        "path": "github.com/go-git/gcfg",
+        "version": "v1.5.1-0.20230307220236-3a3c6141e376"
+      },
+      {
+        "path": "github.com/go-git/go-billy/v5",
+        "version": "v5.9.2"
+      },
+      {
+        "path": "github.com/go-git/go-git/v5",
+        "version": "v5.19.3"
+      },
+      {
+        "path": "github.com/go-logr/logr",
+        "version": "v1.4.4"
+      },
+      {
+        "path": "github.com/go-viper/mapstructure/v2",
+        "version": "v2.5.0"
+      },
+      {
+        "path": "github.com/gobwas/glob",
+        "version": "v0.2.3"
+      },
+      {
+        "path": "github.com/golang/groupcache",
+        "version": "v0.0.0-20241129210726-2c02b8208cf8"
+      },
+      {
+        "path": "github.com/google/go-licenses/v2",
+        "version": "v2.0.1"
+      },
+      {
+        "path": "github.com/google/licenseclassifier/v2",
+        "version": "v2.0.0"
+      },
+      {
+        "path": "github.com/google/uuid",
+        "version": "v1.6.0"
+      },
+      {
+        "path": "github.com/jbenet/go-context",
+        "version": "v0.0.0-20150711004518-d14ea06fba99"
+      },
+      {
+        "path": "github.com/kevinburke/ssh_config",
+        "version": "v1.6.0"
+      },
+      {
+        "path": "github.com/lestrrat-go/blackmagic",
+        "version": "v1.0.4"
+      },
+      {
+        "path": "github.com/lestrrat-go/dsig",
+        "version": "v1.3.0"
+      },
+      {
+        "path": "github.com/lestrrat-go/httpcc",
+        "version": "v1.0.1"
+      },
+      {
+        "path": "github.com/lestrrat-go/httprc/v3",
+        "version": "v3.0.6"
+      },
+      {
+        "path": "github.com/lestrrat-go/jwx/v3",
+        "version": "v3.2.0"
+      },
+      {
+        "path": "github.com/lestrrat-go/option/v2",
+        "version": "v2.0.0"
+      },
+      {
+        "path": "github.com/mattn/go-runewidth",
+        "version": "v0.0.31"
+      },
+      {
+        "path": "github.com/open-policy-agent/opa",
+        "version": "v1.20.2"
+      },
+      {
+        "path": "github.com/pelletier/go-toml/v2",
+        "version": "v2.4.3"
+      },
+      {
+        "path": "github.com/pjbgf/sha1cd",
+        "version": "v0.7.0"
+      },
+      {
+        "path": "github.com/rcrowley/go-metrics",
+        "version": "v0.0.0-20250401214520-65e299d6c5c9"
+      },
+      {
+        "path": "github.com/sagikazarmark/locafero",
+        "version": "v0.12.0"
+      },
+      {
+        "path": "github.com/sergi/go-diff",
+        "version": "v1.4.0"
+      },
+      {
+        "path": "github.com/sirupsen/logrus",
+        "version": "v1.10.2"
+      },
+      {
+        "path": "github.com/skeema/knownhosts",
+        "version": "v1.3.2"
+      },
+      {
+        "path": "github.com/spf13/afero",
+        "version": "v1.15.0"
+      },
+      {
+        "path": "github.com/spf13/cast",
+        "version": "v1.10.0"
+      },
+      {
+        "path": "github.com/spf13/cobra",
+        "version": "v1.10.2"
+      },
+      {
+        "path": "github.com/spf13/pflag",
+        "version": "v1.0.10"
+      },
+      {
+        "path": "github.com/spf13/viper",
+        "version": "v1.21.0"
+      },
+      {
+        "path": "github.com/subosito/gotenv",
+        "version": "v1.6.0"
+      },
+      {
+        "path": "github.com/tchap/go-patricia/v2",
+        "version": "v2.3.3"
+      },
+      {
+        "path": "github.com/valyala/fastjson",
+        "version": "v1.6.10"
+      },
+      {
+        "path": "github.com/vektah/gqlparser/v2",
+        "version": "v2.5.36"
+      },
+      {
+        "path": "github.com/xanzy/ssh-agent",
+        "version": "v0.3.3"
+      },
+      {
+        "path": "github.com/xeipuuv/gojsonpointer",
+        "version": "v0.0.0-20190905194746-02993c407bfb"
+      },
+      {
+        "path": "github.com/xeipuuv/gojsonreference",
+        "version": "v0.0.0-20180127040603-bd5ef7bd5415"
+      },
+      {
+        "path": "github.com/xeipuuv/gojsonschema",
+        "version": "v1.2.0"
+      },
+      {
+        "path": "github.com/yashtewari/glob-intersection",
+        "version": "v0.2.0"
+      },
+      {
+        "path": "go.opencensus.io",
+        "version": "v0.24.0"
+      },
+      {
+        "path": "go.yaml.in/yaml/v2",
+        "version": "v2.4.4"
+      },
+      {
+        "path": "go.yaml.in/yaml/v3",
+        "version": "v3.0.5"
+      },
+      {
+        "path": "golang.org/x/crypto",
+        "version": "v0.58.0"
+      },
+      {
+        "path": "golang.org/x/mod",
+        "version": "v0.42.0"
+      },
+      {
+        "path": "golang.org/x/net",
+        "version": "v0.62.0"
+      },
+      {
+        "path": "golang.org/x/sync",
+        "version": "v0.24.0"
+      },
+      {
+        "path": "golang.org/x/sys",
+        "version": "v0.49.0"
+      },
+      {
+        "path": "golang.org/x/text",
+        "version": "v0.43.0"
+      },
+      {
+        "path": "golang.org/x/tools",
+        "version": "v0.51.0"
+      },
+      {
+        "path": "google.golang.org/protobuf",
+        "version": "v1.36.12"
+      },
+      {
+        "path": "gopkg.in/warnings.v0",
+        "version": "v0.1.2"
+      },
+      {
+        "path": "gopkg.in/yaml.v3",
+        "version": "v3.0.1"
+      },
+      {
+        "path": "k8s.io/klog/v2",
+        "version": "v2.140.0"
+      },
+      {
+        "path": "sigs.k8s.io/yaml",
+        "version": "v1.6.0"
+      },
+      {
+        "path": "stdlib",
+        "version": "v1.26.10"
+      }
+    ],
+    "roots": [
+      "github.com/fulmenhq/goneat/internal/gitrepo",
+      "github.com/fulmenhq/goneat/pkg/ignore",
+      "github.com/fulmenhq/goneat/pkg/logger",
+      "github.com/fulmenhq/goneat/internal/assets",
+      "github.com/fulmenhq/goneat/pkg/safeio",
+      "github.com/fulmenhq/goneat/pkg/schema",
+      "github.com/fulmenhq/goneat/internal/dates",
+      "github.com/fulmenhq/goneat/internal/schema",
+      "github.com/fulmenhq/goneat/pkg/config",
+      "github.com/fulmenhq/goneat/pkg/dependencies/types",
+      "github.com/fulmenhq/goneat/pkg/cooling",
+      "github.com/fulmenhq/goneat/pkg/versioning",
+      "github.com/fulmenhq/goneat/pkg/tools",
+      "github.com/fulmenhq/goneat/pkg/registry",
+      "github.com/fulmenhq/goneat/pkg/tools/metadata",
+      "github.com/fulmenhq/goneat/internal/doctor",
+      "github.com/fulmenhq/goneat/internal/gitctx",
+      "github.com/fulmenhq/goneat/pkg/schema/signature",
+      "github.com/fulmenhq/goneat/pkg/pathfinder",
+      "github.com/fulmenhq/goneat/internal/maturity",
+      "github.com/fulmenhq/goneat/pkg/buildinfo",
+      "github.com/fulmenhq/goneat/pkg/cargo",
+      "github.com/fulmenhq/goneat/pkg/dependencies/policy",
+      "github.com/fulmenhq/goneat/pkg/sbom",
+      "github.com/fulmenhq/goneat/pkg/vulnerabilities",
+      "github.com/fulmenhq/goneat/pkg/dependencies",
+      "github.com/fulmenhq/goneat/pkg/format/finalizer",
+      "github.com/fulmenhq/goneat/pkg/pattern",
+      "github.com/fulmenhq/goneat/pkg/schema/mapping",
+      "github.com/fulmenhq/goneat/pkg/format",
+      "github.com/fulmenhq/goneat/pkg/work",
+      "github.com/fulmenhq/goneat/internal/assess",
+      "github.com/fulmenhq/goneat/internal/server",
+      "github.com/fulmenhq/goneat/pkg/ascii",
+      "github.com/fulmenhq/goneat/internal/guardian",
+      "github.com/fulmenhq/goneat/internal/ops",
+      "github.com/fulmenhq/goneat/pkg/exitcode",
+      "github.com/fulmenhq/goneat/pkg/propagation",
+      "github.com/fulmenhq/goneat/pkg/propagation/managers",
+      "github.com/fulmenhq/goneat/pkg/ssot",
+      "github.com/fulmenhq/goneat/cmd",
+      "github.com/fulmenhq/goneat",
+      "github.com/fulmenhq/goneat/internal/gitrepo/gitrepotest",
+      "github.com/fulmenhq/goneat/pkg/pathfinder/loaders",
+      "github.com/fulmenhq/goneat/scripts",
+      "github.com/fulmenhq/goneat/tests/fixtures/go/lint",
+      "github.com/fulmenhq/goneat/tests/integration"
+    ]
+  }
+}
+{
+  "osv": {
+    "schema_version": "1.3.1",
+    "id": "GO-2026-5932",
+    "modified": "2026-11-02T22:01:43Z",
+    "published": "2026-07-07T22:15:29Z",
+    "summary": "The golang.org/x/crypto/openpgp package is unmaintained, unsafe by design, and has known security issues",
+    "details": "The golang.org/x/crypto/openpgp package is unsafe by design, has numerous known security issues, is not maintained, and should not be used.\n\nIf you are required to interoperate with OpenPGP systems and need a maintained package, consider github.com/ProtonMail/go-crypto/openpgp which is a maintained fork that aims to be a drop-in replacement for this package.",
+    "affected": [
+      {
+        "package": {
+          "name": "golang.org/x/crypto",
+          "ecosystem": "Go"
+        },
+        "ranges": [
+          {
+            "type": "SEMVER",
+            "events": [
+              {
+                "introduced": "0"
+              },
+              {
+                "fixed": "0.58.1-0.20261009181718-2f1f834330b2"
+              }
+            ]
+          }
+        ],
+        "ecosystem_specific": {
+          "imports": [
+            {
+              "path": "golang.org/x/crypto/openpgp"
+            },
+            {
+              "path": "golang.org/x/crypto/openpgp/packet"
+            },
+            {
+              "path": "golang.org/x/crypto/openpgp/armor"
+            },
+            {
+              "path": "golang.org/x/crypto/openpgp/clearsign"
+            },
+            {
+              "path": "golang.org/x/crypto/openpgp/errors"
+            },
+            {
+              "path": "golang.org/x/crypto/openpgp/elgamal"
+            },
+            {
+              "path": "golang.org/x/crypto/openpgp/s2k"
+            }
+          ]
+        }
+      },
+      {
+        "package": {
+          "name": "golang.org/x/crypto/openpgp",
+          "ecosystem": "Go"
+        },
+        "ranges": [
+          {
+            "type": "SEMVER",
+            "events": [
+              {
+                "introduced": "0"
+              }
+            ]
+          }
+        ],
+        "ecosystem_specific": {
+          "imports": [
+            {
+              "path": "golang.org/x/crypto/openpgp"
+            },
+            {
+              "path": "golang.org/x/crypto/openpgp/packet"
+            },
+            {
+              "path": "golang.org/x/crypto/openpgp/armor"
+            },
+            {
+              "path": "golang.org/x/crypto/openpgp/clearsign"
+            },
+            {
+              "path": "golang.org/x/crypto/openpgp/errors"
+            },
+            {
+              "path": "golang.org/x/crypto/openpgp/elgamal"
+            },
+            {
+              "path": "golang.org/x/crypto/openpgp/s2k"
+            }
+          ]
+        }
+      }
+    ],
+    "references": [
+      {
+        "type": "REPORT",
+        "url": "https://go.dev/issue/44226"
+      },
+      {
+        "type": "WEB",
+        "url": "https://go.dev/issue/81227"
+      }
+    ],
+    "database_specific": {
+      "url": "https://pkg.go.dev/vuln/GO-2026-5932",
+      "review_status": "REVIEWED"
+    }
+  }
+}
+{
+  "finding": {
+    "osv": "GO-2026-5932",
+    "fixed_version": "v0.58.1-0.20261009181718-2f1f834330b2",
+    "trace": [
+      {
+        "module": "golang.org/x/crypto",
+        "version": "v0.58.0"
+      }
+    ]
+  }
+}
