@@ -293,6 +293,21 @@ func (r *govulnReport) finish(completionErr error) ([]Issue, map[string]interfac
 			}
 		}
 	}
+	// Offline bump hint: once the advisory's fix is a tagged release, the
+	// inventory finding can be cleared by upgrading. No network lookup.
+	for _, row := range r.findings {
+		if row.Classification != "inventory" {
+			continue
+		}
+		if fix, ok := govulnTaggedFix(row.decoded.FixedVersion); ok {
+			module := row.decoded.Trace[0]
+			r.issues = append(r.issues, Issue{
+				File: r.issues[row.IssueIndex].File, Severity: SeverityInfo,
+				Message:  fmt.Sprintf("govulncheck: %s is fixed in tagged release %s %s; upgrade from %s to clear this inventory finding", row.decoded.OSV, module.Module, fix, module.Version),
+				Category: CategorySecurity, SubCategory: "dependency-update",
+			})
+		}
+	}
 	return r.issues, map[string]interface{}{
 		"producer": r.producer, "config_sha256": r.configDigest,
 		"inventory":             r.inventory,
@@ -337,8 +352,8 @@ func (r *govulnReport) govulnInventoryUnsupported(finding govulnFinding) string 
 		}
 	}
 	module := finding.Trace[0]
-	if module.Module != "golang.org/x/crypto" || module.Version == "" {
-		return fmt.Sprintf("finding module %q version %q is not a versioned golang.org/x/crypto", module.Module, module.Version)
+	if !govulnInventoryModule(module.Module) || module.Version == "" {
+		return fmt.Sprintf("finding module %q version %q is not a versioned golang.org/x/crypto or golang.org/x/crypto/openpgp", module.Module, module.Version)
 	}
 	matched := false
 	for _, m := range r.inventory.Modules {
@@ -349,13 +364,42 @@ func (r *govulnReport) govulnInventoryUnsupported(finding govulnFinding) string 
 	if !matched {
 		return fmt.Sprintf("finding module %q version %q is not in the SBOM inventory", module.Module, module.Version)
 	}
-	if finding.FixedVersion != "" {
-		return fmt.Sprintf("advisory has fixed_version %q", finding.FixedVersion)
-	}
-	if !validGovulnInventoryAdvisory(r.advisories[finding.OSV]) {
+	fixed, ok := calibratedGovulnInventoryAdvisory(r.advisories[finding.OSV])
+	if !ok {
 		return "advisory is not the calibrated package-wide entry"
 	}
+	// The advisory must name the finding's module as an affected entry; a
+	// missing entry is not package-wide evidence for that module.
+	want, present := fixed[module.Module]
+	if !present {
+		return fmt.Sprintf("advisory has no affected entry for finding module %s", module.Module)
+	}
+	// The finding's fixed_version must be exactly the advisory's fixed event
+	// for that module (OSV omits the "v" prefix). No fix means none reported.
+	if finding.FixedVersion != want {
+		return fmt.Sprintf("finding fixed_version %q does not match the advisory fixed event %q for %s", finding.FixedVersion, want, module.Module)
+	}
 	return ""
+}
+
+// The calibrated advisory may list x/crypto and, since its 2026-11-02
+// revision, the standalone golang.org/x/crypto/openpgp module.
+const (
+	govulnCryptoModule  = "golang.org/x/crypto"
+	govulnOpenPGPModule = "golang.org/x/crypto/openpgp"
+)
+
+func govulnInventoryModule(path string) bool {
+	return path == govulnCryptoModule || path == govulnOpenPGPModule
+}
+
+// govulnTaggedFix returns the fixed version when it is a tagged release
+// rather than a pseudo-version or prerelease.
+func govulnTaggedFix(fixed string) (string, bool) {
+	if fixed == "" || !semver.IsValid(fixed) || semver.Prerelease(fixed) != "" || semver.Build(fixed) != "" {
+		return "", false
+	}
+	return fixed, true
 }
 
 // v0.0.0 is what an unstamped calibrated build reports. Stamped builds report
@@ -368,7 +412,19 @@ func govulnScannerVersionCalibrated(version string) bool {
 	return semver.Canonical(version) == version && semver.Prerelease(version) == "" && semver.Compare(version, govulnScannerVersionFloor) >= 0 && semver.Compare(version, govulnScannerVersionCeiling) < 0
 }
 
-func validGovulnInventoryAdvisory(raw json.RawMessage) bool {
+// calibratedGovulnInventoryAdvisory accepts exactly the known shapes of the
+// calibrated advisory and returns each affected module's fixed version in
+// govulncheck form ("v"-prefixed, "" for no fix):
+//
+//   - golang.org/x/crypto (required): one SEMVER range of introduced "0" and
+//     at most one fixed event;
+//   - golang.org/x/crypto/openpgp (optional, added 2026-11-02): one SEMVER
+//     range of introduced "0" only.
+//
+// Both must list exactly the seven legacy openpgp import paths with no
+// symbol or platform scoping. Anything else, including a withdrawn advisory,
+// is not calibrated.
+func calibratedGovulnInventoryAdvisory(raw json.RawMessage) (map[string]string, bool) {
 	var osv struct {
 		ID        string `json:"id"`
 		Withdrawn string `json:"withdrawn"`
@@ -391,26 +447,53 @@ func validGovulnInventoryAdvisory(raw json.RawMessage) bool {
 			} `json:"ecosystem_specific"`
 		} `json:"affected"`
 	}
-	if json.Unmarshal(raw, &osv) != nil || osv.ID != govulnInventoryAdvisory || osv.Withdrawn != "" || len(osv.Affected) != 1 {
-		return false
+	if json.Unmarshal(raw, &osv) != nil || osv.ID != govulnInventoryAdvisory || osv.Withdrawn != "" || len(osv.Affected) < 1 || len(osv.Affected) > 2 {
+		return nil, false
 	}
-	a := osv.Affected[0]
-	if a.Package.Name != "golang.org/x/crypto" || a.Package.Ecosystem != "Go" || len(a.Ranges) != 1 || a.Ranges[0].Type != "SEMVER" || len(a.Ranges[0].Events) != 1 || len(a.Ranges[0].Events[0]) != 1 || a.Ranges[0].Events[0]["introduced"] != "0" || len(a.EcosystemSpecific.Imports) != len(govulnLegacyPackages) {
-		return false
-	}
-	seen := make(map[string]bool)
-	for _, imp := range a.EcosystemSpecific.Imports {
-		if seen[imp.Path] || len(imp.Symbols) != 0 || len(imp.GOOS) != 0 || len(imp.GOARCH) != 0 {
-			return false
+	fixed := make(map[string]string, len(osv.Affected))
+	for _, a := range osv.Affected {
+		name := a.Package.Name
+		if !govulnInventoryModule(name) || a.Package.Ecosystem != "Go" || len(a.Ranges) != 1 || a.Ranges[0].Type != "SEMVER" {
+			return nil, false
 		}
-		seen[imp.Path] = true
-	}
-	for _, path := range govulnLegacyPackages {
-		if !seen[path] {
-			return false
+		if _, dup := fixed[name]; dup {
+			return nil, false
 		}
+		events := a.Ranges[0].Events
+		if len(events) < 1 || len(events) > 2 || len(events[0]) != 1 || events[0]["introduced"] != "0" {
+			return nil, false
+		}
+		fix := ""
+		if len(events) == 2 {
+			if name != govulnCryptoModule || len(events[1]) != 1 || events[1]["fixed"] == "" {
+				return nil, false
+			}
+			fix = "v" + events[1]["fixed"]
+			if !semver.IsValid(fix) || semver.Canonical(fix) != fix {
+				return nil, false
+			}
+		}
+		if len(a.EcosystemSpecific.Imports) != len(govulnLegacyPackages) {
+			return nil, false
+		}
+		seen := make(map[string]bool)
+		for _, imp := range a.EcosystemSpecific.Imports {
+			if seen[imp.Path] || len(imp.Symbols) != 0 || len(imp.GOOS) != 0 || len(imp.GOARCH) != 0 {
+				return nil, false
+			}
+			seen[imp.Path] = true
+		}
+		for _, path := range govulnLegacyPackages {
+			if !seen[path] {
+				return nil, false
+			}
+		}
+		fixed[name] = fix
 	}
-	return true
+	if _, ok := fixed[govulnCryptoModule]; !ok {
+		return nil, false
+	}
+	return fixed, true
 }
 
 func parseGovulnFinding(root string, raw json.RawMessage) (*Issue, error) {
