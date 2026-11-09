@@ -11,8 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Schema validation**: every schema check uses one engine, [santhosh-tekuri/jsonschema](https://github.com/santhosh-tekuri/jsonschema) v6, replacing `gojsonschema`. This covers `schema validate-schema`, `schema validate-data`, `validate suite`, the `schema` assessment, and goneat's own config, hooks manifest and source SBOM checks. `$schema` is always honoured for Draft-04, -06, -07, 2019-09 and 2020-12; schemas without `$schema` validate as Draft-07. `format` is asserted in every dialect, and unknown format names are schema errors. `$ref` resolves only within the schema, to `--ref-dir` schemas by `$id`, and to the built-in metaschemas; nothing is fetched. JSON data is read exactly. Results report the engine, dialect, dialect source, format mode and leap policy. Error messages use the engine's wording. See [Validation behaviour](docs/user-guide/commands/schema.md#validation-behaviour).
-- **Schema validation**: `date`, `time` and `date-time` use goneat's RFC 3339 checkers (calendar checks; second 60 only at UTC-equivalent 23:59:60 on the last day of a month). `email` and `idn-email` use goneat's RFC 5321 and RFC 6531 checkers; internationalized domain labels are checked with UTS 46 registration validation.
+- **Schema validation**: schemas used to validate data (`schema validate-data`, `validate suite`, the config-to-schema checks of the `schema` assessment, and goneat's own config, hooks manifest and source SBOM checks) are compiled by one engine, [santhosh-tekuri/jsonschema](https://github.com/santhosh-tekuri/jsonschema) v6, replacing `gojsonschema`. `$schema` is always honoured for Draft-04, -06, -07, 2019-09 and 2020-12; schemas without `$schema` validate as Draft-07. `format` is asserted in every dialect, and unknown format names are schema errors. `$ref` resolves only within the schema, to `--ref-dir` schemas by `$id`, and to the built-in metaschemas; nothing is fetched. JSON data is read exactly. `schema validate-schema` checks schemas against the engine's built-in metaschemas. `validate-data` JSON output and `pkg/schema` results report the engine, dialect, dialect source, format mode and leap policy. Error messages use the engine's wording. See [Validation behaviour](docs/user-guide/commands/schema.md#validation-behaviour).
+- **Schema validation**: `date`, `time`, `date-time`, `email` and `idn-email` use goneat's own syntax checkers. `time` accepts second 60 only at UTC-equivalent 23:59:60; `date-time` also requires the last day of the UTC month. `idn-email` checks internationalized domain labels with UTS 46 registration validation plus goneat's hyphen and CONTEXTO rules. Extents are in [Owned format checkers](docs/user-guide/commands/schema.md#owned-format-checkers).
 
 ### Fixed
 
@@ -21,7 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Notes
 
 - Repositories that relied on the built-in GO-2026-5932 classification must add an entry for it to `.goneat/dependencies.yaml`.
-- Schemas that were accepted before can now be refused: unknown `format` names, references outside the schema and `--ref-dir`, the unversioned `$schema` alias, and invalid schemas are reported as schema errors. Data that previously passed can fail where formats are now checked or a 2020-12 schema's `$ref` siblings now apply.
+- Schemas that were accepted before can now be refused: unknown `format` names, references outside the schema and `--ref-dir`, the unversioned `$schema` alias, and invalid schemas are reported as schema errors.
+- Data that previously passed can now fail: malformed dates and times, out-of-range offsets, misplaced leap seconds, invalid mailboxes, keywords next to `$ref` in 2020-12 schemas, inexact JSON numbers, and JSON with invalid UTF-8 or unpaired surrogate escapes.
+- Data that was previously refused can now pass: valid leap-second spellings, lowercase `t` and `z` in dates and times, valid mailboxes that were rejected before, and non-string values under a format-only schema. These remain syntax checks.
 - The hooks manifest schema now declares Draft-07 and carries its URL as `$id`.
 - `GONEAT_OFFLINE_SCHEMA_VALIDATION` no longer has any effect.
 
