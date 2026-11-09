@@ -2095,16 +2095,6 @@
   "reason": "A resource is admitted only under its declared $id; references by a different retrieval URL do not resolve (conflicting resource IDs rejected, entarch 2026-11-09 item 4b)."
  },
  {
-  "case": "draft4/definitions.json#0.0",
-  "got": "admission:unknown-format",
-  "reason": "The engine's embedded draft-04 metaschema uses the non-standard format \"uriref\"; referencing it fails the unknown-format admission rule. Schema validation against the draft metaschema happens at compile time instead."
- },
- {
-  "case": "draft4/definitions.json#0.1",
-  "got": "admission:unknown-format",
-  "reason": "The engine's embedded draft-04 metaschema uses the non-standard format \"uriref\"; referencing it fails the unknown-format admission rule. Schema validation against the draft metaschema happens at compile time instead."
- },
- {
   "case": "draft4/optional/ecmascript-regex.json#2.0",
   "got": "admission:invalid-schema",
   "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
@@ -2273,16 +2263,6 @@
   "case": "draft4/optional/zeroTerminatedFloats.json#0.0",
   "got": "valid=true",
   "reason": "The engine treats 1.0 as an integer in draft-04; draft-04 allowed implementations to differ (optional suite)."
- },
- {
-  "case": "draft4/ref.json#7.0",
-  "got": "admission:unknown-format",
-  "reason": "The engine's embedded draft-04 metaschema uses the non-standard format \"uriref\"; referencing it fails the unknown-format admission rule. Schema validation against the draft metaschema happens at compile time instead."
- },
- {
-  "case": "draft4/ref.json#7.1",
-  "got": "admission:unknown-format",
-  "reason": "The engine's embedded draft-04 metaschema uses the non-standard format \"uriref\"; referencing it fails the unknown-format admission rule. Schema validation against the draft metaschema happens at compile time instead."
  },
  {
   "case": "draft6/optional/ecmascript-regex.json#2.0",

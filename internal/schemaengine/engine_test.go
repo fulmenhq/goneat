@@ -568,3 +568,45 @@ func TestConcurrentUse(t *testing.T) {
 		t.Error(e)
 	}
 }
+
+// The engine's embedded metaschemas compile as reference targets even though
+// draft-04 declares the non-standard "uriref" format; user schemas cannot use
+// that exemption.
+func TestEmbeddedMetaschemaReferenceTargets(t *testing.T) {
+	for _, u := range []string{"http://json-schema.org/draft-04/schema#", "http://json-schema.org/draft-06/schema#", "http://json-schema.org/draft-07/schema#", "https://json-schema.org/draft/2019-09/schema", "https://json-schema.org/draft/2020-12/schema"} {
+		c := mustCompile(t, fmt.Sprintf(`{"$schema":%q,"$ref":%q}`, u, u), Options{})
+		if !valid(t, c, `{"type":"string"}`) || valid(t, c, `{"type":5}`) {
+			t.Errorf("%s: metaschema verdicts", u)
+		}
+	}
+	for name, schema := range map[string]string{
+		"draft-04 root":        `{"$schema":"http://json-schema.org/draft-04/schema#","format":"uriref"}`,
+		"under json-schema id": `{"$id":"https://example.com/s","properties":{"a":{"format":"uriref"}}}`,
+	} {
+		if r := admissionReason(t, schema, Options{}); r != ReasonUnknownFormat {
+			t.Errorf("%s: reason %s", name, r)
+		}
+	}
+}
+
+// Failures beneath a $ref keep their own keyword and message (v6.0.3's
+// flattened output loses them).
+func TestIssuesUnderReferenceKeepLeaves(t *testing.T) {
+	c := mustCompile(t, `{"$defs":{"tool":{"type":"object","allOf":[{"not":{"required":["a","b"]}}],"properties":{"n":{"type":"string"}}}},"properties":{"tools":{"patternProperties":{"^x":{"$ref":"#/$defs/tool"}}}}}`, Options{})
+	r, err := c.ValidateJSON([]byte(`{"tools":{"x1":{"a":1,"b":2,"n":3}}}`))
+	if err != nil || r.Valid {
+		t.Fatalf("result: %+v %v", r, err)
+	}
+	want := map[string]string{"not": "/tools/x1", "type": "/tools/x1/n"}
+	for _, is := range r.Issues {
+		if is.Message == "validation failed" {
+			t.Errorf("wrapper issue reported: %+v", is)
+		}
+		if loc, ok := want[is.Keyword]; ok && loc == is.InstanceLocation {
+			delete(want, is.Keyword)
+		}
+	}
+	if len(want) != 0 {
+		t.Errorf("missing leaves %v in %+v", want, r.Issues)
+	}
+}

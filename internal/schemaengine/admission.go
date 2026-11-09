@@ -386,11 +386,27 @@ func (a *admission) compile(ctx *jsonschema.CompilerContext, obj map[string]any)
 				Detail: fmt.Sprintf("relative %s \"%s\" cannot be resolved against opaque base \"%s\"", kw, ref, base)})
 		}
 	}
-	if f, ok := obj["format"].(string); ok && !isKnownFormat(f) {
+	if f, ok := obj["format"].(string); ok && !isKnownFormat(f) && !inEmbeddedMetaschema(ctx) {
 		return a.fail(&AdmissionError{Reason: ReasonUnknownFormat,
 			Detail: fmt.Sprintf("format \"%s\" is not supported; refusing to skip an asserted format", f)})
 	}
 	return nil, nil
+}
+
+// inEmbeddedMetaschema reports whether the schema being compiled belongs to
+// one of the engine's embedded draft metaschemas. Only those can have a
+// json-schema.org base: the closed loader refuses every other resource
+// there. Their format names (such as draft-04's "uriref") are the draft's
+// own and are exempt from the unknown-format refusal; the engine does not
+// assert names it does not know. If the base cannot be read, the schema is
+// not exempt.
+func inEmbeddedMetaschema(ctx *jsonschema.CompilerContext) bool {
+	base, ok := resourceBase(ctx)
+	if !ok {
+		return false
+	}
+	u, err := url.Parse(base)
+	return err == nil && isMetaschemaHost(u)
 }
 
 // resourceBase returns the base URI the engine resolves this schema's

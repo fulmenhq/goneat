@@ -17,7 +17,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"sort"
+	"strings"
 	"sync"
 	"unicode/utf8"
 
@@ -83,7 +85,10 @@ type Capability struct {
 type Issue struct {
 	InstanceLocation string `json:"instance_location"`
 	KeywordLocation  string `json:"keyword_location"`
-	Message          string `json:"message"`
+	// Keyword is the keyword that failed, taken from the engine's error kind
+	// (for example "not", "required", "additionalProperties").
+	Keyword string `json:"keyword,omitempty"`
+	Message string `json:"message"`
 }
 
 // Result is the outcome of validating one instance. An invalid instance is
@@ -118,22 +123,56 @@ func (c *Compiled) Validate(instance any) Result {
 	if !errors.As(err, &ve) {
 		return Result{Issues: []Issue{{Message: SafeText(err.Error())}}}
 	}
-	out := ve.BasicOutput()
-	var issues []Issue
-	for _, u := range out.Errors {
-		if u.Error == nil {
-			continue
-		}
-		issues = append(issues, Issue{
-			InstanceLocation: SafeText(u.InstanceLocation),
-			KeywordLocation:  SafeText(u.KeywordLocation),
-			Message:          SafeText(u.Error.String()),
-		})
-	}
+	// Leaf failures come from the detailed (tree) output. v6.0.3's flattened
+	// basic output drops the causes beneath a single-cause $ref and labels
+	// the remaining unit "validation failed".
+	out := ve.DetailedOutput()
+	issues := leafIssues(out, nil)
 	if len(issues) == 0 {
 		issues = []Issue{{Message: SafeText(ve.Error())}}
 	}
 	return Result{Issues: issues}
+}
+
+// leafIssues collects the units that carry an error (the leaves) in tree
+// order.
+func leafIssues(u *jsonschema.OutputUnit, acc []Issue) []Issue {
+	if u == nil {
+		return acc
+	}
+	if u.Error != nil {
+		kw := ""
+		if u.Error.Kind != nil {
+			kw = kindKeyword(u.Error.Kind)
+		}
+		acc = append(acc, Issue{
+			InstanceLocation: SafeText(u.InstanceLocation),
+			KeywordLocation:  SafeText(u.KeywordLocation),
+			Keyword:          SafeText(kw),
+			Message:          SafeText(u.Error.String()),
+		})
+	}
+	for i := range u.Errors {
+		acc = leafIssues(&u.Errors[i], acc)
+	}
+	return acc
+}
+
+// kindKeyword names the keyword an error kind reports. v6.0.3 returns no
+// keyword path for some kinds (such as Not); their type name, in lower
+// camel case, is the keyword.
+func kindKeyword(k jsonschema.ErrorKind) string {
+	if path := k.KeywordPath(); len(path) > 0 {
+		return path[len(path)-1]
+	}
+	name := reflect.TypeOf(k).String()
+	if i := strings.LastIndex(name, "."); i >= 0 {
+		name = name[i+1:]
+	}
+	if name == "" {
+		return ""
+	}
+	return strings.ToLower(name[:1]) + name[1:]
 }
 
 // ValidateJSON decodes data with DecodeJSON and validates it.
