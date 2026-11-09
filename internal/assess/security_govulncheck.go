@@ -368,9 +368,15 @@ func (r *govulnReport) govulnInventoryUnsupported(finding govulnFinding) string 
 	if !ok {
 		return "advisory is not the calibrated package-wide entry"
 	}
+	// The advisory must name the finding's module as an affected entry; a
+	// missing entry is not package-wide evidence for that module.
+	want, present := fixed[module.Module]
+	if !present {
+		return fmt.Sprintf("advisory has no affected entry for finding module %s", module.Module)
+	}
 	// The finding's fixed_version must be exactly the advisory's fixed event
 	// for that module (OSV omits the "v" prefix). No fix means none reported.
-	if want := fixed[module.Module]; finding.FixedVersion != want {
+	if finding.FixedVersion != want {
 		return fmt.Sprintf("finding fixed_version %q does not match the advisory fixed event %q for %s", finding.FixedVersion, want, module.Module)
 	}
 	return ""

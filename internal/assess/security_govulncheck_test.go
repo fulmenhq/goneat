@@ -559,3 +559,24 @@ func TestGovulnTaggedFixEmitsOfflineBumpHint(t *testing.T) {
 		t.Fatalf("incomplete report must not hint: %+v %v", issues, err)
 	}
 }
+
+// An openpgp module finding needs an openpgp affected entry: the x/crypto
+// entry alone is not package-wide evidence for the standalone module.
+func TestGovulnOpenPGPFindingRequiresAffectedEntry(t *testing.T) {
+	config, sbom, osv, _ := govulnRevisedFixture(t)
+	sbom = strings.Replace(sbom, `"path": "golang.org/x/crypto",`, `"path": "golang.org/x/crypto/openpgp", "version": "v0.0.0-20260101000000-aaaaaaaaaaaa"}, {"path": "golang.org/x/crypto",`, 1)
+	module := `{"finding":{"osv":"GO-2026-5932","trace":[{"module":"golang.org/x/crypto/openpgp","version":"v0.0.0-20260101000000-aaaaaaaaaaaa"}]}}`
+	revisedCryptoOnly := govulnEditOSV(t, osv, func(o map[string]interface{}) {
+		o["affected"] = []interface{}{govulnAffected(o)[0]}
+	})
+	for name, advisory := range map[string]string{
+		"legacy x/crypto only":  govulnPackageWideFixture(t),
+		"revised x/crypto only": revisedCryptoOnly,
+	} {
+		issues, metadata, err := govulnDecodeAndFinish(t, config+sbom+advisory+module, nil)
+		row := metadata["findings"].([]govulnObservation)[0]
+		if err == nil || !strings.Contains(err.Error(), "no affected entry for finding module golang.org/x/crypto/openpgp") || len(issues) != 1 || issues[0].Severity != SeverityHigh || row.Classification == "inventory" {
+			t.Fatalf("%s: %+v %+v %v", name, issues, row, err)
+		}
+	}
+}
