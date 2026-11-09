@@ -446,14 +446,14 @@ func (e *AIRemediationEngine) Generatefix(issue assess.Issue) (*Remediation, err
     response := e.llmClient.Complete(prompt)
 
     // Validate LLM output against remediation schema
-    result, err := e.schemaValidator.Validate(gojsonschema.NewStringLoader(response))
+    result, err := e.schemaValidator.ValidateBytes([]byte(response))
     if err != nil {
         return nil, fmt.Errorf("LLM output validation failed: %w", err)
     }
 
-    if !result.Valid() {
+    if !result.Valid {
         // Feed validation errors back to LLM for correction
-        return e.retryWithSchemaErrors(response, result.Errors())
+        return e.retryWithSchemaErrors(response, result.Errors)
     }
 
     var remediation Remediation
