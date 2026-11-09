@@ -138,7 +138,7 @@ func TestUnknownFormatAdmission(t *testing.T) {
 }
 
 func TestFormatAnnotateModeRefused(t *testing.T) {
-	if r := admissionReason(t, `{"format":"date"}`, Options{FormatMode: FormatAnnotate}); r != ReasonUnsupportedOption {
+	if r := admissionReason(t, `{"format":"date"}`, Options{FormatMode: FormatMode(1)}); r != ReasonUnsupportedOption {
 		t.Errorf("annotate: %s", r)
 	}
 }
@@ -213,6 +213,97 @@ func TestOpaqueRootRelativeReference(t *testing.T) {
 	}
 }
 
+// Dialect policy applies at every resource boundary, not only the root.
+func TestDialectPolicyAtEveryResource(t *testing.T) {
+	latest := `{"$schema":"https://json-schema.org/schema","type":"string"}`
+	spoof := `{"$schema":"https://json-schema.org/draft/2020-12/schema-evil","type":"string"}`
+	for name, tt := range map[string]struct {
+		root string
+		res  []Resource
+	}{
+		"referenced latest alias": {`{"$ref":"https://example.com/child"}`, []Resource{{URL: "https://example.com/child", Bytes: []byte(latest)}}},
+		"referenced spoofed":      {`{"$ref":"https://example.com/child"}`, []Resource{{URL: "https://example.com/child", Bytes: []byte(spoof)}}},
+		"unreferenced resource":   {`{}`, []Resource{{URL: "https://example.com/child", Bytes: []byte(latest)}}},
+		"custom metaschema chain": {`{"$schema":"https://example.com/meta"}`, []Resource{{URL: "https://example.com/meta", Bytes: []byte(`{"$schema":"https://json-schema.org/schema"}`)}}},
+		"embedded resource":       {`{"$schema":"https://json-schema.org/draft/2020-12/schema","$defs":{"c":{"$id":"https://example.com/c","$schema":"https://json-schema.org/schema"}},"$ref":"https://example.com/c"}`, nil},
+	} {
+		if r := admissionReason(t, tt.root, Options{Resources: tt.res}); r != ReasonDialect {
+			t.Errorf("%s: reason %s", name, r)
+		}
+	}
+	// Pinned declarations on referenced resources are fine, as is a
+	// const/default value that merely looks like a $schema declaration.
+	ok := []Resource{{URL: "https://example.com/child", Bytes: []byte(`{"$schema":"http://json-schema.org/draft-07/schema#","type":"string"}`)}}
+	c := mustCompile(t, `{"$ref":"https://example.com/child"}`, Options{Resources: ok})
+	if valid(t, c, `5`) {
+		t.Error("referenced draft-07 resource not applied")
+	}
+	mustCompile(t, `{"const":{"$schema":"https://json-schema.org/schema"},"default":{"$schema":7}}`, Options{})
+}
+
+// Relative references resolve against each resource's own base.
+func TestOpaqueBaseIsPerResource(t *testing.T) {
+	leaf := Resource{URL: "https://example.com/leaf", Bytes: []byte(`{"type":"integer"}`)}
+	// URN root -> hierarchical child with a relative ref: valid.
+	child := Resource{URL: "https://example.com/child", Bytes: []byte(`{"$ref":"leaf"}`)}
+	c := mustCompile(t, `{"$id":"urn:example:root","$ref":"https://example.com/child"}`, Options{Resources: []Resource{child, leaf}})
+	if valid(t, c, `"x"`) || !valid(t, c, `1`) {
+		t.Error("hierarchical child under URN root not resolved")
+	}
+	// HTTPS root -> URN child with a relative ref: refused at admission.
+	urnChild := Resource{URL: "urn:example:child", Bytes: []byte(`{"$ref":"missing.json"}`)}
+	if r := admissionReason(t, `{"$ref":"urn:example:child"}`, Options{Resources: []Resource{urnChild}}); r != ReasonUnresolvedRef {
+		t.Errorf("relative ref in URN child: %s", r)
+	}
+	// Nested base change to a URN inside a hierarchical document.
+	if r := admissionReason(t, `{"$schema":"https://json-schema.org/draft/2020-12/schema","$defs":{"n":{"$id":"urn:example:nested","$ref":"x.json"}},"$ref":"urn:example:nested"}`, Options{}); r != ReasonUnresolvedRef {
+		t.Errorf("relative ref under nested URN base: %s", r)
+	}
+	// Nested hierarchical base under a URN root resolves.
+	nested := `{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"urn:example:root","$defs":{"h":{"$id":"https://example.com/h/","$ref":"../leaf"}},"$ref":"https://example.com/h/"}`
+	c = mustCompile(t, nested, Options{Resources: []Resource{leaf}})
+	if valid(t, c, `"x"`) {
+		t.Error("nested hierarchical base not resolved")
+	}
+	// Fragment-only refs under opaque bases still work.
+	mustCompile(t, `{"$id":"urn:example:r","$defs":{"a":{"type":"string"}},"$ref":"#/$defs/a"}`, Options{})
+}
+
+// The pattern budget applies before regexp compilation and only to schema
+// patterns; validating a long instance against format regex is unaffected.
+func TestPatternBudgetBeforeCompile(t *testing.T) {
+	long := strings.Repeat("a", 100)
+	for name, schema := range map[string]string{
+		"pattern":           `{"pattern":"` + long + `"}`,
+		"patternProperties": `{"patternProperties":{"` + long + `":{}}}`,
+		"invalid and long":  `{"pattern":"(` + long + `"}`,
+	} {
+		if r := admissionReason(t, schema, Options{Limits: Limits{MaxPatternBytes: 50}}); r != ReasonLimit {
+			t.Errorf("%s: reason %s", name, r)
+		}
+	}
+	// Over-budget patterns in admitted and referenced resources.
+	for name, res := range map[string]string{
+		"resource pattern":           `{"pattern":"(` + long + `"}`,
+		"resource patternProperties": `{"patternProperties":{"(` + long + `":{}}}`,
+		"referenced subschema":       `{"$defs":{"p":{"pattern":"(` + long + `"}}}`,
+	} {
+		root := `{"$ref":"https://example.com/r"}`
+		if name == "referenced subschema" {
+			root = `{"$ref":"https://example.com/r#/$defs/p"}`
+			res = `{"$schema":"https://json-schema.org/draft/2020-12/schema",` + res[1:]
+		}
+		opts := Options{Limits: Limits{MaxPatternBytes: 50}, Resources: []Resource{{URL: "https://example.com/r", Bytes: []byte(res)}}}
+		if r := admissionReason(t, root, opts); r != ReasonLimit {
+			t.Errorf("%s: reason %s", name, r)
+		}
+	}
+	c := mustCompile(t, `{"format":"regex"}`, Options{Limits: Limits{MaxPatternBytes: 50}})
+	if !valid(t, c, `"`+long+`"`) || valid(t, c, `"(`+long+`"`) {
+		t.Error("format regex validation affected by the schema pattern budget")
+	}
+}
+
 func TestResourceIdentityConflicts(t *testing.T) {
 	doc := []byte(`{"$id":"https://example.com/b.json","type":"integer"}`)
 	for name, opts := range map[string]Options{
@@ -256,6 +347,20 @@ func TestLimits(t *testing.T) {
 	c := mustCompile(t, `{}`, Options{Limits: Limits{MaxInstanceBytes: 4}})
 	if _, err := c.ValidateJSON([]byte(`"abcdef"`)); err == nil {
 		t.Error("instance byte limit not enforced")
+	}
+}
+
+// Exact-number scanning: huge exponents must not stop the depth scan.
+func TestDepthBudgetWithLargeNumbers(t *testing.T) {
+	for _, n := range []string{"1e1000", "-1e1000", "1e-1000", "123456789012345678901234567890"} {
+		deep := `{"const":` + n + `,"properties":{"x":{"items":{}}}}`
+		if r := admissionReason(t, deep, Options{Limits: Limits{MaxDepth: 2}}); r != ReasonLimit {
+			t.Errorf("root %s: reason %s", n, r)
+		}
+		res := []Resource{{URL: "https://example.com/r", Bytes: []byte(deep)}}
+		if r := admissionReason(t, `{"$ref":"https://example.com/r"}`, Options{Resources: res, Limits: Limits{MaxDepth: 2}}); r != ReasonLimit {
+			t.Errorf("resource %s: reason %s", n, r)
+		}
 	}
 }
 

@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"regexp"
 	"strings"
+	"sync/atomic"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
@@ -109,7 +111,11 @@ func admitDocument(name string, data []byte, lim Limits) (any, error) {
 			Detail: fmt.Sprintf("%d bytes exceed the limit of %d", len(data), lim.MaxSchemaBytes)}
 	}
 	if err := checkDepth(data, lim.MaxDepth); err != nil {
-		return nil, &AdmissionError{Reason: ReasonLimit, Location: name, Err: err}
+		reason := ReasonLimit
+		if !strings.Contains(err.Error(), "nesting depth exceeds") {
+			reason = ReasonInvalidJSON
+		}
+		return nil, &AdmissionError{Reason: reason, Location: name, Err: err}
 	}
 	doc, err := DecodeJSON(data, 0)
 	if err != nil {
@@ -120,6 +126,7 @@ func admitDocument(name string, data []byte, lim Limits) (any, error) {
 
 func checkDepth(data []byte, max int) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber() // numbers such as 1e1000 must not end the scan early
 	depth := 0
 	for {
 		tok, err := dec.Token()
@@ -127,7 +134,7 @@ func checkDepth(data []byte, max int) error {
 			return nil
 		}
 		if err != nil {
-			return nil // syntax errors are reported by the decoder
+			return fmt.Errorf("JSON nesting could not be scanned: %w", err)
 		}
 		if d, ok := tok.(json.Delim); ok {
 			switch d {
@@ -245,28 +252,37 @@ func rootDialect(doc any, defaultName string) (dialect, source string, err error
 	if !present {
 		return defaultName, "defaulted", nil
 	}
+	return checkDialectDecl(raw, "/$schema")
+}
+
+// checkDialectDecl applies the dialect policy to one $schema value. It is
+// used for the root, for every admitted resource, and for every schema object
+// the engine compiles, so a referenced or embedded resource cannot declare a
+// dialect the root could not.
+func checkDialectDecl(raw any, loc string) (dialect, source string, err error) {
 	s, ok := raw.(string)
 	if !ok {
-		return "", "", &AdmissionError{Reason: ReasonDialect, Location: "/$schema", Detail: "$schema must be a string"}
+		return "", "", &AdmissionError{Reason: ReasonDialect, Location: loc, Detail: "$schema must be a string"}
 	}
 	if name, ok := knownDrafts[normalizeDialectURL(s)]; ok {
 		return name, "declared", nil
 	}
 	if normalizeDialectURL(s) == "json-schema.org/schema" {
-		return "", "", &AdmissionError{Reason: ReasonDialect, Location: "/$schema",
+		return "", "", &AdmissionError{Reason: ReasonDialect, Location: loc,
 			Detail: "the unversioned json-schema.org/schema dialect is not pinned; declare a specific draft"}
 	}
 	u, perr := url.Parse(s)
 	if perr != nil || !u.IsAbs() {
-		return "", "", &AdmissionError{Reason: ReasonDialect, Location: "/$schema",
+		return "", "", &AdmissionError{Reason: ReasonDialect, Location: loc,
 			Detail: fmt.Sprintf("\"%s\" is not an absolute dialect URI", s)}
 	}
 	if isMetaschemaHost(u) {
-		return "", "", &AdmissionError{Reason: ReasonDialect, Location: "/$schema",
+		return "", "", &AdmissionError{Reason: ReasonDialect, Location: loc,
 			Detail: fmt.Sprintf("\"%s\" is not a recognised JSON Schema dialect", s)}
 	}
-	// A custom metaschema: it must be an admitted resource, and the engine
-	// enforces its declared vocabularies.
+	// A custom metaschema: it must be an admitted resource (whose own
+	// $schema is checked on admission), and the engine enforces its
+	// declared vocabularies.
 	return stripEmptyFragment(s), "metaschema", nil
 }
 
@@ -282,6 +298,13 @@ func (l *closedLoader) admit(u string, doc any) error {
 	u = stripEmptyFragment(u)
 	if _, dup := l.docs[u]; dup {
 		return &AdmissionError{Reason: ReasonResource, Location: u, Detail: "resource admitted twice"}
+	}
+	if obj, ok := doc.(map[string]any); ok {
+		if raw, present := obj["$schema"]; present {
+			if _, _, err := checkDialectDecl(raw, u+"#/$schema"); err != nil {
+				return err
+			}
+		}
 	}
 	if id, ok := declaredID(doc); ok {
 		if pu, err := url.Parse(id); err == nil && pu.IsAbs() && stripEmptyFragment(id) != u {
@@ -307,12 +330,8 @@ func (l *closedLoader) Load(u string) (any, error) {
 // exactly the executable schema locations of each dialect.
 type admission struct {
 	limits Limits
-	// opaqueRoot is set when the root base is an opaque URI such as a URN.
-	// URL resolution maps every relative reference against such a base back
-	// onto the base itself, so relative references are refused.
-	opaqueRoot bool
-	nodes      int
-	err        *AdmissionError
+	nodes  int
+	err    *AdmissionError
 }
 
 const admissionVocabURL = "urn:goneat:vocab:admission"
@@ -331,41 +350,75 @@ func (a *admission) fail(e *AdmissionError) (jsonschema.SchemaExt, error) {
 	return nil, e
 }
 
-func (a *admission) compile(_ *jsonschema.CompilerContext, obj map[string]any) (jsonschema.SchemaExt, error) {
+func (a *admission) compile(ctx *jsonschema.CompilerContext, obj map[string]any) (jsonschema.SchemaExt, error) {
 	a.nodes++
 	if a.nodes > a.limits.MaxSchemaNodes {
 		return a.fail(&AdmissionError{Reason: ReasonLimit,
 			Detail: fmt.Sprintf("more than %d schema objects", a.limits.MaxSchemaNodes)})
 	}
-	if a.opaqueRoot {
-		for _, kw := range []string{"$ref", "$dynamicRef", "$recursiveRef"} {
-			ref, ok := obj[kw].(string)
-			if !ok || strings.HasPrefix(ref, "#") {
-				continue
-			}
-			if u, err := url.Parse(ref); err != nil || !u.IsAbs() {
-				return a.fail(&AdmissionError{Reason: ReasonUnresolvedRef,
-					Detail: fmt.Sprintf("relative %s \"%s\" cannot be resolved against an opaque base URI", kw, ref)})
-			}
+	if raw, present := obj["$schema"]; present {
+		if _, _, err := checkDialectDecl(raw, ""); err != nil {
+			var ae *AdmissionError
+			errors.As(err, &ae)
+			return a.fail(ae)
+		}
+	}
+	// The engine resolves any relative reference against an opaque base
+	// (such as a URN) to that base itself, so such a reference silently
+	// becomes a self-reference. Detect an opaque base for this schema's own
+	// resource and refuse relative references there.
+	for _, kw := range []string{"$ref", "$dynamicRef", "$recursiveRef"} {
+		ref, ok := obj[kw].(string)
+		if !ok || strings.HasPrefix(ref, "#") {
+			continue
+		}
+		if u, err := url.Parse(ref); err == nil && u.IsAbs() {
+			continue
+		}
+		if opaqueResourceBase(ctx) {
+			return a.fail(&AdmissionError{Reason: ReasonUnresolvedRef,
+				Detail: fmt.Sprintf("relative %s \"%s\" cannot be resolved against an opaque base URI", kw, ref)})
 		}
 	}
 	if f, ok := obj["format"].(string); ok && !isKnownFormat(f) {
 		return a.fail(&AdmissionError{Reason: ReasonUnknownFormat,
 			Detail: fmt.Sprintf("format \"%s\" is not supported; refusing to skip an asserted format", f)})
 	}
-	if p, ok := obj["pattern"].(string); ok && len(p) > a.limits.MaxPatternBytes {
-		return a.fail(&AdmissionError{Reason: ReasonLimit,
-			Detail: fmt.Sprintf("pattern of %d bytes exceeds the limit of %d", len(p), a.limits.MaxPatternBytes)})
-	}
-	if pp, ok := obj["patternProperties"].(map[string]any); ok {
-		for k := range pp {
-			if len(k) > a.limits.MaxPatternBytes {
-				return a.fail(&AdmissionError{Reason: ReasonLimit,
-					Detail: fmt.Sprintf("patternProperties key of %d bytes exceeds the limit of %d", len(k), a.limits.MaxPatternBytes)})
-			}
-		}
-	}
 	return nil, nil
+}
+
+// opaqueResourceBase reports whether the resource containing the schema being
+// compiled has an opaque base URI. Against an opaque base every relative
+// reference resolves to the base itself, so a probe reference lands on the
+// same schema as the empty reference; against a hierarchical base the probe
+// names a document that is never admitted and fails to resolve.
+func opaqueResourceBase(ctx *jsonschema.CompilerContext) bool {
+	self, err := ctx.EnqueueRef("")
+	if err != nil || self == nil {
+		return false
+	}
+	probe, err := ctx.EnqueueRef("goneat-opaque-base-probe.invalid.json")
+	return err == nil && probe == self
+}
+
+// boundedRegexp is Go's RE2 regexp.Compile with the pattern budget applied
+// before compilation. The budget only applies while the schema is being
+// compiled (pattern and patternProperties); validating instances against the
+// "regex" format afterwards is unaffected.
+type boundedRegexp struct {
+	max       int
+	compiling atomic.Bool
+	tripped   atomic.Bool // the budget refused a pattern during compilation
+}
+
+var errPatternBudget = errors.New("pattern exceeds the byte budget")
+
+func (b *boundedRegexp) engine(s string) (jsonschema.Regexp, error) {
+	if b.compiling.Load() && len(s) > b.max {
+		b.tripped.Store(true)
+		return nil, fmt.Errorf("%w: %d bytes, limit %d", errPatternBudget, len(s), b.max)
+	}
+	return regexp.Compile(s)
 }
 
 // toAdmissionError classifies engine compile errors.
@@ -376,7 +429,12 @@ func toAdmissionError(err error) error {
 	}
 	reason := ReasonInvalidSchema
 	var le *jsonschema.LoadURLError
+	var re *jsonschema.InvalidRegexError
 	switch {
+	case errors.Is(err, errPatternBudget):
+		reason = ReasonLimit
+	case errors.As(err, &re) && errors.Is(re.Err, errPatternBudget):
+		reason = ReasonLimit
 	case errors.As(err, &le):
 		reason = ReasonUnresolvedRef
 	case errors.Is(err, errNotAdmitted):

@@ -17,7 +17,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/url"
 	"sort"
 	"sync"
 	"unicode/utf8"
@@ -28,28 +27,20 @@ import (
 // Engine identifies the underlying validator in capability reports.
 const Engine = "github.com/santhosh-tekuri/jsonschema/v6@v6.0.3"
 
-// FormatMode selects how the format keyword is treated.
+// FormatMode selects how the format keyword is treated. Only FormatAssert
+// exists: the engine cannot disable every format assertion for pre-2019
+// drafts (the regex format cannot be overridden), so an annotation-only mode
+// is not offered. Any other value is refused at compile time.
 type FormatMode int
 
-const (
-	// FormatAssert validates format for every dialect (the default).
-	FormatAssert FormatMode = iota
-	// FormatAnnotate would treat format as an annotation only. The engine
-	// cannot disable every format assertion for pre-2019 drafts (the regex
-	// format cannot be overridden), so this mode is refused at compile time
-	// rather than offered as a partial downgrade.
-	FormatAnnotate
-)
+// FormatAssert validates format for every dialect.
+const FormatAssert FormatMode = 0
 
 func (m FormatMode) String() string {
-	switch m {
-	case FormatAssert:
+	if m == FormatAssert {
 		return "assert"
-	case FormatAnnotate:
-		return "annotate"
-	default:
-		return fmt.Sprintf("FormatMode(%d)", int(m))
 	}
+	return fmt.Sprintf("FormatMode(%d)", int(m))
 }
 
 // Resource is a schema document admitted for $ref resolution, identified by
@@ -259,7 +250,7 @@ func hex4(b []byte) (rune, bool) {
 func Compile(root []byte, opts Options) (*Compiled, error) {
 	if opts.FormatMode != FormatAssert {
 		return nil, &AdmissionError{Reason: ReasonUnsupportedOption,
-			Detail: fmt.Sprintf("format mode %s is not supported: the engine cannot disable all format assertions", opts.FormatMode)}
+			Detail: fmt.Sprintf("format mode %s is not supported; only assert is available", opts.FormatMode)}
 	}
 	lim := opts.Limits.withDefaults()
 
@@ -304,10 +295,11 @@ func Compile(root []byte, opts Options) (*Compiled, error) {
 	}
 
 	adm := &admission{limits: lim}
-	if bu, perr := url.Parse(base); perr == nil && bu.Opaque != "" {
-		adm.opaqueRoot = true
-	}
+	re := &boundedRegexp{max: lim.MaxPatternBytes}
+	re.compiling.Store(true)
+	defer re.compiling.Store(false)
 	c := jsonschema.NewCompiler()
+	c.UseRegexpEngine(re.engine) // Go RE2 with the pattern budget; never a backtracking engine
 	c.UseLoader(loader)
 	c.DefaultDraft(defDraft)
 	c.AssertFormat()
@@ -319,6 +311,12 @@ func Compile(root []byte, opts Options) (*Compiled, error) {
 
 	sch, err := c.Compile(base)
 	if err != nil {
+		// The engine may reach the regexp engine first through metaschema
+		// validation (format "regex" on pattern), which wraps the error.
+		if re.tripped.Load() {
+			return nil, &AdmissionError{Reason: ReasonLimit,
+				Detail: fmt.Sprintf("a pattern exceeds the limit of %d bytes", lim.MaxPatternBytes)}
+		}
 		return nil, toAdmissionError(err)
 	}
 	if adm.err != nil {
