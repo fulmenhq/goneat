@@ -610,3 +610,75 @@ func TestIssuesUnderReferenceKeepLeaves(t *testing.T) {
 		t.Errorf("missing leaves %v in %+v", want, r.Issues)
 	}
 }
+
+// The document URL, not the resource base, decides metaschema provenance: a
+// nested $id moves the base but stays in the user's document.
+func TestDocumentURLIntrospection(t *testing.T) {
+	var seen []string
+	c := jsonschema.NewCompiler()
+	c.UseLoader(newClosedLoader())
+	c.RegisterVocabulary(&jsonschema.Vocabulary{URL: "urn:goneat:test:doc", Compile: func(ctx *jsonschema.CompilerContext, _ map[string]any) (jsonschema.SchemaExt, error) {
+		d, ok := documentURL(ctx)
+		if !ok {
+			t.Fatal("document URL introspection failed")
+		}
+		seen = append(seen, d)
+		return nil, nil
+	}})
+	c.AssertVocabs()
+	if err := c.AddResource("https://example.com/a/root.json", map[string]any{"$id": "https://example.com/a/root.json", "properties": map[string]any{"x": map[string]any{"$id": "urn:example:x"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Compile("https://example.com/a/root.json"); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(seen, ",") != "https://example.com/a/root.json,https://example.com/a/root.json" {
+		t.Fatalf("documents: %v", seen)
+	}
+}
+
+// User schemas cannot claim a json-schema.org identity with a nested $id to
+// reach the metaschema format exemption (secrev and entarch repros).
+func TestReservedNestedIDRefused(t *testing.T) {
+	for name, schema := range map[string]string{
+		"defs evil":           `{"$schema":"https://json-schema.org/draft/2020-12/schema","$defs":{"m":{"$id":"https://json-schema.org/evil","format":"foo"}},"$ref":"#/$defs/m"}`,
+		"defs draft-04 url":   `{"$schema":"https://json-schema.org/draft/2020-12/schema","$defs":{"m":{"$id":"https://json-schema.org/draft-04/schema","format":"uriref"}},"$ref":"#/$defs/m"}`,
+		"property":            `{"$id":"https://example.com/root","properties":{"x":{"$id":"https://json-schema.org/user-owned","format":"unknown-entarch"}}}`,
+		"exact metaschema id": `{"properties":{"x":{"$id":"http://json-schema.org/draft-07/schema#","type":"string"}}}`,
+		"draft-04 id":         `{"$schema":"http://json-schema.org/draft-04/schema#","properties":{"x":{"id":"http://json-schema.org/draft-04/schema#","format":"uriref"}}}`,
+		"no format":           `{"properties":{"x":{"$id":"https://JSON-SCHEMA.org/x"}}}`,
+	} {
+		if r := admissionReason(t, schema, Options{}); r != ReasonResource {
+			t.Errorf("%s: reason %s", name, r)
+		}
+	}
+	// The same object without the reserved $id is an unknown format.
+	if r := admissionReason(t, `{"$defs":{"m":{"format":"foo"}},"$ref":"#/$defs/m"}`, Options{}); r != ReasonUnknownFormat {
+		t.Errorf("plain unknown format: %s", r)
+	}
+}
+
+// Every pinned embedded metaschema document is real: it compiles from the
+// engine's copy as a reference target.
+func TestEmbeddedMetaschemaDocsCompile(t *testing.T) {
+	for path := range embeddedMetaschemaDocs {
+		scheme := "https"
+		dialect := "https://json-schema.org/draft/2020-12/schema"
+		switch {
+		case strings.HasPrefix(path, "draft-0"):
+			scheme, dialect = "http", "http://json-schema.org/"+path+"#"
+		case strings.HasPrefix(path, "draft/2019-09"):
+			dialect = "https://json-schema.org/draft/2019-09/schema"
+		}
+		u := scheme + "://json-schema.org/" + path
+		if !isEmbeddedMetaschemaURL(u) {
+			t.Errorf("%s not recognised", u)
+		}
+		mustCompile(t, fmt.Sprintf(`{"$schema":%q,"$ref":%q}`, dialect, u), Options{})
+	}
+	for _, u := range []string{"https://json-schema.org/evil", "https://json-schema.org/draft-07/schema?x", "https://json-schema.org:8443/draft-07/schema", "https://example.com/draft-07/schema", "ftp://json-schema.org/draft-07/schema"} {
+		if isEmbeddedMetaschemaURL(u) {
+			t.Errorf("%s recognised as embedded", u)
+		}
+	}
+}

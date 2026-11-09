@@ -386,27 +386,97 @@ func (a *admission) compile(ctx *jsonschema.CompilerContext, obj map[string]any)
 				Detail: fmt.Sprintf("relative %s \"%s\" cannot be resolved against opaque base \"%s\"", kw, ref, base)})
 		}
 	}
-	if f, ok := obj["format"].(string); ok && !isKnownFormat(f) && !inEmbeddedMetaschema(ctx) {
+	embedded := inEmbeddedMetaschema(ctx)
+	// json-schema.org identities belong to the embedded metaschemas. A user
+	// schema may not claim one with a nested $id (or draft-04 id).
+	if !embedded {
+		for _, kw := range []string{"$id", "id"} {
+			id, ok := obj[kw].(string)
+			if !ok {
+				continue
+			}
+			if u, err := url.Parse(id); err == nil && isMetaschemaHost(u) {
+				return a.fail(&AdmissionError{Reason: ReasonResource, Location: id,
+					Detail: "json-schema.org URLs are reserved for the embedded metaschemas"})
+			}
+		}
+	}
+	if f, ok := obj["format"].(string); ok && !isKnownFormat(f) && !embedded {
 		return a.fail(&AdmissionError{Reason: ReasonUnknownFormat,
 			Detail: fmt.Sprintf("format \"%s\" is not supported; refusing to skip an asserted format", f)})
 	}
 	return nil, nil
 }
 
-// inEmbeddedMetaschema reports whether the schema being compiled belongs to
-// one of the engine's embedded draft metaschemas. Only those can have a
-// json-schema.org base: the closed loader refuses every other resource
-// there. Their format names (such as draft-04's "uriref") are the draft's
-// own and are exempt from the unknown-format refusal; the engine does not
-// assert names it does not know. If the base cannot be read, the schema is
-// not exempt.
-func inEmbeddedMetaschema(ctx *jsonschema.CompilerContext) bool {
-	base, ok := resourceBase(ctx)
-	if !ok {
+// embeddedMetaschemaDocs are the documents jsonschema/v6 v6.0.3 embeds
+// (metaschemas/ in the module), by path on json-schema.org.
+var embeddedMetaschemaDocs = map[string]bool{
+	"draft-04/schema":                      true,
+	"draft-06/schema":                      true,
+	"draft-07/schema":                      true,
+	"draft/2019-09/schema":                 true,
+	"draft/2019-09/meta/core":              true,
+	"draft/2019-09/meta/applicator":        true,
+	"draft/2019-09/meta/validation":        true,
+	"draft/2019-09/meta/meta-data":         true,
+	"draft/2019-09/meta/format":            true,
+	"draft/2019-09/meta/content":           true,
+	"draft/2020-12/schema":                 true,
+	"draft/2020-12/meta/core":              true,
+	"draft/2020-12/meta/applicator":        true,
+	"draft/2020-12/meta/unevaluated":       true,
+	"draft/2020-12/meta/validation":        true,
+	"draft/2020-12/meta/meta-data":         true,
+	"draft/2020-12/meta/format-annotation": true,
+	"draft/2020-12/meta/format-assertion":  true,
+	"draft/2020-12/meta/content":           true,
+}
+
+// isEmbeddedMetaschemaURL reports whether u names one of the engine's
+// embedded metaschema documents exactly.
+func isEmbeddedMetaschemaURL(u string) bool {
+	pu, err := url.Parse(stripEmptyFragment(u))
+	if err != nil || !isMetaschemaHost(pu) || (pu.Scheme != "http" && pu.Scheme != "https") || pu.Fragment != "" || pu.RawQuery != "" || pu.User != nil || pu.Port() != "" {
 		return false
 	}
-	u, err := url.Parse(base)
-	return err == nil && isMetaschemaHost(u)
+	return embeddedMetaschemaDocs[strings.TrimPrefix(pu.Path, "/")]
+}
+
+// inEmbeddedMetaschema reports whether the schema being compiled comes from
+// one of the engine's embedded metaschema documents. It is decided by the
+// URL of the document the schema was loaded from, not by its resource base:
+// a nested $id can move the base, but not the document. User documents never
+// have a json-schema.org document URL (the closed loader and root admission
+// refuse it). Their format names (such as draft-04's "uriref") are the
+// draft's own and are exempt from the unknown-format refusal; the engine does
+// not assert names it does not know. If the document URL cannot be read, the
+// schema is not exempt.
+func inEmbeddedMetaschema(ctx *jsonschema.CompilerContext) bool {
+	doc, ok := documentURL(ctx)
+	return ok && isEmbeddedMetaschemaURL(doc)
+}
+
+// documentURL returns the URL of the document the schema being compiled was
+// loaded from (objCompiler.r.url in jsonschema/v6 v6.0.3), read through
+// reflection without side effects. ok is false if the internals change.
+func documentURL(ctx *jsonschema.CompilerContext) (doc string, ok bool) {
+	v := reflect.ValueOf(ctx)
+	if v.Kind() != reflect.Pointer || v.IsNil() {
+		return "", false
+	}
+	c := v.Elem().FieldByName("c")
+	if !c.IsValid() || c.Kind() != reflect.Pointer || c.IsNil() {
+		return "", false
+	}
+	r := c.Elem().FieldByName("r")
+	if !r.IsValid() || r.Kind() != reflect.Pointer || r.IsNil() {
+		return "", false
+	}
+	u := r.Elem().FieldByName("url")
+	if !u.IsValid() || u.Kind() != reflect.String {
+		return "", false
+	}
+	return u.String(), true
 }
 
 // resourceBase returns the base URI the engine resolves this schema's
