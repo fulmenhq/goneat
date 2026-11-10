@@ -30,6 +30,7 @@ type Tool struct {
 	InstallMethods     map[string]InstallMethod // platform-specific installation methods
 	InstallCommands    map[string]string        // installer commands keyed by platform/installer keyword
 	InstallerPriority  map[string][]string      // preferred installer order per platform
+	Advisory           map[string]bool          // explicit report-only policy per platform
 	DetectCommand      string                   // raw detect command from configuration
 	Artifacts          *tools.ArtifactManifest  // artifact-based installation with SHA256 verification
 	Cooling            *tools.CoolingConfig     // optional tool-specific cooling policy override
@@ -568,12 +569,14 @@ func installSystemToolWith(t Tool, run installerExec, available installerAvail) 
 	return status
 }
 
-// IsReportOnly reports whether the tool is advisory on the current platform:
-// the only configured installer is `manual`, so doctor prints a hint and does
-// not auto-run a command or fail the run when the tool is absent.
+// IsReportOnly reports whether the tool is explicitly advisory on this platform.
+// A platform-specific value overrides the optional "all" default. Installation
+// methods alone never make a required tool advisory.
 func IsReportOnly(t Tool) bool {
-	priorities := resolveInstallerPriority(t, getCurrentPlatform())
-	return len(priorities) == 1 && priorities[0] == installerManual
+	if advisory, ok := t.Advisory[getCurrentPlatform()]; ok {
+		return advisory
+	}
+	return t.Advisory["all"]
 }
 
 // CountsTowardMissing reports whether an absent tool should fail `doctor tools`.

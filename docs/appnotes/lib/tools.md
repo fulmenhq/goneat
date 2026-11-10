@@ -61,6 +61,34 @@ go get github.com/fulmenhq/goneat/pkg/tools
 
 ## Basic Usage
 
+### Advisory tools
+
+Tools are required by default, including tools with only a `manual` installer.
+Use an explicit per-platform policy to make an absent tool report-only:
+
+```yaml
+tools:
+  minisign:
+    name: minisign
+    kind: system
+    description: Release artifact signing
+    detect_command: minisign -v
+    advisory:
+      linux: true
+    installer_priority:
+      linux: [manual]
+    install_commands:
+      manual: "Install minisign with your system package manager"
+```
+
+`advisory` accepts `darwin`, `linux`, `windows`, and `all` boolean keys. A
+platform-specific value overrides `all`, including an explicit `false`.
+When absent, an advisory tool does not fail `doctor tools` or `assess` tools
+checks. Doctor installation reports instructions instead of running an installer.
+Installed tools still receive version-policy checks; advisory status does not
+waive signing-time requirements. Existing manual-only configurations must opt in
+explicitly to retain report-only behavior.
+
 ### Loading Tool Configuration
 
 ```go

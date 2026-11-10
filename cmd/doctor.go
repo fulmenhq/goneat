@@ -733,6 +733,7 @@ func convertToolConfigToTool(toolConfig intdoctor.ToolConfig) (intdoctor.Tool, e
 		CheckArgs:      toolConfig.CheckArgs,
 		Description:    toolConfig.Description,
 		Platforms:      toolConfig.Platforms,
+		Advisory:       toolConfig.Advisory,
 		DetectCommand:  toolConfig.DetectCommand,
 	}
 

@@ -100,6 +100,36 @@ git push origin main
 goneat assess --hook pre-commit
 ```
 
+### Govulncheck policy exceptions
+
+The security category reads exact advisory IDs from
+`.goneat/dependencies.yaml` under the scanned Go module root:
+
+```yaml
+vulnerabilities:
+  allow:
+    - id: GO-2026-0001
+      reason: "Reviewed exception"
+      until: "2030-01-01"
+```
+
+A listed, unexpired ID is reported at `info` with `allowlisted` classification,
+including package- and symbol-level findings. This is an explicit policy waiver,
+not evidence that the code is unreachable. Unlisted and expired IDs remain
+`high`; no advisory ID receives a built-in exception. Raw findings and observed
+grades remain in report metadata.
+
+`until` is exclusive at midnight UTC on the specified date. Only omission means
+no expiry. Null, empty, malformed and non-date values fail configuration loading;
+duplicate IDs also fail. Quoted and unquoted dates use the same `YYYY-MM-DD`
+syntax. A missing policy file means no exceptions; other read or parse failures
+fail the security category.
+
+Exceptions apply only after successful execution and complete, verified
+govulncheck report evidence. They never suppress scanner or parser failures.
+The grype-specific `enabled`, `ignore_unfixed`, and `fail_on` settings do not
+disable or weaken govulncheck's security gate.
+
 ### CI/CD Integration
 
 Generate reports for automated pipelines:

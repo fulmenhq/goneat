@@ -119,9 +119,9 @@ func TestGovulnMetadataFanInSurvivesFailure(t *testing.T) {
 		failed     bool
 		severities []IssueSeverity
 	}{
-		{"govuln-inventory", false, []IssueSeverity{SeverityInfo}},
+		{"govuln-inventory", false, []IssueSeverity{SeverityHigh}},
 		{"govuln-inventory-exit1", true, []IssueSeverity{SeverityHigh}},
-		{"govuln-imported-inventory", false, []IssueSeverity{SeverityInfo, SeverityHigh}},
+		{"govuln-imported-inventory", false, []IssueSeverity{SeverityHigh, SeverityHigh}},
 	} {
 		t.Run(tt.mode, func(t *testing.T) {
 			t.Setenv("GONEAT_SECURITY_PROCESS_FIXTURE", tt.mode)
@@ -220,7 +220,7 @@ func TestGovulnExistingScopeArgvUnchanged(t *testing.T) {
 	cfg := DefaultAssessmentConfig()
 	cfg.Timeout = 10 * time.Second
 	issues, _, err := NewSecurityAssessmentRunner().runGovulncheckWithMetadata(t.Context(), root, cfg)
-	if err != nil || len(issues) != 1 || issues[0].Severity != SeverityInfo {
+	if err != nil || len(issues) != 1 || issues[0].Severity != SeverityHigh {
 		t.Fatalf("inventory: %+v %v", issues, err)
 	}
 	b, e := os.ReadFile(receipt)

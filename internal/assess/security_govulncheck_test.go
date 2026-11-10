@@ -48,6 +48,15 @@ const govulnScopedConfigFixture = `{"config":{"protocol_version":"v1.0.0","scann
 const govulnInventoryFixture = `{"SBOM":{"go_version":"go1.26.6","roots":["example.org/root"],"modules":[{"path":"golang.org/x/crypto","version":"v0.56.0"}]}}`
 const govulnModuleInventoryFixture = `{"finding":{"osv":"GO-2026-5932","trace":[{"module":"golang.org/x/crypto","version":"v0.56.0"}]}}`
 
+const govulnInventoryAdvisory = "GO-2026-5932"
+
+var govulnLegacyPackages = []string{
+	"golang.org/x/crypto/openpgp", "golang.org/x/crypto/openpgp/packet",
+	"golang.org/x/crypto/openpgp/armor", "golang.org/x/crypto/openpgp/clearsign",
+	"golang.org/x/crypto/openpgp/errors", "golang.org/x/crypto/openpgp/elgamal",
+	"golang.org/x/crypto/openpgp/s2k",
+}
+
 func govulnPackageWideFixture(t *testing.T) string {
 	t.Helper()
 	imports := make([]map[string]interface{}, 0, len(govulnLegacyPackages))
@@ -77,7 +86,7 @@ func govulnInventoryStream(t *testing.T, finding string) string {
 func govulnDecodeAndFinish(t *testing.T, stream string, completion error) ([]Issue, map[string]interface{}, error) {
 	t.Helper()
 	r, err := readGovulnStream("/fixture", strings.NewReader(stream))
-	return r.finish(errors.Join(err, completion))
+	return r.finishWithAllowlist(errors.Join(err, completion), map[string]bool{govulnInventoryAdvisory: true})
 }
 
 func TestGovulnModuleInventoryRetained(t *testing.T) {
@@ -86,7 +95,7 @@ func TestGovulnModuleInventoryRetained(t *testing.T) {
 		t.Fatalf("inventory: %+v %v", issues, err)
 	}
 	rows := metadata["findings"].([]govulnObservation)
-	if len(rows) != 1 || rows[0].EventIndex != 3 || rows[0].IssueIndex != 0 || rows[0].Classification != "inventory" || metadata["execution_complete"] != true {
+	if len(rows) != 1 || rows[0].EventIndex != 3 || rows[0].IssueIndex != 0 || rows[0].Classification != "allowlisted" || metadata["execution_complete"] != true {
 		t.Fatalf("provenance: %+v", metadata)
 	}
 }
@@ -103,12 +112,13 @@ func TestGovulnPackageWideAdvisoryImportRemainsHigh(t *testing.T) {
 func testGovulnPositiveGrade(t *testing.T, grade, fields string) {
 	t.Helper()
 	finding := strings.Replace(govulnModuleInventoryFixture, `"version":"v0.56.0"`, `"version":"v0.56.0"`+fields, 1)
-	issues, metadata, err := govulnDecodeAndFinish(t, govulnInventoryStream(t, finding), nil)
+	r, parseErr := readGovulnStream("/fixture", strings.NewReader(govulnInventoryStream(t, finding)))
+	issues, metadata, err := r.finish(parseErr)
 	if err != nil || len(issues) != 1 || issues[0].Severity != SeverityHigh {
 		t.Fatalf("positive: %+v %v", issues, err)
 	}
 	row := metadata["findings"].([]govulnObservation)[0]
-	if row.Grade != grade || row.Classification != "actionable" || !strings.Contains(string(row.Finding), fields) {
+	if row.Grade != grade || row.Classification != "actionable_or_unverified" || !strings.Contains(string(row.Finding), fields) {
 		t.Fatalf("trace lost: %+v", row)
 	}
 }
@@ -128,10 +138,7 @@ func TestGovulnIncrementalGradesRetainAllFindings(t *testing.T) {
 		t.Fatalf("incremental: %+v %v", issues, err)
 	}
 	for i, issue := range issues {
-		want := SeverityHigh
-		if i == 0 {
-			want = SeverityInfo
-		}
+		want := SeverityInfo
 		if issue.Severity != want {
 			t.Fatalf("grade%d: %+v", i, issue)
 		}
@@ -256,11 +263,11 @@ func TestGovulnOtherModuleAdvisoriesRemainHigh(t *testing.T) {
 	}
 }
 
-func TestGovulnAdvisoryDriftFailsClosed(t *testing.T) {
+func TestGovulnExplicitAllowlistDoesNotDependOnAdvisoryShape(t *testing.T) {
 	base := govulnInventoryStream(t, govulnModuleInventoryFixture)
 	for _, tt := range []struct{ from, to string }{{`"introduced":"0"`, `"fixed":"0.56.1"`}, {`"id":"GO-2026-5932"`, `"id":"GO-2026-5932","withdrawn":"2026-01-01T00:00:00Z"`}, {`"path":"golang.org/x/crypto/openpgp"`, `"path":"golang.org/x/crypto/openpgp","symbols":["Call"]`}} {
 		issues, _, err := govulnDecodeAndFinish(t, strings.Replace(base, tt.from, tt.to, 1), nil)
-		if err == nil || len(issues) != 1 || issues[0].Severity != SeverityHigh {
+		if err != nil || len(issues) != 1 || issues[0].Severity != SeverityInfo {
 			t.Fatalf("advisory drift: %+v %v", issues, err)
 		}
 	}
@@ -327,7 +334,7 @@ func TestGovulnScannerVersionCalibration(t *testing.T) {
 			issues, metadata, err := govulnDecodeAndFinish(t, stream, nil)
 			rows := metadata["findings"].([]govulnObservation)
 			if tt.inventory {
-				if err != nil || len(issues) != 1 || issues[0].Severity != SeverityInfo || rows[0].Classification != "inventory" {
+				if err != nil || len(issues) != 1 || issues[0].Severity != SeverityInfo || rows[0].Classification != "allowlisted" {
 					t.Fatalf("calibrated version rejected: %+v %+v %v", issues, rows, err)
 				}
 				return
@@ -356,7 +363,7 @@ func TestGovulnUnsupportedReasonNamesFirstFailure(t *testing.T) {
 		{`"scanner_name":"govulncheck"`, `"scanner_name":"unknown"`, `scanner_name "unknown" is not govulncheck`},
 		{govulnInventoryFixture, "", "SBOM inventory is missing"},
 		{`"go_version":"go1.26.6","roots"`, `"go_version":"go1.26.9","roots"`, `SBOM go_version "go1.26.9" does not match`},
-		{govulnPackageWideFixture(t), "", "advisory is not the calibrated package-wide entry"},
+		{govulnPackageWideFixture(t), "", "advisory evidence is missing"},
 	} {
 		_, _, err := govulnDecodeAndFinish(t, strings.Replace(base, tt.from, tt.to, 1), nil)
 		if err == nil || !strings.Contains(err.Error(), tt.reason) {
@@ -375,7 +382,7 @@ func TestGovulnCapturedStampedProducerClassifiesInventory(t *testing.T) {
 	issues, metadata, err := govulnDecodeAndFinish(t, govulnCapturedV190ConfigFixture+inventory+govulnPackageWideFixture(t)+finding, nil)
 	rows := metadata["findings"].([]govulnObservation)
 	p := metadata["producer"].(govulnProducer)
-	if err != nil || len(issues) != 1 || issues[0].Severity != SeverityInfo || rows[0].Classification != "inventory" || p.ScannerVersion != "v1.9.0" || metadata["unknown_config_fields"] != 0 {
+	if err != nil || len(issues) != 1 || issues[0].Severity != SeverityInfo || rows[0].Classification != "allowlisted" || p.ScannerVersion != "v1.9.0" || metadata["unknown_config_fields"] != 0 {
 		t.Fatalf("captured producer: %+v %+v %+v %v", issues, rows, p, err)
 	}
 }
@@ -429,19 +436,21 @@ func govulnEvents(entry interface{}) []interface{} {
 	return r["events"].([]interface{})
 }
 
-func TestGovulnRevisedAdvisoryCapturedClassifiesInventory(t *testing.T) {
+func TestGovulnRevisedAdvisoryCapturedIsAllowlisted(t *testing.T) {
 	config, sbom, osv, finding := govulnRevisedFixture(t)
 	if !strings.Contains(finding, `"fixed_version": "v0.58.1-0.20261009181718-2f1f834330b2"`) || !strings.Contains(osv, `"name": "golang.org/x/crypto/openpgp"`) {
 		t.Fatal("fixture is not the revised advisory")
 	}
 	issues, metadata, err := govulnDecodeAndFinish(t, config+sbom+osv+finding, nil)
 	rows := metadata["findings"].([]govulnObservation)
-	if err != nil || len(issues) != 1 || issues[0].Severity != SeverityInfo || len(rows) != 1 || rows[0].Classification != "inventory" {
+	if err != nil || len(issues) != 1 || issues[0].Severity != SeverityInfo || len(rows) != 1 || rows[0].Classification != "allowlisted" {
 		t.Fatalf("revised advisory: %+v %+v %v", issues, rows, err)
 	}
 }
 
-func TestGovulnRevisedAdvisoryPackageAndSymbolStayHigh(t *testing.T) {
+// The allowlist is a policy waiver for every grade; the grade is preserved,
+// and without the waiver package and symbol findings stay HIGH.
+func TestGovulnRevisedAdvisoryGradesUnderAllowlist(t *testing.T) {
 	config, sbom, osv, finding := govulnRevisedFixture(t)
 	for grade, fields := range map[string]string{
 		"package": `"package": "golang.org/x/crypto/openpgp"`,
@@ -450,89 +459,25 @@ func TestGovulnRevisedAdvisoryPackageAndSymbolStayHigh(t *testing.T) {
 		f := strings.Replace(finding, `"version": "v0.58.0"`, `"version": "v0.58.0", `+fields, 1)
 		issues, metadata, err := govulnDecodeAndFinish(t, config+sbom+osv+f, nil)
 		row := metadata["findings"].([]govulnObservation)[0]
-		if err != nil || len(issues) != 1 || issues[0].Severity != SeverityHigh || row.Grade != grade || row.Classification != "actionable" {
-			t.Fatalf("%s: %+v %+v %v", grade, issues, row, err)
+		if err != nil || len(issues) != 1 || issues[0].Severity != SeverityInfo || row.Grade != grade || row.Classification != "allowlisted" {
+			t.Fatalf("%s allowlisted: %+v %+v %v", grade, issues, row, err)
+		}
+		r, parseErr := readGovulnStream("/fixture", strings.NewReader(config+sbom+osv+f))
+		issues, metadata, err = r.finish(parseErr)
+		row = metadata["findings"].([]govulnObservation)[0]
+		if err != nil || len(issues) != 1 || issues[0].Severity != SeverityHigh || row.Grade != grade || row.Classification != "actionable_or_unverified" {
+			t.Fatalf("%s unlisted: %+v %+v %v", grade, issues, row, err)
 		}
 	}
 }
 
-func TestGovulnRevisedAdvisoryFixedVersionMustMatch(t *testing.T) {
-	config, sbom, osv, finding := govulnRevisedFixture(t)
-	legacy := govulnPackageWideFixture(t)
-	for name, stream := range map[string]string{
-		"different pseudo-version": config + sbom + osv + strings.Replace(finding, "2f1f834330b2", "000000000000", 1),
-		"tagged instead of pseudo": config + sbom + osv + strings.Replace(finding, "v0.58.1-0.20261009181718-2f1f834330b2", "v0.58.1", 1),
-		"missing v prefix":         config + sbom + osv + strings.Replace(finding, `"v0.58.1-`, `"0.58.1-`, 1),
-		"finding omits fix":        config + sbom + osv + strings.Replace(finding, `"fixed_version": "v0.58.1-0.20261009181718-2f1f834330b2",`, "", 1),
-		"legacy advisory has none": config + sbom + legacy + finding,
-	} {
-		issues, _, err := govulnDecodeAndFinish(t, stream, nil)
-		if err == nil || !strings.Contains(err.Error(), "fixed_version") || len(issues) != 1 || issues[0].Severity != SeverityHigh {
-			t.Fatalf("%s: %+v %v", name, issues, err)
-		}
-	}
-}
-
-func TestGovulnRevisedAdvisoryShapeDriftFailsClosed(t *testing.T) {
-	config, sbom, osv, finding := govulnRevisedFixture(t)
-	edits := map[string]func(map[string]interface{}){
-		"third affected entry": func(o map[string]interface{}) {
-			extra := map[string]interface{}{}
-			b, _ := json.Marshal(govulnAffected(o)[1])
-			_ = json.Unmarshal(b, &extra)
-			extra["package"] = map[string]interface{}{"name": "golang.org/x/crypto/ssh", "ecosystem": "Go"}
-			o["affected"] = append(govulnAffected(o), extra)
-		},
-		"duplicate x/crypto entry": func(o map[string]interface{}) {
-			a := govulnAffected(o)
-			o["affected"] = []interface{}{a[0], a[0]}
-		},
-		"openpgp entry only": func(o map[string]interface{}) {
-			o["affected"] = []interface{}{govulnAffected(o)[1]}
-		},
-		"extra range event": func(o map[string]interface{}) {
-			e := govulnAffected(o)[0].(map[string]interface{})["ranges"].([]interface{})[0].(map[string]interface{})
-			e["events"] = append(govulnEvents(govulnAffected(o)[0]), map[string]interface{}{"last_affected": "0.60.0"})
-		},
-		"fixed event on openpgp entry": func(o map[string]interface{}) {
-			e := govulnAffected(o)[1].(map[string]interface{})["ranges"].([]interface{})[0].(map[string]interface{})
-			e["events"] = append(govulnEvents(govulnAffected(o)[1]), map[string]interface{}{"fixed": "0.1.0"})
-		},
-		"non-semver fixed event": func(o map[string]interface{}) {
-			govulnEvents(govulnAffected(o)[0])[1] = map[string]interface{}{"fixed": "next"}
-		},
-		"symbol-scoped openpgp entry": func(o map[string]interface{}) {
-			imp := govulnAffected(o)[1].(map[string]interface{})["ecosystem_specific"].(map[string]interface{})["imports"].([]interface{})[0].(map[string]interface{})
-			imp["symbols"] = []interface{}{"ReadMessage"}
-		},
-		"withdrawn": func(o map[string]interface{}) { o["withdrawn"] = "2026-11-09T00:00:00Z" },
-	}
-	for name, edit := range edits {
-		stream := config + sbom + govulnEditOSV(t, osv, edit) + finding
-		issues, _, err := govulnDecodeAndFinish(t, stream, nil)
-		if err == nil || len(issues) != 1 || issues[0].Severity != SeverityHigh {
-			t.Fatalf("%s: %+v %v", name, issues, err)
-		}
-	}
-}
-
-func TestGovulnOpenPGPModuleFindingIsInventory(t *testing.T) {
+func TestGovulnOpenPGPModuleFindingIsAllowlisted(t *testing.T) {
 	config, sbom, osv, _ := govulnRevisedFixture(t)
 	sbom = strings.Replace(sbom, `"path": "golang.org/x/crypto",`, `"path": "golang.org/x/crypto/openpgp", "version": "v0.0.0-20260101000000-aaaaaaaaaaaa"}, {"path": "golang.org/x/crypto",`, 1)
 	module := `{"finding":{"osv":"GO-2026-5932","trace":[{"module":"golang.org/x/crypto/openpgp","version":"v0.0.0-20260101000000-aaaaaaaaaaaa"}]}}`
 	issues, metadata, err := govulnDecodeAndFinish(t, config+sbom+osv+module, nil)
-	if err != nil || len(issues) != 1 || issues[0].Severity != SeverityInfo || metadata["findings"].([]govulnObservation)[0].Classification != "inventory" {
+	if err != nil || len(issues) != 1 || issues[0].Severity != SeverityInfo || metadata["findings"].([]govulnObservation)[0].Classification != "allowlisted" {
 		t.Fatalf("openpgp module: %+v %v", issues, err)
-	}
-	pkg := strings.Replace(module, `"version":"v0.0.0-20260101000000-aaaaaaaaaaaa"`, `"version":"v0.0.0-20260101000000-aaaaaaaaaaaa","package":"golang.org/x/crypto/openpgp"`, 1)
-	issues, _, err = govulnDecodeAndFinish(t, config+sbom+osv+pkg, nil)
-	if err != nil || len(issues) != 1 || issues[0].Severity != SeverityHigh {
-		t.Fatalf("openpgp package: %+v %v", issues, err)
-	}
-	withFix := strings.Replace(module, `"osv":"GO-2026-5932",`, `"osv":"GO-2026-5932","fixed_version":"v0.58.1-0.20261009181718-2f1f834330b2",`, 1)
-	issues, _, err = govulnDecodeAndFinish(t, config+sbom+osv+withFix, nil)
-	if err == nil || len(issues) != 1 || issues[0].Severity != SeverityHigh {
-		t.Fatalf("openpgp has no fix: %+v %v", issues, err)
 	}
 }
 
@@ -557,26 +502,5 @@ func TestGovulnTaggedFixEmitsOfflineBumpHint(t *testing.T) {
 	issues, _, err = govulnDecodeAndFinish(t, config+sbom+tagged+f, errors.New("exit 3"))
 	if err == nil || len(issues) != 1 || issues[0].Severity != SeverityHigh {
 		t.Fatalf("incomplete report must not hint: %+v %v", issues, err)
-	}
-}
-
-// An openpgp module finding needs an openpgp affected entry: the x/crypto
-// entry alone is not package-wide evidence for the standalone module.
-func TestGovulnOpenPGPFindingRequiresAffectedEntry(t *testing.T) {
-	config, sbom, osv, _ := govulnRevisedFixture(t)
-	sbom = strings.Replace(sbom, `"path": "golang.org/x/crypto",`, `"path": "golang.org/x/crypto/openpgp", "version": "v0.0.0-20260101000000-aaaaaaaaaaaa"}, {"path": "golang.org/x/crypto",`, 1)
-	module := `{"finding":{"osv":"GO-2026-5932","trace":[{"module":"golang.org/x/crypto/openpgp","version":"v0.0.0-20260101000000-aaaaaaaaaaaa"}]}}`
-	revisedCryptoOnly := govulnEditOSV(t, osv, func(o map[string]interface{}) {
-		o["affected"] = []interface{}{govulnAffected(o)[0]}
-	})
-	for name, advisory := range map[string]string{
-		"legacy x/crypto only":  govulnPackageWideFixture(t),
-		"revised x/crypto only": revisedCryptoOnly,
-	} {
-		issues, metadata, err := govulnDecodeAndFinish(t, config+sbom+advisory+module, nil)
-		row := metadata["findings"].([]govulnObservation)[0]
-		if err == nil || !strings.Contains(err.Error(), "no affected entry for finding module golang.org/x/crypto/openpgp") || len(issues) != 1 || issues[0].Severity != SeverityHigh || row.Classification == "inventory" {
-			t.Fatalf("%s: %+v %+v %v", name, issues, row, err)
-		}
 	}
 }

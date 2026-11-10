@@ -141,13 +141,6 @@ cooling:
   #   - */cobra                   matches any package named "cobra"
   #
   exceptions:
-    # Temporary cooling exception: golang.org/x/net v0.62.0 fixes GO-2026-6860
-    # and GO-2026-6866 and is still inside the cooling window. Remove this
-    # entry on or after 2026-11-03, when the window ends.
-    - pattern: "golang.org/x/net"
-      until: "2026-11-03"
-      reason: "x/net v0.62.0 fixes GO-2026-6860 and GO-2026-6866; cooling exception until the cooling window ends"
-
     # Trust FulmenHQ organization's internal Go modules.
     # github.com/org/* matches Go module paths only — it does NOT match
     # crates.io crate names (e.g. github.com/3leaps/* will not except "serde").
@@ -273,11 +266,14 @@ vulnerabilities:
       verified_by: "@3leapsdave"
       verified_date: "2026-01-17"
     - id: GO-2026-5932
-      status: unmaintained_no_fix
-      reason: "golang.org/x/crypto/openpgp is unmaintained and goneat uses the ProtonMail fork (github.com/ProtonMail/go-crypto). No fixed version exists."
+      status: not_imported
+      reason: "goneat imports the maintained ProtonMail fork (github.com/ProtonMail/go-crypto), not golang.org/x/crypto/openpgp."
       analysis: |
         govulncheck v1.9.0 reports GO-2026-5932 at module level only; goneat's
         code does not call it and imports no package from the advisory.
+        The advisory now records a fixed version for the parent x/crypto module
+        and a separate affected openpgp module. The exception rests on the
+        absence of imports, not on the advisory having no fixed version.
 
 # ============================================================================
 # POLICY ENGINE CONFIGURATION

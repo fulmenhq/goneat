@@ -38,6 +38,7 @@ type ToolDefinition struct {
 	CheckArgs            []string            `yaml:"check_args,omitempty"`
 	InstallCommands      map[string]string   `yaml:"install_commands,omitempty"`
 	InstallerPriority    map[string][]string `yaml:"installer_priority,omitempty"`
+	Advisory             map[string]bool     `yaml:"advisory,omitempty"`
 	VersionScheme        string              `yaml:"version_scheme,omitempty"`
 	MinimumVersion       string              `yaml:"minimum_version,omitempty"`
 	RecommendedVersion   string              `yaml:"recommended_version,omitempty"`
@@ -190,6 +191,7 @@ func ConvertToToolsConfig(tools []ToolDefinition, scopeName string, scopeDescrip
 			VersionArgs:        toolDef.VersionArgs,
 			CheckArgs:          toolDef.CheckArgs,
 			InstallCommands:    toolDef.InstallCommands,
+			Advisory:           toolDef.Advisory,
 			VersionScheme:      toolDef.VersionScheme,
 			MinimumVersion:     toolDef.MinimumVersion,
 			RecommendedVersion: toolDef.RecommendedVersion,
@@ -302,6 +304,7 @@ func ConvertToToolsConfigWithAllScopes(defaultsConfig *ToolsDefaultsConfig, lang
 			VersionArgs:        toolDef.VersionArgs,
 			CheckArgs:          toolDef.CheckArgs,
 			VersionScheme:      toolDef.VersionScheme,
+			Advisory:           toolDef.Advisory,
 			MinimumVersion:     toolDef.MinimumVersion,
 			RecommendedVersion: toolDef.RecommendedVersion,
 		}

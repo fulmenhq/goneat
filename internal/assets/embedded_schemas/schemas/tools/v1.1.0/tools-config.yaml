@@ -158,6 +158,13 @@ $defs:
             pattern: "^[a-z][a-z0-9_-]*$"
           minItems: 1
           maxItems: 10
+      advisory:
+        type: object
+        description: "Explicit report-only policy for absent tools by platform. Platform values override all; defaults to false."
+        propertyNames:
+          enum: ["all", "darwin", "linux", "windows"]
+        additionalProperties:
+          type: boolean
       artifacts:
         type: object
         description: "Trusted artifact manifest for supply-chain integrity (download URLs with SHA256 verification)"

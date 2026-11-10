@@ -173,6 +173,7 @@ func TestInstallSystemTool_ReportOnlyDoesNotRunOrFail(t *testing.T) {
 
 	tool := Tool{
 		Name:          "minisign-standin",
+		Advisory:      map[string]bool{"all": true},
 		Kind:          "system",
 		DetectCommand: "minisign-standin -v",
 		Platforms:     []string{"linux", "darwin", "windows"},
@@ -186,7 +187,7 @@ func TestInstallSystemTool_ReportOnlyDoesNotRunOrFail(t *testing.T) {
 	}
 
 	if !IsReportOnly(tool) {
-		t.Fatal("manual-only tool should be report-only on this platform")
+		t.Fatal("explicitly advisory tool should be report-only on this platform")
 	}
 
 	ran := 0
@@ -231,6 +232,7 @@ func TestLinuxMinisignReportOnlyDoesNotCountAsMissing(t *testing.T) {
 		Platforms:         ms.Platforms,
 		InstallCommands:   ms.InstallCommands,
 		InstallerPriority: ms.InstallerPriority,
+		Advisory:          ms.Advisory,
 	}
 	if getCurrentPlatform() != "linux" {
 		t.Skip("linux minisign report-only is the bootstrap regression")

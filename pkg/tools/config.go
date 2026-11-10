@@ -38,6 +38,7 @@ type Tool struct {
 	Platforms         []string            `yaml:"platforms,omitempty" json:"platforms,omitempty"`
 	InstallCommands   map[string]string   `yaml:"install_commands,omitempty" json:"install_commands,omitempty"` // v1.0.0 legacy
 	InstallerPriority map[string][]string `yaml:"installer_priority,omitempty" json:"installer_priority,omitempty"`
+	Advisory          map[string]bool     `yaml:"advisory,omitempty" json:"advisory,omitempty"`
 	VersionScheme     string              `yaml:"version_scheme,omitempty" json:"version_scheme,omitempty"`
 	// MinVersion is a deprecated alias for MinimumVersion.
 	//

@@ -11,11 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Security (govulncheck)**: the GO-2026-5932 inventory classification accepts the advisory as revised on 2026-11-02. That revision adds a fixed `golang.org/x/crypto` pseudo-version and a second affected entry for the standalone `golang.org/x/crypto/openpgp` module. A module-level finding is reported as info inventory again when its `fixed_version` exactly matches the advisory's fixed event. Package- and symbol-level findings stay high. Module-level findings for `golang.org/x/crypto/openpgp` are also inventory. When the advisory names a tagged fix release, goneat adds an info hint to upgrade. The check stays offline.
+- **Security (govulncheck)**: findings are downgraded only by explicit advisory IDs in `.goneat/dependencies.yaml`; goneat no longer builds in classification for a specific advisory. An allowlisted finding is reported as info only after a complete, successful run with consistent report evidence. Unlisted, expired, malformed or duplicate entries leave the finding high. The observation grade is kept in the report. When an allowlisted finding's advisory names a tagged fix release, goneat adds an info hint to upgrade. The check stays offline.
 
 ### Notes
 
-- The GO-2026-5932 calibration still fails closed. If the advisory changes shape again, `assess --categories security` reports an error naming the mismatch rather than downgrading the finding. Upgrade goneat to clear it; do not allowlist around it.
+- Repositories that relied on the built-in GO-2026-5932 classification must add an entry for it to `.goneat/dependencies.yaml`.
 
 ## [v0.6.7] - 2026-10-29
 

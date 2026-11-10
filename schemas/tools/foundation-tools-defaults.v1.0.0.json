@@ -107,6 +107,21 @@
           },
           "description": "Supported platforms (optional, defaults to all)"
         },
+        "advisory": {
+          "type": "object",
+          "description": "Explicit report-only policy by platform; defaults to false",
+          "propertyNames": {
+            "enum": [
+              "all",
+              "darwin",
+              "linux",
+              "windows"
+            ]
+          },
+          "additionalProperties": {
+            "type": "boolean"
+          }
+        },
         "package_managers": {
           "oneOf": [
             {
