@@ -10,6 +10,7 @@ retract (
 )
 
 require (
+	github.com/3leaps/canonprims v0.1.4
 	github.com/aymerick/raymond v2.0.2+incompatible
 	github.com/beevik/etree v1.8.1
 	github.com/bmatcuk/doublestar/v4 v4.10.3
