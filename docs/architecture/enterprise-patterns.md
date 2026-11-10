@@ -44,7 +44,7 @@ The project uses:
 
 - **JSON Schema Draft 2020-12**: Latest specification for maximum expressiveness
 - **Schema URIs**: Published at `https://schemas.goneat.dev/` for discovery
-- **Go JSON Schema Library**: `github.com/xeipuuv/gojsonschema` for runtime validation
+- **Go JSON Schema Library**: `github.com/santhosh-tekuri/jsonschema/v6` for runtime validation, through goneat's schema adapter (`pkg/schema`)
 
 See also:
 
@@ -429,7 +429,7 @@ class TrainingDataGenerator:
 ```go
 // pkg/ai/remediation.go
 type AIRemediationEngine struct {
-    schemaValidator *gojsonschema.Schema
+    schemaValidator *schema.Validator
     llmClient       LLMClient
 }
 
@@ -446,14 +446,14 @@ func (e *AIRemediationEngine) Generatefix(issue assess.Issue) (*Remediation, err
     response := e.llmClient.Complete(prompt)
 
     // Validate LLM output against remediation schema
-    result, err := e.schemaValidator.Validate(gojsonschema.NewStringLoader(response))
+    result, err := e.schemaValidator.ValidateBytes([]byte(response))
     if err != nil {
         return nil, fmt.Errorf("LLM output validation failed: %w", err)
     }
 
-    if !result.Valid() {
+    if !result.Valid {
         // Feed validation errors back to LLM for correction
-        return e.retryWithSchemaErrors(response, result.Errors())
+        return e.retryWithSchemaErrors(response, result.Errors)
     }
 
     var remediation Remediation

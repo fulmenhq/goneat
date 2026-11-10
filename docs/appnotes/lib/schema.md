@@ -5,8 +5,10 @@ description: Reusable validators for JSON/YAML using goneat's embedded assets.
 
 # Schema Validation
 
-Goneat's `pkg/schema` package wraps [gojsonschema](https://github.com/xeipuuv/gojsonschema) to make JSON/YAML schema
-validation easy across CLI tools and Go applications. The library focuses on three scenarios:
+Goneat's `pkg/schema` package validates JSON/YAML data with
+[santhosh-tekuri/jsonschema](https://github.com/santhosh-tekuri/jsonschema) v6 through goneat's schema adapter, making
+schema validation easy across CLI tools and Go applications. Dialect, format, reference and decoding rules are described
+in the [schema command guide](../../user-guide/commands/schema.md#validation-behaviour). The library focuses on three scenarios:
 
 1. **Embedded schemas** – validate data against the schemas shipped with goneat (for example `goneat-config-v1.0.0`).
 2. **One-off schemas** – compile a validator from in-memory bytes or `fs.FS` (handy with `go:embed`).
@@ -109,6 +111,13 @@ Every validation entry point returns a `*schema.Result`:
 type Result struct {
     Valid  bool
     Errors []schema.ValidationError
+
+    // How the result was produced.
+    Engine        string // e.g. github.com/santhosh-tekuri/jsonschema/v6@v6.0.3
+    Dialect       string // e.g. draft-07, draft/2020-12
+    DialectSource string // declared, defaulted or metaschema
+    FormatMode    string // assert
+    LeapPolicy    string // structural-leap/v1
 }
 
 type ValidationError struct {
@@ -118,8 +127,15 @@ type ValidationError struct {
 }
 ```
 
-`Result.Valid` is `false` when one or more errors exist. Each error carries a JSON pointer-like `Path` and the human
-readable message supplied by gojsonschema.
+`Result.Valid` is `false` when one or more errors exist. Each error carries a dotted `Path` (`(root)` for the
+document) and the engine's message.
+
+A schema that cannot be used (unsupported dialect, unknown format, unresolved reference, invalid schema or a size
+limit) is returned as an error, never as an invalid `Result`. Use `errors.As(err, &ae)` with
+`var ae *schema.AdmissionError` to inspect `ae.Reason`.
+
+`ValidateBytes`, `ValidateDataFromBytes` and the file helpers read JSON data exactly (no rounding; invalid UTF-8 and
+unpaired surrogate escapes are refused). `Validate(data)` validates an already-decoded value as given.
 
 ## Related commands
 

@@ -40,7 +40,7 @@ Goneat's `pkg/schema` module provides a comprehensive public API for validating 
 - **Enhanced Context**: Detailed error information with file paths and line numbers
 - **Real-World Patterns**: Practical implementation examples based on team feedback and Goneat's own usage
 
-The library is offline-first (no network calls) and leverages `gojsonschema` under the hood for validation.
+The library makes no network calls and validates with `santhosh-tekuri/jsonschema` v6 through goneat's schema adapter.
 
 ## Installation
 

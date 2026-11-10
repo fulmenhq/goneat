@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/fulmenhq/goneat/internal/schemarun"
 	"github.com/fulmenhq/goneat/pkg/schema"
 	"github.com/open-policy-agent/opa/v1/rego"
 	"gopkg.in/yaml.v3"
@@ -78,8 +79,8 @@ func (e *OPAEngine) LoadPolicy(source string) error {
 		return fmt.Errorf("failed to read policy file: %w", err)
 	}
 
-	var decoded interface{}
-	if err := yaml.Unmarshal(data, &decoded); err != nil {
+	decoded, _, err := schemarun.DecodeInstance(data)
+	if err != nil {
 		return fmt.Errorf("failed to parse dependencies policy yaml: %w", err)
 	}
 	if decodedMap, ok := decoded.(map[string]interface{}); ok {

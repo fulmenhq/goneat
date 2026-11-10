@@ -18,6 +18,7 @@ github.com/kevinburke/ssh_config,https://github.com/kevinburke/ssh_config/blob/v
 github.com/pelletier/go-toml/v2,https://github.com/pelletier/go-toml/blob/v2.2.3/LICENSE,MIT
 github.com/pjbgf/sha1cd,https://github.com/pjbgf/sha1cd/blob/v0.3.2/LICENSE,Apache-2.0
 github.com/sagikazarmark/locafero,https://github.com/sagikazarmark/locafero/blob/v0.7.0/LICENSE,MIT
+github.com/santhosh-tekuri/jsonschema/v6,https://github.com/santhosh-tekuri/jsonschema/blob/v6.0.3/LICENSE,Apache-2.0
 github.com/sergi/go-diff/diffmatchpatch,https://github.com/sergi/go-diff/blob/5b0b94c5c0d3/LICENSE,MIT
 github.com/skeema/knownhosts,https://github.com/skeema/knownhosts/blob/v1.3.1/LICENSE,Apache-2.0
 github.com/sourcegraph/conc,https://github.com/sourcegraph/conc/blob/v0.3.0/LICENSE,MIT
@@ -30,7 +31,6 @@ github.com/subosito/gotenv,https://github.com/subosito/gotenv/blob/v1.6.0/LICENS
 github.com/xanzy/ssh-agent,https://github.com/xanzy/ssh-agent/blob/v0.3.3/LICENSE,Apache-2.0
 github.com/xeipuuv/gojsonpointer,https://github.com/xeipuuv/gojsonpointer/blob/4e3ac2762d5f/LICENSE-APACHE-2.0.txt,Apache-2.0
 github.com/xeipuuv/gojsonreference,https://github.com/xeipuuv/gojsonreference/blob/bd5ef7bd5415/LICENSE-APACHE-2.0.txt,Apache-2.0
-github.com/xeipuuv/gojsonschema,https://github.com/xeipuuv/gojsonschema/blob/v1.2.0/LICENSE-APACHE-2.0.txt,Apache-2.0
 golang.org/x/crypto,https://cs.opensource.google/go/x/crypto/+/v0.37.0:LICENSE,BSD-3-Clause
 golang.org/x/net,https://cs.opensource.google/go/x/net/+/v0.39.0:LICENSE,BSD-3-Clause
 golang.org/x/sync/errgroup,https://cs.opensource.google/go/x/sync/+/v0.13.0:LICENSE,BSD-3-Clause

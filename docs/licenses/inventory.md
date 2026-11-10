@@ -16,14 +16,14 @@ All dependencies use licenses compatible with Goneat's Apache 2.0 license.
 
 ### Apache License 2.0 (6 dependencies)
 
-| Package                            | License URL                                                                                                   |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| github.com/fulmenhq/goneat         | [LICENSE](https://github.com/fulmenhq/goneat/blob/HEAD/LICENSE)                                               |
-| github.com/spf13/afero             | [LICENSE.txt](https://github.com/spf13/afero/blob/v1.12.0/LICENSE.txt)                                        |
-| github.com/spf13/cobra             | [LICENSE.txt](https://github.com/spf13/cobra/blob/v1.9.1/LICENSE.txt)                                         |
-| github.com/xeipuuv/gojsonpointer   | [LICENSE-APACHE-2.0.txt](https://github.com/xeipuuv/gojsonpointer/blob/4e3ac2762d5f/LICENSE-APACHE-2.0.txt)   |
-| github.com/xeipuuv/gojsonreference | [LICENSE-APACHE-2.0.txt](https://github.com/xeipuuv/gojsonreference/blob/bd5ef7bd5415/LICENSE-APACHE-2.0.txt) |
-| github.com/xeipuuv/gojsonschema    | [LICENSE-APACHE-2.0.txt](https://github.com/xeipuuv/gojsonschema/blob/v1.2.0/LICENSE-APACHE-2.0.txt)          |
+| Package                                  | License URL                                                                                                   |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| github.com/fulmenhq/goneat               | [LICENSE](https://github.com/fulmenhq/goneat/blob/HEAD/LICENSE)                                               |
+| github.com/santhosh-tekuri/jsonschema/v6 | [LICENSE](https://github.com/santhosh-tekuri/jsonschema/blob/v6.0.3/LICENSE)                                  |
+| github.com/spf13/afero                   | [LICENSE.txt](https://github.com/spf13/afero/blob/v1.12.0/LICENSE.txt)                                        |
+| github.com/spf13/cobra                   | [LICENSE.txt](https://github.com/spf13/cobra/blob/v1.9.1/LICENSE.txt)                                         |
+| github.com/xeipuuv/gojsonpointer         | [LICENSE-APACHE-2.0.txt](https://github.com/xeipuuv/gojsonpointer/blob/4e3ac2762d5f/LICENSE-APACHE-2.0.txt)   |
+| github.com/xeipuuv/gojsonreference       | [LICENSE-APACHE-2.0.txt](https://github.com/xeipuuv/gojsonreference/blob/bd5ef7bd5415/LICENSE-APACHE-2.0.txt) |
 
 ### MIT License (8 dependencies)
 

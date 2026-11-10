@@ -1,13 +1,13 @@
 package schema
 
 import (
-	"bytes"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/fulmenhq/goneat/internal/schemarun"
 	"github.com/fulmenhq/goneat/pkg/safeio"
 )
 
@@ -51,14 +51,12 @@ func (i *IDIndex) Len() int {
 // BuildIDIndexFromRefDirs scans one or more ref-dir roots and builds an offline $id index.
 //
 // Files that cannot be parsed as schemas are ignored (to allow mixed trees).
-// Duplicate $id values are allowed only when the normalized schema bytes are identical.
+// Duplicate $id values are allowed only when the documents are identical.
 func BuildIDIndexFromRefDirs(refDirs []string) (*IDIndex, error) {
 	idx := newIDIndex()
 	if len(refDirs) == 0 {
 		return idx, nil
 	}
-
-	stripSchema := true
 
 	for _, dir := range refDirs {
 		cleanDir, err := safeio.CleanUserPath(dir)
@@ -99,7 +97,7 @@ func BuildIDIndexFromRefDirs(refDirs []string) (*IDIndex, error) {
 				return fmt.Errorf("read ref schema %s: %w", path, err)
 			}
 
-			id, normalized, err := extractAndNormalizeSchema(fileBytes, stripSchema)
+			id, normalized, err := extractAndNormalizeSchema(fileBytes)
 			if err != nil {
 				// Ignore non-schema files in the directory tree (e.g., *.data.json).
 				return nil
@@ -109,7 +107,7 @@ func BuildIDIndexFromRefDirs(refDirs []string) (*IDIndex, error) {
 			}
 
 			if existing, ok := idx.entries[id]; ok {
-				if bytes.Equal(existing.Normalized, normalized) {
+				if schemarun.SameDocument(existing.Normalized, normalized) {
 					return nil
 				}
 				return fmt.Errorf("duplicate schema $id %q: %s differs from %s", id, path, existing.Path)

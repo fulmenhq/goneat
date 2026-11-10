@@ -6,7 +6,4 @@ This document describes environment variables that control goneat's behavior.
 
 ### GONEAT_OFFLINE_SCHEMA_VALIDATION
 
-- **Type:** Boolean (true/false)
-- **Default:** false
-- **Description:** When enabled, schema validation operates in offline mode. This removes `$schema` references from schema documents before validation to prevent network fetches of external meta-schemas. Useful in air-gapped or restricted network environments.
-- **Example:** `GONEAT_OFFLINE_SCHEMA_VALIDATION=true goneat schema validate-schema my-schema.json`
+- **Status:** No effect. Schema validation never uses the network: references resolve only to the schema itself, `--ref-dir` schemas and the built-in metaschemas, and `$schema` is always honoured. The variable is still accepted and ignored.

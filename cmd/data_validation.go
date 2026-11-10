@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/fulmenhq/goneat/internal/schemarun"
 	"github.com/fulmenhq/goneat/pkg/schema"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 type dataValidationOptions struct {
@@ -42,13 +42,18 @@ func runDataValidation(cmd *cobra.Command, opts dataValidationOptions) error {
 	ext := strings.ToLower(filepath.Ext(opts.dataFile))
 	switch ext {
 	case ".yaml", ".yml":
-		if err := yaml.Unmarshal(data, &doc); err != nil {
+		// JSON-syntax content is still decoded strictly and exactly.
+		decoded, _, err := schemarun.DecodeInstance(data)
+		if err != nil {
 			return fmt.Errorf("failed to parse %s as YAML: %w", opts.dataFile, err)
 		}
+		doc = decoded
 	case ".json":
-		if err := json.Unmarshal(data, &doc); err != nil {
+		decoded, err := schemarun.DecodeJSONInstance(data)
+		if err != nil {
 			return fmt.Errorf("failed to parse %s as JSON: %w", opts.dataFile, err)
 		}
+		doc = decoded
 	default:
 		return fmt.Errorf("unsupported data format: %s (use .yaml/.yml or .json)", ext)
 	}

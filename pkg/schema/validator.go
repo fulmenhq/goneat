@@ -1,42 +1,49 @@
 package schema
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/fulmenhq/goneat/internal/assets"
+	"github.com/fulmenhq/goneat/internal/schemaengine"
+	"github.com/fulmenhq/goneat/internal/schemarun"
 	"github.com/fulmenhq/goneat/pkg/safeio"
-	"github.com/xeipuuv/gojsonschema"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/yaml.v3"
 )
 
-// isOfflineMode checks if offline schema validation is enabled via environment variable
-func isOfflineMode() bool {
-	return os.Getenv("GONEAT_OFFLINE_SCHEMA_VALIDATION") == "true"
-}
+// AdmissionError reports a schema that was refused before validation: an
+// unsupported dialect, an unknown format, a reference outside the admitted
+// resources, a budget overrun or an invalid schema. It is never a
+// validation result.
+type AdmissionError = schemaengine.AdmissionError
 
-// Result holds the validation result.
+// Result holds the validation result and the checking policy it was produced
+// under.
 type Result struct {
 	Valid  bool              `json:"valid"`
 	Errors []ValidationError `json:"errors,omitempty"`
+
+	Engine        string `json:"engine,omitempty"`
+	Dialect       string `json:"dialect,omitempty"`
+	DialectSource string `json:"dialect_source,omitempty"` // declared, defaulted or metaschema
+	FormatMode    string `json:"format_mode,omitempty"`
+	LeapPolicy    string `json:"leap_policy,omitempty"`
 }
 
 // ValidationContext provides additional context for validation errors.
 type ValidationContext struct {
 	SourceFile string `json:"source_file,omitempty"`
 	SourceType string `json:"source_type,omitempty"` // "file", "bytes", "string"
-	LineNumber int    `json:"line_number,omitempty"` // From gojsonschema location
-	Severity   string `json:"severity,omitempty"`    // "error", "warning"
+	LineNumber int    `json:"line_number,omitempty"`
+	Severity   string `json:"severity,omitempty"` // "error", "warning"
 }
 
 // ValidationError represents a single validation error.
@@ -86,16 +93,21 @@ type BatchResult struct {
 	FileResults     map[string]*Result `json:"file_results"`
 }
 
-// registry caches compiled schemas by name for reuse
+// registry caches compiled schemas (and compile failures) by name.
 var (
-	schemaRegistry map[string]*gojsonschema.Schema
+	schemaRegistry map[string]registryEntry
 	schemaPaths    map[string]string // name -> embed path
 	regMu          sync.RWMutex
 )
 
+type registryEntry struct {
+	compiled *schemaengine.Compiled
+	err      error
+}
+
 // Validator wraps a compiled schema for repeated validation.
 type Validator struct {
-	schema *gojsonschema.Schema
+	schema *schemaengine.Compiled
 }
 
 func init() {
@@ -106,57 +118,24 @@ func init() {
 // GetEmbeddedValidator, which compiles and caches each schema on first use, so
 // process startup does not pay to compile schemas a command never touches.
 func initRegistry() {
-	schemaRegistry = make(map[string]*gojsonschema.Schema)
+	schemaRegistry = make(map[string]registryEntry)
 	schemaPaths = make(map[string]string)
 	for _, info := range assets.GetSchemaNames() {
 		schemaPaths[info.Name] = info.Path
 	}
 }
 
-func compileSchemaBytes(schemaBytes []byte) (*gojsonschema.Schema, error) {
-	// Try YAML first; if it parses, convert to canonical JSON bytes for loader
-	var tmp any
-	if err := yaml.Unmarshal(schemaBytes, &tmp); err == nil {
-		// Conditionally remove $schema field to prevent remote fetching in offline mode
-		if isOfflineMode() {
-			if m, ok := tmp.(map[string]interface{}); ok {
-				delete(m, "$schema")
-			}
-		}
-		jb, jerr := json.Marshal(tmp)
-		if jerr != nil {
-			return nil, fmt.Errorf("failed to encode schema to JSON: %w", jerr)
-		}
-		loader := gojsonschema.NewBytesLoader(jb)
-		sch, err := gojsonschema.NewSchema(loader)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load schema: %w", err)
-		}
-		return sch, nil
-	}
-	// Fall back to JSON bytes directly - conditionally strip $schema in offline mode
-	if isOfflineMode() {
-		var jsonTmp any
-		if err := json.Unmarshal(schemaBytes, &jsonTmp); err == nil {
-			if m, ok := jsonTmp.(map[string]interface{}); ok {
-				delete(m, "$schema")
-				if jb, jerr := json.Marshal(jsonTmp); jerr == nil {
-					schemaBytes = jb
-				}
-			}
-		}
-	}
-	loader := gojsonschema.NewBytesLoader(schemaBytes)
-	sch, err := gojsonschema.NewSchema(loader)
+func compileSchemaBytes(schemaBytes []byte, resources []schemaengine.Resource) (*schemaengine.Compiled, error) {
+	c, err := schemarun.Compile(schemaBytes, resources)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load schema: %w", err)
 	}
-	return sch, nil
+	return c, nil
 }
 
 // NewValidatorFromBytes compiles schema bytes (JSON or YAML) into a reusable validator.
 func NewValidatorFromBytes(schemaBytes []byte) (*Validator, error) {
-	sch, err := compileSchemaBytes(schemaBytes)
+	sch, err := compileSchemaBytes(schemaBytes, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -182,11 +161,15 @@ func NewValidatorFromEmbeddedPath(relPath string) (*Validator, error) {
 }
 
 // GetEmbeddedValidator returns a validator for a named embedded schema (e.g., goneat-config-v1.0.0).
+// A schema that fails to compile keeps failing with the same error.
 func GetEmbeddedValidator(schemaName string) (*Validator, error) {
 	regMu.RLock()
-	if sch, ok := schemaRegistry[schemaName]; ok {
+	if e, ok := schemaRegistry[schemaName]; ok {
 		regMu.RUnlock()
-		return &Validator{schema: sch}, nil
+		if e.err != nil {
+			return nil, e.err
+		}
+		return &Validator{schema: e.compiled}, nil
 	}
 	path, hasPath := schemaPaths[schemaName]
 	regMu.RUnlock()
@@ -203,28 +186,49 @@ func GetEmbeddedValidator(schemaName string) (*Validator, error) {
 		return nil, fmt.Errorf("schema %s not found", schemaName)
 	}
 
-	sch, err := compileSchemaBytes(data)
+	// Bundled copies of the JSON Schema metaschemas compile from the
+	// engine's embedded metaschema; their json-schema.org identities are
+	// reserved for it.
+	var sch *schemaengine.Compiled
+	var err error
+	if draft, ok := embeddedMetaschemaDraft(data); ok {
+		sch, err = schemarun.CompileMetaschema(draft)
+	} else {
+		sch, err = compileSchemaBytes(data, nil)
+	}
 	if err != nil {
-		return nil, err
+		err = fmt.Errorf("embedded schema %s: %w", schemaName, err)
 	}
 
 	regMu.Lock()
-	schemaRegistry[schemaName] = sch
+	schemaRegistry[schemaName] = registryEntry{compiled: sch, err: err}
 	if _, exists := schemaPaths[schemaName]; !exists {
 		schemaPaths[schemaName] = path
 	}
 	regMu.Unlock()
 
+	if err != nil {
+		return nil, err
+	}
 	return &Validator{schema: sch}, nil
 }
 
-// NewValidatorFromMetaSchema returns a validator for a bundled JSON Schema meta-schema draft.
-func NewValidatorFromMetaSchema(draft string) (*Validator, error) {
-	bytes, ok := assets.GetJSONSchemaMeta(draft)
-	if !ok || len(bytes) == 0 {
-		return nil, fmt.Errorf("meta-schema for %s not available", draft)
+func embeddedMetaschemaDraft(data []byte) (string, bool) {
+	jb, err := schemarun.SchemaJSON(data)
+	if err != nil {
+		return "", false
 	}
-	return NewValidatorFromBytes(bytes)
+	return schemarun.MetaschemaDraft(schemarun.DeclaredID(jb))
+}
+
+// NewValidatorFromMetaSchema returns a validator for a JSON Schema draft's
+// meta-schema, compiled from the engine's embedded copy (no network).
+func NewValidatorFromMetaSchema(draft string) (*Validator, error) {
+	c, err := schemarun.CompileMetaschema(draft)
+	if err != nil {
+		return nil, err
+	}
+	return &Validator{schema: c}, nil
 }
 
 // Validate applies the compiled schema to the provided data structure.
@@ -240,61 +244,32 @@ func (v *Validator) ValidateBytes(dataBytes []byte) (*Result, error) {
 	if v == nil || v.schema == nil {
 		return nil, fmt.Errorf("validator not initialised")
 	}
-	var data interface{}
-	if err := yaml.Unmarshal(dataBytes, &data); err != nil {
-		if err := json.Unmarshal(dataBytes, &data); err != nil {
-			return nil, fmt.Errorf("failed to parse data bytes (YAML/JSON): %w", err)
-		}
+	data, _, err := schemarun.DecodeInstance(dataBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse data bytes (JSON/YAML): %w", err)
 	}
 	return validateWithCompiled(v.schema, data)
 }
 
-// improveErrorMessage translates cryptic JSON Schema validator messages into more actionable ones.
-func improveErrorMessage(path, message string) string {
-	// Detect mutual exclusivity violations in tools-config schemas
-	// Match any path under tools (e.g., "tools.badtool", "tools.goneat")
-	if len(path) >= 6 && path[:6] == "tools." {
-		if message == "Must not validate the schema (not)" {
-			return "Both 'install' and 'install_commands' cannot be present (mutually exclusive). Use only 'install' for v1.1.0+ package managers, or only 'install_commands' for legacy scripts."
-		}
-		if message == "Additional property install is not allowed" {
-			return "The 'install' property requires schema v1.1.0+. Either upgrade to v1.1.0 schema or use 'install_commands' instead."
-		}
-	}
-
-	// Generic improvement for "not" schema failures
-	if message == "Must not validate the schema (not)" {
-		return message + " (Schema constraint violation - check for mutually exclusive properties or invalid combinations)"
-	}
-
-	// Return original message if no improvement available
-	return message
-}
-
-func validateWithCompiled(sch *gojsonschema.Schema, data interface{}) (*Result, error) {
-	dataJSON, err := json.Marshal(data)
+func validateWithCompiled(sch *schemaengine.Compiled, data interface{}) (*Result, error) {
+	valid, issues, err := schemarun.Validate(sch, data)
 	if err != nil {
-		return nil, fmt.Errorf("encode data to JSON: %w", err)
+		return nil, err
 	}
-	docLoader := gojsonschema.NewBytesLoader(dataJSON)
-	result, err := sch.Validate(docLoader)
-	if err != nil {
-		return nil, fmt.Errorf("validation error: %w", err)
+	cap := sch.Capability()
+	res := &Result{
+		Valid:         valid,
+		Engine:        cap.Engine,
+		Dialect:       cap.Dialect,
+		DialectSource: cap.DialectSource,
+		FormatMode:    cap.FormatMode,
+		LeapPolicy:    cap.LeapPolicy,
 	}
-	res := &Result{Valid: result.Valid()}
-	if !result.Valid() {
-		for _, verr := range result.Errors() {
-			field := verr.Field()
-			if field == "" {
-				field = "root"
-			}
-			originalMsg := verr.Description()
-			improvedMsg := improveErrorMessage(field, originalMsg)
-			res.Errors = append(res.Errors, ValidationError{
-				Path:    field,
-				Message: improvedMsg,
-			})
-		}
+	for _, is := range issues {
+		res.Errors = append(res.Errors, ValidationError{
+			Path:    is.Path,
+			Message: schemarun.ImproveMessage(is, ""),
+		})
 	}
 	return res, nil
 }
@@ -310,9 +285,6 @@ func Validate(data interface{}, schemaName string) (*Result, error) {
 
 // ValidateFromBytes validates data against schema bytes (JSON or YAML).
 func ValidateFromBytes(schemaBytes []byte, data interface{}) (*Result, error) {
-	if err := ensureSupportedDraft(schemaBytes); err != nil {
-		return nil, err
-	}
 	validator, err := NewValidatorFromBytes(schemaBytes)
 	if err != nil {
 		return nil, err
@@ -320,245 +292,76 @@ func ValidateFromBytes(schemaBytes []byte, data interface{}) (*Result, error) {
 	return validator.Validate(data)
 }
 
-// ValidateFromBytesWithRefDirs validates data against schema bytes, preloading additional
-// schemas from the provided directories to resolve remote $ref URLs offline.
-//
-// This is intended for early-stage ecosystems where schemas use absolute HTTP(S) $id/$ref
-// URIs before a schema registry host is live.
+// ValidateFromBytesWithRefDirs validates data against schema bytes. Schema
+// files under refDirs that declare an $id are admitted as resources, so
+// absolute $ref URLs resolve offline; nothing else is reachable.
 func ValidateFromBytesWithRefDirs(schemaBytes []byte, data interface{}, refDirs []string) (*Result, error) {
 	if len(refDirs) == 0 {
 		return ValidateFromBytes(schemaBytes, data)
 	}
-	if err := ensureSupportedDraft(schemaBytes); err != nil {
-		return nil, err
-	}
-
-	sch, err := compileSchemaBytesWithRefDirs(schemaBytes, refDirs)
+	idx, err := BuildIDIndexFromRefDirs(refDirs)
 	if err != nil {
 		return nil, err
 	}
-	return validateWithCompiled(sch, data)
+	return validateWithIndex(schemaBytes, data, idx, "ref-dirs")
 }
 
-// ValidateFromBytesWithIDIndex validates data against schema bytes, preloading schemas from an
-// offline $id index.
+// ValidateFromBytesWithIDIndex validates data against schema bytes, admitting
+// the schemas in an offline $id index as resources.
 func ValidateFromBytesWithIDIndex(schemaBytes []byte, data interface{}, idx *IDIndex) (*Result, error) {
 	if idx == nil || idx.Len() == 0 {
 		return ValidateFromBytes(schemaBytes, data)
 	}
-	if err := ensureSupportedDraft(schemaBytes); err != nil {
-		return nil, err
-	}
+	return validateWithIndex(schemaBytes, data, idx, "id-index")
+}
 
-	sch, err := compileSchemaBytesWithIDIndex(schemaBytes, idx)
+func validateWithIndex(schemaBytes []byte, data interface{}, idx *IDIndex, via string) (*Result, error) {
+	rootID, root, err := extractAndNormalizeSchema(schemaBytes)
 	if err != nil {
 		return nil, err
+	}
+	resources, err := idx.resources(rootID, root)
+	if err != nil {
+		return nil, err
+	}
+	sch, err := schemarun.Compile(root, resources)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile schema with %s: %w", via, err)
 	}
 	return validateWithCompiled(sch, data)
 }
 
-func compileSchemaBytesWithRefDirs(rootSchemaBytes []byte, refDirs []string) (*gojsonschema.Schema, error) {
-	stripSchema := isOfflineMode() || len(refDirs) > 0
-
-	schemaLoader := gojsonschema.NewSchemaLoader()
-	// Ensure we only resolve via preloaded schemas (no implicit guessing)
-	schemaLoader.AutoDetect = false
-
-	rootID, normalizedRoot, err := extractAndNormalizeSchema(rootSchemaBytes, stripSchema)
-	if err != nil {
-		return nil, err
+// resources returns the index entries as admitted resources, leaving out the
+// root's own $id. An entry that shares the root's $id must be the same
+// document.
+func (i *IDIndex) resources(rootID string, root []byte) ([]schemaengine.Resource, error) {
+	ids := make([]string, 0, len(i.entries))
+	for id := range i.entries {
+		ids = append(ids, id)
 	}
-
-	type registeredSchema struct {
-		normalized []byte
-		source     string
+	sort.Strings(ids)
+	out := make([]schemaengine.Resource, 0, len(ids))
+	for _, id := range ids {
+		e := i.entries[id]
+		if id == rootID {
+			if !schemarun.SameDocument(e.Normalized, root) {
+				return nil, fmt.Errorf("duplicate schema $id %q: %s differs from root schema", id, e.Path)
+			}
+			continue
+		}
+		out = append(out, schemaengine.Resource{URL: id, Bytes: e.Normalized})
 	}
-
-	registered := make(map[string]registeredSchema)
-	if rootID != "" {
-		registered[rootID] = registeredSchema{normalized: normalizedRoot, source: "root schema"}
-	}
-
-	for _, dir := range refDirs {
-		cleanDir, err := safeio.CleanUserPath(dir)
-		if err != nil {
-			return nil, fmt.Errorf("invalid ref-dir %s: %w", dir, err)
-		}
-		info, err := os.Stat(cleanDir)
-		if err != nil {
-			return nil, fmt.Errorf("ref-dir %s: %w", cleanDir, err)
-		}
-		if !info.IsDir() {
-			return nil, fmt.Errorf("ref-dir %s is not a directory", cleanDir)
-		}
-
-		root, err := os.OpenRoot(cleanDir)
-		if err != nil {
-			return nil, fmt.Errorf("open ref-dir root %s: %w", cleanDir, err)
-		}
-
-		err = fs.WalkDir(root.FS(), ".", func(path string, d fs.DirEntry, walkErr error) error {
-			if walkErr != nil {
-				return walkErr
-			}
-			if path == "." || d.IsDir() {
-				return nil
-			}
-
-			ext := strings.ToLower(filepath.Ext(path))
-			switch ext {
-			case ".json", ".yaml", ".yml":
-				// ok
-			default:
-				return nil
-			}
-
-			fileBytes, err := root.ReadFile(path)
-			if err != nil {
-				return fmt.Errorf("read ref schema %s: %w", path, err)
-			}
-
-			id, normalized, err := extractAndNormalizeSchema(fileBytes, stripSchema)
-			if err != nil {
-				// Ignore non-schema files in the directory tree (e.g., *.data.json) by treating parse errors as non-fatal.
-				return nil
-			}
-			if id == "" {
-				return nil
-			}
-
-			if existing, ok := registered[id]; ok {
-				if bytes.Equal(existing.normalized, normalized) {
-					return nil
-				}
-				return fmt.Errorf(
-					"duplicate schema $id %q: %s differs from %s",
-					id,
-					path,
-					existing.source,
-				)
-			}
-
-			if err := schemaLoader.AddSchema(id, gojsonschema.NewBytesLoader(normalized)); err != nil {
-				return fmt.Errorf("register schema %s (%s): %w", path, id, err)
-			}
-			registered[id] = registeredSchema{normalized: normalized, source: path}
-			return nil
-		})
-		closeErr := root.Close()
-		if err != nil {
-			return nil, err
-		}
-		if closeErr != nil {
-			return nil, fmt.Errorf("close ref-dir root %s: %w", cleanDir, closeErr)
-		}
-	}
-
-	schema, err := schemaLoader.Compile(gojsonschema.NewBytesLoader(normalizedRoot))
-	if err != nil {
-		return nil, fmt.Errorf("failed to compile schema with ref-dirs: %w", err)
-	}
-	return schema, nil
+	return out, nil
 }
 
-func compileSchemaBytesWithIDIndex(rootSchemaBytes []byte, idx *IDIndex) (*gojsonschema.Schema, error) {
-	stripSchema := isOfflineMode() || (idx != nil && idx.Len() > 0)
-
-	schemaLoader := gojsonschema.NewSchemaLoader()
-	// Ensure we only resolve via preloaded schemas (no implicit guessing)
-	schemaLoader.AutoDetect = false
-
-	rootID, normalizedRoot, err := extractAndNormalizeSchema(rootSchemaBytes, stripSchema)
+// extractAndNormalizeSchema returns a schema's declared $id (or draft-04 id)
+// and its JSON text. $schema is always preserved.
+func extractAndNormalizeSchema(schemaBytes []byte) (string, []byte, error) {
+	jb, err := schemarun.SchemaJSON(schemaBytes)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
-
-	type registeredSchema struct {
-		normalized []byte
-		source     string
-	}
-
-	registered := make(map[string]registeredSchema)
-	if rootID != "" {
-		registered[rootID] = registeredSchema{normalized: normalizedRoot, source: "root schema"}
-	}
-
-	for _, entry := range idx.entries {
-		id := entry.ID
-		normalized := entry.Normalized
-		path := entry.Path
-
-		if existing, ok := registered[id]; ok {
-			if bytes.Equal(existing.normalized, normalized) {
-				continue
-			}
-			return nil, fmt.Errorf("duplicate schema $id %q: %s differs from %s", id, path, existing.source)
-		}
-
-		if err := schemaLoader.AddSchema(id, gojsonschema.NewBytesLoader(normalized)); err != nil {
-			return nil, fmt.Errorf("register schema %s (%s): %w", path, id, err)
-		}
-		registered[id] = registeredSchema{normalized: normalized, source: path}
-	}
-
-	schema, err := schemaLoader.Compile(gojsonschema.NewBytesLoader(normalizedRoot))
-	if err != nil {
-		return nil, fmt.Errorf("failed to compile schema with id-index: %w", err)
-	}
-	return schema, nil
-}
-
-func extractAndNormalizeSchema(schemaBytes []byte, stripSchema bool) (string, []byte, error) {
-	var tmp any
-	if err := yaml.Unmarshal(schemaBytes, &tmp); err != nil {
-		if err := json.Unmarshal(schemaBytes, &tmp); err != nil {
-			return "", nil, fmt.Errorf("invalid schema format (must be valid YAML or JSON): %w", err)
-		}
-	}
-
-	if m, ok := tmp.(map[string]any); ok {
-		if stripSchema {
-			delete(m, "$schema")
-		}
-		id, _ := m["$id"].(string)
-		if id == "" {
-			id, _ = m["id"].(string)
-		}
-		id = strings.TrimSpace(id)
-		jb, err := json.Marshal(m)
-		if err != nil {
-			return "", nil, fmt.Errorf("failed to encode schema to JSON: %w", err)
-		}
-		return id, jb, nil
-	}
-
-	jb, err := json.Marshal(tmp)
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to encode schema to JSON: %w", err)
-	}
-	return "", jb, nil
-}
-
-func ensureSupportedDraft(schemaBytes []byte) error {
-	var schemaDoc map[string]interface{}
-	if err := yaml.Unmarshal(schemaBytes, &schemaDoc); err != nil {
-		if err := json.Unmarshal(schemaBytes, &schemaDoc); err != nil {
-			return fmt.Errorf("invalid schema format (must be valid YAML or JSON): %w", err)
-		}
-	}
-	if schemaDoc != nil {
-		if v, ok := schemaDoc["$schema"].(string); ok {
-			supported := strings.Contains(v, "draft-04") ||
-				strings.Contains(v, "draft-06") ||
-				strings.Contains(v, "draft-07") ||
-				strings.Contains(v, "2019-09") ||
-				strings.Contains(v, "2020-12")
-			if !supported {
-				return fmt.Errorf("unsupported $schema %q: supported drafts are 04, 06, 07, 2019-09, 2020-12", v)
-			}
-		}
-	}
-	return nil
+	return schemarun.DeclaredID(jb), jb, nil
 }
 
 // ValidateDataFromBytes validates raw data bytes against schema bytes with optional behaviors.
@@ -572,21 +375,12 @@ func ValidateDataFromBytes(schemaBytes, dataBytes []byte, opts ...func(*Validati
 	// Audit logging disabled for initial implementation
 	// TODO: Re-enable with proper logger integration when audit feature is needed
 
-	// Parse dataBytes to interface{} (try YAML first, then JSON)
-	var data interface{}
-	var parseErr error
-	// Try YAML
-	if err := yaml.Unmarshal(dataBytes, &data); err == nil {
-		options.Context.SourceType = "yaml"
-	} else {
-		// Store YAML error before trying JSON
-		parseErr = err
-		// Fall back to JSON
-		if err := json.Unmarshal(dataBytes, &data); err != nil {
-			return nil, fmt.Errorf("failed to parse data bytes (tried YAML then JSON): YAML err: %v, JSON err: %w", parseErr, err)
-		}
-		options.Context.SourceType = "json"
+	// JSON text is decoded strictly and exactly; anything else as YAML.
+	data, format, err := schemarun.DecodeInstance(dataBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse data bytes as %s: %w", strings.ToUpper(format), err)
 	}
+	options.Context.SourceType = format
 
 	// Validate using existing logic
 	res, err := ValidateFromBytes(schemaBytes, data)
@@ -928,12 +722,9 @@ func ValidateFileWithSchemaPath(schemaPath string, dataPath string) (*Result, er
 		return nil, fmt.Errorf("failed to read data file %s: %w", dataClean, err)
 	}
 
-	// Parse data (try YAML first, then JSON)
-	var data interface{}
-	if err := yaml.Unmarshal(dataBytes, &data); err != nil {
-		if err := json.Unmarshal(dataBytes, &data); err != nil {
-			return nil, fmt.Errorf("failed to parse data file %s: %w", dataClean, err)
-		}
+	data, _, err := schemarun.DecodeInstance(dataBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse data file %s: %w", dataClean, err)
 	}
 
 	// Validate using existing logic
@@ -953,12 +744,9 @@ func ValidateFromFileWithBytes(schemaPath string, dataBytes []byte) (*Result, er
 		return nil, fmt.Errorf("failed to read schema file %s: %w", schemaClean, err)
 	}
 
-	// Parse data (try YAML first, then JSON)
-	var data interface{}
-	if err := yaml.Unmarshal(dataBytes, &data); err != nil {
-		if err := json.Unmarshal(dataBytes, &data); err != nil {
-			return nil, fmt.Errorf("failed to parse data bytes: %w", err)
-		}
+	data, _, err := schemarun.DecodeInstance(dataBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse data bytes: %w", err)
 	}
 
 	// Validate using existing logic
@@ -993,7 +781,7 @@ func legacyMapSchemaNameToPath(schemaName string) string {
 		"dates":                      "embedded_schemas/schemas/config/dates.yaml",
 		"assess-config-v1.0.0":       "embedded_schemas/schemas/config/v1.0.0/assess-config.yaml",
 		"dependencies-policy-v1.0.0": "embedded_schemas/schemas/config/v1.0.0/dependencies-policy.yaml",
-		"hooks-manifest-v1.0.0":      "embedded_schemas/work/hooks-manifest-v1.0.0.yaml",
+		"hooks-manifest-v1.0.0":      "embedded_schemas/schemas/work/v1.0.0/hooks-manifest.yaml",
 
 		"work-manifest-v1.0.0": "embedded_schemas/work/work-manifest-v1.0.0.yaml",
 	}

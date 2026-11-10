@@ -3,7 +3,6 @@ package assets
 import (
 	"embed"
 	"io/fs"
-	"os"
 )
 
 // Curated JSON Schema meta-schemas (embedded)
@@ -35,8 +34,10 @@ var Docs embed.FS
 //go:embed embedded_config
 var Config embed.FS
 
+// GetJSONSchemaMeta returns goneat's bundled copy of a draft's metaschema.
+// Schema validation does not use these copies; it uses the metaschemas built
+// into the schema engine.
 func GetJSONSchemaMeta(draft string) ([]byte, bool) {
-	offline := os.Getenv("GONEAT_OFFLINE_SCHEMA_VALIDATION") == "true"
 	switch draft {
 	case "draft-04", "04", "4":
 		return JSONSchemaDraft04, len(JSONSchemaDraft04) > 0
@@ -45,18 +46,8 @@ func GetJSONSchemaMeta(draft string) ([]byte, bool) {
 	case "draft-07", "07", "7":
 		return JSONSchemaDraft07, len(JSONSchemaDraft07) > 0
 	case "2019-09", "2019", "201909":
-		if offline {
-			if data, ok := GetSchema("embedded_schemas/schemas/meta/draft-2019-09/offline.schema.json"); ok {
-				return data, true
-			}
-		}
 		return JSONSchemaDraft2019_09, len(JSONSchemaDraft2019_09) > 0
 	case "2020-12", "2020", "202012":
-		if offline {
-			if data, ok := GetSchema("embedded_schemas/schemas/meta/draft-2020-12/offline.schema.json"); ok {
-				return data, true
-			}
-		}
 		return JSONSchemaDraft2020_12, len(JSONSchemaDraft2020_12) > 0
 	default:
 		// Unknown draft requested; do not fallback implicitly

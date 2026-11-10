@@ -1,0 +1,3522 @@
+[
+ {
+  "case": "draft2019-09/format.json#5.0",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2019-09/format.json#5.1",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2019-09/format.json#5.2",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2019-09/format.json#5.3",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2019-09/format.json#5.4",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2019-09/format.json#5.5",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2019-09/optional/ecmascript-regex.json#2.0",
+  "got": "admission:invalid-schema",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/ecmascript-regex.json#2.1",
+  "got": "admission:invalid-schema",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/ecmascript-regex.json#3.0",
+  "got": "admission:invalid-schema",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/ecmascript-regex.json#3.1",
+  "got": "admission:invalid-schema",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/ecmascript-regex.json#8.2",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/ecmascript-regex.json#8.4",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/ecmascript-regex.json#8.5",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/ecmascript-regex.json#8.7",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/ecmascript-regex.json#8.8",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/ecmascript-regex.json#9.2",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/ecmascript-regex.json#9.4",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/ecmascript-regex.json#9.5",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/ecmascript-regex.json#9.7",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/ecmascript-regex.json#9.8",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/format/duration.json#0.37",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/duration.json#0.39",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/ecmascript-regex.json#0.0",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/format/ecmascript-regex.json#1.0",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/format/ecmascript-regex.json#2.0",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/format/ecmascript-regex.json#2.1",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/format/ecmascript-regex.json#3.1",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/format/ecmascript-regex.json#4.0",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/format/ecmascript-regex.json#5.0",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/format/ecmascript-regex.json#5.1",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/format/ecmascript-regex.json#5.2",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#0.14",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.0",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.10",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.11",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.12",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.13",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.15",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.16",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.18",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.19",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.2",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.21",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.22",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.24",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.25",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.29",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.3",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.32",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.33",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.37",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.4",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.5",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.8",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/hostname.json#1.9",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-email.json#0.11",
+  "got": "valid=false",
+  "reason": "Domain labels must already be NFC (UTS 46 registration validation, no normalisation); the suite accepts an NFD label. Declared delta in the idn-email production contract."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.0",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.1",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.10",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.11",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.12",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.13",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.14",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.15",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.16",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.17",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.18",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.19",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.2",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.20",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.21",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.22",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.23",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.24",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.25",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.26",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.27",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.28",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.29",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.3",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.30",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.31",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.32",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.33",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.34",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.35",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.36",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.37",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.38",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.39",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.4",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.40",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.41",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.42",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.43",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.44",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.45",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.46",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.47",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.48",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.49",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.5",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.50",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.51",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.52",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.53",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.54",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.55",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.56",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.57",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.58",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.59",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.6",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.60",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.61",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.62",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.63",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.64",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.65",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.66",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.67",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.68",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.69",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.7",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.70",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.71",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.72",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.73",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.74",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.75",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.76",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.77",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.78",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.79",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.8",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.80",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#0.9",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#1.0",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#1.1",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#1.10",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#1.11",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#1.12",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#1.13",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#1.14",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#1.15",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#1.16",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#1.17",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#1.18",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#1.19",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#1.2",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#1.3",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#1.4",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#1.5",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#1.6",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#1.7",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#1.8",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/idn-hostname.json#1.9",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2019-09/optional/format/ipv4.json#0.31",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/iri.json#0.31",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/unknown.json#0.0",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2019-09/optional/format/unknown.json#0.1",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2019-09/optional/format/unknown.json#0.2",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2019-09/optional/format/unknown.json#0.3",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2019-09/optional/format/unknown.json#0.4",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2019-09/optional/format/unknown.json#0.5",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2019-09/optional/format/unknown.json#0.6",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri-reference.json#0.13",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri-reference.json#0.23",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri-reference.json#0.24",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri-reference.json#0.26",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri-template.json#0.10",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri-template.json#0.11",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri-template.json#0.24",
+  "got": "valid=false",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri-template.json#0.26",
+  "got": "valid=false",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri-template.json#0.28",
+  "got": "valid=false",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri-template.json#0.34",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri-template.json#0.35",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri-template.json#0.40",
+  "got": "valid=false",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri-template.json#0.42",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri-template.json#0.44",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri-template.json#0.45",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri-template.json#0.46",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri.json#0.27",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri.json#0.28",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri.json#0.29",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri.json#0.30",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri.json#0.31",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri.json#0.32",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri.json#0.33",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri.json#0.34",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri.json#0.35",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/optional/format/uri.json#0.45",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2019-09/ref.json#33.0",
+  "got": "admission:resource",
+  "reason": "A file: URL $id is not admitted as a base (secrev: never compile from a file URL base); review item."
+ },
+ {
+  "case": "draft2019-09/ref.json#33.1",
+  "got": "admission:resource",
+  "reason": "A file: URL $id is not admitted as a base (secrev: never compile from a file URL base); review item."
+ },
+ {
+  "case": "draft2019-09/ref.json#34.0",
+  "got": "admission:resource",
+  "reason": "A file: URL $id is not admitted as a base (secrev: never compile from a file URL base); review item."
+ },
+ {
+  "case": "draft2019-09/ref.json#34.1",
+  "got": "admission:resource",
+  "reason": "A file: URL $id is not admitted as a base (secrev: never compile from a file URL base); review item."
+ },
+ {
+  "case": "draft2019-09/refRemote.json#11.0",
+  "got": "admission:unresolved-reference",
+  "reason": "A resource is admitted only under its declared $id; references by a different retrieval URL do not resolve (conflicting resource IDs rejected, entarch 2026-11-09 item 4b)."
+ },
+ {
+  "case": "draft2019-09/refRemote.json#11.1",
+  "got": "admission:unresolved-reference",
+  "reason": "A resource is admitted only under its declared $id; references by a different retrieval URL do not resolve (conflicting resource IDs rejected, entarch 2026-11-09 item 4b)."
+ },
+ {
+  "case": "draft2019-09/refRemote.json#12.0",
+  "got": "admission:unresolved-reference",
+  "reason": "A resource is admitted only under its declared $id; references by a different retrieval URL do not resolve (conflicting resource IDs rejected, entarch 2026-11-09 item 4b)."
+ },
+ {
+  "case": "draft2019-09/refRemote.json#12.1",
+  "got": "admission:unresolved-reference",
+  "reason": "A resource is admitted only under its declared $id; references by a different retrieval URL do not resolve (conflicting resource IDs rejected, entarch 2026-11-09 item 4b)."
+ },
+ {
+  "case": "draft2020-12/format.json#0.6",
+  "got": "valid=false",
+  "reason": "goneat asserts format in every dialect; the suite expects annotation-only format for this draft by default."
+ },
+ {
+  "case": "draft2020-12/format.json#1.6",
+  "got": "valid=false",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2020-12/format.json#10.6",
+  "got": "valid=false",
+  "reason": "goneat asserts format in every dialect; the suite expects annotation-only format for this draft by default."
+ },
+ {
+  "case": "draft2020-12/format.json#11.6",
+  "got": "valid=false",
+  "reason": "goneat asserts format in every dialect; the suite expects annotation-only format for this draft by default."
+ },
+ {
+  "case": "draft2020-12/format.json#12.6",
+  "got": "valid=false",
+  "reason": "goneat asserts format in every dialect; the suite expects annotation-only format for this draft by default."
+ },
+ {
+  "case": "draft2020-12/format.json#13.6",
+  "got": "valid=false",
+  "reason": "goneat asserts format in every dialect; the suite expects annotation-only format for this draft by default."
+ },
+ {
+  "case": "draft2020-12/format.json#14.6",
+  "got": "valid=false",
+  "reason": "goneat asserts format in every dialect; the suite expects annotation-only format for this draft by default."
+ },
+ {
+  "case": "draft2020-12/format.json#15.6",
+  "got": "valid=false",
+  "reason": "goneat asserts format in every dialect; the suite expects annotation-only format for this draft by default."
+ },
+ {
+  "case": "draft2020-12/format.json#16.6",
+  "got": "valid=false",
+  "reason": "goneat asserts format in every dialect; the suite expects annotation-only format for this draft by default."
+ },
+ {
+  "case": "draft2020-12/format.json#17.6",
+  "got": "valid=false",
+  "reason": "goneat asserts format in every dialect; the suite expects annotation-only format for this draft by default."
+ },
+ {
+  "case": "draft2020-12/format.json#18.6",
+  "got": "valid=false",
+  "reason": "goneat asserts format in every dialect; the suite expects annotation-only format for this draft by default."
+ },
+ {
+  "case": "draft2020-12/format.json#2.6",
+  "got": "valid=false",
+  "reason": "goneat asserts format in every dialect; the suite expects annotation-only format for this draft by default."
+ },
+ {
+  "case": "draft2020-12/format.json#3.6",
+  "got": "valid=false",
+  "reason": "goneat asserts format in every dialect; the suite expects annotation-only format for this draft by default."
+ },
+ {
+  "case": "draft2020-12/format.json#4.6",
+  "got": "valid=false",
+  "reason": "goneat asserts format in every dialect; the suite expects annotation-only format for this draft by default."
+ },
+ {
+  "case": "draft2020-12/format.json#5.0",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2020-12/format.json#5.1",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2020-12/format.json#5.2",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2020-12/format.json#5.3",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2020-12/format.json#5.4",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2020-12/format.json#5.5",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2020-12/format.json#5.6",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2020-12/format.json#6.6",
+  "got": "valid=false",
+  "reason": "goneat asserts format in every dialect; the suite expects annotation-only format for this draft by default."
+ },
+ {
+  "case": "draft2020-12/format.json#7.6",
+  "got": "valid=false",
+  "reason": "goneat asserts format in every dialect; the suite expects annotation-only format for this draft by default."
+ },
+ {
+  "case": "draft2020-12/format.json#8.6",
+  "got": "valid=false",
+  "reason": "goneat asserts format in every dialect; the suite expects annotation-only format for this draft by default."
+ },
+ {
+  "case": "draft2020-12/format.json#9.6",
+  "got": "valid=false",
+  "reason": "goneat asserts format in every dialect; the suite expects annotation-only format for this draft by default."
+ },
+ {
+  "case": "draft2020-12/optional/ecmascript-regex.json#2.0",
+  "got": "admission:invalid-schema",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/ecmascript-regex.json#2.1",
+  "got": "admission:invalid-schema",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/ecmascript-regex.json#3.0",
+  "got": "admission:invalid-schema",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/ecmascript-regex.json#3.1",
+  "got": "admission:invalid-schema",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/ecmascript-regex.json#8.2",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/ecmascript-regex.json#8.4",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/ecmascript-regex.json#8.5",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/ecmascript-regex.json#8.7",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/ecmascript-regex.json#8.8",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/ecmascript-regex.json#9.2",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/ecmascript-regex.json#9.4",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/ecmascript-regex.json#9.5",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/ecmascript-regex.json#9.7",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/ecmascript-regex.json#9.8",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/format/duration.json#0.37",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/duration.json#0.39",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/ecmascript-regex.json#0.0",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/format/ecmascript-regex.json#1.0",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/format/ecmascript-regex.json#2.0",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/format/ecmascript-regex.json#2.1",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/format/ecmascript-regex.json#3.1",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/format/ecmascript-regex.json#4.0",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/format/ecmascript-regex.json#5.0",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/format/ecmascript-regex.json#5.1",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/format/ecmascript-regex.json#5.2",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#0.14",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.0",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.10",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.11",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.12",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.13",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.15",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.16",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.18",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.19",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.2",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.21",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.22",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.24",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.25",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.29",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.3",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.32",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.33",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.37",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.4",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.5",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.8",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/hostname.json#1.9",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-email.json#0.11",
+  "got": "valid=false",
+  "reason": "Domain labels must already be NFC (UTS 46 registration validation, no normalisation); the suite accepts an NFD label. Declared delta in the idn-email production contract."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.0",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.1",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.10",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.11",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.12",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.13",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.14",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.15",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.16",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.17",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.18",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.19",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.2",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.20",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.21",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.22",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.23",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.24",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.25",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.26",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.27",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.28",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.29",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.3",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.30",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.31",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.32",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.33",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.34",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.35",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.36",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.37",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.38",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.39",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.4",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.40",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.41",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.42",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.43",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.44",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.45",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.46",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.47",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.48",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.49",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.5",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.50",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.51",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.52",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.53",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.54",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.55",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.56",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.57",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.58",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.59",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.6",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.60",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.61",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.62",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.63",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.64",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.65",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.66",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.67",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.68",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.69",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.7",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.70",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.71",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.72",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.73",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.74",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.75",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.76",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.77",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.78",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.79",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.8",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.80",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#0.9",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#1.0",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#1.1",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#1.10",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#1.11",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#1.12",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#1.13",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#1.14",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#1.15",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#1.16",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#1.17",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#1.18",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#1.19",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#1.2",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#1.3",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#1.4",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#1.5",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#1.6",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#1.7",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#1.8",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/idn-hostname.json#1.9",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft2020-12/optional/format/ipv4.json#0.31",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/iri.json#0.31",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/unknown.json#0.0",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2020-12/optional/format/unknown.json#0.1",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2020-12/optional/format/unknown.json#0.2",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2020-12/optional/format/unknown.json#0.3",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2020-12/optional/format/unknown.json#0.4",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2020-12/optional/format/unknown.json#0.5",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2020-12/optional/format/unknown.json#0.6",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri-reference.json#0.13",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri-reference.json#0.23",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri-reference.json#0.24",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri-reference.json#0.26",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri-template.json#0.10",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri-template.json#0.11",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri-template.json#0.24",
+  "got": "valid=false",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri-template.json#0.26",
+  "got": "valid=false",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri-template.json#0.28",
+  "got": "valid=false",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri-template.json#0.34",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri-template.json#0.35",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri-template.json#0.40",
+  "got": "valid=false",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri-template.json#0.42",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri-template.json#0.44",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri-template.json#0.45",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri-template.json#0.46",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri.json#0.27",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri.json#0.28",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri.json#0.29",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri.json#0.30",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri.json#0.31",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri.json#0.32",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri.json#0.33",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri.json#0.34",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri.json#0.35",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/optional/format/uri.json#0.45",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft2020-12/ref.json#33.0",
+  "got": "admission:resource",
+  "reason": "A file: URL $id is not admitted as a base (secrev: never compile from a file URL base); review item."
+ },
+ {
+  "case": "draft2020-12/ref.json#33.1",
+  "got": "admission:resource",
+  "reason": "A file: URL $id is not admitted as a base (secrev: never compile from a file URL base); review item."
+ },
+ {
+  "case": "draft2020-12/ref.json#34.0",
+  "got": "admission:resource",
+  "reason": "A file: URL $id is not admitted as a base (secrev: never compile from a file URL base); review item."
+ },
+ {
+  "case": "draft2020-12/ref.json#34.1",
+  "got": "admission:resource",
+  "reason": "A file: URL $id is not admitted as a base (secrev: never compile from a file URL base); review item."
+ },
+ {
+  "case": "draft2020-12/refRemote.json#11.0",
+  "got": "admission:unresolved-reference",
+  "reason": "A resource is admitted only under its declared $id; references by a different retrieval URL do not resolve (conflicting resource IDs rejected, entarch 2026-11-09 item 4b)."
+ },
+ {
+  "case": "draft2020-12/refRemote.json#11.1",
+  "got": "admission:unresolved-reference",
+  "reason": "A resource is admitted only under its declared $id; references by a different retrieval URL do not resolve (conflicting resource IDs rejected, entarch 2026-11-09 item 4b)."
+ },
+ {
+  "case": "draft2020-12/refRemote.json#12.0",
+  "got": "admission:unresolved-reference",
+  "reason": "A resource is admitted only under its declared $id; references by a different retrieval URL do not resolve (conflicting resource IDs rejected, entarch 2026-11-09 item 4b)."
+ },
+ {
+  "case": "draft2020-12/refRemote.json#12.1",
+  "got": "admission:unresolved-reference",
+  "reason": "A resource is admitted only under its declared $id; references by a different retrieval URL do not resolve (conflicting resource IDs rejected, entarch 2026-11-09 item 4b)."
+ },
+ {
+  "case": "draft4/optional/ecmascript-regex.json#2.0",
+  "got": "admission:invalid-schema",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft4/optional/ecmascript-regex.json#2.1",
+  "got": "admission:invalid-schema",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft4/optional/ecmascript-regex.json#3.0",
+  "got": "admission:invalid-schema",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft4/optional/ecmascript-regex.json#3.1",
+  "got": "admission:invalid-schema",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft4/optional/ecmascript-regex.json#8.2",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft4/optional/ecmascript-regex.json#8.4",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft4/optional/ecmascript-regex.json#8.5",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft4/optional/ecmascript-regex.json#8.7",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft4/optional/ecmascript-regex.json#8.8",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft4/optional/ecmascript-regex.json#9.2",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft4/optional/ecmascript-regex.json#9.4",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft4/optional/ecmascript-regex.json#9.5",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft4/optional/ecmascript-regex.json#9.7",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft4/optional/ecmascript-regex.json#9.8",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft4/optional/format/hostname.json#0.27",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft4/optional/format/ipv4.json#0.31",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft4/optional/format/unknown.json#0.0",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft4/optional/format/unknown.json#0.1",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft4/optional/format/unknown.json#0.2",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft4/optional/format/unknown.json#0.3",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft4/optional/format/unknown.json#0.4",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft4/optional/format/unknown.json#0.5",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft4/optional/format/unknown.json#0.6",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft4/optional/format/uri.json#0.27",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft4/optional/format/uri.json#0.28",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft4/optional/format/uri.json#0.29",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft4/optional/format/uri.json#0.30",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft4/optional/format/uri.json#0.31",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft4/optional/format/uri.json#0.32",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft4/optional/format/uri.json#0.33",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft4/optional/format/uri.json#0.34",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft4/optional/format/uri.json#0.35",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft4/optional/format/uri.json#0.45",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft4/optional/zeroTerminatedFloats.json#0.0",
+  "got": "valid=true",
+  "reason": "The engine treats 1.0 as an integer in draft-04; draft-04 allowed implementations to differ (optional suite)."
+ },
+ {
+  "case": "draft6/optional/ecmascript-regex.json#2.0",
+  "got": "admission:invalid-schema",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft6/optional/ecmascript-regex.json#2.1",
+  "got": "admission:invalid-schema",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft6/optional/ecmascript-regex.json#3.0",
+  "got": "admission:invalid-schema",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft6/optional/ecmascript-regex.json#3.1",
+  "got": "admission:invalid-schema",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft6/optional/ecmascript-regex.json#8.2",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft6/optional/ecmascript-regex.json#8.4",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft6/optional/ecmascript-regex.json#8.5",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft6/optional/ecmascript-regex.json#8.7",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft6/optional/ecmascript-regex.json#8.8",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft6/optional/ecmascript-regex.json#9.2",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft6/optional/ecmascript-regex.json#9.4",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft6/optional/ecmascript-regex.json#9.5",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft6/optional/ecmascript-regex.json#9.7",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft6/optional/ecmascript-regex.json#9.8",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft6/optional/format/hostname.json#0.27",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/ipv4.json#0.31",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/unknown.json#0.0",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft6/optional/format/unknown.json#0.1",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft6/optional/format/unknown.json#0.2",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft6/optional/format/unknown.json#0.3",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft6/optional/format/unknown.json#0.4",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft6/optional/format/unknown.json#0.5",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft6/optional/format/unknown.json#0.6",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft6/optional/format/uri-reference.json#0.13",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri-reference.json#0.23",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri-reference.json#0.24",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri-reference.json#0.26",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri-template.json#0.10",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri-template.json#0.11",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri-template.json#0.24",
+  "got": "valid=false",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri-template.json#0.26",
+  "got": "valid=false",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri-template.json#0.28",
+  "got": "valid=false",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri-template.json#0.34",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri-template.json#0.35",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri-template.json#0.40",
+  "got": "valid=false",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri-template.json#0.42",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri-template.json#0.44",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri-template.json#0.45",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri-template.json#0.46",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri.json#0.27",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri.json#0.28",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri.json#0.29",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri.json#0.30",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri.json#0.31",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri.json#0.32",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri.json#0.33",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri.json#0.34",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri.json#0.35",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/optional/format/uri.json#0.45",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft6/ref.json#28.0",
+  "got": "admission:resource",
+  "reason": "A file: URL $id is not admitted as a base (secrev: never compile from a file URL base); review item."
+ },
+ {
+  "case": "draft6/ref.json#28.1",
+  "got": "admission:resource",
+  "reason": "A file: URL $id is not admitted as a base (secrev: never compile from a file URL base); review item."
+ },
+ {
+  "case": "draft6/ref.json#29.0",
+  "got": "admission:resource",
+  "reason": "A file: URL $id is not admitted as a base (secrev: never compile from a file URL base); review item."
+ },
+ {
+  "case": "draft6/ref.json#29.1",
+  "got": "admission:resource",
+  "reason": "A file: URL $id is not admitted as a base (secrev: never compile from a file URL base); review item."
+ },
+ {
+  "case": "draft7/format.json#5.0",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft7/format.json#5.1",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft7/format.json#5.2",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft7/format.json#5.3",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft7/format.json#5.4",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft7/format.json#5.5",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft7/optional/content.json#0.1",
+  "got": "valid=true",
+  "reason": "contentEncoding/contentMediaType/contentSchema are annotations; content assertion is not enabled."
+ },
+ {
+  "case": "draft7/optional/content.json#1.1",
+  "got": "valid=true",
+  "reason": "contentEncoding/contentMediaType/contentSchema are annotations; content assertion is not enabled."
+ },
+ {
+  "case": "draft7/optional/content.json#2.1",
+  "got": "valid=true",
+  "reason": "contentEncoding/contentMediaType/contentSchema are annotations; content assertion is not enabled."
+ },
+ {
+  "case": "draft7/optional/content.json#2.2",
+  "got": "valid=true",
+  "reason": "contentEncoding/contentMediaType/contentSchema are annotations; content assertion is not enabled."
+ },
+ {
+  "case": "draft7/optional/ecmascript-regex.json#2.0",
+  "got": "admission:invalid-schema",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/ecmascript-regex.json#2.1",
+  "got": "admission:invalid-schema",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/ecmascript-regex.json#3.0",
+  "got": "admission:invalid-schema",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/ecmascript-regex.json#3.1",
+  "got": "admission:invalid-schema",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/ecmascript-regex.json#8.2",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/ecmascript-regex.json#8.4",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/ecmascript-regex.json#8.5",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/ecmascript-regex.json#8.7",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/ecmascript-regex.json#8.8",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/ecmascript-regex.json#9.2",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/ecmascript-regex.json#9.4",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/ecmascript-regex.json#9.5",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/ecmascript-regex.json#9.7",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/ecmascript-regex.json#9.8",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/format/ecmascript-regex.json#0.0",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/format/ecmascript-regex.json#1.0",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/format/ecmascript-regex.json#2.0",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/format/ecmascript-regex.json#2.1",
+  "got": "valid=true",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/format/ecmascript-regex.json#3.1",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/format/ecmascript-regex.json#4.0",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/format/ecmascript-regex.json#5.0",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/format/ecmascript-regex.json#5.1",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/format/ecmascript-regex.json#5.2",
+  "got": "valid=false",
+  "reason": "Patterns and the regex format use Go RE2, not ECMA-262 (secrev condition: RE2 only, no backtracking engine). RE2-rejected patterns fail admission."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#0.14",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.0",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.10",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.11",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.12",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.13",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.15",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.16",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.18",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.19",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.2",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.21",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.22",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.24",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.25",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.29",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.3",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.32",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.33",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.37",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.4",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.5",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.8",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/hostname.json#1.9",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/idn-email.json#0.11",
+  "got": "valid=false",
+  "reason": "Domain labels must already be NFC (UTS 46 registration validation, no normalisation); the suite accepts an NFD label. Declared delta in the idn-email production contract."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.0",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.1",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.10",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.11",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.12",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.13",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.14",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.15",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.16",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.17",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.18",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.19",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.2",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.20",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.21",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.22",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.23",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.24",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.25",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.26",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.27",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.28",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.29",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.3",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.30",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.31",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.32",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.33",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.34",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.35",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.36",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.37",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.38",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.39",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.4",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.40",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.41",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.42",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.43",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.44",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.45",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.46",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.47",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.48",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.49",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.5",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.50",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.51",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.52",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.53",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.54",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.55",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.56",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.57",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.58",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.59",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.6",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.60",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.61",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.62",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.63",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.64",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.65",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.66",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.67",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.68",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.69",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.7",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.70",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.71",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.72",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.73",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.74",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.75",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.76",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.77",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.78",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.79",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.8",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.80",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#0.9",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#1.0",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#1.1",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#1.10",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#1.11",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#1.12",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#1.13",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#1.14",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#1.15",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#1.16",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#1.17",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#1.18",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#1.19",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#1.2",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#1.3",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#1.4",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#1.5",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#1.6",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#1.7",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#1.8",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/idn-hostname.json#1.9",
+  "got": "admission:unknown-format",
+  "reason": "No owned checker for this format yet; not admitted rather than silently skipped (entarch ruling 2026-11-09 items 2-3)."
+ },
+ {
+  "case": "draft7/optional/format/ipv4.json#0.31",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/iri.json#0.31",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/unknown.json#0.0",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft7/optional/format/unknown.json#0.1",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft7/optional/format/unknown.json#0.2",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft7/optional/format/unknown.json#0.3",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft7/optional/format/unknown.json#0.4",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft7/optional/format/unknown.json#0.5",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft7/optional/format/unknown.json#0.6",
+  "got": "admission:unknown-format",
+  "reason": "Unknown asserted format name is an admission error in every dialect (adapter policy; entarch ruling 2026-11-09 item 2, secrev condition)."
+ },
+ {
+  "case": "draft7/optional/format/uri-reference.json#0.13",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri-reference.json#0.23",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri-reference.json#0.24",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri-reference.json#0.26",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri-template.json#0.10",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri-template.json#0.11",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri-template.json#0.24",
+  "got": "valid=false",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri-template.json#0.26",
+  "got": "valid=false",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri-template.json#0.28",
+  "got": "valid=false",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri-template.json#0.34",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri-template.json#0.35",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri-template.json#0.40",
+  "got": "valid=false",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri-template.json#0.42",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri-template.json#0.44",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri-template.json#0.45",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri-template.json#0.46",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri.json#0.27",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri.json#0.28",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri.json#0.29",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri.json#0.30",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri.json#0.31",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri.json#0.32",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri.json#0.33",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri.json#0.34",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri.json#0.35",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/optional/format/uri.json#0.45",
+  "got": "valid=true",
+  "reason": "Engine built-in checker for this format differs from the suite's optional case. Not owned in this change; qualifying all asserted formats is a separate capability claim (entarch 2026-11-09 item 4)."
+ },
+ {
+  "case": "draft7/ref.json#32.0",
+  "got": "admission:resource",
+  "reason": "A file: URL $id is not admitted as a base (secrev: never compile from a file URL base); review item."
+ },
+ {
+  "case": "draft7/ref.json#32.1",
+  "got": "admission:resource",
+  "reason": "A file: URL $id is not admitted as a base (secrev: never compile from a file URL base); review item."
+ },
+ {
+  "case": "draft7/ref.json#33.0",
+  "got": "admission:resource",
+  "reason": "A file: URL $id is not admitted as a base (secrev: never compile from a file URL base); review item."
+ },
+ {
+  "case": "draft7/ref.json#33.1",
+  "got": "admission:resource",
+  "reason": "A file: URL $id is not admitted as a base (secrev: never compile from a file URL base); review item."
+ }
+]

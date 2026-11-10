@@ -16,6 +16,7 @@ import (
 
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/fulmenhq/goneat/internal/schema"
+	"github.com/fulmenhq/goneat/internal/schemarun"
 	"github.com/fulmenhq/goneat/pkg/ignore"
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"gopkg.in/yaml.v3"
@@ -164,9 +165,15 @@ func readAssessOverrides(configPath string) (*assessOverrides, error) {
 		return nil, &AssessConfigError{Path: configPath, Err: fmt.Errorf("read: %w", err)}
 	}
 
-	var raw map[string]any
-	if err := yaml.Unmarshal(data, &raw); err != nil {
+	// Validate the file as written: JSON text is decoded strictly and
+	// exactly, anything else as YAML.
+	decoded, _, err := schemarun.DecodeInstance(data)
+	if err != nil {
 		return nil, &AssessConfigError{Path: configPath, Err: fmt.Errorf("parse: %w", err)}
+	}
+	raw, isMap := decoded.(map[string]any)
+	if decoded != nil && !isMap {
+		return nil, &AssessConfigError{Path: configPath, Err: fmt.Errorf("parse: top level must be a mapping")}
 	}
 	if raw == nil {
 		raw = map[string]any{}

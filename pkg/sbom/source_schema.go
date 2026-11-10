@@ -4,23 +4,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
 
 	"github.com/fulmenhq/goneat/internal/assets"
-	"github.com/xeipuuv/gojsonschema"
+	"github.com/fulmenhq/goneat/internal/schemaengine"
+	"github.com/fulmenhq/goneat/internal/schemarun"
 )
 
 var sourceSchemas = sync.OnceValues(compileSourceSchemas)
 
-func compileSourceSchemas() (map[string]*gojsonschema.Schema, error) {
-	loader := gojsonschema.NewSchemaLoader()
-	loader.AutoDetect = false
-	loader.Draft = gojsonschema.Draft7
-	// All external references are audited below before compilation. Registering
-	// this closed set by ID avoids a network-dependent validation path.
+func compileSourceSchemas() (map[string]*schemaengine.Compiled, error) {
+	// All external references are audited below before compilation. The
+	// bundled documents are the only admitted resources, so validation never
+	// depends on the network.
 	files := []string{"bom-1.6.schema.json", "bom-1.7.schema.json", "spdx.schema.json", "jsf-0.82.schema.json", "cryptography-defs.schema.json", "spdx-2.3.schema.json"}
 	documents := make(map[string]map[string]any)
+	raw := make(map[string][]byte)
 	for _, name := range files {
 		data, ok := assets.GetSchema("embedded_schemas/schemas/sbom/" + name)
 		if !ok {
@@ -35,7 +36,9 @@ func compileSourceSchemas() (map[string]*gojsonschema.Schema, error) {
 			return nil, fmt.Errorf("SBOM schema %s has no ID", name)
 		}
 		documents[id] = document
+		raw[id] = data
 	}
+	ids := make([]string, 0, len(documents))
 	for id, document := range documents {
 		base, err := url.Parse(id)
 		if err != nil {
@@ -44,17 +47,22 @@ func compileSourceSchemas() (map[string]*gojsonschema.Schema, error) {
 		if err := checkSourceSchemaRefs(document, base, documents); err != nil {
 			return nil, err
 		}
-		if err := loader.AddSchema(id, gojsonschema.NewGoLoader(document)); err != nil {
-			return nil, err
-		}
+		ids = append(ids, id)
 	}
-	compiled := make(map[string]*gojsonschema.Schema)
-	for _, id := range []string{"http://cyclonedx.org/schema/bom-1.6.schema.json", "http://cyclonedx.org/schema/bom-1.7.schema.json", "http://spdx.org/rdf/terms/2.3"} {
-		schema, err := loader.Compile(gojsonschema.NewReferenceLoader(id))
-		if err != nil {
-			return nil, fmt.Errorf("compile offline SBOM schema %s: %w", id, err)
+	sort.Strings(ids)
+	compiled := make(map[string]*schemaengine.Compiled)
+	for _, rootID := range []string{"http://cyclonedx.org/schema/bom-1.6.schema.json", "http://cyclonedx.org/schema/bom-1.7.schema.json", "http://spdx.org/rdf/terms/2.3"} {
+		var resources []schemaengine.Resource
+		for _, id := range ids {
+			if id != rootID {
+				resources = append(resources, schemaengine.Resource{URL: id, Bytes: raw[id]})
+			}
 		}
-		compiled[id] = schema
+		schema, err := schemaengine.Compile(raw[rootID], schemaengine.Options{BaseURL: rootID, Resources: resources})
+		if err != nil {
+			return nil, fmt.Errorf("compile offline SBOM schema %s: %w", rootID, err)
+		}
+		compiled[rootID] = schema
 	}
 	return compiled, nil
 }
@@ -122,14 +130,14 @@ func validateSourceDocument(document map[string]any, format string) error {
 	if err != nil {
 		return err
 	}
-	result, err := schemas[id].Validate(gojsonschema.NewBytesLoader(data))
+	valid, issues, err := schemarun.ValidateJSON(schemas[id], data)
 	if err != nil {
 		return fmt.Errorf("validate source SBOM: %w", err)
 	}
-	if !result.Valid() {
+	if !valid {
 		var messages []string
-		for _, issue := range result.Errors() {
-			messages = append(messages, issue.String())
+		for _, issue := range issues {
+			messages = append(messages, issue.Path+": "+issue.Message)
 		}
 		return fmt.Errorf("source SBOM schema validation failed: %s", strings.Join(messages, "; "))
 	}

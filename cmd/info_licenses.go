@@ -98,7 +98,7 @@ func getLicenseInfo() []LicenseInfo {
 			License: "MIT License",
 		},
 		{
-			Module:  "github.com/xeipuuv/gojsonschema",
+			Module:  "github.com/santhosh-tekuri/jsonschema/v6",
 			License: "Apache License 2.0",
 		},
 		// Key indirect dependencies
