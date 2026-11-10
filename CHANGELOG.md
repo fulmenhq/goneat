@@ -9,17 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.6.8] - 2026-11-10
+
+### Added
+
+- **Canonical JSON**: `goneat canon jcs` writes RFC 8785 (JCS) canonical bytes from a file or standard input, using the pure-Go `github.com/3leaps/canonprims` library. `--check`, `--digest` (`sha256:<hex>`) and `--vector` select other outputs; `--ndjson-array` (with `--head N`) and `--sort-set` build canonical arrays and sets. Input limits are configurable and refusals carry stable identifiers. `goneat canon info` describes the scheme and its conformance corpus. See [canon](docs/user-guide/commands/canon.md).
+
 ### Changed
 
 - **Schema validation**: schemas used to validate data (`schema validate-data`, `validate suite`, the config-to-schema checks of the `schema` assessment, and goneat's own config, hooks manifest and source SBOM checks) are compiled by one engine, [santhosh-tekuri/jsonschema](https://github.com/santhosh-tekuri/jsonschema) v6, replacing `gojsonschema`. `$schema` is always honoured for Draft-04, -06, -07, 2019-09 and 2020-12; schemas without `$schema` validate as Draft-07. `format` is asserted in every dialect, and unknown format names are schema errors. `$ref` resolves only within the schema, to `--ref-dir` schemas by `$id`, and to the built-in metaschemas; nothing is fetched. JSON data is read exactly. `schema validate-schema` checks schemas against the engine's built-in metaschemas. `validate-data` JSON output and `pkg/schema` results report the engine, dialect, dialect source, format mode and leap policy. Error messages use the engine's wording. See [Validation behaviour](docs/user-guide/commands/schema.md#validation-behaviour).
 - **Schema validation**: `date`, `time`, `date-time`, `email` and `idn-email` use goneat's own syntax checkers. `time` accepts second 60 only at UTC-equivalent 23:59:60; `date-time` also requires the last day of the UTC month. `idn-email` checks internationalized domain labels with UTS 46 registration validation plus goneat's hyphen and CONTEXTO rules. Extents are in [Owned format checkers](docs/user-guide/commands/schema.md#owned-format-checkers).
+- **Tools**: `advisory` in tool configuration is a per-platform map (`all`, `darwin`, `linux`, `windows`; a platform value, including `false`, overrides `all`). A missing advisory tool does not fail `doctor tools` or the tools assessment, and doctor prints install instructions instead of installing. Installed advisory tools still get version-policy checks. Linux minisign is advisory.
 
 ### Fixed
 
+- **Dependencies (cooling)**: a malformed exception `until` fails closed. `until` is read as literal text, including through YAML merge keys, and is exclusive at 00:00 UTC. A present but null, empty, malformed, wrong-typed or time-of-day `until` is a config error: the exception is dropped, an `exception_config_invalid` violation (high) is added, and it fails the gate even under `alert_only` or the grace period. Only an absent `until` means no expiry. Go dependency analysis reports cooling config errors as high `configuration` issues.
 - **Security (govulncheck)**: findings are downgraded only by explicit advisory IDs in `.goneat/dependencies.yaml`; goneat no longer builds in classification for a specific advisory. An allowlisted finding is reported as info only after a complete, successful run with consistent report evidence. Unlisted, expired, malformed or duplicate entries leave the finding high. The observation grade is kept in the report. When an allowlisted finding's advisory names a tagged fix release, goneat adds an info hint to upgrade. The check stays offline.
 
 ### Notes
 
+- Cooling exceptions with a malformed `until` that used to apply indefinitely no longer apply.
 - Repositories that relied on the built-in GO-2026-5932 classification must add an entry for it to `.goneat/dependencies.yaml`.
 - Schemas that were accepted before can now be refused: unknown `format` names, references outside the schema and `--ref-dir`, the unversioned `$schema` alias, and invalid schemas are reported as schema errors.
 - Data that previously passed can now fail: malformed dates and times, out-of-range offsets, misplaced leap seconds, invalid mailboxes, keywords next to `$ref` in 2020-12 schemas, inexact JSON numbers, and JSON with invalid UTF-8 or unpaired surrogate escapes.
@@ -186,17 +195,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pipeline hygiene) and includes `ruff` for Python format/lint parity with
   goneat v0.5.15 fail-closed formatter preflight, plus Go 1.26.5 and the v0.5.0
   CVE/tool sweep. Container-probe smoke now checks `ruff --version`.
-
-## [v0.5.15] - 2026-07-28
-
-### Fixed
-
-- **Standalone formatter coverage**: `goneat format` now fails when a required external formatter is unavailable, with `--ignore-missing-tools` as the explicit degradation path.
-- **Doctor upgrade verification**: Go-tool upgrades retain versions for binaries discovered outside PATH, re-resolve the active binary after installation, detect PATH shadowing, and honor configured CLI version probes.
-
-### Changed
-
-- **go-licenses v2 alignment**: maintained Make, CI, doctor, policy, embedded-default, and documentation surfaces now pin `github.com/google/go-licenses/v2@v2.0.1`.
-- **Tool configuration cleanup**: removed the deprecated hidden doctor defaults path; embedded foundation defaults initialize policy, while `.goneat/tools.yaml` remains the runtime source of truth.
-- **Dependency maintenance**: refreshed direct, security-sensitive, resolver, and Unicode dependencies while retaining the `go 1.25.0` module floor and existing MPL-2.0 exception for unmodified `filepath-securejoin`.
-- **Foundation recommendations**: refreshed recommended tool versions without raising minimum versions or changing the v0.4.2 CI runner; Syft 1.50.0 is a narrow named-High remediation exception, and Homebrew reached that version before release closeout.
