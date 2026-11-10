@@ -1,6 +1,8 @@
 package policy
 
 import (
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/fulmenhq/goneat/pkg/config"
@@ -49,36 +51,53 @@ func ParseCoolingConfig(policyData map[string]interface{}) (*config.CoolingConfi
 		GracePeriodDays:    3,
 	}
 
-	// Parse optional fields with type-safe extraction
-	if minAge, ok := coolingCfg["min_age_days"].(int); ok {
-		cfg.MinAgeDays = minAge
-	}
-	if minDownloads, ok := coolingCfg["min_downloads"].(int); ok {
-		cfg.MinDownloads = minDownloads
-	}
-	if minDownloadsRecent, ok := coolingCfg["min_downloads_recent"].(int); ok {
-		cfg.MinDownloadsRecent = minDownloadsRecent
+	// Parse optional fields with type-safe extraction. Invalid values are
+	// collected and reported; the default stays in place for that field.
+	var errs []error
+	for _, field := range []struct {
+		key string
+		dst *int
+	}{
+		{"min_age_days", &cfg.MinAgeDays},
+		{"min_downloads", &cfg.MinDownloads},
+		{"min_downloads_recent", &cfg.MinDownloadsRecent},
+		{"grace_period_days", &cfg.GracePeriodDays},
+	} {
+		raw, present := coolingCfg[field.key]
+		if !present || raw == nil {
+			continue
+		}
+		n, err := readInt(raw)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("cooling.%s: %w", field.key, err))
+			continue
+		}
+		*field.dst = n
 	}
 	if alertOnly, ok := coolingCfg["alert_only"].(bool); ok {
 		cfg.AlertOnly = alertOnly
 	}
-	if gracePeriod, ok := coolingCfg["grace_period_days"].(int); ok {
-		cfg.GracePeriodDays = gracePeriod
-	}
 
 	// Parse exceptions array
 	if exceptions, ok := coolingCfg["exceptions"].([]interface{}); ok {
-		cfg.Exceptions = parseExceptions(exceptions)
+		var excErrs []error
+		cfg.Exceptions, excErrs = parseExceptions(exceptions)
+		errs = append(errs, excErrs...)
 	}
 
-	return &cfg, nil
+	// cfg is always returned alongside any error so callers can keep running
+	// the remaining checks. Exceptions that failed to parse are not in cfg.
+	return &cfg, errors.Join(errs...)
 }
 
-// parseExceptions extracts cooling exception rules from raw policy data
-func parseExceptions(exceptions []interface{}) []config.CoolingException {
+// parseExceptions extracts cooling exception rules from raw policy data.
+// An exception with an invalid until is dropped (it never applies) and
+// reported in the returned errors, so a bad date fails closed.
+func parseExceptions(exceptions []interface{}) ([]config.CoolingException, []error) {
 	var result []config.CoolingException
+	var errs []error
 
-	for _, exc := range exceptions {
+	for i, exc := range exceptions {
 		excMap, ok := exc.(map[string]interface{})
 		if !ok {
 			continue
@@ -91,20 +110,30 @@ func parseExceptions(exceptions []interface{}) []config.CoolingException {
 		if reason, ok := excMap["reason"].(string); ok {
 			exception.Reason = reason
 		}
-		if until, ok := excMap["until"].(string); ok {
-			exception.Until = until
-		}
 		if approvedBy, ok := excMap["approved_by"].(string); ok {
 			exception.ApprovedBy = approvedBy
 		}
 
 		// Only add if pattern is present (minimum requirement)
-		if exception.Pattern != "" {
-			result = append(result, exception)
+		if exception.Pattern == "" {
+			continue
 		}
+
+		// An absent until means no expiry. A present until (including null)
+		// must be a valid date.
+		if rawUntil, present := excMap["until"]; present {
+			until, err := readUntil(rawUntil)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("cooling.exceptions[%d] (pattern %q) ignored: %w", i, exception.Pattern, err))
+				continue
+			}
+			exception.Until = until
+		}
+
+		result = append(result, exception)
 	}
 
-	return result
+	return result, errs
 }
 
 func parseLicenseExceptions(exceptions []interface{}) []config.LicenseException {

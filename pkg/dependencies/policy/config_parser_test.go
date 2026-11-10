@@ -333,7 +333,7 @@ func TestParseCoolingConfig_MalformedExceptions(t *testing.T) {
 
 func TestParseExceptions_EmptyArray(t *testing.T) {
 	exceptions := []interface{}{}
-	result := parseExceptions(exceptions)
+	result, _ := parseExceptions(exceptions)
 
 	if len(result) != 0 {
 		t.Errorf("Expected 0 exceptions, got %d", len(result))
@@ -350,7 +350,7 @@ func TestParseExceptions_AllFieldsPopulated(t *testing.T) {
 		},
 	}
 
-	result := parseExceptions(exceptions)
+	result, _ := parseExceptions(exceptions)
 
 	if len(result) != 1 {
 		t.Fatalf("Expected 1 exception, got %d", len(result))

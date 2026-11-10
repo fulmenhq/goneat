@@ -20,8 +20,6 @@ import (
 	"github.com/fulmenhq/goneat/pkg/registry"
 	"github.com/fulmenhq/goneat/pkg/safeio"
 	"github.com/fulmenhq/goneat/pkg/schema"
-
-	"gopkg.in/yaml.v3"
 )
 
 // GoAnalyzer implements Analyzer for Go dependencies.
@@ -164,23 +162,47 @@ func (a *GoAnalyzer) Analyze(ctx context.Context, target string, cfg AnalysisCon
 	if cfg.PolicyPath != "" {
 		policyData, err := os.ReadFile(cfg.PolicyPath)
 		if err == nil {
-			if err := yaml.Unmarshal(policyData, &policyConfig); err == nil {
+			if err := policy.UnmarshalPolicyYAML(policyData, &policyConfig); err == nil {
 				if _, ok := policyConfig["version"]; !ok {
 					policyConfig["version"] = "v1"
 				}
+				// rawPolicy keeps the decoded policy so cooling config errors are
+				// still reported when schema validation rejects the file.
+				rawPolicy := policyConfig
+				schemaOK := true
 				if result, vErr := schema.Validate(policyConfig, "dependencies-policy-v1.0.0"); vErr != nil {
 					logger.Warn("dependencies: policy schema validation error", logger.Err(vErr))
-					policyConfig = nil
+					policyConfig, schemaOK = nil, false
 				} else if !result.Valid {
 					logger.Warn("dependencies: policy failed schema validation")
-					policyConfig = nil
+					policyConfig, schemaOK = nil, false
 				}
 				if checkLicenses {
 					licenseCfg, _ = policy.ParseLicenseConfig(policyConfig)
 				}
 
 				if checkCooling {
-					if coolCfg, err := policy.ParseCoolingConfig(policyConfig); err == nil && coolCfg != nil && coolCfg.Enabled {
+					// Schema rejection must not hide a cooling config error: a
+					// non-scalar until (list, mapping) fails the schema, which
+					// would otherwise skip cooling and pass. Parse the decoded
+					// policy either way; the checker only runs on a schema-valid file.
+					coolSrc := policyConfig
+					if !schemaOK {
+						coolSrc = rawPolicy
+					}
+					coolCfg, coolErr := policy.ParseCoolingConfig(coolSrc)
+					if coolErr != nil {
+						// Invalid cooling config (for example a malformed exception
+						// until) is reported and fails the gate. The bad exception is
+						// already dropped from coolCfg, so it cannot exempt anything.
+						issues = append(issues, Issue{
+							Type:     "configuration",
+							Severity: "high",
+							Message:  fmt.Sprintf("Cooling policy configuration error in %s: %v", cfg.PolicyPath, coolErr),
+						})
+						passed = false
+					}
+					if schemaOK && coolCfg != nil && coolCfg.Enabled {
 						coolingChecker := cooling.NewChecker(*coolCfg)
 						for i := range deps {
 							dep := &deps[i]

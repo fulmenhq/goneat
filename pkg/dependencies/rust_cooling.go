@@ -13,7 +13,6 @@ import (
 	"github.com/fulmenhq/goneat/pkg/dependencies/policy"
 	"github.com/fulmenhq/goneat/pkg/logger"
 	"github.com/fulmenhq/goneat/pkg/registry"
-	"gopkg.in/yaml.v3"
 )
 
 // attachCratesIOMetadata stamps crates.io publish age onto Rust dependencies.
@@ -88,7 +87,7 @@ func loadPolicyConfig(path string) (map[string]interface{}, error) {
 		return nil, err
 	}
 	var policyConfig map[string]interface{}
-	if err := yaml.Unmarshal(data, &policyConfig); err != nil {
+	if err := policy.UnmarshalPolicyYAML(data, &policyConfig); err != nil {
 		return nil, err
 	}
 	if _, ok := policyConfig["version"]; !ok {
@@ -178,7 +177,8 @@ func recordCoolingResult(issues *[]Issue, passed *bool, dep *Dependency, result 
 		if violation.Type != "" {
 			message = fmt.Sprintf("[%s] %s", violation.Type, violation.Message)
 		}
-		if result.InGracePeriod {
+		// An invalid exception is a hard configuration failure, not a grace warning.
+		if result.InGracePeriod && violation.Type != cooling.ExceptionConfigViolation {
 			message = "[grace] " + message
 		}
 		*issues = append(*issues, Issue{

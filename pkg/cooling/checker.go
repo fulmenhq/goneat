@@ -13,11 +13,12 @@ import (
 // Checker validates packages against cooling policy
 type Checker struct {
 	config config.CoolingConfig
+	now    func() time.Time // clock; tests replace it
 }
 
 // NewChecker creates a new cooling checker
 func NewChecker(cfg config.CoolingConfig) *Checker {
-	return &Checker{config: cfg}
+	return &Checker{config: cfg, now: time.Now}
 }
 
 // Violation represents a cooling policy violation
@@ -34,6 +35,9 @@ type ViolationType string
 const (
 	AgeViolation      ViolationType = "age_violation"
 	DownloadViolation ViolationType = "download_violation"
+	// ExceptionConfigViolation reports a matching exception whose configuration
+	// is invalid (for example a malformed until). The exception is not applied.
+	ExceptionConfigViolation ViolationType = "exception_config_invalid"
 )
 
 type Severity string
@@ -65,8 +69,10 @@ func (c *Checker) Check(dep *types.Dependency) (*CheckResult, error) {
 		return &CheckResult{Passed: true}, nil
 	}
 
-	// Check if exception applies
-	if c.isException(dep.Name) {
+	// Check if exception applies. An invalid exception never applies and is
+	// reported as a violation so the bad configuration cannot go unnoticed.
+	exempt, exceptionErrs := c.isException(dep.Name)
+	if exempt {
 		return &CheckResult{
 			Passed:      true,
 			IsException: true,
@@ -74,6 +80,14 @@ func (c *Checker) Check(dep *types.Dependency) (*CheckResult, error) {
 	}
 
 	var violations []Violation
+	for _, excErr := range exceptionErrs {
+		violations = append(violations, Violation{
+			Type:     ExceptionConfigViolation,
+			Severity: SeverityHigh,
+			Message: fmt.Sprintf("Cooling exception for package %s is invalid and was not applied: %v",
+				dep.Name, excErr),
+		})
+	}
 
 	// Age is required for cooling. Missing age_days is fail-closed (not a pass).
 	// Go always stamps age_days (including a 365-day fallback on registry errors);
@@ -141,6 +155,12 @@ func (c *Checker) Check(dep *types.Dependency) (*CheckResult, error) {
 		// Alert-only mode or grace period - don't fail the check
 		passed = true
 	}
+	// An invalid exception is a configuration error, not a cooling finding:
+	// it fails the gate regardless of alert-only or grace. Age and download
+	// violations are still evaluated under the normal settings above.
+	if len(exceptionErrs) > 0 {
+		passed = false
+	}
 
 	result := &CheckResult{
 		Passed:        passed,
@@ -151,21 +171,46 @@ func (c *Checker) Check(dep *types.Dependency) (*CheckResult, error) {
 	return result, nil
 }
 
-// isException checks if package matches exception patterns
-func (c *Checker) isException(pkgName string) bool {
+// clock returns the current time; a zero-value Checker uses the system clock.
+func (c *Checker) clock() time.Time {
+	if c.now != nil {
+		return c.now()
+	}
+	return time.Now()
+}
+
+// isException reports whether pkgName is covered by a valid exception.
+// An exception whose until is malformed does not apply. Every matching
+// exception is evaluated: if any of them has an unparseable until, none
+// exempts the package (fail closed) and each bad one is returned so the caller
+// can report it. An exception applies strictly before its until date (00:00 UTC); expired
+// exceptions are skipped silently.
+func (c *Checker) isException(pkgName string) (bool, []error) {
+	var errs []error
+	exempt := false
 	for _, exc := range c.config.Exceptions {
-		if c.matchesPattern(pkgName, exc.Pattern) {
-			// Check if time-limited exception is still valid
-			if exc.Until != "" {
-				until, err := time.Parse("2006-01-02", exc.Until)
-				if err == nil && time.Now().After(until) {
-					continue // Exception expired
-				}
-			}
-			return true
+		if !c.matchesPattern(pkgName, exc.Pattern) {
+			continue
+		}
+		if exc.Until == "" {
+			exempt = true // No expiry: permanent exception
+			continue
+		}
+		until, err := ParseExceptionUntil(exc.Until)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("pattern %q: %w", exc.Pattern, err))
+			continue
+		}
+		// until is exclusive: the exception stops applying at 00:00:00 UTC on
+		// that date.
+		if c.clock().UTC().Before(until) {
+			exempt = true
 		}
 	}
-	return false
+	if len(errs) > 0 {
+		return false, errs
+	}
+	return exempt, nil
 }
 
 // matchesPattern implements glob-style pattern matching
