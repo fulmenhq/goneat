@@ -3,7 +3,7 @@ title: "Go Module Requirement Floors Survive go mod tidy"
 description: "Indirect requirements kept only to raise a module's minimum version are recorded here and restored after any go mod tidy"
 author: "goneat contributors"
 date: "2026-10-12"
-last_updated: "2026-10-12"
+last_updated: "2026-11-11"
 status: "approved"
 tags:
   - "dependencies"
@@ -35,11 +35,12 @@ A **requirement floor** is an `// indirect` requirement in goneat's `go.mod` tha
 
 ### Current floors
 
-| Requirement                        | Old version otherwise selected       | Required by              | Advisory            |
-| ---------------------------------- | ------------------------------------ | ------------------------ | ------------------- |
-| `golang.org/x/oauth2 v0.27.0`      | `v0.0.0-20180821212333-d2e6202438be` | `google.golang.org/grpc` | GHSA-6v2p-p543-phr9 |
-| `github.com/golang/glog v1.2.4`    | `v0.0.0-20160126235308-23def4e6c14b` | `google.golang.org/grpc` | GHSA-6wxm-mpqj-6jpf |
-| `github.com/yuin/goldmark v1.7.17` | `v1.4.13`                            | `golang.org/x/tools`     | GO-2026-5320        |
+| Requirement                             | Old version otherwise selected       | Required by                                  | Advisory            |
+| --------------------------------------- | ------------------------------------ | -------------------------------------------- | ------------------- |
+| `golang.org/x/oauth2 v0.27.0`           | `v0.0.0-20180821212333-d2e6202438be` | `google.golang.org/grpc`                     | GHSA-6v2p-p543-phr9 |
+| `github.com/golang/glog v1.2.4`         | `v0.0.0-20160126235308-23def4e6c14b` | `google.golang.org/grpc`                     | GHSA-6wxm-mpqj-6jpf |
+| `github.com/yuin/goldmark v1.7.17`      | `v1.4.13`                            | `golang.org/x/tools`                         | GO-2026-5320        |
+| `github.com/klauspost/compress v1.20.2` | `v1.19.1`                            | `github.com/dgraph-io/badger/v4` (OPA tests) | GO-2026-6865        |
 
 `go.mod` also lists `cloud.google.com/go` and `cloud.google.com/go/compute/metadata` as `// indirect`. They are not floors. They are requirements of the floor modules that Go records because of module graph pruning. They stay while the floors stay and leave with them.
 
@@ -48,7 +49,7 @@ Tidy also promotes modules that goneat imports directly, such as `golang.org/x/s
 ### Checking a tidy
 
 ```bash
-GOTOOLCHAIN=go1.26.10 go mod tidy -diff
+GOTOOLCHAIN=go1.26.11 go mod tidy -diff
 ```
 
 A `-` line for a requirement in the table, or for one of its recorded requirements, is expected. Every other line should be applied.

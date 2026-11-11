@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.6.9] - 2026-11-11
+
+### Changed
+
+- **Go**: the module line, repository minimum, CI and release reference are Go 1.26.11. Foundation defaults recommend 1.26.11 and retain their generic Go 1.21.0 minimum.
+- **SBOM tools**: minimum and recommended versions are Syft 1.57.1 and Grype 0.121.3.
+- **gosec**: the recommended version and cloud bootstrap pin are 2.30.0. The interim unreleased Go 1.27 workaround is retired; release builds remain on Go 1.26.11.
+- **CI**: runner images use digest-pinned fulmen-toolbox v0.5.15 references.
+
+### Security
+
+- **Dependencies**: an explicit `github.com/klauspost/compress v1.20.2` requirement floor removes GO-2026-6865 from the selected module graph. The existing GO-2026-5932 not-imported exception is unchanged.
+
 ## [v0.6.8] - 2026-11-10
 
 ### Added
@@ -184,14 +197,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **YAML format precedence**: format targeting now honors explicit `--files` over YAML precedence fixtures (#30).
 - **Lint**: removed an unnecessary guard around `delete` in `pkg/dependencies/rust_cooling.go`; `make lint` is clean.
-
-## [v0.5.16] - 2026-08-03
-
-### Changed
-
-- **CI tools runner pin**: `.github/workflows/ci.yml` container jobs now use
-  `ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.1` (was `:v0.4.2`). That image
-  is the fulmen-toolbox v0.5.0 content cut (republished as v0.5.1 for release-
-  pipeline hygiene) and includes `ruff` for Python format/lint parity with
-  goneat v0.5.15 fail-closed formatter preflight, plus Go 1.26.5 and the v0.5.0
-  CVE/tool sweep. Container-probe smoke now checks `ruff --version`.
