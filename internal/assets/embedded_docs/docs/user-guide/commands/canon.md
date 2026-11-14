@@ -4,6 +4,9 @@
 using the pure-Go `github.com/3leaps/canonprims/canon` library. It needs no
 external command or CGo runtime.
 
+The upstream standalone binary is named `canonprims` from v0.1.5 onward.
+The Go package path and goneat's `canon` subcommand are unchanged.
+
 ## Usage
 
 ```bash
@@ -67,7 +70,7 @@ ordinary JCS preserves array order.
 
 ## Limits and input refusals
 
-Defaults follow canonprims v0.1.4:
+Defaults follow canonprims v0.1.5:
 
 | Flag                   | Default           | Meaning                                                         |
 | ---------------------- | ----------------- | --------------------------------------------------------------- |
