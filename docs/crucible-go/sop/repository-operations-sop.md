@@ -24,13 +24,14 @@ This SOP defines the operational guidelines, safety protocols, and guardrails fo
 
 ## High-Risk Operations
 
-| Operation                              | Risk                          | Protocol                                                                                                    |
-| -------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Editing schemas/docs/templates in root | Breaking downstream consumers | Update root, run `bun run sync:to-lang`, verify tests, and ensure `make release-check` passes before merge. |
-| Version bumps                          | Package/version drift         | Use `bun run version:update` or `make version-set`. Never edit `VERSION` manually.                          |
-| Publishing Go/npm packages             | Releasing stale assets        | Confirm release checklist complete, run `make release-prepare`, obtain human approval, then tag/publish.    |
-| Deleting schemas or standards          | Downstream breakage           | Requires issue + maintainer review. Provide migration plan and version bump.                                |
-| Modifying CI workflows                 | Broken automation             | Review with @3leapsdave. Test in branch before merging.                                                     |
+| Operation                               | Risk                          | Protocol                                                                                                                                                                                                  |
+| --------------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Editing schemas/docs/templates in root  | Breaking downstream consumers | Update root, run `bun run sync:to-lang`, verify tests, and ensure `make release-check` passes before merge.                                                                                               |
+| Syncing from upstream (3leaps/crucible) | Schema/config drift           | Run `make upstream-sync-3leaps`, review diffs carefully, validate with `make upstream-validate`, update configs if breaking changes. See [Upstream Sync Consumer Guide](../ops/upstream-sync-consumer.md) |
+| Version bumps                           | Package/version drift         | Use `bun run version:update` or `make version-set`. Never edit `VERSION` manually.                                                                                                                        |
+| Publishing Go/npm packages              | Releasing stale assets        | Confirm release checklist complete, run `make release-prepare`, obtain human approval, then tag/publish.                                                                                                  |
+| Deleting schemas or standards           | Downstream breakage           | Requires issue + maintainer review. Provide migration plan and version bump.                                                                                                                              |
+| Modifying CI workflows                  | Broken automation             | Review with @3leapsdave. Test in branch before merging.                                                                                                                                                   |
 
 ## Commit and Push Checklists
 
@@ -59,7 +60,9 @@ This SOP defines the operational guidelines, safety protocols, and guardrails fo
 
 - [ ] Verify working tree is clean with `git status` (no unstaged or uncommitted files)
   - **Exception**: Emergency bypass with explicit maintainer approval and incident tracking
-- [ ] Run `make prepush` for the push gate with the reference Go on `PATH` and `GOTOOLCHAIN=go1.26.11`. The assess uses that `go` and does not set `GOTOOLCHAIN`. It is the same check-only assess as the git pre-push hook. Run `make test` for tests. `make release-check` is the release target.
+- [ ] For repositories adopting the check-only push profile, run `make prepush`, matching the git pre-push hook. The goneat command is `goneat assess --mode check --hook pre-push`; any additional manifest or scope arguments must also match. This gate must not run mutating formatting. Run full tests and release checks through their separate declared targets (`make test`, `make check-all`, or `make release-check` as applicable).
+- [ ] Use the consumer repository's declared reference toolchain. For Go, place that compiler on `PATH` and set the matching `GOTOOLCHAIN` where applicable; the assess command uses that compiler and does not select the reference toolchain for you.
+- [ ] Check the repository's actual target definitions before assuming this profile is adopted. Crucible's current legacy `prepush` depends on `precommit`, which runs sync and `check-all`; it is a preparation target and is not check-only or hook-equivalent. Run that preparation before the final clean-tree check. The consumer profile above does not change these legacy targets.
 - [ ] Review commit history to be pushed: `git log origin/main..HEAD`
 - [ ] Verify all commits have proper attribution (agent + supervisor)
 - [ ] Confirm push target is correct branch: `git branch --show-current`
@@ -74,13 +77,13 @@ This SOP defines the operational guidelines, safety protocols, and guardrails fo
 
 ### Common Pre-Operation Mistakes to Avoid
 
-| Mistake                                      | Impact                                             | Prevention                                                                                                                          |
-| -------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Committing with unstaged files (no approval) | Incomplete changes committed, confusion in history | Always check `git status` before commit; obtain approval for partial commits                                                        |
-| Pushing with dirty working tree              | Local changes not in remote, desync risk           | Run `git status` before push; ensure clean state                                                                                    |
-| Skipping quality gates                       | Broken code in main branch, failing CI             | Run `make prepush` before pushing, with reference Go 1.26.11 on `PATH` and `GOTOOLCHAIN=go1.26.11`. It matches the git pre-push hook. |
-| Not verifying operation results              | Failed operations go unnoticed, compounding issues | Always check return codes and run `git status` after operations                                                                     |
-| Committing without format/sync               | Format churn in subsequent builds                  | Ensure `make build` includes sync + format steps                                                                                    |
+| Mistake                                      | Impact                                             | Prevention                                                                                                                                              |
+| -------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Committing with unstaged files (no approval) | Incomplete changes committed, confusion in history | Always check `git status` before commit; obtain approval for partial commits                                                                            |
+| Pushing with dirty working tree              | Local changes not in remote, desync risk           | Run `git status` before push; ensure clean state                                                                                                        |
+| Skipping quality gates                       | Broken code in main branch, failing CI             | Follow the repository's declared gate profile and reference toolchain; check-only adopters run `make prepush`, with tests and release checks separately |
+| Not verifying operation results              | Failed operations go unnoticed, compounding issues | Always check return codes and run `git status` after operations                                                                                         |
+| Committing without format/sync               | Format churn in subsequent builds                  | Ensure `make build` includes sync + format steps                                                                                                        |
 
 ## Commit Message Style
 
@@ -145,9 +148,11 @@ fix: create symlinks instead of copies for type:link in bootstrap
 ### Commit Message Structure
 
 1. **Subject line**: Type prefix + imperative mood summary (≤50 chars)
+
    - Conventional commit types: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`
 
 2. **Body**: Paragraph format explaining what and why (wrap at 72 chars)
+
    - Focus on user-visible changes and rationale
    - Reference specific files/lines when helpful
    - Include verification notes if applicable

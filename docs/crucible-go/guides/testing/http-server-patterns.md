@@ -3,9 +3,9 @@ title: "HTTP Server Testing Patterns"
 description: "Compliance routing and practical patterns for HTTP server and fixture implementations"
 author: "entarch (AI)"
 date: "2026-01-09"
-last_updated: "2026-01-09"
+last_updated: "2026-01-12"
 status: "active"
-tags: ["guides", "testing", "http", "server", "fixture", "v0.4.5"]
+tags: ["guides", "testing", "http", "server", "fixture", "openapi", "v0.4.6"]
 ---
 
 # HTTP Server Testing Patterns
@@ -323,6 +323,69 @@ For `/range/{n}` endpoints that support HTTP Range requests:
 - `/bytes/{n}` may return random data (bulk transfer testing)
 - `/range/{n}` should NOT be random (correctness testing)
 
+## OpenAPI Verification
+
+Repositories that publish OpenAPI specifications should verify spec completeness via automated testing. Fixtures MUST implement coverage testing; workhorses SHOULD (if publishing an OpenAPI spec).
+
+### The Spec Drift Problem
+
+A common failure mode:
+
+1. Developer adds new endpoint to router
+2. Developer forgets to add OpenAPI annotations
+3. Generator produces partial spec (only annotated endpoints)
+4. Partial spec ships; consumers assume it's complete
+
+### Coverage Test Pattern
+
+Implement an automated test that compares registered routes against the spec:
+
+```go
+func TestOpenAPISpecCoverage(t *testing.T) {
+    specPath := "dist/openapi.yaml"
+    if _, err := os.Stat(specPath); os.IsNotExist(err) {
+        t.Skip("OpenAPI spec not found; run 'make openapi' first")
+    }
+
+    // Parse spec paths/methods
+    specRoutes := parseOpenAPISpec(t, specPath)
+
+    // Extract routes from router (e.g., parse server.go for mux.HandleFunc calls)
+    registeredRoutes := extractRouterRoutes(t, "internal/server/server.go")
+
+    // Compare (respecting intentional exclusions)
+    for _, route := range registeredRoutes {
+        if isExcluded(route) {
+            continue
+        }
+        if !specRoutes.Contains(route.Method, route.Path) {
+            t.Errorf("Route %s %s not documented in OpenAPI spec", route.Method, route.Path)
+        }
+    }
+}
+```
+
+### CI Integration
+
+CI pipelines MUST generate the spec before running tests:
+
+```yaml
+- run: make openapi
+- run: make test # Coverage test now has artifact
+```
+
+### Intentional Exclusions
+
+Maintainers MAY exclude endpoints from coverage requirements:
+
+- Experimental endpoints (not yet stable)
+- Internal/admin endpoints (`/debug/pprof`)
+- Self-referential endpoints (`/openapi.yaml` itself)
+
+**Best practice**: All "going concern" endpoints intended for consumer use SHOULD be documented.
+
+See [ADR-0014: OpenAPI Spec Coverage Tests](../../architecture/decisions/ADR-0014-openapi-spec-coverage.md) for full rationale and cross-language patterns.
+
 ## Fixture Author Conformance Checklist
 
 For fixtures specifically, verify before release:
@@ -336,6 +399,8 @@ For fixtures specifically, verify before release:
 - [ ] `version` and `doctor` CLI commands implemented
 - [ ] Default behavior (no args) starts server
 - [ ] Port conflict detection with exit code 10
+- [ ] OpenAPI spec generated and served at `/openapi.yaml`
+- [ ] OpenAPI coverage test passes (all routes documented)
 
 ## Quick Reference: Endpoints and Patterns
 
