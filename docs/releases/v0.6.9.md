@@ -1,6 +1,6 @@
 # Goneat v0.6.9 — Go and Scanner Updates
 
-**Release Date**: 2026-11-11
+**Release Date**: 2026-11-18
 **Status**: Stable
 
 ## What Changed
