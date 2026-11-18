@@ -24,13 +24,13 @@ jobs:
         runner: [ubuntu-latest-x64-m, ubuntu-latest-arm64-m]
     runs-on: ${{ matrix.runner }}
     container:
-      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.14
+      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.15@sha256:8c6324556e0e8c951b0ad2225f1cb87fad13445b6dcbc83717ace41c6959608e
       # glibc runner image includes make/go/rust toolchains for both x64+arm64
       options: --user 1001
     env:
       GOPATH: /tmp/gopath
       GOMODCACHE: /tmp/gopath/pkg/mod
-      GOTOOLCHAIN: go1.26.10
+      GOTOOLCHAIN: go1.26.11
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -76,7 +76,7 @@ jobs:
         runner: [ubuntu-latest-x64-m, ubuntu-latest-arm64-m]
     runs-on: ${{ matrix.runner }}
     container:
-      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.14
+      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.15@sha256:8c6324556e0e8c951b0ad2225f1cb87fad13445b6dcbc83717ace41c6959608e
       # ghcr.io/fulmenhq/goneat-tools-runner-glibc runs as a non-root user.
       # GitHub mounts runner temp/work directories into the container
       # under /__w.
@@ -133,13 +133,13 @@ jobs:
         runner: [ubuntu-latest-x64-m, ubuntu-latest-arm64-m]
     runs-on: ${{ matrix.runner }}
     container:
-      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.14
+      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.15@sha256:8c6324556e0e8c951b0ad2225f1cb87fad13445b6dcbc83717ace41c6959608e
       # glibc runner image includes make/go/rust toolchains for both x64+arm64
       options: --user 1001
     env:
       GOPATH: /tmp/gopath
       GOMODCACHE: /tmp/gopath/pkg/mod
-      GOTOOLCHAIN: go1.26.10
+      GOTOOLCHAIN: go1.26.11
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -168,14 +168,22 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.26.10'
-      - name: Install gnupg and minisign
+          go-version: '1.26.11'
+      - name: Verify GnuPG and install pinned minisign
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y gnupg minisign
           gpg --version
-          minisign -v
+          tools_dir=$(mktemp -d "${RUNNER_TEMP}/goneat-crypto-tools.XXXXXX")
+          archive="${tools_dir}/minisign-0.11-linux.tar.gz"
+          curl -fsSL --retry 3 -o "${archive}" \
+            https://github.com/jedisct1/minisign/releases/download/0.11/minisign-0.11-linux.tar.gz
+          printf '%s  %s\n' \
+            f0a0954413df8531befed169e447a66da6868d79052ed7e892e50a4291af7ae0 \
+            "${archive}" | sha256sum -c -
+          tar -xzf "${archive}" -C "${tools_dir}" minisign-linux/x86_64/minisign
+          install -m 755 "${tools_dir}/minisign-linux/x86_64/minisign" "${tools_dir}/minisign"
+          echo "${tools_dir}" >> "${GITHUB_PATH}"
+          "${tools_dir}/minisign" -v
       - name: Run release-tag tests
         run: |
           set -euo pipefail

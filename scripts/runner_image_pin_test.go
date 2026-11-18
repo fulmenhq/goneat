@@ -10,10 +10,10 @@ import (
 
 // expectedGoneatToolsRunnerTag is the single fulmen-toolbox tag every
 // goneat-tools-runner image reference in .github/workflows must use.
-const expectedGoneatToolsRunnerTag = "v0.5.14"
+const expectedGoneatToolsRunnerTag = "v0.5.15"
 
 var goneatToolsRunnerImage = regexp.MustCompile(
-	`ghcr\.io/fulmenhq/goneat-tools-runner-(glibc|musl):([^\s"'#]+)`,
+	`ghcr\.io/fulmenhq/goneat-tools-runner-(glibc|musl):([^\s"'#@]+)`,
 )
 
 func TestGoneatToolsRunnerPinsShareExpectedTag(t *testing.T) {

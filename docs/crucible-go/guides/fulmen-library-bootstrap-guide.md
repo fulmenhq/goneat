@@ -272,12 +272,12 @@ check-all: build fmt lint test ## Run all quality checks
 	@echo "✅ All checks passed"
 
 .PHONY: precommit
-precommit: ## Same assess as the git pre-commit hook
+precommit: ## Consumer check-only pre-commit assessment
 	@goneat assess --mode check --hook pre-commit
 	@echo "✅ Pre-commit checks passed"
 
 .PHONY: prepush
-prepush: ## Same assess as the git pre-push hook
+prepush: ## Consumer check-only pre-push assessment
 	@goneat assess --mode check --hook pre-push
 	@echo "✅ Pre-push checks passed"
 
@@ -287,7 +287,23 @@ clean: ## Clean build artifacts
 	@echo "✅ Clean complete"
 ```
 
-`precommit` and `prepush` run `goneat assess --mode check`. The git hooks run that same assess and do not call `make`. `check-all` remains the broader target (`build`, `fmt`, `lint`, `test`). The dates check needs the full commit history.
+This example defines the check-only profile for adopting consumer repositories.
+Configure their hooks to invoke the corresponding commands directly:
+
+```bash
+# pre-commit hook
+goneat assess --mode check --hook pre-commit
+# pre-push hook
+goneat assess --mode check --hook pre-push
+```
+
+The hooks do not call `make`. If a consumer configures additional manifest,
+staging or package-mode arguments, keep those arguments identical in its hook
+and Make target. Existing generated hooks are not changed by this example.
+Keep build, formatting, linting and full tests under `check-all`. Check-only push
+validation must not rewrite files. Use the repository's declared reference
+toolchain; for Go, put that compiler on `PATH` and set the matching `GOTOOLCHAIN`
+where applicable. The dates check needs full commit history.
 
 ## Gitignore Patterns
 
@@ -601,7 +617,7 @@ make check-all
 # Pre-commit checks
 make precommit
 
-# Pre-push checks (comprehensive)
+# Check-only pre-push validation
 make prepush
 ```
 

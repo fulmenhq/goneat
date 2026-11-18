@@ -2,19 +2,23 @@
 title: "Interim gosec pin for Go 1.27"
 date: "2026-10-12"
 expires_at: null
-cleanup_status: pending
-closed_at: null
+cleanup_status: closed
+closed_at: "2026-11-11"
 ---
 
 # Interim gosec pin for Go 1.27
 
 On 2026-10-12 the latest gosec release is v2.29.0. It is built with `golang.org/x/tools` v0.49.0, which cannot read Go 1.27 export data. Under Go 1.27 every package fails to process.
 
+## Closure
+
+The recommended version is now released gosec v2.30.0, which uses `golang.org/x/tools` v0.52.0. The toolchain guide no longer recommends the unreleased commit. Export-data error detection remains in place.
+
 ## Documented pin
 
-`docs/user-guide/toolchains/go.md` documents `github.com/securego/gosec/v2@v2.29.1-0.20260930122349-9b318063d35c` (commit `9b318063d35cfc5cdf2456de3b92830270e80326` on the gosec main branch, unreleased), which is built with `golang.org/x/tools` v0.50.0. It was published 2026-09-30, which is past the cooling window. Under Go 1.27.2 it reports the same findings on this repository as v2.29.0 under Go 1.26.9.
+`docs/user-guide/toolchains/go.md` previously documented `github.com/securego/gosec/v2@v2.29.1-0.20260930122349-9b318063d35c` (commit `9b318063d35cfc5cdf2456de3b92830270e80326` on the gosec main branch, unreleased), which is built with `golang.org/x/tools` v0.50.0. It was published 2026-09-30, which is past the cooling window. Under Go 1.27.2 it reports the same findings on this repository as v2.29.0 under Go 1.26.9.
 
-`.goneat/tools.yaml` is unchanged. It still installs `@latest` and recommends a release version. The pin is documentation only.
+At adoption, `.goneat/tools.yaml` was unchanged and the pin was documentation only.
 
 ## Detection
 

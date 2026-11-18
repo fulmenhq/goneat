@@ -22,13 +22,13 @@
 # which can jump to a cached newer toolchain during `go install`. Pin
 # GOTOOLCHAIN to the module line in go.mod.
 set -euo pipefail
-export GOTOOLCHAIN="${GOTOOLCHAIN:-go1.26.10}"
+export GOTOOLCHAIN="${GOTOOLCHAIN:-go1.26.11}"
 
 # Pins: config/tools/foundation-tools-defaults.yaml recommended_version.
 # goimports has no recommended pin there; match go.mod's golang.org/x/tools.
 GOLANGCI_LINT_VERSION="v2.14.0"
 GOIMPORTS_VERSION="v0.51.0"
-GOSEC_VERSION="v2.28.0"
+GOSEC_VERSION="v2.30.0"
 GOVULNCHECK_VERSION="v1.6.0"
 YAMLFMT_VERSION="v0.21.0"
 SHFMT_VERSION="v3.13.1"

@@ -1,0 +1,26 @@
+{
+  "format": 1,
+  "repository": "fulmenhq/crucible",
+  "canonical_tag": "{tag}",
+  "companion_tags": [],
+  "notes": "release-notes/{tag}.md",
+  "assets": [
+    {
+      "name": "{tag}.tag.txt",
+      "role": "tag-attestation",
+      "required": true,
+      "multiplicity": 1,
+      "manifest": null,
+      "signature": "{tag}.tag.txt.minisig"
+    },
+    {
+      "name": "{tag}.tag.txt.minisig",
+      "role": "minisign-signature",
+      "required": true,
+      "multiplicity": 1,
+      "manifest": null,
+      "signs": "{tag}.tag.txt"
+    }
+  ],
+  "forge_source_archives": "not-maintainer-signed"
+}

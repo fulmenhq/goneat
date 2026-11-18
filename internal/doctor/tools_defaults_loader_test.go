@@ -87,17 +87,17 @@ func TestRecommendedToolVersionLock(t *testing.T) {
 		"actionlint":    {recommended: "1.7.12", defaultMinimum: "1.7.0", repositoryMinimum: "1.7.0"},
 		"biome":         {recommended: "2.5.5", defaultMinimum: "2.0.0", repositoryMinimum: "2.0.0"},
 		"gitleaks":      {recommended: "8.30.1"},
-		"go":            {recommended: "1.26.10", defaultMinimum: "1.21.0", repositoryMinimum: "1.26.10"},
+		"go":            {recommended: "1.26.11", defaultMinimum: "1.21.0", repositoryMinimum: "1.26.11"},
 		"go-licenses":   {recommended: "2.0.1", defaultMinimum: "2.0.1", repositoryMinimum: "2.0.1"},
 		"golangci-lint": {recommended: "2.14.0", defaultMinimum: "2.0.0", repositoryMinimum: "2.0.0"},
-		"gosec":         {recommended: "2.28.0", defaultMinimum: "2.18.0", repositoryMinimum: "2.18.0"},
+		"gosec":         {recommended: "2.30.0", defaultMinimum: "2.18.0", repositoryMinimum: "2.18.0"},
 		"govulncheck":   {recommended: "1.6.0", defaultMinimum: "1.0.0", repositoryMinimum: "1.0.0"},
-		"grype":         {recommended: "0.120.1", defaultMinimum: "0.120.1", repositoryMinimum: "0.120.1"},
+		"grype":         {recommended: "0.121.3", defaultMinimum: "0.121.3", repositoryMinimum: "0.121.3"},
 		"jq":            {recommended: "1.8.2", defaultMinimum: "1.7.0", repositoryMinimum: "1.7.0"},
 		"prettier":      {recommended: "3.9.6", defaultMinimum: "3.0.0", repositoryMinimum: "3.0.0"},
 		"ruff":          {recommended: "0.15.22", defaultMinimum: "0.8.0", repositoryMinimum: "0.8.0"},
 		"shfmt":         {recommended: "3.13.1"},
-		"syft":          {recommended: "1.54.1", defaultMinimum: "1.54.1", repositoryMinimum: "1.54.1"},
+		"syft":          {recommended: "1.57.1", defaultMinimum: "1.57.1", repositoryMinimum: "1.57.1"},
 		"yamlfmt":       {recommended: "0.21.0", defaultMinimum: "0.16.0", repositoryMinimum: "0.16.0"},
 		"yamllint":      {recommended: "1.38.0", defaultMinimum: "1.33.0", repositoryMinimum: "1.33.0"},
 		"yq":            {recommended: "4.53.3", defaultMinimum: "4.40.0", repositoryMinimum: "4.40.0"},
@@ -147,8 +147,8 @@ func TestScannerVersionPolicyBoundaries(t *testing.T) {
 		for _, scanner := range []struct {
 			name, pinned, older, previous, newer string
 		}{
-			{"syft", "1.54.1", "1.54.0", "1.53.0", "1.54.2"},
-			{"grype", "0.120.1", "0.120.0", "0.119.1", "0.120.2"},
+			{"syft", "1.57.1", "1.57.0", "1.56.0", "1.57.2"},
+			{"grype", "0.121.3", "0.121.2", "0.121.1", "0.121.4"},
 		} {
 			t.Run(surface+"/"+scanner.name, func(t *testing.T) {
 				declared, ok := config.GetTool(scanner.name)
