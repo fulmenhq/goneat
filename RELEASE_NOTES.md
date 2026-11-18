@@ -9,6 +9,11 @@
 - **Syft 1.57.1 and Grype 0.121.3** are the minimum and recommended SBOM tool versions in both repository configuration and embedded defaults.
 - **gosec 2.30.0** is the recommended version and cloud bootstrap pin. The interim unreleased Go 1.27 workaround is retired. The minimum gosec version remains 2.18.0.
 - **CI runner images** use digest-pinned fulmen-toolbox v0.5.15 references.
+- **Crucible v0.5.0** is the vendored SSOT version for `config/crucible-go`, `docs/crucible-go`, `schemas/crucible-go` and the embedded copies, replacing v0.4.5.
+
+## Fixed
+
+- The vendored Crucible schema `schemas/crucible-go/config/standards/v1.0.0/adr-lifecycle-status.json` is now a valid Draft 2020-12 schema. Its status descriptions and sort order moved from `/definitions` to `/x-adr-metadata`. Readers of the raw schema must use the new pointers.
 
 ## Security
 
@@ -18,7 +23,6 @@ The existing GO-2026-5932 not-imported exception is unchanged. It covers `golang
 
 ## Known Issues
 
-- The vendored Crucible schema `schemas/crucible-go/config/standards/v1.0.0/adr-lifecycle-status.json` is not a valid Draft 2020-12 schema. The correction belongs upstream in Crucible and will be synced in a later release.
 - A Go registry lookup can report `age_unknown` for `github.com/ProtonMail/go-crypto`. That flag means publication age has not been verified by the analyzer; a fallback age is not verified release metadata.
 
 ## Upgrading

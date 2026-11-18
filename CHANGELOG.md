@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **SBOM tools**: minimum and recommended versions are Syft 1.57.1 and Grype 0.121.3.
 - **gosec**: the recommended version and cloud bootstrap pin are 2.30.0. The interim unreleased Go 1.27 workaround is retired; release builds remain on Go 1.26.11.
 - **CI**: runner images use digest-pinned fulmen-toolbox v0.5.15 references.
+- **Crucible**: vendored SSOT assets and their embedded copies are synced from Crucible v0.5.0, replacing v0.4.5.
+
+### Fixed
+
+- **Crucible schema**: the vendored ADR lifecycle status schema is a valid Draft 2020-12 schema. Its status descriptions and sort order moved from `/definitions` to `/x-adr-metadata`.
 
 ### Security
 
