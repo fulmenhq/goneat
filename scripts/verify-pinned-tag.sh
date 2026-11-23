@@ -9,9 +9,9 @@
 # name itself, point at a commit whose VERSION is the tag, carry exactly one
 # good, unexpired, unrevoked signature made by the pinned signing subkey of
 # the anchored primary, and (current layout) be tagged by the identity in
-# config/release/tagger-identity.txt. Tags v0.6.4 to v0.6.9 use the legacy pin
-# layout, which committed no tagger identity; their tagger is reported, not
-# compared.
+# config/release/tagger-identity.txt. Only tags v0.6.4 to v0.6.9 may use
+# the legacy pin layout (release-verify-anchors.sh enforces this), which
+# committed no tagger identity; their tagger is reported, not compared.
 #
 # Usage: verify-pinned-tag.sh TAG   (required; never derived)
 set -euo pipefail
@@ -42,7 +42,7 @@ work="$(mktemp -d)"
 trap 'gpgconf --homedir "$work/home" --kill all >/dev/null 2>&1 || true; rm -rf "$work"' EXIT
 chmod 700 "$work"
 mkdir -m 700 "$work/pins"
-"$root/scripts/release-verify-anchors.sh" "$target" "$work/pins" >/dev/null
+"$root/scripts/release-verify-anchors.sh" "$target" "$work/pins" "$tag" >/dev/null
 layout="$(cat "$work/pins/layout")"
 
 tagger="$(git cat-file tag "$object" | sed -n '/^$/q; s/^tagger \(.*\) [0-9][0-9]* [+-][0-9][0-9][0-9][0-9]$/\1/p')"

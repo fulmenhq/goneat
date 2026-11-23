@@ -538,15 +538,24 @@ def main():
         fx.retarget("v0.6.2", good)
         passed.append("working-tree-pin-ignored")
 
-        # --- Legacy layout (tags v0.6.4 to v0.6.9): text anchors only, verified
-        # by decernor; a release on that layout still verifies.
-        fx.commit_pin("v0.6.1", approved, approved_mini, layout="legacy")
-        legacy = fx.release("v0.6.1")
-        invoke(sign, "v0.6.1", legacy, env=signer(approved, approved_mini))
-        result = invoke(verify, "v0.6.1", legacy)
+        # --- Legacy layout: text anchors only, verified by decernor, and
+        # accepted only for the tags that shipped it (v0.6.4 to v0.6.9).
+        legacy_commit = fx.commit_pin(
+            "v0.6.5", approved, approved_mini, layout="legacy"
+        )
+        legacy = fx.release("v0.6.5")
+        invoke(sign, "v0.6.5", legacy, env=signer(approved, approved_mini))
+        result = invoke(verify, "v0.6.5", legacy)
         assert "legacy layout" in result.stdout, result.stdout
+        passed.append("legacy-layout-verifies")
+        # Any other tag on a legacy-layout commit is refused, before anchors.
         refused_at(
-            "legacy-anchor-mismatch-refused",
+            "legacy-layout-outside-v064-v069-refused",
+            legacy_commit,
+            "only tags v0.6.4 through v0.6.9",
+        )
+        fx.retarget(
+            "v0.6.5",
             fx.commit_pin(
                 "pin-legacy-anchor",
                 approved,
@@ -554,9 +563,16 @@ def main():
                 anchors=(approved, other_mini),
                 layout="legacy",
             ),
-            "committed pins differ from their anchors",
         )
-        passed.append("legacy-layout-verifies")
+        invoke(
+            verify,
+            "v0.6.5",
+            legacy,
+            False,
+            reason="committed pins differ from their anchors",
+        )
+        fx.retarget("v0.6.5", legacy_commit)
+        passed.append("legacy-anchor-mismatch-refused")
 
         # --- Signing refuses operator keys that differ from the pin.
         unsigned = fx.release("v0.6.9")

@@ -75,8 +75,9 @@ Tags `v0.6.4` through `v0.6.9` predate this layout: they commit
 `docs/security/release-minisign.pub` and text anchors only, and no tagger
 identity. The same tools verify them; decernor derives the records from the
 committed exports and checks the committed text anchors, and the tagger is
-reported, not compared. Tags up to and including `v0.6.3` carry no committed
-pin and are refused; see [release signing](release-signing.md#release-key-pin).
+reported, not compared. Only those six tags may use that layout; a later
+tag on a commit that still carries it is refused. Tags up to and including
+`v0.6.3` carry no committed pin and are refused; see [release signing](release-signing.md#release-key-pin).
 
 The tag workflow verifies the committed pins against their anchors and the tag
 signature against the pinned subkey, with the digest-pinned checker, in a

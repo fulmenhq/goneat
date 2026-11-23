@@ -380,7 +380,9 @@ its own commit.
 **Releases before this layout.** Tags `v0.6.4` through `v0.6.9` commit
 `docs/security/release-minisign.pub` and the text anchors only. The same targets
 verify them: decernor derives the records from the committed exports and checks
-the committed text anchors. Tags up to and including `v0.6.3` carry no pin, and
+the committed text anchors. Only those six tags may use that layout; any other
+tag on a commit that carries it is refused. Tags up to and including `v0.6.3`
+carry no pin, and
 verification refuses them rather than falling back. They were signed with the
 same keys as `v0.6.4`; verify one manually with the files committed at `v0.6.4`
 and the commands under [Verification Steps](#verification-steps-recommended).

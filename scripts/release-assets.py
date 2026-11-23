@@ -194,6 +194,16 @@ def pin_commit(ref):
     return result.stdout.strip()
 
 
+def release_tag_of(ref):
+    """The release tag a pin ref names, as a list for argv (empty otherwise)."""
+    name = ref.removeprefix("refs/tags/")
+    return (
+        [name]
+        if re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?", name)
+        else []
+    )
+
+
 @contextmanager
 def pinned_trust(ref):
     """Trust inputs built only from the public pin committed at ref.
@@ -214,7 +224,13 @@ def pinned_trust(ref):
         home.mkdir(mode=0o700)
         try:
             checked = subprocess.run(
-                ["bash", str(SCRIPTS / "release-verify-anchors.sh"), commit, str(pins)],
+                [
+                    "bash",
+                    str(SCRIPTS / "release-verify-anchors.sh"),
+                    commit,
+                    str(pins),
+                    *release_tag_of(ref),
+                ],
                 capture_output=True,
                 text=True,
                 check=False,

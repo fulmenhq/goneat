@@ -9,14 +9,17 @@
 # Two layouts exist, and a commit carries exactly one of them:
 #   current  docs/security/goneat-minisign.pub, keys/expected-fingerprints.txt
 #            and .ndjson, config/release/tagger-identity.txt
-#   legacy   docs/security/release-minisign.pub and keys/expected-fingerprints.txt
-#            (tags v0.6.4 through v0.6.9). decernor derives the records from
-#            the committed exports and verifies the committed text anchors.
+#   legacy   docs/security/release-minisign.pub and keys/expected-fingerprints.txt.
+#            Accepted only for the tags that shipped it, v0.6.4 through v0.6.9,
+#            named as TAG and resolving to COMMIT; any other commit carrying it
+#            is refused. decernor derives the records from the committed
+#            exports and verifies the committed text anchors.
 # Both carry docs/security/release-signing-keys.asc. Commits before v0.6.4
 # carry no pin and are refused.
 #
-# Usage: release-verify-anchors.sh COMMIT OUTPUT_DIR
-#   OUTPUT_DIR must be an existing, empty directory. The verified blobs are
+# Usage: release-verify-anchors.sh COMMIT OUTPUT_DIR [TAG]
+#   TAG is the release tag COMMIT is verified for; only a legacy-layout tag
+#   needs it. OUTPUT_DIR must be an existing, empty directory. The verified blobs are
 #   left there for the caller: anchors.txt, anchors.ndjson, pin.asc,
 #   minisign.pub, layout, and tagger-identity.txt (current layout only).
 set -euo pipefail
@@ -26,7 +29,10 @@ die() {
 	exit 1
 }
 
-[[ $# -eq 2 ]] || die 'usage: release-verify-anchors.sh COMMIT OUTPUT_DIR'
+[[ $# -eq 2 || $# -eq 3 ]] || die 'usage: release-verify-anchors.sh COMMIT OUTPUT_DIR [TAG]'
+tag="${3:-}"
+# The only tags whose commits carry the legacy pin layout.
+legacy_tags=" v0.6.4 v0.6.5 v0.6.6 v0.6.7 v0.6.8 v0.6.9 "
 commit_ref="$1"
 out="$2"
 root="$(cd "$(dirname "$0")/.." && pwd -P)"
@@ -60,6 +66,10 @@ elif [[ -n "$has_current" ]]; then
 	committed keys/expected-fingerprints.ndjson "$out/anchors.ndjson"
 	committed config/release/tagger-identity.txt "$out/tagger-identity.txt"
 elif [[ -n "$has_legacy" ]]; then
+	[[ -n "$tag" && "$legacy_tags" == *" $tag "* ]] ||
+		die "$commit carries the legacy pin layout, which only tags v0.6.4 through v0.6.9 may use${tag:+ (got $tag)}"
+	[[ "$(git rev-parse -q --verify "refs/tags/${tag}^{commit}")" == "$commit" ]] ||
+		die "legacy tag $tag does not resolve to $commit"
 	layout=legacy
 	committed "$legacy_pub" "$out/minisign.pub"
 else

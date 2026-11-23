@@ -20,7 +20,7 @@ insert() { (cd "$repo" && GONEAT_DECERNOR_BIN="$decernor" ./scripts/release-inse
 verify_at() {
 	local out
 	out="$(mktemp -d "$fixture_dir/pins.XXXXXX")"
-	(cd "$repo" && GONEAT_DECERNOR_BIN="$decernor" ./scripts/release-verify-anchors.sh "$1" "$out")
+	(cd "$repo" && GONEAT_DECERNOR_BIN="$decernor" ./scripts/release-verify-anchors.sh "$1" "$out" "${@:2}")
 }
 
 # The checker is required before anything is derived.
@@ -83,14 +83,23 @@ git -C "$repo" mv docs/security/goneat-minisign.pub docs/security/release-minisi
 git -C "$repo" rm -q keys/expected-fingerprints.ndjson config/release/tagger-identity.txt
 fixture_commit "$repo" legacy-layout
 legacy="$(git -C "$repo" rev-parse HEAD)"
-verify_at "$legacy" | grep -q 'legacy layout'
+# The legacy layout is accepted only for v0.6.4..v0.6.9, named and resolving
+# to the commit; anything else carrying it is refused.
+expect_fail_with 'only tags v0.6.4 through v0.6.9' verify_at "$legacy"
+git -C "$repo" tag v0.6.10 "$legacy"
+expect_fail_with 'only tags v0.6.4 through v0.6.9' verify_at "$legacy" v0.6.10
+git -C "$repo" tag v0.6.8 "$good"
+expect_fail_with 'does not resolve to' verify_at "$legacy" v0.6.8
+git -C "$repo" tag v0.6.9 "$legacy"
+verify_at "$legacy" v0.6.9 | grep -q 'legacy layout'
 cp "$repo/docs/security/release-minisign.pub" "$repo/docs/security/goneat-minisign.pub"
 fixture_commit "$repo" both-pins
 expect_fail_with 'carries both' verify_at HEAD
 git -C "$repo" rm -q docs/security/goneat-minisign.pub
 fixture_minisign_pub "$repo/docs/security/release-minisign.pub" 5
 fixture_commit "$repo" legacy-mismatch
-expect_fail_with 'differ from their anchors' verify_at HEAD
+git -C "$repo" tag v0.6.7 HEAD
+expect_fail_with 'differ from their anchors' verify_at HEAD v0.6.7
 git -C "$repo" rm -q docs/security/release-minisign.pub
 fixture_commit "$repo" no-pin
 expect_fail_with 'carries no committed minisign pin' verify_at HEAD
@@ -102,7 +111,7 @@ git -C "$repo" reset -q --hard "$good"
 git -C "$repo" rm -q config/release/tagger-identity.txt
 fixture_commit "$repo" no-tagger
 expect_fail_with 'tagger-identity.txt required' verify_at HEAD
-echo '[ok] layout controls passed (legacy verifies; both, neither, missing records or tagger refused)'
+echo '[ok] layout controls passed (legacy verifies only for v0.6.4..v0.6.9; both, neither, missing records or tagger refused)'
 
 # A missing committed export fails before any write.
 git -C "$repo" reset -q --hard "$good"

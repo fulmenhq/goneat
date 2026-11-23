@@ -105,10 +105,16 @@ git -C "$repo" reset -q --hard "$good"
 # Legacy layout (tags v0.6.4 to v0.6.9): verifies, tagger reported not compared.
 git -C "$repo" mv docs/security/goneat-minisign.pub docs/security/release-minisign.pub
 git -C "$repo" rm -q keys/expected-fingerprints.ndjson config/release/tagger-identity.txt
-printf 'v1.2.7\n' >"$repo/VERSION"
+printf 'v0.6.9\n' >"$repo/VERSION"
 fixture_commit "$repo" legacy
+tag v0.6.9 "$home" "$sign_a!" "Someone Else <$email>"
+verify v0.6.9 | grep -q 'legacy pin layout; tagger not compared'
+tag v0.6.9 "$home" "$sign_b!"
+expect_fail_with 'invalid under the pin' verify v0.6.9
+# A later tag on a commit that still carries the legacy layout is refused,
+# so the tagger comparison cannot be skipped by keeping the old file name.
+printf 'v1.2.7\n' >"$repo/VERSION"
+fixture_commit "$repo" legacy-after-v069
 tag v1.2.7 "$home" "$sign_a!" "Someone Else <$email>"
-verify v1.2.7 | grep -q 'legacy pin layout; tagger not compared'
-tag v1.2.7 "$home" "$sign_b!"
-expect_fail_with 'invalid under the pin' verify v1.2.7
+expect_fail_with 'only tags v0.6.4 through v0.6.9' verify v1.2.7
 echo '[ok] pinned tag controls passed'
