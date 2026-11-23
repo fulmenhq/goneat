@@ -224,7 +224,7 @@ guard_checker() {
 # and require the operator's key and tagger to be the committed ones.
 guard_committed_pin() {
 	local listing
-	PIN_WORK=$(mktemp -d)
+	PIN_WORK=$(mktemp -d /tmp/goneat-release-tag.XXXXXX) # short path: gpg agent socket length
 	mkdir -m 700 "${PIN_WORK}/pins" "${PIN_WORK}/home"
 	if ! "${SCRIPT_DIR}/release-verify-anchors.sh" HEAD "${PIN_WORK}/pins" >/dev/null; then
 		die "the release pins committed at HEAD do not verify against their anchors"
@@ -275,7 +275,7 @@ guard_tag_version() {
 	if [ "${GONEAT_RELEASE_TAG}" != "${expected}" ]; then
 		die "GONEAT_RELEASE_TAG (${GONEAT_RELEASE_TAG}) does not match VERSION (${expected})"
 	fi
-	if ! [[ "${expected}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(rc|beta|alpha)\.[0-9]+)?$ ]]; then
+	if ! [[ "${expected}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(rc|beta|alpha)\.[0-9]+)?$ ]]; then
 		die "VERSION (${expected}) is not vX.Y.Z[-(rc|beta|alpha).N]"
 	fi
 }

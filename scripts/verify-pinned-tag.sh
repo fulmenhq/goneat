@@ -38,7 +38,7 @@ target="$(git rev-parse "${object}^{commit}")"
 [[ "$(git cat-file blob "$target:VERSION" 2>/dev/null | tr -d '\r\n')" == "$tag" ]] ||
 	die "$tag does not match VERSION in the tagged commit"
 
-work="$(mktemp -d)"
+work="$(mktemp -d /tmp/goneat-verify-tag.XXXXXX)" # short path: gpg agent socket length
 trap 'gpgconf --homedir "$work/home" --kill all >/dev/null 2>&1 || true; rm -rf "$work"' EXIT
 chmod 700 "$work"
 mkdir -m 700 "$work/pins"

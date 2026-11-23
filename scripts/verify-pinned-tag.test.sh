@@ -117,4 +117,23 @@ printf 'v1.2.7\n' >"$repo/VERSION"
 fixture_commit "$repo" legacy-after-v069
 tag v1.2.7 "$home" "$sign_a!" "Someone Else <$email>"
 expect_fail_with 'only tags v0.6.4 through v0.6.9' verify v1.2.7
+# A primary that can itself sign (as the real release primary can) must not
+# satisfy the check: only the pinned signing subkey may sign the tag.
+sc_home="$fixture_dir/gpg-sc"
+mkdir -m 700 "$sc_home"
+gpg --homedir "$sc_home" --batch --pinentry-mode loopback --passphrase '' \
+	--quick-gen-key "$fixture_tagger" ed25519 sign,cert 1d >/dev/null 2>&1
+sc_primary="$(gpg --homedir "$sc_home" --batch --with-colons --list-keys 2>/dev/null | awk -F: '$1=="fpr" {print $10; exit}')"
+gpg --homedir "$sc_home" --batch --pinentry-mode loopback --passphrase '' \
+	--quick-add-key "$sc_primary" ed25519 sign 1d >/dev/null 2>&1
+sc_sub="$(gpg --homedir "$sc_home" --batch --with-colons --with-subkey-fingerprint --list-keys 2>/dev/null |
+	awk -F: '$1=="sub" {s=1; next} s && $1=="fpr" {print $10; exit}')"
+repo="$fixture_dir/repo-sc"
+fixture_repo "$repo" v1.2.8
+fixture_pins "$repo" "$sc_home" "$sc_sub" "$decernor"
+tag v1.2.8 "$sc_home" "$sc_sub!"
+verify v1.2.8 | grep -q "signed by pinned subkey $sc_sub of $sc_primary"
+tag v1.2.8 "$sc_home" "$sc_primary!"
+expect_fail_with 'not a single good signature by the pinned signing subkey' verify v1.2.8
+echo '[ok] a tag signed by a signing-capable primary is refused'
 echo '[ok] pinned tag controls passed'

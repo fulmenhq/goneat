@@ -57,7 +57,7 @@ BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 ifneq ($(origin RELEASE_TAG),undefined)
 $(error RELEASE_TAG is not accepted; set GONEAT_RELEASE_TAG=vX.Y.Z)
 endif
-REQUIRE_RELEASE_TAG = @python3 -c 'import os, re, sys; sys.exit(0 if re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+(-(rc|beta|alpha)\.[0-9]+)?", os.environ.get("GONEAT_RELEASE_TAG", "")) else "error: GONEAT_RELEASE_TAG=vX.Y.Z is required")'
+REQUIRE_RELEASE_TAG = @python3 -c 'import os, re, sys; sys.exit(0 if re.fullmatch(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(rc|beta|alpha)\.[0-9]+)?", os.environ.get("GONEAT_RELEASE_TAG", "")) else "error: GONEAT_RELEASE_TAG=vX.Y.Z is required")'
 
 .PHONY: help build hooks-ensure clean clean-go clean-testcache clean-vendor clean-coverage clean-os-metadata clean-backups clean-release clean-all test test-scripts fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites prerequisites-build-goneat prerequisites-check-go prerequisites-check-git prerequisites-check-tools prerequisites-install-tools sync-crucible sync-ssot verify-crucible verify-crucible-clean verify-schemas bootstrap tools lint release-check release-prepare release-build release-clean release-verify-checksums check-all pr-final prepush precommit update-homebrew-formula update-scoop-manifest verify-release-key release-tag release-tag-verify release-tag-push release-push test-release-tag local-ci-check local-ci all release-notes release-download release-checksums release-sign release-verify-signatures release-verify-pin release-insert-anchors release-verify-pinned-tag release-upload
 

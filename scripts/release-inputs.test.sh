@@ -79,6 +79,11 @@ for target in "${tag_targets[@]}"; do
 done
 make_refused 'tag with trailing text' 'GONEAT_RELEASE_TAG=vX.Y.Z is required' '' \
 	release-notes 'GONEAT_RELEASE_TAG=v0.6.9 extra'
+# The Makefile gate uses the verifier's canonical form (no leading zeros).
+make_refused 'tag with a leading zero' 'GONEAT_RELEASE_TAG=vX.Y.Z is required' '' \
+	release-notes 'GONEAT_RELEASE_TAG=v01.2.3'
+make_refused 'unknown prerelease label' 'GONEAT_RELEASE_TAG=vX.Y.Z is required' '' \
+	release-notes 'GONEAT_RELEASE_TAG=v0.6.9-dev.1'
 # Each target's refusal is its first recipe line, so nothing ran before it.
 if in_make '' -n release-upload GONEAT_RELEASE_TAG=v9.9.9 &&
 	! grep -q 'VERSION' "$work/out" && grep -q 'upload-release-assets.sh "$GONEAT_RELEASE_TAG"' "$work/out"; then

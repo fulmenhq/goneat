@@ -7,7 +7,7 @@ RELEASE_TAG=${GONEAT_RELEASE_TAG:-}
 
 # The tag is an explicit input and is used exactly as given; it is never
 # derived or normalized.
-if ! [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(rc|beta|alpha)\.[0-9]+)?$ ]]; then
+if ! [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(rc|beta|alpha)\.[0-9]+)?$ ]]; then
 	echo "GONEAT_RELEASE_TAG=vX.Y.Z is required" >&2
 	exit 1
 fi
