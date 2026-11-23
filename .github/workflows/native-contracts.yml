@@ -104,8 +104,8 @@ jobs:
           mkdir -p candidate-bin
           tar -xzf "candidate/goneat_${VERSION}_${TARGET//\//_}.tar.gz" -C candidate-bin goneat
           chmod +x candidate-bin/goneat
-          docker run --rm --entrypoint /work/goneat -v "$PWD/candidate-bin:/work:ro" ghcr.io/fulmenhq/goneat-tools-runner-musl:v0.5.15@sha256:f9f91bcc6799598a16d93bb76c74818f73d7d9c79aee5e0784646cd3d12520b3 version
-          docker run --rm --entrypoint /work/goneat -v "$PWD/candidate-bin:/work:ro" ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.15@sha256:8c6324556e0e8c951b0ad2225f1cb87fad13445b6dcbc83717ace41c6959608e version
+          docker run --rm --entrypoint /work/goneat -v "$PWD/candidate-bin:/work:ro" ghcr.io/fulmenhq/goneat-tools-runner-musl:v0.5.16@sha256:19a99e45dba9756de1817684bc00ab2874e29ec741e94ef3029bd06f30db9892 version
+          docker run --rm --entrypoint /work/goneat -v "$PWD/candidate-bin:/work:ro" ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.16@sha256:9bd9e41febba7c68ec0e1879fe92afb270a6779e29ea4fdee10fbd24c09e8a10 version
   required:
     if: always()
     needs: [candidate, native]

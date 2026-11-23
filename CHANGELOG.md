@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **canonprims**: updated to v0.1.5. The upstream standalone binary is now named `canonprims`; goneat's `canon` subcommand is unchanged.
+- **CI**: runner images use digest-pinned fulmen-toolbox v0.5.16 references.
+
 ## [v0.6.9] - 2026-11-20
 
 ### Changed

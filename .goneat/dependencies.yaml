@@ -149,6 +149,15 @@ cooling:
       approved_by: "@3leapsdave"
       approved_date: "2025-10-28"
 
+    - pattern: "github.com/3leaps/*"
+      reason: "First-party 3leaps Go modules are pre-vetted by maintainers"
+      approved_by: "@3leapsdave"
+      approved_date: "2026-11-14"
+    - pattern: "github.com/lanytehq/*"
+      reason: "First-party LanyteHQ Go modules are pre-vetted by maintainers"
+      approved_by: "@3leapsdave"
+      approved_date: "2026-11-14"
+
     # Estate crate-name prefixes (crates.io). Required for Rust cooling;
     # Go-style github.com/org/* patterns do not apply to crate names.
     - pattern: "3leaps-*"
