@@ -151,7 +151,8 @@ jobs:
           echo "Validates higher-friction path for non-container users"
             make install-probe
   # =============================================================================
-  # JOB 4: Release tag and signature tests (gpg/minisign required; a skip is a failure)
+  # JOB 4: Release tag, identity and signature tests (gpg, minisign and the
+  # digest-pinned decernor required; a skip is a failure)
   # =============================================================================
   release-tag-crypto:
     runs-on: ubuntu-latest-x64-m
@@ -184,6 +185,12 @@ jobs:
           install -m 755 "${tools_dir}/minisign-linux/x86_64/minisign" "${tools_dir}/minisign"
           echo "${tools_dir}" >> "${GITHUB_PATH}"
           "${tools_dir}/minisign" -v
+      - name: Install digest-pinned decernor
+        run: |
+          set -euo pipefail
+          tool_dir="$(mktemp -d "${RUNNER_TEMP}/decernor.XXXXXX")"
+          bin="$(bash scripts/release-fetch-decernor.sh linux_amd64 "${tool_dir}")"
+          echo "GONEAT_DECERNOR_BIN=${bin}" >> "${GITHUB_ENV}"
       - name: Run release-tag tests
         run: |
           set -euo pipefail
@@ -193,7 +200,9 @@ jobs:
             echo "::error::release-tag tests skipped"
             exit 1
           fi
-      - name: Check the committed release-key pin
+      - name: Check the committed release pins against their anchors
         run: make release-verify-pin
+      - name: Run release identity controls with fixture keys
+        run: make test-release-identity
       - name: Run release signature tests with fixture keys
         run: make test-release-assets-crypto
