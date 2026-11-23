@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **canonprims**: updated to v0.1.5. The upstream standalone binary is now named `canonprims`; goneat's `canon` subcommand is unchanged.
 - **CI**: runner images use digest-pinned fulmen-toolbox v0.5.16 references.
+- **Release tooling**: release public identity follows 3leaps/crucible PDR-0008. The minisign pin is `docs/security/goneat-minisign.pub` (published asset name unchanged), with `keys/expected-fingerprints.ndjson` and `config/release/tagger-identity.txt` beside the existing pins. decernor 0.1.8 or newer, bound through `GONEAT_DECERNOR_BIN`, derives and verifies the anchors; staging publishes the pins committed at the tag. Every tag-consuming target takes `GONEAT_RELEASE_TAG` and a bare `RELEASE_TAG` is refused. The tag workflow verifies each tag against its committed pin in a read-only job. `GONEAT_MINISIGN_PUB`, `GONEAT_RELEASE_TRUST`, `GONEAT_RELEASE_PIN_REF`, unprefixed signing variables and `make release-export-minisign-key` are removed.
 
 ## [v0.6.9] - 2026-11-20
 

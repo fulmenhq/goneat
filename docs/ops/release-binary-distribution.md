@@ -58,22 +58,26 @@ verifies both checksum algorithms before publishing local files. It refuses to
 overwrite existing assets. Do not run `release-checksums` on downloaded CI
 manifests; that target is only for generating new local candidate manifests.
 
-With separately approved signing credentials and independently approved public
-trust inputs outside `dist/release/`, sign and verify:
+With separately approved signing credentials outside `dist/release/`, sign and
+verify:
 
 ```bash
 make release-sign GONEAT_RELEASE_TAG=vX.Y.Z
 make release-verify-signatures GONEAT_RELEASE_TAG=vX.Y.Z
-make release-notes
-make release-upload
+make release-notes GONEAT_RELEASE_TAG=vX.Y.Z
+make release-upload GONEAT_RELEASE_TAG=vX.Y.Z
 ```
 
 `release-sign` stages both PGP and both minisign signatures, verifies all four,
 and only then publishes local signatures and public keys without overwriting
-existing outputs. Verification requires `GONEAT_GPG_HOMEDIR`,
-`GONEAT_PGP_KEY_ID`, and `GONEAT_MINISIGN_PUB` (or their unprefixed equivalents).
-Downloaded public keys must match those independent inputs; they cannot
-authorize themselves. See [release signing](../security/release-signing.md).
+existing outputs. Signing needs `GONEAT_GPG_HOMEDIR`, `GONEAT_PGP_KEY_ID` and
+`GONEAT_MINISIGN_KEY` (prefixed only). Every step that reads the public pins
+needs `GONEAT_DECERNOR_BIN`. The public keys are never taken from the
+environment: staging, verification and upload read the pins committed at the
+release tag and check them against their anchors with decernor, and the
+published key assets are those pins byte for byte. See
+[verifying a release](../security/README.md#verifying-a-release) and
+[release signing](../security/release-signing.md).
 
 `release-upload` supplements signatures, public keys and release notes only.
 Before any remote write, it verifies all four signatures, both manifests, and

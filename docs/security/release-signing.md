@@ -2,7 +2,7 @@
 
 **Status**: Active (Manual Signing - v0.3.3+)
 **Authority**: FulmenHQ Security Team
-**Last Updated**: 2026-10-13
+**Last Updated**: 2026-11-23
 
 ## Overview
 
@@ -26,11 +26,14 @@ Minisign key blob SHA-256: 3e5b64023230a308ee0876cb9d0693e44c3daac7afe38a064174e
 ```
 
 **Where the keys are published**: the repository is authoritative.
-`keys/expected-fingerprints.txt`, `docs/security/release-signing-keys.asc` and
-`docs/security/release-minisign.pub` at each release tag are the keys for that
-release (see [Release-key pin](#release-key-pin)). Copies attached to a GitHub
-release are a convenience; verify them against the repository, never on their
-own.
+`keys/expected-fingerprints.txt`, `keys/expected-fingerprints.ndjson`,
+`docs/security/release-signing-keys.asc` and `docs/security/goneat-minisign.pub`
+at each release tag are the keys for that release (see
+[Release-key pin](#release-key-pin) and
+[Verifying a release](README.md#verifying-a-release)). The copies attached to a
+GitHub release (`fulmenhq-release-signing-key.asc`,
+`fulmenhq-release-minisign.pub`) are those files byte for byte; verify them
+against the repository, never on their own.
 
 ### Extracting Key Information for Documentation
 
@@ -140,14 +143,15 @@ Goneat publishes release archives plus signed checksum manifests.
 1. **Download the checksum manifest, its signatures, and the keys from the repository**:
 
 ```bash
-RELEASE_VERSION="v0.6.4"  # example; tags through v0.6.3 predate the committed keys
+RELEASE_VERSION="vX.Y.Z"  # tags through v0.6.3 predate the committed keys
+MINISIGN_PIN="docs/security/goneat-minisign.pub"  # docs/security/release-minisign.pub for v0.6.4-v0.6.9
 BASE="https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}"
 KEYS="https://raw.githubusercontent.com/fulmenhq/goneat/${RELEASE_VERSION}"
 
 curl -LO "${BASE}/SHA256SUMS"
 curl -LO "${BASE}/SHA256SUMS.minisig"
 curl -LO "${BASE}/SHA256SUMS.asc"
-curl -L -o release-minisign.pub "${KEYS}/docs/security/release-minisign.pub"
+curl -L -o goneat-minisign.pub "${KEYS}/${MINISIGN_PIN}"
 curl -L -o release-signing-keys.asc "${KEYS}/docs/security/release-signing-keys.asc"
 curl -L -o expected-fingerprints.txt "${KEYS}/keys/expected-fingerprints.txt"
 curl -L -o verify-release-pgp.sh "${KEYS}/scripts/verify-release-pgp.sh"
@@ -155,14 +159,15 @@ curl -L -o verify-release-pgp.sh "${KEYS}/scripts/verify-release-pgp.sh"
 
 Compare `expected-fingerprints.txt` with the fingerprints in
 [Trust Model](#trust-model) before trusting it. The most complete check is a
-goneat checkout at the tag and `make release-verify-signatures`, which reads
-every key from the tag and checks all four signatures.
+goneat checkout with decernor 0.1.8 or newer (`GONEAT_DECERNOR_BIN`) and
+`make release-verify-signatures`, which reads every key from the tag, checks the
+keys against their anchors with decernor, and checks all four signatures.
 
 2. **Verify the checksum manifest signature**:
 
 ```bash
 # Minisign (required verification path)
-minisign -Vm SHA256SUMS -p release-minisign.pub
+minisign -Vm SHA256SUMS -p goneat-minisign.pub
 
 # PGP: throwaway keyring; requires a good, unexpired, unrevoked signature
 # by the pinned signing subkey. Do not reduce this to grepping gpg output.
@@ -199,7 +204,7 @@ Add to your CI/CD or installation scripts:
 #!/usr/bin/env bash
 set -euo pipefail
 
-RELEASE_VERSION="v0.6.4"
+RELEASE_VERSION="vX.Y.Z"
 ARCHIVE="goneat_${RELEASE_VERSION}_linux_amd64.tar.gz"
 BASE="https://github.com/fulmenhq/goneat/releases/download/${RELEASE_VERSION}"
 REPO="https://raw.githubusercontent.com/fulmenhq/goneat/${RELEASE_VERSION}"
@@ -208,12 +213,12 @@ for name in SHA256SUMS SHA256SUMS.asc SHA256SUMS.minisig "${ARCHIVE}"; do
     curl -fsSLO "${BASE}/${name}"
 done
 # Keys and the checker come from the repository at the tag, not the release.
-curl -fsSL -o release-minisign.pub "${REPO}/docs/security/release-minisign.pub"
+curl -fsSL -o goneat-minisign.pub "${REPO}/docs/security/goneat-minisign.pub"
 curl -fsSL -o release-signing-keys.asc "${REPO}/docs/security/release-signing-keys.asc"
 curl -fsSL -o expected-fingerprints.txt "${REPO}/keys/expected-fingerprints.txt"
 curl -fsSL -o verify-release-pgp.sh "${REPO}/scripts/verify-release-pgp.sh"
 
-minisign -Vm SHA256SUMS -p release-minisign.pub
+minisign -Vm SHA256SUMS -p goneat-minisign.pub
 bash verify-release-pgp.sh expected-fingerprints.txt release-signing-keys.asc SHA256SUMS.asc SHA256SUMS
 grep " ${ARCHIVE}\$" SHA256SUMS | shasum -a 256 --check -
 tar -xzf "${ARCHIVE}"
@@ -295,10 +300,10 @@ GONEAT_RELEASE_TAG=vX.Y.Z make release-verify-checksums
 
 ```bash
 GONEAT_RELEASE_TAG=vX.Y.Z \
-GONEAT_MINISIGN_KEY="$HOME/.minisign/fulmenhq-release.key" \
-GONEAT_MINISIGN_PUB="$HOME/.minisign/fulmenhq-release.pub" \
+GONEAT_DECERNOR_BIN="<absolute path to decernor 0.1.8 or newer>" \
+GONEAT_MINISIGN_KEY="<approved minisign secret key path>" \
 GONEAT_PGP_KEY_ID="<approved-signing-fingerprint-or-identity>" \
-GONEAT_GPG_HOMEDIR="${GNUPGHOME:-$HOME/.gnupg}" \
+GONEAT_GPG_HOMEDIR="<approved GPG homedir>" \
 make release-sign
 ```
 
@@ -315,17 +320,19 @@ gpg --list-keys --keyid-format LONG security@fulmenhq.dev
 
 Goneat signs the checksum manifests (not each archive individually). The signing helper:
 
-- writes `SHA256SUMS.asc` / `SHA512SUMS.asc` (PGP)
+- writes `SHA256SUMS.asc` / `SHA512SUMS.asc` (PGP, by the committed signing subkey)
 - writes `SHA256SUMS.minisig` / `SHA512SUMS.minisig` (minisign)
-- exports `fulmenhq-release-signing-key.asc` into `dist/release/`
-- verifies all four staged signatures before publishing any local outputs
+- writes the pins committed at the tag, byte for byte, as
+  `fulmenhq-release-signing-key.asc` and `fulmenhq-release-minisign.pub`
+- verifies all four staged signatures against the committed pin before
+  publishing any local outputs
 - refuses to overwrite existing signature/key outputs or modify original archives/manifests
 
-The approved GPG homedir/identity and minisign public-key path must be selected
-independently of downloaded release material and reside outside the release
-directory. Signing also requires that the operator's PGP primary and minisign
-public key match the committed release-key pin at the release tag, and it
-verifies the staged signatures against that pin before publishing any output.
+The approved GPG homedir and minisign secret key must reside outside the
+release directory. No public key is taken from the environment. Signing
+requires the operator's PGP primary to be the committed primary and signs with
+the committed signing subkey; a minisign secret key that does not match the
+committed minisign pin fails the staged verification, and nothing is kept.
 
 **Step 4: Verify Signatures Locally**
 
@@ -334,52 +341,58 @@ GONEAT_RELEASE_TAG=vX.Y.Z make release-verify-signatures
 GONEAT_RELEASE_TAG=vX.Y.Z make release-verify-key
 ```
 
-Verification and upload use the committed release-key pin by default (see
-[Release-key pin](#release-key-pin)) and need no operator trust variables.
+Verification and upload use only the committed release-key pin (see
+[Release-key pin](#release-key-pin)); they need `GONEAT_DECERNOR_BIN` and no
+operator signing variables.
 Missing tools, keys, manifests or any signature, incorrect signers and bad
 signatures fail nonzero. There is no warning-only successful verification.
 
 ### Release-key pin
 
-The public trust root for goneat releases is committed in the repository:
+The public trust root for goneat releases is committed in the repository
+(3leaps/crucible PDR-0008 layout):
 
 | File | Content |
 | ---- | ------- |
 | `keys/expected-fingerprints.txt` | `gpg <primary fingerprint>` then `minisign <sha256 of the key blob>` |
+| `keys/expected-fingerprints.ndjson` | decernor's fingerprint records for the same two keys |
 | `docs/security/release-signing-keys.asc` | Public PGP key: one primary and exactly one signing subkey |
-| `docs/security/release-minisign.pub` | Public minisign key |
+| `docs/security/goneat-minisign.pub` | Public minisign key |
+| `config/release/tagger-identity.txt` | The exact tagger identity for release tags |
 
-`make release-verify-signatures` reads these files as git objects from
-`refs/tags/<tag>`, never from the working tree. It imports the PGP key into a
-temporary keyring, checks both keys against the anchors, and then requires:
+Every release step reads these files as git objects from `refs/tags/<tag>`,
+never from the working tree or the environment. decernor, bound through
+`GONEAT_DECERNOR_BIN`, checks the exports against both anchors; goneat carries
+no second parser for these fingerprints. The PGP key is then imported into a
+temporary keyring, and verification requires:
 
 - each PGP signature is made by the pinned signing subkey of the pinned primary
 - each minisign signature verifies with the pinned minisign key
-- the public keys bundled with the release match the pin
+- the public keys bundled with the release are the pins, byte for byte
 
 The release tag must exist locally (`git fetch --tags`). Bundled release keys
-are compared with the pin and never trusted on their own.
+are compared with the pin and never trusted on their own. There is no
+environment override of the pin. `make release-verify-pin` checks the pins
+committed at `HEAD` (or `GONEAT_ANCHOR_COMMIT`) against their anchors; CI runs
+it on every change, and the tag workflow verifies every tag against the pin in
+its own commit.
 
-Overrides are explicit:
+**Releases before this layout.** Tags `v0.6.4` through `v0.6.9` commit
+`docs/security/release-minisign.pub` and the text anchors only. The same targets
+verify them: decernor derives the records from the committed exports and checks
+the committed text anchors. Tags up to and including `v0.6.3` carry no pin, and
+verification refuses them rather than falling back. They were signed with the
+same keys as `v0.6.4`; verify one manually with the files committed at `v0.6.4`
+and the commands under [Verification Steps](#verification-steps-recommended).
 
-| Variable | Effect |
-| -------- | ------ |
-| `GONEAT_RELEASE_PIN_REF` | Read the pin from another ref or commit, e.g. to check a release against a proposed rotation |
-| `GONEAT_RELEASE_TRUST=env` | Use the operator trust inputs (`GONEAT_GPG_HOMEDIR`, `GONEAT_PGP_KEY_ID`, `GONEAT_MINISIGN_PUB`) in place of the pin |
+**Anchors.** `make release-insert-anchors` derives both anchor files with
+decernor from the exports committed at `HEAD` (or `GONEAT_ANCHOR_COMMIT`), twice,
+compares the results, and refuses to overwrite existing anchors.
 
-Exported operator trust variables alone do not replace the pin.
-`make release-verify-pin` checks that the pin at `HEAD` (or
-`GONEAT_RELEASE_PIN_REF`) is self-consistent; CI runs it on every change.
-
-**Releases before the pin.** Tags up to and including v0.6.3 do not contain
-the pin files, and verification of those tags fails rather than falling back.
-To verify one, point at a commit that carries the pin for the keys in force at
-the time, for example `GONEAT_RELEASE_PIN_REF=refs/tags/v0.6.4` (v0.6.1–v0.6.3
-were signed with the same keys), or use `GONEAT_RELEASE_TRUST=env`.
-
-**Rotation.** Change all three files together in one reviewed PR, before the
-first release signed with the new keys. Releases tagged before the change keep
-verifying against the pin committed at their own tag.
+**Rotation.** Change the pins in one reviewed PR, before the first release
+signed with the new keys: remove the anchors, commit the new exports, run
+`make release-insert-anchors`, and commit the result. Releases tagged before
+the change keep verifying against the pin committed at their own tag.
 
 **✅ If Steps 1-4 succeed**: Request the next separately authorized release action
 **❌ If any step fails**: Fix issues before pushing
@@ -393,8 +406,8 @@ verifying against the pin committed at their own tag.
 **Using the verified supplement uploader**
 
 ```bash
-make release-notes
-make release-upload
+GONEAT_RELEASE_TAG=vX.Y.Z make release-notes
+GONEAT_RELEASE_TAG=vX.Y.Z make release-upload
 ```
 
 The uploader verifies both manifests, all four signatures, matching public keys,
@@ -426,8 +439,8 @@ KEYS="https://raw.githubusercontent.com/fulmenhq/goneat/${RELEASE_VERSION}/docs/
 
 curl -LO "${BASE}/SHA256SUMS"
 curl -LO "${BASE}/SHA256SUMS.minisig"
-curl -L -o release-minisign.pub "${KEYS}/release-minisign.pub"
-minisign -Vm SHA256SUMS -p release-minisign.pub
+curl -L -o goneat-minisign.pub "${KEYS}/goneat-minisign.pub"
+minisign -Vm SHA256SUMS -p goneat-minisign.pub
 
 # PGP verification: good, unexpired signature by the pinned signing subkey
 
