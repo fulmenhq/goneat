@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,7 +12,10 @@ import (
 
 // Tests for release-tag.sh. They generate throwaway keys in a temporary gpg
 // homedir and use a local bare repository as origin; no network and no real
-// signing key are involved. Skipped when git or gpg is unavailable.
+// signing key are involved. The fixture repository carries copies of the
+// release scripts and its own committed pin, anchors (derived by decernor) and
+// tagger identity. Skipped when git, gpg or decernor is unavailable, and
+// failed instead when GONEAT_REQUIRE_CRYPTO_TOOLS=1.
 
 const (
 	testTag         = "v1.2.3"
@@ -28,7 +32,45 @@ type releaseKeys struct {
 }
 
 // releaseTagTools are the external tools the release-tag tests need.
-var releaseTagTools = []string{"git", "gpg", "gpgconf", "bash"}
+var releaseTagTools = []string{"git", "gpg", "gpgconf", "bash", "python3"}
+
+// releaseTagScripts are copied into each fixture repository and committed, so
+// the scripts operate on the fixture exactly as they do on a goneat checkout.
+var releaseTagScripts = []string{
+	"release-tag.sh",
+	"release-decernor.sh",
+	"release-verify-anchors.sh",
+	"validate-release-anchors.sh",
+	"verify-pinned-tag.sh",
+	"release-insert-anchors.sh",
+	"install-release-anchors.sh",
+}
+
+// testDecernor locates the checker for the tests. The release scripts never
+// search PATH; the tests may, and pass the resolved absolute path explicitly.
+func testDecernor(t *testing.T) string {
+	t.Helper()
+	bin := os.Getenv("GONEAT_DECERNOR_BIN")
+	if bin == "" {
+		found, err := exec.LookPath("decernor")
+		if err != nil {
+			if os.Getenv("GONEAT_REQUIRE_CRYPTO_TOOLS") == "1" {
+				t.Fatalf("decernor unavailable and GONEAT_REQUIRE_CRYPTO_TOOLS=1 (set GONEAT_DECERNOR_BIN)")
+			}
+			t.Skip("decernor unavailable (set GONEAT_DECERNOR_BIN)")
+		}
+		bin = found
+	}
+	resolved, err := filepath.EvalSymlinks(bin)
+	if err != nil {
+		t.Fatalf("resolve decernor: %v", err)
+	}
+	abs, err := filepath.Abs(resolved)
+	if err != nil {
+		t.Fatalf("Abs decernor: %v", err)
+	}
+	return abs
+}
 
 // requireTools skips the test when a tool is missing, or fails it when
 // GONEAT_REQUIRE_CRYPTO_TOOLS=1 (set by the CI job that must run these tests).
@@ -126,20 +168,34 @@ func newReleaseKeys(t *testing.T) releaseKeys {
 }
 
 type releaseRepo struct {
-	t      *testing.T
-	keys   releaseKeys
-	origin string
-	clone  string
-	script string
-	vars   map[string]string
+	t        *testing.T
+	keys     releaseKeys
+	origin   string
+	clone    string
+	script   string
+	decernor string
+	vars     map[string]string
+}
+
+func writeFile(t *testing.T, path string, data []byte, mode os.FileMode) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(path, data, mode); err != nil {
+		t.Fatalf("WriteFile %s: %v", path, err)
+	}
+}
+
+// syntheticMinisignPub is a structurally valid minisign public key for tests.
+func syntheticMinisignPub(fill byte) []byte {
+	blob := append([]byte("Ed"), bytes.Repeat([]byte{fill}, 40)...)
+	return []byte("untrusted comment: synthetic public key\n" + base64.StdEncoding.EncodeToString(blob) + "\n")
 }
 
 func newReleaseRepo(t *testing.T, keys releaseKeys) *releaseRepo {
 	t.Helper()
-	script, err := filepath.Abs("release-tag.sh")
-	if err != nil {
-		t.Fatalf("Abs: %v", err)
-	}
+	decernor := testDecernor(t)
 	root := t.TempDir()
 	origin := filepath.Join(root, "origin.git")
 	clone := filepath.Join(root, "clone")
@@ -150,23 +206,48 @@ func newReleaseRepo(t *testing.T, keys releaseKeys) *releaseRepo {
 	run(t, clone, env, "git", "config", "user.email", "ambient@example.test")
 	run(t, clone, env, "git", "config", "commit.gpgsign", "false")
 	run(t, clone, env, "git", "checkout", "--quiet", "-b", "main")
-	if err := os.WriteFile(filepath.Join(clone, "VERSION"), []byte(testTag+"\n"), 0o600); err != nil {
-		t.Fatalf("WriteFile VERSION: %v", err)
+	writeFile(t, filepath.Join(clone, "VERSION"), []byte(testTag+"\n"), 0o600)
+	for _, name := range releaseTagScripts {
+		data, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatalf("ReadFile %s: %v", name, err)
+		}
+		writeFile(t, filepath.Join(clone, "scripts", name), data, 0o755)
 	}
-	run(t, clone, env, "git", "add", "VERSION")
+	// The committed pin: the primary plus exactly the signA signing subkey.
+	pin := run(t, "", cleanEnv(), "gpg", "--homedir", keys.home, "--batch", "--armor",
+		"--export-options", "export-minimal", "--export", keys.signA+"!")
+	writeFile(t, filepath.Join(clone, "docs", "security", "release-signing-keys.asc"), []byte(pin), 0o644)
+	writeFile(t, filepath.Join(clone, "docs", "security", "goneat-minisign.pub"), syntheticMinisignPub(7), 0o644)
+	writeFile(t, filepath.Join(clone, "config", "release", "tagger-identity.txt"),
+		[]byte(testTaggerName+" <"+testTaggerEmail+">\n"), 0o644)
+	run(t, clone, env, "git", "add", "-A")
 	run(t, clone, env, "git", "commit", "--quiet", "-m", "init")
+	run(t, clone, append(cleanEnv(), "GONEAT_DECERNOR_BIN="+decernor), "bash", "scripts/release-insert-anchors.sh")
+	run(t, clone, env, "git", "add", "keys")
+	run(t, clone, env, "git", "commit", "--quiet", "-m", "anchors")
 	run(t, clone, env, "git", "push", "--quiet", "origin", "main")
 
 	return &releaseRepo{
-		t: t, keys: keys, origin: origin, clone: clone, script: script,
+		t: t, keys: keys, origin: origin, clone: clone,
+		script: filepath.Join(clone, "scripts", "release-tag.sh"), decernor: decernor,
 		vars: map[string]string{
 			"GONEAT_RELEASE_TAG":  testTag,
+			"GONEAT_DECERNOR_BIN": decernor,
 			"GONEAT_PGP_KEY_ID":   keys.signA + "!",
 			"GONEAT_GPG_HOMEDIR":  keys.home,
 			"GONEAT_TAGGER_NAME":  testTaggerName,
 			"GONEAT_TAGGER_EMAIL": testTaggerEmail,
 		},
 	}
+}
+
+// commitAndPush records a change to the fixture on main and origin/main.
+func (r *releaseRepo) commitAndPush(message string) {
+	r.t.Helper()
+	r.git("add", "-A")
+	r.git("commit", "--quiet", "-m", message)
+	r.git("push", "--quiet", "origin", "main")
 }
 
 func (r *releaseRepo) env() []string {
@@ -242,7 +323,7 @@ func TestReleaseTagGuards(t *testing.T) {
 	requireTools(t, releaseTagTools...)
 	keys := newReleaseKeys(t)
 
-	for _, name := range []string{"GONEAT_RELEASE_TAG", "GONEAT_PGP_KEY_ID", "GONEAT_GPG_HOMEDIR", "GONEAT_TAGGER_NAME", "GONEAT_TAGGER_EMAIL"} {
+	for _, name := range []string{"GONEAT_RELEASE_TAG", "GONEAT_DECERNOR_BIN", "GONEAT_PGP_KEY_ID", "GONEAT_GPG_HOMEDIR", "GONEAT_TAGGER_NAME", "GONEAT_TAGGER_EMAIL"} {
 		t.Run("missing "+name, func(t *testing.T) {
 			r := newReleaseRepo(t, keys)
 			r.vars[name] = ""
@@ -276,6 +357,27 @@ func TestReleaseTagGuards(t *testing.T) {
 		{"email selector rejected", func(r *releaseRepo) { r.vars["GONEAT_PGP_KEY_ID"] = testTaggerEmail }, "must be a 40-hex fingerprint or 16-hex long key id"},
 		{"unknown key", func(r *releaseRepo) { r.vars["GONEAT_PGP_KEY_ID"] = strings.Repeat("A", 40) }, "does not match any key"},
 		{"unforced subkey rejected", func(r *releaseRepo) { r.vars["GONEAT_PGP_KEY_ID"] = keys.signA }, "names a subkey"},
+		{"relative checker path", func(r *releaseRepo) { r.vars["GONEAT_DECERNOR_BIN"] = "decernor" }, "absolute executable regular file"},
+		{"unprefixed checker variable ignored", func(r *releaseRepo) {
+			r.vars["GONEAT_DECERNOR_BIN"] = ""
+			r.vars["DECERNOR_BIN"] = r.decernor
+		}, "GONEAT_DECERNOR_BIN is required"},
+		{"tagger differs from committed identity", func(r *releaseRepo) { r.vars["GONEAT_TAGGER_NAME"] = "Someone Else" }, "do not match the committed tagger identity"},
+		{"forced subkey is not the committed signing subkey", func(r *releaseRepo) { r.vars["GONEAT_PGP_KEY_ID"] = keys.signB + "!" }, "not the committed signing subkey"},
+		{"committed anchors disagree with the pin", func(r *releaseRepo) {
+			path := filepath.Join(r.clone, "keys", "expected-fingerprints.txt")
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("ReadFile: %v", err)
+			}
+			lines := strings.SplitN(string(data), "\n", 2)
+			writeFile(t, path, []byte(lines[0]+"\nminisign "+strings.Repeat("0", 64)+"\n"), 0o644)
+			r.commitAndPush("edit anchors")
+		}, "do not verify against their anchors"},
+		{"committed pin replaced without new anchors", func(r *releaseRepo) {
+			writeFile(t, filepath.Join(r.clone, "docs", "security", "goneat-minisign.pub"), syntheticMinisignPub(9), 0o644)
+			r.commitAndPush("swap minisign pin")
+		}, "do not verify against their anchors"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -355,6 +457,29 @@ func TestReleaseTagSignatureChecks(t *testing.T) {
 		r.signWith(keys.foreign)
 		out, err := r.runScript("verify")
 		expectFail(t, out, err, "was signed under primary")
+	})
+
+	t.Run("operator-allowed subkey outside the pin fails the pinned check", func(t *testing.T) {
+		// signB is a live signing subkey of the operator's primary, so the
+		// operator keyring accepts it; the committed pin names only signA.
+		r := newReleaseRepo(t, keys)
+		r.vars["GONEAT_PGP_KEY_ID"] = keys.primary
+		r.signWith(keys.signB + "!")
+		out, err := r.runScript("verify")
+		// The operator check passes (and prints its verified line); the
+		// pinned check must then fail the command.
+		if err == nil || !strings.Contains(out, "signature is invalid under the pin") ||
+			!strings.Contains(out, "does not verify against the pin committed") {
+			t.Fatalf("expected the pinned check to refuse, got err=%v:\n%s", err, out)
+		}
+
+		out, err = r.runScript("push")
+		if err == nil || !strings.Contains(out, "does not verify against the pin committed") {
+			t.Fatalf("expected push to refuse, got err=%v:\n%s", err, out)
+		}
+		if r.remoteTagExists() {
+			t.Fatal("push published a tag signed outside the pin")
+		}
 	})
 
 	t.Run("tampered tag fails", func(t *testing.T) {
@@ -580,15 +705,18 @@ func TestReleaseTagHappyPath(t *testing.T) {
 		}
 	})
 
-	t.Run("unforced primary signs with a live subkey", func(t *testing.T) {
+	t.Run("unforced primary signs with the committed subkey", func(t *testing.T) {
 		r := newReleaseRepo(t, keys)
 		r.vars["GONEAT_PGP_KEY_ID"] = keys.primary
 		out, err := r.runScript("create")
 		if err != nil {
 			t.Fatalf("create: %v\n%s", err, out)
 		}
-		if !strings.Contains(out, "signer:  "+keys.signA) && !strings.Contains(out, "signer:  "+keys.signB) {
-			t.Fatalf("signer is not one of the primary's signing subkeys:\n%s", out)
+		if !strings.Contains(out, "signer:  "+keys.signA) {
+			t.Fatalf("signer is not the committed signing subkey %s:\n%s", keys.signA, out)
+		}
+		if !strings.Contains(out, "signed by pinned subkey "+keys.signA) {
+			t.Fatalf("pinned verification did not run:\n%s", out)
 		}
 	})
 }

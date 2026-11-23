@@ -5,8 +5,8 @@
 # Usage: scripts/push-to-remotes.sh <tag>
 #
 # Only the named tag is pushed; other local tags are never pushed. The tag is
-# verified first with scripts/release-tag.sh verify (needs the GONEAT_PGP_KEY_ID,
-# GONEAT_GPG_HOMEDIR and GONEAT_TAGGER_* settings). Each git push runs the
+# verified first with scripts/release-tag.sh verify (needs the GONEAT_DECERNOR_BIN,
+# GONEAT_PGP_KEY_ID, GONEAT_GPG_HOMEDIR and GONEAT_TAGGER_* settings). Each git push runs the
 # pre-push hook. For a release ceremony use make release-tag-push, which pushes
 # only the release tag and runs that same hook.
 

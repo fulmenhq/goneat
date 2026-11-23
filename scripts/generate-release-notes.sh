@@ -5,14 +5,11 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="$ROOT_DIR/dist/release"
 RELEASE_TAG=${GONEAT_RELEASE_TAG:-}
 
-if [[ -z "$RELEASE_TAG" ]]; then
-	echo "GONEAT_RELEASE_TAG is required (e.g. v0.4.5 or 0.4.5)" >&2
+# The tag is an explicit input and is used exactly as given; it is never
+# derived or normalized.
+if ! [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(rc|beta|alpha)\.[0-9]+)?$ ]]; then
+	echo "GONEAT_RELEASE_TAG=vX.Y.Z is required" >&2
 	exit 1
-fi
-
-# Normalize tag to include leading v
-if [[ "$RELEASE_TAG" != v* ]]; then
-	RELEASE_TAG="v${RELEASE_TAG}"
 fi
 
 NOTES_FILE="$ROOT_DIR/docs/releases/${RELEASE_TAG}.md"

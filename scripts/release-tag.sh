@@ -19,6 +19,8 @@ set -euo pipefail
 #
 # Env (operator machine, NOT CI):
 #   GONEAT_RELEASE_TAG   - tag to create/verify/push; must equal $(cat VERSION)
+#   GONEAT_DECERNOR_BIN  - absolute path to decernor >= 0.1.8; checks the
+#                           committed pins against their anchors (no fallback)
 #   GONEAT_PGP_KEY_ID    - signing key selector: 40-hex fingerprint or 16-hex
 #                           long key id, optionally suffixed with "!" to force
 #                           that exact (sub)key
@@ -26,6 +28,14 @@ set -euo pipefail
 #                           ambient keyring is never consulted
 #   GONEAT_TAGGER_NAME   - tagger name recorded on the tag
 #   GONEAT_TAGGER_EMAIL  - tagger email; must be a uid email on the key
+#   "NAME <EMAIL>" must equal config/release/tagger-identity.txt at HEAD.
+#
+# Committed pin (3leaps/crucible PDR-0008): before signing, the pins committed
+# at HEAD are checked against their anchors with decernor. The selected key
+# must belong to the anchored primary, and the tag is always signed by the
+# exact signing subkey in docs/security/release-signing-keys.asc. verify and
+# push also run scripts/verify-pinned-tag.sh, which checks the tag in an
+# isolated keyring built only from the pin committed in the tagged commit.
 #
 # Key selection rule:
 #   forced ("!")  the signature must be made by exactly the selected key
@@ -36,6 +46,8 @@ set -euo pipefail
 
 REMOTE=origin
 BRANCH=main
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "${SCRIPT_DIR}/.."
 
 die() {
 	echo "error: $*" >&2
@@ -185,6 +197,75 @@ require_tagger_uid() {
 	fi
 }
 
+# --- committed pin ---------------------------------------------------------
+
+PIN_WORK=""
+PIN_PRIMARY=""
+PIN_SUBKEY=""
+PIN_TAGGER=""
+
+cleanup_pin() {
+	if [ -n "${PIN_WORK}" ]; then
+		gpgconf --homedir "${PIN_WORK}/home" --kill all >/dev/null 2>&1 || true
+		rm -rf "${PIN_WORK}"
+	fi
+}
+trap cleanup_pin EXIT
+
+# The checker is resolved before any other step, so a missing or malformed
+# GONEAT_DECERNOR_BIN fails before any side effect.
+guard_checker() {
+	# shellcheck source=scripts/release-decernor.sh
+	source "${SCRIPT_DIR}/release-decernor.sh"
+	resolve_release_decernor || exit 1
+}
+
+# Read the pins committed at HEAD (verified against their anchors by decernor)
+# and require the operator's key and tagger to be the committed ones.
+guard_committed_pin() {
+	local listing
+	PIN_WORK=$(mktemp -d)
+	mkdir -m 700 "${PIN_WORK}/pins" "${PIN_WORK}/home"
+	if ! "${SCRIPT_DIR}/release-verify-anchors.sh" HEAD "${PIN_WORK}/pins" >/dev/null; then
+		die "the release pins committed at HEAD do not verify against their anchors"
+	fi
+	if [ "$(cat "${PIN_WORK}/pins/layout")" != current ]; then
+		die "HEAD must carry the committed pin layout (docs/security/goneat-minisign.pub)"
+	fi
+	PIN_PRIMARY=$(awk '$1 == "gpg" { print $2 }' "${PIN_WORK}/pins/anchors.txt")
+	PIN_TAGGER=$(cat "${PIN_WORK}/pins/tagger-identity.txt")
+	gpg --homedir "${PIN_WORK}/home" --batch --quiet --import "${PIN_WORK}/pins/pin.asc" 2>/dev/null ||
+		die "cannot import the committed release pin"
+	listing=$(gpg --homedir "${PIN_WORK}/home" --batch --with-colons --with-subkey-fingerprint --list-keys)
+	PIN_SUBKEY=$(printf '%s\n' "${listing}" | awk -F: '$1=="sub" {s=1; cap=$12; next} s && $1=="fpr" {if (cap ~ /s/) print $10; s=0}')
+	if ! [[ "${PIN_SUBKEY}" =~ ^[0-9A-F]{40}$ ]]; then
+		die "the committed release pin must hold exactly one signing subkey"
+	fi
+
+	if [ "${GONEAT_TAGGER_NAME} <${GONEAT_TAGGER_EMAIL}>" != "${PIN_TAGGER}" ]; then
+		die "GONEAT_TAGGER_NAME/GONEAT_TAGGER_EMAIL do not match the committed tagger identity (config/release/tagger-identity.txt)"
+	fi
+	if [ "${PRIMARY_FPR}" != "${PIN_PRIMARY}" ]; then
+		die "GONEAT_PGP_KEY_ID belongs to primary ${PRIMARY_FPR}, not the committed primary ${PIN_PRIMARY}"
+	fi
+	if [ "${FORCED}" = true ]; then
+		if [ "${SELECTED_FPR}" != "${PIN_SUBKEY}" ]; then
+			die "GONEAT_PGP_KEY_ID selects ${SELECTED_FPR}, not the committed signing subkey ${PIN_SUBKEY}"
+		fi
+	else
+		case " ${ALLOWED_SIGNERS} " in
+		*" ${PIN_SUBKEY} "*) ;;
+		*) die "the committed signing subkey ${PIN_SUBKEY} is not a live signing key in GONEAT_GPG_HOMEDIR" ;;
+		esac
+	fi
+}
+
+verify_pinned() {
+	if ! "${SCRIPT_DIR}/verify-pinned-tag.sh" "$1"; then
+		die "$1 does not verify against the pin committed in the tagged commit"
+	fi
+}
+
 # --- guards ----------------------------------------------------------------
 
 guard_tag_version() {
@@ -271,7 +352,7 @@ verify_tag() {
 
 	rc=0
 	status=$(GNUPGHOME="${GONEAT_GPG_HOMEDIR}" git -c gpg.format=openpgp -c gpg.program=gpg \
-		verify-tag --raw "${tag}" 2>&1) || rc=$?
+		-c gpg.openpgp.program=gpg verify-tag --raw "${tag}" 2>&1) || rc=$?
 	if [ "${rc}" -ne 0 ]; then
 		die "git verify-tag failed for ${tag} (exit ${rc})"
 	fi
@@ -310,6 +391,7 @@ verify_tag() {
 
 cmd_create() {
 	guard_tag_version
+	guard_checker
 	guard_repo_state
 	guard_tag_absent
 	guard_signing_vars
@@ -317,11 +399,10 @@ cmd_create() {
 	resolve_key
 	require_secret_key
 	require_tagger_uid
+	guard_committed_pin
 
-	local sign_key=${PRIMARY_FPR}
-	if [ "${FORCED}" = true ]; then
-		sign_key="${SELECTED_FPR}!"
-	fi
+	# The signer is pinned: always the committed signing subkey, exactly.
+	local sign_key="${PIN_SUBKEY}!"
 
 	# --cleanup=verbatim keeps the message byte-exact, so it must end in a
 	# newline; without one the signature is appended to the message line and
@@ -329,7 +410,7 @@ cmd_create() {
 	GNUPGHOME="${GONEAT_GPG_HOMEDIR}" \
 		GIT_COMMITTER_NAME="${GONEAT_TAGGER_NAME}" \
 		GIT_COMMITTER_EMAIL="${GONEAT_TAGGER_EMAIL}" \
-		git -c gpg.format=openpgp -c gpg.program=gpg \
+		git -c gpg.format=openpgp -c gpg.program=gpg -c gpg.openpgp.program=gpg \
 		tag -s -u "${sign_key}" --cleanup=verbatim \
 		"${GONEAT_RELEASE_TAG}" -m "Release ${GONEAT_RELEASE_TAG}"$'\n'
 
@@ -344,22 +425,28 @@ cmd_create() {
 
 cmd_verify() {
 	guard_tag_version
+	guard_checker
 	guard_signing_vars
 	normalize_selector "${GONEAT_PGP_KEY_ID}"
 	resolve_key
+	guard_committed_pin
 	verify_tag "${GONEAT_RELEASE_TAG}"
+	verify_pinned "${GONEAT_RELEASE_TAG}"
 }
 
 cmd_push() {
 	local tag=${GONEAT_RELEASE_TAG:-} local_obj head remote_refs remote_obj remote_target
 	guard_tag_version
+	guard_checker
 	tag=${GONEAT_RELEASE_TAG}
 	guard_repo_state
 	guard_signing_vars
 	normalize_selector "${GONEAT_PGP_KEY_ID}"
 	resolve_key
+	guard_committed_pin
 	guard_remote_tag_absent
 	verify_tag "${tag}"
+	verify_pinned "${tag}"
 
 	git push "${REMOTE}" "refs/tags/${tag}:refs/tags/${tag}"
 

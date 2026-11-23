@@ -2,6 +2,7 @@
 """Offline release fixtures: no production keys, network calls or publication."""
 
 import base64
+from contextlib import contextmanager
 import importlib.util
 import json
 import os
@@ -34,7 +35,7 @@ class ReleaseAssetsTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="goneat-release-fixture-")
         self.addCleanup(self.temporary.cleanup)
-        self.root = Path(self.temporary.name)
+        self.root = Path(self.temporary.name).resolve()
         self.release = self.root / "release"
         self.release.mkdir()
         self.names = ASSETS.archive_names(TAG)
@@ -49,34 +50,55 @@ class ReleaseAssetsTests(unittest.TestCase):
                 )
             )
         self.originals = self.names + list(ASSETS.MANIFESTS)
-        self.trusted = self.root / "trusted"
-        self.trusted.mkdir()
-        self.approved = self.root / "approved.pub"
+        # The committed pin, as release-verify-anchors.sh leaves it; the
+        # decernor-backed pin reader itself is exercised with real keys in
+        # test_release_assets_crypto.py.
+        self.pins = self.root / "pins"
+        self.pins.mkdir()
+        self.pin_pgp = self.pins / "pin.asc"
+        self.pin_pgp.write_text(PUBLIC)
+        self.approved = self.pins / "minisign.pub"
         self.approved.write_text(
             "untrusted comment: fixture\n"
             + base64.b64encode(b"Ed" + b"k" * 40).decode()
             + "\n"
         )
+        self.pin_home = self.root / "pin-gpg"
+        self.pin_home.mkdir()
+        self.operator_home = self.root / "operator-gpg"
+        self.operator_home.mkdir()
         self.private = self.root / "fixture.key"
         self.private.write_text("fixture only")
         self.calls = []
+        self.pin_refs = []
         self.crypto_failure = None
         self.signature_primary = PRIMARY
-        self.export_records = RECORDS
+        self.signature_subkey = SIGNER
+        self.operator_records = RECORDS
         environment = {
-            "GONEAT_GPG_HOMEDIR": str(self.trusted),
+            "GONEAT_GPG_HOMEDIR": str(self.operator_home),
             "GONEAT_PGP_KEY_ID": PRIMARY,
-            "GONEAT_MINISIGN_PUB": str(self.approved),
             "GONEAT_MINISIGN_KEY": str(self.private),
-            # Pin-mode behavior is covered with real keys and git objects in
-            # test_release_assets_crypto.py; these fixtures mock gpg itself.
-            "GONEAT_RELEASE_TRUST": "env",
         }
         self.addCleanup(patch.stopall)
         patch.dict(os.environ, environment, clear=True).start()
         patch.object(ASSETS, "tool").start()
+        patch.object(ASSETS, "pinned_trust", side_effect=self.pinned).start()
         self.real_run = ASSETS.run
         patch.object(ASSETS, "run", side_effect=self.crypto).start()
+
+    @contextmanager
+    def pinned(self, ref):
+        self.pin_refs.append(ref)
+        yield ASSETS.Trust(
+            home=self.pin_home,
+            primary=PRIMARY,
+            subkey=SIGNER,
+            pgp=self.pin_pgp,
+            minisign=self.approved,
+            layout="current",
+            commit="c" * 40,
+        )
 
     def crypto(self, argv, **kwargs):
         if argv[0] == "bash":
@@ -86,15 +108,9 @@ class ReleaseAssetsTests(unittest.TestCase):
             raise RuntimeError("fixture crypto failure")
         output = ""
         if "--list-keys" in argv or "--list-secret-keys" in argv:
-            output = RECORDS
-        elif "--show-keys" in argv:
-            output = self.export_records
-        elif "--list-packets" in argv:
-            output = ":public key packet:\n"
+            output = self.operator_records
         elif "--verify" in argv:
-            output = f"[GNUPG:] VALIDSIG {SIGNER} 2026-10-07 1 0 4 0 22 8 00 {self.signature_primary}\n"
-        elif "--export" in argv:
-            output = PUBLIC
+            output = f"[GNUPG:] VALIDSIG {self.signature_subkey} 2026-10-07 1 0 4 0 22 8 00 {self.signature_primary}\n"
         elif "--detach-sign" in argv:
             Path(argv[argv.index("-o") + 1]).write_text("fixture pgp signature")
         elif "-S" in argv:
@@ -104,7 +120,7 @@ class ReleaseAssetsTests(unittest.TestCase):
     def signed(self):
         for name in ASSETS.SIGNATURES:
             (self.release / name).write_text("fixture signature")
-        (self.release / ASSETS.PUBLIC_PGP).write_text(PUBLIC)
+        shutil.copyfile(self.pin_pgp, self.release / ASSETS.PUBLIC_PGP)
         shutil.copyfile(self.approved, self.release / ASSETS.PUBLIC_MINI)
         for name in ("release-notes.md", f"release-notes-{TAG}.md"):
             (self.release / name).write_text("Fixture release notes\n")
@@ -147,17 +163,20 @@ class ReleaseAssetsTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "non-symlink"):
             ASSETS.verify_archives(self.release, TAG)
 
-    def test_four_signature_checks_use_independent_trust(self):
+    def test_four_signature_checks_use_the_pin_at_the_tag(self):
         self.signed()
         before = self.snapshot()
         ASSETS.verify_release_signatures(self.release, TAG)
+        self.assertEqual(self.pin_refs, [f"refs/tags/{TAG}"])
         pgp = [a for a in self.calls if "--verify" in a]
         mini = [a for a in self.calls if "-Vm" in a]
         self.assertEqual(len(pgp), 2)
         self.assertEqual(len(mini), 2)
-        self.assertTrue(all(str(self.trusted.resolve()) in a for a in pgp))
-        self.assertTrue(all(str(self.approved.resolve()) in a for a in mini))
-        self.assertFalse(any("--import" in a for a in self.calls))
+        self.assertTrue(all(str(self.pin_home) in a for a in pgp))
+        self.assertTrue(all(str(self.approved) in a for a in mini))
+        self.assertFalse(
+            any(str(self.operator_home) in " ".join(a) for a in self.calls)
+        )
         self.assertEqual(before, self.snapshot())
 
     def test_every_missing_signature_key_or_manifest_fails(self):
@@ -184,110 +203,151 @@ class ReleaseAssetsTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     ASSETS.verify_release_signatures(self.release, TAG)
 
-    def test_unknown_trust_mode_fails_closed(self):
+    def test_environment_cannot_replace_the_pin(self):
+        # The former trust-mode, pin-ref and minisign public-key variables,
+        # prefixed or not, have no effect: verification and staging use only
+        # the pin committed at refs/tags/<tag>.
         self.signed()
-        with patch.dict(os.environ, {"GONEAT_RELEASE_TRUST": "bundled"}):
-            with self.assertRaisesRegex(RuntimeError, "pin or env"):
-                ASSETS.verify_release_signatures(self.release, TAG)
+        other = self.root / "other.pub"
+        other.write_text(
+            "untrusted comment: other\n"
+            + base64.b64encode(b"Ed" + b"z" * 40).decode()
+            + "\n"
+        )
+        overrides = {
+            "GONEAT_RELEASE_TRUST": "env",
+            "RELEASE_TRUST": "env",
+            "GONEAT_RELEASE_PIN_REF": "refs/heads/elsewhere",
+            "RELEASE_PIN_REF": "refs/heads/elsewhere",
+            "GONEAT_MINISIGN_PUB": str(other),
+            "MINISIGN_PUB": str(other),
+            "SIGNING_ENV_PREFIX": "OTHER",
+        }
+        with patch.dict(os.environ, overrides):
+            ASSETS.verify_release_signatures(self.release, TAG)
+            mini = [a for a in self.calls if "-Vm" in a]
+            self.assertTrue(mini and all(str(self.approved) in a for a in mini))
+            self.assertFalse(any(str(other) in " ".join(a) for a in self.calls))
+            fresh = self.root / "fresh"
+            fresh.mkdir()
+            for name in self.originals:
+                shutil.copyfile(self.release / name, fresh / name)
+            ASSETS.sign(fresh, TAG)
+            self.assertEqual(
+                (fresh / ASSETS.PUBLIC_MINI).read_bytes(), self.approved.read_bytes()
+            )
+        self.assertEqual(self.pin_refs, [f"refs/tags/{TAG}"] * 2)
+        self.assertFalse(hasattr(ASSETS, "mini_key"))
+        self.assertFalse(hasattr(ASSETS, "pin_mode"))
 
-    def test_unprefixed_trust_selectors_are_ignored(self):
-        self.signed()
-        with patch.dict(
-            os.environ, {"GONEAT_RELEASE_TRUST": "", "RELEASE_TRUST": "env"}
-        ):
-            self.assertEqual(ASSETS.pin_mode(), "pin")
-        with patch.dict(os.environ, {"RELEASE_PIN_REF": "refs/heads/elsewhere"}):
+    def test_pin_commit_resolves_only_the_given_ref(self):
+        with patch.dict(os.environ, {"GONEAT_RELEASE_PIN_REF": "refs/heads/elsewhere"}):
             with patch.object(ASSETS.subprocess, "run") as run:
                 run.return_value = subprocess.CompletedProcess(
                     [], 0, stdout="c" * 40 + "\n"
                 )
-                ASSETS.pin_commit(TAG)
+                ASSETS.pin_commit(f"refs/tags/{TAG}")
                 self.assertIn(f"refs/tags/{TAG}^{{commit}}", run.call_args[0][0])
 
-    def test_missing_trust_and_tools_do_not_skip_verification(self):
+    def test_missing_minisign_does_not_skip_verification(self):
         self.signed()
+        with patch.object(
+            ASSETS,
+            "tool",
+            side_effect=lambda tool: ASSETS.require(tool != "minisign", "missing tool"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "missing tool"):
+                ASSETS.verify_release_signatures(self.release, TAG)
+
+    def test_sign_requires_each_prefixed_operator_input(self):
         for variable in (
             "GONEAT_GPG_HOMEDIR",
             "GONEAT_PGP_KEY_ID",
-            "GONEAT_MINISIGN_PUB",
+            "GONEAT_MINISIGN_KEY",
+        ):
+            unprefixed = variable.removeprefix("GONEAT_")
+            with (
+                self.subTest(variable=variable),
+                patch.dict(
+                    os.environ, {variable: "", unprefixed: os.environ[variable]}
+                ),
+            ):
+                with self.assertRaisesRegex(RuntimeError, "required to sign"):
+                    ASSETS.sign(self.release, TAG)
+        self.assertEqual(self.calls, [])
+
+    def test_operator_signing_inputs_must_be_outside_the_release(self):
+        (self.release / "inside.key").write_text("fixture")
+        (self.release / "gpg").mkdir()
+        for variable, value in (
+            ("GONEAT_MINISIGN_KEY", str(self.release / "inside.key")),
+            ("GONEAT_GPG_HOMEDIR", str(self.release / "gpg")),
         ):
             with (
                 self.subTest(variable=variable),
-                patch.dict(os.environ, {variable: ""}),
+                patch.dict(os.environ, {variable: value}),
             ):
-                with self.assertRaises(RuntimeError):
-                    ASSETS.verify_release_signatures(self.release, TAG)
-        for name in ("gpg", "minisign"):
-            with (
-                self.subTest(tool=name),
-                patch.object(
-                    ASSETS,
-                    "tool",
-                    side_effect=lambda tool: ASSETS.require(
-                        tool != name, "missing tool"
-                    ),
-                ),
-            ):
-                with self.assertRaises(RuntimeError):
-                    ASSETS.verify_release_signatures(self.release, TAG)
+                with self.assertRaisesRegex(RuntimeError, "outside release"):
+                    ASSETS.sign(self.release, TAG)
 
-    def test_bundled_keys_cannot_authorize_themselves(self):
-        self.signed()
-        with patch.dict(
-            os.environ, {"GONEAT_MINISIGN_PUB": str(self.release / ASSETS.PUBLIC_MINI)}
-        ):
-            with self.assertRaisesRegex(RuntimeError, "outside release"):
-                ASSETS.verify_release_signatures(self.release, TAG)
-        with patch.dict(os.environ, {"GONEAT_GPG_HOMEDIR": str(self.release)}):
-            with self.assertRaisesRegex(RuntimeError, "outside release"):
-                ASSETS.verify_release_signatures(self.release, TAG)
-
-    def test_wrong_signer_or_bundled_key_fails(self):
+    def test_wrong_signer_primary_or_subkey_fails(self):
         self.signed()
         self.signature_primary = "C" * 40
         with self.assertRaisesRegex(RuntimeError, "unapproved PGP signer"):
             ASSETS.verify_release_signatures(self.release, TAG)
         self.signature_primary = PRIMARY
-        self.export_records = RECORDS.replace(PRIMARY, "C" * 40)
-        with self.assertRaisesRegex(RuntimeError, "bundled PGP key"):
+        self.signature_subkey = "D" * 40
+        with self.assertRaisesRegex(RuntimeError, "unapproved PGP subkey"):
             ASSETS.verify_release_signatures(self.release, TAG)
-        self.export_records = RECORDS
-        (self.release / ASSETS.PUBLIC_MINI).write_text(
-            "untrusted comment: other\n"
-            + base64.b64encode(b"Ed" + b"z" * 40).decode()
-            + "\n"
+
+    def test_bundled_keys_must_equal_the_pins_byte_for_byte(self):
+        self.signed()
+        cases = (
+            (
+                ASSETS.PUBLIC_PGP,
+                "-----BEGIN PGP PRIVATE KEY BLOCK-----\n",
+                "bundled PGP key",
+            ),
+            (ASSETS.PUBLIC_PGP, PUBLIC + "\n", "bundled PGP key"),
+            (
+                ASSETS.PUBLIC_MINI,
+                "untrusted comment: other\n"
+                + base64.b64encode(b"Ed" + b"z" * 40).decode()
+                + "\n",
+                "bundled minisign key",
+            ),
+            # Same key blob, different comment: still not the committed file.
+            (
+                ASSETS.PUBLIC_MINI,
+                self.approved.read_text().replace("fixture", "renamed"),
+                "bundled minisign key",
+            ),
         )
-        with self.assertRaisesRegex(RuntimeError, "bundled minisign key"):
-            ASSETS.verify_release_signatures(self.release, TAG)
+        for name, content, reason in cases:
+            with self.subTest(name=name, reason=reason):
+                original = (self.release / name).read_bytes()
+                (self.release / name).write_text(content)
+                with self.assertRaisesRegex(RuntimeError, reason):
+                    ASSETS.verify_release_signatures(self.release, TAG)
+                (self.release / name).write_bytes(original)
 
-    def test_secret_key_material_refused(self):
-        self.signed()
-        (self.release / ASSETS.PUBLIC_PGP).write_text(
-            "-----BEGIN PGP PRIVATE KEY BLOCK-----\n"
-        )
-        with self.assertRaisesRegex(RuntimeError, "private key"):
-            ASSETS.verify_release_signatures(self.release, TAG)
-
-    def test_bundled_key_must_include_actual_verified_signing_subkey(self):
-        self.signed()
-        self.export_records = "pub:::::::::\nfpr:::::::::" + PRIMARY + ":\n"
-        with self.assertRaisesRegex(RuntimeError, "lacks verified signing key"):
-            ASSETS.verify_release_signatures(self.release, TAG)
-
-    def test_explicit_subkey_and_ambiguous_primary_checks(self):
-        self.signed()
+    def test_operator_key_must_match_the_pin(self):
         with patch.dict(os.environ, {"GONEAT_PGP_KEY_ID": SIGNER + "!"}):
-            ASSETS.verify_release_signatures(self.release, TAG)
-        with patch.dict(os.environ, {"GONEAT_PGP_KEY_ID": "C" * 40}):
-            with self.assertRaisesRegex(RuntimeError, "unapproved PGP subkey"):
-                ASSETS.verify_release_signatures(self.release, TAG)
-        with patch.dict(os.environ, {"GONEAT_PGP_KEY_ID": PRIMARY + "!"}):
-            with self.assertRaisesRegex(RuntimeError, "unapproved PGP subkey"):
-                ASSETS.verify_release_signatures(self.release, TAG)
+            fresh = self.root / "forced"
+            fresh.mkdir()
+            for name in self.originals:
+                shutil.copyfile(self.release / name, fresh / name)
+            ASSETS.sign(fresh, TAG)
+        with patch.dict(os.environ, {"GONEAT_PGP_KEY_ID": "C" * 40 + "!"}):
+            with self.assertRaisesRegex(RuntimeError, "committed signing subkey"):
+                ASSETS.sign(self.release, TAG)
+        self.operator_records = RECORDS.replace(PRIMARY, "C" * 40)
+        with self.assertRaisesRegex(RuntimeError, "operator PGP identity differs"):
+            ASSETS.sign(self.release, TAG)
         with self.assertRaisesRegex(RuntimeError, "exactly one"):
             ASSETS.primary_fingerprint(RECORDS + RECORDS)
 
-    def test_sign_stages_and_checks_all_outputs_without_changing_originals(self):
+    def test_sign_stages_pins_and_checks_all_outputs_without_changing_originals(self):
         before = self.snapshot()
         ASSETS.sign(self.release, TAG)
         self.assertEqual(
@@ -297,12 +357,24 @@ class ReleaseAssetsTests(unittest.TestCase):
             all((self.release / name).is_file() for name in ASSETS.SIGNATURES)
         )
         self.assertEqual(
+            (self.release / ASSETS.PUBLIC_PGP).read_bytes(), self.pin_pgp.read_bytes()
+        )
+        self.assertEqual(
+            (self.release / ASSETS.PUBLIC_MINI).read_bytes(), self.approved.read_bytes()
+        )
+        signing = [a for a in self.calls if "--detach-sign" in a]
+        self.assertTrue(
+            signing
+            and all(a[a.index("--local-user") + 1] == SIGNER + "!" for a in signing)
+        )
+        self.assertFalse(any("--export" in a for a in self.calls))
+        self.assertEqual(
             len([a for a in self.calls if "--verify" in a or "-Vm" in a]), 4
         )
         self.assertFalse(list(self.root.glob(".goneat-sign-*")))
 
     def test_sign_failures_publish_nothing(self):
-        for failure in ("SHA512SUMS.asc", "SHA512SUMS.minisig", "--export"):
+        for failure in ("SHA512SUMS.asc", "SHA512SUMS.minisig", "--list-secret-keys"):
             with self.subTest(failure=failure):
                 before = self.snapshot()
                 self.crypto_failure = failure
@@ -353,7 +425,9 @@ class ReleaseAssetsTests(unittest.TestCase):
                     "body": state["body"],
                     "draft": state["draft"],
                 }
-                return json.dumps([[{"tag_name": "v0.0.0-other", "assets": []}], [release]])
+                return json.dumps(
+                    [[{"tag_name": "v0.0.0-other", "assets": []}], [release]]
+                )
             self.assertEqual(argv[0], "release")
             self.assertNotIn("--clobber", argv)
             if argv[1] == "download":
@@ -372,7 +446,9 @@ class ReleaseAssetsTests(unittest.TestCase):
             elif argv[1] == "edit":
                 state["writes"].append(argv)
                 if "--notes-file" in argv:
-                    state["body"] = Path(argv[argv.index("--notes-file") + 1]).read_text()
+                    state["body"] = Path(
+                        argv[argv.index("--notes-file") + 1]
+                    ).read_text()
                 if "--draft=false" in argv:
                     state["draft"] = False
             else:
@@ -440,7 +516,9 @@ class ReleaseAssetsTests(unittest.TestCase):
         self.assertFalse(state["draft"])
         publish = [w for w in state["writes"] if "--draft=false" in w]
         self.assertEqual(len(publish), 1)
-        self.assertIs(state["writes"][-1], publish[0], "publish is the last remote write")
+        self.assertIs(
+            state["writes"][-1], publish[0], "publish is the last remote write"
+        )
         self.assertIn("--latest", publish[0])
 
     def test_failed_preflight_leaves_the_draft_unpublished(self):
