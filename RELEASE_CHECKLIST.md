@@ -226,25 +226,38 @@ make test-integration-cooling-quick  # Hugo baseline (~8s)
 
 **3. Tag and Push** (only after validation passes and the release commit is merged)
 
-Release tags are GPG-signed annotated tags with a declared tagger identity.
+Release tags are GPG-signed annotated tags with the committed tagger identity.
 Run these on the operator machine, never in CI. Every step needs:
 
-| Variable              | Meaning                                                                                          |
-| --------------------- | ------------------------------------------------------------------------------------------------ |
-| `GONEAT_RELEASE_TAG`  | tag to create, verify or push; must equal the `VERSION` file                                     |
-| `GONEAT_PGP_KEY_ID`   | signing key: 40-hex fingerprint or 16-hex long key id; a trailing `!` forces that exact (sub)key |
-| `GONEAT_GPG_HOMEDIR`  | isolated gpg homedir holding the signing key; the default keyring is never used                  |
-| `GONEAT_TAGGER_NAME`  | tagger name recorded on the tag                                                                  |
-| `GONEAT_TAGGER_EMAIL` | tagger email; must be a uid email on the signing key                                             |
+| Variable              | Meaning                                                                                                     |
+| --------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `GONEAT_RELEASE_TAG`  | tag to create, verify or push; must equal the `VERSION` file                                                |
+| `GONEAT_DECERNOR_BIN` | absolute path to decernor 0.1.8 or newer; checks the committed pins against their anchors (no fallback)     |
+| `GONEAT_PGP_KEY_ID`   | signing key: 40-hex fingerprint or 16-hex long key id; a trailing `!` forces that exact (sub)key            |
+| `GONEAT_GPG_HOMEDIR`  | isolated gpg homedir holding the signing key; the default keyring is never used                             |
+| `GONEAT_TAGGER_NAME`  | tagger name recorded on the tag                                                                             |
+| `GONEAT_TAGGER_EMAIL` | tagger email; must be a uid email on the signing key                                                        |
+
+The release tag is always `GONEAT_RELEASE_TAG`. No target derives it from
+`VERSION`, `git describe` or the branch, and the Makefile refuses a bare
+`RELEASE_TAG` (environment or command line) for every target.
+`GONEAT_TAGGER_NAME <GONEAT_TAGGER_EMAIL>` must equal
+`config/release/tagger-identity.txt`. The selected key must belong to the primary
+in `keys/expected-fingerprints.txt`; a forced subkey must be the signing subkey
+in `docs/security/release-signing-keys.asc`. The tag is always signed by that
+committed subkey.
 
 ```bash
 # 1. Create the signed tag on HEAD and verify it. Refuses unless on a clean main
 #    equal to a freshly fetched origin/main, and if the tag exists locally or on
-#    origin. A tag that fails verification is deleted. Does not push.
+#    origin. Before signing, checks the pins committed at HEAD against their
+#    anchors with decernor. A tag that fails verification is deleted. Does not push.
 make release-tag
 
 # 2. Check it before anything leaves the machine: annotated, named for VERSION,
-#    at HEAD, tagger identity as declared, one good signature by the selected key.
+#    at HEAD, tagger identity as committed, one good signature by the selected
+#    key, and the same check in an isolated keyring built only from the pin
+#    committed in the tagged commit.
 make release-tag-verify
 git show --no-patch "$GONEAT_RELEASE_TAG"
 
@@ -257,21 +270,25 @@ git show --no-patch "$GONEAT_RELEASE_TAG"
 PATH="<reference go bin>:$PATH" GOTOOLCHAIN=go1.26.11 make release-tag-push
 ```
 
-To check the published tag from any clone:
+To check the published tag from any clone (needs `GONEAT_DECERNOR_BIN`; no
+signing key or operator keyring is used):
 
 ```bash
-TAG="$(cat VERSION)"
-git fetch origin tag "$TAG"
-git cat-file -t "$TAG"   # tag
-git tag -v "$TAG"        # with the release public key imported
+git fetch origin tag "$GONEAT_RELEASE_TAG"
+make release-verify-pinned-tag
 ```
 
-`make test-release-tag` runs the script's tests against a disposable repository
-and throwaway keys.
+The tag workflow runs the same check, with a digest-pinned decernor, in a
+read-only job before the release job. A green run is a consistency signal, not
+release authorization.
 
-`make release-push` (main plus the verified tag, to origin and the optional
-`gitlab` backup remote) and the aggregate `make release` are not part of this
-procedure. Sync a backup remote as its own step.
+`make test-release-tag` runs the script's tests against a disposable repository
+and throwaway keys. `make test-release-identity` runs the anchor and pinned-tag
+controls the same way.
+
+`make release-push` (main plus the verified `GONEAT_RELEASE_TAG`, to origin and
+the optional `gitlab` backup remote) and the aggregate `make release` are not
+part of this procedure. Sync a backup remote as its own step.
 
 **4. Build Release Artifacts**
 
@@ -355,21 +372,24 @@ Preferred convention is `GONEAT_*` (Fulmen standard). Pass them inline to `make`
 
 ```bash
 # Prefer absolute paths (avoid ~ which does not always expand in Make/env)
+export GONEAT_DECERNOR_BIN="<absolute path to decernor 0.1.8 or newer>"
 export GONEAT_PGP_KEY_ID="<independently approved signing identity or fingerprint>"
 export GONEAT_GPG_HOMEDIR="<approved GPG homedir outside dist/release>"
-export GONEAT_MINISIGN_KEY="<approved minisign secret key path>"
-export GONEAT_MINISIGN_PUB="<independently approved minisign public key path outside dist/release>"
+export GONEAT_MINISIGN_KEY="<approved minisign secret key path outside dist/release>"
 ```
 
 Notes:
 
 - Minisign signing is required.
 - PGP signing is required for goneat releases (the Makefile enforces this).
-- Signing requires the operator's PGP primary and minisign public key to match
-  the release-key pin committed at the release tag (`keys/expected-fingerprints.txt`,
-  `docs/security/release-signing-keys.asc`, `docs/security/release-minisign.pub`).
-- Verification and upload use that committed pin, not these variables.
-  Downloaded public keys are comparison inputs, never independent trust roots.
+- No public key comes from the environment. Signing, verification and upload
+  read the pins committed at the release tag (`keys/expected-fingerprints.txt`,
+  `keys/expected-fingerprints.ndjson`, `docs/security/release-signing-keys.asc`,
+  `docs/security/goneat-minisign.pub`) as git objects and check them with decernor.
+- Signing requires the operator's PGP primary to be the committed primary, and
+  signs with the committed signing subkey. A minisign secret key that does not
+  match the committed minisign pin fails verification before any output is kept.
+- Signing variables are read only with the `GONEAT_` prefix.
 
 ### 5. Sign checksum manifests
 
@@ -381,11 +401,11 @@ make release-sign
 This target uses `scripts/sign-release-manifests.sh` (preferred) which:
 
 - Signs `SHA256SUMS` and `SHA512SUMS` with minisign
-- Signs the same manifests with PGP
-- Copies the independently approved minisign public key into `dist/release/`
-- Exports the PGP public key into `dist/release/fulmenhq-release-signing-key.asc`
-- Verifies all four staged signatures against the operator inputs and the
-  committed pin before publishing local signing outputs
+- Signs the same manifests with PGP, with the committed signing subkey
+- Writes the committed pins, byte for byte, as the published key assets
+  `fulmenhq-release-signing-key.asc` and `fulmenhq-release-minisign.pub`
+- Verifies all four staged signatures against the committed pin before
+  publishing local signing outputs
 - Refuses existing outputs rather than overwriting signatures or keys
 - Preserves the original seven downloaded files byte for byte
 
@@ -398,9 +418,10 @@ GONEAT_RELEASE_TAG=$GONEAT_RELEASE_TAG make release-verify-key         # Verify 
 
 Verification and upload read the release-key pin from the release tag, so the
 tag must exist locally. Missing manifests, signatures, tools or pin files, bad
-signatures, private key material and bundled public keys that differ from the
-pin all fail nonzero. All four checks are mandatory; none is a warning-only skip.
-See `docs/security/release-signing.md` for the pin, overrides and rotation.
+signatures, pins that differ from their anchors, and bundled public keys that
+are not byte-identical to the pin all fail nonzero. All four checks are
+mandatory; none is a warning-only skip. See `docs/security/README.md` and
+`docs/security/release-signing.md` for the pin and rotation.
 
 ### 7. Prepare for upload
 
@@ -418,8 +439,8 @@ checksum manifests to a **draft** release. Do not upload them again. Upload
 supplements only. The release stays a draft, not public, until this step.
 
 ```bash
-make release-notes   # Explicitly prepare both matching release-note files
-make release-upload  # Verified supplements only; no package-manager updates
+GONEAT_RELEASE_TAG=$GONEAT_RELEASE_TAG make release-notes   # Explicitly prepare both matching release-note files
+GONEAT_RELEASE_TAG=$GONEAT_RELEASE_TAG make release-upload  # Verified supplements only; no package-manager updates
 ```
 
 The uploader verifies both manifests and all four signatures before remote
@@ -493,14 +514,14 @@ KEYS="https://raw.githubusercontent.com/fulmenhq/goneat/${VERSION}/docs/security
 curl -LO "${BASE}/SHA256SUMS"
 curl -LO "${BASE}/SHA256SUMS.asc"
 curl -LO "${BASE}/SHA256SUMS.minisig"
-curl -L -o release-minisign.pub "${KEYS}/release-minisign.pub"
+curl -L -o goneat-minisign.pub "${KEYS}/goneat-minisign.pub"
 curl -L -o release-signing-keys.asc "${KEYS}/release-signing-keys.asc"
 REPO="https://raw.githubusercontent.com/fulmenhq/goneat/${VERSION}"
 curl -L -o expected-fingerprints.txt "${REPO}/keys/expected-fingerprints.txt"
 curl -L -o verify-release-pgp.sh "${REPO}/scripts/verify-release-pgp.sh"
 
 # Minisign
-minisign -Vm SHA256SUMS -p release-minisign.pub
+minisign -Vm SHA256SUMS -p goneat-minisign.pub
 
 # PGP: good, unexpired signature by the pinned signing subkey (throwaway keyring)
 bash verify-release-pgp.sh expected-fingerprints.txt release-signing-keys.asc SHA256SUMS.asc SHA256SUMS

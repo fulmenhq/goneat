@@ -12,8 +12,49 @@ jobs:
   candidate-contracts:
     if: ${{ !github.event.repository.private || vars.ALLOW_PRIVATE_RELEASES == 'true' }}
     uses: ./.github/workflows/native-contracts.yml
+  # Read-only: the committed release pins must match their fingerprint anchors
+  # under the digest-pinned decernor, and the tag must carry one good signature
+  # by the signing subkey pinned in the tagged commit, checked in an isolated
+  # keyring (3leaps/crucible PDR-0008 §2.5). A green run is a consistency
+  # signal, not release authorization.
+  verify-tag:
+    if: ${{ !github.event.repository.private || vars.ALLOW_PRIVATE_RELEASES == 'true' }}
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest-x64-m
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout (tag object and committed pins)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Install digest-pinned decernor
+        run: |
+          set -euo pipefail
+          tool_dir="$(mktemp -d "${RUNNER_TEMP}/decernor.XXXXXX")"
+          bin="$(bash scripts/release-fetch-decernor.sh linux_amd64 "${tool_dir}")"
+          echo "GONEAT_DECERNOR_BIN=${bin}" >> "${GITHUB_ENV}"
+      - name: Verify the tag against the pin committed in the tagged commit
+        env:
+          TAG: ${{ github.ref_name }}
+          RUN_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          gpg --version
+          # Fetch the annotated tag object itself; a lightweight tag has no
+          # object to verify and fails here. The tag must name the commit this
+          # run builds.
+          git fetch --no-tags --force origin "refs/tags/${TAG}:refs/tags/${TAG}"
+          if [ "$(git rev-parse "refs/tags/${TAG}^{commit}")" != "${RUN_SHA}" ]; then
+            echo "::error::${TAG} does not point at the commit this run builds (${RUN_SHA})"
+            exit 1
+          fi
+          bash scripts/verify-pinned-tag.sh "${TAG}"
   build-and-release:
-    needs: candidate-contracts
+    needs: [candidate-contracts, verify-tag]
     if: ${{ !github.event.repository.private || vars.ALLOW_PRIVATE_RELEASES == 'true' }}
     environment: public-release
     permissions:

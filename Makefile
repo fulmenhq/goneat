@@ -44,7 +44,22 @@ LDFLAGS := -ldflags "\
 	-X 'github.com/fulmenhq/goneat/pkg/buildinfo.GitCommit=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")'"
 BUILD_FLAGS := $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)
 
-.PHONY: help build hooks-ensure clean clean-go clean-testcache clean-vendor clean-coverage clean-os-metadata clean-backups clean-release clean-all test test-scripts fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites prerequisites-build-goneat prerequisites-check-go prerequisites-check-git prerequisites-check-tools prerequisites-install-tools sync-crucible sync-ssot verify-crucible verify-crucible-clean verify-schemas bootstrap tools lint release-check release-prepare release-build release-clean release-verify-checksums check-all pr-final prepush precommit update-homebrew-formula update-scoop-manifest verify-release-key release-tag release-tag-verify release-tag-push release-push test-release-tag local-ci-check local-ci all
+# Release inputs (3leaps/crucible PDR-0008 §2.3, §2.4)
+# -----------------------------------------------------------------------------
+# The release tag is an explicit input, GONEAT_RELEASE_TAG=vX.Y.Z. It is never
+# derived from VERSION, git describe or the branch, and a bare RELEASE_TAG from
+# any origin (environment, command line or makefile) is refused here, at the
+# outermost layer, so it cannot stand in for it. Release steps that derive or
+# verify a fingerprint anchor take decernor only from GONEAT_DECERNOR_BIN
+# (absolute path, decernor >= 0.1.8, no PATH fallback). The public pins and
+# anchors are committed (docs/security, keys/, config/release) and every step
+# reads them from the tagged commit.
+ifneq ($(origin RELEASE_TAG),undefined)
+$(error RELEASE_TAG is not accepted; set GONEAT_RELEASE_TAG=vX.Y.Z)
+endif
+REQUIRE_RELEASE_TAG = @python3 -c 'import os, re, sys; sys.exit(0 if re.fullmatch(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(rc|beta|alpha)\.[0-9]+)?", os.environ.get("GONEAT_RELEASE_TAG", "")) else "error: GONEAT_RELEASE_TAG=vX.Y.Z is required")'
+
+.PHONY: help build hooks-ensure clean clean-go clean-testcache clean-vendor clean-coverage clean-os-metadata clean-backups clean-release clean-all test test-scripts fmt format-docs format-config format-root format-all version version-bump-patch version-bump-minor version-bump-major version-set version-set-prerelease license-inventory license-save license-audit update-licenses embed-assets verify-embeds prerequisites prerequisites-build-goneat prerequisites-check-go prerequisites-check-git prerequisites-check-tools prerequisites-install-tools sync-crucible sync-ssot verify-crucible verify-crucible-clean verify-schemas bootstrap tools lint release-check release-prepare release-build release-clean release-verify-checksums check-all pr-final prepush precommit update-homebrew-formula update-scoop-manifest verify-release-key release-tag release-tag-verify release-tag-push release-push test-release-tag local-ci-check local-ci all release-notes release-download release-checksums release-sign release-verify-signatures release-verify-pin release-insert-anchors release-verify-pinned-tag release-upload
 
 # Default target
 all: clean build format-all
@@ -214,10 +229,10 @@ check-all: build ## Run all checks (lint, test, typecheck)
 
 
 # Release notes artifact from RELEASE_NOTES.md
-release-notes: ## Generate release notes artifact from docs/releases/v<version>.md
-	@echo "📝 Generating release notes for $(VERSION)..."
-	@chmod +x scripts/generate-release-notes.sh
-	@GONEAT_RELEASE_TAG="$(VERSION)" ./scripts/generate-release-notes.sh
+release-notes: ## Generate release notes artifact from docs/releases/<GONEAT_RELEASE_TAG>.md
+	$(REQUIRE_RELEASE_TAG)
+	@echo "📝 Generating release notes for $$GONEAT_RELEASE_TAG..."
+	@bash scripts/generate-release-notes.sh
 	@echo "✅ Release notes generated (dist/release)"
 
 build-linux-amd64: ## Build for Linux AMD64
@@ -286,14 +301,12 @@ release-clean: ## Reset dist/release to avoid stale artifacts before packaging
 	@echo "✅ dist/release cleared (fresh packaging workspace)"
 
 release-download: ## Download CI-built release artifacts from GitHub (requires gh CLI)
-	@bash scripts/download-release-assets.sh "$(GONEAT_RELEASE_TAG)" dist/release
+	$(REQUIRE_RELEASE_TAG)
+	@bash scripts/download-release-assets.sh "$$GONEAT_RELEASE_TAG" dist/release
 
 release-checksums: ## Generate new local candidate manifests (never overwrite downloaded CI manifests)
+	$(REQUIRE_RELEASE_TAG)
 	@echo "🔢 Generating checksums for $(GONEAT_RELEASE_TAG) artifacts..."
-	@if [ -z "$(GONEAT_RELEASE_TAG)" ]; then \
-		echo "❌ GONEAT_RELEASE_TAG not set. Use: make release-checksums GONEAT_RELEASE_TAG=vX.Y.Z"; \
-		exit 1; \
-	fi
 	@if [ "$(GONEAT_RELEASE_TAG)" != "$(VERSION)" ]; then \
 		echo "⚠️  GONEAT_RELEASE_TAG ($(GONEAT_RELEASE_TAG)) differs from VERSION ($(VERSION))"; \
 		echo "   This is normal for pre-release testing, but verify you're signing the right artifacts."; \
@@ -331,17 +344,26 @@ release-checksums: ## Generate new local candidate manifests (never overwrite do
 	@echo "✅ Checksums generated (SHA256SUMS, SHA512SUMS) for $(GONEAT_RELEASE_TAG)"
 
 release-verify-checksums: ## Verify SHA256SUMS/SHA512SUMS match actual artifacts (non-destructive)
-	@python3 scripts/release-assets.py verify "$(GONEAT_RELEASE_TAG)" dist/release
+	$(REQUIRE_RELEASE_TAG)
+	@python3 scripts/release-assets.py verify "$$GONEAT_RELEASE_TAG" dist/release
 
-release-sign: ## Sign checksum manifests (minisign + PGP required for releases)
-	@SIGNING_ENV_PREFIX=GONEAT SIGNING_APP_NAME=goneat \
-		bash scripts/sign-release-manifests.sh "$(GONEAT_RELEASE_TAG)" dist/release
+release-sign: ## Sign checksum manifests against the pin committed at the tag (minisign + PGP)
+	$(REQUIRE_RELEASE_TAG)
+	@bash scripts/sign-release-manifests.sh "$$GONEAT_RELEASE_TAG" dist/release
 
 release-verify-signatures: ## Verify manifest signatures against the release-key pin committed at the tag
-	@bash scripts/verify-manifest-signatures.sh "$(GONEAT_RELEASE_TAG)" dist/release
+	$(REQUIRE_RELEASE_TAG)
+	@bash scripts/verify-manifest-signatures.sh "$$GONEAT_RELEASE_TAG" dist/release
 
-release-verify-pin: ## Check the committed release-key pin is self-consistent (default ref: HEAD)
-	@GONEAT_RELEASE_PIN_REF="$${GONEAT_RELEASE_PIN_REF:-HEAD}" python3 scripts/release-assets.py verify-pin v0.0.0
+release-verify-pin: ## Check the committed pins against their anchors with decernor (GONEAT_ANCHOR_COMMIT, default HEAD)
+	@python3 scripts/release-assets.py verify-pin "$${GONEAT_ANCHOR_COMMIT:-HEAD}"
+
+release-insert-anchors: ## One time per key change: derive the fingerprint anchors with decernor (refuses overwrite)
+	@bash scripts/release-insert-anchors.sh
+
+release-verify-pinned-tag: ## Verify GONEAT_RELEASE_TAG against the pin committed in the tagged commit (isolated keyring)
+	$(REQUIRE_RELEASE_TAG)
+	@bash scripts/verify-pinned-tag.sh "$$GONEAT_RELEASE_TAG"
 
 release-verify-key: ## Verify GPG public key is safe to upload (no private keys)
 	@echo "🛡️  Verifying GPG public key safety..."
@@ -351,42 +373,6 @@ release-verify-key: ## Verify GPG public key is safe to upload (no private keys)
 	fi
 	@./scripts/verify-public-key.sh dist/release/fulmenhq-release-signing-key.asc
 	@echo "✅ GPG public key verified safe for upload"
-
-release-export-minisign-key: ## Export minisign public key for distribution
-	@echo "🔑 Exporting minisign public key..."
-	@mkdir -p dist/release
-	@if [ -f "dist/release/fulmenhq-release-minisign.pub" ]; then \
-		echo "✅ Minisign public key already exists in dist/release/"; \
-	elif [ -n "$(GONEAT_MINISIGN_PUB)" ] && [ -f "$(GONEAT_MINISIGN_PUB)" ]; then \
-		cp "$(GONEAT_MINISIGN_PUB)" dist/release/fulmenhq-release-minisign.pub; \
-		echo "✅ Minisign public key exported from GONEAT_MINISIGN_PUB"; \
-	elif [ -n "$(MINISIGN_PUB)" ] && [ -f "$(MINISIGN_PUB)" ]; then \
-		cp "$(MINISIGN_PUB)" dist/release/fulmenhq-release-minisign.pub; \
-		echo "✅ Minisign public key exported from MINISIGN_PUB (legacy)"; \
-	elif [ -n "$(GONEAT_MINISIGN_KEY)" ]; then \
-		PUB_KEY=$$(echo "$(GONEAT_MINISIGN_KEY)" | sed 's/\.key$$/.pub/'); \
-		if [ -f "$$PUB_KEY" ]; then \
-			cp "$$PUB_KEY" dist/release/fulmenhq-release-minisign.pub; \
-			echo "✅ Minisign public key exported from derived path: $$PUB_KEY"; \
-		else \
-			echo "❌ Minisign public key not found at derived path: $$PUB_KEY"; \
-			exit 1; \
-		fi; \
-	elif [ -n "$(MINISIGN_KEY)" ]; then \
-		PUB_KEY=$$(echo "$(MINISIGN_KEY)" | sed 's/\.key$$/.pub/'); \
-		if [ -f "$$PUB_KEY" ]; then \
-			cp "$$PUB_KEY" dist/release/fulmenhq-release-minisign.pub; \
-			echo "✅ Minisign public key exported from derived path: $$PUB_KEY (legacy)"; \
-		else \
-			echo "❌ Minisign public key not found at derived path: $$PUB_KEY"; \
-			exit 1; \
-		fi; \
-	else \
-		echo "❌ Neither GONEAT_MINISIGN_PUB nor GONEAT_MINISIGN_KEY set."; \
-		echo "   Set GONEAT_MINISIGN_PUB=path/to/key.pub or GONEAT_MINISIGN_KEY=path/to/key.key"; \
-		exit 1; \
-	fi
-	@echo "✅ Minisign public key available at dist/release/fulmenhq-release-minisign.pub"
 
 clean-release: ## Clean old release artifacts (keeps current version), preserving dist/goneat binary
 	@echo "🧹 Cleaning old release artifacts from dist/release/..."
@@ -419,9 +405,15 @@ test-scripts: ## Run deterministic script checks (ensure_go pin compare etc.)
 	@bash scripts/test-ensure-go.sh
 	@python3 scripts/test_source_contract.py
 	@python3 scripts/test_release_assets.py
+	@bash scripts/release-inputs.test.sh
+
+.PHONY: test-release-identity
+test-release-identity: ## Release identity controls: anchors and pinned tags with throwaway keys (gpg + GONEAT_DECERNOR_BIN; no skips)
+	@bash scripts/release-anchors.test.sh
+	@bash scripts/verify-pinned-tag.test.sh
 
 .PHONY: test-release-assets-crypto
-test-release-assets-crypto: ## Exercise four mandatory signature checks with ephemeral GPG/minisign fixture keys (no skips)
+test-release-assets-crypto: ## Exercise four mandatory signature checks with ephemeral GPG/minisign fixture keys and decernor (no skips)
 	@python3 scripts/test_release_assets_crypto.py
 
 SOURCE_CONTRACT_TARGET ?= $(shell $(GOCMD) env GOOS)/$(shell $(GOCMD) env GOARCH)
@@ -836,20 +828,24 @@ release-prep: ## Prepare for release (run tests, coverage gate, build, etc.)
 	@echo "✅ Release preparation complete"
 
 release-tag: ## Create a GPG-signed annotated tag for GONEAT_RELEASE_TAG on HEAD and verify it (does not push)
+	$(REQUIRE_RELEASE_TAG)
 	@./scripts/release-tag.sh create
 
-release-tag-verify: ## Verify the local release tag: signature, signing key, tagger identity, target
+release-tag-verify: ## Verify the local release tag: signature, signing key, tagger identity, target, committed pin
+	$(REQUIRE_RELEASE_TAG)
 	@./scripts/release-tag.sh verify
 
 release-tag-push: ## Verify the tag and push it; the pre-push hook runs check-only assess
+	$(REQUIRE_RELEASE_TAG)
 	@./scripts/release-tag.sh push
 
 test-release-tag: ## Run the release-tag script tests (fails, rather than skips, without git/gpg)
 	GONEAT_REQUIRE_CRYPTO_TOOLS=1 $(GOTEST) ./scripts/ -run ReleaseTag -count=1 -v
 
-release-push: ## Push main and the verified VERSION tag to all remotes (not used for tag ceremonies)
+release-push: ## Push main and the verified GONEAT_RELEASE_TAG to all remotes (not used for tag ceremonies)
+	$(REQUIRE_RELEASE_TAG)
 	@echo "📤 Pushing release to all remotes..."
-	./scripts/push-to-remotes.sh "$$(tr -d '[:space:]' < VERSION)"
+	./scripts/push-to-remotes.sh "$$GONEAT_RELEASE_TAG"
 	@echo "✅ Release pushed to all remotes"
 
 verify-release-key: ## Verify GPG public key for release signing (must run before upload)
@@ -862,10 +858,12 @@ verify-release-key: ## Verify GPG public key for release signing (must run befor
 	@./scripts/verify-public-key.sh dist/release/fulmenhq-release-signing-key.asc
 
 release-upload: ## Upload verified supplements only; never replace CI assets or edit package-manager repos
-	@bash scripts/upload-release-assets.sh "$(VERSION)" dist/release
+	$(REQUIRE_RELEASE_TAG)
+	@bash scripts/upload-release-assets.sh "$$GONEAT_RELEASE_TAG" dist/release
 
-update-homebrew-formula: ## Update Homebrew formula with new version and checksums (requires ../homebrew-tap)
-	@echo "Updating Homebrew formula for $(BINARY_NAME) $(VERSION)..."
+update-homebrew-formula: ## Update Homebrew formula for GONEAT_RELEASE_TAG (requires ../homebrew-tap)
+	$(REQUIRE_RELEASE_TAG)
+	@echo "Updating Homebrew formula for $(BINARY_NAME) $$GONEAT_RELEASE_TAG..."
 	@echo ""
 	@echo "ℹ️  Note: This target requires ../homebrew-tap to be cloned as a sibling directory"
 	@echo "   Repository: https://github.com/fulmenhq/homebrew-tap"
@@ -889,7 +887,7 @@ update-homebrew-formula: ## Update Homebrew formula with new version and checksu
 	fi
 	@echo "✅ Sibling repository found: ../homebrew-tap"
 	@echo "   Calling homebrew-tap update target..."
-	@cd ../homebrew-tap && $(MAKE) update-goneat VERSION=$(VERSION)
+	@cd ../homebrew-tap && $(MAKE) update-goneat VERSION="$$GONEAT_RELEASE_TAG"
 	@echo ""
 	@echo "✅ Homebrew formula updated successfully!"
 	@echo ""
@@ -899,8 +897,9 @@ update-homebrew-formula: ## Update Homebrew formula with new version and checksu
 	@echo "   3. Commit formula:  cd ../homebrew-tap && git add Formula/$(BINARY_NAME).rb && git commit"
 	@echo "   4. Push to tap:     cd ../homebrew-tap && git push"
 
-update-scoop-manifest: ## Update Scoop manifest with new version and checksums (requires ../scoop-bucket)
-	@echo "Updating Scoop manifest for $(BINARY_NAME) $(VERSION)..."
+update-scoop-manifest: ## Update Scoop manifest for GONEAT_RELEASE_TAG (requires ../scoop-bucket)
+	$(REQUIRE_RELEASE_TAG)
+	@echo "Updating Scoop manifest for $(BINARY_NAME) $$GONEAT_RELEASE_TAG..."
 	@echo ""
 	@echo "ℹ️  Note: This target requires ../scoop-bucket to be cloned as a sibling directory"
 	@echo "   Repository: https://github.com/fulmenhq/scoop-bucket"
@@ -925,7 +924,7 @@ update-scoop-manifest: ## Update Scoop manifest with new version and checksums (
 	else \
 		echo "✅ Sibling repository found: ../scoop-bucket"; \
 		echo "   Calling scoop-bucket update target..."; \
-		cd ../scoop-bucket && $(MAKE) update-goneat VERSION=$(VERSION); \
+		cd ../scoop-bucket && $(MAKE) update-goneat VERSION="$$GONEAT_RELEASE_TAG"; \
 		echo ""; \
 		echo "✅ Scoop manifest updated successfully!"; \
 		echo ""; \
